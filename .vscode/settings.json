@@ -2,6 +2,7 @@
   "files.autoSave": "onFocusChange",
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "tailwindCSS.classFunctions": ["hlm", "cva", "classes"],
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "always",
     "source.organizeImports": "always"
