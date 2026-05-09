@@ -1,0 +1,29 @@
+{
+  "files.autoSave": "onFocusChange",
+  "editor.formatOnSave": true,
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "always",
+    "source.organizeImports": "always"
+  },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "files.exclude": {
+    "**/.angular": true,
+    "**/.nx": true,
+    "**/dist": true,
+    "**/tmp": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    // "**/.angular": true,
+    "**/.nx": true,
+    "**/dist": true,
+    "**/tmp": true,
+    "**/node_modules": true
+  }
+}

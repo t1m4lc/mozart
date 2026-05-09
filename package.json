@@ -4,6 +4,7 @@
   "license": "MIT",
   "scripts": {},
   "private": true,
+  "packageManager": "pnpm@11.0.8",
   "dependencies": {},
   "devDependencies": {
     "@nx/js": "22.7.1",
@@ -14,8 +15,5 @@
     "prettier": "~3.6.2",
     "tslib": "^2.3.0",
     "typescript": "~5.9.2"
-  },
-  "workspaces": [
-    "packages/*"
-  ]
+  }
 }
