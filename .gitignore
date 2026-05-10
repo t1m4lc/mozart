@@ -2,8 +2,13 @@
 
 # compiled output
 dist
-tmp
+tmp/*
+!tmp/ready-plans/
+!tmp/done-plans/
 out-tsc
+
+# /discussion outputs (per-session, not history)
+.context/
 
 # dependencies
 node_modules
