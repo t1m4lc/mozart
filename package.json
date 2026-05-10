@@ -7,7 +7,9 @@
     "typecheck": "pnpm nx run-many -t typecheck",
     "lint": "pnpm nx run-many -t lint",
     "test": "pnpm nx run-many -t test",
-    "build": "pnpm nx run-many -t build"
+    "build": "pnpm nx run-many -t build",
+    "tauri-check": "cd apps/desktop/src-tauri && cargo check && cd -",
+    "tauri-test": "cd apps/desktop/src-tauri && cargo build --tests && cd -"
   },
   "private": true,
   "packageManager": "pnpm@11.0.8",
