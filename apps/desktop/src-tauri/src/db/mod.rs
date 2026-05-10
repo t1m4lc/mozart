@@ -17,9 +17,11 @@ pub mod agent_events;
 pub mod agent_runs;
 pub mod config;
 pub mod models;
+pub mod outbox;
 pub mod repos;
 pub mod tasks;
 pub mod threads;
+pub mod workspace_changes;
 pub mod workspaces;
 
 /// Embedded migration SQL. Ships with the binary — no filesystem dep at runtime.
