@@ -1,0 +1,5 @@
+{"type":"message_start","message":{"id":"msg_y","role":"assistant"}}
+{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_1","name":"bash","input":{}}}
+{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"after_tool"}}
+{"type":"content_block_stop","index":0}
+{"type":"message_stop"}

@@ -282,7 +282,7 @@ Required test cases (in `parser.rs` `#[cfg(test)] mod tests`):
 
 ---
 
-## [x] S1.4.2 — claude_cli::install::check_installed
+## [x] S1.4.2 — claude_cli::install::check_installed (commit: c07515f, 2026-05-10)
 
 **dependencies:** (none — pure subprocess)
 **parallelizable:** true (with S1.4.1)
@@ -323,7 +323,7 @@ Required test cases:
 
 ---
 
-## [ ] S1.4.3 — claude_cli::runner::spawn_run
+## [x] S1.4.3 — claude_cli::runner::spawn_run
 
 **dependencies:** S1.4.1, S1.4.2
 **parallelizable:** false

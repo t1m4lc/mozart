@@ -8,6 +8,9 @@ use serde::{Deserialize, Serialize};
 
 pub mod parser;
 pub mod install;
+pub mod runner;
+
+pub use runner::{spawn_run, RunHandle};
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
