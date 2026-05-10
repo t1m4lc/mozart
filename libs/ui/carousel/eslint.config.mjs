@@ -54,5 +54,18 @@ export default [
             "@angular-eslint/template/interactive-supports-focus": "off",
             "@angular-eslint/template/click-events-have-key-events": "off"
         }
+    },
+    {
+        // Vendored Spartan pattern: the next/previous controls expose both kebab and camelCase
+        // attribute selectors for ergonomics. The component-selector rule (configured for
+        // element kebab-case) trips on the `button[hlm-carousel-next]` form. Suppress it
+        // for these two files only — the camelCase variant also exists, so callers have a clean path.
+        files: [
+            "**/hlm-carousel-next.ts",
+            "**/hlm-carousel-previous.ts"
+        ],
+        rules: {
+            "@angular-eslint/component-selector": "off"
+        }
     }
 ];
