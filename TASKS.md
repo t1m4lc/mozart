@@ -226,7 +226,7 @@ cd /home/timothy/accelerate_growth_with/mozart && pnpm lint
 
 ---
 
-## [x] S1.4.1 — StreamEvent enum + parse_line
+## [x] S1.4.1 — StreamEvent enum + parse_line (commit: 6faf98d, 2026-05-10)
 
 **dependencies:** S1.3.8 (DB layer)
 **parallelizable:** true (with S1.4.2)
@@ -282,7 +282,7 @@ Required test cases (in `parser.rs` `#[cfg(test)] mod tests`):
 
 ---
 
-## [ ] S1.4.2 — claude_cli::install::check_installed
+## [x] S1.4.2 — claude_cli::install::check_installed
 
 **dependencies:** (none — pure subprocess)
 **parallelizable:** true (with S1.4.1)
