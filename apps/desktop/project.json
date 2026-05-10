@@ -76,6 +76,20 @@
         "staticFilePath": "dist/apps/desktop/browser",
         "spa": true
       }
+    },
+    "tauri-dev": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm tauri dev",
+        "cwd": "apps/desktop"
+      }
+    },
+    "tauri-build": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "pnpm tauri build",
+        "cwd": "apps/desktop"
+      }
     }
   }
 }
