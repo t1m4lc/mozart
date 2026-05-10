@@ -13,6 +13,8 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
+pub mod models;
+
 /// Embedded migration SQL. Ships with the binary — no filesystem dep at runtime.
 const INIT_SQL: &str = include_str!("../../migrations/001_init.sql");
 
