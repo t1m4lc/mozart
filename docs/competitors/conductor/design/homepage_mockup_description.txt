@@ -1,0 +1,293 @@
+Create a modern landing page mockup for a developer tool called Conductor.
+
+Conductor is a desktop app that lets developers run multiple AI coding agents in parallel on their Mac. The product helps users create isolated coding workspaces, launch Codex and Claude Code agents, monitor what each agent is doing, review changes, and merge pull requests.
+
+The landing page should feel premium, technical, clean, and startup-like. It should target software engineers, founders, and AI-native product teams.
+
+Visual style:
+- Dark background, almost black.
+- Subtle gradients and glows.
+- High contrast typography.
+- Developer-focused aesthetic.
+- Clean SaaS landing page structure.
+- Large product screenshot as the hero visual.
+- Rounded cards, soft borders, subtle shadows.
+- Accent colors: white text, muted gray text, green highlights, blue/purple glow accents.
+- The page should feel like Linear, Vercel, Cursor, and Raycast mixed with an AI coding product.
+
+Page structure:
+
+1. Top navigation bar
+
+Create a thin top navigation bar with a dark transparent background.
+
+Left side:
+- Conductor logo.
+- Small announcement pill above or near the nav:
+  “Introducing Conductor Cloud →”
+
+Center or right navigation links:
+- Changelog
+- Docs
+- Enterprise
+- Join Us
+
+Far right:
+- Primary button: “Download”
+- Small keyboard shortcut hint: “D”
+
+The navigation should be minimal and developer-oriented.
+
+2. Hero section
+
+Main headline:
+
+“Run a team of coding agents on your Mac.”
+
+The headline should be very large, centered, and bold.
+
+Subheadline:
+
+“Create parallel Codex + Claude Code agents in isolated workspaces. See at a glance what they’re working on, then review and merge their changes.”
+
+Below the subheadline, add two CTA buttons:
+- Primary button: “Download Conductor”
+- Secondary button: “Learn how it works”
+
+Above or near the headline, add a small update pill:
+
+“See what’s new in 0.52.0”
+
+The hero section should immediately communicate:
+- Multiple coding agents.
+- Parallel execution.
+- Isolated workspaces.
+- Git / PR review.
+- Local Mac app.
+
+3. Hero product screenshot
+
+Below the hero copy, show a large desktop app screenshot mockup.
+
+The screenshot should show:
+- Dark IDE-like interface.
+- Left sidebar with repositories and workspaces.
+- Center AI conversation / agent task panel.
+- Right panel with changed files and terminal.
+- Multiple AI coding agents running in parallel.
+- Git status, PR status, diff counters, and terminal output.
+
+The product screenshot should be inside a beautiful rounded container with:
+- Thin border.
+- Soft glow.
+- Subtle reflection or shadow.
+- Slight perspective or depth effect.
+
+This screenshot is the main visual anchor of the landing page.
+
+4. Trusted by section
+
+Below the hero screenshot, add a centered social proof section.
+
+Heading:
+
+“Trusted by builders at”
+
+Show a row or grid of company logos:
+- Linear
+- Vercel
+- Notion
+- Ramp
+- Life360
+- Square
+- Reducto
+- Spotify
+
+The logos should be monochrome or muted gray, becoming brighter on hover.
+
+5. Testimonials section
+
+Create a large testimonial wall with cards.
+
+Each card should include:
+- Short quote.
+- Avatar.
+- Name.
+- Role / company.
+- Optional X/Twitter-style handle.
+
+Use dark cards with subtle borders.
+
+Example testimonial cards:
+
+Quote:
+“gave this a try and holy shit. this is a new productivity unlock”
+Name:
+@nexxel
+Role:
+Founding Engineer, Supermemory
+
+Quote:
+“i’ve fully converted to @conductor_build — feels like going from typing with two fingers to having eight arms.”
+Name:
+Frank
+Role:
+Product Designer, Notion
+
+Quote:
+“Conductor with multiple repos in multiple workspaces has been insane for my workflow. I feel like a true full stack engineer cross-platform”
+Name:
+Umar Qattan
+Role:
+Sr. Software Engineer, Life360
+
+Quote:
+“This is seriously insane... So much better than VSCode it’s making me sick.”
+Name:
+Richard Waters
+Role:
+CEO, Proprietary Innovation Labs
+
+Quote:
+“If you want to run multiple Claude Code agents at the same time, use Conductor. Beautiful UI and handles all the git worktree stuff for you!”
+Name:
+Ian Nuttall
+Role:
+serial internet biz builder
+
+Quote:
+“Is Conductor the new Cursor? Just used it for the first time and it’s lovely”
+Name:
+Stammy
+Role:
+Head of Design, Sesame
+
+The testimonial grid should feel dynamic, like a moving wall of social proof, but the mockup can show it as a dense masonry grid.
+
+6. How it works section
+
+Create a section titled:
+
+“How it works”
+
+Show three large horizontal or vertical step cards.
+
+Step 1:
+Title:
+“Add your repo.”
+Description:
+“Conductor clones it and works entirely on your Mac.”
+
+Visual:
+Small repo icon, folder icon, or GitHub-style repository card.
+
+Step 2:
+Title:
+“Deploy agents.”
+Description:
+“Each Claude Code you spin up gets an isolated workspace.”
+
+Visual:
+Multiple agent cards or parallel workspace branches.
+
+Step 3:
+Title:
+“Conduct.”
+Description:
+“See who’s working, what needs attention, and review code.”
+
+Visual:
+Dashboard with agent statuses, diffs, PR checks, and merge state.
+
+The section should explain the product in a simple 1-2-3 flow.
+
+7. FAQ section
+
+Create a clean FAQ section with accordion rows.
+
+Title:
+
+“Frequently asked questions”
+
+FAQ items:
+
+Question:
+“Does Conductor use worktrees?”
+Answer:
+“Yes, each Conductor workspace is a new git worktree.”
+
+Question:
+“Which coding agents does Conductor support?”
+Answer:
+“Claude Code and Codex. Want to see something else? Email us.”
+
+Question:
+“How does Conductor pay for Claude Code?”
+Answer:
+“Conductor uses Claude Code however you’re already logged in. If you’re logged into Claude Code with an API key, Conductor will use that too. If you’re logged in with the Claude Pro or Max plan, Conductor will use that.”
+
+Accordion rows should have:
+- Question text.
+- Small plus or chevron icon.
+- Expanded answer style with muted gray text.
+
+8. Final CTA section
+
+Create a final centered call-to-action section.
+
+Headline:
+
+“We built Conductor using Conductor.”
+
+Subtext:
+
+“We think you’ll like it as much as we do.”
+
+Primary CTA button:
+
+“Download Conductor”
+
+This section should feel confident and minimal, with a soft glow behind the CTA.
+
+9. Footer
+
+Create a multi-column footer.
+
+Left:
+- Conductor logo.
+- Small copyright:
+  “© 2026 Melty Labs”
+
+Footer columns:
+
+Company:
+- Blog
+- Enterprise
+- Join us
+
+Resources:
+- Docs
+- Changelog
+
+Legal:
+- Privacy
+- Terms
+
+Connect:
+- X
+- YouTube
+- Reddit
+
+Footer should be minimal, muted, and clean.
+
+Interaction details to visually imply:
+- Download button is the main conversion action.
+- “Learn how it works” scrolls to the product explanation section.
+- “See what’s new in 0.52.0” opens changelog.
+- Logo links navigate to company/resources pages.
+- FAQ rows expand and collapse.
+- Product screenshot can be clicked to view the app or demo.
+- Company logos and testimonials reinforce credibility.
+
+Overall direction:
+The page should sell a serious developer productivity tool for the AI coding era. It should not feel generic or corporate. It should feel like a high-end tool made by developers for developers: fast, local-first, Git-aware, agent-native, and focused on parallel AI coding workflows.

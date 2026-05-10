@@ -1,0 +1,234 @@
+Create a dark-mode desktop UI mockup for a coding-agent workspace app, similar to an IDE combined with an AI chat client.
+
+The product is used by developers to manage multiple AI coding workspaces in parallel. The UI should feel compact, technical, polished, and productivity-focused.
+
+Overall layout:
+- Full-screen desktop app window.
+- Three-column layout.
+- Left sidebar for repositories and workspaces.
+- Center panel for AI conversation and task execution.
+- Right panel split into code changes / PR review on top and terminal on bottom.
+- Dark theme with subtle borders, muted gray backgrounds, green success states, red deletion counters, and purple/dark error highlights.
+- Use small typography, dense spacing, and IDE-like visual hierarchy.
+
+Main window structure:
+
+1. Top application bar
+
+At the very top, add a thin dark header spanning the full width.
+
+Left side:
+- Current workspace name: “archive-in-repo-details”
+- Repository or branch selector: “kampala-v3”
+- Status dropdown: “Open”
+
+Right side:
+- Green PR status pill:
+  - “PR #1432”
+  - “Ready to merge”
+- Green primary button: “Merge”
+
+The top bar should communicate that the current workspace has an open pull request ready to merge.
+
+2. Left sidebar: repositories and workspaces
+
+Create a narrow left navigation sidebar.
+
+At the top:
+- Home item with a house icon.
+
+Below, show repository groups with collapsible headers:
+- conductor
+- melty_home
+- swipe
+- conductor-docs
+- conductor_api
+- chorus
+- api
+- metavi… partially visible
+
+Each repository group should have:
+- Repository name.
+- Small chevron icon on the right.
+- A “+ New workspace” row inside the group.
+
+Workspace rows should show:
+- Workspace / branch icon.
+- Workspace name.
+- Secondary metadata line with branch and status.
+- Right-side workspace number.
+- Green and red diff counters.
+
+Selected workspace example:
+- Name: “archive-in-repo-details”
+- Subtitle: “kampala-v3 · Ready to merge”
+- Right side: “+312 -332”
+- Badge: “#1”
+
+Other workspace statuses to include:
+- “merge conflicts”
+- “Ready to merge”
+- “Archive”
+- “2mo ago”
+
+Use a stronger background highlight for the selected workspace.
+
+At the bottom of the sidebar, add a utility bar with:
+- “Add repository” button.
+- Small repository/storage icon.
+- Chat/help icon.
+- Settings gear icon.
+
+3. Center panel: AI conversation and task execution
+
+The center panel is the main AI agent conversation area.
+
+At the top of the center panel, add task tabs:
+- “All changes”
+- “Debugging ReferenceError” selected
+- “Review branch changes”
+- “+” button for a new tab
+- Small refresh/history icon on the far right
+
+Below the tabs, show a dark purple error banner:
+
+“ReferenceError: Can’t find variable: useDefaultOpenInApp in @RepositoryDetailsDialog.tsx”
+
+The file mention should appear as a small clickable pill.
+
+Chat content:
+- Show a collapsed activity row:
+  - “13 tool calls, 7 messages”
+- Show an assistant message:
+
+“Perfect! I’ve added the missing imports. Now let me run the validation to make sure everything compiles correctly:”
+
+- Under it, show a compact file-change card:
+  - “1 file changed”
+  - “RepositoryDetailsDialog.tsx”
+  - “+4 -1”
+
+Then show a user message in a slightly tinted message bubble:
+
+“cool works now. i was thinking it could be nice to use a version of the @command.tsx in the @RepositoryDetailsDialog.tsx instead of trying to reinvent the wheel of searching/navigating with keyboard”
+
+Render `@command.tsx` and `@RepositoryDetailsDialog.tsx` as inline mention pills.
+
+Then show an assistant response card with a heading:
+
+“Summary”
+
+Text below:
+“The custom search and virtualized list were replaced with the existing Command component from shadcn/ui, reusing the same keyboard navigation and search behavior instead of rebuilding it manually.”
+
+4. Composer / input area
+
+At the bottom of the center panel, create a large dark message composer with a subtle border.
+
+Inside the composer, show the user has typed:
+
+“2”
+
+Above the composer, add a small floating button:
+
+“Scroll to bottom”
+
+Composer bottom-left controls:
+- Model selector: “Sonnet 4.5”
+- Button: “Link issue ⌘I”
+- Small context/tool icons
+
+Composer bottom-right controls:
+- Paperclip icon for attachments.
+- Send button with upward arrow.
+
+The composer should support file mentions, issue linking, model selection, attachments, and sending prompts.
+
+5. Right panel top: changes / PR review
+
+The right panel should be split horizontally.
+
+The upper section is a Git changes and PR review panel.
+
+At the top of this section, add tabs:
+- “Changes 10” selected
+- “All files”
+- “Review”
+
+On the far right:
+- Search icon.
+- Filter icon.
+
+Below, show a changed-files list.
+
+Files to include:
+- src/App.tsx
+- src/core/conductor/WorkspaceAPI.ts
+- src/ui/components/FileBadge.tsx
+- src/ui/components/RepositoryDetailsDialog.tsx
+- src/ui/components/ToolRenderers.tsx
+- src/ui/components/WorkspaceSidebar.tsx
+- src/ui/components/git/diff/GitDiffFileHeader.tsx
+- src/ui/components/.../ReadOnlyFileHeader.tsx
+- src/ui/hooks/useWorkspaceContext.ts
+- src/ui/pages/ArchivedWorkspacesPage.tsx
+
+Each file row should show:
+- File icon.
+- File path.
+- Added lines in green.
+- Removed lines in red.
+
+Example:
+- “RepositoryDetailsDialog.tsx” with “+225 -117”
+- “ArchivedWorkspacesPage.tsx” with “-189”
+
+The selected or hovered file row should have a subtle darker highlight.
+
+6. Right panel bottom: embedded terminal
+
+The lower right section is an embedded terminal.
+
+At the top of the terminal section, add tabs:
+- “Run”
+- “Terminal” selected
+- “+” button to add a terminal or run tab
+
+On the right:
+- Button: “Run”
+- Play icon.
+- Shortcut: “⌘R”
+- Dropdown arrow.
+
+Terminal content:
+Show a shell prompt:
+
+“kampala-v3 git:(archive-in-repo-details)”
+
+The cursor should be active, ready for shell input.
+
+7. Interaction details to visually imply
+
+The mockup should make these actions obvious:
+- Click workspace rows to switch workspaces.
+- Click “+ New workspace” to create a new isolated AI workspace.
+- Click file pills in chat to open files.
+- Click collapsed tool-call rows to expand tool history.
+- Click file-change cards or file rows to inspect diffs.
+- Use tabs to switch between AI tasks.
+- Use the composer to mention files with @, attach files, link issues, change models, and send prompts.
+- Use the right-side changes panel to review modified files.
+- Use the embedded terminal to run commands.
+- Use the Merge button to merge the ready pull request.
+
+Visual style:
+- Dark IDE theme.
+- Dense but readable layout.
+- Rounded cards and subtle separators.
+- Muted gray backgrounds.
+- Green for ready-to-merge, additions, and success.
+- Red for deletions and conflicts.
+- Purple/dark banner for runtime error.
+- Monospace font for paths, code, terminal, and file names.
+- Small icons throughout, but keep the interface clean.
+- The UI should feel like a serious developer tool, not a marketing dashboard.
