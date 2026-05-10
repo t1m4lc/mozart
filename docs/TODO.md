@@ -79,11 +79,11 @@ For each step the **atomic** breakdown lives in `specs/plan-v0.0.1-2.md` § 6. S
 - [x] **S1.4.3** — `claude_cli::spawn_run` (subprocess + stream + persist; checkpoint/diff deferred to Step 1.5 reach-back per plan §11 Q-A) (2026-05-10)
 - [x] **S1.4.4** — Step 1.4 final gate (cargo check + cargo test + clippy) (2026-05-10)
 
-### [ ] Step 1.5 — `sandbox.rs`
+### [x] Step 1.5 — `sandbox.rs` (2026-05-10)
 
-- [ ] **S1.5.1** — `git_checkpoint(workspace_path) -> sha` (D13)
-- [ ] **S1.5.2** — `capture_diff(workspace_path, base_sha) -> DiffSummary`
-- [ ] **S1.5.3** — `discard_changes_to(workspace_path, sha)` with path-under-canonical-root guard
+- [x] **S1.5.1** — `git_checkpoint(workspace_path) -> sha` (D13) (2026-05-10)
+- [x] **S1.5.2** — `capture_diff(workspace_path, base_sha) -> DiffSummary` (2026-05-10)
+- [x] **S1.5.3** — `discard_changes_to(workspace_path, sha)` with path-under-canonical-root guard (2026-05-10)
 
 ### [ ] Step 1.6 — `worktree.rs` + `branch_name.rs` + `git_query.rs`
 
