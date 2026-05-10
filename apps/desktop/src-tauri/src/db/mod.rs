@@ -13,7 +13,10 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
+pub mod config;
 pub mod models;
+pub mod repos;
+pub mod tasks;
 
 /// Embedded migration SQL. Ships with the binary — no filesystem dep at runtime.
 const INIT_SQL: &str = include_str!("../../migrations/001_init.sql");
@@ -73,6 +76,15 @@ fn apply_migrations(conn: &Connection) -> Result<(), AppError> {
 /// Generate a fresh UUID v4 string. Use for all `*_id TEXT PRIMARY KEY` columns.
 pub fn new_id() -> String {
     uuid::Uuid::new_v4().to_string()
+}
+
+/// Current Unix time in milliseconds. Use for all `*_at INTEGER` columns.
+pub fn now_ms() -> i64 {
+    use std::time::{SystemTime, UNIX_EPOCH};
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_millis() as i64
 }
 
 #[cfg(test)]
