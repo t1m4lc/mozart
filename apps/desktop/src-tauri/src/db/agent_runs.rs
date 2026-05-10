@@ -28,6 +28,20 @@ pub fn update_status(conn: &Connection, run_id: &str, status: &str) -> Result<()
     Ok(())
 }
 
+/// Persist the pre-spawn checkpoint sha onto an existing `agent_runs` row.
+/// Sibling of [`update_status`]; returns [`AppError::NotFound`] if no row
+/// matched (D1.5-E).
+pub fn update_checkpoint_sha(conn: &Connection, run_id: &str, sha: &str) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE agent_runs SET checkpoint_sha = ?1 WHERE run_id = ?2",
+        params![sha, run_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("agent_run id={run_id}")));
+    }
+    Ok(())
+}
+
 /// Set `ended_at`, `status`, `exit_code`, and optionally `error_message` in one update
 /// — called when the agent process exits.
 pub fn mark_ended(
@@ -150,6 +164,33 @@ mod tests {
         assert_eq!(got.status, "done");
         assert_eq!(got.exit_code, Some(0));
         assert!(got.ended_at.is_some());
+    }
+
+    #[test]
+    fn update_checkpoint_sha_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let th = seed_thread(&conn);
+        let mut run = make_run(&th);
+        run.checkpoint_sha = None; // start unset to prove the UPDATE writes it
+        create(&conn, &run).unwrap();
+        update_checkpoint_sha(&conn, &run.run_id, "deadbeefdeadbeefdeadbeefdeadbeefdeadbeef").unwrap();
+        let got = get(&conn, &run.run_id).unwrap();
+        assert_eq!(
+            got.checkpoint_sha.as_deref(),
+            Some("deadbeefdeadbeefdeadbeefdeadbeefdeadbeef")
+        );
+    }
+
+    #[test]
+    fn update_checkpoint_sha_missing_row_is_not_found() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let err = update_checkpoint_sha(&conn, "no-such-run", "abc").unwrap_err();
+        match err {
+            AppError::NotFound(_) => {}
+            other => panic!("expected NotFound, got {other:?}"),
+        }
     }
 
     #[test]

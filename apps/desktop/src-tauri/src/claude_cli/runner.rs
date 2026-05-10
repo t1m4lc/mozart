@@ -30,11 +30,14 @@
 //!   `"claude"`, so the production invocation is byte-equivalent to the
 //!   plan's spec.
 //!
-//! Forward-narrowing (plan §11 Q-A): `spawn_run` does **not** call
-//! `sandbox::git_checkpoint` (S1.5.1) or `sandbox::capture_diff`
-//! (S1.5.2). Step 1.5 atoms reach back to insert those callsites.
+//! Step 1.5 reach-back (S1.5.4): `spawn_run` calls `sandbox::git_checkpoint`
+//! pre-spawn (persisting the sha via `agent_runs::update_checkpoint_sha`)
+//! and `sandbox::capture_diff` + `workspace_changes::insert` post-exit
+//! when `status == "done"`. Pre-spawn failure aborts the run; post-exit
+//! failures are logged via `log::warn!` and do not surface to the caller.
 
 use std::ffi::OsString;
+use std::path::Path;
 use std::process::Stdio;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -47,9 +50,10 @@ use tokio::task::JoinHandle;
 
 use crate::claude_cli::parser::parse_line;
 use crate::claude_cli::StreamEvent;
-use crate::db::models::{AgentRun, Workspace};
-use crate::db::{agent_events, agent_runs, now_ms, DbState};
+use crate::db::models::{AgentRun, Workspace, WorkspaceChange};
+use crate::db::{agent_events, agent_runs, now_ms, workspace_changes, DbState};
 use crate::error::AppError;
+use crate::sandbox;
 
 /// Handle returned by [`spawn_run`]. Owns the JoinHandle of the
 /// supervisor task and a `cancelled` flag the supervisor reads after
@@ -143,6 +147,16 @@ pub async fn spawn_run(
 ) -> Result<RunHandle, AppError> {
     let bin = resolve_claude_bin();
     let argv = command_argv_for_test(&run.prompt);
+
+    // Pre-spawn reach-back (S1.5.4 / D1.5-I): capture a git checkpoint of
+    // the workspace's worktree, persist it onto `agent_runs.checkpoint_sha`,
+    // and remember the sha for the post-exit diff. Failure aborts spawn.
+    let checkpoint_sha =
+        sandbox::git_checkpoint(Path::new(&workspace.worktree_path)).await?;
+    {
+        let conn = db.0.lock().expect("db mutex poisoned");
+        agent_runs::update_checkpoint_sha(&conn, &run.run_id, &checkpoint_sha)?;
+    }
 
     let mut cmd = Command::new(&bin);
     cmd.args(&argv)
@@ -259,6 +273,11 @@ pub async fn spawn_run(
     };
 
     // ----- supervisor task: poll for cancel, wait for exit, mark_ended -----
+    // Clones for the post-exit reach-back (S1.5.4): the supervisor `move`s
+    // these into its async block so it can compute and persist the diff.
+    let workspace_path_for_supervisor = workspace.worktree_path.clone();
+    let workspace_id_for_supervisor = workspace.workspace_id.clone();
+    let checkpoint_sha_for_supervisor = checkpoint_sha.clone();
     let supervisor: JoinHandle<()> = {
         let cancelled = cancelled.clone();
         let last_stderr = last_stderr.clone();
@@ -341,22 +360,65 @@ pub async fn spawn_run(
 
             // Persist final state. If mark_ended fails (FK gone, db locked),
             // log and move on — supervisor must not panic.
-            let conn = match db_arc.lock() {
-                Ok(c) => c,
-                Err(_) => {
-                    log::warn!("mark_ended: db mutex poisoned");
-                    return;
+            {
+                let conn = match db_arc.lock() {
+                    Ok(c) => c,
+                    Err(_) => {
+                        log::warn!("mark_ended: db mutex poisoned");
+                        return;
+                    }
+                };
+                if let Err(e) = agent_runs::mark_ended(
+                    &conn,
+                    &run_id,
+                    status_str,
+                    now_ms(),
+                    exit_code,
+                    error_message.as_deref(),
+                ) {
+                    log::warn!("agent_runs::mark_ended failed: {e}");
                 }
-            };
-            if let Err(e) = agent_runs::mark_ended(
-                &conn,
-                &run_id,
-                status_str,
-                now_ms(),
-                exit_code,
-                error_message.as_deref(),
-            ) {
-                log::warn!("agent_runs::mark_ended failed: {e}");
+                // lock dropped at end of scope, before the await below
+            }
+
+            // Post-exit reach-back (S1.5.4 / D1.5-I): on success only,
+            // capture a diff vs the checkpoint and insert one
+            // `workspace_changes` row. Best-effort — any failure logs and
+            // continues. The four non-`done` terminal statuses
+            // (error, stopped, crashed) skip this entirely.
+            if status_str == "done" {
+                match sandbox::capture_diff(
+                    Path::new(&workspace_path_for_supervisor),
+                    &checkpoint_sha_for_supervisor,
+                )
+                .await
+                {
+                    Ok(summary) => {
+                        let change = WorkspaceChange {
+                            change_id: 0,
+                            workspace_id: workspace_id_for_supervisor.clone(),
+                            run_id: Some(run_id.clone()),
+                            diff_text: summary.diff_text,
+                            files_added: summary.files_added,
+                            files_modified: summary.files_modified,
+                            files_deleted: summary.files_deleted,
+                            captured_at: now_ms(),
+                        };
+                        let conn = match db_arc.lock() {
+                            Ok(c) => c,
+                            Err(_) => {
+                                log::warn!(
+                                    "workspace_changes insert: db mutex poisoned"
+                                );
+                                return;
+                            }
+                        };
+                        if let Err(e) = workspace_changes::insert(&conn, &change) {
+                            log::warn!("workspace_changes::insert failed: {e}");
+                        }
+                    }
+                    Err(e) => log::warn!("capture_diff failed: {e}"),
+                }
             }
         })
     };
@@ -373,10 +435,12 @@ mod tests {
     //! `#[cfg(unix)]` integration tests that drive the real subprocess
     //! pipeline via `mock-claude.sh`.
     //!
-    //! The integration tests share two process-global env vars
-    //! (`MOZART_CLAUDE_BIN`, `MOZART_MOCK_FIXTURE`) and so MUST run
-    //! serially. We use a plain `OnceLock<std::sync::Mutex<()>>` for the
-    //! gate (no extra deps).
+    //! The integration tests share three process-global env vars
+    //! (`MOZART_CLAUDE_BIN`, `MOZART_MOCK_FIXTURE`, `MOZART_WORKTREES_ROOT`)
+    //! and so MUST run serially. The gate lives in
+    //! `crate::sandbox::test_env_gate()` and is shared with the sandbox
+    //! tests (D1.5-L) so all `MOZART_*` mutators serialize against each
+    //! other across the whole crate.
 
     use super::*;
     use crate::db::models::{Repo, Task, Thread};
@@ -419,25 +483,20 @@ mod tests {
 
     #[cfg(unix)]
     // The env-var serialization Mutex is held across `.await` on purpose:
-    // the entire test body needs exclusive ownership of the two
-    // process-global env vars (`MOZART_CLAUDE_BIN`, `MOZART_MOCK_FIXTURE`).
-    // An async-aware mutex isn't available without enabling tokio's `sync`
-    // feature, which would mean editing `Cargo.toml` (forbidden by the atom
-    // boundary). The std::sync::Mutex is cheap here (test-only) and safe
-    // because every awaited future is a tokio task that does NOT itself try
-    // to acquire the gate.
+    // the entire test body needs exclusive ownership of the process-global
+    // env vars (`MOZART_CLAUDE_BIN`, `MOZART_MOCK_FIXTURE`,
+    // `MOZART_WORKTREES_ROOT`). The std::sync::Mutex is cheap here
+    // (test-only) and safe because every awaited future is a tokio task
+    // that does NOT itself try to acquire the gate. Post-S1.5.4 the gate
+    // lives in `crate::sandbox::test_env_gate()` and is shared with the
+    // sandbox tests so all `MOZART_*` mutators serialize against each other.
     #[allow(clippy::await_holding_lock)]
     mod integration {
         use super::*;
+        use crate::sandbox;
         use std::path::PathBuf;
-        use std::sync::OnceLock;
-
-        /// Serialize integration tests: they share two process-global
-        /// env vars. Without this, parallel cargo test runs would race.
-        fn env_gate() -> &'static std::sync::Mutex<()> {
-            static GATE: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
-            GATE.get_or_init(|| std::sync::Mutex::new(()))
-        }
+        use std::process::Command as StdCommand;
+        use tempfile::TempDir;
 
         fn fixtures_dir() -> PathBuf {
             // CARGO_MANIFEST_DIR points to apps/desktop/src-tauri.
@@ -455,9 +514,49 @@ mod tests {
             Channel::new(|_body| Ok(()))
         }
 
+        /// Initialize a real git repo in `dir` (init + identity + initial
+        /// commit). Mirrors the spike-A pattern. Required so the runner's
+        /// pre-spawn `git_checkpoint` (S1.5.4 reach-back) can succeed
+        /// against the workspace's `worktree_path`.
+        fn init_repo(dir: &std::path::Path) {
+            let s = StdCommand::new("git")
+                .arg("init")
+                .arg("--initial-branch=main")
+                .arg(dir)
+                .output()
+                .expect("git init");
+            assert!(s.status.success(), "git init failed: {:?}", s);
+            for (k, v) in [("user.email", "test@mozart.test"), ("user.name", "Test Bot")] {
+                let s = StdCommand::new("git")
+                    .current_dir(dir)
+                    .args(["config", k, v])
+                    .status()
+                    .expect("git config");
+                assert!(s.success(), "git config {k} failed");
+            }
+            let s = StdCommand::new("git")
+                .current_dir(dir)
+                .args(["commit", "--allow-empty", "--no-gpg-sign", "-m", "init"])
+                .status()
+                .expect("git commit");
+            assert!(s.success(), "initial commit failed");
+        }
+
         /// Seed a Repo → Task → Workspace → Thread → AgentRun chain
-        /// in the in-memory DB, returning the AgentRun + Workspace.
-        fn seed(db: &DbState) -> (Workspace, AgentRun) {
+        /// in the in-memory DB, returning the AgentRun + Workspace
+        /// alongside the TempDirs that own the worktree-root and the
+        /// initialized repo. The TempDirs must be kept alive by the test
+        /// for the duration of `spawn_run` — dropping them early
+        /// would unlink the worktree mid-run.
+        fn seed(db: &DbState) -> (Workspace, AgentRun, TempDir, TempDir) {
+            // 1. tempdir to act as MOZART_WORKTREES_ROOT
+            let root = tempfile::tempdir().expect("worktrees-root tempdir");
+            // 2. tempdir nested under root for the workspace's worktree
+            //    (must survive the test scope so git_checkpoint can run).
+            let wt_dir = tempfile::tempdir_in(root.path())
+                .expect("worktree tempdir under root");
+            init_repo(wt_dir.path());
+
             let conn = db.lock();
             let r = Repo {
                 repo_id: new_id(),
@@ -475,13 +574,10 @@ mod tests {
                 created_at: now_ms(),
             };
             tasks::create(&conn, &t).unwrap();
-            // worktree_path must be a real dir we can `current_dir` into;
-            // use the project root so spawn doesn't fail with ENOENT.
-            let worktree = env!("CARGO_MANIFEST_DIR").to_string();
             let ws = Workspace {
                 workspace_id: new_id(),
                 task_id: t.task_id.clone(),
-                worktree_path: worktree,
+                worktree_path: wt_dir.path().to_string_lossy().into_owned(),
                 branch_name: "agent/wip-x".into(),
                 base_branch: "main".into(),
                 status: "ready".into(),
@@ -508,7 +604,19 @@ mod tests {
             };
             agent_runs::create(&conn, &run).unwrap();
             drop(conn);
-            (ws, run)
+            (ws, run, root, wt_dir)
+        }
+
+        fn count_workspace_changes(db: &DbState, run_id: &str) -> usize {
+            let conn = db.lock();
+            let n: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM workspace_changes WHERE run_id = ?1",
+                    [run_id],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            n as usize
         }
 
         fn count_events(db: &DbState, run_id: &str, event_type: &str) -> usize {
@@ -518,15 +626,23 @@ mod tests {
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
         async fn integration_happy_path() {
-            let _g = env_gate().lock().unwrap_or_else(|p| p.into_inner());
+            if !sandbox::git_available() {
+                eprintln!("SKIP integration_happy_path: `git` binary not on PATH");
+                return;
+            }
+            let _g = sandbox::test_env_gate()
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
+
+            let db = init_db_memory().unwrap();
+            let (ws, run, _root, _wt_dir) = seed(&db);
+
             std::env::set_var("MOZART_CLAUDE_BIN", mock_bin());
             std::env::set_var(
                 "MOZART_MOCK_FIXTURE",
                 fixtures_dir().join("streams/happy-text.jsonl"),
             );
-
-            let db = init_db_memory().unwrap();
-            let (ws, run) = seed(&db);
+            std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
             let handle = spawn_run(&ws, &run, noop_channel(), &db).await.unwrap();
             handle.await_complete().await.unwrap();
@@ -540,21 +656,42 @@ mod tests {
             assert_eq!(got.status, "done");
             assert_eq!(got.exit_code, Some(0));
 
+            // S1.5.4 reach-back: pre-spawn checkpoint persisted, and on
+            // success exactly one workspace_changes row was inserted.
+            assert!(
+                got.checkpoint_sha.is_some(),
+                "expected agent_runs.checkpoint_sha to be Some(_) after spawn_run"
+            );
+            assert_eq!(
+                count_workspace_changes(&db, &run.run_id),
+                1,
+                "expected exactly one workspace_changes row for a 'done' run"
+            );
+
             std::env::remove_var("MOZART_CLAUDE_BIN");
             std::env::remove_var("MOZART_MOCK_FIXTURE");
+            std::env::remove_var("MOZART_WORKTREES_ROOT");
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
         async fn integration_tool_use_falls_back_to_cli_output() {
-            let _g = env_gate().lock().unwrap_or_else(|p| p.into_inner());
+            if !sandbox::git_available() {
+                eprintln!("SKIP integration_tool_use_falls_back_to_cli_output: `git` binary not on PATH");
+                return;
+            }
+            let _g = sandbox::test_env_gate()
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
+
+            let db = init_db_memory().unwrap();
+            let (ws, run, _root, _wt_dir) = seed(&db);
+
             std::env::set_var("MOZART_CLAUDE_BIN", mock_bin());
             std::env::set_var(
                 "MOZART_MOCK_FIXTURE",
                 fixtures_dir().join("streams/with-tool-use.jsonl"),
             );
-
-            let db = init_db_memory().unwrap();
-            let (ws, run) = seed(&db);
+            std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
             let handle = spawn_run(&ws, &run, noop_channel(), &db).await.unwrap();
             handle.await_complete().await.unwrap();
@@ -583,11 +720,18 @@ mod tests {
 
             std::env::remove_var("MOZART_CLAUDE_BIN");
             std::env::remove_var("MOZART_MOCK_FIXTURE");
+            std::env::remove_var("MOZART_WORKTREES_ROOT");
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
         async fn integration_cancel_mid_stream() {
-            let _g = env_gate().lock().unwrap_or_else(|p| p.into_inner());
+            if !sandbox::git_available() {
+                eprintln!("SKIP integration_cancel_mid_stream: `git` binary not on PATH");
+                return;
+            }
+            let _g = sandbox::test_env_gate()
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
 
             // Build an ad-hoc slow-fixture script in a tempdir. The mock
             // routes *.sh fixtures via `exec sh`, so this script will be
@@ -607,11 +751,12 @@ mod tests {
                 std::fs::set_permissions(&slow, p).unwrap();
             }
 
+            let db = init_db_memory().unwrap();
+            let (ws, run, _root, _wt_dir) = seed(&db);
+
             std::env::set_var("MOZART_CLAUDE_BIN", mock_bin());
             std::env::set_var("MOZART_MOCK_FIXTURE", &slow);
-
-            let db = init_db_memory().unwrap();
-            let (ws, run) = seed(&db);
+            std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
             let handle = spawn_run(&ws, &run, noop_channel(), &db).await.unwrap();
             // Give the child a moment to actually start before cancelling.
@@ -627,19 +772,28 @@ mod tests {
 
             std::env::remove_var("MOZART_CLAUDE_BIN");
             std::env::remove_var("MOZART_MOCK_FIXTURE");
+            std::env::remove_var("MOZART_WORKTREES_ROOT");
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
         async fn integration_non_zero_exit_with_stderr() {
-            let _g = env_gate().lock().unwrap_or_else(|p| p.into_inner());
+            if !sandbox::git_available() {
+                eprintln!("SKIP integration_non_zero_exit_with_stderr: `git` binary not on PATH");
+                return;
+            }
+            let _g = sandbox::test_env_gate()
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
+
+            let db = init_db_memory().unwrap();
+            let (ws, run, _root, _wt_dir) = seed(&db);
+
             std::env::set_var("MOZART_CLAUDE_BIN", mock_bin());
             std::env::set_var(
                 "MOZART_MOCK_FIXTURE",
                 fixtures_dir().join("streams/stderr-then-exit.sh"),
             );
-
-            let db = init_db_memory().unwrap();
-            let (ws, run) = seed(&db);
+            std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
             let handle = spawn_run(&ws, &run, noop_channel(), &db).await.unwrap();
             handle.await_complete().await.unwrap();
@@ -656,8 +810,22 @@ mod tests {
                 "expected ≥1 error agent_events row"
             );
 
+            // S1.5.4 reach-back invariants for non-zero-exit:
+            // pre-spawn checkpoint persisted, but post-exit insert is
+            // gated by status == "done" so no workspace_changes row.
+            assert!(
+                got.checkpoint_sha.is_some(),
+                "pre-spawn checkpoint should always set checkpoint_sha"
+            );
+            assert_eq!(
+                count_workspace_changes(&db, &run.run_id),
+                0,
+                "non-'done' status must not insert a workspace_changes row"
+            );
+
             std::env::remove_var("MOZART_CLAUDE_BIN");
             std::env::remove_var("MOZART_MOCK_FIXTURE");
+            std::env::remove_var("MOZART_WORKTREES_ROOT");
         }
     }
 }

@@ -1,6 +1,7 @@
 pub mod claude_cli;
 pub mod db;
 pub mod error;
+pub mod sandbox;
 
 #[cfg(test)]
 mod spikes;

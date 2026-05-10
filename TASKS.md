@@ -427,3 +427,248 @@ git diff --name-only $(git merge-base HEAD main)..HEAD | \
 **notes:**
 
 **commit:**
+
+---
+
+# Step 1.5 — sandbox.rs (git_checkpoint / capture_diff / discard_changes_to)
+
+**Source plan:** `tmp/ready-plans/05-step-1-5-sandbox.md` (Confidence 9/10)
+**Atomized:** 2026-05-10. Five atoms (S1.5.1–S1.5.5). Atoms 1–3 parallelizable after S1.5.1's `mod.rs` lands; S1.5.4 cross-cuts into `claude_cli/runner.rs` (deferred Q-A from Step 1.4). S1.5.5 is the verification-only gate.
+
+---
+
+## [x] S1.5.1 — sandbox module root + `git_checkpoint` + shared `run_git`/`canonical_worktrees_root`/`test_env_gate` (commit: bundled M1.5)
+
+**dependencies:** S1.4.4
+**parallelizable:** false (lands first; S1.5.2 and S1.5.3 add `pub mod` lines under it)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/sandbox/mod.rs` (new — module root, `pub(super) async fn run_git`, `pub(crate) fn canonical_worktrees_root`, `pub(crate) fn test_env_gate`, `#[cfg(test)] pub(crate) fn git_available`)
+- `apps/desktop/src-tauri/src/sandbox/checkpoint.rs` (new — `pub async fn git_checkpoint`)
+- `apps/desktop/src-tauri/src/lib.rs` (add `pub mod sandbox;` — single line)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/sandbox/diff.rs` (S1.5.2 owns)
+- `apps/desktop/src-tauri/src/sandbox/reset.rs` (S1.5.3 owns)
+- `apps/desktop/src-tauri/src/error.rs` (no new variant in Step 1.5 per plan §3 / Q-B)
+- `apps/desktop/src-tauri/Cargo.toml` (no new deps — verified at plan §1)
+- `apps/desktop/src-tauri/src/claude_cli/runner.rs` (S1.5.4 owns the reach-back)
+- `apps/desktop/src-tauri/src/db/**`
+- everything outside `src/sandbox/`, `lib.rs`
+
+**acceptance:**
+- [ ] `pub mod checkpoint; pub mod diff; pub mod reset;` declared in `sandbox/mod.rs` (diff/reset modules created empty by S1.5.2/S1.5.3 — placeholder file with `// stub` is acceptable until those atoms land, OR S1.5.1 declares only `pub mod checkpoint;` and S1.5.2/S1.5.3 each add their own line per the same convention as S1.4.1↔S1.4.2)
+- [ ] `pub use checkpoint::git_checkpoint;` re-exported from `mod.rs`
+- [ ] `pub(crate) fn canonical_worktrees_root() -> Result<PathBuf, AppError>` honoring `MOZART_WORKTREES_ROOT` (test override) → `$HOME/.mozart/worktrees` (Unix) / `$USERPROFILE\.mozart\worktrees` (Windows) → `AppError::Validation` (D1.5-B)
+- [ ] `pub(crate) fn test_env_gate() -> &'static std::sync::Mutex<()>` — single shared gate (D1.5-L) for all sandbox tests AND the runner integration tests in S1.5.4
+- [ ] `pub(super) async fn run_git(cwd: &Path, args: &[&str]) -> Result<String, AppError>` (D1.5-K) — single helper called by `checkpoint.rs`, `diff.rs`, `reset.rs`. Spawn/wait failure → `AppError::Io`; non-zero exit → `AppError::Validation` carrying `"git <args> failed: <stderr>"`
+- [ ] `pub async fn git_checkpoint(workspace_path: &Path) -> Result<String, AppError>` runs `git add -A` → `git commit --allow-empty --no-gpg-sign -m "checkpoint before run"` → `git rev-parse HEAD`; returns trimmed sha (D1.5-H)
+- [ ] `cargo check` and `cargo clippy --all-targets -- -D warnings` clean
+
+**tests/checks (≥3 in `checkpoint.rs #[cfg(test)] mod tests`; LC_ALL=C for stderr-substring assertions per D1.5-J):**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests sandbox::checkpoint
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -n "checkpoint before run" apps/desktop/src-tauri/src/sandbox/checkpoint.rs
+! grep -rn "no-verify" apps/desktop/src-tauri/src/sandbox/
+```
+
+Required test cases:
+1. **happy path** — `git_available()` skip-or-run; tempdir-repo (`git init --initial-branch=main` + identity + initial commit), write a file, call `git_checkpoint`; assert returned sha is 40 hex chars; `HEAD` resolves to it.
+2. **idempotent re-run** — call `git_checkpoint` twice on a clean tree; second succeeds via `--allow-empty`; both shas appear in `git log`.
+3. **propagates stderr on failure** — call against a non-repo tempdir; assert `Err(AppError::Validation(msg))` where `msg.to_lowercase().contains("not a git repository")`.
+
+**notes:**
+
+**commit:**
+
+---
+
+## [x] S1.5.2 — `sandbox::capture_diff` + `DiffSummary` + `parse_numstat` (commit: bundled M1.5)
+
+**dependencies:** S1.5.1
+**parallelizable:** true (with S1.5.3)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/sandbox/diff.rs` (new — `DiffSummary`, `capture_diff`, private `parse_numstat`)
+- `apps/desktop/src-tauri/src/sandbox/mod.rs` (add `pub mod diff;` + `pub use diff::{capture_diff, DiffSummary};` if S1.5.1 didn't already declare them)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/sandbox/checkpoint.rs` (S1.5.1)
+- `apps/desktop/src-tauri/src/sandbox/reset.rs` (S1.5.3)
+- `apps/desktop/src-tauri/src/lib.rs`
+- `apps/desktop/src-tauri/src/error.rs`
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/src/claude_cli/**`
+- `apps/desktop/src-tauri/src/db/**`
+
+**acceptance:**
+- [ ] `pub struct DiffSummary { pub diff_text: String, pub files_added: i64, pub files_modified: i64, pub files_deleted: i64 }` — **no** serde/specta derives in v0.0.1 (D1.5-D)
+- [ ] `pub async fn capture_diff(workspace_path: &Path, base_sha: &str) -> Result<DiffSummary, AppError>` — runs `git diff <base_sha> HEAD --numstat` for counts AND `git diff <base_sha> HEAD` for unified text; routes both via `super::run_git`
+- [ ] Private `fn parse_numstat(stdout: &str) -> (i64, i64, i64)` (added, modified, deleted) per D1.5-F: `(_, 0)` ≠ 0 → added; `(0, _)` ≠ 0 → deleted; `(_, _)` both > 0 → modified; binary `-\t-\t…` → modified; pure-rename `0\t0\t…` → modified; malformed line → skipped
+- [ ] Empty diff returns `DiffSummary { "", 0, 0, 0 }` — never errors (D1.5-G)
+
+**tests/checks (≥5; integration tests gated by `git_available()` skip with `eprintln!`, NOT `#[ignore]`):**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests sandbox::diff
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+```
+
+Required test cases:
+1. **`parse_numstat` unit (no git)** — `""` → `(0,0,0)`; `"3\t0\tfoo\n"` → `(1,0,0)`; `"0\t5\tbar\n"` → `(0,0,1)`; `"4\t2\tbaz\n"` → `(0,1,0)`; `"-\t-\timg.png\n"` → `(0,1,0)`; `"0\t0\t{old => new}\n"` → `(0,1,0)`; mixed multi-line.
+2. **happy path** — fixture repo with one added + one modified + one deleted file between two commits; assert `files_added=1, files_modified=1, files_deleted=1`; `diff_text` non-empty and contains `"diff --git"`.
+3. **empty diff** — same sha for base + HEAD; all four fields zero/empty (D1.5-G).
+4. **non-existent base sha** — random hex; `Err(AppError::Validation(_))`; stderr lowercased contains `"unknown revision"` or `"bad revision"`.
+
+**notes:** S1.5.2 may run in parallel with S1.5.3 once S1.5.1 lands; coordinate the `mod.rs` edit (each adds its own `pub mod` line).
+
+**commit:**
+
+---
+
+## [x] S1.5.3 — `sandbox::discard_changes_to` (path-validation gate) (commit: bundled M1.5)
+
+**dependencies:** S1.5.1
+**parallelizable:** true (with S1.5.2)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/sandbox/reset.rs` (new — `pub async fn discard_changes_to`)
+- `apps/desktop/src-tauri/src/sandbox/mod.rs` (add `pub mod reset;` + `pub use reset::discard_changes_to;` if S1.5.1 didn't already declare them)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/sandbox/checkpoint.rs` (S1.5.1)
+- `apps/desktop/src-tauri/src/sandbox/diff.rs` (S1.5.2)
+- `apps/desktop/src-tauri/src/lib.rs`
+- `apps/desktop/src-tauri/src/error.rs`
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/src/claude_cli/**`
+- `apps/desktop/src-tauri/src/db/**`
+
+**acceptance:**
+- [ ] `pub async fn discard_changes_to(workspace_path: &Path, sha: &str) -> Result<(), AppError>`
+- [ ] Path validation gate (D1.5-A): `workspace_path.canonicalize()?.starts_with(canonical_worktrees_root()?.canonicalize()?)`. Rejection → `AppError::Validation("path is not under canonical worktrees root: …")`. `canonicalize` resolves symlinks via `realpath(3)`.
+- [ ] Body collapses to `super::run_git(&canon, &["reset", "--hard", sha]).await.map(|_| ())` after the gate
+- [ ] All env mutations in tests acquire `crate::sandbox::test_env_gate().lock()` (single shared gate per D1.5-L)
+
+**tests/checks (≥5):**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests sandbox::reset
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -n "not under canonical worktrees root" apps/desktop/src-tauri/src/sandbox/reset.rs
+```
+
+Required test cases:
+1. **`canonical_worktrees_root` honors `MOZART_WORKTREES_ROOT`** — set the env, assert returned path equals the override.
+2. **path-not-under-root rejection** — `MOZART_WORKTREES_ROOT` → tempdir A; call `discard_changes_to` with a path under tempdir B (canonicalized but outside A); assert `Err(AppError::Validation(msg))` where `msg.contains("not under canonical worktrees root")`.
+3. **happy round-trip** — under `MOZART_WORKTREES_ROOT`, fixture repo with commit A then commit B; call `discard_changes_to(repo, A)`; the added file is gone; `git rev-parse HEAD == A`.
+4. **non-existent sha rejection** — same fixture; random hex; `Err(AppError::Validation(_))` with stderr substring.
+5. **symlink escape blocked (`#[cfg(unix)]`)** — under root, create a symlink to outside; call against the symlink; rejected by the `starts_with` check after `canonicalize`.
+
+**notes:**
+
+**commit:**
+
+---
+
+## [x] S1.5.4 — runner reach-back + `update_checkpoint_sha` CRUD + tempdir-repo migration of existing runner integration tests (commit: bundled M1.5)
+
+**dependencies:** S1.5.1, S1.5.2
+**parallelizable:** false (cross-cuts Step 1.4 surface; deferred Q-A from `tmp/done-plans/04-step-1-4-claude-cli.md` §11)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/db/agent_runs.rs` (add `pub fn update_checkpoint_sha`)
+- `apps/desktop/src-tauri/src/claude_cli/runner.rs` (two surgical edits: pre-spawn checkpoint after `:144`; post-exit `capture_diff` + `workspace_changes::insert` after `mark_ended` at `:351-360`; migrate the four pre-existing integration tests' `seed()` helper to a tempdir-repo; retire local `OnceLock` env_gate at `:437-440` in favor of `crate::sandbox::test_env_gate()`)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/sandbox/**` (S1.5.1–S1.5.3 own; consume only)
+- `apps/desktop/src-tauri/src/db/workspace_changes.rs` (consume only — `insert` already exists)
+- `apps/desktop/src-tauri/src/db/models.rs` (`WorkspaceChange` already exists)
+- `apps/desktop/src-tauri/src/error.rs` (no new variant — Q-B)
+- `apps/desktop/src-tauri/src/lib.rs`
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/migrations/**`
+- everything outside `src/db/agent_runs.rs` and `src/claude_cli/runner.rs`
+
+**acceptance:**
+- [ ] `pub fn update_checkpoint_sha(conn: &Connection, run_id: &str, sha: &str) -> Result<(), AppError>` in `db/agent_runs.rs` — sibling of `update_status`; `AppError::NotFound` if 0 rows updated (D1.5-E)
+- [ ] `runner.rs` pre-spawn (after `resolve_claude_bin()` at `:144`, before `Command::new(&bin)` at `:147`): call `sandbox::git_checkpoint(Path::new(&workspace.worktree_path)).await?`; persist via `agent_runs::update_checkpoint_sha(&conn, &run.run_id, &sha)?` (lock dropped immediately); `let checkpoint_sha = sha;` captured for supervisor `move`. On error, `spawn_run` returns `Err` (D1.5-I)
+- [ ] `runner.rs` post-exit (in supervisor task, after `mark_ended` at `:351-360`, gated by `status_str == "done"`): call `sandbox::capture_diff(Path::new(&workspace_path), &checkpoint_sha).await`; build `WorkspaceChange { change_id: 0, workspace_id, run_id: Some(run_id.clone()), diff_text, files_added, files_modified, files_deleted, captured_at: now_ms() }`; call `workspace_changes::insert`. Any failure in this block → `log::warn!` and continue (D1.5-I)
+- [ ] Local `OnceLock<Mutex<()>>` env gate at `runner.rs:437-440` removed; tests now call `crate::sandbox::test_env_gate().lock()` (D1.5-L)
+- [ ] Four pre-existing integration tests (`integration_happy_path`, `integration_tool_use_falls_back_to_cli_output`, `integration_cancel_mid_stream`, `integration_non_zero_exit_with_stderr`) updated: their `seed()` helper now creates a tempdir-repo (under `MOZART_WORKTREES_ROOT`), `git init --initial-branch=main`, identity, initial commit; `worktree_path` points at that tempdir instead of `env!("CARGO_MANIFEST_DIR")`
+
+**tests/checks (≥3 new + 4 migrated; LC_ALL=C):**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests db::agent_runs
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests claude_cli::runner
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -n "sandbox::git_checkpoint" apps/desktop/src-tauri/src/claude_cli/runner.rs
+grep -n "sandbox::capture_diff"   apps/desktop/src-tauri/src/claude_cli/runner.rs
+grep -n "workspace_changes::insert" apps/desktop/src-tauri/src/claude_cli/runner.rs
+grep -n "update_checkpoint_sha"   apps/desktop/src-tauri/src/claude_cli/runner.rs
+! grep -nE "OnceLock\s*<\s*(std::sync::)?Mutex<\(\)>\s*>" apps/desktop/src-tauri/src/claude_cli/runner.rs
+```
+
+Required test cases:
+1. **CRUD round-trip (`db/agent_runs.rs` unit)** — seed thread + run; `update_checkpoint_sha(conn, run_id, "deadbeef…")`; `get(conn, run_id).checkpoint_sha == Some("deadbeef…")`. Plus a missing-row test asserting `AppError::NotFound`.
+2. **integration: happy path writes both `checkpoint_sha` AND a `workspace_changes` row** — extend `integration_happy_path` (or add sibling) under `MOZART_WORKTREES_ROOT` + tempdir-repo; assert `agent_runs.checkpoint_sha == Some(_)` AND exactly one `workspace_changes` row exists for the run (mock fixture writes no files → empty diff is expected).
+3. **integration: non-zero exit does NOT write `workspace_changes`** — extend `integration_non_zero_exit_with_stderr` under same setup; `agent_runs.checkpoint_sha == Some(_)` (pre-spawn always runs) AND no `workspace_changes` row for this run (post-exit guarded by `status_str == "done"`).
+
+**notes:** Bundling CRUD + reach-back + four-test migration is intentional — the reach-back is what makes the old `env!("CARGO_MANIFEST_DIR")` seed unsafe (would dirty the working repo's `git status` mid-test). Splitting creates a window where `cargo test` is broken.
+
+**commit:**
+
+---
+
+## [x] S1.5.5 — Step 1.5 final gate (2026-05-10; verification-only, no commit)
+
+- [x] `cargo check` clean
+- [x] `cargo test --tests` — 70 passed, 5 ignored (Step 1.4 ignored carry forward)
+- [x] `cargo clippy --all-targets -- -D warnings` clean
+- [x] `pnpm nx run-many -t lint` — 62 projects pass
+- [x] Naming Lock: 0 hits
+- [x] All grep assertions present (canonical-root msg, checkpoint msg, runner reach-back call sites)
+- [x] No `--no-verify` in `sandbox/`; no `OnceLock<Mutex<()>>` in `runner.rs`
+
+**dependencies:** S1.5.1, S1.5.2, S1.5.3, S1.5.4
+
+**allowed_files:** none (verification-only)
+
+**forbidden_files:** all source — this atom only runs commands
+
+**acceptance:**
+- [ ] `cargo check` clean
+- [ ] `cargo test --tests` all pass — existing tests + new sandbox tests (~13: checkpoint ≥3, diff ≥4, reset ≥5) + runner extensions (≥3 new); the four migrated integration tests still pass under tempdir-repo seed
+- [ ] `cargo clippy --all-targets -- -D warnings` clean
+- [ ] `pnpm nx run-many -t typecheck` clean
+- [ ] No files touched outside `apps/desktop/src-tauri/src/sandbox/**`, `lib.rs`, `db/agent_runs.rs`, `claude_cli/runner.rs`
+- [ ] Naming Lock: `grep -rn "conductor" apps/ libs/ --include="*.rs" --include="*.ts"` returns 0 hits
+- [ ] Canonical-root assertion present in `reset.rs`; locked checkpoint message present; runner reach-back call-sites present; no `--no-verify` in `sandbox/`
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+pnpm nx run-many -t typecheck
+
+# Naming Lock
+grep -rn "conductor" apps/ libs/ --include="*.rs" --include="*.ts" 2>/dev/null
+
+# Step-1.5-specific assertions
+grep -n "not under canonical worktrees root" apps/desktop/src-tauri/src/sandbox/reset.rs
+grep -n "checkpoint before run"               apps/desktop/src-tauri/src/sandbox/checkpoint.rs
+grep -n "sandbox::git_checkpoint"             apps/desktop/src-tauri/src/claude_cli/runner.rs
+grep -n "sandbox::capture_diff"               apps/desktop/src-tauri/src/claude_cli/runner.rs
+grep -n "workspace_changes::insert"           apps/desktop/src-tauri/src/claude_cli/runner.rs
+grep -n "update_checkpoint_sha"               apps/desktop/src-tauri/src/claude_cli/runner.rs
+! grep -rn "no-verify" apps/desktop/src-tauri/src/sandbox/
+
+# Boundary
+git diff --name-only $(git merge-base HEAD main)..HEAD | \
+  grep -vE '^(apps/desktop/src-tauri/src/sandbox/|apps/desktop/src-tauri/src/lib\.rs$|apps/desktop/src-tauri/src/db/agent_runs\.rs$|apps/desktop/src-tauri/src/claude_cli/runner\.rs$|TASKS\.md$|tmp/)' && \
+  echo "OUT-OF-SCOPE FILE TOUCHED" && exit 1 || true
+```
+
+**notes:**
+
+**commit:**
