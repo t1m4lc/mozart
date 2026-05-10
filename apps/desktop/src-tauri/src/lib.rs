@@ -1,3 +1,6 @@
+pub mod db;
+pub mod error;
+
 #[cfg(test)]
 mod spikes;
 
