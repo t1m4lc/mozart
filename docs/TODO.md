@@ -85,12 +85,12 @@ For each step the **atomic** breakdown lives in `specs/plan-v0.0.1-2.md` § 6. S
 - [x] **S1.5.2** — `capture_diff(workspace_path, base_sha) -> DiffSummary` (2026-05-10)
 - [x] **S1.5.3** — `discard_changes_to(workspace_path, sha)` with path-under-canonical-root guard (2026-05-10)
 
-### [ ] Step 1.6 — `worktree.rs` + `branch_name.rs` + `git_query.rs`
+### [x] Step 1.6 — `worktree.rs` + `branch_name.rs` + `git_query.rs` (2026-05-10)
 
-- [ ] **S1.6.1** — `branch_name.rs` slug + `git check-ref-format` gate
-- [ ] **S1.6.2** — `git_query.rs` `validate_repo` (typed `RepoIssue` enum) + `list_branches` + `check_git_available`
-- [ ] **S1.6.3** — `worktree.rs` create / remove / `cleanup_orphans` with **D18 path lock: `~/.mozart/worktrees/{workspace_id}/`**
-- [ ] **S1.6.4** — `workspace_service::create_workspace` orchestrator (validate → Task → Workspace → worktree → Thread, with rollback)
+- [x] **S1.6.1** — `branch_name.rs` slug + `git check-ref-format` gate (2026-05-10)
+- [x] **S1.6.2** — `git_query.rs` `validate_repo` (typed `RepoIssue` enum) + `list_branches` + `check_git_available` (2026-05-10)
+- [x] **S1.6.3** — `worktree.rs` create / remove / `cleanup_orphans` with **D18 path lock: `~/.mozart/worktrees/{workspace_id}/`** (2026-05-10)
+- [x] **S1.6.4** — `workspace_service::create_workspace` orchestrator (validate → Task → Workspace → worktree → Thread, with rollback) (2026-05-10)
 
 ### [ ] Step 1.7 — Tauri commands wiring + tauri-specta TS bindings
 
