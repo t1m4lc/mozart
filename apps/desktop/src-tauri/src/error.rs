@@ -21,7 +21,10 @@ pub enum AppError {
     #[error("validation error: {0}")]
     Validation(String),
 
-    // Future: GitCmd (Step 1.6), Pty (Step 1.5), AgentSpawn (Step 1.4)
+    #[error("agent spawn failed: {0}")]
+    AgentSpawn(String),
+
+    // Future: GitCmd (Step 1.6), Pty (Step 1.5)
 }
 
 impl From<rusqlite::Error> for AppError {

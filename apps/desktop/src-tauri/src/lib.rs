@@ -1,3 +1,4 @@
+pub mod claude_cli;
 pub mod db;
 pub mod error;
 

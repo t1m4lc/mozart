@@ -226,7 +226,7 @@ cd /home/timothy/accelerate_growth_with/mozart && pnpm lint
 
 ---
 
-## [ ] S1.4.1 — StreamEvent enum + parse_line
+## [x] S1.4.1 — StreamEvent enum + parse_line
 
 **dependencies:** S1.3.8 (DB layer)
 **parallelizable:** true (with S1.4.2)
