@@ -5,7 +5,7 @@ Map for AI agents. Read this first, every session. Pair with `CLAUDE.md` for dep
 ## Project
 
 **Mozart** (`mozart.build`) — desktop manager for the Claude Code CLI. Three-panel dark IDE.
-Current sprint: **v0.0.1**. Specs: `docs/PLAN-v0.0.1.md` · Design: `docs/DESIGN.md` · Milestones (M1–M13): `docs/mozart-implementation-flow.md`
+Current sprint: **v0.0.1**. Specs: `docs/PLAN-v0.0.1.md` · Design: `docs/DESIGN.md` · Status: `docs/specs/plan-v0.0.1-2.md` · TODO: `docs/TODO.md`
 
 ## Stack
 
@@ -41,6 +41,7 @@ cargo test -p desktop           # Rust (from apps/desktop/src-tauri)
 - `libs/ui/*` — **never modify** · use existing Spartan components, check the list in `CLAUDE.md`
 - `classes()` from `@mozart/ui/utils` for dynamic class merging — never mix with plain `[class]`
 - Tauri: `async fn` commands only · permissions in `src-tauri/capabilities/` · no hand-written TS bindings
+- Concept vocabulary: see `CLAUDE.md` § "Product vocabulary"
 
 ## The One-Way Rule
 
@@ -81,5 +82,5 @@ Never proceed past a failing gate. Stuck > 30 min → back to `/discussion`.
 | Architecture & patterns | `CLAUDE.md`                          |
 | v0.0.1 specs            | `docs/PLAN-v0.0.1.md`                |
 | Visual / token spec     | `docs/DESIGN.md`                     |
-| Atomic milestones       | `docs/mozart-implementation-flow.md` |
+| Step backlog            | `docs/specs/plan-v0.0.1-2.md` + `TASKS.md` |
 | Competitor research     | `docs/competitors/`                  |

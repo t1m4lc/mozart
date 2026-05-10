@@ -17,6 +17,49 @@ pnpm nx run-many -t test        # all tests
 pnpm nx sync                    # TS project references
 ```
 
+## Product vocabulary
+
+Source of truth: `docs/specs/plan-v0.0.1-2.md` § 3 (canonical model). Vision narrative: `docs/specs/mozart-worktree-swarm-design-synthese.md`.
+
+| # | Term | Lives as (DB) | Shown in UI as | Hidden from UI? |
+|---|---|---|---|---|
+| 1 | **Project** | `repos` row | "Project" or "Repository" (synonyms) | no |
+| 2 | **Task** | `tasks` row | "Task" — the user-stated intent | no |
+| 3 | **Workspace** | `workspaces` row | "Workspace" — isolated execution attempt + reviewable diff | no |
+| 4 | **Thread** | `threads` row | "Chat" — v0.0.1 implicit (1:1 with workspace, no UI surface yet) | mostly hidden |
+| 5 | **Agent Run** | `agent_runs` row | "Run" / conversation turn | no |
+| 6 | **Workspace Changes** | `workspace_changes` row | "Diff" / "Changes" | no |
+| 7 | **Candidate Solution** | derived view: workspaces in same task_id × latest workspace_changes | "Candidate" — appears at v0.1, hidden in v0.0.1 | partial |
+| 8 | **Merge Decision** | manual buttons in v0.0.1; future entity in v0.1 | "Commit / Discard / Merge / Archive" | no |
+| — | **Working tree** | `workspaces.worktree_path` column | — | **yes, never** |
+| — | **Branch** | `workspaces.branch_name` / `workspaces.base_branch` | shown only as a small subtitle on a Workspace card; never user-editable in v0.0.1 | partial |
+
+**Forbidden in user-visible strings (UI labels, error toasts, copy):** `worktree`, `branch_name`, `base_branch`, `worktree_path`, `agent/wip-…`, `detached HEAD`, `git worktree add`, `HEAD~1`, `checkpoint sha`.
+
+**Allowed in dev-only strings (logs, inline diagnostic banners marked Dev):** all of the above. The check is on what reaches users in Onboarding / Settings / Dialog / Toast surfaces, not on logs.
+
+ASCII data flow:
+
+```
+Project (repos)
+   │
+   └── Task (tasks)                  ← user intent
+         │
+         └── Workspace (workspaces)  ← isolated execution attempt
+               │   └─ branch_name
+               │   └─ base_branch
+               │   └─ worktree_path  (internal)
+               │
+               └── Thread (threads)            ← v0.0.1: 1:1
+                     │
+                     └── Agent Run (agent_runs)
+                           │
+                           ├── Agent Events (agent_events)         ← stream log (replay/debug)
+                           └── Workspace Changes (workspace_changes) ← diff snapshot per run
+
+(Candidate Solution at v0.1 = group of Workspaces sharing a task_id, ranked by their workspace_changes.)
+```
+
 ## Layout
 
 ```
