@@ -672,3 +672,311 @@ git diff --name-only $(git merge-base HEAD main)..HEAD | \
 **notes:**
 
 **commit:**
+
+---
+
+# Step 1.6 — `branch_name.rs` + `git_query.rs` + `worktree.rs` + `workspace_service.rs`
+
+**Source plan:** `tmp/ready-plans/06-step-1-6-worktree-branch-query.md` (Confidence 9/10)
+**Atomized:** 2026-05-10. Six atoms (S1.6.1–S1.6.6). Critical path: S1.6.1 → S1.6.2 → S1.6.4 → S1.6.5 → S1.6.6. S1.6.2 ∥ S1.6.3 (both depend only on S1.6.1).
+
+---
+
+## [x] S1.6.1 — `AppError::GitCmd` + `sandbox::run_git` visibility bump + `run_git_capture` + sandbox-test variant updates (commit: bundled M1.6)
+
+**dependencies:** S1.5.5
+**parallelizable:** false (lands first; S1.6.2 / S1.6.3 / S1.6.4 / S1.6.5 all consume the new `GitCmd` variant and the `pub(crate)` `run_git`)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/error.rs` (add `GitCmd(String)`; remove the trailing reservation comment at `:27`)
+- `apps/desktop/src-tauri/src/sandbox/mod.rs` (bump `run_git` to `pub(crate)`; add `pub(crate) async fn run_git_capture`; change `run_git`'s non-zero-exit mapping from `Validation` to `GitCmd`)
+- `apps/desktop/src-tauri/src/sandbox/checkpoint.rs` (test update: `propagates_stderr_on_failure_against_non_repo` asserts `GitCmd` instead of `Validation`)
+- `apps/desktop/src-tauri/src/sandbox/diff.rs` (test update: "non-existent base sha" test asserts `GitCmd`)
+- `apps/desktop/src-tauri/src/sandbox/reset.rs` (test update: "non-existent sha rejection" test asserts `GitCmd`; the path-validation rejection test stays on `Validation`)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/branch_name.rs` (S1.6.2)
+- `apps/desktop/src-tauri/src/git_query.rs` (S1.6.3)
+- `apps/desktop/src-tauri/src/worktree.rs` (S1.6.4)
+- `apps/desktop/src-tauri/src/workspace_service.rs` (S1.6.5)
+- `apps/desktop/src-tauri/src/lib.rs` (no module decl additions in this atom)
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/src/db/**`
+- `apps/desktop/src-tauri/src/claude_cli/**`
+- everything outside `error.rs` and `sandbox/`
+
+**acceptance:**
+- [ ] `AppError::GitCmd(String)` variant added with `#[error("git command failed: {0}")]`; trailing reservation comment removed
+- [ ] `sandbox::run_git` is `pub(crate)` (was `pub(super)`); non-zero-exit mapping returns `AppError::GitCmd(format!("git {args:?} failed: {err}"))`
+- [ ] `sandbox::run_git_capture(cwd, args) -> Result<std::process::Output, AppError>` added; only errors on spawn/wait failure (`AppError::Io`)
+- [ ] Three sandbox tests updated to assert `AppError::GitCmd(_)` instead of `AppError::Validation(_)`; substring matchers (lowercased `"not a git repository"` / `"bad object"` / `"unknown revision"` / `"could not parse object"`) remain unchanged
+- [ ] `cargo test --tests sandbox` green; `cargo clippy --all-targets -- -D warnings` clean
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests sandbox
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -n "GitCmd" apps/desktop/src-tauri/src/error.rs
+grep -n "pub(crate) async fn run_git" apps/desktop/src-tauri/src/sandbox/mod.rs
+grep -n "pub(crate) async fn run_git_capture" apps/desktop/src-tauri/src/sandbox/mod.rs
+! grep -n "pub(super) async fn run_git" apps/desktop/src-tauri/src/sandbox/mod.rs
+```
+
+**notes:**
+
+**commit:**
+
+---
+
+## [x] S1.6.2 — `branch_name.rs` (`make_initial_branch`, `make_task_branch`, `slugify`) (commit: bundled M1.6)
+
+**dependencies:** S1.6.1
+**parallelizable:** true (with S1.6.3)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/branch_name.rs` (new)
+- `apps/desktop/src-tauri/src/lib.rs` (add `pub mod branch_name;`)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/git_query.rs` (S1.6.3)
+- `apps/desktop/src-tauri/src/worktree.rs` (S1.6.4)
+- `apps/desktop/src-tauri/src/workspace_service.rs` (S1.6.5)
+- `apps/desktop/src-tauri/src/error.rs`
+- `apps/desktop/src-tauri/src/sandbox/**`
+- `apps/desktop/src-tauri/Cargo.toml` (no new deps — slugifier is hand-rolled)
+- `apps/desktop/src-tauri/src/db/**`
+
+**acceptance:**
+- [ ] `pub fn make_initial_branch(short_id: &str) -> String` returns `format!("agent/wip-{short_id}")`
+- [ ] `pub async fn make_task_branch(title: &str, short_id: &str) -> String` per D1.6-A: slugify → if empty fall back to `make_initial_branch` → format `agent/{slug}` → run `git check-ref-format refs/heads/<candidate>` (D1.6-B); on rejection `log::warn!` + fall back to `make_initial_branch`
+- [ ] Private `fn slugify(title: &str) -> String` per D1.6-A: lowercase, replace non-`[a-z0-9]` with `-`, collapse runs, trim leading/trailing `-`, truncate to 40 chars + retrim trailing `-`
+- [ ] `#[cfg(test)] pub(crate) async fn validate_branch_via_git(name: &str) -> bool` test seam wraps `run_git(check-ref-format)` for the 6th test case
+- [ ] No `tracing::` use anywhere in the file (D1.6 non-goal)
+
+**tests/checks (≥6; integration tests gate on `crate::sandbox::git_available()` + `eprintln!` skip):**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests branch_name
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -n "agent/wip-" apps/desktop/src-tauri/src/branch_name.rs
+! grep -n "tracing::" apps/desktop/src-tauri/src/branch_name.rs
+```
+
+Required test cases:
+1. **happy slug** — `make_task_branch("Add OAuth login", "abcd1234").await` → `"agent/add-oauth-login"`.
+2. **all-special-char title** — `make_task_branch("!!! @@@ ###", "abcd1234").await` → `"agent/wip-abcd1234"`.
+3. **200-char title (truncated)** — input `"a".repeat(200)`; assert returned branch is `"agent/" + "a"*40` (slug exactly 40 chars).
+4. **non-ASCII title** — `make_task_branch("Café noir", "abcd1234").await` → `"agent/caf-noir"`.
+5. **leading-hyphen edge** — `make_task_branch("---hello", "abcd1234").await` → `"agent/hello"`.
+6. **`git check-ref-format` reject** — call `validate_branch_via_git("agent/.invalid").await`; assert `false`.
+
+**notes:**
+
+**commit:**
+
+---
+
+## [x] S1.6.3 — `git_query.rs` (`RepoIssue` + `validate_repo` + `list_branches` + `check_git_available`) (commit: bundled M1.6)
+
+**dependencies:** S1.6.1
+**parallelizable:** true (with S1.6.2)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/git_query.rs` (new)
+- `apps/desktop/src-tauri/src/lib.rs` (add `pub mod git_query;`)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/branch_name.rs` (S1.6.2)
+- `apps/desktop/src-tauri/src/worktree.rs` (S1.6.4)
+- `apps/desktop/src-tauri/src/workspace_service.rs` (S1.6.5)
+- `apps/desktop/src-tauri/src/error.rs`
+- `apps/desktop/src-tauri/src/sandbox/**`
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/src/db/**`
+
+**acceptance:**
+- [ ] `pub enum RepoIssue { NestedRepo, DetachedHead, NotARepo, LfsRequired, UnsupportedSubmodules }` derives `Debug, Clone, Serialize, specta::Type`; `#[serde(tag = "kind", rename_all = "snake_case")]`. NO `Deserialize`, NO `PartialEq` (D1.6-C)
+- [ ] `pub async fn validate_repo(path: &Path) -> Result<(), RepoIssue>` per pseudocode §6: dispatch order NotARepo → NestedRepo (depth-1, D1.6-G) → UnsupportedSubmodules (`.gitmodules` non-empty) → DetachedHead (`git symbolic-ref --quiet HEAD`) → LfsRequired (best-effort if `git lfs --version` succeeds)
+- [ ] `pub async fn list_branches(path: &Path) -> Result<Vec<String>, AppError>` runs `git for-each-ref --format=%(refname:short) refs/heads/` via `sandbox::run_git`
+- [ ] `pub fn check_git_available() -> bool` (sync; `std::process::Command`)
+- [ ] Private `fn check_lfs_available() -> bool` (best-effort LFS probe)
+- [ ] No `tracing::` use anywhere in the file
+
+**tests/checks (≥6, integration tests gate on `crate::sandbox::git_available()`):**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests git_query
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -n "pub enum RepoIssue" apps/desktop/src-tauri/src/git_query.rs
+! grep -n "tracing::" apps/desktop/src-tauri/src/git_query.rs
+```
+
+Required test cases:
+1. **happy-path repo** — tempdir-repo (init + identity + initial commit) → `validate_repo` returns `Ok(())`.
+2. **nested-repo refuse** — repo with a subdir that is itself a repo → `Err(RepoIssue::NestedRepo)`.
+3. **detached-HEAD refuse** — `git checkout --detach HEAD` → `Err(RepoIssue::DetachedHead)`.
+4. **missing `.git` refuse** — empty tempdir → `Err(RepoIssue::NotARepo)`.
+5. **`.gitmodules` present refuse** — non-empty file → `Err(RepoIssue::UnsupportedSubmodules)`.
+6. **`list_branches` happy** — repo with two branches → returned `Vec<String>` contains both.
+7. **`check_git_available` true** — assert `true` on hosts with git (skip-or-run via standard pattern).
+
+**notes:**
+
+**commit:**
+
+---
+
+## [x] S1.6.4 — `worktree.rs` (`WorktreeHandle` + `create` + `remove` + `cleanup_orphans`) (commit: bundled M1.6)
+
+**dependencies:** S1.6.1, S1.6.2
+**parallelizable:** false
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/worktree.rs` (new)
+- `apps/desktop/src-tauri/src/lib.rs` (add `pub mod worktree;`)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/branch_name.rs` (consume only)
+- `apps/desktop/src-tauri/src/git_query.rs` (S1.6.3)
+- `apps/desktop/src-tauri/src/workspace_service.rs` (S1.6.5)
+- `apps/desktop/src-tauri/src/error.rs`
+- `apps/desktop/src-tauri/src/sandbox/**` (consume only via `pub(crate)`)
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/src/db/**` (consume only — `DbState`, `workspaces::list_all`)
+
+**acceptance:**
+- [ ] `pub struct WorktreeHandle { pub workspace_id: String, pub worktree_path: PathBuf, pub branch_name: String }` with `#[derive(Debug, Clone)]`
+- [ ] `pub async fn create(repo_path: &Path, base_branch: &str, workspace_id: &str) -> Result<WorktreeHandle, AppError>` per D1.6-H: empty `base_branch` → `Validation`; derive `short_id` as `&workspace_id[..8.min(workspace_id.len())]`; branch = `make_initial_branch(short_id)`; path = `canonical_worktrees_root()?.join(workspace_id)`; ensure parent dir exists; run `git worktree add -b <branch> <path> <base_branch>` via `run_git`
+- [ ] `pub async fn remove(repo_path: &Path, workspace_id: &str) -> Result<(), AppError>` per D1.6-I: try `git worktree remove --force <path>` (swallow errors); if path still exists, `std::fs::remove_dir_all`; idempotent
+- [ ] `pub async fn cleanup_orphans(db: &DbState) -> Result<usize, AppError>` per D1.6-F: list dirs under `canonical_worktrees_root()`; remove dirs whose name is NOT in `workspaces::list_all()`; return count of successful `remove_dir_all` calls
+- [ ] No `tracing::` anywhere in the file
+
+**tests/checks (≥6, env-mutating tests acquire `crate::sandbox::test_env_gate().lock()`; integration tests gate on `crate::sandbox::git_available()`):**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests worktree
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -n '"worktree", "add"' apps/desktop/src-tauri/src/worktree.rs
+! grep -n "tracing::" apps/desktop/src-tauri/src/worktree.rs
+```
+
+Required test cases:
+1. **`create` happy path** — tempdir repo + `MOZART_WORKTREES_ROOT` → `WorktreeHandle.worktree_path` exists; `.git` inside is a *file* (gitfile pointer); `branch_name == "agent/wip-<8-char-prefix>"`.
+2. **`create` empty base_branch** — `Err(AppError::Validation(_))` with msg containing `"base_branch is empty"`.
+3. **`create` invalid base_branch** — non-existent branch; `Err(AppError::GitCmd(_))` with stderr substring (lowercased) containing `"invalid reference"` OR `"not a valid"` OR `"unknown revision"` OR `"bad object"`.
+4. **`remove` happy path** — create then remove; assert dir gone.
+5. **`remove` idempotent** — second call also `Ok(())`.
+6. **`cleanup_orphans` removes disk-without-DB** — `mkdir <root>/orphan-id`; in-memory DB has zero workspace rows; `cleanup_orphans(&db)` returns `1` and the dir is gone.
+7. **`cleanup_orphans` preserves known dirs** — `mkdir <root>/keep-id`; seed Repo + Task FK parents (per the fixture pattern at `db/workspaces.rs::tests:106-112`), then insert workspace row with `workspace_id="keep-id"`; assert `cleanup_orphans` returns `0` and dir still exists.
+
+**notes:**
+
+**commit:**
+
+---
+
+## [x] S1.6.5 — `workspace_service::create_workspace` orchestrator + `db/workspaces::update_worktree_path` CRUD (commit: bundled M1.6)
+
+**dependencies:** S1.6.3, S1.6.4
+**parallelizable:** false
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/workspace_service.rs` (new — orchestrator)
+- `apps/desktop/src-tauri/src/db/workspaces.rs` (add `pub fn update_worktree_path` + 2 tests)
+- `apps/desktop/src-tauri/src/lib.rs` (add `pub mod workspace_service;`)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/branch_name.rs` (consume only)
+- `apps/desktop/src-tauri/src/git_query.rs` (consume only)
+- `apps/desktop/src-tauri/src/worktree.rs` (consume only)
+- `apps/desktop/src-tauri/src/error.rs`
+- `apps/desktop/src-tauri/src/sandbox/**`
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/migrations/**`
+- `apps/desktop/src-tauri/src/db/**` except `workspaces.rs`
+
+**acceptance:**
+- [ ] `pub fn update_worktree_path(conn: &Connection, workspace_id: &str, path: &str) -> Result<(), AppError>` added in `db/workspaces.rs` (modeled on `update_branch_name`); returns `AppError::NotFound` if 0 rows updated
+- [ ] `pub async fn create_workspace(db: &DbState, repo_id: &str, repo_path: &Path, base_branch: &str, task_text: &str) -> Result<Workspace, AppError>` per pseudocode §6 + rollback ladder D1.6-L
+- [ ] `RepoIssue` → `AppError::Validation(format!("repo not usable: {issue:?}"))` (D1.6-M)
+- [ ] Title derivation: first line of `task_text`, truncated to 80 chars; full `task_text` preserved in `Task.task_text`
+- [ ] No `tracing::` anywhere
+
+**tests/checks (≥3 in `workspace_service.rs` + 2 CRUD in `db/workspaces.rs`; env-mutating tests acquire `crate::sandbox::test_env_gate().lock()`; integration tests gate on `crate::sandbox::git_available()`):**
+```sh
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests workspace_service db::workspaces
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -n "pub async fn create_workspace" apps/desktop/src-tauri/src/workspace_service.rs
+grep -n "pub fn update_worktree_path" apps/desktop/src-tauri/src/db/workspaces.rs
+! grep -n "tracing::" apps/desktop/src-tauri/src/workspace_service.rs
+```
+
+Required test cases:
+1. **CRUD round-trip** — `update_worktree_path(conn, ws_id, "/tmp/foo")`; `get(conn, ws_id).worktree_path == "/tmp/foo"`.
+2. **CRUD missing row** — `update_worktree_path(conn, "no-such-id", "/x")` → `Err(AppError::NotFound)`.
+3. **orchestrator happy path** — in-memory DB seeded with Repo; tempdir-repo for `repo_path`; `MOZART_WORKTREES_ROOT` → tempdir; call `create_workspace(db, repo_id, repo_path, "main", "Add OAuth\nfull body")`; assert `Workspace.status == "ready"`, `branch_name == "agent/wip-<8>"`, `worktree_path` non-empty; `tasks` row title `"Add OAuth"` + full task_text preserved; thread row exists.
+4. **orchestrator validation refuse** — non-repo `repo_path`; `Err(AppError::Validation(_))` with msg containing `"repo not usable"`; no `tasks` / `workspaces` rows inserted.
+5. **orchestrator mid-step rollback** — non-existent `base_branch`; assert `Err(_)`; workspace row exists with `deletion_intent=1`; no thread row exists.
+
+**notes:** S1.6.5 cross-cuts `db/workspaces.rs` to add `update_worktree_path`. Bundling CRUD + orchestrator is intentional — the orchestrator is the only consumer of the new CRUD.
+
+**commit:**
+
+---
+
+## [x] S1.6.6 — Step 1.6 final gate (2026-05-10; verification-only, no commit)
+
+- [x] `cargo check` clean
+- [x] `cargo test --tests` — 96 passed, 5 ignored (Step 1.4 spike carry-forward)
+- [x] `cargo clippy --all-targets -- -D warnings` clean
+- [x] `pnpm nx run-many -t typecheck` — no tasks ran (no typecheck targets configured; no-op smoke)
+- [x] Naming Lock: 0 hits
+- [x] All grep assertions present (`GitCmd`, `agent/wip-`, `pub enum RepoIssue`, `"worktree", "add"`, `pub async fn create_workspace`, `pub fn update_worktree_path`)
+- [x] `tracing::` introduced nowhere in the four new files
+
+**dependencies:** S1.6.1, S1.6.2, S1.6.3, S1.6.4, S1.6.5
+
+**allowed_files:** none (verification-only)
+
+**forbidden_files:** all source — this atom only runs commands
+
+**acceptance:**
+- [ ] `cargo check` clean
+- [ ] `cargo test --tests` all pass — 70 pre-existing + ~20 new across atoms 1–5
+- [ ] `cargo clippy --all-targets -- -D warnings` clean
+- [ ] `pnpm nx run-many -t typecheck` clean
+- [ ] No files touched outside `error.rs`, `sandbox/**`, `branch_name.rs`, `git_query.rs`, `worktree.rs`, `workspace_service.rs`, `db/workspaces.rs`, `lib.rs`
+- [ ] Naming Lock: `grep -rn "conductor" apps/ libs/ --include="*.rs" --include="*.ts"` returns 0 hits
+- [ ] Step-1.6-specific assertions all present
+- [ ] `tracing::` introduced nowhere in the four new files
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+pnpm nx run-many -t typecheck
+
+# Naming Lock
+grep -rn "conductor" apps/ libs/ --include="*.rs" --include="*.ts" 2>/dev/null
+
+# Step-1.6 assertions
+grep -n "GitCmd" apps/desktop/src-tauri/src/error.rs
+grep -n "agent/wip-" apps/desktop/src-tauri/src/branch_name.rs
+grep -n "pub enum RepoIssue" apps/desktop/src-tauri/src/git_query.rs
+grep -n '"worktree", "add"' apps/desktop/src-tauri/src/worktree.rs
+grep -n "pub async fn create_workspace" apps/desktop/src-tauri/src/workspace_service.rs
+grep -n "pub fn update_worktree_path" apps/desktop/src-tauri/src/db/workspaces.rs
+
+# tracing forbidden in the four new files
+! grep -rn "tracing::" apps/desktop/src-tauri/src/branch_name.rs \
+                       apps/desktop/src-tauri/src/git_query.rs \
+                       apps/desktop/src-tauri/src/worktree.rs \
+                       apps/desktop/src-tauri/src/workspace_service.rs
+
+# Boundary
+git diff --name-only $(git merge-base HEAD main)..HEAD | \
+  grep -vE '^(apps/desktop/src-tauri/src/(branch_name|git_query|worktree|workspace_service|error|lib)\.rs$|apps/desktop/src-tauri/src/sandbox/|apps/desktop/src-tauri/src/db/workspaces\.rs$|TASKS\.md$|tmp/|docs/)' && \
+  echo "OUT-OF-SCOPE FILE TOUCHED" && exit 1 || true
+```
+
+**notes:**
+
+**commit:**

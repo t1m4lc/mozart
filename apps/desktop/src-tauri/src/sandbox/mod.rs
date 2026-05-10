@@ -14,7 +14,7 @@
 //! - **D1.5-K** — `run_git` is the single source of truth for git
 //!   invocation + stderr-passthrough error mapping. Spawn/wait failures
 //!   become `AppError::Io(format!("git {args:?}: {e}"))`; non-zero exits
-//!   become `AppError::Validation(format!("git {args:?} failed: {stderr}"))`.
+//!   become `AppError::GitCmd(format!("git {args:?} failed: {stderr}"))`.
 //! - **D1.5-L** — `test_env_gate` is a single shared `OnceLock<Mutex<()>>`
 //!   that all sandbox tests AND (post S1.5.4) the runner integration
 //!   tests acquire before mutating `MOZART_*` env vars.
@@ -54,22 +54,31 @@ pub(crate) fn canonical_worktrees_root() -> Result<PathBuf, AppError> {
 /// Single source of truth for git invocation + error mapping (D1.5-K).
 ///
 /// Returns the captured stdout as a `String` on success. Spawn / wait
-/// failure → `AppError::Io`. Non-zero exit → `AppError::Validation`
+/// failure → `AppError::Io`. Non-zero exit → `AppError::GitCmd`
 /// carrying `"git <args> failed: <stderr>"` (stderr trimmed).
-pub(super) async fn run_git(cwd: &Path, args: &[&str]) -> Result<String, AppError> {
-    let out = Command::new("git")
+pub(crate) async fn run_git(cwd: &Path, args: &[&str]) -> Result<String, AppError> {
+    let out = run_git_capture(cwd, args).await?;
+    if !out.status.success() {
+        let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        return Err(AppError::GitCmd(format!("git {args:?} failed: {err}")));
+    }
+    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// Lower-level git invocation that returns the raw `Output`. Only errors
+/// on spawn / wait failure (`AppError::Io`); non-zero exits are returned
+/// to the caller for inspection. Useful when callers need to distinguish
+/// expected failure modes (e.g. ref-existence probes) from real errors.
+pub(crate) async fn run_git_capture(
+    cwd: &Path,
+    args: &[&str],
+) -> Result<std::process::Output, AppError> {
+    Command::new("git")
         .args(args)
         .current_dir(cwd)
         .output()
         .await
-        .map_err(|e| AppError::Io(format!("git {args:?}: {e}")))?;
-    if !out.status.success() {
-        let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
-        return Err(AppError::Validation(format!(
-            "git {args:?} failed: {err}"
-        )));
-    }
-    Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+        .map_err(|e| AppError::Io(format!("git {args:?}: {e}")))
 }
 
 /// Test-only: skip helper for tests that need a real `git` on PATH.

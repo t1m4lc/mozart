@@ -14,7 +14,7 @@
 //!   errors. `git diff` exits 0 with empty stdout when base == HEAD.
 //! - **D1.5-K** — both git invocations route through `super::run_git` so
 //!   spawn failures map to `AppError::Io` and non-zero exits map to
-//!   `AppError::Validation` with stderr passthrough.
+//!   `AppError::GitCmd` with stderr passthrough.
 
 use std::path::Path;
 
@@ -39,7 +39,7 @@ pub struct DiffSummary {
 /// Compute a `DiffSummary` between `base_sha` and `HEAD` inside
 /// `workspace_path`. Empty diff → all zeros + empty string (D1.5-G).
 /// Spawn failure → `AppError::Io`; non-zero exit (e.g. unknown revision)
-/// → `AppError::Validation` with stderr passthrough.
+/// → `AppError::GitCmd` with stderr passthrough.
 pub async fn capture_diff(
     workspace_path: &Path,
     base_sha: &str,
@@ -271,7 +271,7 @@ mod tests {
             .await
             .expect_err("must fail on unknown revision");
         match err {
-            AppError::Validation(msg) => {
+            AppError::GitCmd(msg) => {
                 let lower = msg.to_lowercase();
                 // Git's exact phrasing for a 40-hex sha that doesn't exist
                 // is "bad object <sha>"; for non-hex refs it's "unknown
@@ -284,7 +284,7 @@ mod tests {
                     "expected stderr to mention unknown/bad revision or bad object, got: {msg}"
                 );
             }
-            other => panic!("expected AppError::Validation, got {other:?}"),
+            other => panic!("expected AppError::GitCmd, got {other:?}"),
         }
     }
 }

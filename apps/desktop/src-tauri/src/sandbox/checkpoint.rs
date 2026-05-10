@@ -8,7 +8,7 @@
 //!   rev-parse HEAD`. The `--no-gpg-sign` is essential so a misconfigured
 //!   gpg agent never blocks the run. Identity (`user.email`/`user.name`)
 //!   is the caller's repo's responsibility; if it's missing, `git commit`
-//!   fails with stderr captured into `AppError::Validation` via
+//!   fails with stderr captured into `AppError::GitCmd` via
 //!   `super::run_git`.
 
 use std::path::Path;
@@ -161,14 +161,14 @@ mod tests {
             .await
             .expect_err("must fail on non-repo");
         match err {
-            AppError::Validation(msg) => {
+            AppError::GitCmd(msg) => {
                 let lower = msg.to_lowercase();
                 assert!(
                     lower.contains("not a git repository"),
                     "stderr substring not propagated; got: {msg}"
                 );
             }
-            other => panic!("expected AppError::Validation, got {other:?}"),
+            other => panic!("expected AppError::GitCmd, got {other:?}"),
         }
     }
 }

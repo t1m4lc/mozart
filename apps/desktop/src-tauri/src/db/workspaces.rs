@@ -73,6 +73,17 @@ pub fn update_branch_name(conn: &Connection, workspace_id: &str, branch_name: &s
     Ok(())
 }
 
+pub fn update_worktree_path(conn: &Connection, workspace_id: &str, path: &str) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE workspaces SET worktree_path = ?1 WHERE workspace_id = ?2",
+        params![path, workspace_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("workspace id={workspace_id}")));
+    }
+    Ok(())
+}
+
 pub fn set_deletion_intent(conn: &Connection, workspace_id: &str, intent: bool) -> Result<(), AppError> {
     let n = conn.execute(
         "UPDATE workspaces SET deletion_intent = ?1 WHERE workspace_id = ?2",
@@ -185,6 +196,25 @@ mod tests {
         assert_eq!(get(&conn, &ws.workspace_id).unwrap().deletion_intent, 1);
         set_deletion_intent(&conn, &ws.workspace_id, false).unwrap();
         assert_eq!(get(&conn, &ws.workspace_id).unwrap().deletion_intent, 0);
+    }
+
+    #[test]
+    fn update_worktree_path_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        let ws = make_ws(&task_id, "wp");
+        create(&conn, &ws).unwrap();
+        update_worktree_path(&conn, &ws.workspace_id, "/tmp/foo").unwrap();
+        assert_eq!(get(&conn, &ws.workspace_id).unwrap().worktree_path, "/tmp/foo");
+    }
+
+    #[test]
+    fn update_worktree_path_missing_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let err = update_worktree_path(&conn, "no-such-id", "/x").unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
     }
 
     #[test]

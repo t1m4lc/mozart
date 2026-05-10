@@ -24,7 +24,8 @@ pub enum AppError {
     #[error("agent spawn failed: {0}")]
     AgentSpawn(String),
 
-    // Future: GitCmd (Step 1.6), Pty (Step 1.5)
+    #[error("git command failed: {0}")]
+    GitCmd(String),
 }
 
 impl From<rusqlite::Error> for AppError {

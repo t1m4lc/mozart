@@ -12,7 +12,7 @@
 //!   from being passed in to `git reset --hard`.
 //! - **D1.5-K** — the reset itself is a single `super::run_git` call;
 //!   spawn failure → `AppError::Io`, non-zero exit (e.g. unknown sha) →
-//!   `AppError::Validation` with stderr passthrough.
+//!   `AppError::GitCmd` with stderr passthrough.
 
 use std::path::Path;
 
@@ -225,7 +225,7 @@ mod tests {
             .await
             .expect_err("must fail on unknown revision");
         match err {
-            AppError::Validation(msg) => {
+            AppError::GitCmd(msg) => {
                 let lower = msg.to_lowercase();
                 // `git reset --hard` against a 40-hex sha that doesn't
                 // exist emits "Could not parse object" on modern git;
@@ -241,7 +241,7 @@ mod tests {
                     "expected stderr to mention unknown/bad revision, bad object, or could-not-parse-object, got: {msg}"
                 );
             }
-            other => panic!("expected AppError::Validation, got {other:?}"),
+            other => panic!("expected AppError::GitCmd, got {other:?}"),
         }
 
         restore_root(prev);

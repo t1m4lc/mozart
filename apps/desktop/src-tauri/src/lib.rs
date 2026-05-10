@@ -1,7 +1,11 @@
+pub mod branch_name;
 pub mod claude_cli;
 pub mod db;
 pub mod error;
+pub mod git_query;
 pub mod sandbox;
+pub mod workspace_service;
+pub mod worktree;
 
 #[cfg(test)]
 mod spikes;
