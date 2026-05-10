@@ -17,6 +17,8 @@ pub mod config;
 pub mod models;
 pub mod repos;
 pub mod tasks;
+pub mod threads;
+pub mod workspaces;
 
 /// Embedded migration SQL. Ships with the binary — no filesystem dep at runtime.
 const INIT_SQL: &str = include_str!("../../migrations/001_init.sql");
