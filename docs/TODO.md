@@ -62,8 +62,8 @@ If any gate fails: stop, do not start Step 1.4, return to `/plan-eng-review` wit
 
 Documentation alignment to confirm (one-shot, not recurring):
 
-- [ ] `CLAUDE.md` § "Product vocabulary" exists and matches the canonical 8-term model in `specs/plan-v0.0.1-2.md` § 3. (Addressed by **doc atom F0** — apply before Step 1.7.)
-- [ ] `AGENTS.md` no longer references `docs/mozart-implementation-flow.md` as live; pointer fixed to `docs/specs/plan-v0.0.1-2.md` + `docs/TODO.md`. (Addressed by F0.)
+- [x] `CLAUDE.md` § "Product vocabulary" exists and matches the canonical 8-term model in `specs/plan-v0.0.1-2.md` § 3. (Addressed by **doc atom F0** — applied 2026-05-11, commit 41a951f.)
+- [x] `AGENTS.md` no longer references `docs/mozart-implementation-flow.md` as live; pointer fixed to `docs/specs/plan-v0.0.1-2.md` + `docs/TODO.md`. (Addressed by F0 — applied 2026-05-11, commit 41a951f.)
 - [ ] `docs/test-plan-v0.0.1.md` carries a "superseded by ./timothy-main-eng-review-test-plan-20260509-072442.md" header (D23) — applied this pass; verify by reading the first 5 lines of `docs/test-plan-v0.0.1.md`.
 
 ---
@@ -92,11 +92,11 @@ For each step the **atomic** breakdown lives in `specs/plan-v0.0.1-2.md` § 6. S
 - [x] **S1.6.3** — `worktree.rs` create / remove / `cleanup_orphans` with **D18 path lock: `~/.mozart/worktrees/{workspace_id}/`** (2026-05-10)
 - [x] **S1.6.4** — `workspace_service::create_workspace` orchestrator (validate → Task → Workspace → worktree → Thread, with rollback) (2026-05-10)
 
-### [ ] Step 1.7 — Tauri commands wiring + tauri-specta TS bindings
+### [x] Step 1.7 — Tauri commands wiring + tauri-specta TS bindings (2026-05-11)
 
-- [ ] **S1.7.1** — `commands/mod.rs` skeleton with 9 stubs + `#[specta::specta]` annotations + `tauri::generate_handler!` registration
-- [ ] **S1.7.2** — `build.rs` writes `apps/desktop/src/app/_bindings.ts` (CI gate: regenerate without diff)
-- [ ] **S1.7.3** — Wire each command to its service, remove `unimplemented!()`, smoke-test via Angular service
+- [x] **S1.7.1** — `commands/mod.rs` skeleton with 12 stubs + `#[specta::specta]` annotations + `tauri_specta::collect_commands!` registration (atomized to S1.7.1a + S1.7.1b — 2026-05-11, commits 4a8cfdb, 7856916)
+- [x] **S1.7.2** — `lib.rs` `#[cfg(debug_assertions)]` writes `apps/desktop/src/app/_bindings.ts`; `tests/bindings_export.rs` is the deterministic CI gate (2026-05-11, commit 567073b — runtime export, not build.rs, per Spike D's documented correction)
+- [x] **S1.7.3** — Wired each command to its service via `_impl` split; 12 happy + 1 unhappy tests (2026-05-11, commit c311da5)
 
 ### [ ] Step 1.8 — Angular shell UI
 
@@ -137,7 +137,7 @@ PLAN-v0.0.1.md L555-565 checklist runs through manually. Required before any Pha
 
 These are documented so the next agent does not re-derive them. Allowed files + acceptance criteria live in `specs/plan-v0.0.1-2.md` § 7 (F0–F6).
 
-- [ ] **F0** — Doc-only: lift canonical vocabulary into `CLAUDE.md` + fix `AGENTS.md` pointer. **Apply before Step 1.7.**
+- [x] **F0** — Doc-only: lift canonical vocabulary into `CLAUDE.md` + fix `AGENTS.md` pointer. Applied 2026-05-11, commit 41a951f.
 - [ ] **F1** — Workspace archive state column (`archived_at INTEGER`, additive migration)
 - [ ] **F2** — Multiple threads per workspace (drop UNIQUE, add `threads.title`)
 - [ ] **F3** — Candidate Solution read-only view (`commands/candidates.rs`, no schema migration)

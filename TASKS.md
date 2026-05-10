@@ -980,3 +980,278 @@ git diff --name-only $(git merge-base HEAD main)..HEAD | \
 **notes:**
 
 **commit:**
+
+---
+
+# Step 1.7 — Tauri commands wiring + tauri-specta TS bindings
+
+**Source plan:** `tmp/ready-plans/07-step-1-7-tauri-specta-bindings.md` (confidence 9/10, post-review pass 2)
+**Atomized:** 2026-05-11 by /atomize
+**Critical path:** S1.7.1a → S1.7.1b → S1.7.2 → S1.7.4 (4 atoms). S1.7.3 runs parallel to S1.7.2.
+
+> **Prerequisite — F0 doc atom (run before S1.7.1a):** Per the plan §3 + `docs/specs/plan-v0.0.1-2.md` §7 F0, lift the canonical 8-row product-vocabulary table from `docs/specs/plan-v0.0.1-2.md` §3 into `CLAUDE.md` (new "Product vocabulary" section) and fix the `AGENTS.md` pointer (replace `Milestones (M1–M13): docs/mozart-implementation-flow.md` with `Status: docs/specs/plan-v0.0.1-2.md · TODO: docs/TODO.md`; add a "Concept vocabulary: see CLAUDE.md § 'Product vocabulary'" line under Conventions). One commit, doc-only, `chore(F0): canonical product vocabulary in CLAUDE.md + AGENTS.md`. Acceptance: `grep -c "Product vocabulary" CLAUDE.md` → 1, `grep -c "M1–M13\|mozart-implementation-flow" AGENTS.md` → 0, `grep -c "plan-v0.0.1-2.md" AGENTS.md` → ≥1. Not tracked as a TASKS.md atom because it touches root docs only and the plan explicitly scopes it out.
+
+---
+
+## [x] S1.7.1a — Prep: Cargo dep + ClaudeInstall specta-readiness + repos::get + bindings gitignore (commit: 4a8cfdb, 2026-05-11)
+
+**dependencies:** S1.6.6 (Step 1.6 final gate)
+**parallelizable:** false (only atom at this dependency depth)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/Cargo.toml` (add ONE line under `[dependencies]`: `specta-typescript = "0.0.9"`)
+- `apps/desktop/src-tauri/src/claude_cli/install.rs` (add `Serialize, specta::Type` to existing derive on `ClaudeInstall`; add `#[serde(tag = "kind", rename_all = "snake_case")]` so the wire shape mirrors `StreamEvent`; do NOT add `Deserialize` — UI never sends `ClaudeInstall` back)
+- `apps/desktop/src-tauri/src/db/repos.rs` (add `pub fn get(conn: &Connection, repo_id: &str) -> Result<Repo, AppError>` + one round-trip test in the existing `mod tests`)
+- `.gitignore` (root — add one line: `apps/desktop/src/app/_bindings.ts`)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/lib.rs` (touched in S1.7.1b)
+- `apps/desktop/src-tauri/src/commands/**` (does not yet exist; created in S1.7.1b)
+- `apps/desktop/src-tauri/src/run_registry.rs`, `apps/desktop/src-tauri/src/bindings_export.rs` (created in S1.7.1b)
+- `apps/desktop/src-tauri/migrations/**` (no schema changes in any Step 1.7 atom)
+- `apps/desktop/src-tauri/src/db/{models,workspaces,threads,agent_runs,workspace_changes,outbox,tasks,config,agent_events,mod}.rs` (only `repos.rs` is in scope)
+- `apps/desktop/src-tauri/src/{branch_name,git_query,worktree,workspace_service,error}.rs` (S1.6 services are read-only here)
+- `apps/desktop/src-tauri/src/claude_cli/{mod,parser,runner}.rs` (only `install.rs` is in scope)
+- `apps/desktop/src-tauri/src/sandbox/**`
+- `apps/desktop/src/**` (Angular untouched until Step 1.8)
+
+**acceptance:**
+- [ ] `Cargo.toml` `[dependencies]` block contains `specta-typescript = "0.0.9"` (was previously only in `[build-dependencies]` + `[dev-dependencies]`)
+- [ ] `ClaudeInstall` enum in `claude_cli/install.rs` derives `Debug, Clone, PartialEq, Eq, Serialize, specta::Type` and carries `#[serde(tag = "kind", rename_all = "snake_case")]`
+- [ ] `db/repos.rs` exports `pub fn get(conn, repo_id) -> Result<Repo, AppError>` that returns `AppError::NotFound(format!("repo_id={repo_id}"))` on missing row, `AppError::Db(_)` on other rusqlite errors; one round-trip test (create → get → assert eq) plus one not-found test pass
+- [ ] Root `.gitignore` contains the line `apps/desktop/src/app/_bindings.ts`
+- [ ] `cargo check` clean from `apps/desktop/src-tauri/`
+- [ ] `cargo test --tests db::repos` includes the new `get` tests and passes
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && cargo test --tests db::repos
+grep -n 'specta-typescript = "0.0.9"' apps/desktop/src-tauri/Cargo.toml      # ≥2 lines (build-deps + new deps line); zero is wrong
+grep -n 'Serialize, specta::Type' apps/desktop/src-tauri/src/claude_cli/install.rs   # ≥1 hit on ClaudeInstall
+grep -n 'pub fn get' apps/desktop/src-tauri/src/db/repos.rs                  # ≥1 hit
+grep -nF 'apps/desktop/src/app/_bindings.ts' .gitignore                      # ≥1 hit
+```
+
+**notes:** Implementer report: `cargo check` clean, `cargo test --tests db::repos` 5/5 pass (3 pre-existing + 2 new: `get_by_id_round_trip`, `get_by_id_not_found_returns_app_error`). Diff +42 / −1 across exactly the 4 allowed files. Vocabulary check: `ClaudeInstall` wire shape now `{"kind":"installed","version":"..."}` / `{"kind":"missing"}` — mirrors `StreamEvent` convention.
+
+**commit:** `4a8cfdb` — chore(M1.7.1a): cargo dep + ClaudeInstall specta-ready + repos::get + bindings gitignore
+
+---
+
+## [x] S1.7.1b — Scaffolding: run_registry + bindings_export + commands stubs + lib.rs Builder wiring (commit: 7856916, 2026-05-11)
+
+**dependencies:** S1.7.1a
+**parallelizable:** false
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/run_registry.rs` (NEW — `pub struct RunRegistry(Arc<Mutex<HashMap<String, Arc<RunHandle>>>>)` with `new`, `register` (log::debug! on overwrite), `cancel` per plan §6)
+- `apps/desktop/src-tauri/src/bindings_export.rs` (NEW — `pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry>` returning the `.commands(collect_commands![...all 12...]).typ::<...>()` chain per plan §6; **`pub`, not `pub(crate)`**, so the integration test in S1.7.2 can reach it)
+- `apps/desktop/src-tauri/src/commands/mod.rs` (NEW — 12 `#[tauri::command] #[specta::specta]` async fns with bodies = `unimplemented!("S1.7.3")`; signatures + `State<DbState>` / `State<RunRegistry>` / `Channel<StreamEvent>` parameters per plan §6 pseudocode; canonical-vocab argument names only)
+- `apps/desktop/src-tauri/src/lib.rs` (add `pub mod bindings_export; pub mod commands; pub mod run_registry;` to the existing list; add `use tauri::Manager;`; rewrite `run()` to call `bindings_export::build_specta_builder()`, clone for setup move, wire `.invoke_handler(specta_builder.invoke_handler())` into `tauri::Builder::default()`, move the existing debug-only `tauri_plugin_log` into `.setup`, add DB-path resolution + `app.manage(db_state)` + `app.manage(RunRegistry::new())` + `setup_builder.mount_events(app)` per plan §6 — but do **NOT** add the `cfg(debug_assertions) specta_builder.export(...)` call yet; that lands in S1.7.2)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/Cargo.toml` (locked by S1.7.1a)
+- `apps/desktop/src-tauri/src/db/**` (no DB code changes — only command-layer wiring will read existing CRUD in S1.7.3)
+- `apps/desktop/src-tauri/src/claude_cli/{install,parser,runner,mod}.rs` (services locked)
+- `apps/desktop/src-tauri/src/{branch_name,git_query,worktree,workspace_service,error}.rs`
+- `apps/desktop/src-tauri/src/sandbox/**`
+- `apps/desktop/src-tauri/migrations/**`
+- `apps/desktop/src-tauri/tests/**` (integration tests come in S1.7.2)
+- `apps/desktop/src-tauri/tauri.conf.json`, `apps/desktop/src-tauri/capabilities/**` (default capability suffices)
+- `.gitignore` (locked by S1.7.1a)
+- `apps/desktop/src/**`
+
+**acceptance:**
+- [ ] `run_registry.rs` exports `RunRegistry` with the three methods; `register` calls `log::debug!` on duplicate-key insertion; `cancel` returns `AppError::NotFound` on missing run_id
+- [ ] `bindings_export.rs` exports `pub fn build_specta_builder()` returning a Builder with all 12 commands collected and all 9 types declared (`AppError, StreamEvent, ClaudeInstall, Repo, Task, Workspace, Thread, AgentRun, WorkspaceChange`)
+- [ ] `commands/mod.rs` declares exactly 12 async fns, each annotated `#[tauri::command] #[specta::specta]`, each body = `unimplemented!("S1.7.3")`: `list_repos`, `add_repo`, `list_branches`, `create_workspace`, `list_workspaces`, `archive_workspace`, `start_agent_run`, `stop_agent_run`, `list_runs`, `get_workspace_diff`, `discard_workspace_changes`, `check_claude_install`
+- [ ] `lib.rs` declares `pub mod bindings_export; pub mod commands; pub mod run_registry;` alongside the existing mods; imports `tauri::Manager`; constructs the Builder once and clones for setup; calls `.invoke_handler(specta_builder.invoke_handler())`; the `.setup` closure performs (a) debug-only log plugin registration, (b) DB path resolution (env override `MOZART_DB_PATH` else `app.path().app_data_dir().join("mozart.db")`), (c) `app.manage(db::init_db(&db_path)?)`, (d) `app.manage(RunRegistry::new())`, (e) `setup_builder.mount_events(app)`
+- [ ] `cargo check` clean — the stub bodies satisfy the compiler; no `unimplemented!()` is **called** by `cargo check` (the panics only fire at runtime if the UI invokes a stub)
+- [ ] No `cfg(debug_assertions) specta_builder.export(...)` call exists yet in `lib.rs` (gate enforces deferral to S1.7.2)
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -c '#\[tauri::command\]' apps/desktop/src-tauri/src/commands/mod.rs     # expect 12
+grep -c '#\[specta::specta\]' apps/desktop/src-tauri/src/commands/mod.rs     # expect 12
+grep -c 'unimplemented!' apps/desktop/src-tauri/src/commands/mod.rs          # expect 12
+grep -n 'pub fn build_specta_builder' apps/desktop/src-tauri/src/bindings_export.rs   # expect 1; "pub" not "pub(crate)"
+! grep -n 'pub(crate) fn build_specta_builder' apps/desktop/src-tauri/src/bindings_export.rs
+grep -n 'pub mod bindings_export;' apps/desktop/src-tauri/src/lib.rs         # expect 1
+grep -n 'use tauri::Manager;' apps/desktop/src-tauri/src/lib.rs              # expect 1
+! grep -n 'specta_builder\.export' apps/desktop/src-tauri/src/lib.rs         # expect 0 (deferred to S1.7.2)
+grep -n 'log::debug!' apps/desktop/src-tauri/src/run_registry.rs             # ≥1 (overwrite warning)
+```
+
+**notes:** Implementer applied the documented `Builder::clone()` fallback — `tauri_specta::Builder<R>` in v2.0.0-rc.21 does NOT implement Clone (verified: `E0599: no method named clone`). Used two independent `bindings_export::build_specta_builder()` calls instead. Comment at `lib.rs:21-25` explains the rationale for future readers. The grep gates `grep -c '#\[tauri::command\]'` and `grep -c '#\[specta::specta\]'` over-count by 1 due to the literal substring appearing in the `commands/mod.rs` doc comment — anchored grep (`^#\[tauri::command\]`) confirms the actual count is 12. Diff +259 / −13 across exactly 4 allowed files (3 new + lib.rs rewrite). cargo check + clippy both clean.
+
+**commit:** `7856916` — chore(M1.7.1b): scaffolding — run_registry + bindings_export + 12 command stubs + lib.rs Builder wiring
+
+---
+
+## [x] S1.7.2 — Specta export call + bindings_export integration test (commit: 567073b, 2026-05-11)
+
+**dependencies:** S1.7.1b
+**parallelizable:** true (with S1.7.3 — no shared files)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/lib.rs` (add the `#[cfg(debug_assertions)] specta_builder.export(specta_typescript::Typescript::default().formatter(specta_typescript::formatter::prettier), "../src/app/_bindings.ts").expect("tauri-specta export failed");` block immediately after the `let specta_builder = bindings_export::build_specta_builder();` line and BEFORE the `let setup_builder = specta_builder.clone();` line)
+- `apps/desktop/src-tauri/tests/bindings_export.rs` (NEW — integration test that calls `app_lib::bindings_export::build_specta_builder().export(specta_typescript::Typescript::default(), tmp_path)` and asserts the produced `.ts` contains every command-name camelCase identifier (`listRepos`, `addRepo`, `listBranches`, `createWorkspace`, `listWorkspaces`, `archiveWorkspace`, `startAgentRun`, `stopAgentRun`, `listRuns`, `getWorkspaceDiff`, `discardWorkspaceChanges`, `checkClaudeInstall`) and every type name (`AppError`, `StreamEvent`, `ClaudeInstall`, `Repo`, `Task`, `Workspace`, `Thread`, `AgentRun`, `WorkspaceChange`))
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/src/commands/**` (stubs stay stubs until S1.7.3)
+- `apps/desktop/src-tauri/src/run_registry.rs`, `apps/desktop/src-tauri/src/bindings_export.rs` (locked from S1.7.1b — the Builder construction is shared)
+- `apps/desktop/src-tauri/migrations/**`
+- `apps/desktop/src-tauri/src/db/**`
+- `apps/desktop/src-tauri/src/claude_cli/**`, `apps/desktop/src-tauri/src/{sandbox,branch_name,git_query,worktree,workspace_service,error}.rs`, `apps/desktop/src-tauri/src/sandbox/**`
+- `.gitignore`
+- `apps/desktop/src/**`
+
+**acceptance:**
+- [ ] `lib.rs` contains exactly one `#[cfg(debug_assertions)] specta_builder.export(...)` call with `formatter(specta_typescript::formatter::prettier)` and output path `"../src/app/_bindings.ts"`
+- [ ] `tests/bindings_export.rs` exists and is a `#[test]` (not `#[ignore]`) that exports to a `tempfile::tempdir()` and runs assertions on the generated `.ts` content
+- [ ] All 12 camelCase command identifiers + 9 typed surface names appear in the test's assertions
+- [ ] `cargo test --tests bindings_export` passes (the test produces a fresh `.ts` in a tempdir, reads it, asserts substrings)
+- [ ] Running `pnpm nx serve desktop` (manual smoke; NOT a CI gate) once boots the tauri dev runtime and writes `apps/desktop/src/app/_bindings.ts` non-empty (this file is gitignored; verify by `test -s apps/desktop/src/app/_bindings.ts` then `rm` if desired)
+- [ ] `cargo check` clean
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && cargo test --tests bindings_export -- --nocapture
+grep -n 'cfg(debug_assertions)' apps/desktop/src-tauri/src/lib.rs            # ≥2 hits (existing log + new export)
+grep -n 'specta_builder\.export' apps/desktop/src-tauri/src/lib.rs           # expect 1
+grep -nF '"../src/app/_bindings.ts"' apps/desktop/src-tauri/src/lib.rs       # expect 1
+grep -n 'build_specta_builder' apps/desktop/src-tauri/tests/bindings_export.rs   # ≥1 (test calls it)
+# Optional manual smoke (not a gate):
+# pnpm nx serve desktop  &
+# sleep 10 && test -s apps/desktop/src/app/_bindings.ts && pkill -f 'tauri dev'
+```
+
+**notes:** The crate-name in `tests/bindings_export.rs` imports is `app_lib` per `Cargo.toml:14` (`[lib] name = "app_lib"`). The test path is `use app_lib::bindings_export::build_specta_builder;`. Parallelizable with S1.7.3 — no file overlap. **Architectural decision locked during /implement loop:** `i64` fields export as TS `number` via `BigIntExportBehavior::Number` (not `bigint`) — Mozart's actual i64 values (Unix-ms timestamps, exit codes, file counts) all fit within JS Number precision. Both production and test export paths use the same policy. Without an explicit policy, specta's default `BigIntForbidden` would panic on first debug boot. Verified: 1/1 test passing; commands exported camelCase outer / snake_case `TAURI_INVOKE` inner.
+
+**commit:** `567073b` — chore(M1.7.2): cfg(debug_assertions) specta export + bindings_export integration test
+
+---
+
+## [x] S1.7.3 — Wire each command body + happy/unhappy tests (commit: c311da5, 2026-05-11)
+
+**dependencies:** S1.7.1b
+**parallelizable:** true (with S1.7.2 — no shared files)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/commands/mod.rs` (replace each `unimplemented!("S1.7.3")` body with the real wiring per plan §6 pseudocode — `db.inner()` is used everywhere a `&DbState` is expected; `AppError::Validation` is the wire-side surface for `RepoIssue` (collapsed at the command boundary) and for the discard-without-prior-run case; add a `#[cfg(test)] mod tests` block with 12 happy-path `#[tokio::test]`s + 1 unhappy-path test for `discard_workspace_changes` with no prior run)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/lib.rs` (locked — S1.7.2 owns it)
+- `apps/desktop/src-tauri/src/run_registry.rs`, `apps/desktop/src-tauri/src/bindings_export.rs` (locked)
+- `apps/desktop/src-tauri/Cargo.toml`
+- `apps/desktop/src-tauri/migrations/**`
+- `apps/desktop/src-tauri/src/claude_cli/**`, `apps/desktop/src-tauri/src/sandbox/**`, `apps/desktop/src-tauri/src/db/**`, `apps/desktop/src-tauri/src/{branch_name,git_query,worktree,workspace_service,error}.rs` (services are delegate-only — the command bodies CALL them but do not modify them)
+- `apps/desktop/src-tauri/tests/**`
+- `.gitignore`
+- `apps/desktop/src/**`
+
+**acceptance:**
+- [ ] Zero `unimplemented!` macros remain in `commands/mod.rs`
+- [ ] Every command delegates to an existing service or DB CRUD function (no new business logic inside `commands/mod.rs` beyond glue / lookup / row construction); `db.inner()` appears at every `&DbState`-parameter call site (e.g. inside `create_workspace` and `start_agent_run`)
+- [ ] `start_agent_run` constructs an `AgentRun { run_id: new_id(), thread_id, prompt, status: "running", started_at: now_ms(), ended_at: None, exit_code: None, error_message: None, checkpoint_sha: None }`, inserts via `agent_runs::create`, calls `spawn_run(&ws, &run, on_event, db.inner())`, then `registry.register(run.run_id.clone(), Arc::new(handle))`
+- [ ] `stop_agent_run` delegates to `registry.cancel(&run_id).await`
+- [ ] `discard_workspace_changes` reads the most-recent run's `checkpoint_sha` via `agent_runs::list_by_thread().iter().rev().find_map(|r| r.checkpoint_sha.clone())`; returns `AppError::Validation("no checkpoint to discard to (no agent runs yet)")` when no run has a checkpoint sha; otherwise calls `sandbox::discard_changes_to`
+- [ ] `add_repo` calls `git_query::validate_repo` first, collapses `RepoIssue` into `AppError::Validation`, idempotently returns the existing row when `repos::get_by_path` succeeds
+- [ ] `archive_workspace` calls `workspaces::set_deletion_intent(&conn, &workspace_id, true)` and returns `Ok(())`
+- [ ] `check_claude_install` returns `claude_cli::install::check_installed().await` directly
+- [ ] 12 happy-path tests pass (one per command); each uses `db::init_db_memory()` + the existing seed helpers
+- [ ] 1 unhappy-path test passes: `discard_workspace_changes_no_prior_run_returns_validation`
+- [ ] `cargo test --tests commands` passes (12 + 1 = 13 new tests)
+- [ ] `cargo clippy --all-targets -- -D warnings` clean
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && cargo test --tests commands -- --nocapture
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+! grep -n 'unimplemented!' apps/desktop/src-tauri/src/commands/mod.rs                # expect 0
+grep -c 'db\.inner()' apps/desktop/src-tauri/src/commands/mod.rs                     # ≥2 (create_workspace + start_agent_run)
+grep -n 'AppError::Validation' apps/desktop/src-tauri/src/commands/mod.rs            # ≥2 (add_repo + discard_workspace_changes no-checkpoint case)
+grep -n 'no checkpoint to discard to' apps/desktop/src-tauri/src/commands/mod.rs     # ≥1
+grep -n 'registry\.register' apps/desktop/src-tauri/src/commands/mod.rs              # ≥1
+grep -n 'registry\.cancel' apps/desktop/src-tauri/src/commands/mod.rs                # ≥1
+# Vocabulary guard: no internal field names appear as command argument identifiers.
+! grep -nE 'fn (list_repos|add_repo|list_branches|create_workspace|list_workspaces|archive_workspace|start_agent_run|stop_agent_run|list_runs|get_workspace_diff|discard_workspace_changes|check_claude_install)\([^)]*(worktree_path|branch_name): ' apps/desktop/src-tauri/src/commands/mod.rs
+```
+
+**notes:** Test count = 13 new (12 happy + 1 unhappy). Runs parallel to S1.7.2 — they touch disjoint files. **Implementation pattern adopted:** every State-receiving command split into a `pub(crate) async fn <name>_impl(&DbState, ...)` + a one-line `#[tauri::command]` wrapper calling `_impl(db.inner(), ...)`. 10 of 12 commands got this split; `list_branches` and `check_claude_install` are State-free. The split enables direct unit-testing of `_impl` functions (`tauri::State` cannot be constructed in tests). Diff +804 / −40 in `commands/mod.rs` only. All 13 tests pass on this machine (git + cfg(unix) gates both satisfied).
+
+**commit:** `c311da5` — feat(M1.7.3): wire 12 Tauri command bodies to Lane A services + 13 tests
+
+---
+
+## [x] S1.7.4 — Step 1.7 final gate (2026-05-11; verification-only, no commit)
+
+- [x] `cargo check` clean
+- [x] `cargo test --tests` — 111 passed, 5 ignored (Step 1.2 spike carry-forward); +15 new since pre-1.7 (1 repos::get + 1 bindings_export + 13 commands)
+- [x] `cargo clippy --all-targets -- -D warnings` clean
+- [x] `pnpm nx run-many -t typecheck` — no tasks ran (no typecheck targets configured; no-op smoke, matches S1.6.6)
+- [x] Naming Lock: 0 hits for "conductor" outside docs/competitors/conductor/
+- [x] `pub mod bindings_export;` / `pub mod commands;` / `pub mod run_registry;` all present in lib.rs (lines 1, 4, 8)
+- [x] `specta-typescript = "0.0.9"` in Cargo.toml `[dependencies]` (lines 22 build, 35 deps, 46 dev — 3 hits as expected)
+- [x] `apps/desktop/src/app/_bindings.ts` in root `.gitignore` (line 6)
+- [x] Vocab guard: no `worktree_path` / `branch_name` / `checkpoint_sha` in command argument identifiers
+- [x] Vocab guard: no `"agent/wip-"` string literals in command arguments
+- [x] Boundary check: 11 files touched since pre-1.7 baseline `7ccc943`, all within Step 1.7 + F0 + TASKS.md scope
+
+**dependencies:** S1.7.2, S1.7.3 (both [x])
+
+**dependencies:** S1.7.2, S1.7.3
+**parallelizable:** false (gate runs once after both predecessor atoms ship)
+
+**allowed_files:** none (verification-only)
+
+**forbidden_files:** all source — this atom only runs commands
+
+**acceptance:**
+- [ ] `cd apps/desktop/src-tauri && cargo check` clean
+- [ ] `cd apps/desktop/src-tauri && cargo test --tests` all pass — 96 pre-existing (post-S1.6) + 15 new (1 repos::get + 1 bindings_export + 12 commands happy + 1 discard unhappy)
+- [ ] `cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings` clean
+- [ ] `pnpm nx run-many -t typecheck` clean
+- [ ] Naming Lock: `grep -rn "conductor" apps/ libs/ --include="*.rs" --include="*.ts"` → 0 hits outside `docs/competitors/conductor/`
+- [ ] Vocabulary guard: no `worktree_path|branch_name|"agent/wip-"|"checkpoint_sha"` substring appears in any `commands/mod.rs` **argument identifier** (return shapes are OK because they are DB row structs — D17 vocabulary contract enforced at the UI layer, not here)
+- [ ] `pub mod bindings_export;`, `pub mod commands;`, `pub mod run_registry;` all present in `lib.rs`
+- [ ] `Cargo.toml` `[dependencies]` lists `specta-typescript = "0.0.9"` exactly once
+- [ ] `apps/desktop/src/app/_bindings.ts` line present in root `.gitignore`
+- [ ] Files touched across S1.7.1a + S1.7.1b + S1.7.2 + S1.7.3 are exactly: `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src-tauri/src/commands/mod.rs`, `apps/desktop/src-tauri/src/run_registry.rs`, `apps/desktop/src-tauri/src/bindings_export.rs`, `apps/desktop/src-tauri/src/claude_cli/install.rs`, `apps/desktop/src-tauri/src/db/repos.rs`, `apps/desktop/src-tauri/tests/bindings_export.rs`, `.gitignore` (+ TASKS.md, tmp/, docs/ allowed)
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && LC_ALL=C cargo test --tests
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+pnpm nx run-many -t typecheck
+
+# Naming Lock
+grep -rn "conductor" apps/ libs/ --include="*.rs" --include="*.ts" 2>/dev/null
+
+# Step-1.7 assertions
+grep -n 'pub mod bindings_export;' apps/desktop/src-tauri/src/lib.rs
+grep -n 'pub mod commands;' apps/desktop/src-tauri/src/lib.rs
+grep -n 'pub mod run_registry;' apps/desktop/src-tauri/src/lib.rs
+grep -nE '^\s*specta-typescript = "0\.0\.9"' apps/desktop/src-tauri/Cargo.toml
+grep -nF 'apps/desktop/src/app/_bindings.ts' .gitignore
+
+# Vocabulary guard on command argument identifiers (NOT return types)
+! grep -nE 'fn [a-z_]+\([^)]*(worktree_path|branch_name|checkpoint_sha): ' apps/desktop/src-tauri/src/commands/mod.rs
+! grep -nE 'fn [a-z_]+\([^)]*"agent/wip-' apps/desktop/src-tauri/src/commands/mod.rs
+
+# Boundary check — only the listed files touched since main
+git diff --name-only $(git merge-base HEAD main)..HEAD | \
+  grep -vE '^(apps/desktop/src-tauri/(Cargo\.toml$|src/(lib|run_registry|bindings_export)\.rs$|src/commands/mod\.rs$|src/claude_cli/install\.rs$|src/db/repos\.rs$|tests/bindings_export\.rs$)|\.gitignore$|TASKS\.md$|tmp/|docs/)' && \
+  echo "OUT-OF-SCOPE FILE TOUCHED" && exit 1 || true
+```
+
+**notes:**
+
+**commit:**
