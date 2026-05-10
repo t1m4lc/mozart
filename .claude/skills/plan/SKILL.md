@@ -27,19 +27,25 @@ Quality of implementation is downstream of quality of planning. This skill produ
 ## Procedure
 
 ### 1. Codebase analysis
+
 Spawn `codebase-explorer` to identify:
+
 - Reference files (existing similar features to model the new code on)
 - Files this plan will need to modify or create
 - Conventions in the touched layer (Angular standalone, Hlm directive prefix, Tauri command pattern, etc.)
 
 ### 2. External research (only if needed)
-For library or API questions: WebFetch / WebSearch. Cite specific URLs in the plan. Skip if the answer is already in the repo or `CLAUDE.md`.
+
+For library or API questions: WebFetch / WebSearch or use curl.md. Cite specific URLs in the plan. Skip if the answer is already in the repo or `CLAUDE.md`.
 
 ### 3. Draft the plan
+
 Use `.claude/templates/plan_base.md`. Write to `tmp/ready-plans/<NN>-<slug>.md` where `NN` is the next free 2-digit number (check the directory first). Slug: kebab-case, ≤ 5 words.
 
 ### 4. Self-check
+
 Before invoking the reviewer, verify:
+
 - Every file path you wrote actually exists (or is explicitly marked "new file")
 - Every command in the validation gate is runnable today
 - No "TBD" / "TODO" / open questions in the plan
@@ -61,6 +67,7 @@ loop until BLOCKING is empty AND confidence ≥ 8
 ### 6. Hand off
 
 Tell the user:
+
 - Path to the finished plan
 - Confidence score
 - Next step: `/atomize tmp/ready-plans/<file>.md`
