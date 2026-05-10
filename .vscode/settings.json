@@ -17,14 +17,14 @@
     "**/.angular": true,
     "**/.nx": true,
     "**/dist": true,
-    "**/tmp": true,
+    "**/tmp": false,
     "**/node_modules": true
   },
   "search.exclude": {
     // "**/.angular": true,
     "**/.nx": true,
     "**/dist": true,
-    "**/tmp": true,
+    "**/tmp": false,
     "**/node_modules": true
   }
 }

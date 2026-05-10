@@ -7,8 +7,6 @@ site: www.conductor.build
 
 # Slash commands
 
-
-
 Slash commands are reusable prompts stored as Markdown files. Use them for prompts your team runs often, such as review checklists, release steps, or debugging workflows.
 
 ## Command location [#command-location]
@@ -29,7 +27,3 @@ Good slash commands are specific and reusable. Include the role, the task, the e
 ## Learn more [#learn-more]
 
 For Claude Code command behavior, see the [Claude Code slash command docs](https://docs.anthropic.com/en/docs/claude-code/slash-commands).
-
----
-
-Powered by [curl.md](https://curl.md)

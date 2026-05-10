@@ -7,8 +7,6 @@ site: www.conductor.build
 
 # Todos
 
-
-
 Todos track work that must be finished before a workspace merges.
 
 ## How todos work [#how-todos-work]
@@ -24,7 +22,3 @@ Mention `@todos` in the composer when you want the agent to see the current todo
 ## When to clear todos [#when-to-clear-todos]
 
 Clear a todo only when the work is complete or no longer applies. If a todo is no longer relevant, remove it instead of checking it off as completed.
-
----
-
-Powered by [curl.md](https://curl.md)
