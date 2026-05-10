@@ -142,7 +142,7 @@ These are documented so the next agent does not re-derive them. Allowed files + 
 - [ ] **F2** — Multiple threads per workspace (drop UNIQUE, add `threads.title`)
 - [ ] **F3** — Candidate Solution read-only view (`commands/candidates.rs`, no schema migration)
 - [ ] **F4** — Merge Decision entity (`merge_decisions` table + `commands/merge.rs`)
-- [ ] **F5** — Multi-provider routing (`trait LlmProvider` + adapters; reinstates D5 from PLAN.md)
+- [ ] **F5** — Multi-provider routing (`trait LlmProvider` + adapters; reinstates D5 from PLAN.md). **Rewrite contract:** `specs/plan-v0.0.1-2.md` § 6.5.1 — F5 REWRITES `parse_line`, does NOT extend Step 1.4's token-only logic. Locked by `/discussion` 2026-05-10 (D1.4-B).
 - [ ] **F6** — Coordination intelligence layer (v0.3+ vision; not sized)
 
 Other deferred items still tracked from PLAN-v0.0.1.md (unchanged):

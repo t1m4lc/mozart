@@ -191,20 +191,25 @@ Goal: spawn a `claude` CLI subprocess against a workspace's `worktree_path`, par
 
 #### Atom S1.4.1 — `StreamEvent` enum + `parse_line`
 
+> **Scope locked = Option B (token-only)** by `/discussion` 2026-05-10. See `.context/context.md` D1.4-A and § 6.5.1 above for the full rationale + F5 rewrite contract. Do not extend the parser past the B shape unless this plan changes.
+
 - **dependencies:** S1.3.* (DB layer)
 - **parallelizable:** with S1.4.2
 - **allowed_files:**
   - `apps/desktop/src-tauri/src/claude_cli/mod.rs` (new — declares the module + `StreamEvent`)
-  - `apps/desktop/src-tauri/src/claude_cli/parser.rs` (new — `parse_line(s: &str) -> Result<StreamEvent, AppError>`)
+  - `apps/desktop/src-tauri/src/claude_cli/parser.rs` (new — `parse_line(s: &str) -> Option<StreamEvent>`)
   - `apps/desktop/src-tauri/src/lib.rs` (add `pub mod claude_cli;`)
 - **forbidden_files:** any other `src/` file, `migrations/`, `commands/`
 - **acceptance:**
-  - `enum StreamEvent { StreamToken { text }, ToolCall { name, args_json }, CliOutput { line }, StatusUpdate { status }, Error { message } }`
+  - Enum declared as five variants: `StreamToken { text } | ToolCall { name, args_json } | CliOutput { line } | StatusUpdate { status } | Error { message }`
+  - Serde tag = `kind`, rename strategy = `snake_case` (so `{"kind":"stream_token","text":"..."}` is the wire shape, future-compatible with tauri-specta export at Step 1.7)
   - Derives `Debug, Clone, Serialize, Deserialize, specta::Type`
-  - Variant naming aligns with the `agent_events.event_type` enum strings (`stream_token | tool_call | cli_output | status_update | error`)
-  - `parse_line` accepts the `claude -p ... --output-format=stream-json --include-partial-messages` line shape validated by Spike C
-  - Unknown JSON shapes → `StreamEvent::CliOutput { line }` (lossless fallback, never panic)
-  - Tests: ≥6 — one per known shape + one for lossless fallback
+  - `event_type(&self) -> &'static str` method returns the matching `agent_events.event_type` string for each variant
+  - **Only three variants actually fire from `parse_line` in v0.0.1**: `StreamToken` (extracted from `content_block_delta.text_delta`), `CliOutput` (lossless fallback for every other event kind AND for malformed JSON), and `Error` (reserved for stderr handling, not produced by parse_line itself)
+  - **`ToolCall` and `StatusUpdate` are declared but not emitted by parse_line in v0.0.1.** They exist so the `agent_events.event_type` enum strings round-trip and so the Angular bindings ship a stable type. Granular emission is F5 work (§ 6.5.1).
+  - `parse_line` signature is `fn parse_line(line: &str) -> Option<StreamEvent>` — `None` means "skip" (empty / whitespace-only line); never returns `Err` and never panics
+  - Production CLI invocation (specified for S1.4.3, asserted for cross-reference here): `claude -p <prompt> --output-format=stream-json --include-partial-messages` — **no `--verbose`** (D1.4-C; Spike C used `--verbose` for diagnostics; production keeps the stream clean)
+  - Tests (≥6): text_delta line → `Some(StreamToken)` ; tool_use `content_block_start` → `Some(CliOutput)` (NOT ToolCall in v0.0.1) ; `message_start`/`content_block_stop`/`message_stop` → `Some(CliOutput)` ; JSON-invalid line → `Some(CliOutput)` ; empty line → `None` ; `event_type()` round-trip for all 5 variants
 
 #### Atom S1.4.2 — `claude_cli::version_check` + `detect_installed`
 
@@ -425,10 +430,26 @@ This section makes explicit how the Step 1.4–1.7 atoms above are sized so that
 | **F2 — multi-thread per workspace** (drop UNIQUE) | S1.4.3 `spawn_run` + S1.7.3 `list_runs` command | Hard-code `threads.workspace_id` UNIQUE assumption in service code. The DB enforces UNIQUE; service code must traverse `workspace → thread` via `get_by_workspace().expect()` (still 1:1 in v0.0.1) so v0.0.2 can swap to `list_by_workspace().first()` without rewriting. |
 | **F3 — Candidate Solution view** (read-only) | S1.6.4 + S1.3 schema (already shipped) | Couple `tasks` to `workspaces` 1:1 in service code. The schema is 1:N-ready; orchestrator code must accept that a single `task_id` can have multiple `workspaces` rows even if v0.0.1 UI shows one. |
 | **F4 — MergeDecision entity** | Step 1.8 buttons + Step 2.3 telemetry | Bury merge intent in a free-text log. Telemetry events `merge_decision.{commit, discard, merge, archive}` should already carry `task_id + workspace_id + chosen_kind` so F4 can backfill from the event log. |
-| **F5 — multi-provider routing** | S1.4.1 `StreamEvent` enum + S1.4.3 `spawn_run` | Make `claude` binary path / args / env shape spread across `claude_cli/**`. The `StreamEvent` enum must already be the canonical shape that future `LlmProvider` impls produce — not Claude-CLI-specific (e.g., no `tool_use_id` field shaped to Anthropic's exact JSON). Spike C tolerated any JSON; the Step 1.4.1 atom names the lossless `CliOutput { line }` fallback for the same reason. |
+| **F5 — multi-provider routing** | S1.4.1 `StreamEvent` enum + S1.4.3 `spawn_run` | Make `claude` binary path / args / env shape spread across `claude_cli/**`. The `StreamEvent` enum must already be the canonical shape that future `LlmProvider` impls produce — not Claude-CLI-specific (e.g., no `tool_use_id` field shaped to Anthropic's exact JSON). Spike C tolerated any JSON; the Step 1.4.1 atom names the lossless `CliOutput { line }` fallback for the same reason. **See § 6.5.1 below for the v0.0.2 rewrite contract — F5 will REWRITE parse_line, not extend it.** |
 | **F6 — coordination intelligence layer** | All of Lane A | Place coordination logic anywhere outside a clearly-named future module. v0.0.1 has zero coordination logic; F6 lives in a yet-to-exist `apps/desktop/src-tauri/src/coordinator/**`. As long as Lane A doesn't put scheduling / fan-out / arbitration logic into `commands/**` or `claude_cli/**`, F6 stays clean. |
 
 The discipline: at every atom's review checkpoint, the implementing agent sanity-checks the matching row above and confirms no headroom was burned. If a row's "What the atom must NOT do" is violated by an otherwise-good implementation, prefer rewriting the implementation over green-lighting the violation.
+
+### 6.5.1 F5 rewrite contract — what v0.0.2 multi-provider work must do
+
+Locked during `/discussion` for Step 1.4 on 2026-05-10. Step 1.4 ships **Option B (token-only)** parser by deliberate scope choice (see `.context/context.md` D1.4-A). The B parser is a v0.0.1-only shape — F5 will **rewrite, not extend**, `parse_line`. Implementing agents working on F5 must follow these rules to avoid carrying B's shortcuts into the multi-provider era:
+
+1. **Today's `parse_line(line) -> Option<StreamEvent>` becomes tomorrow's `LlmProvider::parse_line(&self, line) -> Vec<StreamEvent>`.** One input → one or many events; tool-call assembly emits `ToolCall` + `ToolResult` correlated by id.
+2. **Each provider gets its own adapter file** under `apps/desktop/src-tauri/src/llm/`:
+   - `anthropic_cli_adapter.rs` — replaces today's `claude_cli/parser.rs` with the granular event-hierarchy walker (content_block_start/delta/stop, input_json_delta state machine).
+   - `openrouter_adapter.rs` — SSE deltas in OpenAI-compatible format.
+   - `anthropic_api_adapter.rs` — Anthropic Messages API direct (post-D5/D12 reinstatement).
+3. **`StreamEvent` itself moves**: from `apps/desktop/src-tauri/src/claude_cli/mod.rs` → `apps/desktop/src-tauri/src/llm/types.rs`. `claude_cli/` becomes a thin facade over `llm/anthropic_cli_adapter.rs` for one release, then dissolves entirely.
+4. **Add ToolCall id correlation at F5 (NOT in v0.0.1).** New shape: `ToolCall { id: String, name: String, args_json: String }` + new variant `ToolResult { tool_call_id: String, output_json: String }`. The `id` field is provider-universal — every known LLM API assigns tool-call ids — so it is **not** Anthropic-specific, and the foresight rule in the §6.5 F5 row about "no `tool_use_id` shaped to Anthropic's exact JSON" still holds: a generic `id: String` is fine.
+5. **The B-era `CliOutput` lines ARE the v0.0.2 migration test corpus.** Capture a representative `agent_events` dump from v0.0.1 production runs, replay through F5's granular parser, assert (a) the new parser produces the same `StreamToken` text sequence (text identity) and (b) raw-JSON tool surfaces in the v0.0.1 dump now produce structured `ToolCall` + `ToolResult` events.
+6. **Don't add `input_json_delta` state-machine code in v0.0.1.** It is tempting to half-implement tool-call assembly "just to make tool surfaces a bit nicer." Resist — partial assembly leaks Anthropic schema into a type that is supposed to outlive Anthropic.
+
+Why this is locked here, not just in `.context/context.md`: `.context/context.md` is overwritten by every new `/discussion` invocation. This subsection is the durable home of the contract; the discussion file pointed at it for a few hours, but the rules live here for the F5 implementer who picks this up months later.
 
 ---
 
