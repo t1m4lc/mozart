@@ -10,11 +10,13 @@
 
 use std::time::Duration;
 
+use serde::Serialize;
 use tokio::process::Command;
 use tokio::time::timeout;
 
 /// Outcome of probing for the `claude` CLI.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum ClaudeInstall {
     Installed { version: String },
     Missing,

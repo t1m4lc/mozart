@@ -2,6 +2,8 @@
 
 # compiled output
 dist
+# tauri-specta generated bindings (regenerated on every debug build)
+apps/desktop/src/app/_bindings.ts
 tmp/*
 !tmp/ready-plans/
 !tmp/done-plans/

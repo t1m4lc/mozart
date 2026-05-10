@@ -25,6 +25,18 @@ pub fn get_by_path(conn: &Connection, path: &str) -> Result<Repo, AppError> {
     })
 }
 
+pub fn get(conn: &Connection, repo_id: &str) -> Result<Repo, AppError> {
+    conn.query_row(
+        "SELECT repo_id, path, display_name, added_at FROM repos WHERE repo_id = ?1",
+        [repo_id],
+        row_to_repo,
+    )
+    .map_err(|e| match e {
+        rusqlite::Error::QueryReturnedNoRows => AppError::NotFound(format!("repo_id={repo_id}")),
+        other => other.into(),
+    })
+}
+
 pub fn list(conn: &Connection) -> Result<Vec<Repo>, AppError> {
     let mut stmt = conn.prepare("SELECT repo_id, path, display_name, added_at FROM repos ORDER BY added_at DESC")?;
     let rows = stmt.query_map([], row_to_repo)?;
@@ -75,6 +87,30 @@ mod tests {
         let conn = db.lock();
         let err = get_by_path(&conn, "/nope").unwrap_err();
         assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn get_by_id_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let r = sample("/tmp/test-repo-id");
+        create(&conn, &r).unwrap();
+        let got = get(&conn, &r.repo_id).unwrap();
+        assert_eq!(got.repo_id, r.repo_id);
+        assert_eq!(got.path, "/tmp/test-repo-id");
+        assert_eq!(got.display_name, "test repo");
+    }
+
+    #[test]
+    fn get_by_id_not_found_returns_app_error() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let err = get(&conn, "no-such-id").unwrap_err();
+        match err {
+            AppError::NotFound(msg) => assert!(msg.contains("no-such-id"),
+                "expected error message to mention the missing id, got: {msg}"),
+            other => panic!("expected AppError::NotFound, got {other:?}"),
+        }
     }
 
     #[test]
