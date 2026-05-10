@@ -8,6 +8,7 @@
   "targets": {
     "build": {
       "executor": "@angular/build:application",
+      "syncGenerators": ["@juristr/nx-tailwind-sync:source-directives"],
       "outputs": ["{options.outputPath}"],
       "options": {
         "outputPath": "dist/apps/web",
@@ -48,6 +49,7 @@
     "serve": {
       "continuous": true,
       "executor": "@angular/build:dev-server",
+      "syncGenerators": ["@juristr/nx-tailwind-sync:source-directives"],
       "configurations": {
         "production": {
           "buildTarget": "web:build:production"

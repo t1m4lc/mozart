@@ -1,0 +1,60 @@
+:root .theme-zinc {
+  color-scheme: light;
+
+  --background:             0deg 0% 100%;
+  --foreground:             344.97deg 13.46% 3.85%;
+  --card:                   0deg 0% 100%;
+  --card-foreground:        344.97deg 13.46% 3.85%;
+  --popover:                0deg 0% 100%;
+  --popover-foreground:     344.97deg 13.46% 3.85%;
+  --primary:                344.35deg 7.21% 9.8%;
+  --primary-foreground:     0deg 0.5% 98.03%;
+  --secondary:              344.02deg 3.93% 95.75%;
+  --secondary-foreground:   344.35deg 7.21% 9.8%;
+  --muted:                  344.02deg 3.93% 95.75%;
+  --muted-foreground:       239.97deg 4.41% 46.34%;
+  --accent:                 344.02deg 3.93% 95.75%;
+  --accent-foreground:      344.35deg 7.21% 9.8%;
+  --destructive:            351.72deg 100% 40.53%;
+  --destructive-foreground: 0deg 0.5% 98.03%;
+  --border:                 344.76deg 6.76% 89.87%;
+  --input:                  344.76deg 6.76% 89.87%;
+  --ring:                   239.9deg 5.73% 64.3%;
+  --radius:                 0.625rem;
+  --sidebar:                240, 5%, 98%;
+  --sidebar-foreground:     240, 4%, 16%;
+  --sidebar-accent:         240, 5%, 96%;
+  --sidebar-accent-foreground: 240, 5%, 22%;
+  --sidebar-border:         240, 4%, 88%;
+  --sidebar-ring:           240, 3%, 70%;
+}
+
+:root.dark .theme-zinc {
+  color-scheme: dark;
+
+  --background:             344.97deg 13.46% 3.85%;
+  --foreground:             0deg 0.5% 98.03%;
+  --card:                   344.35deg 7.21% 9.8%;
+  --card-foreground:        0deg 0.5% 98.03%;
+  --popover:                344.35deg 7.21% 9.8%;
+  --popover-foreground:     0deg 0.5% 98.03%;
+  --primary:                344.76deg 6.76% 89.87%;
+  --primary-foreground:     344.35deg 7.21% 9.8%;
+  --secondary:              344.51deg 4.81% 15.74%;
+  --secondary-foreground:   0deg 0.5% 98.03%;
+  --muted:                  344.51deg 4.81% 15.74%;
+  --muted-foreground:       239.9deg 5.73% 64.3%;
+  --accent:                 344.51deg 4.81% 15.74%;
+  --accent-foreground:      0deg 0.5% 98.03%;
+  --destructive:            358.76deg 100% 69.84%;
+  --destructive-foreground: 344.35deg 7.21% 9.8%;
+  --border:                 0deg 0% 13.73%;
+  --input:                  0deg 0% 18.43%;
+  --ring:                   239.97deg 4.41% 46.34%;
+  --sidebar:                240, 5%, 22%;
+  --sidebar-foreground:     0, 0%, 98%;
+  --sidebar-accent:         240, 4%, 26%;
+  --sidebar-accent-foreground: 0, 0%, 98%;
+  --sidebar-border:         0, 0%, 10%;
+  --sidebar-ring:           240, 3%, 65%;
+}

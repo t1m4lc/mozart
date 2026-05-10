@@ -1,4 +1,12 @@
 {
   "singleQuote": true,
-  "plugins": ["prettier-plugin-tailwindcss"]
+  "plugins": ["prettier-plugin-tailwindcss"],
+  "overrides": [
+    {
+      "files": ["*.ts"],
+      "options": {
+        "plugins": []
+      }
+    }
+  ]
 }
