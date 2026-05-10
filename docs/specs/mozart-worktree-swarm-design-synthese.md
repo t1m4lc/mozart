@@ -538,3 +538,67 @@ La v0.0.1 doit rester simple : créer des tasks, lancer des agents dans des work
 Prépare le système pour plus tard, mais ne construis pas encore un swarm complet.
 
 La direction long-terme est claire : MOZART doit devenir la couche qui planifie, observe, compare, arbitre et aide à combiner le travail de plusieurs agents.
+
+---
+
+## Addendum 2026-05-10 — Alignement avec le modèle canonique v0.0.1
+
+Cet addendum mappe les concepts de la vision ci-dessus sur le schéma SQL réellement livré dans Step 1.3 (`apps/desktop/src-tauri/migrations/001_init.sql`) et sur le modèle canonique en 8 termes verrouillé dans [`plan-v0.0.1-2.md`](./plan-v0.0.1-2.md) § 3 + (à venir, voir F0) `CLAUDE.md` § "Product vocabulary".
+
+La vision ci-dessus reste correcte et n'est pas réécrite. Cet addendum résout deux questions opérationnelles que la vision laissait ouvertes :
+
+### 1. Mapping concept → table SQL
+
+| Concept de la vision | Table SQL livrée | Notes |
+|---|---|---|
+| **Project** | `repos` | Mozart utilise « Project » et « Repository » comme synonymes UI (cf. Conductor) |
+| **Task** | `tasks` | Couche au-dessus du Workspace pour porter l'intention utilisateur. **Spécifique à Mozart** : Conductor n'a pas cette couche. Permet l'évolution v0.1 vers `1 Task → N Workspaces` (parallel candidates). |
+| **Workspace** | `workspaces` | Primitive utilisateur. Porte `worktree_path` (interne, jamais exposé) + `branch_name` + `base_branch` + `status`. |
+| **Agent Run** | `agent_runs` | Chaîne via `threads` (1:1 en v0.0.1). |
+| — | `threads` | **Concept implicite v0.0.1** : 1:1 avec Workspace, jamais exposé en UI. v0.0.2+ relâche l'unicité pour les onglets multiples (pattern Conductor "tabs"). |
+| — | `agent_events` | Event log ; pour replay/debug, **pas** la source de vérité de l'état. |
+| **Candidate Solution** | dérivée : `(workspaces × workspace_changes) GROUP BY task_id` | Pas de table dédiée. Devient une vue / commande Tauri à v0.1 (F3). |
+| **Review** | (UI seulement, pas d'entité) | Diff Viewer + comparaison de workspace_changes. |
+| **Merge Decision** | (manuel en v0.0.1, F4 en v0.1) | Boutons Commit / Discard / Merge / Archive. |
+| **Working tree** | `workspaces.worktree_path` | **Toujours interne**, jamais retourné dans une commande Tauri ni affiché. |
+
+### 2. Localisation physique des worktrees
+
+La règle d'or de la vision (« l'utilisateur ne doit pas voir worktree ») impose un emplacement neutre, pas dans l'arbre du repo source. Verrouillé en D18 :
+
+```
+~/.mozart/worktrees/{workspace_id}/
+```
+
+- pas dans `<repo>/.worktrees/` (pollue l'arbre source, force des règles `.gitignore` fragiles) ;
+- pas dans `~/dev/mozart-worktrees/` (incohérent avec la convention « per-app data dir » de Conductor `~/Library/Application Support/com.conductor.app`) ;
+- centralisé sous `~/.mozart/`, mêmes droits que l'utilisateur, jamais exposé dans l'UI.
+
+`sandbox::discard_changes_to(path)` refusera tout chemin qui ne descend pas de `~/.mozart/worktrees/` (défense en profondeur).
+
+### 3. Statut "archived" — niveau Workspace, pas Task
+
+Conductor archive des **workspaces**. Mozart suit la même règle (D19) :
+
+- `tasks.status` = `active | archived` reste utilisé pour marquer une intention utilisateur terminée (le Task est clos même si plusieurs Workspaces dessous restent vivants ou archivés indépendamment).
+- L'archive d'un Workspace est gérée séparément (additif F1 : ajout d'une colonne `archived_at INTEGER` nullable). En v0.0.1, le bouton « Archive » côté Workspace n'est pas encore câblé ; quand il l'est, il doit cibler le Workspace, pas le Task.
+
+### 4. Ce qui reste vrai et ne change pas
+
+Tout le reste de la vision tient :
+
+- Worktree is implementation, workspace is product.
+- Parallel does not mean swarm — progression `parallel exécution → role-based → swarm`.
+- Every run produces a summary (résumé déduit de `workspace_changes` + `agent_events` ; aucune réécriture nécessaire).
+- Merge is a decision, not a button.
+- Le coordinateur est le produit.
+
+### 5. Pour reprendre l'implémentation
+
+Cette vision reste le « pourquoi ». Pour le « quoi/comment » et la prochaine atomicité, lire :
+
+1. `docs/specs/plan-v0.0.1-2.md` § 0 (statut) et § 6 (atomes Step 1.4 → 1.7)
+2. `docs/PLAN-v0.0.1.md` (architecture + décisions D1–D23)
+3. `docs/TODO.md` (status board)
+
+Aucun rework de cette vision n'est requis pour continuer Lane A.
