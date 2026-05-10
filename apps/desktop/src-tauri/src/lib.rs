@@ -24,6 +24,28 @@ pub fn run() {
     // for `mount_events`. The single `build_specta_builder()` definition
     // keeps the command/type list in one place.
     let specta_builder = bindings_export::build_specta_builder();
+
+    // Debug-only: regenerate the typed TS bindings from the source of
+    // truth. Release builds never write to the source tree.
+    //
+    // `bigint(Number)` is required because `db::models::*` carries
+    // `i64` Unix-millisecond timestamps (`started_at`, `created_at`,
+    // ...). specta's default policy is `BigIntForbidden`, which would
+    // panic on first debug boot. Mozart's actual i64 values (Unix-ms
+    // timestamps ~1.7e12, exit codes 0-255, small file counts) all fit
+    // safely within JS Number precision (2^53), so `Number` is chosen
+    // over `BigInt` for ergonomics: `new Date(workspace.created_at)`
+    // and `if (run.exit_code === 0)` work without bigint coercion.
+    #[cfg(debug_assertions)]
+    specta_builder
+        .export(
+            specta_typescript::Typescript::default()
+                .bigint(specta_typescript::BigIntExportBehavior::Number)
+                .formatter(specta_typescript::formatter::prettier),
+            "../src/app/_bindings.ts",
+        )
+        .expect("tauri-specta export failed");
+
     let setup_builder = bindings_export::build_specta_builder();
 
     tauri::Builder::default()
