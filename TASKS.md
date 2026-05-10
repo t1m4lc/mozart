@@ -199,20 +199,231 @@ cd apps/desktop/src-tauri && cargo test --tests db::workspace_changes db::outbox
 
 ---
 
-## [ ] S1.3.9 — final gate
+## [x] S1.3.9 — final gate (2026-05-10; verification-only, no commit)
 
 **dependencies:** S1.3.8
 
 **allowed_files:** none (verification-only)
 
 **acceptance:**
-- [ ] `cargo check` clean
-- [ ] `cargo test --tests` all pass (no --ignored needed — db tests are pure in-memory)
-- [ ] `cargo clippy -- -D warnings` clean
-- [ ] `pnpm lint` still passes (no JS-side changes anyway)
+- [x] `cargo check` clean
+- [x] `cargo test --tests` all pass — 34 passed, 5 ignored
+- [x] `cargo clippy --all-targets -- -D warnings` clean
+- [x] `pnpm lint` passes — 62 projects
 
 **tests/checks:**
 ```sh
 cd apps/desktop/src-tauri && cargo check && cargo test --tests && cargo clippy -- -D warnings
 cd /home/timothy/accelerate_growth_with/mozart && pnpm lint
 ```
+
+---
+
+# Step 1.4 — claude_cli.rs
+
+**Source plan:** `tmp/ready-plans/04-step-1-4-claude-cli.md` (Confidence 8.5/10)
+**Atomized:** 2026-05-10. Token-only parser per D1.4-A; F5 will rewrite (not extend) per § 6.5.1.
+
+---
+
+## [ ] S1.4.1 — StreamEvent enum + parse_line
+
+**dependencies:** S1.3.8 (DB layer)
+**parallelizable:** true (with S1.4.2)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/claude_cli/mod.rs` (new — module root + `StreamEvent`)
+- `apps/desktop/src-tauri/src/claude_cli/parser.rs` (new — `parse_line`)
+- `apps/desktop/src-tauri/src/lib.rs` (add `pub mod claude_cli;` — single line)
+- `apps/desktop/src-tauri/src/error.rs` (add `AgentSpawn(String)` variant)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/db/**`
+- `apps/desktop/src-tauri/migrations/**`
+- `apps/desktop/src-tauri/Cargo.toml` (no new deps — verified at plan §1)
+- `apps/desktop/src-tauri/build.rs` (Step 1.7 owns specta wiring)
+- any other `src/*.rs` file
+- `apps/desktop/src-tauri/src/claude_cli/install.rs` (S1.4.2 owns this)
+- `apps/desktop/src-tauri/src/claude_cli/runner.rs` (S1.4.3 owns this)
+
+**acceptance:**
+- [ ] `StreamEvent` enum declared with five variants: `StreamToken { text } | ToolCall { name, args_json } | CliOutput { line } | StatusUpdate { status } | Error { message }`
+- [ ] `#[serde(tag = "kind", rename_all = "snake_case")]` — wire shape `{"kind":"stream_token","text":"..."}`
+- [ ] Derives `Debug, Clone, Serialize, Deserialize, specta::Type`
+- [ ] `event_type(&self) -> &'static str` returns the matching `agent_events.event_type` string per variant (`stream_token | tool_call | cli_output | status_update | error`)
+- [ ] `parse_line(line: &str) -> Option<StreamEvent>` — `None` for empty/whitespace; `Some(StreamToken)` only for `type=="content_block_delta"` AND `delta.type=="text_delta"`; `Some(CliOutput { line })` (lossless) for every other recognized JSON shape AND for malformed JSON; never returns `Err`, never panics
+- [ ] `ToolCall` and `StatusUpdate` are declared but not emitted by `parse_line` in v0.0.1 (D1.4-A)
+- [ ] `error.rs` gains `AgentSpawn(String)` variant with `#[error("agent spawn failed: {0}")]`
+- [ ] `lib.rs` adds `pub mod claude_cli;` and nothing else
+- [ ] `cargo check` and `cargo clippy --all-targets -- -D warnings` clean
+
+**tests/checks (≥6 + cross-checks):**
+```sh
+cd apps/desktop/src-tauri && cargo test --tests claude_cli::parser
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+# Cross-boundary enum-string agreement:
+grep -E '"(stream_token|tool_call|cli_output|status_update|error)"' \
+  apps/desktop/src-tauri/migrations/001_init.sql \
+  apps/desktop/src-tauri/src/claude_cli/mod.rs
+```
+
+Required test cases (in `parser.rs` `#[cfg(test)] mod tests`):
+1. text_delta line → `Some(StreamToken { text })`
+2. tool_use `content_block_start` → `Some(CliOutput { line })` (NOT `ToolCall` in v0.0.1)
+3. `message_start` / `content_block_stop` / `message_stop` → each → `Some(CliOutput { line })`
+4. JSON-invalid line → `Some(CliOutput { line })`
+5. Empty / whitespace-only line → `None`
+6. `event_type()` round-trip for all 5 variants
+7. serde wire-shape: serializing `StreamToken { text: "hi" }` produces `{"kind":"stream_token","text":"hi"}`
+
+**notes:**
+
+**commit:**
+
+---
+
+## [ ] S1.4.2 — claude_cli::install::check_installed
+
+**dependencies:** (none — pure subprocess)
+**parallelizable:** true (with S1.4.1)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/claude_cli/install.rs` (new)
+- `apps/desktop/src-tauri/src/claude_cli/mod.rs` (add `pub mod install;` — single line; concurrent with S1.4.1's `mod.rs` work — see notes)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/claude_cli/parser.rs` (S1.4.1)
+- `apps/desktop/src-tauri/src/claude_cli/runner.rs` (S1.4.3)
+- `apps/desktop/src-tauri/src/lib.rs`
+- `apps/desktop/src-tauri/src/error.rs`
+- `apps/desktop/src-tauri/Cargo.toml`
+- everything outside `claude_cli/`
+
+**acceptance:**
+- [ ] `pub enum ClaudeInstall { Installed { version: String }, Missing }`
+- [ ] `pub async fn check_installed() -> ClaudeInstall` — uses `tokio::process::Command::new("claude").arg("--version")`, wrapped in a 3 s `tokio::time::timeout`
+- [ ] Spawn-error / non-zero exit / empty-stdout / timeout → `ClaudeInstall::Missing` (no OS-level error surfaced)
+- [ ] Successful run → `Installed { version: <trimmed stdout> }` (best-effort; no semver validation)
+- [ ] Version-string parsing factored into a small `parse_version_stdout(&str) -> Option<String>` helper so the parsing branch is unit-testable without spawning a subprocess
+
+**tests/checks (≥3):**
+```sh
+cd apps/desktop/src-tauri && cargo test --tests claude_cli::install
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+```
+
+Required test cases:
+1. `parse_version_stdout("2.1.138\n")` → `Some("2.1.138".into())`
+2. `parse_version_stdout("")` → `None`
+3. (`#[cfg(unix)]`-gated, `#[ignore]` if PATH lacks the helper) timeout branch via a fixture script that sleeps > 3 s — returns `Missing`
+
+**notes:** S1.4.1 and S1.4.2 both touch `claude_cli/mod.rs`. To avoid a merge edge case, the second-landing atom adds its `pub mod` line under the line written by the first; both atoms include only their own `pub mod` declaration in their diff. The implementer of the second atom rebases on top of the first and adds the line beneath.
+
+**commit:**
+
+---
+
+## [ ] S1.4.3 — claude_cli::runner::spawn_run
+
+**dependencies:** S1.4.1, S1.4.2
+**parallelizable:** false
+
+> **Scope narrowing locked in plan §11 Q-A.** This atom does NOT call `sandbox::git_checkpoint` (S1.5.1) or `sandbox::capture_diff` (S1.5.2). Those callsites land as one-line edits in Step 1.5 atoms. `agent_runs.checkpoint_sha` stays at the caller-provided value (typically `None`); no `workspace_changes` row is inserted from `spawn_run`.
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/claude_cli/runner.rs` (new)
+- `apps/desktop/src-tauri/src/claude_cli/mod.rs` (add `pub mod runner;` + re-export `RunHandle` and `spawn_run`)
+- `apps/desktop/src-tauri/tests/fixtures/mock-claude.sh` (new, `chmod +x`)
+- `apps/desktop/src-tauri/tests/fixtures/streams/happy-text.jsonl` (new)
+- `apps/desktop/src-tauri/tests/fixtures/streams/with-tool-use.jsonl` (new)
+- `apps/desktop/src-tauri/tests/fixtures/streams/stderr-then-exit.sh` (new, `chmod +x`)
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/src/claude_cli/parser.rs` (S1.4.1; consume only)
+- `apps/desktop/src-tauri/src/claude_cli/install.rs` (S1.4.2; consume only)
+- `apps/desktop/src-tauri/src/lib.rs`
+- `apps/desktop/src-tauri/src/error.rs`
+- `apps/desktop/src-tauri/src/db/**` (consume only)
+- `apps/desktop/src-tauri/migrations/**`
+- `apps/desktop/src-tauri/Cargo.toml`
+- everything under `apps/desktop/src/` (Angular)
+
+**acceptance:**
+- [ ] Public surface: `pub async fn spawn_run(workspace: &Workspace, run: &AgentRun, channel: tauri::ipc::Channel<StreamEvent>, db: &DbState) -> Result<RunHandle, AppError>`
+- [ ] `pub struct RunHandle` exposes `pub async fn cancel(&self) -> Result<(), AppError>`; `Drop` of the handle must trigger child kill via `kill_on_drop(true)`
+- [ ] `Command::new("claude")` with argv `[-p, &run.prompt, --output-format=stream-json, --include-partial-messages]` — exactly four args after the program. **Never** `--verbose`; **never** `--dangerously-skip-permissions`
+- [ ] `current_dir(&workspace.worktree_path)`, `stdout/stderr` piped, `kill_on_drop(true)`
+- [ ] Spawns one task draining stdout: `BufReader::lines()` → `parse_line` → if `Some(ev)` { `channel.send(ev.clone())` AND `agent_events::insert(conn, run_id, ev.event_type(), serde_json::to_string(&ev)?, now_ms())` } — failures from `agent_events::insert` are logged via `log::warn!` and the loop continues
+- [ ] Spawns one task draining stderr: each line → `StreamEvent::Error { message: line }` → channel emit + `agent_events::insert(... event_type="error" ...)`. Last stderr line buffered for the exit branch
+- [ ] On exit: `agent_runs::mark_ended(conn, run_id, status, now_ms(), exit_code, error_message)` where `status` ∈ {`done` | `error` | `stopped` | `crashed`} per § 7 of the plan; `error_message = Some(last_stderr)` only when `status="error"`
+- [ ] On `RunHandle::cancel()`: `Child::start_kill()` (SIGKILL on Unix per tokio); residual stdout drains; final status = `stopped`
+- [ ] Binary-not-found / spawn failure → `AppError::AgentSpawn(...)` (not `Io`)
+- [ ] Test-only helper `pub(crate) fn command_argv_for_test(prompt: &str) -> Vec<String>` returns the constructed argv so tests can introspect without executing
+- [ ] Spawn errors from `agent_events::insert` after the run row is gone (FK violation) do not abort the parser task
+
+**tests/checks (4 integration tests, all `#[cfg(unix)]`):**
+```sh
+cd apps/desktop/src-tauri && cargo test --tests claude_cli::runner
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+# Argv belt-and-braces (matches plan §9 cross-cutting assertion):
+! grep -n -- "--verbose" apps/desktop/src-tauri/src/claude_cli/runner.rs
+! grep -n -- "--dangerously-skip-permissions" apps/desktop/src-tauri/src/claude_cli/runner.rs
+grep -n -- "--output-format=stream-json"  apps/desktop/src-tauri/src/claude_cli/runner.rs
+grep -n -- "--include-partial-messages"   apps/desktop/src-tauri/src/claude_cli/runner.rs
+```
+
+Required test cases (using `mock-claude.sh` as the spawned binary, set via env or PATH override):
+1. **happy path** — fixture cats `happy-text.jsonl`; assert ≥ 1 `StreamToken` arrives on the channel; ≥ 1 `agent_events` row with `event_type='stream_token'`; `agent_runs.status='done'`, `exit_code=0`
+2. **tool-use mid-stream falls back to CliOutput** — fixture `with-tool-use.jsonl`; tool_use lines round-trip as `CliOutput` (Option-B contract; future v0.0.2 migration corpus)
+3. **cancel mid-stream** — slow fixture; `RunHandle::cancel()` mid-stream; `agent_runs.status='stopped'`
+4. **non-zero exit + stderr captured** — `stderr-then-exit.sh`; `agent_runs.status='error'`; `error_message` = last stderr line; ≥ 1 `agent_events` row with `event_type='error'`
+5. (unit, no fixture) `command_argv_for_test("hi")` returns the expected 4-flag argv with no `--verbose` / no `--dangerously-skip-permissions`
+
+**notes:** Integration tests requiring `mock-claude.sh` MUST be `#[cfg(unix)]`. Windows mock support is deferred to Step 1.10 manual QA per D1.4-K. The test harness should set `PATH` to a temp dir containing a `claude` symlink to `mock-claude.sh`, OR pass an explicit binary path via a test-only env var read by `runner.rs`. Pick whichever the implementer finds simplest; both are within atom scope.
+
+**commit:**
+
+---
+
+## [ ] S1.4.4 — Step 1.4 final gate
+
+**dependencies:** S1.4.1, S1.4.2, S1.4.3
+
+**allowed_files:** none (verification-only)
+
+**forbidden_files:** all source — this atom only runs commands
+
+**acceptance:**
+- [ ] `cargo check` clean
+- [ ] `cargo test --tests` all pass — includes the new `claude_cli::parser`, `claude_cli::install`, `claude_cli::runner` test modules; the count is the previous count + the new tests added by S1.4.1–S1.4.3 (parser ≥7, install ≥3, runner ≥5)
+- [ ] `cargo clippy --all-targets -- -D warnings` clean
+- [ ] `pnpm nx run-many -t typecheck` clean (TS project refs intact — no Angular changes expected, so this is a no-op-style smoke)
+- [ ] No files touched outside `apps/desktop/src-tauri/src/claude_cli/**`, `apps/desktop/src-tauri/src/lib.rs`, `apps/desktop/src-tauri/src/error.rs`, `apps/desktop/src-tauri/tests/fixtures/**`
+- [ ] Naming Lock: `grep -rn "conductor" apps/ libs/ --include="*.rs" --include="*.ts"` returns 0 hits
+- [ ] Argv lock: production `runner.rs` does NOT contain `--verbose` or `--dangerously-skip-permissions`
+- [ ] Cross-boundary enum-string agreement holds (same grep as S1.4.1)
+- [ ] Tick S1.3.9's box at this point if it was still open (the previous gate runs once on entry to Step 1.4 per the plan-v0.0.1-2.md §0 note)
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && cargo test --tests
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+pnpm nx run-many -t typecheck
+
+# Naming Lock
+grep -rn "conductor" apps/ libs/ --include="*.rs" --include="*.ts" 2>/dev/null
+
+# Argv lock
+! grep -n -- "--verbose" apps/desktop/src-tauri/src/claude_cli/runner.rs
+! grep -n -- "--dangerously-skip-permissions" apps/desktop/src-tauri/src/claude_cli/runner.rs
+
+# Boundary
+git diff --name-only $(git merge-base HEAD main)..HEAD | \
+  grep -vE '^(apps/desktop/src-tauri/src/claude_cli/|apps/desktop/src-tauri/src/lib\.rs$|apps/desktop/src-tauri/src/error\.rs$|apps/desktop/src-tauri/tests/fixtures/|TASKS\.md$|tmp/)' && \
+  echo "OUT-OF-SCOPE FILE TOUCHED" && exit 1 || true
+```
+
+**notes:**
+
+**commit:**
