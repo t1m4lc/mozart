@@ -13,6 +13,8 @@ use rusqlite::Connection;
 
 use crate::error::AppError;
 
+pub mod agent_events;
+pub mod agent_runs;
 pub mod config;
 pub mod models;
 pub mod repos;
