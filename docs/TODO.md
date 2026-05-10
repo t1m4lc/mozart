@@ -72,12 +72,12 @@ Documentation alignment to confirm (one-shot, not recurring):
 
 For each step the **atomic** breakdown lives in `specs/plan-v0.0.1-2.md` § 6. Source-of-truth precedence: continuation plan > PLAN-v0.0.1.md > this TODO.
 
-### [ ] Step 1.4 — `claude_cli.rs` (NEXT)
+### [x] Step 1.4 — `claude_cli.rs` (2026-05-10)
 
-- [ ] **S1.4.1** — `StreamEvent` enum + `parse_line` (parser shape, lossless fallback)
-- [ ] **S1.4.2** — `claude_cli::version_check` + `detect_installed`
-- [ ] **S1.4.3** — `claude_cli::spawn_run` (subprocess + checkpoint + stream + persist + diff)
-- [ ] **S1.4.4** — Step 1.4 final gate (cargo check + cargo test + clippy)
+- [x] **S1.4.1** — `StreamEvent` enum + `parse_line` (parser shape, lossless fallback) (2026-05-10)
+- [x] **S1.4.2** — `claude_cli::version_check` + `detect_installed` (2026-05-10)
+- [x] **S1.4.3** — `claude_cli::spawn_run` (subprocess + stream + persist; checkpoint/diff deferred to Step 1.5 reach-back per plan §11 Q-A) (2026-05-10)
+- [x] **S1.4.4** — Step 1.4 final gate (cargo check + cargo test + clippy) (2026-05-10)
 
 ### [ ] Step 1.5 — `sandbox.rs`
 

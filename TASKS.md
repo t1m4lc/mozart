@@ -323,7 +323,7 @@ Required test cases:
 
 ---
 
-## [x] S1.4.3 — claude_cli::runner::spawn_run
+## [x] S1.4.3 — claude_cli::runner::spawn_run (commit: d3634df, 2026-05-10)
 
 **dependencies:** S1.4.1, S1.4.2
 **parallelizable:** false
@@ -385,7 +385,7 @@ Required test cases (using `mock-claude.sh` as the spawned binary, set via env o
 
 ---
 
-## [ ] S1.4.4 — Step 1.4 final gate
+## [x] S1.4.4 — Step 1.4 final gate (2026-05-10; verification-only, no commit)
 
 **dependencies:** S1.4.1, S1.4.2, S1.4.3
 
