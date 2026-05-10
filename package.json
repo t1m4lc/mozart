@@ -3,7 +3,11 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "dev": "pnpm nx run desktop:tauri-dev"
+    "dev": "pnpm nx run desktop:tauri-dev",
+    "typecheck": "pnpm nx run-many -t typecheck",
+    "lint": "pnpm nx run-many -t lint",
+    "test": "pnpm nx run-many -t test",
+    "build": "pnpm nx run-many -t build"
   },
   "private": true,
   "packageManager": "pnpm@11.0.8",
