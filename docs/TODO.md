@@ -102,6 +102,10 @@ For each step the **atomic** breakdown lives in `specs/plan-v0.0.1-2.md` § 6. S
 
 5 atoms: `list_tasks` Rust command, frontend foundations (ngrx-signals + Geist + Mozart tokens), IPC/zod boundary + signalStores + shortcut infra (TDD), AppShell 3-panel + sidebar + workspace items, smoke fixture + CLAUDE.md conventions. Commits: 76ae293, 95f02fc, 2e018f6, cdfdf13, f345ec4.
 
+### [x] Step 1.8b — Shell polish + Agent streaming MVP (2026-05-11)
+
+5 atoms: window 1400×900 + custom titlebar + macOS variant + window perms; ShellStore + center-panel routing (TDD); sidebar 260px + flatter pills + drop archive slot; agent streaming + `AgentRunTerminated` tauri-specta event + ChatPanel + error banner with Retry; Add Repo + Create Workspace dialogs + sidebar wiring + ⌘N/⌘R. Q1–Q8 locked in `tmp/done-plans/audit-plan.md`. Commits: 1bc8f29, ffbd2a0, cce11ba, 6852b32, 2e89a52, 2c33f74, c799e54, e928bc7.
+
 ### [ ] Step 1.9 — Onboarding flow + tour repo
 
 5 onboarding screens (DESIGN.md D3) + `mozart-quickstart-demo` external repo + bundled snapshot fallback (PLAN-v0.0.1.md A7). Atomize after 1.8.

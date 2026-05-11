@@ -1773,7 +1773,7 @@ grep -q '32px 1fr' apps/desktop/src/app/shell/app-shell.component.ts
 
 ---
 
-## [ ] S1.8b.2 — `ShellStore` + center-panel routing (TDD)
+## [x] S1.8b.2 — `ShellStore` + center-panel routing (TDD) (commit: cce11ba, 2026-05-11)
 
 **dependencies:** S1.8b.1
 **parallelizable:** true (with S1.8b.3 — no shared mutable files)
@@ -1840,7 +1840,7 @@ grep -q "showRightPanel()" apps/desktop/src/app/shell/app-shell.component.ts
 
 ---
 
-## [ ] S1.8b.3 — Sidebar visual redesign (260px + flatter pills, no archive slot)
+## [x] S1.8b.3 — Sidebar visual redesign (260px + flatter pills, no archive slot) (commit: 2e89a52, 2026-05-11)
 
 **dependencies:** S1.8b.1
 **parallelizable:** true (with S1.8b.2, S1.8b.4 — disjoint file set)
@@ -1894,7 +1894,7 @@ grep -q "260px" libs/shared-styles-theme/src/lib/shell.css
 
 ---
 
-## [ ] S1.8b.4 — Agent streaming MVP + Rust `AgentRunTerminated` event + error banner
+## [x] S1.8b.4 — Agent streaming MVP + Rust `AgentRunTerminated` event + error banner (commit: c799e54, 2026-05-11)
 
 **dependencies:** S1.8b.2
 **parallelizable:** true (with S1.8b.3 — disjoint file set)
@@ -2035,7 +2035,7 @@ grep -q "stopAgentRun" apps/desktop/src/app/services/bindings.service.ts
 
 ---
 
-## [ ] S1.8b.5 — Add Repo + Create Workspace dialogs + sidebar wiring + ⌘N / ⌘R
+## [x] S1.8b.5 — Add Repo + Create Workspace dialogs + sidebar wiring + ⌘N / ⌘R (commit: e928bc7, 2026-05-11)
 
 **dependencies:** S1.8b.2, S1.8b.3, S1.8b.4
 **parallelizable:** false
