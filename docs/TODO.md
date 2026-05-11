@@ -98,9 +98,9 @@ For each step the **atomic** breakdown lives in `specs/plan-v0.0.1-2.md` § 6. S
 - [x] **S1.7.2** — `lib.rs` `#[cfg(debug_assertions)]` writes `apps/desktop/src/app/_bindings.ts`; `tests/bindings_export.rs` is the deterministic CI gate (2026-05-11, commit 567073b — runtime export, not build.rs, per Spike D's documented correction)
 - [x] **S1.7.3** — Wired each command to its service via `_impl` split; 12 happy + 1 unhappy tests (2026-05-11, commit c311da5)
 
-### [ ] Step 1.8 — Angular shell UI
+### [x] Step 1.8a — Angular shell UI (2026-05-11)
 
-Not atomized in `specs/plan-v0.0.1-2.md` yet — gets its own ready-plan after Step 1.7 lands. 11 components per PLAN-v0.0.1.md L487-498. **Vocabulary rule:** every label must use canonical concepts only.
+5 atoms: `list_tasks` Rust command, frontend foundations (ngrx-signals + Geist + Mozart tokens), IPC/zod boundary + signalStores + shortcut infra (TDD), AppShell 3-panel + sidebar + workspace items, smoke fixture + CLAUDE.md conventions. Commits: 76ae293, 95f02fc, 2e018f6, cdfdf13, f345ec4.
 
 ### [ ] Step 1.9 — Onboarding flow + tour repo
 

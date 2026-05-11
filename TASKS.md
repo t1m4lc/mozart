@@ -1255,3 +1255,423 @@ git diff --name-only $(git merge-base HEAD main)..HEAD | \
 **notes:**
 
 **commit:**
+
+---
+
+# Step 1.8a — Angular shell foundation + sidebar reading surface
+
+**Source plan:** `tmp/ready-plans/08-step-1-8a-shell-foundation.md` (Ultraplan v2, confidence 8/10).
+**Atomization rule (Mozart-Angular override):** atom = end of functional implementation, committable with code that works and runs. The generic ≤5-file rule is DROPPED for front-end work. Each atom carries a `**manual_test:**` block; commit happens only after user functional sign-off.
+
+**Atoms:** 5 (`S1.8a.1` Rust, `S1.8a.2` Frontend foundations, `S1.8a.3` IPC + State + Shortcuts plumbing, `S1.8a.4` Shell UI, `S1.8a.5` Smoke + CLAUDE.md).
+**Critical path:** 1 → 3 → 4 → 5 (4 atoms). Atom 2 runs parallel to atom 1.
+**TDD discipline (atoms 3 + 4):** spec file written first; vitest red → minimal impl → green → refactor. The implementer logs the red→green transition in their atom-completion report.
+
+---
+
+## [x] S1.8a.1 — Rust `list_tasks` command (12 → 13 commands; vocabulary unblocker for sidebar workspace labels) (commit: 76ae293, 2026-05-11)
+
+**dependencies:** S1.7.4 (Step 1.7 final gate)
+**parallelizable:** true (with S1.8a.2)
+
+**allowed_files:**
+- `apps/desktop/src-tauri/src/db/tasks.rs` (add `pub fn list_by_repo(conn: &Connection, repo_id: &str) -> Result<Vec<Task>, AppError>` mirroring the existing `get` pattern + 2 tests: happy `list_by_repo_round_trip`, empty `list_by_repo_empty_for_unknown_repo_returns_empty_vec`)
+- `apps/desktop/src-tauri/src/commands/mod.rs` (insert a new `// list_tasks` section after `list_workspaces`: `#[tauri::command] #[specta::specta] pub async fn list_tasks(db: State<'_, DbState>, repo_id: String) -> Result<Vec<Task>, AppError> { list_tasks_impl(db.inner(), repo_id).await }` plus `pub(crate) async fn list_tasks_impl`; add 2 `#[tokio::test]`s: `list_tasks_returns_seeded_tasks_for_repo`, `list_tasks_returns_empty_for_unknown_repo` — reuse `init_db_memory()` + `seed_workspace_chain` per the existing test pattern)
+- `apps/desktop/src-tauri/src/bindings_export.rs` (add `commands::list_tasks,` to `collect_commands![...]` between `commands::list_workspaces,` and `commands::archive_workspace,`)
+- `apps/desktop/src-tauri/tests/bindings_export.rs` (add `"listTasks"` to the `expected_commands` array; update the comment "All 12 commands" → "All 13 commands")
+
+**forbidden_files:**
+- `apps/desktop/src-tauri/migrations/**` (no schema changes — `tasks` table already exists)
+- `apps/desktop/src-tauri/src/db/{repos,workspaces,threads,agent_runs,workspace_changes,outbox,config,agent_events,mod,models}.rs` (only `tasks.rs` in scope)
+- `apps/desktop/src-tauri/src/{lib,run_registry,claude_cli/**,sandbox/**,branch_name,git_query,worktree,workspace_service,error}.rs`
+- `apps/desktop/src-tauri/Cargo.toml`, `apps/desktop/src-tauri/capabilities/**`, `apps/desktop/src-tauri/tauri.conf.json`
+- `apps/desktop/src/**`, `libs/**`, `package.json`, `.gitignore`
+
+**acceptance:**
+- [ ] `db::tasks::list_by_repo` returns `Vec<Task>` ordered by `created_at ASC`; `AppError::Db` on rusqlite errors; empty vec (NOT error) for unknown `repo_id`
+- [ ] 2 new `db::tasks` tests pass (`cargo test --tests db::tasks`)
+- [ ] `commands::list_tasks` uses the `_impl` split pattern; argument `repo_id: String`; return `Result<Vec<Task>, AppError>`
+- [ ] 2 new `commands::tests` tests pass
+- [ ] `bindings_export.rs::collect_commands!` registers exactly 13 commands (was 12)
+- [ ] `tests/bindings_export.rs::expected_commands` array lists exactly 13 entries including `"listTasks"`
+- [ ] `cargo test --tests` total count ≥ 113 (was 111 post-S1.7; +2 here)
+- [ ] `cargo clippy --all-targets -- -D warnings` clean
+- [ ] `cargo check` clean
+
+**tests/checks:**
+```sh
+cd apps/desktop/src-tauri && cargo check
+cd apps/desktop/src-tauri && cargo test --tests
+cd apps/desktop/src-tauri && cargo clippy --all-targets -- -D warnings
+grep -c '#\[tauri::command\]' apps/desktop/src-tauri/src/commands/mod.rs   # expect 13
+grep -c 'commands::' apps/desktop/src-tauri/src/bindings_export.rs         # expect 13
+grep -n '"listTasks"' apps/desktop/src-tauri/tests/bindings_export.rs      # expect 1
+grep -n 'pub fn list_by_repo' apps/desktop/src-tauri/src/db/tasks.rs       # expect 1
+```
+
+**manual_test:**
+
+1. `cd /home/timothy/accelerate_growth_with/mozart/apps/desktop/src-tauri && cargo test --tests 2>&1 | tail -20`
+2. **Expected:** the summary line reports `test result: ok. NNN passed; 0 failed; 5 ignored` where `NNN ≥ 113`. The `bindings_export::export_contains_all_commands_and_types` test passes.
+3. `grep "listTasks\|expected_commands" apps/desktop/src-tauri/tests/bindings_export.rs | head -5`
+4. **Expected:** `"listTasks"` is one of the 13 entries in `expected_commands`, and the count comment reads "All 13 commands".
+5. **Sign-off:** confirm the test count went `111 → ≥113` and there are no clippy warnings.
+
+**notes:** Implementer report: 4 files staged, +172 / −3. cargo test --tests 115 unit + 1 integration = 116 passing (≥113 required). clippy clean. TDD red→green confirmed for both layers (db::tasks::list_by_repo and commands::list_tasks_impl). Stale doc comment at commands/mod.rs:4 ("12 commands") left untouched — flagged for follow-up tidy-up in a later S1.8a atom.
+
+**commit:** `76ae293` — feat(M1.8a.1): list_tasks command (12→13 typed Tauri commands)
+
+---
+
+## [x] S1.8a.2 — Frontend foundations: deps, Mozart tokens, Geist fonts, dark theme default (commit: 95f02fc, 2026-05-11)
+
+**dependencies:** S1.7.4
+**parallelizable:** true (with S1.8a.1)
+
+**allowed_files:**
+- `package.json` (add deps via `pnpm add @ngrx/signals @ngrx/operators @angular-architects/ngrx-toolkit dayjs zod` — pin to Angular-21-compatible majors: `@ngrx/signals@^21`, `@ngrx/operators@^21`, `@angular-architects/ngrx-toolkit@^21`, `zod@^4`, `dayjs@^1.11`; if the toolkit's peer-dep range refuses `21`, fall back to `@^20` and document the choice in `notes`)
+- `pnpm-lock.yaml` (whole-file regen — accepted as part of dep add)
+- `apps/desktop/public/fonts/GeistVariableVF.woff2` (NEW binary; vendor from `https://github.com/vercel/geist-font` release; OFL license)
+- `apps/desktop/public/fonts/GeistMonoVariableVF.woff2` (NEW binary; same source)
+- `apps/desktop/src/styles/mozart-tokens.css` (NEW — `@font-face` declarations for both Geist variable woff2 (`font-weight: 100 900`), plus Mozart token block scoped under `:root.dark .theme-zinc { … }` with every variable from DESIGN.md § Color Tokens + Typography. Verbatim hex values from DESIGN.md.)
+- `apps/desktop/src/styles.css` (append `@import "./styles/mozart-tokens.css";` after the existing `libs/shared-styles-theme/...` import)
+- `apps/desktop/src/index.html` (add two `<link rel="preload" as="font" type="font/woff2" crossorigin href="/fonts/...">` lines before `<link rel="icon">`; DO NOT change `<body>` classes — D9 keeps `provideTheme({ mode: 'dark' })` as the load-bearing path)
+- `apps/desktop/src/app/app.config.ts` (change `provideTheme()` → `provideTheme({ mode: 'dark' })`. Verify signature at atom start via `Read libs/shared-util-theme/src/lib/provide-theme.ts`; if the signature does not accept args, add a `THEME_CONFIG` override in `app.config.ts` instead — DO NOT edit the lib.)
+
+**forbidden_files:**
+- `libs/**` (Mozart tokens stay in `apps/desktop/`)
+- `apps/desktop/src-tauri/**`
+- `apps/desktop/src/app/services/**`, `apps/desktop/src/app/state/**`, `apps/desktop/src/app/shared/**`, `apps/desktop/src/app/shell/**`, `apps/desktop/src/app/sidebar/**` (created in S1.8a.3/4)
+- `apps/desktop/src/app/_bindings.ts` (gitignored)
+- `apps/desktop/src/app/component.ts` (deleted in S1.8a.4)
+- `apps/desktop/src/app/app.routes.ts` (route swap is S1.8a.4)
+
+**acceptance:**
+- [ ] `package.json` "dependencies" lists `@ngrx/signals`, `@ngrx/operators`, `@angular-architects/ngrx-toolkit`, `dayjs`, `zod` with locked majors
+- [ ] `pnpm-lock.yaml` updated; `pnpm install --frozen-lockfile` clean from fresh clone
+- [ ] Both Geist woff2 files present under `apps/desktop/public/fonts/`
+- [ ] `apps/desktop/src/styles/mozart-tokens.css` carries every variable in DESIGN.md § Color Tokens + Typography; `@font-face` for both Geist variants (variable axis 100-900)
+- [ ] `apps/desktop/src/styles.css` imports the new tokens file
+- [ ] `apps/desktop/src/index.html` carries both font preload tags
+- [ ] `provideTheme({ mode: 'dark' })` (or equivalent default-dark wiring) in `app.config.ts`
+- [ ] `pnpm nx build desktop` succeeds; built bundle contains both woff2 files
+- [ ] No `libs/**` files modified
+
+**tests/checks:**
+```sh
+pnpm install --frozen-lockfile
+pnpm nx build desktop
+pnpm nx lint desktop
+
+test -f apps/desktop/public/fonts/GeistVariableVF.woff2
+test -f apps/desktop/public/fonts/GeistMonoVariableVF.woff2
+
+grep -E '"(@ngrx/signals|@ngrx/operators|@angular-architects/ngrx-toolkit|dayjs|zod)"' package.json
+! git diff --name-only HEAD~ HEAD | grep '^libs/'
+
+grep -c '^\s*--' apps/desktop/src/styles/mozart-tokens.css   # expect ≥ 24 variables
+grep -nF '@font-face' apps/desktop/src/styles/mozart-tokens.css   # expect 2
+grep -nF 'mozart-tokens.css' apps/desktop/src/styles.css     # expect 1
+grep -cF 'rel="preload" as="font"' apps/desktop/src/index.html   # expect 2
+```
+
+**manual_test:**
+
+1. `pnpm dev` — wait for the Tauri window to open.
+2. **Expected — background:** dark, near-black `#0d0d0f`. The `ButtonPreview` placeholder still renders (route not swapped yet) but its surrounding chrome is Mozart-dark.
+3. DevTools → Elements → click `<html>` and `<body>`. Confirm one of them carries the `dark` class and the other carries `theme-zinc`.
+4. DevTools → Computed pane on `<body>` → `font-family` starts with `Geist`. If `system-ui` shows first, preload failed.
+5. DevTools → Network → filter `font` → reload (Cmd/Ctrl+R). Both `GeistVariableVF.woff2` and `GeistMonoVariableVF.woff2` load with status 200/304 and Type `font`.
+6. DevTools → Console: no red errors.
+7. **Sign-off:** confirm dark background + Geist active + both woff2 files load + no console errors.
+
+**notes:** Scope override accepted by user: `libs/**` originally forbidden, but Mozart tokens merged into `libs/shared-styles-theme` (Spartan zinc priority; Mozart adds only net-new concepts). Layout constants → new `libs/shared-styles-theme/src/lib/shell.css`. `font-display: optional` instead of `swap`. `apps/desktop/src/app/app.config.ts` reverted to `provideTheme()` (default `mode: 'system'`); dark mode follows OS preference rather than being forced. Final scope: 9 files (5 modified + 4 new incl. 2 woff2 binaries). Resolved deps: `@ngrx/signals@^21.1.0`, `@ngrx/operators@^21.1.0`, `@angular-architects/ngrx-toolkit@^21.0.1`, `zod@^4.4.3`, `dayjs@^1.11.20` (no fallback to ^20 needed). Upstream Geist filenames are `Geist-Variable.woff2` / `GeistMono-Variable.woff2`; saved locally under the atom-prescribed `*VariableVF.woff2` names.
+
+**commit:** `95f02fc` — feat(M1.8a.2): frontend foundations — ngrx-signals deps + Geist fonts + Mozart tokens
+
+---
+
+## [x] S1.8a.3 — IPC + State + Shortcuts plumbing (TDD; no `any`) (commit: 2e018f6, 2026-05-11)
+
+**dependencies:** S1.8a.1, S1.8a.2
+**parallelizable:** false
+
+**Pre-flight (run BEFORE writing code in this atom):**
+```sh
+pnpm dev   # let the Tauri window open ~5s
+test -f apps/desktop/src/app/_bindings.ts
+grep -q 'listTasks' apps/desktop/src/app/_bindings.ts || { echo "S1.8a.1 didn't propagate"; exit 1; }
+# Ctrl-C the dev server; _bindings.ts is gitignored.
+```
+
+**allowed_files:**
+
+Zod schemas + types:
+- `apps/desktop/src/app/shared/schemas/bindings.schemas.ts` (NEW — `z.object` schemas for `AppError`, `Repo`, `Task`, `Workspace`, `WorkspaceStatusSchema`, `WorkspaceChangeSchema`; matching `z.infer` DTO exports)
+- `apps/desktop/src/app/shared/schemas/bindings.schemas.spec.ts` (NEW — vitest: parse happy path per schema, reject on missing field, reject on type mismatch, infer types compile)
+
+IPC layer:
+- `apps/desktop/src/app/services/mozart-error.ts` (NEW — `MozartError extends Error` with `kind`, `message`, optional `recovery`; static `fromAppError`; `Validation` kind for parse failures)
+- `apps/desktop/src/app/services/bindings.service.ts` (NEW — `@Injectable({ providedIn: 'root' })`; private `invoke<T>(raw: Promise<unknown>, schema: z.ZodType<T>)` that parses the envelope `{ status: 'ok', data } | { status: 'error', error }` OR the bare payload; throws `MozartError`. Public methods: `listRepos`, `listTasks`, `listWorkspaces`, `addRepo`, `archiveWorkspace`, `createWorkspace`, `listRuns`, `getWorkspaceDiff`, `discardWorkspaceChanges`, `listBranches`, `checkClaudeInstall`. Channel-based commands (start/stop_agent_run) declared as TODO with plan-09 reference — DO NOT implement.)
+- `apps/desktop/src/app/services/bindings.service.spec.ts` (NEW — vitest with `vi.mock('../_bindings')`; one happy + one error + one validation-failure per critical method)
+
+State layer (signalStores using `@ngrx/signals` + `@angular-architects/ngrx-toolkit`):
+- `apps/desktop/src/app/state/project.store.ts` (NEW — `signalStore({ providedIn: 'root' }, withDevtools('projects'), withStorageSync({ key: 'mozart.projects.selection' }), withCallState({ collection: 'projects' }), withState({ projects: [], selectedProjectId: null, expandedProjectIds: new Set() }), withMethods(...), withComputed({ selectedProject }), withHooks({ onInit: store => store.refresh() }))`. `refresh: rxMethod<void>` calls `BindingsService.listRepos()` via `tapResponse`. `select(id)`, `toggleExpanded(id)`. Persist ONLY `selectedProjectId` + `expandedProjectIds`, NOT the server-derived `projects` array.)
+- `apps/desktop/src/app/state/project.store.spec.ts` (NEW — TestBed with fake `BindingsService`; assert `loaded()` after `refresh()`, `selectedProject()` computed correctly, `toggleExpanded` toggles, error path sets `error()` truthy, localStorage carries `mozart.projects.selection` after `select(id)`)
+- `apps/desktop/src/app/state/task.store.ts` (NEW — `signalStore` with state `byProject: Map<string, TaskDto[]>`, `byId: Map<string, TaskDto>`; `withMethods({ refreshFor: rxMethod<string>, refreshAll: rxMethod<void> })`; `withHooks({ onInit })` runs an `effect()` reading `inject(ProjectStore).projects()` and triggers `refreshFor(repo_id)` for missing entries. No storage sync.)
+- `apps/desktop/src/app/state/task.store.spec.ts` (NEW — TestBed with fake `BindingsService` + fake `ProjectStore`; assert tasks load per project; `byId.get(taskId).title` returns expected value)
+- `apps/desktop/src/app/state/workspace.store.ts` (NEW — `signalStore` with `all: Workspace[]`, `selectedWorkspaceId: string | null`; `withStorageSync({ key: 'mozart.workspaces.selection' })` persisting ONLY `selectedWorkspaceId`; `withComputed({ byTask: Map<task_id, Workspace[]> })`; `workspacesForProject(repoId)` reads `inject(TaskStore).byProject().get(repoId)`. F3 headroom: `byTask` is `Map<task_id, Workspace[]>`.)
+- `apps/desktop/src/app/state/workspace.store.spec.ts` (NEW — assert `byTask` groups correctly, `select` updates + persists, `workspacesForProject` returns expected vector)
+
+Keyboard infrastructure:
+- `apps/desktop/src/app/shared/keyboard/shortcut.types.ts` (NEW — `AllowIn` const enum, `Shortcut`, `ShortcutInput`, `ShortcutEventOutput`)
+- `apps/desktop/src/app/shared/keyboard/key-combo.ts` (NEW — pure `normalizeKey`, `resolvePlatform`, `matchesEvent`)
+- `apps/desktop/src/app/shared/keyboard/key-combo.spec.ts` (NEW — cross-platform `cmd+k` ↔ `ctrl+k`, modifier permutations, single-char keys)
+- `apps/desktop/src/app/services/shortcut.service.ts` (NEW — RxJS `fromEvent(document, 'keydown').pipe(share())`; `register$(input)` returns `Observable<ShortcutEventOutput>`; `register(input)` returns `() => void`; `key: 'all'` wildcard; `throttleTime(ms, undefined, { leading: true, trailing: false })`; `allowIn` filters INPUT/TEXTAREA/SELECT; `target?: HTMLElement` scopes)
+- `apps/desktop/src/app/services/shortcut.service.spec.ts` (NEW — jsdom KeyboardEvent simulation; covers register$ emit, register dispose, allowIn block/allow, throttleTime, wildcard, platform)
+- `apps/desktop/src/app/shared/keyboard/mz-shortcut.directive.ts` (NEW — `[mzShortcut]` standalone directive; `input.required<ShortcutInput>()`; subscribes via `takeUntilDestroyed()`; `target` defaults to `ElementRef.nativeElement`)
+- `apps/desktop/src/app/shared/keyboard/mz-shortcut.directive.spec.ts` (NEW — TestBed harness; assert subscribe/dispose lifecycle + combo fires command)
+
+**forbidden_files:**
+- `apps/desktop/src/app/shell/**`, `apps/desktop/src/app/sidebar/**` (created in S1.8a.4)
+- `apps/desktop/src/app/component.ts`, `apps/desktop/src/app/app.routes.ts` (route swap is S1.8a.4)
+- `libs/**`
+- `apps/desktop/src-tauri/**`
+- `package.json`, `pnpm-lock.yaml`, `apps/desktop/src/index.html`, `apps/desktop/src/styles.css`, `apps/desktop/src/styles/**`, `apps/desktop/public/fonts/**`
+
+**acceptance:**
+
+Zod boundary:
+- [ ] Schemas in `bindings.schemas.ts` match `apps/desktop/src-tauri/src/db/models.rs` field-by-field
+- [ ] All DTO types derive via `z.infer<typeof X>` — no hand-typed parallel interfaces
+
+IPC layer:
+- [ ] `BindingsService.invoke<T>(raw, schema)` parses envelope first, falls back to direct payload, throws `MozartError` on failure
+- [ ] `MozartError.fromAppError` sets `recovery: 'Open Settings → Claude CLI'` when `kind === 'AgentSpawn'`
+- [ ] `BindingsService` exposes 10 wrapped methods (no Channel-based ones)
+- [ ] Vitest covers happy + error + validation-failure paths
+
+State layer:
+- [ ] All three stores are `signalStore({ providedIn: 'root' }, ...)` factory exports (NO `@Injectable` class for stateful services)
+- [ ] `withDevtools(name)`, `withCallState({ collection })`, `rxMethod` + `tapResponse` all used
+- [ ] `ProjectStore` + `WorkspaceStore` use `withStorageSync` and persist ONLY selection state (NOT server-derived collections)
+- [ ] `TaskStore.byId` keyed by `task_id`; `WorkspaceStore.byTask` keyed by `task_id` (F3 1:N-ready)
+- [ ] Cross-store injection (TaskStore→ProjectStore, WorkspaceStore→TaskStore) tested
+
+Shortcut layer:
+- [ ] `register$` Observable + `register` dispose `() => void`
+- [ ] `key: 'all'`, `throttleTime`, `allowIn`, `target`, `preventDefault` all unit-tested
+- [ ] `mzShortcut` directive auto-disposes via `takeUntilDestroyed()`
+- [ ] Cross-platform combo resolution tested
+
+Strict typing:
+- [ ] `! grep -rEn ': any( |$|;|,|\))' apps/desktop/src/app/` returns 0 hits
+
+Validation gate:
+- [ ] `pnpm nx test desktop` green
+- [ ] `pnpm nx lint desktop` green
+- [ ] `pnpm nx build desktop` green
+- [ ] `pnpm nx typecheck desktop` clean
+
+**tests/checks:**
+```sh
+pnpm nx test desktop
+pnpm nx lint desktop
+pnpm nx build desktop
+
+! grep -rEn ': any( |$|;|,|\))' apps/desktop/src/app/
+
+grep -c 'signalStore(' apps/desktop/src/app/state/                       # ≥3
+grep -c 'withDevtools' apps/desktop/src/app/state/                        # ≥3
+grep -c 'withCallState' apps/desktop/src/app/state/                       # ≥3
+grep -c 'withStorageSync' apps/desktop/src/app/state/                     # ≥2 (project, workspace)
+grep -c 'rxMethod' apps/desktop/src/app/state/                            # ≥3
+grep -c 'tapResponse' apps/desktop/src/app/state/                         # ≥3
+
+grep -rn 'z\.object\|z\.infer' apps/desktop/src/app/shared/schemas/
+
+! grep -rn '@Injectable.*providedIn.*root' apps/desktop/src/app/state/
+```
+
+**manual_test:**
+
+1. **Unit-test green:** `pnpm nx test desktop` ends green; no skipped tests other than pre-existing.
+2. **Console smoke (IPC reaches Rust):**
+   - The implementer adds a debug-only assignment in `app.config.ts` `provideAppInitializer`:
+     ```ts
+     if (!environment.production) (window as any).__mz = { bindings: inject(BindingsService) };
+     ```
+     (This is a temporary debug seam; it ships only behind `environment.production` so it disappears in prod builds. Remove or hide it before plan 11 if desired.)
+   - `pnpm dev` → DevTools → Console → paste:
+     ```js
+     await window.__mz.bindings.listRepos();
+     await window.__mz.bindings.listTasks('does-not-exist');
+     await window.__mz.bindings.archiveWorkspace('nope').catch(e => e);
+     ```
+   - **Expected:** first two return `[]`; third returns a `MozartError` instance with `kind: 'NotFound'`.
+3. **Storage persistence:** DevTools → Application → Local Storage. Keys `mozart.projects.selection` and `mozart.workspaces.selection` appear after first interaction (initially absent — that's fine).
+4. **NgRx DevTools (optional):** with the Redux DevTools browser extension, see `projects` / `tasks` / `workspaces` stores; time-travel works.
+5. **Sign-off:** confirm vitest green, console smoke reaches Rust, no `: any` in author-written TS, stores visible in DevTools.
+
+**notes:** 17 new files + 1 modified (`app.config.ts` debug seam, scope-override approved at review). 108/108 vitest pass; lint/build green; 0 `: any` hits in author TS. TDD red→green logged across all 9 modules. `BindingsService` uses `TAURI_COMMANDS` injection token (Angular unit-test runner forbids `vi.mock` on relative imports — equivalent runtime behavior). `withStorageSync` shape: `{ key, select: state => slice }`. **Filed follow-up** (recurring, NOT fixed here): `apps/desktop/src/app/_bindings.ts` is regenerated on every `pnpm dev` and contains a self-colliding `export type TAURI_CHANNEL<TSend> = null;` + `: any` casts that break lint/build. Local file is patched (gitignored, not committed). Proper fix is in `bindings_export.rs` (customize the specta-typescript formatter) — to be folded into plan 09 alongside Channel-based command consumers.
+
+**commit:** `2e018f6` — feat(M1.8a.3): IPC zod boundary + signalStores + shortcut infra (TDD)
+
+---
+
+## [x] S1.8a.4 — Shell UI: AppShell + 3-panel + Sidebar + states + workspace items (commit: cdfdf13, 2026-05-11)
+
+**dependencies:** S1.8a.3
+**parallelizable:** false
+
+**allowed_files:**
+
+Shell:
+- `apps/desktop/src/app/shell/app-shell.component.ts` (NEW — standalone; imports TopBar/Sidebar/EmptyCenter/EmptyRight; CSS grid 36px top + 1fr; `grid-template-columns: var(--sidebar-width) 1fr var(--right-panel-width)`; `@media (max-width: 1099px)` hides `<aside>`; ARIA landmarks; `ngOnInit` triggers `ProjectStore.refresh()` + `WorkspaceStore.refresh()`)
+- `apps/desktop/src/app/shell/top-bar.component.ts` (NEW — 36px tall, brand mark `◆ Mozart` left, disabled `[Settings]` + `[About]` right with tooltips)
+- `apps/desktop/src/app/shell/empty-center.component.ts` (NEW — centered card "Pick a workspace from the sidebar, or create a new one." + disabled `[+ New workspace]` Spartan Button + tooltip)
+- `apps/desktop/src/app/shell/empty-right.component.ts` (NEW — muted "No workspace selected." card)
+
+Sidebar:
+- `apps/desktop/src/app/sidebar/sidebar.component.ts` (NEW — nav strip with disabled `[≡][←][→][+ Add]` + tooltips; `<ng-scrollbar hlm>` host (per explorer's selector finding); `@switch` over `ProjectStore.status()` between skeleton/error/empty/populated `@for project of ProjectStore.projects(); track project.repo_id { <mozart-project-row [project]="project" /> }`)
+- `apps/desktop/src/app/sidebar/sidebar.component.spec.ts` (NEW — TestBed with fake stores; covers each state branch renders correct sub-component)
+- `apps/desktop/src/app/sidebar/sidebar-empty.component.ts` (NEW — "No projects yet." + disabled `[+ Add repository]` + 1.8d tooltip)
+- `apps/desktop/src/app/sidebar/sidebar-error.component.ts` (NEW — `error = input.required<MozartError>()`; renders `error.message` + `[Retry]` emitting `retry = output<void>()`)
+- `apps/desktop/src/app/sidebar/sidebar-skeleton.component.ts` (NEW — 3 row placeholders with `--bg-card` + `--bg-hover` shimmer 1200ms; honors `@media (prefers-reduced-motion: reduce)`)
+- `apps/desktop/src/app/sidebar/project-row.component.ts` (NEW — collapsible group; chevron from `ProjectStore.expandedProjectIds().has(repo_id)`, click → `toggleExpanded`; iterates `WorkspaceStore.workspacesForProject(repo_id)`; per-row disabled `[+]` + `[⚙]`)
+- `apps/desktop/src/app/sidebar/workspace-item.component.ts` (NEW — `workspace = input.required<Workspace>()`; primary 14px label from `TaskStore.byId().get(workspace.task_id)?.title`; subtitle 12px mono = `branch_name`; status dot from `--status-*`; `[class.selected]` from `WorkspaceStore.selectedWorkspaceId()`; click → `WorkspaceStore.select(id)`; disabled hover archive button + tooltip)
+- `apps/desktop/src/app/sidebar/workspace-item.component.spec.ts` (NEW — title falls back to `(loading…)`; status dot color matches enum; selected class binds; click invokes `select`)
+
+Wiring:
+- `apps/desktop/src/app/app.routes.ts` (replace ButtonPreview with `{ path: '', loadComponent: () => import('./shell/app-shell.component').then(m => m.AppShellComponent) }`)
+- `apps/desktop/src/app/component.ts` (DELETE — ButtonPreview superseded)
+
+**forbidden_files:**
+- `libs/**`
+- `apps/desktop/src-tauri/**`
+- `package.json`, `pnpm-lock.yaml`, `apps/desktop/src/index.html`, `apps/desktop/src/styles.css`, `apps/desktop/src/styles/**`, `apps/desktop/public/fonts/**`
+- `apps/desktop/src/app/services/**`, `apps/desktop/src/app/state/**`, `apps/desktop/src/app/shared/**`
+- `apps/desktop/src/app/app.config.ts`, `apps/desktop/src/app/app.component.ts`
+- `apps/desktop/src/app/_bindings.ts`
+
+**acceptance:**
+
+Visual + layout:
+- [ ] AppShell renders 36px top bar + `var(--sidebar-width)` left + `1fr` center + `var(--right-panel-width)` right
+- [ ] Window <1099 px → right `<aside>` hidden (no overflow)
+- [ ] Sidebar nav strip shows `[≡][←][→][PROJECTS][+ Add]` all disabled with tooltips
+- [ ] Empty/loading/error/populated states match DESIGN.md state matrix verbatim
+- [ ] Project row chevron toggles; state persisted via `withStorageSync`
+- [ ] Workspace item: `tasks.title` primary + `branch_name` mono subtitle + status dot
+- [ ] Click workspace → `[class.selected]` (2px left accent + `--bg-selected`)
+- [ ] Hard reload preserves selected workspace + expanded projects
+
+Vocabulary + a11y:
+- [ ] No `worktree`, `worktree_path`, `agent/wip-` (except as workspace-item subtitle), `detached HEAD`, `checkpoint sha` in any user-visible template
+- [ ] ARIA landmarks present (banner, navigation, main, complementary)
+
+Code hygiene:
+- [ ] `apps/desktop/src/app/component.ts` deleted; no `ButtonPreview` import remains
+- [ ] Routes: only `''` → `AppShellComponent`
+- [ ] No `: any` in `apps/desktop/src/app/shell/**` or `apps/desktop/src/app/sidebar/**`
+
+Validation gate:
+- [ ] `pnpm nx lint test build desktop` all green
+- [ ] Component specs ≥ 2 (sidebar + workspace-item)
+
+**tests/checks:**
+```sh
+pnpm nx lint desktop
+pnpm nx test desktop
+pnpm nx build desktop
+
+! grep -rEn ': any( |$|;|,|\))' apps/desktop/src/app/shell apps/desktop/src/app/sidebar
+! test -f apps/desktop/src/app/component.ts
+! grep -rn 'ButtonPreview' apps/desktop/src/app/
+
+! grep -rnE '(worktree_path|"agent/wip-|detached HEAD|checkpoint sha)' apps/desktop/src/app/shell apps/desktop/src/app/sidebar
+grep -c 'branch_name' apps/desktop/src/app/sidebar/   # ≥1 (workspace-item subtitle)
+
+grep -nF 'role="navigation"' apps/desktop/src/app/sidebar/sidebar.component.ts
+grep -nF 'role="main"' apps/desktop/src/app/shell/app-shell.component.ts
+grep -nF 'role="complementary"' apps/desktop/src/app/shell/app-shell.component.ts
+```
+
+**manual_test:**
+
+1. **Empty state:**
+   - `pnpm dev` (with clean dev DB).
+   - **Expected:** dark 3-panel shell. Top bar `◆ Mozart` left. Sidebar empty card "No projects yet." + greyed `[+ Add repository]` (tooltip: "Coming in 1.8d"). Center: "Pick a workspace from the sidebar, or create a new one." + disabled `[+ New workspace]`. Right: "No workspace selected." No console errors.
+2. **Responsive collapse:** Resize window narrower than 1100 px → right aside disappears; no horizontal scrollbar.
+3. **Seeded state:**
+   - Find dev DB (e.g. `~/.local/share/com.mozart.desktop/mozart.db` on Linux).
+   - Run inline seed:
+     ```sh
+     sqlite3 "<path-to-mozart.db>" <<'SQL'
+     INSERT INTO repos VALUES('r1','/tmp/demo','demo-project',1700000000000);
+     INSERT INTO tasks VALUES('t1','r1','Refactor auth flow','Refactor /login to use the new session API','active',1700000000000);
+     INSERT INTO threads VALUES('th1','w1');
+     INSERT INTO workspaces VALUES('w1','t1','/tmp/demo/.worktrees/short1','agent/wip-aaaaaa','main','ready',1700000000000,0);
+     SQL
+     ```
+   - Click sidebar `[Retry]` (or refresh — `pnpm dev` re-init).
+   - **Expected:** sidebar shows `demo-project` row (expandable). Workspace item:
+     - Primary: **Refactor auth flow** (14 px Geist).
+     - Subtitle: `agent/wip-aaaaaa` (12 px Geist Mono muted).
+     - Status dot: green (`--status-done` for `ready`).
+   - Click workspace row → row gets 2 px blue left accent + `--bg-selected` background.
+4. **Persistence:** Hard reload → workspace stays selected; project row stays expanded.
+5. **Vocabulary scan:** confirm `agent/wip-` appears ONLY in the workspace-item subtitle; no other forbidden substrings anywhere on screen.
+6. **Sign-off:** report any layout/copy/persistence/vocabulary issues before commit.
+
+**notes:** 12 new files (4 shell + 8 sidebar incl. 2 specs) + `app.routes.ts` modified + `component.ts` deleted. 120 vitest tests pass (was 108; +12 new for sidebar + workspace-item). Lint + build green. **Filed follow-ups** (user-approved deferrals): (1) selector `app-app-shell` due to eslint `prefix:'app'` — rename `AppShellComponent → ShellComponent` OR relax eslint prefix in future; (2) `<ng-scrollbar hlm>` deferred to a future tooling atom (ngx-scrollbar dep not installed; `package.json` was forbidden here); (3) bundle-budget warning 583 KB vs 500 KB pre-existing — future tuning atom. **Sync-generator side-effect:** `apps/desktop/src/styles.css` got `@source ".../libs/ui/tooltip"` auto-added by `@juristr/nx-tailwind-sync:source-directives` — required for tooltip Tailwind classes. **Vocab grep exception:** `worktree_path` in `workspace-item.component.spec.ts:26` is a required field name on the `WorkspaceDto` test fixture; not user-visible.
+
+**commit:** `cdfdf13` — feat(M1.8a.4): shell UI — 3-panel + sidebar + workspace items
+
+---
+
+## [x] S1.8a.5 — Smoke fixture + CLAUDE.md conventions
+
+**dependencies:** S1.8a.4
+**parallelizable:** false
+
+**allowed_files:**
+- `apps/desktop/src-tauri/tests/fixtures/seed-shell.sql` (NEW — INSERT statements for 1 project + 2 tasks + 3 workspaces exercising statuses `ready`, `running`, `error`, plus 1 archived; inherited by plans 09–11)
+- `CLAUDE.md` (append AFTER existing "Angular best practices (functional style)" section, BEFORE "Tauri v2 best practices": **State management — `@ngrx/signals` SignalStore**, **Keyboard shortcuts**, **IPC validation — zod**, **TDD discipline**, **Forbidden patterns**. Content per `tmp/ready-plans/08-step-1-8a-shell-foundation.md` § CLAUDE.md additions.)
+
+**forbidden_files:**
+- Anything else under `apps/desktop/**`, `libs/**`, `apps/desktop/src-tauri/src/**`, `apps/desktop/src-tauri/Cargo.toml`, `package.json`
+
+**acceptance:**
+- [ ] `seed-shell.sql` exists; INSERTs round-trip against the live schema (run it against a copy of the dev DB and `.tables` / `SELECT` to verify)
+- [ ] CLAUDE.md has the 5 new sections in the listed order
+- [ ] "Forbidden patterns" lists at least: `any`, new NX libs for app code, `@Injectable` + raw `signal()` for app state, eager `subscribe()` without `takeUntilDestroyed()`, hardcoded color hex, raw `new Date()`, free-form labels on disabled v0.2 controls
+
+**tests/checks:**
+```sh
+test -f apps/desktop/src-tauri/tests/fixtures/seed-shell.sql
+grep -c 'INSERT INTO' apps/desktop/src-tauri/tests/fixtures/seed-shell.sql   # ≥ 4
+
+grep -nF '## State management' CLAUDE.md
+grep -nF '## Keyboard shortcuts' CLAUDE.md
+grep -nF '## IPC validation' CLAUDE.md
+grep -nF '## TDD discipline' CLAUDE.md
+grep -nF '## Forbidden patterns' CLAUDE.md
+```
+
+**manual_test:**
+
+1. **End-to-end smoke:**
+   - `mv "<path-to-mozart.db>" mozart.db.bak` (reset to empty).
+   - `pnpm dev` → empty sidebar card.
+   - `sqlite3 "<path-to-mozart.db>" < apps/desktop/src-tauri/tests/fixtures/seed-shell.sql`.
+   - Click sidebar `[Retry]`.
+   - **Expected:** 1 project, expandable to 3 workspaces across 2 tasks. Status dots: 1× green (ready), 1× blue pulsing (running) — solid if `prefers-reduced-motion` is on — 1× red (error). The archived workspace either hides or appears muted-grey (whichever S1.8a.4 chose, consistent behavior).
+2. **CLAUDE.md review:** open in editor; new sections read clearly; "Forbidden patterns" looks like a rule-set future agents will follow.
+3. **Sign-off:** confirm seed produces expected state + CLAUDE.md additions clear. Once committed, Step 1.8a is closed and the plan moves to `tmp/done-plans/`.
+
+**notes:**
+
+**commit:** f345ec4 (2026-05-11)
+
+---
