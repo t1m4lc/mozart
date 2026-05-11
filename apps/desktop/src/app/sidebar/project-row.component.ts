@@ -91,17 +91,15 @@ import { WorkspaceItemComponent } from './workspace-item.component';
       gap: 6px;
       align-items: center;
       width: 100%;
-      padding: 6px 12px;
+      padding: 4px 12px;
       background: transparent;
       border: 0;
       text-align: left;
       cursor: pointer;
       color: hsl(var(--foreground));
       font-family: var(--font-sans);
-      font-size: 13px;
-      font-weight: 500;
     }
-    .header:hover { background: var(--bg-hover); }
+    .header:hover { background: hsl(var(--muted) / 0.4); }
     .chevron {
       display: inline-flex;
       align-items: center;
@@ -110,6 +108,10 @@ import { WorkspaceItemComponent } from './workspace-item.component';
       color: hsl(var(--muted-foreground));
     }
     .name {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;

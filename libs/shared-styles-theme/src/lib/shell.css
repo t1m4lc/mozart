@@ -2,6 +2,6 @@
    Theme-independent (the same widths apply in light + dark + future themes),
    so these live outside the .theme-zinc block. */
 :root {
-  --sidebar-width:     220px;
+  --sidebar-width:     260px;
   --right-panel-width: 320px;
 }

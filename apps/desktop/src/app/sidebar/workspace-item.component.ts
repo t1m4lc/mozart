@@ -7,7 +7,7 @@
  *     Falls back to `(loading…)` while the task store is mid-fetch.
  *   - 12 px mono subtitle = `workspace.branch_name` (the only place that
  *     value is allowed to reach user-visible copy in v0.0.1).
- *   - Hover reveals a disabled archive button (1.8d).
+ *   - Archive action deferred to plan 11; no per-row hover affordance in v0.0.1.
  *
  * Selection: clicking the row writes `workspace_id` into
  * `WorkspaceStore.select()`. The `[class.selected]` binding paints a
@@ -24,8 +24,6 @@ import {
   inject,
   input,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import type { WorkspaceDto } from '../shared/schemas/bindings.schemas';
 import { TaskStore } from '../state/task.store';
 import { WorkspaceStore } from '../state/workspace.store';
@@ -45,7 +43,7 @@ const STATUS_COLORS: Record<WorkspaceDto['status'], string> = {
   selector: 'app-workspace-item',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [HlmButtonImports, HlmTooltipImports],
+  imports: [],
   template: `
     <button
       type="button"
@@ -64,27 +62,13 @@ const STATUS_COLORS: Record<WorkspaceDto['status'], string> = {
         <span class="title">{{ taskTitle() }}</span>
         <span class="subtitle">{{ workspace().branch_name }}</span>
       </span>
-      <span class="archive-slot">
-        <button
-          hlmBtn
-          variant="ghost"
-          size="icon-xs"
-          type="button"
-          disabled
-          class="archive-btn"
-          aria-label="Archive workspace"
-          [hlmTooltip]="'Coming in 1.8d'"
-        >
-          &#9447;
-        </button>
-      </span>
     </button>
   `,
   styles: `
     :host { display: block; }
     .row {
       display: grid;
-      grid-template-columns: 8px 1fr auto;
+      grid-template-columns: 8px 1fr;
       gap: 8px;
       align-items: center;
       width: 100%;
@@ -127,15 +111,6 @@ const STATUS_COLORS: Record<WorkspaceDto['status'], string> = {
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .archive-slot {
-      display: inline-flex;
-      align-items: center;
-    }
-    .archive-btn {
-      opacity: 0;
-      transition: opacity 0.15s ease-in-out;
-    }
-    .row:hover .archive-btn { opacity: 1; }
   `,
 })
 export class WorkspaceItemComponent {
