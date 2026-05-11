@@ -2235,8 +2235,380 @@ Before staging/committing, the implementer pauses and the user verifies:
 
 **notes:**
 
-(Phase-2 batches — § 9 of the plan, Batches 1–6 — are intentionally NOT atomized in this pass. Each batch has unresolved "Decision points" the user must answer first, and the plan mandates a man-in-the-middle restate-step at the start of each batch. Re-run `/plan` (or directly `/atomize`) per batch — after this atom commits and the user resolves the per-batch decisions — to generate the next round of atoms.)
+(Phase-2 batches — § 9 of the plan, Batches 1–6 — were initially deferred. Decisions locked in plan § 13b on 2026-05-11; atoms `S1.ui.0` … `S1.ui.5` follow below.)
 
 **commit:** c3718bd (2026-05-11)
+
+---
+
+## [ ] S1.ui.0 — UI review pass § 8 (read-only, produces a scored component report)
+
+**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 8 + § 13b (Q12=A)
+**dependencies:** S1.doc.1
+**parallelizable:** false (output drives S1.ui.1)
+
+**allowed_files:**
+- `docs/specs/mozart-ui-review-2026-05-11.md` (new)
+
+**forbidden_files:**
+- any `.ts` / `.html` / `.css` under `apps/desktop/src/` (read-only pass — no source edits)
+- `libs/ui/**`, `libs/shared-styles-theme/**`, `libs/shared-util-theme/**`
+- any `**/*.spec.ts` under `apps/` (Token discipline rule)
+- `docs/competitors/**` except the two Conductor refs
+- `CLAUDE.md`, `AGENTS.md`, `docs/DESIGN.md`, `TASKS.md`
+
+**acceptance:**
+- [ ] Every `*.component.ts` under `apps/desktop/src/app/shell/` is read and scored.
+- [ ] Every `*.component.ts` under `apps/desktop/src/app/sidebar/` is read and scored.
+- [ ] `services/`, `state/`, `shared/` are explicitly skipped (non-visual).
+- [ ] Each scored component has: (a) its file path, (b) its Conductor zone (left-sidebar / top-bar / breadcrumb / tabs / chat / composer / right-files / right-run), (c) three scores 1–5 (Conductor fidelity / Spartan reuse / Theme-Tailwind discipline), (d) a one-line note of any score ≤ 3.
+- [ ] No `*.spec.ts` was opened (token discipline).
+- [ ] `docs/competitors/conductor/design/ui-notes.md` was read at most once.
+- [ ] The report ends with a "Batch boundary revision" section that either confirms the § 9 batch shape or proposes specific edits.
+
+**tests/checks:**
+```sh
+test -f docs/specs/mozart-ui-review-2026-05-11.md
+grep -c '^## Component:' docs/specs/mozart-ui-review-2026-05-11.md      # ≥ number of shell+sidebar component files
+grep -c 'Conductor zone:' docs/specs/mozart-ui-review-2026-05-11.md     # ≥ same
+grep -c '^## Batch boundary revision' docs/specs/mozart-ui-review-2026-05-11.md  # 1
+# Token-discipline self-check:
+git log -1 --name-only --pretty=format: -- 'apps/**/*.spec.ts'         # empty (nothing read; nothing committed)
+```
+
+**Manual checkpoint:**
+1. Open the report. Skim each Conductor-zone section — does the score feel right vs the screenshot at `docs/competitors/conductor/design/conductor-ui.png`?
+2. Check the "Batch boundary revision" section — if it proposes changes to S1.ui.1–5, decide whether to apply them before continuing.
+3. User says "go" → implementer stages and commits.
+
+**Expected user-visible result:** A new file `docs/specs/mozart-ui-review-2026-05-11.md` exists. No UI / runtime change.
+
+**commit message format:** `docs(specs): UI review report for desktop shell + sidebar (S1.ui.0)`
+
+**commit:**
+
+---
+
+## [ ] S1.ui.1 — Batch 1: Sidebar Conductor parity (no History, no Back/Forward)
+
+**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 9 Batch 1 + § 13b (Q1=no, Q2=no)
+**dependencies:** S1.ui.0
+**parallelizable:** false (touches the live sidebar)
+
+**allowed_files:**
+- `apps/desktop/src/app/sidebar/sidebar.component.ts`
+- `apps/desktop/src/app/sidebar/project-row.component.ts`
+- `apps/desktop/src/app/sidebar/add-project-menu.component.ts`
+- `apps/desktop/src/app/sidebar/sidebar-empty.component.ts`
+- `apps/desktop/src/app/sidebar/sidebar-error.component.ts`
+- `apps/desktop/src/app/sidebar/sidebar-skeleton.component.ts`
+
+**forbidden_files:**
+- `libs/ui/**` (protected per Implementation contract rule 4)
+- everything under `apps/desktop/src/app/shell/` (Batch 2 territory)
+- everything under `apps/desktop/src/app/services/`, `state/`, `shared/`
+- `apps/desktop/src-tauri/**`
+- `libs/shared-styles-theme/**`, `libs/shared-util-theme/**`
+
+**Spartan / `libs/ui` targets:**
+- `@mozart/ui/scroll-area` for the scrollable project list.
+- `@mozart/ui/context-menu` for the workspace right-click menu (status / pin / archive / rename — wire the three viable actions, leave others disabled with tooltip).
+- `@mozart/ui/collapsible` or `@mozart/ui/accordion` for project toggle (pick whichever matches the existing project-row API).
+- `@mozart/ui/dropdown-menu` for add-project + per-project "create" affordances.
+- `@mozart/ui/tooltip` mandatory on every icon-only button.
+
+**acceptance:**
+- [ ] Sidebar does **not** render a "History" zone (Q1).
+- [ ] Sidebar does **not** render Back / Forward buttons (Q2).
+- [ ] Project list scrolls via `@mozart/ui/scroll-area`.
+- [ ] Right-click on a workspace pill opens a `@mozart/ui/context-menu` with at least Archive (others may be disabled with tooltip).
+- [ ] Project rows collapse / expand using a Spartan primitive (collapsible or accordion).
+- [ ] Every icon-only button in the sidebar has a `[hlmTooltip]`.
+- [ ] All keyboard shortcuts registered via `ShortcutService` (e.g. `⌘N`, `⌘R`) still fire — verified manually.
+- [ ] No raw `<button>` / `<div>` interactive controls remain in the sidebar (every clickable surface is a `hlm*` primitive).
+- [ ] No hardcoded color hex; all colors use `var(--…)` / `hsl(var(--…))`.
+
+**tests/checks:**
+```sh
+pnpm nx lint desktop
+pnpm nx test desktop
+pnpm nx build desktop
+# Static sanity:
+! grep -RE '<button(?![^>]*hlmBtn)' apps/desktop/src/app/sidebar/   # no raw <button> without hlmBtn
+! grep -RE 'style="[^"]*color:' apps/desktop/src/app/sidebar/      # no inline color styles
+! grep -RE '#[0-9a-fA-F]{3,6}' apps/desktop/src/app/sidebar/       # no hex colors in templates/styles
+```
+
+**Manual checkpoint (Q14: manual screenshot):**
+1. `pnpm dev`
+2. Empty state: launch with no projects → confirm sidebar empty CTA renders.
+3. Add a project → confirm it appears collapsed, expand it, right-click a workspace → context menu opens styled.
+4. Exercise `⌘N` and `⌘R` — both still open their dialogs.
+5. **Attach a screenshot** of the sidebar in its loaded state.
+6. User says "go" → implementer stages the 6 sidebar files and commits.
+
+**Expected user-visible result:** Sidebar feels like a native Spartan panel. Project rows collapse cleanly. Workspace right-click produces a proper context menu. Otherwise functionally identical to before.
+
+**commit message format:** `refactor(ui-batch-1): sidebar Conductor parity + Spartan adoption (S1.ui.1)`
+
+**commit:**
+
+---
+
+## [ ] S1.ui.2 — Batch 2: Shell re-architecture (3-segment top-bar + center 2-rows)
+
+**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 9 Batch 2 + § 13b (Q3 scope expansion, Q4 default, Q5 default-tab + disabled `+`)
+**dependencies:** S1.ui.1
+**parallelizable:** false (touches the global shell)
+
+**allowed_files:**
+- `apps/desktop/src/app/shell/app-shell.component.ts`
+- `apps/desktop/src/app/shell/top-bar.component.ts`
+- `apps/desktop/src/app/shell/chat-panel.component.ts` (top-area integration only)
+- `apps/desktop/src/app/shell/empty-center.component.ts`
+- (optional new) `apps/desktop/src/app/shell/center-header.component.ts`
+
+**forbidden_files:**
+- `libs/ui/**` (protected)
+- everything under `apps/desktop/src/app/sidebar/` (Batch 1 territory)
+- `apps/desktop/src/app/shell/empty-right.component.ts` (Batch 4)
+- `apps/desktop/src/app/services/`, `state/`, `shared/`
+- `apps/desktop/src-tauri/**` (Tauri side untouched)
+- `libs/shared-styles-theme/**`, `libs/shared-util-theme/**`
+
+**Spartan / `libs/ui` targets:**
+- `@mozart/ui/breadcrumb` for the project > workspace breadcrumb.
+- `@mozart/ui/tooltip` on the workspace icon (tooltip body = `base_branch` per Q3).
+- `@mozart/ui/dropdown-menu` for the 3-dot menu (actions = Commit / Discard / Archive per Q4).
+- `@mozart/ui/tabs` for the chat-tabs scaffold (one default tab labelled with the workspace's primary chat name).
+- `@mozart/ui/button` with `variant="ghost"` + `disabled` + `[hlmTooltip]` for the `+ New tab` button (Q5).
+- `@mozart/ui/separator` between top-bar segments if needed.
+
+**Architectural change (Q3):**
+
+The global top-bar is replaced by **three column-aligned top segments** that match the column widths of the panels below (left = `var(--sidebar-width)`, center = `1fr`, right = `var(--right-panel-width)`). The center segment is itself **two stacked rows**:
+
+- Row 1 (e.g. 32px): breadcrumb `Project > Workspace [icon — tooltip = base_branch]` on the left; 3-dot menu (Commit / Discard / Archive) on the right.
+- Row 2 (e.g. 32px): chat-tabs strip with one default tab + visible-disabled `+ New tab` button.
+
+The Tauri drag region (`data-tauri-drag-region`) must remain on a draggable surface (typically Row 1's empty area) — DO NOT lose it during the restructure.
+
+**acceptance:**
+- [ ] Global top area is split into 3 segments aligned with the 3 columns (verify with DevTools: top segments share x-boundaries with the columns below).
+- [ ] Center segment renders 2 rows stacked vertically.
+- [ ] Breadcrumb shows `Project name > Workspace name [icon]` with the workspace icon's `[hlmTooltip]` reading from `workspace.base_branch` (small-subtitle treatment per `CLAUDE.md` § Product vocabulary).
+- [ ] 3-dot dropdown shows exactly: Commit, Discard, Archive (Q4 lock — actions may be disabled-with-tooltip if not wired to IPC yet, but must be present and visible).
+- [ ] Tabs strip shows one tab labelled with the active chat name (default thread name); `+ New tab` button is rendered, disabled, with a tooltip "Multi-chats coming in M…".
+- [ ] `data-tauri-drag-region` is preserved on a draggable surface — `pnpm dev` still allows window drag.
+- [ ] Platform-conditional rendering in `top-bar.component.ts` (window controls) still works on macOS / Linux.
+- [ ] No raw interactive controls (every clickable surface is a Hlm primitive).
+- [ ] No regression in shortcuts (`⌘N`, `⌘R`, etc.).
+
+**tests/checks:**
+```sh
+pnpm nx lint desktop
+pnpm nx test desktop
+pnpm nx build desktop
+# Sanity:
+grep -c 'data-tauri-drag-region' apps/desktop/src/app/shell/top-bar.component.ts         # ≥ 1
+grep -c '@mozart/ui/breadcrumb' apps/desktop/src/app/shell/                              # ≥ 1 (somewhere)
+grep -c '@mozart/ui/tabs' apps/desktop/src/app/shell/                                    # ≥ 1
+! grep -RE '<button(?![^>]*hlmBtn)' apps/desktop/src/app/shell/                          # no raw buttons
+```
+
+**Manual checkpoint (Q14: manual screenshot):**
+1. `pnpm dev`
+2. Open a project with at least one workspace → confirm:
+   - The top area splits into 3 segments that visually align with the 3 columns below.
+   - Center column's top region shows breadcrumb on row 1, single-tab strip on row 2.
+   - Hover the workspace icon in the breadcrumb → tooltip shows the base branch.
+   - Click the 3-dot menu → see Commit / Discard / Archive entries.
+   - Try to drag the window from the top area → window moves.
+3. Run `⌘N` / `⌘R` once each → both still open their dialogs.
+4. **Attach two screenshots**: (a) shell with project loaded, (b) breadcrumb tooltip + 3-dot menu open.
+5. User says "go" → implementer stages and commits.
+
+**Risk:** Medium. The shell layout grid is the most fragile surface in the app; the Tauri drag region is easy to break. Rollback = `git revert <commit>`.
+
+**Expected user-visible result:** The whole top area looks like Conductor — 3 distinct column-aligned segments, with breadcrumb-over-tabs in the middle. Window drag still works. No data wiring change (3-dot actions may be disabled-with-tooltip if their IPC isn't ready).
+
+**commit message format:** `refactor(ui-batch-2): shell 3-segment top-bar + center 2-rows + breadcrumb + tabs scaffold (S1.ui.2)`
+
+**commit:**
+
+---
+
+## [ ] S1.ui.3 — Batch 3: Composer polish (6 disabled controls + Hlm textarea)
+
+**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 9 Batch 3 + § 13b (Q6 default = all 6 disabled)
+**dependencies:** S1.ui.2
+**parallelizable:** false (touches chat-panel)
+
+**allowed_files:**
+- `apps/desktop/src/app/shell/chat-panel.component.ts` (composer section only)
+- (optional new) `apps/desktop/src/app/shell/composer.component.ts`
+
+**forbidden_files:**
+- `libs/ui/**` (protected)
+- everything under `apps/desktop/src/app/sidebar/`
+- `apps/desktop/src/app/shell/app-shell.component.ts`, `top-bar.component.ts`, `empty-center.component.ts`, `empty-right.component.ts`
+- `apps/desktop/src/app/services/`, `state/`, `shared/`
+- `apps/desktop/src-tauri/**`
+- `libs/shared-styles-theme/**`, `libs/shared-util-theme/**`
+
+**Spartan / `libs/ui` targets:**
+- `@mozart/ui/textarea` for the input area.
+- `@mozart/ui/dropdown-menu` for model menu + effort menu (both disabled v0.2).
+- `@mozart/ui/toggle-group` for the mode toggle (normal / plan, disabled v0.2).
+- `@mozart/ui/button` (icon variant) + `[hlmTooltip]` for attachments / links / issues (all disabled v0.2).
+- `@mozart/ui/kbd` for the send-shortcut hint near the textarea.
+- `@mozart/ui/tooltip` mandatory on every disabled control with text like "Multi-model picker coming in M…".
+
+**acceptance:**
+- [ ] Textarea is `@mozart/ui/textarea`.
+- [ ] Composer renders all 6 controls visibly (Q6): model menu, effort menu, mode toggle, attachments, links, issues.
+- [ ] Each of those 6 controls is `disabled` and carries an `[hlmTooltip]` whose body names the milestone unblocking it (per DESIGN.md Rule 7).
+- [ ] A `@mozart/ui/kbd` shows the send shortcut (e.g. `⌘ ⏎`).
+- [ ] The submit / send action still fires correctly through `ShortcutService` — `⌘⏎` triggers the run.
+- [ ] No raw `<button>` / `<select>` / `<textarea>` in the composer.
+
+**tests/checks:**
+```sh
+pnpm nx lint desktop
+pnpm nx test desktop
+pnpm nx build desktop
+grep -c '@mozart/ui/textarea' apps/desktop/src/app/shell/chat-panel.component.ts        # ≥ 1 (or in composer.component.ts)
+grep -c 'hlmTooltip' apps/desktop/src/app/shell/chat-panel.component.ts                 # ≥ 6 (one per disabled control)
+! grep -RE '<textarea(?![^>]*hlmInput)' apps/desktop/src/app/shell/chat-panel.component.ts
+```
+
+**Manual checkpoint (Q14: manual screenshot):**
+1. `pnpm dev`
+2. Open a workspace → confirm composer renders all 6 disabled controls + textarea + kbd hint.
+3. Hover each disabled control — tooltip appears with a milestone reference.
+4. Type a prompt + `⌘⏎` → run kicks off (the existing agent-streaming flow from S1.8b.4 still works).
+5. **Attach a screenshot** of the composer area.
+6. User says "go" → implementer stages and commits.
+
+**Expected user-visible result:** Composer looks Conductor-shaped. Six disabled affordances tell the user what's coming. Run path unchanged.
+
+**commit message format:** `refactor(ui-batch-3): composer Spartan adoption + disabled v0.2 controls with tooltips (S1.ui.3)`
+
+**commit:**
+
+---
+
+## [ ] S1.ui.4 — Batch 4: Right panel scaffold (3 empty bordered sections)
+
+**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 9 Batch 4 + § 13b (scope reduced — just sections separated by borders, empty content)
+**dependencies:** S1.ui.3
+**parallelizable:** false
+
+**allowed_files:**
+- `apps/desktop/src/app/shell/empty-right.component.ts`
+
+**forbidden_files:**
+- `libs/ui/**` (protected)
+- every other file under `apps/desktop/src/app/shell/`
+- everything under `apps/desktop/src/app/sidebar/`
+- `apps/desktop/src/app/services/`, `state/`, `shared/`
+- `apps/desktop/src-tauri/**`
+- `libs/shared-styles-theme/**`, `libs/shared-util-theme/**`
+
+**Spartan / `libs/ui` targets:**
+- No interactive primitives needed (scope is empty bordered scaffold). Use Tailwind `border-b border-border` for separators. If a section title needs a typographic style, prefer `@mozart/ui/typography` (or plain semantic tags styled by the global theme).
+
+**acceptance:**
+- [ ] `empty-right.component.ts` renders 3 stacked sections in this order: "Files", "Run", "Terminal" (or names approved at the gate restate-step).
+- [ ] Each section is separated from the next by a `border-b` (or `border-t`) using a theme-bound border color (`border-border` / `var(--border)` / `hsl(var(--border))`).
+- [ ] Each section has a small label (typographic, theme-bound) and **empty content area** — no data, no tabs, no collapsible, no terminal embedding.
+- [ ] No hardcoded color hex, no inline `style=""` for colors.
+- [ ] Right-panel toggle from the top-bar (existing `ShellStore.showRightPanel`) still works.
+
+**tests/checks:**
+```sh
+pnpm nx lint desktop
+pnpm nx test desktop
+pnpm nx build desktop
+grep -c 'border-b' apps/desktop/src/app/shell/empty-right.component.ts                   # ≥ 2 (separates 3 sections)
+! grep -E '#[0-9a-fA-F]{3,6}' apps/desktop/src/app/shell/empty-right.component.ts
+```
+
+**Manual checkpoint (Q14: manual screenshot):**
+1. `pnpm dev`
+2. Open the right panel via its toggle → confirm 3 stacked sections with borders.
+3. Confirm there is no content in the sections — pure scaffold.
+4. **Attach a screenshot** of the right panel.
+5. User says "go" → implementer stages and commits.
+
+**Expected user-visible result:** Right panel goes from a blank placeholder to a Conductor-shaped 3-section scaffold. No data wiring.
+
+**commit message format:** `refactor(ui-batch-4): right-panel scaffold (3 empty bordered sections) (S1.ui.4)`
+
+**commit:**
+
+---
+
+## [ ] S1.ui.5 — Batch 5: Tailwind discipline sweep on non-`libs/ui` elements
+
+**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 9 Batch 5 + § 13b (Q9 naming, Q10 scoping)
+**dependencies:** S1.ui.4
+**parallelizable:** false (sweeps across all visual components)
+
+**allowed_files:**
+- any `*.component.ts` under `apps/desktop/src/app/` (inline `template:` / `styles:` blocks only)
+
+**forbidden_files:**
+- `libs/ui/**` (protected — do not "fix" anything there even if discipline gaps are visible)
+- `libs/shared-styles-theme/**` (no new shared CSS per Q10 — keep extractions component-scoped)
+- `libs/shared-util-theme/**`
+- `apps/desktop/src-tauri/**`
+- `apps/desktop/src/app/services/`, `state/`, `shared/` (non-visual; logic untouched)
+- any `.spec.ts` file (token discipline)
+
+**Spartan / `libs/ui` targets:** N/A — this batch enforces existing primitives; no new component swaps unless the review report flagged one.
+
+**Rules for the sweep (per § 13b Q10):**
+1. For every `*.component.ts` under `apps/desktop/src/app/`, scan inline templates.
+2. **Skip** elements that are already `libs/ui` Hlm primitives (`button[hlmBtn]`, `<hlm-card>`, etc.) — Spartan styles cover them.
+3. For **non-`libs/ui`** elements only (raw `<div>`, custom containers, etc.): if the Tailwind utility chain is ≥ ~8–10 classes, OR the same chain repeats across 3+ siblings → extract to a `@apply` business class **inside the same component's inline `styles:` block** with `<region>-<part>` naming per Q9.
+4. Never extract to a shared stylesheet. Never name by visual appearance.
+5. Verify zero functional / visual diff (this is hygiene, not redesign).
+
+**acceptance:**
+- [ ] No template under `apps/desktop/src/app/` has a non-`libs/ui` element with > ~10 utility classes left inline — either extracted to a `@apply` class or visually justified inline.
+- [ ] Every extracted class lives in the **same component's** `styles:` block (verified by grep).
+- [ ] Every extracted class name follows `<region>-<part>` (e.g. `.sidebar-project-row`, `.workspace-card-header`).
+- [ ] No new file is created under `libs/shared-styles-theme/`.
+- [ ] No hardcoded hex was introduced; no `style="..."` was introduced.
+- [ ] `pnpm dev` visual smoke: **zero visible diff** vs. the pre-batch state on every screen (sidebar empty / loaded, shell with project open, composer, right-panel scaffold).
+- [ ] All tests + lint + build pass.
+
+**tests/checks:**
+```sh
+pnpm nx lint desktop
+pnpm nx test desktop
+pnpm nx build desktop
+# Verify no new shared CSS:
+git diff --stat HEAD~1 HEAD -- libs/shared-styles-theme/                                # empty
+# Spot-check extracted classes are component-scoped (each .apply rule has @apply in the same file's styles: block)
+# (manual scan; no automated regex covers this cleanly)
+! grep -RE '#[0-9a-fA-F]{3,6}' apps/desktop/src/app/
+```
+
+**Manual checkpoint (Q14: manual screenshot):**
+1. Before starting the batch: capture screenshots of every visual screen (sidebar empty, sidebar with project, shell with workspace open, composer, right-panel scaffold).
+2. After the sweep: `pnpm dev` and re-capture the same screens.
+3. **Diff the screenshot pairs visually** — they must look identical modulo pixel rounding.
+4. **Attach the before/after pairs** to the checkpoint.
+5. User says "go" → implementer stages and commits.
+
+**Risk:** Very low if the visual diff is zero. Risk to watch: an `@apply` rule accidentally changing specificity (manifest as a hover/focus state mismatch).
+
+**Expected user-visible result:** Nothing visible changes. Code becomes easier to read. Future agents have a clean example of where `@apply` is appropriate and where it isn't.
+
+**commit message format:** `refactor(ui-batch-5): extract long non-libs/ui Tailwind chains to component-scoped @apply classes (S1.ui.5)`
+
+**commit:**
 
 ---
