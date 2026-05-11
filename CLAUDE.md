@@ -3,36 +3,22 @@
 Mozart (`mozart.build`) — AI coding agent manager wrapping Claude Code CLI.
 Specs: `docs/PLAN-v0.0.1.md` · Design: `docs/DESIGN.md`
 
-## Commands
-
-```sh
-pnpm dev                        # Angular + Tauri (desktop)
-pnpm nx serve desktop           # Angular only
-pnpm nx build desktop           # Angular bundle
-pnpm nx run desktop:tauri-build # Tauri binary
-pnpm nx test <project>          # vitest
-pnpm nx lint <project>
-pnpm nx e2e desktop-e2e         # Playwright
-pnpm nx run-many -t test        # all tests
-pnpm nx sync                    # TS project references
-```
-
 ## Product vocabulary
 
 Source of truth: `docs/specs/plan-v0.0.1-2.md` § 3 (canonical model). Vision narrative: `docs/specs/mozart-worktree-swarm-design-synthese.md`.
 
-| # | Term | Lives as (DB) | Shown in UI as | Hidden from UI? |
-|---|---|---|---|---|
-| 1 | **Project** | `repos` row | "Project" or "Repository" (synonyms) | no |
-| 2 | **Task** | `tasks` row | "Task" — the user-stated intent | no |
-| 3 | **Workspace** | `workspaces` row | "Workspace" — isolated execution attempt + reviewable diff | no |
-| 4 | **Thread** | `threads` row | "Chat" — v0.0.1 implicit (1:1 with workspace, no UI surface yet) | mostly hidden |
-| 5 | **Agent Run** | `agent_runs` row | "Run" / conversation turn | no |
-| 6 | **Workspace Changes** | `workspace_changes` row | "Diff" / "Changes" | no |
-| 7 | **Candidate Solution** | derived view: workspaces in same task_id × latest workspace_changes | "Candidate" — appears at v0.1, hidden in v0.0.1 | partial |
-| 8 | **Merge Decision** | manual buttons in v0.0.1; future entity in v0.1 | "Commit / Discard / Merge / Archive" | no |
-| — | **Working tree** | `workspaces.worktree_path` column | — | **yes, never** |
-| — | **Branch** | `workspaces.branch_name` / `workspaces.base_branch` | shown only as a small subtitle on a Workspace card; never user-editable in v0.0.1 | partial |
+| #   | Term                   | Lives as (DB)                                                       | Shown in UI as                                                                    | Hidden from UI? |
+| --- | ---------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------- |
+| 1   | **Project**            | `repos` row                                                         | "Project" or "Repository" (synonyms)                                              | no              |
+| 2   | **Task**               | `tasks` row                                                         | "Task" — the user-stated intent                                                   | no              |
+| 3   | **Workspace**          | `workspaces` row                                                    | "Workspace" — isolated execution attempt + reviewable diff                        | no              |
+| 4   | **Thread**             | `threads` row                                                       | "Chat" — v0.0.1 implicit (1:1 with workspace, no UI surface yet)                  | mostly hidden   |
+| 5   | **Agent Run**          | `agent_runs` row                                                    | "Run" / conversation turn                                                         | no              |
+| 6   | **Workspace Changes**  | `workspace_changes` row                                             | "Diff" / "Changes"                                                                | no              |
+| 7   | **Candidate Solution** | derived view: workspaces in same task_id × latest workspace_changes | "Candidate" — appears at v0.1, hidden in v0.0.1                                   | partial         |
+| 8   | **Merge Decision**     | manual buttons in v0.0.1; future entity in v0.1                     | "Commit / Discard / Merge / Archive"                                              | no              |
+| —   | **Working tree**       | `workspaces.worktree_path` column                                   | —                                                                                 | **yes, never**  |
+| —   | **Branch**             | `workspaces.branch_name` / `workspaces.base_branch`                 | shown only as a small subtitle on a Workspace card; never user-editable in v0.0.1 | partial         |
 
 **Forbidden in user-visible strings (UI labels, error toasts, copy):** `worktree`, `branch_name`, `base_branch`, `worktree_path`, `agent/wip-…`, `detached HEAD`, `git worktree add`, `HEAD~1`, `checkpoint sha`.
 
@@ -80,6 +66,7 @@ Accordion, Alert, Alert Dialog, Aspect Ratio, Autocomplete, Avatar, Badge, Bread
 - Styling: `cva(base, { variants })` + `classes()` from `@mozart/ui/utils`
 - `classes()` uses `effect()` + MutationObserver to merge host classes — **never mix with plain `[class]` binding**
 - New component: generate lib → `src/lib/hlm-<name>.component.ts` (inline template+styles) → export from `index.ts` → add alias in `tsconfig.base.json`
+- **Protection.** `libs/ui/**` is the internal design-system library and is never modified during desktop feature work or UI refactors. New visual primitives go in `apps/desktop/src/app/`, composed from existing `libs/ui/*` components. If you genuinely believe a primitive is missing in `libs/ui`, stop and ask the user before touching anything in `libs/ui`.
 
 ## Angular best practices (functional style)
 
@@ -152,6 +139,21 @@ readonly saved   = output<void>();                     // @Output replacement
 - Hardcoded color hex in templates/styles — every color goes through `var(--mozart-token)`.
 - Date math via raw `new Date()` — use `dayjs` (plan 09 onward; plan 08 ships the dep only).
 - Free-form button labels in disabled v0.2 controls — every disabled control carries an `[hlmTooltip]` naming the milestone unblocking it (per DESIGN.md Rule 7).
+
+## Token discipline
+
+To keep planning + implementation fast and cheap, agents must follow these read rules:
+
+- **Do not read `**/\*.spec.ts`under`apps/`\*\* unless the active task is explicitly about tests, test failures, or coverage. Specs are noisy and rarely needed for feature/refactor work. The implementation file next to the spec is the source of truth for behavior.
+- **Do not read anything under `docs/competitors/**` except:\*\*
+  - `docs/competitors/conductor/design/conductor-ui.png` (Conductor visual reference)
+  - `docs/competitors/conductor/design/ui-notes.md` (structured Conductor breakdown)
+    Other competitor folders (cursor, codex, etc.) are background research, not implementation input.
+- **Do not modify anything under `docs/competitors/**`\*\* — it is a read-only research archive.
+- **Prefer focused, scoped reads.** Read the specific source file, the spec section in `docs/PLAN-v0.0.1.md`, or `CLAUDE.md` itself. Avoid broad `grep`/`find` scans across the whole tree when a targeted lookup answers the question.
+- **Avoid opening large unrelated files** (>500 lines) unless the task specifically touches them. If you must read a long file, use `Read` with `offset`/`limit` and a known heading.
+
+These rules supersede the default "explore freely" instinct. If a task genuinely requires breaking one of them (e.g., a failing spec that needs reading), say so explicitly in your text output.
 
 ## Tauri v2 best practices
 

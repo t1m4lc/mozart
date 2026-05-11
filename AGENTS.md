@@ -42,6 +42,7 @@ cargo test -p desktop           # Rust (from apps/desktop/src-tauri)
 - `classes()` from `@mozart/ui/utils` for dynamic class merging — never mix with plain `[class]`
 - Tauri: `async fn` commands only · permissions in `src-tauri/capabilities/` · no hand-written TS bindings
 - Concept vocabulary: see `CLAUDE.md` § "Product vocabulary"
+- Token discipline: do **not** read `**/*.spec.ts` under `apps/` unless the task is about tests. Do **not** read `docs/competitors/**` except the two Conductor design refs. See `CLAUDE.md` § "Token discipline" for full rules.
 
 ## The One-Way Rule
 
@@ -83,4 +84,4 @@ Never proceed past a failing gate. Stuck > 30 min → back to `/discussion`.
 | v0.0.1 specs            | `docs/PLAN-v0.0.1.md`                |
 | Visual / token spec     | `docs/DESIGN.md`                     |
 | Step backlog            | `docs/specs/plan-v0.0.1-2.md` + `TASKS.md` |
-| Competitor research     | `docs/competitors/`                  |
+| Competitor research     | `docs/competitors/conductor/design/conductor-ui.png` + `docs/competitors/conductor/design/ui-notes.md` only — rest of `docs/competitors/**` is read-only background, do not open by default |

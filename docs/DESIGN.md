@@ -3,9 +3,34 @@
 **Status:** v0.2 — updated with Conductor UI research; brand renamed to Mozart 2026-05-09  
 **Last updated:** 2026-05-09  
 **Brand:** Mozart (`mozart.build`). For implementer-facing string-replacement table see `PLAN-v0.0.1.md` § Naming Lock.  
-**Visual reference:** `~/.gstack/projects/t1m4lc-gstack-artifacts-timothy/designs/conductor-copycat-20260509/v3/dashboard-final.png` (folder name retained for artifact-archive consistency; the design system inside is Mozart).
+**Visual reference:** `docs/competitors/conductor/design/conductor-ui.png` — the Conductor screenshot Mozart's UI is modeled on. Structural breakdown: `docs/competitors/conductor/design/ui-notes.md`.
 
 ---
+
+## Implementation contract
+
+These rules are non-negotiable for any agent doing UI work in this repo:
+
+1. **Visual inspiration: Conductor.** The product UI is modeled on Conductor.build (see `docs/competitors/conductor/design/conductor-ui.png` and `ui-notes.md`). Conductor is the *look-and-feel* reference, not the implementation reference.
+2. **Implementation stack (mandatory):**
+   - **Spartan UI / ShadCN UI for Angular** — every interactive primitive comes from the vendored `libs/ui/*` Hlm components (Button, Dialog, Tooltip, Tabs, Sidebar, ScrollArea, Sheet, Empty, Field, Input, Card, etc.). The full catalog is in `CLAUDE.md` § "UI components".
+   - **Tailwind CSS v4** — utility-first, no `tailwind.config.js`, PostCSS only. Prefer utilities in templates over component-level CSS.
+   - **Theme + global CSS: `libs/shared-styles-theme`** — `base.css`, `shell.css`, `themes/zinc.css`. All colors route through CSS variables (`var(--mozart-*)`, `hsl(var(--…))`). No hardcoded hex in templates or styles.
+   - **Internal component library: `libs/ui`** — protected, read-only. See rule 4.
+3. **Desktop UI target: `apps/desktop/src`.** This is the only Angular app being styled in v0.0.1. `apps/web` and `apps/landing` are out of scope until later milestones.
+4. **`libs/ui/**` is protected.** Agents must not modify, add, delete, or refactor anything inside `libs/ui` during desktop feature or UI refactor work. New visual primitives go in `apps/desktop/src/app/` and compose existing `libs/ui` components. If a needed primitive is genuinely missing, stop and ask the user.
+5. **Custom CSS is the last resort.** Prefer Tailwind utility classes inline in templates. If a template's class list becomes unreadable (subjective: more than ~8–10 utility classes on one element, or repeated across 3+ siblings), extract to a business-named class in a global stylesheet under `libs/shared-styles-theme` (or a component's inline `styles:` block, if scoped) using the `@apply` pattern:
+
+   ```css
+   .workspace-card-header {
+     @apply flex items-center justify-between gap-2 px-3 py-2 border-b border-border;
+   }
+   ```
+
+   Name by business meaning, never by visual appearance (`.workspace-card-header` ✅, `.flex-row-between-2` ❌).
+6. **Token discipline applies.** Don't read `**/*.spec.ts` under `apps/` or anything under `docs/competitors/**` (except the two Conductor refs above) for routine UI work. See `CLAUDE.md` § "Token discipline".
+
+The rest of this document specifies the visual tokens, layout, accessibility rules, and component states that implement this contract.
 
 ## Aesthetic
 
