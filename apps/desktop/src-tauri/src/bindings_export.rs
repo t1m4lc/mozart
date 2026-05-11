@@ -18,6 +18,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::list_branches,
             commands::create_workspace,
             commands::list_workspaces,
+            commands::list_tasks,
             commands::archive_workspace,
             commands::start_agent_run,
             commands::stop_agent_run,

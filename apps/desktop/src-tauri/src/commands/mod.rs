@@ -22,8 +22,8 @@ use tauri::State;
 
 use crate::claude_cli::install::{self, ClaudeInstall};
 use crate::claude_cli::{spawn_run, StreamEvent};
-use crate::db::models::{AgentRun, Repo, Workspace, WorkspaceChange};
-use crate::db::{agent_runs, new_id, now_ms, repos, threads, workspace_changes, workspaces};
+use crate::db::models::{AgentRun, Repo, Task, Workspace, WorkspaceChange};
+use crate::db::{agent_runs, new_id, now_ms, repos, tasks, threads, workspace_changes, workspaces};
 use crate::db::DbState;
 use crate::error::AppError;
 use crate::git_query;
@@ -139,6 +139,27 @@ pub async fn list_workspaces(db: State<'_, DbState>) -> Result<Vec<Workspace>, A
 pub(crate) async fn list_workspaces_impl(db: &DbState) -> Result<Vec<Workspace>, AppError> {
     let conn = db.lock();
     workspaces::list_all(&conn)
+}
+
+// ---------------------------------------------------------------------------
+// list_tasks
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_tasks(
+    db: State<'_, DbState>,
+    repo_id: String,
+) -> Result<Vec<Task>, AppError> {
+    list_tasks_impl(db.inner(), repo_id).await
+}
+
+pub(crate) async fn list_tasks_impl(
+    db: &DbState,
+    repo_id: String,
+) -> Result<Vec<Task>, AppError> {
+    let conn = db.lock();
+    tasks::list_by_repo(&conn, &repo_id)
 }
 
 // ---------------------------------------------------------------------------
@@ -583,6 +604,66 @@ mod tests {
         let _ = seed_workspace_chain(&db, &repo_id);
         let got = list_workspaces_impl(&db).await.unwrap();
         assert_eq!(got.len(), 1);
+    }
+
+    // -------------------------------------------------------------------
+    // 6b. list_tasks
+    // -------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn list_tasks_returns_seeded_tasks_for_repo() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/lt");
+        // First task comes from the shared seed helper.
+        let _ = seed_workspace_chain(&db, &repo_id);
+        // Second task: insert directly with a strictly-later created_at
+        // to verify ordering through the command layer.
+        let later_created_at = {
+            let conn = db.lock();
+            let max: i64 = conn
+                .query_row(
+                    "SELECT MAX(created_at) FROM tasks WHERE repo_id = ?1",
+                    [&repo_id],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            let t2 = Task {
+                task_id: new_id(),
+                repo_id: repo_id.clone(),
+                title: "second task".into(),
+                task_text: "do second".into(),
+                status: "active".into(),
+                created_at: max + 1,
+            };
+            tasks::create(&conn, &t2).unwrap();
+            t2.created_at
+        };
+
+        let got = list_tasks_impl(&db, repo_id.clone()).await.unwrap();
+        assert_eq!(got.len(), 2, "expected exactly two tasks for the repo");
+        assert!(
+            got[0].created_at <= got[1].created_at,
+            "tasks must be returned in ascending created_at order"
+        );
+        assert_eq!(
+            got[1].created_at, later_created_at,
+            "the latest-inserted task must come last"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_tasks_returns_empty_for_unknown_repo() {
+        let db = init_db_memory().unwrap();
+        // Seed a real repo + chain so the tasks table is non-empty,
+        // then query a different repo_id.
+        let repo_id = seed_repo_row(&db, "/tmp/lt-empty");
+        let _ = seed_workspace_chain(&db, &repo_id);
+
+        let got = list_tasks_impl(&db, "no-such-repo".into()).await.unwrap();
+        assert!(
+            got.is_empty(),
+            "unknown repo_id must yield empty Vec, not error"
+        );
     }
 
     // -------------------------------------------------------------------

@@ -29,7 +29,7 @@ fn export_contains_all_commands_and_types() {
 
     let content = std::fs::read_to_string(&out).expect("read generated bindings");
 
-    // All 12 commands (tauri-specta camelCases function names by default
+    // All 13 commands (tauri-specta camelCases function names by default
     // in v2; the spike-D test belt-and-braces both forms, but production
     // bindings consistently use the camelCase form).
     let expected_commands = [
@@ -38,6 +38,7 @@ fn export_contains_all_commands_and_types() {
         "listBranches",
         "createWorkspace",
         "listWorkspaces",
+        "listTasks",
         "archiveWorkspace",
         "startAgentRun",
         "stopAgentRun",
