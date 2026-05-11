@@ -2241,49 +2241,120 @@ Before staging/committing, the implementer pauses and the user verifies:
 
 ---
 
-## [ ] S1.ui.0 — UI review pass § 8 (read-only, produces a scored component report)
+## [ ] S1.ui.0 — Foundation refactor: Spartan adoption global + Tailwind @apply sweep
 
-**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 8 + § 13b (Q12=A)
+**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 13b (user override 2026-05-11: drop the review pass; do the cleanup refactor first, structural Conductor batches after on a clean foundation)
 **dependencies:** S1.doc.1
-**parallelizable:** false (output drives S1.ui.1)
+**parallelizable:** false (touches every visual component once; must precede the structural batches)
 
 **allowed_files:**
-- `docs/specs/mozart-ui-review-2026-05-11.md` (new)
+- any `*.component.ts` under `apps/desktop/src/app/` (inline `template:` and `styles:` blocks)
+- specifically (non-exhaustive, expand at the gate restate-step):
+  - `apps/desktop/src/app/shell/app-shell.component.ts`
+  - `apps/desktop/src/app/shell/top-bar.component.ts`
+  - `apps/desktop/src/app/shell/chat-panel.component.ts`
+  - `apps/desktop/src/app/shell/empty-center.component.ts`
+  - `apps/desktop/src/app/shell/empty-right.component.ts`
+  - `apps/desktop/src/app/shell/create-workspace-dialog.component.ts`
+  - any other `apps/desktop/src/app/shell/*.component.ts`
+  - `apps/desktop/src/app/sidebar/sidebar.component.ts`
+  - `apps/desktop/src/app/sidebar/project-row.component.ts`
+  - `apps/desktop/src/app/sidebar/add-project-menu.component.ts`
+  - `apps/desktop/src/app/sidebar/sidebar-empty.component.ts`
+  - `apps/desktop/src/app/sidebar/sidebar-error.component.ts`
+  - `apps/desktop/src/app/sidebar/sidebar-skeleton.component.ts`
 
 **forbidden_files:**
-- any `.ts` / `.html` / `.css` under `apps/desktop/src/` (read-only pass — no source edits)
-- `libs/ui/**`, `libs/shared-styles-theme/**`, `libs/shared-util-theme/**`
-- any `**/*.spec.ts` under `apps/` (Token discipline rule)
-- `docs/competitors/**` except the two Conductor refs
-- `CLAUDE.md`, `AGENTS.md`, `docs/DESIGN.md`, `TASKS.md`
+- `libs/ui/**` (protected — Implementation contract rule 4)
+- `libs/shared-styles-theme/**` (no new shared CSS per Q10 — keep extractions component-scoped)
+- `libs/shared-util-theme/**`
+- `apps/desktop/src-tauri/**` (Rust untouched)
+- `apps/desktop/src/app/services/`, `state/`, `shared/` (non-visual; logic untouched in this atom — visual components MAY read from them but their files are not in scope)
+- any `**/*.spec.ts` under `apps/` (token discipline; this atom must not edit specs)
+- `apps/desktop/src/index.html`, `apps/desktop/src/main.ts`, `apps/desktop/src/app/app.component.ts`, `apps/desktop/src/app/app.config.ts`, `apps/desktop/src/app/app.routes.ts` (bootstrap layer untouched)
+- `docs/**`, `CLAUDE.md`, `AGENTS.md`, `TASKS.md`
+
+**Scope (what this atom does):**
+
+1. **Spartan / `libs/ui` adoption sweep.** For every visual component listed above, replace every raw interactive HTML element by its Hlm equivalent from `@mozart/ui/*`:
+   - `<button>` → `button[hlmBtn]` (with appropriate `variant` / `size`)
+   - `<select>` → `@mozart/ui/select` or `@mozart/ui/native-select`
+   - `<textarea>` → `@mozart/ui/textarea`
+   - `<input>` → `@mozart/ui/input`
+   - clickable `<div>` used as button → `button[hlmBtn]` with `variant="ghost"`
+   - tooltips on any icon-only or disabled control → `[hlmTooltip]` directive
+   - dropdown/popover patterns rolled by hand → `@mozart/ui/dropdown-menu` or `@mozart/ui/popover`
+   - card-like wrappers → `<hlm-card>` only when the element is genuinely a card (don't over-apply)
+2. **Tailwind discipline + `@apply` extraction.** For every visual component:
+   - Verify all colors route through CSS variables (`var(--…)`, `hsl(var(--…))`). Replace any hardcoded hex with the matching token.
+   - Remove every inline `style="..."` attribute that sets colour / spacing / layout (move to Tailwind utilities or the component's `styles:` block).
+   - **Only for non-`libs/ui` elements** whose Tailwind chain is ≥ ~8–10 utilities OR repeats across 3+ siblings: extract to a business-named `@apply` class **inside the same component's inline `styles:` block**. Use `<region>-<part>` naming (e.g. `.sidebar-project-row`, `.workspace-card-header`). Never extract a chain that is already inside a Hlm primitive — Spartan owns those.
+3. **Zero functional change.** Acceptance criteria below verify this is a refactor, not a redesign.
+
+**Out of scope (deferred to S1.ui.1–.4):**
+- Conductor structural parity (sidebar context menu, breadcrumb, 3-segment top-bar, chat tabs, composer 6 disabled controls, right-panel 3 sections) — those come in their respective batches.
+- New components / new files (other than optional same-zone sub-components if a refactor genuinely needs splitting; ask at the gate).
+- IPC, state, store, Rust changes.
 
 **acceptance:**
-- [ ] Every `*.component.ts` under `apps/desktop/src/app/shell/` is read and scored.
-- [ ] Every `*.component.ts` under `apps/desktop/src/app/sidebar/` is read and scored.
-- [ ] `services/`, `state/`, `shared/` are explicitly skipped (non-visual).
-- [ ] Each scored component has: (a) its file path, (b) its Conductor zone (left-sidebar / top-bar / breadcrumb / tabs / chat / composer / right-files / right-run), (c) three scores 1–5 (Conductor fidelity / Spartan reuse / Theme-Tailwind discipline), (d) a one-line note of any score ≤ 3.
-- [ ] No `*.spec.ts` was opened (token discipline).
-- [ ] `docs/competitors/conductor/design/ui-notes.md` was read at most once.
-- [ ] The report ends with a "Batch boundary revision" section that either confirms the § 9 batch shape or proposes specific edits.
+- [ ] Every component in `allowed_files` has been read and reviewed; no raw `<button>` / `<select>` / `<textarea>` / `<input>` remains in any template (each replaced by its `hlm*` equivalent or justified inline as "non-interactive presentation only").
+- [ ] Every icon-only or disabled control has an `[hlmTooltip]`.
+- [ ] Zero hardcoded color hex in any visual component's `template:` or `styles:` block (`grep -RE '#[0-9a-fA-F]{3,6}' apps/desktop/src/app/` is empty).
+- [ ] Zero inline `style="...color|background|...padding|margin..."` in any template (use Tailwind or the `styles:` block).
+- [ ] `libs/ui/**` is untouched (`git diff --stat HEAD~1 HEAD -- libs/ui/` is empty).
+- [ ] `libs/shared-styles-theme/**` is untouched (`git diff --stat HEAD~1 HEAD -- libs/shared-styles-theme/` is empty per Q10).
+- [ ] Every extracted `@apply` class lives inside the **same component's** inline `styles:` block (manual scan — for every new class, grep its name and confirm both definition and usage are in the same file).
+- [ ] Every extracted class name follows `<region>-<part>` convention (Q9).
+- [ ] **Zero functional regression**: all keyboard shortcuts (`⌘N`, `⌘R`, send shortcut in composer) still fire; all dialogs still open; sidebar still loads projects; chat still streams.
+- [ ] **Zero visible regression**: pixel-level visual diff is empty modulo rounding (verified by before/after screenshots at the manual checkpoint).
+- [ ] `pnpm nx lint desktop`, `pnpm nx test desktop`, `pnpm nx build desktop` all pass.
 
 **tests/checks:**
 ```sh
-test -f docs/specs/mozart-ui-review-2026-05-11.md
-grep -c '^## Component:' docs/specs/mozart-ui-review-2026-05-11.md      # ≥ number of shell+sidebar component files
-grep -c 'Conductor zone:' docs/specs/mozart-ui-review-2026-05-11.md     # ≥ same
-grep -c '^## Batch boundary revision' docs/specs/mozart-ui-review-2026-05-11.md  # 1
-# Token-discipline self-check:
-git log -1 --name-only --pretty=format: -- 'apps/**/*.spec.ts'         # empty (nothing read; nothing committed)
+pnpm nx lint desktop
+pnpm nx test desktop
+pnpm nx build desktop
+
+# Boundary checks
+git diff --stat HEAD~1 HEAD -- libs/ui/                                  # empty
+git diff --stat HEAD~1 HEAD -- libs/shared-styles-theme/                 # empty
+git diff --stat HEAD~1 HEAD -- libs/shared-util-theme/                   # empty
+git diff --stat HEAD~1 HEAD -- apps/desktop/src-tauri/                   # empty
+
+# Discipline checks
+! grep -RE '#[0-9a-fA-F]{3,6}' apps/desktop/src/app/                    # no hex colors anywhere
+! grep -RE '<button(?![^>]*hlmBtn)' apps/desktop/src/app/                # no raw <button> without hlmBtn
+! grep -RE '<textarea(?![^>]*hlmInput)' apps/desktop/src/app/            # no raw <textarea> without Hlm wrapping
+! grep -RE 'style="[^"]*(color|background|padding|margin):' apps/desktop/src/app/  # no inline layout styles
+
+# Spec discipline (token rule)
+git diff --stat HEAD~1 HEAD -- 'apps/**/*.spec.ts'                       # empty
 ```
 
-**Manual checkpoint:**
-1. Open the report. Skim each Conductor-zone section — does the score feel right vs the screenshot at `docs/competitors/conductor/design/conductor-ui.png`?
-2. Check the "Batch boundary revision" section — if it proposes changes to S1.ui.1–5, decide whether to apply them before continuing.
-3. User says "go" → implementer stages and commits.
+**Manual checkpoint (Q14: manual screenshots, before/after):**
 
-**Expected user-visible result:** A new file `docs/specs/mozart-ui-review-2026-05-11.md` exists. No UI / runtime change.
+1. **Before the implementer starts:** capture screenshots of every visual screen and save them somewhere you can compare against (suggested: `tmp/screenshots/before-S1.ui.0/`). Cover at minimum:
+   - Sidebar empty state (no projects)
+   - Sidebar with at least one project loaded + expanded + a workspace selected
+   - Shell with workspace open (chat-panel visible, composer visible)
+   - Right panel open (current placeholder)
+   - AddRepo dialog open
+   - CreateWorkspace dialog open
+2. Implementer applies the refactor and reports.
+3. `pnpm dev` and re-capture the same screens (save to `tmp/screenshots/after-S1.ui.0/`).
+4. **Diff the pairs visually** — they must look identical modulo pixel rounding. If any screen drifted visibly, the atom failed and the implementer must investigate before commit.
+5. Exercise the full keyboard set: `⌘N`, `⌘R`, send shortcut, Esc on dialogs — all still work.
+6. User says "go" → implementer stages exactly the touched files (NEVER `git add .`) and commits.
 
-**commit message format:** `docs(specs): UI review report for desktop shell + sidebar (S1.ui.0)`
+**Risk:** Medium. This is the broadest atom in the v0.0.1 sprint — every visual component touched once. Mitigations:
+- Before/after screenshots are mandatory (Q14).
+- Zero-visual-diff acceptance gate.
+- `libs/ui/**` boundary protected by both the forbidden list and the `git diff --stat` check.
+- Rollback is `git revert <commit>`.
+
+**Expected user-visible result:** Nothing visible changes. Every component now uses the right Spartan primitives + clean Tailwind. The codebase is ready for structural Conductor changes in S1.ui.1–.4.
+
+**commit message format:** `refactor(ui-batch-0): foundation sweep — Spartan adoption + Tailwind @apply across visual components (S1.ui.0)`
 
 **commit:**
 
@@ -2549,66 +2620,8 @@ grep -c 'border-b' apps/desktop/src/app/shell/empty-right.component.ts          
 
 ---
 
-## [ ] S1.ui.5 — Batch 5: Tailwind discipline sweep on non-`libs/ui` elements
+## ~~S1.ui.5~~ — superseded 2026-05-11
 
-**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 9 Batch 5 + § 13b (Q9 naming, Q10 scoping)
-**dependencies:** S1.ui.4
-**parallelizable:** false (sweeps across all visual components)
-
-**allowed_files:**
-- any `*.component.ts` under `apps/desktop/src/app/` (inline `template:` / `styles:` blocks only)
-
-**forbidden_files:**
-- `libs/ui/**` (protected — do not "fix" anything there even if discipline gaps are visible)
-- `libs/shared-styles-theme/**` (no new shared CSS per Q10 — keep extractions component-scoped)
-- `libs/shared-util-theme/**`
-- `apps/desktop/src-tauri/**`
-- `apps/desktop/src/app/services/`, `state/`, `shared/` (non-visual; logic untouched)
-- any `.spec.ts` file (token discipline)
-
-**Spartan / `libs/ui` targets:** N/A — this batch enforces existing primitives; no new component swaps unless the review report flagged one.
-
-**Rules for the sweep (per § 13b Q10):**
-1. For every `*.component.ts` under `apps/desktop/src/app/`, scan inline templates.
-2. **Skip** elements that are already `libs/ui` Hlm primitives (`button[hlmBtn]`, `<hlm-card>`, etc.) — Spartan styles cover them.
-3. For **non-`libs/ui`** elements only (raw `<div>`, custom containers, etc.): if the Tailwind utility chain is ≥ ~8–10 classes, OR the same chain repeats across 3+ siblings → extract to a `@apply` business class **inside the same component's inline `styles:` block** with `<region>-<part>` naming per Q9.
-4. Never extract to a shared stylesheet. Never name by visual appearance.
-5. Verify zero functional / visual diff (this is hygiene, not redesign).
-
-**acceptance:**
-- [ ] No template under `apps/desktop/src/app/` has a non-`libs/ui` element with > ~10 utility classes left inline — either extracted to a `@apply` class or visually justified inline.
-- [ ] Every extracted class lives in the **same component's** `styles:` block (verified by grep).
-- [ ] Every extracted class name follows `<region>-<part>` (e.g. `.sidebar-project-row`, `.workspace-card-header`).
-- [ ] No new file is created under `libs/shared-styles-theme/`.
-- [ ] No hardcoded hex was introduced; no `style="..."` was introduced.
-- [ ] `pnpm dev` visual smoke: **zero visible diff** vs. the pre-batch state on every screen (sidebar empty / loaded, shell with project open, composer, right-panel scaffold).
-- [ ] All tests + lint + build pass.
-
-**tests/checks:**
-```sh
-pnpm nx lint desktop
-pnpm nx test desktop
-pnpm nx build desktop
-# Verify no new shared CSS:
-git diff --stat HEAD~1 HEAD -- libs/shared-styles-theme/                                # empty
-# Spot-check extracted classes are component-scoped (each .apply rule has @apply in the same file's styles: block)
-# (manual scan; no automated regex covers this cleanly)
-! grep -RE '#[0-9a-fA-F]{3,6}' apps/desktop/src/app/
-```
-
-**Manual checkpoint (Q14: manual screenshot):**
-1. Before starting the batch: capture screenshots of every visual screen (sidebar empty, sidebar with project, shell with workspace open, composer, right-panel scaffold).
-2. After the sweep: `pnpm dev` and re-capture the same screens.
-3. **Diff the screenshot pairs visually** — they must look identical modulo pixel rounding.
-4. **Attach the before/after pairs** to the checkpoint.
-5. User says "go" → implementer stages and commits.
-
-**Risk:** Very low if the visual diff is zero. Risk to watch: an `@apply` rule accidentally changing specificity (manifest as a hover/focus state mismatch).
-
-**Expected user-visible result:** Nothing visible changes. Code becomes easier to read. Future agents have a clean example of where `@apply` is appropriate and where it isn't.
-
-**commit message format:** `refactor(ui-batch-5): extract long non-libs/ui Tailwind chains to component-scoped @apply classes (S1.ui.5)`
-
-**commit:**
+Original scope (narrow Tailwind sweep on non-`libs/ui` elements) was absorbed into the new **S1.ui.0 Foundation refactor**. The Spartan-adoption pass + the `@apply` extraction pass now happen together, up-front, before the structural Conductor batches. See `S1.ui.0` above for the active definition.
 
 ---
