@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { HlmDialogService } from '@mozart/ui/dialog';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BindingsService } from '../services/bindings.service';
@@ -29,7 +30,14 @@ function fakeBindings(opts: { listRepos: () => Promise<RepoDto[]> }): unknown {
   };
 }
 
-function configure(listRepos: () => Promise<RepoDto[]>): void {
+interface DialogServiceFake {
+  readonly open: ReturnType<typeof vi.fn>;
+}
+
+function configure(
+  listRepos: () => Promise<RepoDto[]>,
+  dialogFake?: DialogServiceFake,
+): void {
   TestBed.configureTestingModule({
     imports: [SidebarComponent],
     providers: [
@@ -37,6 +45,9 @@ function configure(listRepos: () => Promise<RepoDto[]>): void {
         provide: BindingsService,
         useValue: fakeBindings({ listRepos }),
       },
+      ...(dialogFake
+        ? [{ provide: HlmDialogService, useValue: dialogFake }]
+        : []),
     ],
   });
 }
@@ -92,5 +103,29 @@ describe('SidebarComponent', () => {
     fixture.detectChanges();
     const rows = fixture.nativeElement.querySelectorAll('app-project-row');
     expect(rows.length).toBe(1);
+  });
+
+  it('opens AddRepoDialog when the strip "+" button is clicked', async () => {
+    const dialogFake: DialogServiceFake = { open: vi.fn() };
+    configure(() => Promise.resolve([]), dialogFake);
+    const fixture = TestBed.createComponent(SidebarComponent);
+    fixture.detectChanges();
+    await new Promise((r) => setTimeout(r, 0));
+    fixture.detectChanges();
+    const btn = fixture.nativeElement.querySelector(
+      'button.add-project-btn',
+    ) as HTMLButtonElement | null;
+    expect(btn).not.toBeNull();
+    expect(btn?.disabled).toBe(false);
+    btn?.click();
+    expect(dialogFake.open).toHaveBeenCalledTimes(1);
+    // First arg is the component constructor; assert by name (allowing
+    // the Angular bundler's "_" prefix) so we don't have to import the
+    // dialog into the spec.
+    const firstCall = dialogFake.open.mock.calls[0];
+    expect(typeof firstCall[0]).toBe('function');
+    expect((firstCall[0] as { name: string }).name).toContain(
+      'AddRepoDialogComponent',
+    );
   });
 });

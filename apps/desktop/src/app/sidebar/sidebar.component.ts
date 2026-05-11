@@ -26,8 +26,10 @@ import {
   inject,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { MozartError } from '../services/mozart-error';
+import { AddRepoDialogComponent } from '../shell/add-repo-dialog.component';
 import { ProjectStore } from '../state/project.store';
 import { ProjectRowComponent } from './project-row.component';
 import { SidebarEmptyComponent } from './sidebar-empty.component';
@@ -88,9 +90,9 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
         variant="ghost"
         size="icon-xs"
         type="button"
-        disabled
+        class="add-project-btn"
         aria-label="Add project"
-        [hlmTooltip]="'Coming in 1.8d'"
+        (click)="openAddRepo()"
       >
         +
       </button>
@@ -149,6 +151,7 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
 })
 export class SidebarComponent {
   protected readonly projects = inject(ProjectStore);
+  private readonly dialog = inject(HlmDialogService);
 
   /**
    * `withCallState` flips `projectsError()` truthy when the last refresh
@@ -164,5 +167,18 @@ export class SidebarComponent {
 
   protected onRetry(): void {
     this.projects.refresh();
+  }
+
+  /**
+   * Open the "Add repository" dialog. The `contentClass` matches the
+   * dialog component's own `:host` width so the brain dialog's max-w-lg
+   * default doesn't override us. `showCloseButton: true` adds the close
+   * `x` glyph in the top-right.
+   */
+  protected openAddRepo(): void {
+    this.dialog.open(AddRepoDialogComponent, {
+      contentClass: 'w-[480px] max-w-[90vw]',
+      showCloseButton: true,
+    });
   }
 }

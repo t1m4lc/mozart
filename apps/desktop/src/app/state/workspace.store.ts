@@ -132,6 +132,48 @@ export const WorkspaceStore = signalStore(
       if (taskIds.size === 0) return [];
       return store.all().filter((w) => taskIds.has(w.task_id));
     },
+    /**
+     * Create a workspace by delegating to the Rust `create_workspace`
+     * command, then re-fetching the local list and selecting the newly
+     * created workspace so the ChatPanel surfaces immediately.
+     *
+     * Note: we call `bindings.listWorkspaces()` directly here rather
+     * than `store.refresh()` because `withMethods` can't reference its
+     * own sibling methods through `store` at type-resolution time. The
+     * effect is identical — both end up `patchState`-ing the `all`
+     * slice.
+     *
+     * Errors are stored in `errorDetail` as a `MozartError` and re-
+     * thrown so the dialog layer can keep itself open and render the
+     * message inline. Non-`MozartError` rejections are wrapped as
+     * `MozartError('Io', ...)` per the IPC convention.
+     */
+    async createWorkspace(
+      repoId: string,
+      baseBranch: string,
+      taskText: string,
+    ): Promise<WorkspaceDto> {
+      try {
+        const ws = await bindings.createWorkspace(repoId, baseBranch, taskText);
+        const all = await bindings.listWorkspaces();
+        patchState(
+          store,
+          { all, selectedWorkspaceId: ws.workspace_id },
+          setLoaded('workspaces'),
+        );
+        return ws;
+      } catch (err) {
+        const mz =
+          err instanceof MozartError
+            ? err
+            : new MozartError(
+                'Io',
+                err instanceof Error ? err.message : String(err),
+              );
+        patchState(store, { errorDetail: mz });
+        throw mz;
+      }
+    },
   })),
   withHooks({
     onInit(store) {

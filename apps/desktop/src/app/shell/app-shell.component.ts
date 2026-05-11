@@ -28,12 +28,22 @@
  * `<app-chat-panel />`. Until then both branches render the empty-center
  * placeholder so the switch is visible in DevTools.
  */
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  DestroyRef,
+  inject,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { HlmDialogService } from '@mozart/ui/dialog';
+import { ShortcutService } from '../services/shortcut.service';
 import { ProjectStore } from '../state/project.store';
 import { ShellStore } from '../state/shell.store';
 import { WorkspaceStore } from '../state/workspace.store';
 import { SidebarComponent } from '../sidebar/sidebar.component';
+import { AddRepoDialogComponent } from './add-repo-dialog.component';
 import { ChatPanelComponent } from './chat-panel.component';
+import { CreateWorkspaceDialogComponent } from './create-workspace-dialog.component';
 import { EmptyCenterComponent } from './empty-center.component';
 import { EmptyRightComponent } from './empty-right.component';
 import { TopBarComponent } from './top-bar.component';
@@ -106,6 +116,9 @@ export class AppShellComponent {
   private readonly workspaces = inject(WorkspaceStore);
   // ShellStore drives the centre route + right-panel visibility.
   protected readonly shellStore = inject(ShellStore);
+  private readonly shortcuts = inject(ShortcutService);
+  private readonly dialog = inject(HlmDialogService);
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
     // Touch each store so the `inject()` call is preserved across
@@ -113,5 +126,53 @@ export class AppShellComponent {
     // that; this is a no-op at runtime.
     void this.projects.projects;
     void this.workspaces.all;
+
+    // ⌘R / Ctrl+R → open AddRepoDialog.
+    //
+    // NOTE: ⌘R is also the platform "reload page" shortcut. In a Tauri
+    // dev build the webview may intercept it before `preventDefault`
+    // can suppress it — the shortcut service still calls
+    // `event.preventDefault()` first (Tauri honors it on most setups
+    // because of WebKit/WebView2 event ordering). If Tauri's webview
+    // ever wins the race during dev, S1.8b.5 may need to remap this to
+    // ⌘⇧R; documented as a known risk.
+    this.shortcuts
+      .register$({
+        key: 'mod+r',
+        command: () => undefined,
+        preventDefault: true,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.openAddRepo());
+
+    // ⌘N / Ctrl+N → open CreateWorkspaceDialog. The dialog reads
+    // ProjectStore.selectedProject() when no `lockedRepoId` context is
+    // passed (the global-keyboard case). When no project is selected,
+    // the dialog still opens but renders "Select a project first" and
+    // disables Create — matching the audit-plan behaviour.
+    this.shortcuts
+      .register$({
+        key: 'mod+n',
+        command: () => undefined,
+        preventDefault: true,
+      })
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.openNewWorkspace());
+  }
+
+  private openAddRepo(): void {
+    this.dialog.open(AddRepoDialogComponent, {
+      contentClass: 'w-[480px] max-w-[90vw]',
+      showCloseButton: true,
+    });
+  }
+
+  private openNewWorkspace(): void {
+    const selectedRepoId = this.projects.selectedProjectId();
+    this.dialog.open(CreateWorkspaceDialogComponent, {
+      contentClass: 'w-[480px] max-w-[90vw]',
+      showCloseButton: true,
+      context: { lockedRepoId: selectedRepoId },
+    });
   }
 }

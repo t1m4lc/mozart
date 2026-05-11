@@ -1,17 +1,18 @@
 /**
  * `SidebarEmptyComponent` — empty-state card shown by `SidebarComponent`
- * when `ProjectStore.projects()` is `[]`. Surfaces the disabled
- * `[+ Add repository]` CTA with the 1.8d milestone tooltip.
+ * when `ProjectStore.projects()` is `[]`. Wires the
+ * `[+ Add repository]` CTA to the `AddRepoDialog` (S1.8b.5).
  */
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmDialogService } from '@mozart/ui/dialog';
+import { AddRepoDialogComponent } from '../shell/add-repo-dialog.component';
 
 @Component({
   selector: 'app-sidebar-empty',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [HlmButtonImports, HlmTooltipImports],
+  imports: [HlmButtonImports],
   template: `
     <div class="card">
       <p class="copy">No projects yet.</p>
@@ -20,8 +21,8 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
         variant="outline"
         size="sm"
         type="button"
-        disabled
-        [hlmTooltip]="'Coming in 1.8d'"
+        class="add-repo-btn"
+        (click)="openAddRepo()"
       >
         + Add repository
       </button>
@@ -50,4 +51,13 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
     }
   `,
 })
-export class SidebarEmptyComponent {}
+export class SidebarEmptyComponent {
+  private readonly dialog = inject(HlmDialogService);
+
+  protected openAddRepo(): void {
+    this.dialog.open(AddRepoDialogComponent, {
+      contentClass: 'w-[480px] max-w-[90vw]',
+      showCloseButton: true,
+    });
+  }
+}

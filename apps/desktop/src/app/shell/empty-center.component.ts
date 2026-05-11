@@ -1,35 +1,57 @@
 /**
  * `EmptyCenterComponent` — fills the centre pane when no workspace is
- * selected. Renders the v0.0.1 onboarding card per DESIGN.md state matrix.
+ * selected. S1.8b.5 expanded the scope: the component now reads
+ * `ProjectStore.projects()` and renders the appropriate next-step CTA.
  *
- * The `[+ New workspace]` button is disabled until 1.8d (workspace
- * creation dialog ships in plan 11) and carries a tooltip naming that
- * milestone.
+ *   - **0 projects**: "+ Add repository" → opens `AddRepoDialog`.
+ *   - **≥1 projects, no workspace selected**: "+ New workspace" →
+ *     opens `CreateWorkspaceDialog` with `lockedRepoId` pre-set to
+ *     the currently selected project (so the dialog locks to it).
+ *
+ * Both buttons are now enabled — no more disabled/tooltip placeholder.
  */
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmDialogService } from '@mozart/ui/dialog';
+import { ProjectStore } from '../state/project.store';
+import { AddRepoDialogComponent } from './add-repo-dialog.component';
+import { CreateWorkspaceDialogComponent } from './create-workspace-dialog.component';
 
 @Component({
   selector: 'app-empty-center',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [HlmButtonImports, HlmTooltipImports],
+  imports: [HlmButtonImports],
   template: `
     <div class="wrap">
       <div class="card">
-        <p class="copy">
-          Pick a workspace from the sidebar, or create a new one.
-        </p>
-        <button
-          hlmBtn
-          variant="outline"
-          type="button"
-          disabled
-          [hlmTooltip]="'Coming in 1.8d'"
-        >
-          + New workspace
-        </button>
+        @if (hasNoProjects()) {
+          <p class="copy">
+            No projects yet. Add a repository to get started.
+          </p>
+          <button
+            hlmBtn
+            variant="outline"
+            type="button"
+            class="add-repo-btn"
+            (click)="openAddRepo()"
+          >
+            + Add repository
+          </button>
+        } @else {
+          <p class="copy">
+            Pick a workspace from the sidebar, or create a new one.
+          </p>
+          <button
+            hlmBtn
+            variant="outline"
+            type="button"
+            class="new-workspace-btn"
+            (click)="openNewWorkspace()"
+          >
+            + New workspace
+          </button>
+        }
       </div>
     </div>
   `,
@@ -63,4 +85,27 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
     }
   `,
 })
-export class EmptyCenterComponent {}
+export class EmptyCenterComponent {
+  private readonly projectStore = inject(ProjectStore);
+  private readonly dialog = inject(HlmDialogService);
+
+  protected readonly hasNoProjects = computed<boolean>(
+    () => this.projectStore.projects().length === 0,
+  );
+
+  protected openAddRepo(): void {
+    this.dialog.open(AddRepoDialogComponent, {
+      contentClass: 'w-[480px] max-w-[90vw]',
+      showCloseButton: true,
+    });
+  }
+
+  protected openNewWorkspace(): void {
+    const selectedRepoId = this.projectStore.selectedProjectId();
+    this.dialog.open(CreateWorkspaceDialogComponent, {
+      contentClass: 'w-[480px] max-w-[90vw]',
+      showCloseButton: true,
+      context: { lockedRepoId: selectedRepoId },
+    });
+  }
+}

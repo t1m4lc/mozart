@@ -127,6 +127,45 @@ export const ProjectStore = signalStore(
         : [...current, id];
       patchState(store, { expandedProjectIds: next });
     },
+    /**
+     * Add a repository at `path`. Calls `BindingsService.addRepo`, then
+     * re-fetches the projects list (so the new repo is visible) and
+     * auto-selects it so the sidebar surface immediately reflects the
+     * change.
+     *
+     * Note: we call `bindings.listRepos()` directly here rather than
+     * `store.refresh()` because `withMethods` can't reference its own
+     * sibling methods through `store` at type-resolution time. The
+     * effect is identical — both end up `patchState`-ing the projects
+     * slice.
+     *
+     * Errors are stored in `errorDetail` as a `MozartError` and re-
+     * thrown so the dialog layer can keep itself open and render the
+     * message inline. Non-`MozartError` rejections are wrapped as
+     * `MozartError('Io', ...)` per the IPC convention.
+     */
+    async addRepo(path: string): Promise<RepoDto> {
+      try {
+        const repo = await bindings.addRepo(path);
+        const projects = await bindings.listRepos();
+        patchState(
+          store,
+          { projects, selectedProjectId: repo.repo_id },
+          setLoaded('projects'),
+        );
+        return repo;
+      } catch (err) {
+        const mz =
+          err instanceof MozartError
+            ? err
+            : new MozartError(
+                'Io',
+                err instanceof Error ? err.message : String(err),
+              );
+        patchState(store, { errorDetail: mz });
+        throw mz;
+      }
+    },
   })),
   withHooks({
     onInit(store) {

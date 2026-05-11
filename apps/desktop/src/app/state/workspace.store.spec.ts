@@ -2,6 +2,7 @@ import { TestBed } from '@angular/core/testing';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BindingsService } from '../services/bindings.service';
+import { MozartError } from '../services/mozart-error';
 import type {
   RepoDto,
   TaskDto,
@@ -66,10 +67,20 @@ const wsA2: WorkspaceDto = {
   deletion_intent: 0,
 };
 
+interface ExtraFakes {
+  readonly listWorkspaces?: () => Promise<WorkspaceDto[]>;
+  readonly createWorkspace?: (
+    repoId: string,
+    baseBranch: string,
+    taskText: string,
+  ) => Promise<WorkspaceDto>;
+}
+
 function configure(
   repos: RepoDto[],
   tasksByRepo: Record<string, TaskDto[]>,
   workspaces: WorkspaceDto[],
+  extra: ExtraFakes = {},
 ): void {
   TestBed.configureTestingModule({
     providers: [
@@ -78,10 +89,11 @@ function configure(
         useValue: {
           listRepos: vi.fn(async () => repos),
           listTasks: vi.fn(async (repoId: string) => tasksByRepo[repoId] ?? []),
-          listWorkspaces: vi.fn(async () => workspaces),
+          listWorkspaces:
+            extra.listWorkspaces ?? vi.fn(async () => workspaces),
           addRepo: vi.fn(),
           archiveWorkspace: vi.fn(),
-          createWorkspace: vi.fn(),
+          createWorkspace: extra.createWorkspace ?? vi.fn(),
           listRuns: vi.fn(),
           getWorkspaceDiff: vi.fn(),
           discardWorkspaceChanges: vi.fn(),
@@ -166,5 +178,90 @@ describe('WorkspaceStore', () => {
     await new Promise((r) => setTimeout(r, 0));
     TestBed.tick();
     expect(ws.workspacesForProject('rA')).toEqual([]);
+  });
+
+  describe('createWorkspace', () => {
+    it('calls bindings.createWorkspace, refreshes, and selects the new workspace', async () => {
+      const newWorkspace: WorkspaceDto = {
+        workspace_id: 'wNew',
+        task_id: 'tNew',
+        worktree_path: '/tmp/wNew',
+        branch_name: 'agent/wip-new',
+        base_branch: 'main',
+        status: 'ready',
+        created_at: 99,
+        deletion_intent: 0,
+      };
+      // First refresh: []; subsequent refresh after createWorkspace: [newWorkspace].
+      const listCalls: WorkspaceDto[][] = [[], [newWorkspace]];
+      const listWorkspaces = vi.fn(async () => listCalls.shift() ?? []);
+      const createWorkspaceSpy = vi.fn(async () => newWorkspace);
+      configure(
+        [repoA],
+        { rA: [] },
+        [],
+        { listWorkspaces, createWorkspace: createWorkspaceSpy },
+      );
+
+      const ws = TestBed.inject(WorkspaceStore);
+      await new Promise((r) => setTimeout(r, 0));
+      expect(ws.all()).toHaveLength(0);
+
+      const result = await ws.createWorkspace('rA', 'main', 'fix the bug');
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(createWorkspaceSpy).toHaveBeenCalledWith(
+        'rA',
+        'main',
+        'fix the bug',
+      );
+      expect(result).toEqual(newWorkspace);
+      expect(ws.all().map((w) => w.workspace_id)).toContain('wNew');
+      expect(ws.selectedWorkspaceId()).toBe('wNew');
+    });
+
+    it('stores the MozartError in errorDetail and re-throws on failure', async () => {
+      const err = new MozartError('Validation', 'baseBranch missing');
+      const createWorkspaceSpy = vi.fn(async () => {
+        throw err;
+      });
+      configure(
+        [repoA],
+        { rA: [] },
+        [],
+        { createWorkspace: createWorkspaceSpy },
+      );
+
+      const ws = TestBed.inject(WorkspaceStore);
+      await new Promise((r) => setTimeout(r, 0));
+
+      await expect(
+        ws.createWorkspace('rA', 'main', 'broken'),
+      ).rejects.toBe(err);
+      expect(ws.errorDetail()).toBeInstanceOf(MozartError);
+      expect(ws.errorDetail()?.kind).toBe('Validation');
+    });
+
+    it('wraps non-MozartError rejections as MozartError(Io)', async () => {
+      const createWorkspaceSpy = vi.fn(async () => {
+        throw new Error('git worktree failed');
+      });
+      configure(
+        [repoA],
+        { rA: [] },
+        [],
+        { createWorkspace: createWorkspaceSpy },
+      );
+
+      const ws = TestBed.inject(WorkspaceStore);
+      await new Promise((r) => setTimeout(r, 0));
+
+      await expect(
+        ws.createWorkspace('rA', 'main', 'task'),
+      ).rejects.toBeInstanceOf(MozartError);
+      const detail = ws.errorDetail();
+      expect(detail?.kind).toBe('Io');
+      expect(detail?.message).toContain('git worktree failed');
+    });
   });
 });

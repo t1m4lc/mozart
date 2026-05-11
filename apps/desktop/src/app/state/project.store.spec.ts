@@ -19,16 +19,23 @@ const repoB: RepoDto = {
   added_at: 2,
 };
 
-function configure(listRepos: () => Promise<RepoDto[]>): void {
+interface ConfigureOptions {
+  readonly listRepos: () => Promise<RepoDto[]>;
+  readonly addRepo?: (path: string) => Promise<RepoDto>;
+}
+
+function configure(opts: ConfigureOptions | (() => Promise<RepoDto[]>)): void {
+  const o: ConfigureOptions =
+    typeof opts === 'function' ? { listRepos: opts } : opts;
   TestBed.configureTestingModule({
     providers: [
       {
         provide: BindingsService,
         useValue: {
-          listRepos,
+          listRepos: o.listRepos,
           listTasks: vi.fn(),
           listWorkspaces: vi.fn(),
-          addRepo: vi.fn(),
+          addRepo: o.addRepo ?? vi.fn(),
           archiveWorkspace: vi.fn(),
           createWorkspace: vi.fn(),
           listRuns: vi.fn(),
@@ -129,5 +136,68 @@ describe('ProjectStore', () => {
     expect(store.errorDetail()).toBeInstanceOf(MozartError);
     expect(store.errorDetail()?.kind).toBe('Db');
     expect(store.projectsError()).toBeTruthy();
+  });
+
+  describe('addRepo', () => {
+    it('calls bindings.addRepo, refreshes the list, and selects the new repo', async () => {
+      const newRepo: RepoDto = {
+        repo_id: 'rC',
+        path: '/tmp/c',
+        display_name: 'Charlie',
+        added_at: 3,
+      };
+      // First listRepos returns [repoA]; second (after addRepo) returns [repoA, newRepo].
+      const calls: RepoDto[][] = [[repoA], [repoA, newRepo]];
+      const listRepos = vi.fn(async () => {
+        return calls.shift() ?? [];
+      });
+      const addRepoSpy = vi.fn(async () => newRepo);
+      configure({ listRepos, addRepo: addRepoSpy });
+
+      const store = TestBed.inject(ProjectStore);
+      // First init populates [repoA] and selects rA.
+      await new Promise((r) => setTimeout(r, 0));
+      expect(store.selectedProjectId()).toBe('rA');
+
+      const result = await store.addRepo('/tmp/c');
+      // Allow the refresh rxMethod to complete.
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(addRepoSpy).toHaveBeenCalledWith('/tmp/c');
+      expect(result).toEqual(newRepo);
+      expect(store.projects().map((p) => p.repo_id)).toContain('rC');
+      // The new repo should be the active selection after addRepo.
+      expect(store.selectedProjectId()).toBe('rC');
+    });
+
+    it('stores the MozartError in errorDetail and re-throws on failure', async () => {
+      const err = new MozartError('Validation', 'repo not usable: NonGit');
+      const addRepoSpy = vi.fn(async () => {
+        throw err;
+      });
+      configure({ listRepos: () => Promise.resolve([]), addRepo: addRepoSpy });
+
+      const store = TestBed.inject(ProjectStore);
+      await new Promise((r) => setTimeout(r, 0));
+
+      await expect(store.addRepo('/tmp/bad')).rejects.toBe(err);
+      expect(store.errorDetail()).toBeInstanceOf(MozartError);
+      expect(store.errorDetail()?.kind).toBe('Validation');
+    });
+
+    it('wraps non-MozartError rejections as MozartError(Io)', async () => {
+      const addRepoSpy = vi.fn(async () => {
+        throw new Error('socket hangup');
+      });
+      configure({ listRepos: () => Promise.resolve([]), addRepo: addRepoSpy });
+
+      const store = TestBed.inject(ProjectStore);
+      await new Promise((r) => setTimeout(r, 0));
+
+      await expect(store.addRepo('/tmp/x')).rejects.toBeInstanceOf(MozartError);
+      const detail = store.errorDetail();
+      expect(detail?.kind).toBe('Io');
+      expect(detail?.message).toContain('socket hangup');
+    });
   });
 });

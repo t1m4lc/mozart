@@ -6,8 +6,10 @@
  * Per DESIGN.md sidebar interaction patterns:
  *   - Clicking the header toggles expansion (persisted to localStorage
  *     by `ProjectStore`'s `withStorageSync`).
- *   - Per-row disabled `[+]` (new workspace) + `[⚙]` (project settings)
- *     each carry a tooltip naming the milestone unblocking them.
+ *   - Hover-revealed `[+]` button (S1.8b.5) opens
+ *     `CreateWorkspaceDialog` locked to this project.
+ *   - Hover-revealed `[⚙]` settings button is disabled with
+ *     "Coming in 1.8d" tooltip (S1.8d wires it).
  *   - Children come from
  *     `WorkspaceStore.workspacesForProject(project.repo_id)`.
  */
@@ -19,11 +21,13 @@ import {
   input,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import type {
   RepoDto,
   WorkspaceDto,
 } from '../shared/schemas/bindings.schemas';
+import { CreateWorkspaceDialogComponent } from '../shell/create-workspace-dialog.component';
 import { ProjectStore } from '../state/project.store';
 import { WorkspaceStore } from '../state/workspace.store';
 import { WorkspaceItemComponent } from './workspace-item.component';
@@ -51,9 +55,9 @@ import { WorkspaceItemComponent } from './workspace-item.component';
             variant="ghost"
             size="icon-xs"
             type="button"
-            disabled
+            class="new-workspace-btn"
             aria-label="New workspace in project"
-            [hlmTooltip]="'Coming in 1.8d'"
+            (click)="openNewWorkspace($event)"
           >
             +
           </button>
@@ -139,6 +143,7 @@ export class ProjectRowComponent {
 
   private readonly projects = inject(ProjectStore);
   private readonly workspaceStore = inject(WorkspaceStore);
+  private readonly dialog = inject(HlmDialogService);
 
   readonly isExpanded = computed<boolean>(() =>
     this.projects.expandedProjectIds().includes(this.project().repo_id),
@@ -150,5 +155,24 @@ export class ProjectRowComponent {
 
   toggle(): void {
     this.projects.toggleExpanded(this.project().repo_id);
+  }
+
+  /**
+   * Open `CreateWorkspaceDialog` pre-locked to this project. We pass
+   * `lockedRepoId` via the dialog context so the dialog can render the
+   * project as read-only. The brain dialog service surfaces this
+   * `context` via `injectBrnDialogContext`; the dialog component
+   * picks the `lockedRepoId` field off the resulting object.
+   *
+   * `event.stopPropagation()` keeps the parent header row's
+   * `(click)="toggle()"` from firing as a side effect.
+   */
+  protected openNewWorkspace(event: MouseEvent): void {
+    event.stopPropagation();
+    this.dialog.open(CreateWorkspaceDialogComponent, {
+      contentClass: 'w-[480px] max-w-[90vw]',
+      showCloseButton: true,
+      context: { lockedRepoId: this.project().repo_id },
+    });
   }
 }
