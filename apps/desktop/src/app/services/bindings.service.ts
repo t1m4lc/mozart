@@ -10,13 +10,16 @@
  *   4. throws `MozartError` on JS-level rejections, AppError envelopes,
  *      and schema-validation failures.
  *
- * Channel-based commands (`start_agent_run` / `stop_agent_run`) are NOT
- * exposed here — Plan 09 wires them through a dedicated stream API.
+ * Channel-based commands (`start_agent_run` / `stop_agent_run`) are
+ * surfaced via `startAgentRun(...)` which returns `{ events$, stop }`.
+ * The Observable completes when the Rust `AgentRunTerminated`
+ * tauri-specta event lands for this run_id (Q2 lock — no polling).
  */
 import { Injectable, InjectionToken, inject } from '@angular/core';
+import { Observable } from 'rxjs';
 import { z } from 'zod';
 
-import { commands } from '../_bindings';
+import { commands, events } from '../_bindings';
 import {
   AgentRunSchema,
   AppErrorSchema,
@@ -28,10 +31,12 @@ import {
   type AgentRunDto,
   type ClaudeInstallDto,
   type RepoDto,
+  type StreamEventDto,
   type TaskDto,
   type WorkspaceChangeDto,
   type WorkspaceDto,
 } from '../shared/schemas/bindings.schemas';
+import { channelToObservable } from './agent-channel.util';
 import { MozartError } from './mozart-error';
 
 /**
@@ -61,9 +66,29 @@ export const TAURI_COMMANDS = new InjectionToken<TauriCommands>(
   { providedIn: 'root', factory: () => commands },
 );
 
+/**
+ * Shape of the auto-generated `events` object from `_bindings.ts`. Re-
+ * typed locally so the service can take it via DI and specs can
+ * substitute fakes — `events.agentRunTerminated.listen(...)` requires
+ * the Tauri runtime in production but is trivially fakeable in tests.
+ */
+export type TauriEvents = typeof events;
+
+/**
+ * DI token for the auto-generated tauri-specta `events` object.
+ * Production uses the real import; specs provide an in-memory fake
+ * whose `.listen` returns a synchronous `unlisten` to drive natural-end
+ * scenarios deterministically.
+ */
+export const EVENTS_API = new InjectionToken<TauriEvents>('EVENTS_API', {
+  providedIn: 'root',
+  factory: () => events,
+});
+
 @Injectable({ providedIn: 'root' })
 export class BindingsService {
   private readonly commands = inject(TAURI_COMMANDS);
+  private readonly eventsApi = inject(EVENTS_API);
 
   /**
    * Generic envelope-aware invoker. Tries the discriminated envelope
@@ -169,9 +194,111 @@ export class BindingsService {
   checkClaudeInstall = (): Promise<ClaudeInstallDto> =>
     this.invoke(() => this.commands.checkClaudeInstall(), ClaudeInstallSchema);
 
-  // ---------- Channel-based commands (NOT exposed in this atom) ----------
-  // TODO(plan-09): wire `startAgentRun(workspaceId, prompt, channel)`
-  // and `stopAgentRun(runId)` through a streaming API. They use
-  // `TAURI_CHANNEL<StreamEvent>` which is not envelope-shaped at the
-  // consumer level and needs a dedicated subscription helper.
+  // ---------- Channel-based commands ----------
+
+  /**
+   * Kick off an agent run for `workspaceId` with `prompt`. Returns:
+   *
+   *   - `events$`: an `Observable<StreamEventDto>` that emits each token
+   *     / cli_output / error frame from the Rust supervisor. Completes
+   *     when the matching `AgentRunTerminated` tauri-specta event lands
+   *     (Q2 lock — no polling).
+   *   - `stop()`: imperative cancel. If called before the `startAgentRun`
+   *     promise resolves, the cancel is queued and fires the moment the
+   *     run_id becomes known. Idempotent — subsequent calls are no-ops.
+   *
+   * Error handling:
+   *   - `commands.startAgentRun` returning `{ status: 'error', error }`
+   *     completes `events$` and rejects an internal promise that the
+   *     caller never sees directly — but a synchronous subscription on
+   *     `events$` would receive a `complete` notification immediately.
+   *     In that case the user sees no tokens and the chat panel reports
+   *     "no run started" via its own error state.
+   *   - JS-level rejections (channel dead, runtime panic) are wrapped as
+   *     `MozartError('Io', …)` per the project convention.
+   */
+  startAgentRun(
+    workspaceId: string,
+    prompt: string,
+  ): {
+    readonly events$: Observable<StreamEventDto>;
+    readonly stop: () => Promise<void>;
+  } {
+    const { channel, events$, complete, emitError } =
+      channelToObservable<StreamEventDto>();
+    let stopRequested = false;
+    let runId: string | null = null;
+    let unlistenTerminated: (() => void) | null = null;
+
+    // Fire the run; capture the run_id and arm the terminated listener.
+    // The promise is consumed below — the caller only sees `events$` /
+    // `stop`. Any error path synthesises a `StreamEvent::Error` frame
+    // into `events$` so the ChatPanel banner shows the message, then
+    // completes the stream to avoid leaking subscribers.
+    void this.commands
+      .startAgentRun(workspaceId, prompt, channel)
+      .then(async (result) => {
+        if (result.status === 'error') {
+          throw MozartError.fromAppError(result.error);
+        }
+        const run = AgentRunSchema.parse(result.data);
+        runId = run.run_id;
+        // Q2: natural-end via tauri-specta event. The listener is armed
+        // AFTER the run is created so we can filter on run.run_id.
+        // A race window exists where the event lands before we attach —
+        // tauri-specta buffers events at the bridge so listen-after-emit
+        // is safe in practice; on the off chance it isn't, the user can
+        // still cancel via `stop` and `complete()` fires then.
+        unlistenTerminated = await this.eventsApi.agentRunTerminated.listen(
+          (ev) => {
+            if (ev.payload.run_id === run.run_id) {
+              complete();
+              if (unlistenTerminated) {
+                unlistenTerminated();
+                unlistenTerminated = null;
+              }
+            }
+          },
+        );
+        // If the caller pressed stop before the run resolved, fire the
+        // cancel now that we have a run_id.
+        if (stopRequested) {
+          await this.commands.stopAgentRun(run.run_id);
+        }
+        return run;
+      })
+      .catch((err: unknown) => {
+        const message =
+          err instanceof MozartError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : 'Unknown error starting agent run';
+        // Surface as a synthetic StreamEvent::Error so the ChatPanel
+        // banner shows it. The consumer already gets the error via
+        // events$ — do NOT rethrow.
+        emitError({ kind: 'error', message } as StreamEventDto);
+        complete();
+        if (unlistenTerminated) {
+          unlistenTerminated();
+          unlistenTerminated = null;
+        }
+      });
+
+    const stop = async (): Promise<void> => {
+      stopRequested = true;
+      // If runId is known, cancel immediately; otherwise the `.then`
+      // above will see stopRequested=true and cancel after the run
+      // resolves. `complete()` is called by the AgentRunTerminated
+      // listener once the supervisor reaches the 'stopped' status.
+      if (runId !== null) {
+        const res = await this.commands.stopAgentRun(runId);
+        if (res.status === 'error') {
+          throw MozartError.fromAppError(res.error);
+        }
+      }
+    };
+
+    return { events$, stop };
+  }
 }

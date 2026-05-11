@@ -1,10 +1,13 @@
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { StreamEventDto } from '../shared/schemas/bindings.schemas';
 import {
   BindingsService,
+  EVENTS_API,
   TAURI_COMMANDS,
   type TauriCommands,
+  type TauriEvents,
 } from './bindings.service';
 import { MozartError } from './mozart-error';
 
@@ -30,6 +33,60 @@ function createFakeCommands(): TauriCommands {
   } as unknown as TauriCommands;
 }
 
+/**
+ * Fake `events` object — only `agentRunTerminated.listen` is exercised
+ * by the streaming surface. The spec returns the fake's
+ * `emitTerminated` so individual `it` blocks can fire payloads at will.
+ */
+interface FakeEvents {
+  readonly events: TauriEvents;
+  readonly emitTerminated: (payload: { run_id: string; status: string }) => void;
+  readonly unlistenSpy: ReturnType<typeof vi.fn>;
+}
+
+function createFakeEvents(): FakeEvents {
+  const listeners: Array<(ev: { payload: { run_id: string; status: string } }) => void> = [];
+  const unlistenSpy = vi.fn();
+  const events = {
+    agentRunTerminated: {
+      listen: vi.fn(
+        async (
+          cb: (ev: { payload: { run_id: string; status: string } }) => void,
+        ) => {
+          listeners.push(cb);
+          return () => {
+            unlistenSpy();
+            const idx = listeners.indexOf(cb);
+            if (idx >= 0) listeners.splice(idx, 1);
+          };
+        },
+      ),
+      once: vi.fn(),
+      emit: vi.fn(),
+    },
+  } as unknown as TauriEvents;
+  return {
+    events,
+    emitTerminated: (payload) => {
+      for (const cb of [...listeners]) cb({ payload });
+    },
+    unlistenSpy,
+  };
+}
+
+/**
+ * The Tauri Channel constructor reaches into `window.__TAURI_INTERNALS__`
+ * which jsdom doesn't provide. Stub the bare minimum so `new Channel()`
+ * inside `channelToObservable` does not throw.
+ */
+declare global {
+  interface Window {
+    __TAURI_INTERNALS__?: {
+      transformCallback: (cb: (msg: unknown) => void, once?: boolean) => number;
+    };
+  }
+}
+
 const validRepo = {
   repo_id: 'r1',
   path: '/tmp/r',
@@ -51,11 +108,17 @@ const validWorkspace = {
 describe('BindingsService', () => {
   let svc: BindingsService;
   let fake: TauriCommands;
+  let fakeEvents: FakeEvents;
 
   beforeEach(() => {
     fake = createFakeCommands();
+    fakeEvents = createFakeEvents();
+    window.__TAURI_INTERNALS__ = { transformCallback: () => 0 };
     TestBed.configureTestingModule({
-      providers: [{ provide: TAURI_COMMANDS, useValue: fake }],
+      providers: [
+        { provide: TAURI_COMMANDS, useValue: fake },
+        { provide: EVENTS_API, useValue: fakeEvents.events },
+      ],
     });
     svc = TestBed.inject(BindingsService);
   });
@@ -309,6 +372,164 @@ describe('BindingsService', () => {
       });
       const out = await svc.checkClaudeInstall();
       expect(out.kind).toBe('installed');
+    });
+  });
+
+  // ---------- startAgentRun (channel-based, Q2 lock) ----------
+
+  describe('startAgentRun', () => {
+    const validRun = {
+      run_id: 'run-1',
+      thread_id: 't1',
+      prompt: 'do',
+      status: 'running',
+      started_at: 1,
+      ended_at: null,
+      exit_code: null,
+      error_message: null,
+      checkpoint_sha: null,
+    };
+
+    /** Tiny helper: yield a microtask so promise chains inside
+     * startAgentRun get a chance to resolve. */
+    const tick = (): Promise<void> => new Promise((r) => setTimeout(r, 0));
+
+    it('returns a { events$, stop } pair synchronously', () => {
+      vi.mocked(fake.startAgentRun).mockResolvedValue({
+        status: 'ok',
+        data: validRun,
+      });
+      const result = svc.startAgentRun('w1', 'do');
+      expect(result.events$).toBeDefined();
+      expect(typeof result.stop).toBe('function');
+    });
+
+    it('forwards channel messages from the Rust supervisor into events$', async () => {
+      vi.mocked(fake.startAgentRun).mockImplementation(
+        async (_workspaceId, _prompt, channel) => {
+          // Defer the push to the next microtask so the test subscriber
+          // has a chance to attach before Rust "sends" anything. In the
+          // real Tauri runtime the channel is async by definition.
+          queueMicrotask(() => {
+            const c = channel as { onmessage(msg: StreamEventDto): void };
+            c.onmessage({ kind: 'stream_token', text: 'hello ' });
+            c.onmessage({ kind: 'stream_token', text: 'world' });
+          });
+          return { status: 'ok', data: validRun };
+        },
+      );
+      const { events$ } = svc.startAgentRun('w1', 'do');
+      const collected: StreamEventDto[] = [];
+      events$.subscribe((ev) => collected.push(ev));
+      await tick();
+      await tick();
+      expect(collected).toHaveLength(2);
+      expect(collected[0]).toEqual({ kind: 'stream_token', text: 'hello ' });
+      expect(collected[1]).toEqual({ kind: 'stream_token', text: 'world' });
+    });
+
+    it('completes events$ when the AgentRunTerminated event lands for the run_id', async () => {
+      vi.mocked(fake.startAgentRun).mockResolvedValue({
+        status: 'ok',
+        data: validRun,
+      });
+      const { events$ } = svc.startAgentRun('w1', 'do');
+      let completed = false;
+      events$.subscribe({ complete: () => (completed = true) });
+      await tick();
+      // Fire the terminated event with the matching run_id.
+      fakeEvents.emitTerminated({ run_id: 'run-1', status: 'done' });
+      expect(completed).toBe(true);
+      expect(fakeEvents.unlistenSpy).toHaveBeenCalled();
+    });
+
+    it('ignores AgentRunTerminated events for a different run_id', async () => {
+      vi.mocked(fake.startAgentRun).mockResolvedValue({
+        status: 'ok',
+        data: validRun,
+      });
+      const { events$ } = svc.startAgentRun('w1', 'do');
+      let completed = false;
+      events$.subscribe({ complete: () => (completed = true) });
+      await tick();
+      // Wrong run_id — must not complete.
+      fakeEvents.emitTerminated({ run_id: 'other-run', status: 'done' });
+      expect(completed).toBe(false);
+    });
+
+    it('stop() calls commands.stopAgentRun with the live run_id', async () => {
+      vi.mocked(fake.startAgentRun).mockResolvedValue({
+        status: 'ok',
+        data: validRun,
+      });
+      vi.mocked(fake.stopAgentRun).mockResolvedValue({
+        status: 'ok',
+        data: null,
+      });
+      const { stop } = svc.startAgentRun('w1', 'do');
+      await tick();
+      await stop();
+      expect(fake.stopAgentRun).toHaveBeenCalledWith('run-1');
+    });
+
+    it('stop() called before the run resolves queues the cancel and fires once run_id is known', async () => {
+      // Defer the startAgentRun resolution so stop() lands first.
+      let resolveStart: (v: { status: 'ok'; data: typeof validRun }) => void =
+        () => undefined;
+      vi.mocked(fake.startAgentRun).mockReturnValue(
+        new Promise((res) => {
+          resolveStart = res;
+        }),
+      );
+      vi.mocked(fake.stopAgentRun).mockResolvedValue({
+        status: 'ok',
+        data: null,
+      });
+
+      const { stop } = svc.startAgentRun('w1', 'do');
+      // Press stop before the start promise resolves.
+      const stopPromise = stop();
+      // The run_id is not yet known so stopAgentRun has not been called.
+      expect(fake.stopAgentRun).not.toHaveBeenCalled();
+      // Now resolve the start; the queued stop should fire.
+      resolveStart({ status: 'ok', data: validRun });
+      await stopPromise;
+      await tick();
+      expect(fake.stopAgentRun).toHaveBeenCalledWith('run-1');
+    });
+
+    it('completes events$ if commands.startAgentRun returns an error envelope', async () => {
+      vi.mocked(fake.startAgentRun).mockResolvedValue({
+        status: 'error',
+        error: { kind: 'AgentSpawn', message: 'no claude' },
+      });
+      const { events$ } = svc.startAgentRun('w1', 'do');
+      let completed = false;
+      events$.subscribe({ complete: () => (completed = true) });
+      await tick();
+      expect(completed).toBe(true);
+    });
+
+    it('emits a synthetic StreamEvent::Error before completing when startAgentRun returns an error envelope', async () => {
+      vi.mocked(fake.startAgentRun).mockResolvedValue({
+        status: 'error',
+        error: { kind: 'Io', message: 'pipe broken' },
+      });
+      const { events$ } = svc.startAgentRun('w1', 'do');
+      const collected: StreamEventDto[] = [];
+      let completed = false;
+      events$.subscribe({
+        next: (ev) => collected.push(ev),
+        complete: () => (completed = true),
+      });
+      await tick();
+      // The synthetic error event must land before completion so the
+      // ChatPanel banner can render the message.
+      expect(collected).toHaveLength(1);
+      expect(collected[0]?.kind).toBe('error');
+      const ev = collected[0] as { kind: 'error'; message: string };
+      expect(ev.message).toContain('pipe broken');
+      expect(completed).toBe(true);
     });
   });
 });

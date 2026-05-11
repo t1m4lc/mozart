@@ -33,6 +33,7 @@ import { ProjectStore } from '../state/project.store';
 import { ShellStore } from '../state/shell.store';
 import { WorkspaceStore } from '../state/workspace.store';
 import { SidebarComponent } from '../sidebar/sidebar.component';
+import { ChatPanelComponent } from './chat-panel.component';
 import { EmptyCenterComponent } from './empty-center.component';
 import { EmptyRightComponent } from './empty-right.component';
 import { TopBarComponent } from './top-bar.component';
@@ -44,6 +45,7 @@ import { TopBarComponent } from './top-bar.component';
   imports: [
     TopBarComponent,
     SidebarComponent,
+    ChatPanelComponent,
     EmptyCenterComponent,
     EmptyRightComponent,
   ],
@@ -53,9 +55,7 @@ import { TopBarComponent } from './top-bar.component';
       <app-sidebar />
       <main role="main" aria-label="Workspace conversation">
         @if (shellStore.centerView() === 'chat') {
-          <!-- S1.8b.4 swaps this for <app-chat-panel />. Until then,
-               the empty-center placeholder fills both branches. -->
-          <app-empty-center />
+          <app-chat-panel />
         } @else {
           <app-empty-center />
         }

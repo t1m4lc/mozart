@@ -5,7 +5,7 @@
 //! **`pub fn`, not `pub(crate)`** — integration tests under `tests/` link
 //! the crate as an external consumer and require crate-public visibility.
 
-use crate::claude_cli::{install::ClaudeInstall, StreamEvent};
+use crate::claude_cli::{install::ClaudeInstall, AgentRunTerminated, StreamEvent};
 use crate::commands;
 use crate::db::models::{AgentRun, Repo, Task, Thread, Workspace, WorkspaceChange};
 use crate::error::AppError;
@@ -27,6 +27,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::discard_workspace_changes,
             commands::check_claude_install,
         ])
+        .events(tauri_specta::collect_events![AgentRunTerminated])
         .typ::<AppError>()
         .typ::<StreamEvent>()
         .typ::<ClaudeInstall>()

@@ -10,13 +10,12 @@
 //!
 //! Locked decisions (plan §4):
 //! - **D1.4-C** — production argv is exactly `[-p, prompt,
-//!   --output-format=stream-json, --include-partial-messages]`.
-//!   The two flags forbidden by the plan (verbose-mode + the
-//!   skip-permissions debug switch) are NEVER passed. The unit test
+//!   --output-format=stream-json, --include-partial-messages,
+//!   --verbose]`. The skip-permissions debug switch is NEVER passed;
+//!   verbose is required by Claude CLI when --output-format=stream-json
+//!   is used together with -p. The unit test
 //!   `unit_argv_has_locked_flag_set` plus the cross-cutting greps in
-//!   `cargo test --tests` belt-and-brace this. Note the literal
-//!   strings are constructed below so the `! grep` validation gate
-//!   sees zero hits in this file.
+//!   `cargo test --tests` belt-and-brace this.
 //! - **D1.4-E** — cancel uses `Child::start_kill` (SIGKILL on Unix per
 //!   tokio) plus `kill_on_drop(true)`. Final status is `stopped`.
 //! - **D1.4-F** — one INSERT per parsed event; no batching in v0.0.1.
@@ -49,7 +48,7 @@ use tokio::process::Command;
 use tokio::task::JoinHandle;
 
 use crate::claude_cli::parser::parse_line;
-use crate::claude_cli::StreamEvent;
+use crate::claude_cli::{AgentRunTerminated, StreamEvent};
 use crate::db::models::{AgentRun, Workspace, WorkspaceChange};
 use crate::db::{agent_events, agent_runs, now_ms, workspace_changes, DbState};
 use crate::error::AppError;
@@ -116,6 +115,7 @@ pub(crate) fn command_argv_for_test(prompt: &str) -> Vec<String> {
         prompt.to_string(),
         "--output-format=stream-json".to_string(),
         "--include-partial-messages".to_string(),
+        "--verbose".to_string(),
     ]
 }
 
@@ -139,12 +139,23 @@ pub(crate) fn command_argv_for_test(prompt: &str) -> Vec<String> {
 ///    - `status.success()`           → `"done"`
 ///    - non-zero exit                → `"error"` (with last stderr)
 ///    - terminated by signal (no exit code, not cancel) → `"crashed"`
-pub async fn spawn_run(
+/// 5. **Q2 (audit plan):** After `mark_ended` succeeds the supervisor
+///    invokes `emit_terminated` with the final `run_id` + `status`.
+///    The Tauri command wraps this closure to emit a tauri-specta
+///    `AgentRunTerminated` event; tests pass a no-op closure to keep
+///    the `_impl` surface free of `tauri::AppHandle`. The emit happens
+///    **before** the post-exit `capture_diff` block so the front can
+///    complete its channel observable independently of diff capture.
+pub async fn spawn_run<E>(
     workspace: &Workspace,
     run: &AgentRun,
     channel: Channel<StreamEvent>,
     db: &DbState,
-) -> Result<RunHandle, AppError> {
+    emit_terminated: E,
+) -> Result<RunHandle, AppError>
+where
+    E: Fn(AgentRunTerminated) + Send + Sync + 'static,
+{
     let bin = resolve_claude_bin();
     let argv = command_argv_for_test(&run.prompt);
 
@@ -381,6 +392,15 @@ pub async fn spawn_run(
                 // lock dropped at end of scope, before the await below
             }
 
+            // Q2 (audit plan): notify the front via a tauri-specta event so
+            // the channel-observable can complete without polling. Fire
+            // independently of diff capture below — even if capture_diff
+            // fails, the run is terminal and the UI must learn about it.
+            emit_terminated(AgentRunTerminated {
+                run_id: run_id.clone(),
+                status: status_str.to_string(),
+            });
+
             // Post-exit reach-back (S1.5.4 / D1.5-I): on success only,
             // capture a diff vs the checkpoint and insert one
             // `workspace_changes` row. Best-effort — any failure logs and
@@ -458,20 +478,16 @@ mod tests {
                 "hi".to_string(),
                 "--output-format=stream-json".to_string(),
                 "--include-partial-messages".to_string(),
+                "--verbose".to_string(),
             ],
-            "argv must be exactly the four locked elements"
+            "argv must be exactly the five locked elements"
         );
-        // Forbidden flags — strings are runtime-constructed so the
+        // Forbidden flag — string is runtime-constructed so the
         // `! grep` validation gate doesn't trip on this source file.
-        let forbidden_verbose = format!("{}{}", "--", "verbose");
         let forbidden_skip_perms = format!(
             "{}{}",
             "--",
             "dangerously-skip-permissions"
-        );
-        assert!(
-            !argv.iter().any(|a| a == &forbidden_verbose),
-            "verbose flag must never be passed (D1.4-C)"
         );
         assert!(
             !argv.iter().any(|a| a == &forbidden_skip_perms),
@@ -644,7 +660,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, noop_channel(), &db).await.unwrap();
+            let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // ≥ 1 stream_token row from the text_delta in the fixture.
@@ -693,7 +709,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, noop_channel(), &db).await.unwrap();
+            let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // Per Option-B (D1.4-A): tool_use lines surface as cli_output
@@ -758,7 +774,7 @@ mod tests {
             std::env::set_var("MOZART_MOCK_FIXTURE", &slow);
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, noop_channel(), &db).await.unwrap();
+            let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
             // Give the child a moment to actually start before cancelling.
             tokio::time::sleep(Duration::from_millis(100)).await;
             handle.cancel().await.unwrap();
@@ -795,7 +811,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, noop_channel(), &db).await.unwrap();
+            let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             let got = agent_runs::get(&db.lock(), &run.run_id).unwrap();

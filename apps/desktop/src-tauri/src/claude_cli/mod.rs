@@ -39,3 +39,17 @@ impl StreamEvent {
         }
     }
 }
+
+/// Fired once per `agent_runs` row when the supervisor task reaches a
+/// terminal status (`done`, `error`, `stopped`, `crashed`). Front-end
+/// consumers filter by `run_id` to learn when the channel stream is
+/// safe to complete (Q2 — no polling).
+///
+/// This is the **only** tauri-specta event in v0.0.1. The Rust crate
+/// emits via `tauri_specta::Event::emit` on the `AppHandle`; the
+/// Angular `_bindings.ts` surfaces it as `events.agentRunTerminated`.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type, tauri_specta::Event)]
+pub struct AgentRunTerminated {
+    pub run_id: String,
+    pub status: String,
+}

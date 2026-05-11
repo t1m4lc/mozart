@@ -21,7 +21,7 @@ use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::claude_cli::install::{self, ClaudeInstall};
-use crate::claude_cli::{spawn_run, StreamEvent};
+use crate::claude_cli::{spawn_run, AgentRunTerminated, StreamEvent};
 use crate::db::models::{AgentRun, Repo, Task, Workspace, WorkspaceChange};
 use crate::db::{agent_runs, new_id, now_ms, repos, tasks, threads, workspace_changes, workspaces};
 use crate::db::DbState;
@@ -192,20 +192,44 @@ pub(crate) async fn archive_workspace_impl(
 pub async fn start_agent_run(
     db: State<'_, DbState>,
     registry: State<'_, RunRegistry>,
+    app: tauri::AppHandle,
     workspace_id: String,
     prompt: String,
     on_event: Channel<StreamEvent>,
 ) -> Result<AgentRun, AppError> {
-    start_agent_run_impl(db.inner(), registry.inner(), workspace_id, prompt, on_event).await
+    // Capture an owned `AppHandle` so the emitter closure can outlive the
+    // command frame. Q2: tauri-specta event drives natural-end on the front.
+    let app_clone = app.clone();
+    start_agent_run_impl(
+        db.inner(),
+        registry.inner(),
+        workspace_id,
+        prompt,
+        on_event,
+        move |ev| {
+            use tauri_specta::Event;
+            // Best-effort: an emit failure (e.g. webview gone during
+            // shutdown) is logged and swallowed — the run is already
+            // terminal in the DB and the UI will reconcile on next list.
+            if let Err(e) = ev.emit(&app_clone) {
+                log::warn!("AgentRunTerminated emit failed: {e}");
+            }
+        },
+    )
+    .await
 }
 
-pub(crate) async fn start_agent_run_impl(
+pub(crate) async fn start_agent_run_impl<E>(
     db: &DbState,
     registry: &RunRegistry,
     workspace_id: String,
     prompt: String,
     on_event: Channel<StreamEvent>,
-) -> Result<AgentRun, AppError> {
+    emit_terminated: E,
+) -> Result<AgentRun, AppError>
+where
+    E: Fn(AgentRunTerminated) + Send + Sync + 'static,
+{
     // D20: 1:1 workspace -> thread traversal.
     let (ws, thread) = {
         let conn = db.lock();
@@ -229,7 +253,7 @@ pub(crate) async fn start_agent_run_impl(
         let conn = db.lock();
         agent_runs::create(&conn, &run)?;
     }
-    let handle = spawn_run(&ws, &run, on_event, db).await?;
+    let handle = spawn_run(&ws, &run, on_event, db, emit_terminated).await?;
     registry.register(run.run_id.clone(), Arc::new(handle));
     Ok(run)
 }
@@ -752,6 +776,7 @@ mod tests {
             ws_id,
             "do the thing".into(),
             noop_channel(),
+            |_| (),
         )
         .await
         .expect("start_agent_run_impl ok");
@@ -844,6 +869,7 @@ mod tests {
             ws_id,
             "do".into(),
             noop_channel(),
+            |_| (),
         )
         .await
         .expect("start_agent_run_impl ok");
@@ -961,5 +987,266 @@ mod tests {
             matches!(got, ClaudeInstall::Installed { .. } | ClaudeInstall::Missing),
             "check_claude_install must return one of the two variants"
         );
+    }
+
+    // -------------------------------------------------------------------
+    // 14. AgentRunTerminated emission — Q2 audit lock
+    //
+    // The Tauri command wraps this closure with `tauri_specta::Event::emit`,
+    // but the `_impl` surface is generic over `Fn(AgentRunTerminated)`, so
+    // these tests capture emissions into a Mutex-protected Vec without
+    // booting a Tauri runtime.
+    // -------------------------------------------------------------------
+
+    #[cfg(unix)]
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn start_agent_run_emits_terminated_on_done() {
+        if !sandbox::git_available() {
+            eprintln!(
+                "SKIP start_agent_run_emits_terminated_on_done: git not on PATH"
+            );
+            return;
+        }
+        let _g = sandbox::test_env_gate()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+
+        let root = tempfile::tempdir().unwrap();
+        let wt = tempfile::tempdir_in(root.path()).unwrap();
+        init_repo_with_main(wt.path());
+
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/sar-emit-done");
+        let ws_id = {
+            let conn = db.lock();
+            let t = Task {
+                task_id: new_id(),
+                repo_id: repo_id.clone(),
+                title: "t".into(),
+                task_text: "t".into(),
+                status: "active".into(),
+                created_at: now_ms(),
+            };
+            tasks::create(&conn, &t).unwrap();
+            let ws = Workspace {
+                workspace_id: new_id(),
+                task_id: t.task_id.clone(),
+                worktree_path: wt.path().to_string_lossy().into_owned(),
+                branch_name: "agent/wip-x".into(),
+                base_branch: "main".into(),
+                status: "ready".into(),
+                created_at: now_ms(),
+                deletion_intent: 0,
+            };
+            workspaces::create(&conn, &ws).unwrap();
+            let th = Thread {
+                thread_id: new_id(),
+                workspace_id: ws.workspace_id.clone(),
+                created_at: now_ms(),
+            };
+            threads::create(&conn, &th).unwrap();
+            ws.workspace_id
+        };
+
+        let fixtures = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures");
+        std::env::set_var("MOZART_CLAUDE_BIN", fixtures.join("mock-claude.sh"));
+        std::env::set_var(
+            "MOZART_MOCK_FIXTURE",
+            fixtures.join("streams/happy-text.jsonl"),
+        );
+        std::env::set_var("MOZART_WORKTREES_ROOT", root.path());
+
+        // Shared capture buffer. The closure is Fn + Send + Sync + 'static
+        // because the supervisor task moves it across the .spawn boundary.
+        let captured: std::sync::Arc<std::sync::Mutex<Vec<AgentRunTerminated>>> =
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let captured_for_closure = captured.clone();
+
+        let registry = RunRegistry::new();
+        let run = start_agent_run_impl(
+            &db,
+            &registry,
+            ws_id,
+            "do".into(),
+            noop_channel(),
+            move |ev| {
+                if let Ok(mut g) = captured_for_closure.lock() {
+                    g.push(ev);
+                }
+            },
+        )
+        .await
+        .expect("start_agent_run_impl ok");
+
+        // The supervisor task runs detached; give it time to reach
+        // `mark_ended` + `emit_terminated`. The happy-text fixture
+        // typically completes in well under 500ms.
+        tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+
+        let snapshot = captured.lock().unwrap().clone();
+        assert!(
+            !snapshot.is_empty(),
+            "expected at least one AgentRunTerminated emission, got none"
+        );
+        let matching: Vec<_> = snapshot
+            .iter()
+            .filter(|e| e.run_id == run.run_id && e.status == "done")
+            .collect();
+        assert!(
+            !matching.is_empty(),
+            "expected an emission with status='done' for this run_id, got {snapshot:?}"
+        );
+
+        std::env::remove_var("MOZART_CLAUDE_BIN");
+        std::env::remove_var("MOZART_MOCK_FIXTURE");
+        std::env::remove_var("MOZART_WORKTREES_ROOT");
+    }
+
+    #[cfg(unix)]
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn start_agent_run_emits_terminated_on_stop() {
+        if !sandbox::git_available() {
+            eprintln!(
+                "SKIP start_agent_run_emits_terminated_on_stop: git not on PATH"
+            );
+            return;
+        }
+        let _g = sandbox::test_env_gate()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+
+        // Use sleep 2 (not 10) so even if SIGKILL leaves an orphaned
+        // `sleep` child whose pipes outlive the parent shell — blocking
+        // the supervisor's drain tasks on EOF — the test still completes
+        // in a few seconds rather than the full 10s the runner-level
+        // integration_cancel_mid_stream test budgets for.
+        let dir = tempfile::tempdir().unwrap();
+        let slow = dir.path().join("slow.sh");
+        std::fs::write(
+            &slow,
+            "#!/bin/sh\nsleep 2\necho should-not-appear\n",
+        )
+        .unwrap();
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mut p = std::fs::metadata(&slow).unwrap().permissions();
+            p.set_mode(0o755);
+            std::fs::set_permissions(&slow, p).unwrap();
+        }
+
+        let root = tempfile::tempdir().unwrap();
+        let wt = tempfile::tempdir_in(root.path()).unwrap();
+        init_repo_with_main(wt.path());
+
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/sar-emit-stop");
+        let ws_id = {
+            let conn = db.lock();
+            let t = Task {
+                task_id: new_id(),
+                repo_id: repo_id.clone(),
+                title: "t".into(),
+                task_text: "t".into(),
+                status: "active".into(),
+                created_at: now_ms(),
+            };
+            tasks::create(&conn, &t).unwrap();
+            let ws = Workspace {
+                workspace_id: new_id(),
+                task_id: t.task_id.clone(),
+                worktree_path: wt.path().to_string_lossy().into_owned(),
+                branch_name: "agent/wip-x".into(),
+                base_branch: "main".into(),
+                status: "ready".into(),
+                created_at: now_ms(),
+                deletion_intent: 0,
+            };
+            workspaces::create(&conn, &ws).unwrap();
+            let th = Thread {
+                thread_id: new_id(),
+                workspace_id: ws.workspace_id.clone(),
+                created_at: now_ms(),
+            };
+            threads::create(&conn, &th).unwrap();
+            ws.workspace_id
+        };
+
+        // Route through mock-claude.sh so the slow fixture is `exec`ed
+        // by sh — SIGKILL then targets the actual `sleep` process. If
+        // we point MOZART_CLAUDE_BIN at slow.sh directly, the shell
+        // spawns sleep as a separate child whose pipes outlive the
+        // SIGKILL'd shell, hanging the drain tasks for the full 10s.
+        let fixtures = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures");
+        std::env::set_var("MOZART_CLAUDE_BIN", fixtures.join("mock-claude.sh"));
+        std::env::set_var("MOZART_MOCK_FIXTURE", &slow);
+        std::env::set_var("MOZART_WORKTREES_ROOT", root.path());
+
+        let captured: std::sync::Arc<std::sync::Mutex<Vec<AgentRunTerminated>>> =
+            std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+        let captured_for_closure = captured.clone();
+
+        let registry = RunRegistry::new();
+        let run = start_agent_run_impl(
+            &db,
+            &registry,
+            ws_id,
+            "do".into(),
+            noop_channel(),
+            move |ev| {
+                if let Ok(mut g) = captured_for_closure.lock() {
+                    g.push(ev);
+                }
+            },
+        )
+        .await
+        .expect("start_agent_run_impl ok");
+
+        // Let the child start, then cancel it.
+        tokio::time::sleep(std::time::Duration::from_millis(200)).await;
+        stop_agent_run_impl(&registry, run.run_id.clone())
+            .await
+            .expect("known run cancels");
+
+        // Allow the supervisor to drain + mark_ended + emit_terminated.
+        // Poll the capture buffer up to 8s rather than hard-sleeping a
+        // flat amount — SIGKILL on the wrapper shell may leave an
+        // orphaned `sleep` child whose pipes outlive the parent shell,
+        // forcing the drain tasks to wait for the orphan to die before
+        // they see EOF. With a `sleep 2` fixture this resolves in ~2-4s.
+        let stopped_seen = {
+            let mut found = false;
+            for _ in 0..80 {
+                tokio::time::sleep(std::time::Duration::from_millis(100))
+                    .await;
+                let snapshot = captured.lock().unwrap().clone();
+                if snapshot
+                    .iter()
+                    .any(|e| e.run_id == run.run_id && e.status == "stopped")
+                {
+                    found = true;
+                    break;
+                }
+            }
+            found
+        };
+        let snapshot = captured.lock().unwrap().clone();
+        // Helpful diagnostic if emit never fires: did the supervisor at
+        // least reach mark_ended?
+        let db_status = agent_runs::get(&db.lock(), &run.run_id)
+            .map(|r| r.status)
+            .unwrap_or_else(|_| "<row not found>".into());
+        assert!(
+            stopped_seen,
+            "expected an emission with status='stopped' after cancel within 5s. \
+             DB row status='{db_status}', captured={snapshot:?}"
+        );
+
+        std::env::remove_var("MOZART_CLAUDE_BIN");
+        std::env::remove_var("MOZART_MOCK_FIXTURE");
+        std::env::remove_var("MOZART_WORKTREES_ROOT");
     }
 }
