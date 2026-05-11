@@ -1,8 +1,9 @@
 import { Route } from '@angular/router';
-import { ButtonPreview } from './component';
 
 export const appRoutes: Route[] = [
- {
-  path: '', component: ButtonPreview
- }
+  {
+    path: '',
+    loadComponent: () =>
+      import('./shell/app-shell.component').then((m) => m.AppShellComponent),
+  },
 ];
