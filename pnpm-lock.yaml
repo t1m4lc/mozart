@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@angular-architects/ngrx-toolkit':
+        specifier: ^21.0.1
+        version: 21.0.1(@angular/common@21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(@ngrx/signals@21.1.0(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(rxjs@7.8.2)
       '@angular/cdk':
         specifier: 21.0.0
         version: 21.0.0(@angular/common@21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2)
@@ -38,6 +41,12 @@ importers:
       '@ng-icons/lucide':
         specifier: '>=32.0.0 <34.0.0'
         version: 33.2.2
+      '@ngrx/operators':
+        specifier: ^21.1.0
+        version: 21.1.0(rxjs@7.8.2)
+      '@ngrx/signals':
+        specifier: ^21.1.0
+        version: 21.1.0(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2)
       '@spartan-ng/brain':
         specifier: ^0.0.1-alpha.688
         version: 0.0.1-alpha.688(@angular/cdk@21.0.0(@angular/common@21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/common@21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(@angular/forms@21.2.12(@angular/common@21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(@angular/platform-browser@21.2.12(@angular/common@21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2)))(rxjs@7.8.2))(clsx@2.1.1)(luxon@3.7.2)(rxjs@7.8.2)(tailwindcss@4.2.4)
@@ -50,6 +59,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      dayjs:
+        specifier: ^1.11.20
+        version: 1.11.20
       embla-carousel-angular:
         specifier: ^20.0.0
         version: 20.0.0(@angular/common@21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))
@@ -59,6 +71,9 @@ importers:
       tailwind-merge:
         specifier: ^3.5.0
         version: 3.5.0
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
     devDependencies:
       '@angular-devkit/core':
         specifier: ~21.2.0
@@ -243,6 +258,18 @@ packages:
   '@ampproject/remapping@2.3.0':
     resolution: {integrity: sha512-30iZtAPgz+LTIYoeivqYo853f02jBYSd5uGnGpkFV0M3xOt9aN73erkgYAmZU43x4VfqcnLxW9Kpg3R5LC4YYw==}
     engines: {node: '>=6.0.0'}
+
+  '@angular-architects/ngrx-toolkit@21.0.1':
+    resolution: {integrity: sha512-mbwNxO+HIhf5ocUdgj7ywrSCpLLzgAg+whktDDhBoVQfLdlTZKoI6NRuOAjxTksaaok85Wv6+nHGBRuJLDIjsQ==}
+    peerDependencies:
+      '@angular/common': ^21.0.0
+      '@angular/core': ^21.0.0
+      '@ngrx/signals': ^21.0.0
+      '@ngrx/store': ^21.0.0
+      rxjs: ^7.0.0
+    peerDependenciesMeta:
+      '@ngrx/store':
+        optional: true
 
   '@angular-devkit/architect@0.2102.10':
     resolution: {integrity: sha512-deiDH9ug1//eAM6IcyFT5T3eDDAudZex7F1K6lJkVUsjic/DwLU/KabvqF/i+PM05YmxMwLZsGNN0oj0qCxP8A==}
@@ -1925,6 +1952,20 @@ packages:
 
   '@ng-icons/lucide@33.2.2':
     resolution: {integrity: sha512-/jse2Z6fnk4WbW3HDH+jSfE/ihBskVr+RHltk5KfxohgQRhqqQ2FOxTP0IhU3xYV1pMwpziH3WpIR+gKkGcryg==}
+
+  '@ngrx/operators@21.1.0':
+    resolution: {integrity: sha512-/qK/kck06kl94Z7SdtQQal1pL6jMsMgrG9JMtkbptzJTCYTq8sbWJ4ha21wCx7I39zxLJKrRF8YlaFKAnJcfyg==}
+    peerDependencies:
+      rxjs: ^6.5.3 || ^7.4.0
+
+  '@ngrx/signals@21.1.0':
+    resolution: {integrity: sha512-eDGaBs6sssEZe2cLGwDdRnfTwyx9TKD+zpLW8yDov6acWzyi0nW5qxUWjpMRwmIU1i+o0t5MMpQaF/rFMmtHSg==}
+    peerDependencies:
+      '@angular/core': ^21.0.0
+      rxjs: ^6.5.3 || ^7.4.0
+    peerDependenciesMeta:
+      rxjs:
+        optional: true
 
   '@noble/hashes@1.4.0':
     resolution: {integrity: sha512-V1JJ1WTRUqHHrOSh597hURcMqVKVGL/ea3kv0gSnEdsEZ0/+VyPghM1lMNGc00z7CIQorSvbKpuJkxvuHbvdbg==}
@@ -3956,6 +3997,9 @@ packages:
   data-urls@6.0.1:
     resolution: {integrity: sha512-euIQENZg6x8mj3fO6o9+fOW8MimUI4PpD/fZBhJfeioZVy9TUpM4UY7KjQNVZFlqwJ0UdzRDzkycB997HEq1BQ==}
     engines: {node: '>=20'}
+
+  dayjs@1.11.20:
+    resolution: {integrity: sha512-YbwwqR/uYpeoP4pu043q+LTDLFBLApUP6VxRihdfNTqu4ubqMlGDLd6ErXhEgsyvY0K6nCs7nggYumAN+9uEuQ==}
 
   debug@2.6.9:
     resolution: {integrity: sha512-bC7ElrdJaJnPbAP+1EotYvqZsb3ecl5wi6Bfi6BJTUcNowp6cvspg0jXznRTKDjm/E7AdgFBVeAPVMNcKGsHMA==}
@@ -7194,6 +7238,9 @@ packages:
   zod@4.3.6:
     resolution: {integrity: sha512-rftlrkhHZOcjDwkGlnUtZZkvaPHCsDATp4pGpuOOMDaTdDDXF91wuVDJoWoPsKX/3YPQ5fHuF3STjcYyKr+Qhg==}
 
+  zod@4.4.3:
+    resolution: {integrity: sha512-ytENFjIJFl2UwYglde2jchW2Hwm4GJFLDiSXWdTrJQBIN9Fcyp7n4DhxJEiWNAJMV1/BqWfW/kkg71UDcHJyTQ==}
+
 snapshots:
 
   '@acemir/cssom@0.9.31': {}
@@ -7288,6 +7335,14 @@ snapshots:
     dependencies:
       '@jridgewell/gen-mapping': 0.3.13
       '@jridgewell/trace-mapping': 0.3.31
+
+  '@angular-architects/ngrx-toolkit@21.0.1(@angular/common@21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(@ngrx/signals@21.1.0(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2))(rxjs@7.8.2)':
+    dependencies:
+      '@angular/common': 21.2.12(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2)
+      '@angular/core': 21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2)
+      '@ngrx/signals': 21.1.0(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2)
+      rxjs: 7.8.2
+      tslib: 2.8.1
 
   '@angular-devkit/architect@0.2102.10':
     dependencies:
@@ -9171,6 +9226,18 @@ snapshots:
   '@ng-icons/lucide@33.2.2':
     dependencies:
       tslib: 2.8.1
+
+  '@ngrx/operators@21.1.0(rxjs@7.8.2)':
+    dependencies:
+      rxjs: 7.8.2
+      tslib: 2.8.1
+
+  '@ngrx/signals@21.1.0(@angular/core@21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2))(rxjs@7.8.2)':
+    dependencies:
+      '@angular/core': 21.2.12(@angular/compiler@21.2.12)(rxjs@7.8.2)
+      tslib: 2.8.1
+    optionalDependencies:
+      rxjs: 7.8.2
 
   '@noble/hashes@1.4.0': {}
 
@@ -11620,6 +11687,8 @@ snapshots:
     dependencies:
       whatwg-mimetype: 5.0.0
       whatwg-url: 15.1.0
+
+  dayjs@1.11.20: {}
 
   debug@2.6.9:
     dependencies:
@@ -15015,3 +15084,5 @@ snapshots:
   zod@3.23.8: {}
 
   zod@4.3.6: {}
+
+  zod@4.4.3: {}

@@ -32,6 +32,52 @@
 :root.dark .theme-zinc {
   color-scheme: dark;
 
+  /* Mozart-specific additions on top of the Spartan zinc dark palette.
+     Spartan tokens (--background, --card, --border, --foreground,
+     --muted-foreground, --sidebar, --radius-sm, --radius-md) own the
+     base palette. The values below are net-new Mozart concepts that
+     Spartan doesn't model. Layout constants live in `shell.css`. */
+
+  /* Mozart background variants (Spartan models only --background / --card / --sidebar) */
+  --bg-hover:    #1e1e21;
+  --bg-selected: #222226;
+  --bg-composer: #161618;
+  --bg-center:   #0f0f11;
+
+  /* Mozart borders (Spartan models --border / --ring; --border-focus is new) */
+  --border-focus: #4a4a4f;
+
+  /* Mozart mono text color for terminal / branch_name subtitles */
+  --text-mono: #e4e4e7;
+
+  /* Workflow statuses (Mozart-only; no Spartan equivalents) */
+  --status-running:  #3b82f6;
+  --status-done:     #22c55e;
+  --status-error:    #ef4444;
+  --status-conflict: #f59e0b;
+  --status-limited:  #eab308;
+  --status-stopped:  #71717a;
+  --status-crashed:  #dc2626;
+
+  /* Diff highlights (Mozart-only) */
+  --diff-add-bg:   #052e16;
+  --diff-add-text: #86efac;
+  --diff-del-bg:   #2d0a0a;
+  --diff-del-text: #fca5a5;
+
+  /* Mention + error accents (Mozart-only) */
+  --accent-mention:  #6d28d9;
+  --accent-error-bg: #2d1b3d;
+  --accent-error-br: #6d28d9;
+
+  /* Pill radius (Mozart-only — Spartan covers --radius-sm/--radius-md) */
+  --radius-pill: 9999px;
+
+  /* Typography (consumed via Tailwind utilities + raw var() usage) */
+  --font-sans: 'Geist', 'Inter', sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', monospace;
+
+  /* Spartan zinc base palette (unchanged) */
   --background:             344.97deg 13.46% 3.85%;
   --foreground:             0deg 0.5% 98.03%;
   --card:                   344.35deg 7.21% 9.8%;

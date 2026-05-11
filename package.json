@@ -54,6 +54,7 @@
     "vitest": "^4.0.8"
   },
   "dependencies": {
+    "@angular-architects/ngrx-toolkit": "^21.0.1",
     "@angular/cdk": "21.0.0",
     "@angular/common": "~21.2.0",
     "@angular/compiler": "~21.2.0",
@@ -64,12 +65,16 @@
     "@juristr/nx-tailwind-sync": "^0.0.9",
     "@ng-icons/core": ">=32.0.0 <34.0.0",
     "@ng-icons/lucide": ">=32.0.0 <34.0.0",
+    "@ngrx/operators": "^21.1.0",
+    "@ngrx/signals": "^21.1.0",
     "@spartan-ng/brain": "^0.0.1-alpha.688",
     "@tauri-apps/api": "^2.11.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "dayjs": "^1.11.20",
     "embla-carousel-angular": "^20.0.0",
     "rxjs": "~7.8.0",
-    "tailwind-merge": "^3.5.0"
+    "tailwind-merge": "^3.5.0",
+    "zod": "^4.4.3"
   }
 }

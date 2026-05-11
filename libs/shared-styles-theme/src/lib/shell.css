@@ -1,0 +1,7 @@
+/* Layout constants for the Mozart 3-panel shell.
+   Theme-independent (the same widths apply in light + dark + future themes),
+   so these live outside the .theme-zinc block. */
+:root {
+  --sidebar-width:     220px;
+  --right-panel-width: 320px;
+}
