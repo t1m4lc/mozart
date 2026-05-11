@@ -9,7 +9,9 @@
     "test": "pnpm nx run-many -t test",
     "build": "pnpm nx run-many -t build",
     "tauri-check": "cd apps/desktop/src-tauri && cargo check && cd -",
-    "tauri-test": "cd apps/desktop/src-tauri && cargo build --tests && cd -"
+    "tauri-test": "cd apps/desktop/src-tauri && cargo build --tests && cd -",
+    "seed": "sqlite3 ~/.local/share/build.mozart.desktop/mozart.db < apps/desktop/src-tauri/tests/fixtures/seed-shell.sql",
+    "reset-db": "rm -rf ~/.local/share/build.mozart.desktop/"
   },
   "private": true,
   "packageManager": "pnpm@11.0.8",
