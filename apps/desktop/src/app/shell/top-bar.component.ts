@@ -2,6 +2,8 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMinus, lucideSquare, lucideX } from '@ng-icons/lucide';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { OsService } from '../services/os.service';
 
 @Component({
@@ -9,17 +11,28 @@ import { OsService } from '../services/os.service';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { 'data-tauri-drag-region': '' },
-  imports: [NgIcon],
+  imports: [NgIcon, HlmButtonImports, HlmTooltipImports],
   providers: [provideIcons({ lucideMinus, lucideSquare, lucideX })],
   template: `
     <header role="banner" class="bar" data-tauri-drag-region>
       @if (isMacOS) {
+        <!--
+          The macOS traffic-light cluster is a platform widget — the
+          12×12 colored circles are standard Apple system colors, not
+          Mozart design tokens. The hex literals below are intentional
+          and have no theme-token equivalent; they remain raw <button>
+          rather than hlmBtn because adopting Spartan would override the
+          carefully-tuned circular look + the platform-recognized colors.
+          A tooltip is still attached to each control for parity with
+          the Windows controls below.
+        -->
         <span class="window-controls-mac" data-tauri-drag-region="false">
           <button
             type="button"
             class="mac-btn mac-close"
             aria-label="Close"
             data-tauri-drag-region="false"
+            [hlmTooltip]="'Close'"
             (click)="close()"
           ></button>
           <button
@@ -27,6 +40,7 @@ import { OsService } from '../services/os.service';
             class="mac-btn mac-minimize"
             aria-label="Minimize"
             data-tauri-drag-region="false"
+            [hlmTooltip]="'Minimize'"
             (click)="minimize()"
           ></button>
           <button
@@ -34,6 +48,7 @@ import { OsService } from '../services/os.service';
             class="mac-btn mac-maximize"
             aria-label="Maximize"
             data-tauri-drag-region="false"
+            [hlmTooltip]="'Maximize'"
             (click)="toggleMaximize()"
           ></button>
         </span>
@@ -58,28 +73,40 @@ import { OsService } from '../services/os.service';
         <span class="spacer" data-tauri-drag-region></span>
         <span class="window-controls" data-tauri-drag-region="false">
           <button
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
             type="button"
             class="wc-btn"
             aria-label="Minimize"
             data-tauri-drag-region="false"
+            [hlmTooltip]="'Minimize'"
             (click)="minimize()"
           >
             <ng-icon name="lucideMinus" class="wc-icon" />
           </button>
           <button
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
             type="button"
             class="wc-btn"
             aria-label="Maximize"
             data-tauri-drag-region="false"
+            [hlmTooltip]="'Maximize'"
             (click)="toggleMaximize()"
           >
             <ng-icon name="lucideSquare" class="wc-icon" />
           </button>
           <button
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
             type="button"
             class="wc-btn"
             aria-label="Close"
             data-tauri-drag-region="false"
+            [hlmTooltip]="'Close'"
             (click)="close()"
           >
             <ng-icon name="lucideX" class="wc-icon" />
@@ -132,24 +159,12 @@ import { OsService } from '../services/os.service';
       align-items: center;
       gap: 2px;
     }
+    /* hlmBtn variant="ghost" size="icon-xs" owns sizing + hover; we only
+       tint icon color so the controls match the muted top-bar palette. */
     .wc-btn {
-      width: 28px;
-      height: 24px;
-      border: 0;
-      background: transparent;
-      padding: 0;
-      margin: 0;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
       color: hsl(var(--muted-foreground));
-      transition:
-        background 120ms ease,
-        color 120ms ease;
-      border-radius: 9999px;
     }
     .wc-btn:hover {
-      background: hsl(var(--muted) / 0.6);
       color: hsl(var(--foreground));
     }
     .wc-icon {

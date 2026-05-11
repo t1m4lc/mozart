@@ -24,6 +24,7 @@ import {
   inject,
   input,
 } from '@angular/core';
+import { HlmButtonImports } from '@mozart/ui/button';
 import type { WorkspaceDto } from '../shared/schemas/bindings.schemas';
 import { TaskStore } from '../state/task.store';
 import { WorkspaceStore } from '../state/workspace.store';
@@ -43,9 +44,11 @@ const STATUS_COLORS: Record<WorkspaceDto['status'], string> = {
   selector: 'app-workspace-item',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [],
+  imports: [HlmButtonImports],
   template: `
     <button
+      hlmBtn
+      variant="ghost"
       type="button"
       class="row"
       [class.selected]="isSelected()"

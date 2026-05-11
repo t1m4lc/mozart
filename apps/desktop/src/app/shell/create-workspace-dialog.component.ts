@@ -52,6 +52,7 @@ import {
   HlmDialogTitle,
 } from '@mozart/ui/dialog';
 import { HlmLabelImports } from '@mozart/ui/label';
+import { HlmTextareaImports } from '@mozart/ui/textarea';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 
 import { BindingsService } from '../services/bindings.service';
@@ -106,6 +107,7 @@ type BranchesState =
     HlmDialogFooter,
     HlmButtonImports,
     HlmLabelImports,
+    HlmTextareaImports,
     HlmTooltipImports,
   ],
   template: `
@@ -195,9 +197,10 @@ type BranchesState =
         <div class="field">
           <label hlmLabel for="cw-task">Task description</label>
           <textarea
+            hlmTextarea
             id="cw-task"
             name="task"
-            class="textarea"
+            class="task-textarea"
             rows="4"
             placeholder="Describe what the agent should do."
             [value]="taskText()"
@@ -298,22 +301,11 @@ type BranchesState =
       opacity: 0.6;
       cursor: not-allowed;
     }
-    .textarea {
-      width: 100%;
-      padding: 8px 10px;
-      background: var(--bg-card, hsl(var(--background)));
-      border: 1px solid hsl(var(--border));
-      border-radius: var(--radius-md, 6px);
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-      font-size: 14px;
-      line-height: 1.5;
+    /* hlmTextarea owns border, padding, font, focus ring; we only set
+       the dialog-specific min-height. */
+    .task-textarea {
       resize: vertical;
       min-height: 96px;
-      outline: none;
-    }
-    .textarea:focus-visible {
-      border-color: var(--border-focus, hsl(var(--ring)));
     }
     .error-msg {
       margin: 0;

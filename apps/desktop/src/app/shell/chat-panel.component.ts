@@ -19,6 +19,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, model, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmTextareaImports } from '@mozart/ui/textarea';
 
 import { BindingsService } from '../services/bindings.service';
 import { ShortcutService } from '../services/shortcut.service';
@@ -28,7 +30,7 @@ import { ShellStore } from '../state/shell.store';
   selector: 'app-chat-panel',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule],
+  imports: [FormsModule, HlmButtonImports, HlmTextareaImports],
   template: `
     <div class="chat" role="region" aria-label="Workspace conversation">
       <div class="stream">
@@ -40,6 +42,9 @@ import { ShellStore } from '../state/shell.store';
           <div class="error-banner" role="alert">
             <span class="error-msg">{{ errorMsg() }}</span>
             <button
+              hlmBtn
+              variant="outline"
+              size="sm"
               class="retry-btn"
               type="button"
               (click)="retry()"
@@ -51,7 +56,8 @@ import { ShellStore } from '../state/shell.store';
       </div>
       <form class="composer" (submit)="onSubmit($event)">
         <textarea
-          class="textarea"
+          hlmTextarea
+          class="composer-textarea"
           [ngModel]="inputText()"
           (ngModelChange)="inputText.set($event)"
           [disabled]="isRunning()"
@@ -62,11 +68,21 @@ import { ShellStore } from '../state/shell.store';
         ></textarea>
         <div class="actions">
           @if (isRunning()) {
-            <button type="button" class="stop-btn" (click)="stop()">
+            <button
+              hlmBtn
+              variant="destructive"
+              size="default"
+              type="button"
+              class="stop-btn"
+              (click)="stop()"
+            >
               Stop
             </button>
           } @else {
             <button
+              hlmBtn
+              variant="default"
+              size="default"
               type="submit"
               class="send-btn"
               [disabled]="!inputText().trim()"
@@ -107,7 +123,7 @@ import { ShellStore } from '../state/shell.store';
       background: linear-gradient(
         90deg,
         transparent 0%,
-        var(--status-running, #3b82f6) 50%,
+        var(--status-running) 50%,
         transparent 100%
       );
       background-size: 200% 100%;
@@ -145,19 +161,8 @@ import { ShellStore } from '../state/shell.store';
       flex: 1 1 auto;
       overflow-wrap: anywhere;
     }
-    .retry-btn {
-      flex: 0 0 auto;
-      background: transparent;
-      border: 1px solid currentColor;
-      color: inherit;
-      font: inherit;
-      padding: 4px 10px;
-      border-radius: var(--radius-md, 6px);
-      cursor: pointer;
-    }
-    .retry-btn:hover {
-      background: hsl(var(--destructive) / 0.12);
-    }
+    /* hlmBtn owns sizing + colors for retry/send/stop; we only allow
+       Spartan styles to flow through. */
     .composer {
       display: flex;
       flex-direction: column;
@@ -166,45 +171,15 @@ import { ShellStore } from '../state/shell.store';
       border-top: 1px solid hsl(var(--border));
       background: var(--bg-composer, hsl(var(--card)));
     }
-    .textarea {
-      width: 100%;
+    /* hlmTextarea owns border + focus ring; we only constrain sizing. */
+    .composer-textarea {
       resize: vertical;
       min-height: 64px;
-      padding: 8px 10px;
-      background: var(--bg-card, hsl(var(--background)));
-      border: 1px solid hsl(var(--border));
-      border-radius: var(--radius-md, 6px);
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-      font-size: 13px;
-      line-height: 1.5;
-      outline: none;
-    }
-    .textarea:focus {
-      border-color: var(--border-focus, hsl(var(--ring)));
     }
     .actions {
       display: flex;
       justify-content: flex-end;
       gap: 8px;
-    }
-    .send-btn, .stop-btn {
-      padding: 6px 14px;
-      border-radius: var(--radius-md, 6px);
-      border: 1px solid hsl(var(--border));
-      background: hsl(var(--card));
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-      font-size: 13px;
-      cursor: pointer;
-    }
-    .send-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-    .stop-btn {
-      color: var(--status-error, hsl(var(--destructive)));
-      border-color: var(--accent-error-br, hsl(var(--destructive) / 0.4));
     }
   `,
 })

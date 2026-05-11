@@ -40,6 +40,8 @@ import { WorkspaceItemComponent } from './workspace-item.component';
   template: `
     <div class="group">
       <button
+        hlmBtn
+        variant="ghost"
         type="button"
         class="header"
         [attr.aria-expanded]="isExpanded()"
