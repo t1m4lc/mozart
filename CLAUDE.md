@@ -117,6 +117,42 @@ readonly saved   = output<void>();                     // @Output replacement
 - One concept per file · kebab-case filenames (`user-profile.ts`)
 - Keep lifecycle hooks thin — delegate to named methods
 
+## State management — `@ngrx/signals` SignalStore
+
+- Stateful app code uses `signalStore({ providedIn: 'root' }, withDevtools(name), withCallState({ collection }), withState(initial), withMethods(...), withComputed(...), withHooks(...))`.
+- Async loaders use `rxMethod<T>(pipe(switchMap(...), tapResponse({ next, error, finalize })))` — never raw `subscribe()` in store methods.
+- Never reach for `@Injectable` + bare `signal()` for new stateful services. Stateless utilities (IPC wrappers, keyboard handlers, formatters) stay `@Injectable({ providedIn: 'root' })`.
+- One store = one feature slice. Cross-store reads via `inject(OtherStore)` inside `withMethods` / `withComputed`.
+
+## Keyboard shortcuts
+
+- All keyboard bindings go through `ShortcutService` (`services/shortcut.service.ts`). Components call `register$(input)` and take until destroyed (`takeUntilDestroyed()`), or use `[mzShortcut]` template directive.
+- `Shortcut` API: `key`, `command`, `description`, `throttleTime`, `label`, `preventDefault`. Use `allowIn` to fire inside inputs/textareas; default is blocked.
+- `key: 'all'` matches every keydown — reserved for command-palette priming. Use sparingly.
+
+## IPC validation — zod
+
+- Every Tauri command response is parsed by a zod schema in `shared/schemas/`.
+- DTOs derive from schemas via `z.infer<typeof X>` — never hand-typed parallel interfaces.
+- Schema parse failures become `MozartError` with `kind: 'Validation'`; never surface raw zod errors to the UI.
+- Forms (plan 11) declare a request DTO schema, parse user input, and reject with field-level errors before invoking IPC.
+
+## TDD discipline
+
+- Spec file is created **before** the implementation file for every new TS module under `apps/desktop/src/app/`. Red → Green → Refactor.
+- Specs run via `pnpm nx test desktop`. Use `TestBed.configureTestingModule` for signalStores with fakes for cross-service deps.
+- `_bindings.ts` is gitignored and regenerated on every `pnpm dev`. Specs that need it run after a manual regen step.
+
+## Forbidden patterns
+
+- `any` — use `unknown` + zod parse at the boundary.
+- New NX libs for app-specific code — keep it in `apps/desktop/src/app/` until reuse from `apps/web` is real.
+- `@Injectable` + raw `signal()` for app state — use `signalStore`.
+- Eager `Observable.subscribe()` without `takeUntilDestroyed()` or `takeUntil(stop$)`.
+- Hardcoded color hex in templates/styles — every color goes through `var(--mozart-token)`.
+- Date math via raw `new Date()` — use `dayjs` (plan 09 onward; plan 08 ships the dep only).
+- Free-form button labels in disabled v0.2 controls — every disabled control carries an `[hlmTooltip]` naming the milestone unblocking it (per DESIGN.md Rule 7).
+
 ## Tauri v2 best practices
 
 **Rust commands**
