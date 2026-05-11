@@ -11,7 +11,8 @@
     "tauri-check": "cd apps/desktop/src-tauri && cargo check && cd -",
     "tauri-test": "cd apps/desktop/src-tauri && cargo build --tests && cd -",
     "seed": "sqlite3 ~/.local/share/build.mozart.desktop/mozart.db < apps/desktop/src-tauri/tests/fixtures/seed-shell.sql",
-    "reset-db": "rm -rf ~/.local/share/build.mozart.desktop/"
+    "reset-db": "rm -rf ~/.local/share/build.mozart.desktop/",
+    "seed-fresh": "pnpm reset-db && echo 'reset done — start pnpm dev to recreate schema, then run pnpm seed in another shell'"
   },
   "private": true,
   "packageManager": "pnpm@11.0.8",
