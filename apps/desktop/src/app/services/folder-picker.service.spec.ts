@@ -18,7 +18,9 @@ import { MozartError } from './mozart-error';
 import {
   FolderPickerService,
   TAURI_DIALOG_OPEN,
+  TAURI_HOME_DIR,
   type TauriDialogOpen,
+  type TauriHomeDir,
 } from './folder-picker.service';
 import type { RepoDto } from '../shared/schemas/bindings.schemas';
 import { ProjectStore } from '../state/project.store';
@@ -27,9 +29,12 @@ interface ProjectStoreFake {
   readonly addRepo: ReturnType<typeof vi.fn>;
 }
 
+const DEFAULT_HOME = '/home/testuser';
+
 function setup(opts: {
   readonly openDialog: TauriDialogOpen;
   readonly addRepo?: (path: string) => Promise<RepoDto>;
+  readonly homeDir?: TauriHomeDir;
 }): {
   readonly svc: FolderPickerService;
   readonly projectStoreFake: ProjectStoreFake;
@@ -38,10 +43,12 @@ function setup(opts: {
   const projectStoreFake: ProjectStoreFake = {
     addRepo: vi.fn(opts.addRepo ?? (async () => ({}) as RepoDto)),
   };
+  const homeDirFake: TauriHomeDir = opts.homeDir ?? (async () => DEFAULT_HOME);
   TestBed.configureTestingModule({
     providers: [
       { provide: ProjectStore, useValue: projectStoreFake },
       { provide: TAURI_DIALOG_OPEN, useValue: opts.openDialog },
+      { provide: TAURI_HOME_DIR, useValue: homeDirFake },
     ],
   });
   return {
@@ -75,6 +82,7 @@ describe('FolderPickerService', () => {
     expect(openDialog).toHaveBeenCalledWith({
       directory: true,
       multiple: false,
+      defaultPath: DEFAULT_HOME,
     });
     expect(projectStoreFake.addRepo).toHaveBeenCalledWith('/tmp/repo');
     expect(result).toBe(repoR);
@@ -123,6 +131,24 @@ describe('FolderPickerService', () => {
     });
 
     await expect(svc.openAndAddRepo()).rejects.toBe(err);
+  });
+
+  it('still opens the picker when homeDir() rejects (defaultPath omitted)', async () => {
+    const openDialog: TauriDialogOpen = vi.fn(async () => null);
+    const { svc } = setup({
+      openDialog,
+      homeDir: async () => {
+        throw new Error('path plugin unavailable');
+      },
+    });
+
+    await svc.openAndAddRepo();
+
+    expect(openDialog).toHaveBeenCalledWith({
+      directory: true,
+      multiple: false,
+      defaultPath: undefined,
+    });
   });
 
   it('propagates errors when openDialog itself rejects', async () => {

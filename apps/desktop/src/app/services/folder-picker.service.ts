@@ -27,6 +27,7 @@
  *     wiring is a follow-up tracked in `docs/TODO.md`.
  */
 import { Injectable, InjectionToken, inject } from '@angular/core';
+import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 
 import type { RepoDto } from '../shared/schemas/bindings.schemas';
@@ -48,7 +49,10 @@ import { ProjectStore } from '../state/project.store';
 export type TauriDialogOpen = (options: {
   readonly directory: boolean;
   readonly multiple: boolean;
+  readonly defaultPath?: string;
 }) => Promise<string | string[] | null>;
+
+export type TauriHomeDir = () => Promise<string>;
 
 /**
  * DI token for the plugin-dialog `open` function. Production resolves
@@ -62,10 +66,17 @@ export const TAURI_DIALOG_OPEN = new InjectionToken<TauriDialogOpen>(
   },
 );
 
+/** DI token for `@tauri-apps/api/path`'s `homeDir`. Swappable in specs. */
+export const TAURI_HOME_DIR = new InjectionToken<TauriHomeDir>('TAURI_HOME_DIR', {
+  providedIn: 'root',
+  factory: () => homeDir,
+});
+
 @Injectable({ providedIn: 'root' })
 export class FolderPickerService {
   private readonly projects = inject(ProjectStore);
   private readonly openDialog = inject(TAURI_DIALOG_OPEN);
+  private readonly homeDir = inject(TAURI_HOME_DIR);
 
   /**
    * Open the OS-native folder picker. On selection, calls
@@ -74,9 +85,11 @@ export class FolderPickerService {
    * error (typically `MozartError` from the store) on failure.
    */
   async openAndAddRepo(): Promise<RepoDto | null> {
+    const defaultPath = await this.homeDir().catch(() => undefined);
     const path = await this.openDialog({
       directory: true,
       multiple: false,
+      defaultPath,
     });
     if (path === null || path === '') return null;
     // `multiple: false` means the real API returns a string, but the
