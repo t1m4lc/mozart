@@ -1,87 +1,108 @@
 # AGENTS.md — Mozart
 
-Map for AI agents. Read this first, every session. Pair with `CLAUDE.md` for depth.
+Operational map for AI agents.  
+Read this first. Use `CLAUDE.md` for coding rules and constraints.
 
 ## Project
 
-**Mozart** (`mozart.build`) — desktop manager for the Claude Code CLI. Three-panel dark IDE.
-Current sprint: **v0.0.1**. Specs: `docs/PLAN-v0.0.1.md` · Design: `docs/DESIGN.md` · Status: `docs/specs/plan-v0.0.1-2.md` · TODO: `docs/TODO.md`
+Mozart (`mozart.build`) is a desktop manager for Claude Code CLI.
 
-## Stack
+Current target: v0.0.1.
 
-| Layer    | Tech                                                      |
-| -------- | --------------------------------------------------------- |
-| Monorepo | Nx + pnpm workspaces                                      |
-| Desktop  | Angular 21 + Tauri v2 (`apps/desktop`)                    |
-| Web      | Angular 21 (`apps/web`)                                   |
-| Landing  | Astro (planned, `apps/landing`)                           |
-| UI lib   | Spartan Hlm — vendored, **`libs/ui/*` is READ ONLY**      |
-| Backend  | Rust (Tauri v2), SQLite WAL, `tauri-specta` IPC (planned) |
+## Sources
 
-## Commands
+- Product plan: `docs/PLAN-v0.0.1.md`
+- Design: `docs/DESIGN.md`
+- Step plan / canonical model: `docs/specs/plan-v0.0.1-2.md`
+- Product architecture vision: `docs/specs/mozart-product-architecture-specs.md`
+- TODO: `docs/TODO.md`
+- Agent rules: `CLAUDE.md`
 
-```sh
-pnpm dev                        # Tauri desktop dev
-pnpm nx serve desktop           # Angular only
-pnpm nx build desktop           # Angular bundle
-pnpm nx run desktop:tauri-build # Full Tauri binary
-pnpm nx run-many -t lint test   # Lint + test everything
-pnpm nx test <project>
-pnpm nx lint <project>
-pnpm nx e2e desktop-e2e         # Playwright
-pnpm nx sync                    # Sync TS project references
-cargo test -p desktop           # Rust (from apps/desktop/src-tauri)
+## Repo map
+
+```txt
+apps/desktop/              Angular + Tauri desktop app
+apps/web/                  future cloud UI
+apps/landing/              landing app, if present
+libs/ui/                   design system; see CLAUDE.md before touching
+libs/shared-util-theme/    theme utilities
+libs/shared-styles-theme/  global theme styles
+docs/                      specs, design, planning
+tmp/ready-plans/           ready plans
+tmp/done-plans/            completed plans
 ```
 
-## Conventions (see CLAUDE.md for full detail)
+## How to work
 
-- 2-space indent · `camelCase` vars · `PascalCase` components · `kebab-case` files
-- `@mozart/*` aliases only — never relative `../../` · aliases in `tsconfig.base.json`
-- Angular: standalone, inline template+style, functional style (`inject()`, signals, `input()`/`output()`)
-- `libs/ui/*` — **never modify** · use existing Spartan components, check the list in `CLAUDE.md`
-- `classes()` from `@mozart/ui/utils` for dynamic class merging — never mix with plain `[class]`
-- Tauri: `async fn` commands only · permissions in `src-tauri/capabilities/` · no hand-written TS bindings
-- Concept vocabulary: see `CLAUDE.md` § "Product vocabulary"
-- Token discipline: do **not** read `**/*.spec.ts` under `apps/` unless the task is about tests. Do **not** read `docs/competitors/**` except the two Conductor design refs. See `CLAUDE.md` § "Token discipline" for full rules.
+Default flow:
 
-## The One-Way Rule
-
-Before adding any pattern: search for an existing one. If found → extend it. If not → document the new canonical pattern in `CLAUDE.md`.
-
-## Workflow
-
-```
+```txt
 /discussion → /plan → /atomize → /implement
 ```
 
-- **`/discussion`** — clarity before code. Never edits source. Writes `.context/context.md`.
-- **`/plan`** — codebase analysis + research → plan in `tmp/ready-plans/`.
-- **`/atomize`** — converts plan into `TASKS.md`: atomic, parallelizable, with allowed/forbidden files, deps, acceptance criteria.
-- **`/implement`** — one atom at a time, pauses for Q&A between atoms.
+Rules:
 
-Plans: `tmp/ready-plans/` → `tmp/done-plans/` when done.
+- Discuss before large changes.
+- Plan before editing.
+- Atomize large plans into small tasks.
+- Implement one atom at a time.
+- Move completed plans from `tmp/ready-plans/` to `tmp/done-plans/`.
 
-## Validation gate (before every commit)
+## Before editing
 
-```sh
+Identify:
+
+- Target feature or bug.
+- Relevant spec section.
+- Smallest file set.
+- Validation command to run.
+
+If unsure, inspect targeted files only.
+
+Do not broad-scan the repo by default.
+
+## Commands
+
+Use the narrowest useful command.
+
+```bash
+pnpm dev
+pnpm nx serve desktop
+pnpm nx lint desktop
+pnpm nx test desktop
+pnpm nx build desktop
+pnpm nx e2e desktop-e2e
 pnpm nx run-many -t lint test
-cargo test -p desktop   # if Rust changed
+pnpm nx sync
 ```
 
-Never proceed past a failing gate. Stuck > 30 min → back to `/discussion`.
+For Rust/Tauri, run from `apps/desktop/src-tauri` when needed:
 
-## Commit discipline
+```bash
+cargo test
+```
 
-- One logical commit per atomic task · never `git add .` · stage only the atom's allowed files
-- Format: `feat(M{N}): <what>` · `fix(M{N}): <what>` · `chore(M{N}): <what>`
-- `includeCoAuthoredBy: false` (set in `.claude/settings.json`)
+## Commits
 
-## Pointers
+One logical commit per atom.
 
-| What                    | Where                                |
-| ----------------------- | ------------------------------------ |
-| Architecture & patterns | `CLAUDE.md`                          |
-| v0.0.1 specs            | `docs/PLAN-v0.0.1.md`                |
-| Visual / token spec     | `docs/DESIGN.md`                     |
-| Step backlog            | `docs/specs/plan-v0.0.1-2.md` + `TASKS.md` |
-| Competitor research     | `docs/competitors/conductor/design/conductor-ui.png` + `docs/competitors/conductor/design/ui-notes.md` only — rest of `docs/competitors/**` is read-only background, do not open by default |
+Never use:
+
+```bash
+git add .
+```
+
+Stage only intended files.
+
+Commit format:
+
+```txt
+feat(M{N}): <what>
+fix(M{N}): <what>
+docs(M{N}): <what>
+refactor(M{N}): <what>
+test(M{N}): <what>
+chore(M{N}): <what>
+```
+
+Do not add Claude co-author trailers.

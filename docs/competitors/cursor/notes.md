@@ -1,4 +1,0 @@
-- skills
-- plugins
-- integration
-- mcp

@@ -2152,3 +2152,91 @@ grep -q "listBranches" apps/desktop/src/app/shell/create-workspace-dialog.compon
 **commit:**
 
 ---
+
+## [x] S1.doc.1 — Agent-instruction docs: token discipline + libs/ui protection + Conductor visual ref (commit: c3718bd, 2026-05-11)
+
+**Source plan:** `~/.claude/plans/foamy-percolating-feather.md` § 6 + § 7
+**dependencies:** (none)
+**parallelizable:** false (touches three top-level docs; single commit per plan § 7)
+
+**allowed_files:**
+- `CLAUDE.md`
+- `AGENTS.md`
+- `docs/DESIGN.md`
+
+**forbidden_files:**
+- `libs/ui/**` (protected — this very atom documents that)
+- `libs/shared-styles-theme/**` (no theme changes here)
+- `libs/shared-util-theme/**`
+- `docs/competitors/**` (read-only research archive)
+- anything under `apps/desktop/src/` (no source refactor in this atom)
+- anything under `apps/desktop/src-tauri/`
+- `tmp/ready-plans/**`, `tmp/done-plans/**` (Ultraplan-managed)
+- `docs/PLAN-v0.0.1.md`, `docs/TODO.md`, `docs/specs/**` (out of scope)
+
+**acceptance:**
+
+CLAUDE.md
+- [ ] New H2 `## Token discipline` inserted **after** `## Forbidden patterns` and **before** `## Tauri v2 best practices`. Body matches plan § 6.1 verbatim (bullets: skip `**/*.spec.ts` under `apps/`; skip `docs/competitors/**` except the two Conductor refs; no modifying `docs/competitors/**`; prefer focused reads; avoid large unrelated files; explicit-break clause).
+- [ ] Under the existing `## UI components (libs/ui — READ ONLY, never modify)` section, a final bullet `- **Protection.** libs/ui/** is the internal design-system library …` is appended exactly per plan § 6.1 (the "stop and ask the user" wording is preserved).
+- [ ] No other content in CLAUDE.md is changed (existing headings, bullets, code fences untouched).
+
+AGENTS.md
+- [ ] The Pointers-table row for `Competitor research` (currently line 86) is replaced with the new scoped row from plan § 6.2 (points at `docs/competitors/conductor/design/conductor-ui.png` + `docs/competitors/conductor/design/ui-notes.md` only).
+- [ ] Under `## Conventions (see CLAUDE.md for full detail)`, a new bullet is appended after the existing "Concept vocabulary" line, exactly per plan § 6.2 (`Token discipline: do **not** read **/*.spec.ts under apps/ unless …`).
+- [ ] No other content in AGENTS.md is changed.
+
+docs/DESIGN.md
+- [ ] Line 6 `**Visual reference:** …gstack…` is replaced with the in-repo path version from plan § 6.3.
+- [ ] A new H2 `## Implementation contract` is inserted **after** the `---` on line 8 and **before** the existing `## Aesthetic` H2 (currently line 10). Body matches plan § 6.3 verbatim (rules 1–6, including the `.workspace-card-header` `@apply` example).
+- [ ] No other content in docs/DESIGN.md is changed (the existing 715-line body is preserved).
+
+Commit
+- [ ] Exactly one commit lands on `main` covering all three files.
+- [ ] Stage list is exactly `CLAUDE.md AGENTS.md docs/DESIGN.md` — **no** `git add .`, **no** `-A`.
+- [ ] Commit message body matches plan § 7 verbatim (subject `docs(agent-instructions): add token discipline + libs/ui protection + Conductor visual ref` + the three-bullet body). No `--no-verify`, no `--amend`.
+- [ ] `includeCoAuthoredBy: false` is honored (no `Co-Authored-By` footer).
+- [ ] `git status` after the commit shows the three files clean and no unintended additions.
+
+**tests/checks:**
+
+```sh
+# Structural assertions — each must be exactly 1 (or non-empty)
+grep -c '^## Token discipline$' CLAUDE.md                             # 1
+grep -c '^- \*\*Protection\.\*\* `libs/ui/\*\*`' CLAUDE.md            # 1
+grep -F 'docs/competitors/conductor/design/conductor-ui.png' AGENTS.md  | head -1
+grep -c '^- Token discipline: do \*\*not\*\* read' AGENTS.md          # 1
+grep -c '^## Implementation contract$' docs/DESIGN.md                 # 1
+grep -F 'docs/competitors/conductor/design/conductor-ui.png' docs/DESIGN.md | head -1
+grep -c 'gstack/projects/t1m4lc' docs/DESIGN.md                       # 0 (old external path removed)
+
+# Build/lint sanity — confirms no incidental edit elsewhere
+pnpm nx run-many -t lint
+pnpm nx build desktop
+
+# Git hygiene
+git status --porcelain                                                # empty after commit
+git log -1 --pretty=%s                                                # exact subject from plan § 7
+git diff --stat HEAD~1 HEAD                                           # exactly 3 files (CLAUDE.md, AGENTS.md, docs/DESIGN.md)
+git log -1 --pretty=%B | grep -i 'co-authored-by'                     # no match
+```
+
+**Manual checkpoint (per `feedback_atom_checkpoint.md`):**
+
+Before staging/committing, the implementer pauses and the user verifies:
+
+1. Open `CLAUDE.md` → confirm the new `## Token discipline` section reads naturally and the `libs/ui` protection bullet is present under the existing UI section. No other diff in the file should look surprising.
+2. Open `AGENTS.md` → confirm the Pointers table row + the new Conventions bullet are present and well-placed.
+3. Open `docs/DESIGN.md` top → confirm the visual-reference line points at the in-repo Conductor PNG, and the `## Implementation contract` section sits between the metadata block and `## Aesthetic`. Scroll the first ~40 lines to confirm nothing else has shifted unexpectedly.
+4. Run `pnpm nx run-many -t lint && pnpm nx build desktop` locally → both pass.
+5. User says "go" → implementer stages exactly the three files and commits with the plan § 7 message. **User may request changes before commit; commit is the last step.**
+
+**Expected user-visible result:** Future agent sessions auto-load `CLAUDE.md`, see the new Token-discipline section, and stop pulling `**/*.spec.ts` and unrelated `docs/competitors/**` into context. New design work has one canonical "Implementation contract" section at the top of `docs/DESIGN.md` stating Conductor inspiration + Spartan/Tailwind/`libs/shared-styles-theme`/`libs/ui` stack + `libs/ui` protection + `apps/desktop/src` as the target. No runtime / UI change.
+
+**notes:**
+
+(Phase-2 batches — § 9 of the plan, Batches 1–6 — are intentionally NOT atomized in this pass. Each batch has unresolved "Decision points" the user must answer first, and the plan mandates a man-in-the-middle restate-step at the start of each batch. Re-run `/plan` (or directly `/atomize`) per batch — after this atom commits and the user resolves the per-batch decisions — to generate the next round of atoms.)
+
+**commit:** c3718bd (2026-05-11)
+
+---
