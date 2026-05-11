@@ -95,6 +95,7 @@ pub fn run() {
     let setup_builder = bindings_export::build_specta_builder();
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_dialog::init())
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             // Preserve the debug-only log plugin from the pre-1.7 lib.rs.

@@ -1,27 +1,30 @@
 /**
  * `EmptyCenterComponent` — fills the centre pane when no workspace is
- * selected. S1.8b.5 expanded the scope: the component now reads
- * `ProjectStore.projects()` and renders the appropriate next-step CTA.
+ * selected. S1.8b.5 expanded the scope; the post-1.8b refactor swaps
+ * the 0-projects CTA from a single `[+ Add repository]` button (which
+ * opened the deleted `AddRepoDialog`) over to the shared
+ * `<app-add-project-menu>` trigger.
  *
- *   - **0 projects**: "+ Add repository" → opens `AddRepoDialog`.
- *   - **≥1 projects, no workspace selected**: "+ New workspace" →
- *     opens `CreateWorkspaceDialog` with `lockedRepoId` pre-set to
- *     the currently selected project (so the dialog locks to it).
- *
- * Both buttons are now enabled — no more disabled/tooltip placeholder.
+ *   - **0 projects**: `<app-add-project-menu>` → native folder picker
+ *     via `FolderPickerService` (with v0.2 placeholders for GitHub +
+ *     Quick start in the menu).
+ *   - **≥1 projects, no workspace selected**: `[+ New workspace]` →
+ *     opens `CreateWorkspaceDialog` with `lockedRepoId` pre-set to the
+ *     currently selected project (so the dialog locks to it).
+ *     UNCHANGED by this refactor.
  */
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
+import { AddProjectMenuComponent } from '../sidebar/add-project-menu.component';
 import { ProjectStore } from '../state/project.store';
-import { AddRepoDialogComponent } from './add-repo-dialog.component';
 import { CreateWorkspaceDialogComponent } from './create-workspace-dialog.component';
 
 @Component({
   selector: 'app-empty-center',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [HlmButtonImports],
+  imports: [HlmButtonImports, AddProjectMenuComponent],
   template: `
     <div class="wrap">
       <div class="card">
@@ -29,15 +32,13 @@ import { CreateWorkspaceDialogComponent } from './create-workspace-dialog.compon
           <p class="copy">
             No projects yet. Add a repository to get started.
           </p>
-          <button
-            hlmBtn
+          <app-add-project-menu
+            class="add-repo-menu"
             variant="outline"
-            type="button"
-            class="add-repo-btn"
-            (click)="openAddRepo()"
-          >
-            + Add repository
-          </button>
+            size="default"
+            label="+ Add repository"
+            ariaLabel="Add project"
+          />
         } @else {
           <p class="copy">
             Pick a workspace from the sidebar, or create a new one.
@@ -92,13 +93,6 @@ export class EmptyCenterComponent {
   protected readonly hasNoProjects = computed<boolean>(
     () => this.projectStore.projects().length === 0,
   );
-
-  protected openAddRepo(): void {
-    this.dialog.open(AddRepoDialogComponent, {
-      contentClass: 'w-[480px] max-w-[90vw]',
-      showCloseButton: true,
-    });
-  }
 
   protected openNewWorkspace(): void {
     const selectedRepoId = this.projectStore.selectedProjectId();

@@ -1,8 +1,8 @@
 import { TestBed } from '@angular/core/testing';
-import { HlmDialogService } from '@mozart/ui/dialog';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { BindingsService } from '../services/bindings.service';
+import { TAURI_DIALOG_OPEN } from '../services/folder-picker.service';
 import { MozartError } from '../services/mozart-error';
 import type { RepoDto } from '../shared/schemas/bindings.schemas';
 import { SidebarComponent } from './sidebar.component';
@@ -30,14 +30,7 @@ function fakeBindings(opts: { listRepos: () => Promise<RepoDto[]> }): unknown {
   };
 }
 
-interface DialogServiceFake {
-  readonly open: ReturnType<typeof vi.fn>;
-}
-
-function configure(
-  listRepos: () => Promise<RepoDto[]>,
-  dialogFake?: DialogServiceFake,
-): void {
+function configure(listRepos: () => Promise<RepoDto[]>): void {
   TestBed.configureTestingModule({
     imports: [SidebarComponent],
     providers: [
@@ -45,9 +38,11 @@ function configure(
         provide: BindingsService,
         useValue: fakeBindings({ listRepos }),
       },
-      ...(dialogFake
-        ? [{ provide: HlmDialogService, useValue: dialogFake }]
-        : []),
+      // The strip's `+` button now mounts `<app-add-project-menu>` which
+      // wires `FolderPickerService`. The service reads `TAURI_DIALOG_OPEN`
+      // — provide an inert fake so the DI graph resolves under jsdom
+      // without hitting the real `@tauri-apps/plugin-dialog` module.
+      { provide: TAURI_DIALOG_OPEN, useValue: vi.fn(async () => null) },
     ],
   });
 }
@@ -105,27 +100,20 @@ describe('SidebarComponent', () => {
     expect(rows.length).toBe(1);
   });
 
-  it('opens AddRepoDialog when the strip "+" button is clicked', async () => {
-    const dialogFake: DialogServiceFake = { open: vi.fn() };
-    configure(() => Promise.resolve([]), dialogFake);
+  it('mounts the AddProjectMenu trigger in the strip', async () => {
+    configure(() => Promise.resolve([]));
     const fixture = TestBed.createComponent(SidebarComponent);
     fixture.detectChanges();
     await new Promise((r) => setTimeout(r, 0));
     fixture.detectChanges();
-    const btn = fixture.nativeElement.querySelector(
-      'button.add-project-btn',
-    ) as HTMLButtonElement | null;
-    expect(btn).not.toBeNull();
-    expect(btn?.disabled).toBe(false);
-    btn?.click();
-    expect(dialogFake.open).toHaveBeenCalledTimes(1);
-    // First arg is the component constructor; assert by name (allowing
-    // the Angular bundler's "_" prefix) so we don't have to import the
-    // dialog into the spec.
-    const firstCall = dialogFake.open.mock.calls[0];
-    expect(typeof firstCall[0]).toBe('function');
-    expect((firstCall[0] as { name: string }).name).toContain(
-      'AddRepoDialogComponent',
-    );
+    // The strip should host the `<app-add-project-menu>` element now
+    // that the old single-button + dialog flow is gone.
+    const menu = fixture.nativeElement.querySelector('app-add-project-menu');
+    expect(menu).not.toBeNull();
+    // And its trigger button should be present + enabled (it's the
+    // dropdown opener now; the picker fires from the menu items).
+    const trigger = menu?.querySelector('button.trigger-btn');
+    expect(trigger).not.toBeNull();
+    expect((trigger as HTMLButtonElement).disabled).toBe(false);
   });
 });

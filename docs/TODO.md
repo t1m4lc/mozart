@@ -148,6 +148,9 @@ These are documented so the next agent does not re-derive them. Allowed files + 
 - [ ] **F4** — Merge Decision entity (`merge_decisions` table + `commands/merge.rs`)
 - [ ] **F5** — Multi-provider routing (`trait LlmProvider` + adapters; reinstates D5 from PLAN.md). **Rewrite contract:** `specs/plan-v0.0.1-2.md` § 6.5.1 — F5 REWRITES `parse_line`, does NOT extend Step 1.4's token-only logic. Locked by `/discussion` 2026-05-10 (D1.4-B).
 - [ ] **F6** — Coordination intelligence layer (v0.3+ vision; not sized)
+- [ ] **F7** — "Open GitHub project" menu option: clone a GitHub repo via OAuth → add as project. Currently disabled in the Add Project dropdown with tooltip "Coming in v0.2".
+- [ ] **F8** — "Quick start" menu option: spin up a pre-canned demo project (`mozart-quickstart-demo`) without a user-provided git folder. Tied to Step 1.9 onboarding. Currently disabled in the Add Project dropdown.
+- [ ] **F9** — Sonner/toast surfacing for `FolderPickerService.openAndAddRepo()` errors. Post-1.8b refactor logs to `console.error` only; `AddProjectMenuComponent.openProject()` and the ⌘R shortcut in `AppShellComponent` both need a user-visible toast (e.g. when picked folder isn't a git repo). Tracked alongside F7/F8 v0.2 menu work.
 
 Other deferred items still tracked from PLAN-v0.0.1.md (unchanged):
 

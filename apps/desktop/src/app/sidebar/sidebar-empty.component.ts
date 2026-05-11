@@ -1,31 +1,32 @@
 /**
  * `SidebarEmptyComponent` — empty-state card shown by `SidebarComponent`
- * when `ProjectStore.projects()` is `[]`. Wires the
- * `[+ Add repository]` CTA to the `AddRepoDialog` (S1.8b.5).
+ * when `ProjectStore.projects()` is `[]`.
+ *
+ * Post-1.8b refactor: the single `[+ Add repository]` button (which used
+ * to open the deleted text-only `AddRepoDialog`) is replaced with the
+ * shared `<app-add-project-menu>` trigger, set to the larger `outline`
+ * variant with a "+ Open project" label so it reads as a CTA inside the
+ * dashed card.
  */
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { AddRepoDialogComponent } from '../shell/add-repo-dialog.component';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+
+import { AddProjectMenuComponent } from './add-project-menu.component';
 
 @Component({
   selector: 'app-sidebar-empty',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [HlmButtonImports],
+  imports: [AddProjectMenuComponent],
   template: `
     <div class="card">
       <p class="copy">No projects yet.</p>
-      <button
-        hlmBtn
+      <app-add-project-menu
+        class="add-repo-menu"
         variant="outline"
         size="sm"
-        type="button"
-        class="add-repo-btn"
-        (click)="openAddRepo()"
-      >
-        + Add repository
-      </button>
+        label="+ Add repository"
+        ariaLabel="Add project"
+      />
     </div>
   `,
   styles: `
@@ -36,6 +37,7 @@ import { AddRepoDialogComponent } from '../shell/add-repo-dialog.component';
     .card {
       display: flex;
       flex-direction: column;
+      align-items: center;
       gap: 10px;
       padding: 12px;
       border: 1px dashed hsl(var(--border));
@@ -51,13 +53,4 @@ import { AddRepoDialogComponent } from '../shell/add-repo-dialog.component';
     }
   `,
 })
-export class SidebarEmptyComponent {
-  private readonly dialog = inject(HlmDialogService);
-
-  protected openAddRepo(): void {
-    this.dialog.open(AddRepoDialogComponent, {
-      contentClass: 'w-[480px] max-w-[90vw]',
-      showCloseButton: true,
-    });
-  }
-}
+export class SidebarEmptyComponent {}

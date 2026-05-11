@@ -3,8 +3,10 @@
  *
  * Layout (per DESIGN.md):
  *   1. A `[≡][←][→][PROJECTS][+ Add]` nav strip across the top. All
- *      controls are disabled in v0.0.1 and carry tooltips naming the
- *      milestone unblocking them (`1.8d` / `0.2`).
+ *      controls are disabled in v0.0.1 *except* the `+ Add` button,
+ *      which now opens the `<app-add-project-menu>` (post-1.8b
+ *      refactor — replaces the text-only AddRepoDialog with a native
+ *      folder picker + future GitHub / Quick start placeholders).
  *   2. A scrollable region that switches between four states keyed off
  *      `withCallState`'s `projectsLoading()` / `projectsError()` and the
  *      length of `projects()`:
@@ -26,11 +28,10 @@ import {
   inject,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { MozartError } from '../services/mozart-error';
-import { AddRepoDialogComponent } from '../shell/add-repo-dialog.component';
 import { ProjectStore } from '../state/project.store';
+import { AddProjectMenuComponent } from './add-project-menu.component';
 import { ProjectRowComponent } from './project-row.component';
 import { SidebarEmptyComponent } from './sidebar-empty.component';
 import { SidebarErrorComponent } from './sidebar-error.component';
@@ -43,6 +44,7 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
   imports: [
     HlmButtonImports,
     HlmTooltipImports,
+    AddProjectMenuComponent,
     ProjectRowComponent,
     SidebarEmptyComponent,
     SidebarErrorComponent,
@@ -85,17 +87,13 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
       </button>
       <span class="label">PROJECTS</span>
       <span class="spacer"></span>
-      <button
-        hlmBtn
+      <app-add-project-menu
+        class="add-project-menu"
         variant="ghost"
         size="icon-xs"
-        type="button"
-        class="add-project-btn"
-        aria-label="Add project"
-        (click)="openAddRepo()"
-      >
-        +
-      </button>
+        label="+"
+        ariaLabel="Add project"
+      />
     </nav>
 
     <div class="scroll">
@@ -151,7 +149,6 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
 })
 export class SidebarComponent {
   protected readonly projects = inject(ProjectStore);
-  private readonly dialog = inject(HlmDialogService);
 
   /**
    * `withCallState` flips `projectsError()` truthy when the last refresh
@@ -167,18 +164,5 @@ export class SidebarComponent {
 
   protected onRetry(): void {
     this.projects.refresh();
-  }
-
-  /**
-   * Open the "Add repository" dialog. The `contentClass` matches the
-   * dialog component's own `:host` width so the brain dialog's max-w-lg
-   * default doesn't override us. `showCloseButton: true` adds the close
-   * `x` glyph in the top-right.
-   */
-  protected openAddRepo(): void {
-    this.dialog.open(AddRepoDialogComponent, {
-      contentClass: 'w-[480px] max-w-[90vw]',
-      showCloseButton: true,
-    });
   }
 }
