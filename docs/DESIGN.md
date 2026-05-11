@@ -19,7 +19,7 @@ These rules are non-negotiable for any agent doing UI work in this repo:
    - **Internal component library: `libs/ui`** — protected, read-only. See rule 4.
 3. **Desktop UI target: `apps/desktop/src`.** This is the only Angular app being styled in v0.0.1. `apps/web` and `apps/landing` are out of scope until later milestones.
 4. **`libs/ui/**` is protected.** Agents must not modify, add, delete, or refactor anything inside `libs/ui` during desktop feature or UI refactor work. New visual primitives go in `apps/desktop/src/app/` and compose existing `libs/ui` components. If a needed primitive is genuinely missing, stop and ask the user.
-5. **Custom CSS is the last resort.** Prefer Tailwind utility classes inline in templates. If a template's class list becomes unreadable (subjective: more than ~8–10 utility classes on one element, or repeated across 3+ siblings), extract to a business-named class in a global stylesheet under `libs/shared-styles-theme` (or a component's inline `styles:` block, if scoped) using the `@apply` pattern:
+5. **Custom CSS is the last resort.** Spartan / `libs/ui` components already carry their own styling tied to the global theme tokens — **do not wrap them with extra custom classes**. Only when a template uses a **non-`libs/ui`** element (raw `<div>`, a custom layout container, a business panel that isn't a Hlm component) **AND** its Tailwind utility chain becomes unreadable (subjective: more than ~8–10 utilities on one element, or the same chain repeats across 3+ siblings) — extract to a business-named class **inside the same component's inline `styles:` block** (never in a shared stylesheet — keep the class co-located with its only consumer) using the `@apply` pattern:
 
    ```css
    .workspace-card-header {
