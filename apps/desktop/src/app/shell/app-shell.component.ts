@@ -53,7 +53,7 @@ import { TopBarComponent } from './top-bar.component';
   styles: `
     :host {
       display: grid;
-      grid-template-rows: 36px 1fr;
+      grid-template-rows: 32px 1fr;
       height: 100vh;
       background: hsl(var(--background));
       color: hsl(var(--foreground));
