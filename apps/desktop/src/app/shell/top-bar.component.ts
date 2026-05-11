@@ -1,62 +1,16 @@
-/**
- * `TopBarComponent` — 32 px tall application chrome strip and custom titlebar.
- *
- * Two visual variants, selected at construction time:
- *
- * - **macOS variant** (traffic lights on the LEFT):
- *   three 12×12 px round buttons in macOS order (close = red, minimize = yellow,
- *   maximize = green), followed by the brand mark "◆ Mozart". Glyphs (× / − / +)
- *   are hidden by default and revealed when the controls cluster is hovered.
- *
- * - **Other variant** (Linux / Windows — controls on the RIGHT):
- *   brand mark on the left, three `hlmBtn ghost icon-xs` buttons on the right
- *   with ASCII glyphs (─ □ ✕).
- *
- * All three buttons call `getCurrentWindow().minimize() / .toggleMaximize() / .close()`.
- *
- * The whole `.bar` is a Tauri drag region (via `data-tauri-drag-region`);
- * each control button opts out with `data-tauri-drag-region="false"` so it
- * remains clickable.
- *
- * ## Variant override (for dev / QA testing on a non-target OS)
- *
- * The effective OS is resolved once at construction by {@link resolveEffectiveOS}
- * using the following precedence (highest first):
- *
- * 1. **URL hash query** — append `#os=macos` or `#os=other` (or `?os=macos`
- *    within the hash, since the app uses hash routing). Example:
- *    `http://localhost:1420/#os=macos`.
- * 2. **localStorage** — `localStorage.setItem('mozart.platform.override', 'macos')`
- *    (persistent across reloads; clear with `removeItem`).
- * 3. **userAgent sniff** — falls back to detecting `Mac|iPhone|iPad|iPod` in
- *    `navigator.userAgent`.
- *
- * No state, no DI; pure presentational landmark (`role="banner"`).
- */
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideMinus, lucideSquare, lucideX } from '@ng-icons/lucide';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-
-function resolveEffectiveOS(): 'macos' | 'other' {
-  // URL hash query override (highest precedence for dev/QA on any OS):
-  //   open the app with #os=macos or #os=other in the URL (the app uses hash routing)
-  const hashMatch = window.location.hash.match(/[?&#]os=(macos|other)\b/);
-  if (hashMatch) return hashMatch[1] as 'macos' | 'other';
-
-  // localStorage override (persistent across reloads; set from DevTools):
-  //   localStorage.setItem('mozart.platform.override', 'macos')
-  const ls = window.localStorage.getItem('mozart.platform.override');
-  if (ls === 'macos' || ls === 'other') return ls;
-
-  // Fallback: userAgent sniff
-  return /Mac|iPhone|iPad|iPod/i.test(window.navigator.userAgent) ? 'macos' : 'other';
-}
+import { OsService } from '../services/os.service';
 
 @Component({
   selector: 'app-top-bar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { 'data-tauri-drag-region': '' },
-  imports: [],
+  imports: [NgIcon],
+  providers: [provideIcons({ lucideMinus, lucideSquare, lucideX })],
   template: `
     <header role="banner" class="bar" data-tauri-drag-region>
       @if (isMacOS) {
@@ -83,45 +37,61 @@ function resolveEffectiveOS(): 'macos' | 'other' {
             (click)="toggleMaximize()"
           ></button>
         </span>
-        <span class="brand brand-mac" aria-label="Mozart" data-tauri-drag-region>
-          <span class="diamond" aria-hidden="true" data-tauri-drag-region>&#9670;</span>
+        <span
+          class="brand brand-mac"
+          aria-label="Mozart"
+          data-tauri-drag-region
+        >
+          <span class="diamond" aria-hidden="true" data-tauri-drag-region
+            >&#9670;</span
+          >
           <span class="name" data-tauri-drag-region>Mozart</span>
         </span>
         <span class="spacer" data-tauri-drag-region></span>
       } @else {
         <span class="brand" aria-label="Mozart" data-tauri-drag-region>
-          <span class="diamond" aria-hidden="true" data-tauri-drag-region>&#9670;</span>
+          <span class="diamond" aria-hidden="true" data-tauri-drag-region
+            >&#9670;</span
+          >
           <span class="name" data-tauri-drag-region>Mozart</span>
         </span>
         <span class="spacer" data-tauri-drag-region></span>
         <span class="window-controls" data-tauri-drag-region="false">
           <button
             type="button"
-            class="wc-btn wc-min"
+            class="wc-btn"
             aria-label="Minimize"
             data-tauri-drag-region="false"
             (click)="minimize()"
-          ></button>
+          >
+            <ng-icon name="lucideMinus" class="wc-icon" />
+          </button>
           <button
             type="button"
-            class="wc-btn wc-max"
+            class="wc-btn"
             aria-label="Maximize"
             data-tauri-drag-region="false"
             (click)="toggleMaximize()"
-          ></button>
+          >
+            <ng-icon name="lucideSquare" class="wc-icon" />
+          </button>
           <button
             type="button"
-            class="wc-btn wc-close"
+            class="wc-btn"
             aria-label="Close"
             data-tauri-drag-region="false"
             (click)="close()"
-          ></button>
+          >
+            <ng-icon name="lucideX" class="wc-icon" />
+          </button>
         </span>
       }
     </header>
   `,
   styles: `
-    :host { display: block; }
+    :host {
+      display: block;
+    }
     .bar {
       display: flex;
       align-items: center;
@@ -133,18 +103,35 @@ function resolveEffectiveOS(): 'macos' | 'other' {
       color: hsl(var(--foreground));
       font-family: var(--font-sans);
     }
-    .bar button { cursor: pointer; }
-    .brand { display: inline-flex; align-items: center; gap: 6px; }
-    .brand-mac { margin-left: 12px; }
-    .diamond { color: hsl(var(--foreground)); font-size: 14px; line-height: 1; }
-    .name { font-size: 13px; font-weight: 600; }
-    .spacer { flex: 1 1 auto; }
+    .bar button {
+      cursor: pointer;
+    }
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .brand-mac {
+      margin-left: 12px;
+    }
+    .diamond {
+      color: hsl(var(--foreground));
+      font-size: 14px;
+      line-height: 1;
+    }
+    .name {
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .spacer {
+      flex: 1 1 auto;
+    }
 
-    /* Linux/Windows window controls — VS Code / Chrome inspired:
-       transparent default, round background on hover. Minimize glyph
-       sits low on the button (matching Win10/11 + VSCode), maximize is a
-       small square outline, close shows × and turns red on hover. */
-    .window-controls { display: inline-flex; align-items: center; gap: 2px; }
+    .window-controls {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
     .wc-btn {
       width: 28px;
       height: 24px;
@@ -152,46 +139,21 @@ function resolveEffectiveOS(): 'macos' | 'other' {
       background: transparent;
       padding: 0;
       margin: 0;
-      position: relative;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: hsl(var(--foreground));
-      transition: background 120ms ease;
+      color: hsl(var(--muted-foreground));
+      transition:
+        background 120ms ease,
+        color 120ms ease;
+      border-radius: 9999px;
     }
     .wc-btn:hover {
       background: hsl(var(--muted) / 0.6);
-      border-radius: 9999px;
+      color: hsl(var(--foreground));
     }
-    .wc-close:hover {
-      background: var(--status-error, #ef4444);
-      color: #ffffff;
-    }
-    /* Minimize: 10px-wide line sitting near the bottom of the button. */
-    .wc-min::before {
-      content: '';
-      width: 10px;
-      height: 1.5px;
-      background: currentColor;
-      position: absolute;
-      bottom: 7px;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-    /* Maximize: 9px square outline, centered. */
-    .wc-max::before {
-      content: '';
-      width: 9px;
-      height: 9px;
-      border: 1.5px solid currentColor;
-      box-sizing: border-box;
-    }
-    /* Close: × glyph centered. */
-    .wc-close::before {
-      content: '\\00d7';
-      font-size: 14px;
-      line-height: 1;
-      font-weight: 600;
+    .wc-icon {
+      --ng-icon__size: 14px;
     }
 
     /* macOS traffic-light cluster */
@@ -218,9 +180,15 @@ function resolveEffectiveOS(): 'macos' | 'other' {
       color: transparent;
       font-family: var(--font-sans);
     }
-    .mac-close { background: #ff5f57; }
-    .mac-minimize { background: #febc2e; }
-    .mac-maximize { background: #28c840; }
+    .mac-close {
+      background: #ff5f57;
+    }
+    .mac-minimize {
+      background: #febc2e;
+    }
+    .mac-maximize {
+      background: #28c840;
+    }
     .mac-btn::before {
       content: '';
       color: #2a2a2d;
@@ -229,15 +197,26 @@ function resolveEffectiveOS(): 'macos' | 'other' {
       font-size: 9px;
       font-weight: 700;
     }
-    .mac-close::before { content: '\\00d7'; font-size: 11px; }
-    .mac-minimize::before { content: '\\2212'; }
-    .mac-maximize::before { content: '+'; font-size: 11px; }
-    .window-controls-mac:hover .mac-btn::before { visibility: visible; }
+    .mac-close::before {
+      content: '\\00d7';
+      font-size: 11px;
+    }
+    .mac-minimize::before {
+      content: '\\2212';
+    }
+    .mac-maximize::before {
+      content: '+';
+      font-size: 11px;
+    }
+    .window-controls-mac:hover .mac-btn::before {
+      visibility: visible;
+    }
   `,
 })
 export class TopBarComponent {
-  protected readonly isMacOS = resolveEffectiveOS() === 'macos';
+  protected readonly isMacOS = inject(OsService).isMac();
   protected minimize = (): Promise<void> => getCurrentWindow().minimize();
-  protected toggleMaximize = (): Promise<void> => getCurrentWindow().toggleMaximize();
+  protected toggleMaximize = (): Promise<void> =>
+    getCurrentWindow().toggleMaximize();
   protected close = (): Promise<void> => getCurrentWindow().close();
 }
