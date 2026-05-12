@@ -4,8 +4,11 @@
  * Responsibilities:
  *   - Render a single accumulated-tokens text view fed by
  *     `BindingsService.startAgentRun(...)`.
- *   - Provide a composer textarea + Send / Stop toggle. Enter sends,
- *     Shift+Enter inserts a newline, ⌘↵ sends + clears.
+ *   - Host `<app-composer>` for the message input. The composer owns
+ *     the textarea, the disabled "coming-soon" toolbar (model, effort,
+ *     mode, attachments, links, issues), the `⌘⏎` hint and the
+ *     Send/Stop pair. We just wire its `submit` / `stop` outputs into
+ *     the streaming pipeline.
  *   - Render an inline error banner with `[Retry]` on
  *     `StreamEvent::Error`.
  *   - Bind ⌘. / Ctrl+. globally to stop the running agent.
@@ -17,20 +20,19 @@
  *   - Model picker / effort / @ / attachments (plans 10/11).
  */
 import { ChangeDetectionStrategy, Component, DestroyRef, inject, model, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmTextareaImports } from '@mozart/ui/textarea';
 
 import { BindingsService } from '../services/bindings.service';
 import { ShortcutService } from '../services/shortcut.service';
 import { ShellStore } from '../state/shell.store';
+import { ComposerComponent } from './composer.component';
 
 @Component({
   selector: 'app-chat-panel',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [FormsModule, HlmButtonImports, HlmTextareaImports],
+  imports: [HlmButtonImports, ComposerComponent],
   template: `
     <div class="chat" role="region" aria-label="Workspace conversation">
       <div class="stream">
@@ -54,44 +56,12 @@ import { ShellStore } from '../state/shell.store';
           </div>
         }
       </div>
-      <form class="composer" (submit)="onSubmit($event)">
-        <textarea
-          hlmTextarea
-          class="composer-textarea"
-          [ngModel]="inputText()"
-          (ngModelChange)="inputText.set($event)"
-          [disabled]="isRunning()"
-          name="prompt"
-          placeholder="Type a message…"
-          rows="3"
-          (keydown)="onKeydown($event)"
-        ></textarea>
-        <div class="actions">
-          @if (isRunning()) {
-            <button
-              hlmBtn
-              variant="destructive"
-              size="default"
-              type="button"
-              class="stop-btn"
-              (click)="stop()"
-            >
-              Stop
-            </button>
-          } @else {
-            <button
-              hlmBtn
-              variant="default"
-              size="default"
-              type="submit"
-              class="send-btn"
-              [disabled]="!inputText().trim()"
-            >
-              Send
-            </button>
-          }
-        </div>
-      </form>
+      <app-composer
+        [isRunning]="isRunning()"
+        [(value)]="inputText"
+        (send)="onComposerSubmit()"
+        (stop)="stop()"
+      />
     </div>
   `,
   styles: `
@@ -161,26 +131,6 @@ import { ShellStore } from '../state/shell.store';
       flex: 1 1 auto;
       overflow-wrap: anywhere;
     }
-    /* hlmBtn owns sizing + colors for retry/send/stop; we only allow
-       Spartan styles to flow through. */
-    .composer {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 12px 16px;
-      border-top: 1px solid hsl(var(--border));
-      background: var(--bg-composer, hsl(var(--card)));
-    }
-    /* hlmTextarea owns border + focus ring; we only constrain sizing. */
-    .composer-textarea {
-      resize: vertical;
-      min-height: 64px;
-    }
-    .actions {
-      display: flex;
-      justify-content: flex-end;
-      gap: 8px;
-    }
   `,
 })
 export class ChatPanelComponent {
@@ -189,9 +139,9 @@ export class ChatPanelComponent {
   private readonly shellStore = inject(ShellStore);
   private readonly destroyRef = inject(DestroyRef);
 
-  // Public so tests can poke directly. The template binds with
-  // `[ngModel]` + `(ngModelChange)` rather than `[(ngModel)]` because
-  // the model() signal needs `.set()` on its WritableSignal surface.
+  // Public so tests can poke directly. Two-way bound into
+  // `<app-composer [(value)]="inputText">` — composer reflects edits
+  // back via `valueChange`, retry() can prime it from the outside.
   readonly inputText = model('');
   protected readonly tokens = signal('');
   protected readonly isRunning = signal(false);
@@ -211,25 +161,11 @@ export class ChatPanelComponent {
       .subscribe(() => void this.stop());
   }
 
-  protected onSubmit(event: Event): void {
-    event.preventDefault();
-    void this.send(true);
-  }
-
-  protected onKeydown(event: KeyboardEvent): void {
-    if (event.key !== 'Enter') return;
-    if (event.metaKey || event.ctrlKey) {
-      // ⌘↵ / Ctrl+↵ → send and clear.
-      event.preventDefault();
-      void this.send(true);
-      return;
-    }
-    if (event.shiftKey) {
-      // Shift+Enter inserts a newline — let the textarea handle it.
-      return;
-    }
-    // Plain Enter → send + clear.
-    event.preventDefault();
+  /** Composer `(send)` output → forward to the streaming pipeline.
+   *  `inputText` is already in sync with the composer via two-way binding,
+   *  so `send()` can read the prompt from there as before. The emitted
+   *  string is intentionally ignored. */
+  protected onComposerSubmit(): void {
     void this.send(true);
   }
 
