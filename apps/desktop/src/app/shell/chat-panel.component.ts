@@ -24,7 +24,6 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { HlmButtonImports } from '@mozart/ui/button';
 
 import { BindingsService } from '../services/bindings.service';
-import { ShortcutService } from '../services/shortcut.service';
 import { ShellStore } from '../state/shell.store';
 import { ComposerComponent } from './composer.component';
 
@@ -112,31 +111,15 @@ import { ComposerComponent } from './composer.component';
 })
 export class ChatPanelComponent {
   private readonly bindings = inject(BindingsService);
-  private readonly shortcuts = inject(ShortcutService);
   private readonly shellStore = inject(ShellStore);
   private readonly destroyRef = inject(DestroyRef);
 
-  // Public so tests can poke directly. Two-way bound into
-  // `<app-composer [(value)]="inputText">` — composer reflects edits
-  // back via `valueChange`, retry() can prime it from the outside.
   readonly inputText = model('');
   protected readonly tokens = signal('');
   protected readonly isRunning = signal(false);
   protected readonly errorMsg = signal<string | null>(null);
   protected readonly lastPrompt = signal('');
   private stopFn: (() => Promise<void>) | null = null;
-
-  constructor() {
-    // ⌘./Ctrl+. = stop, shell-wide.
-    this.shortcuts
-      .register$({
-        key: 'mod+.',
-        command: () => undefined,
-        preventDefault: true,
-      })
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => void this.stop());
-  }
 
   /** Composer `(send)` output → forward to the streaming pipeline.
    *  `inputText` is already in sync with the composer via two-way binding,
