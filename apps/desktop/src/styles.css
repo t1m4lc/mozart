@@ -5,6 +5,8 @@
 /* nx-tailwind-sources:start */
 @source "../../../libs/shared-util-theme";
 @source "../../../libs/ui/button";
+@source "../../../libs/ui/collapsible";
+@source "../../../libs/ui/context-menu";
 @source "../../../libs/ui/dialog";
 @source "../../../libs/ui/dropdown-menu";
 @source "../../../libs/ui/icon";

@@ -1,12 +1,17 @@
 /**
  * `SidebarComponent` — left navigation panel.
  *
- * Layout (per DESIGN.md):
- *   1. A `[≡][←][→][PROJECTS][+ Add]` nav strip across the top. All
- *      controls are disabled in v0.0.1 *except* the `+ Add` button,
- *      which now opens the `<app-add-project-menu>` (post-1.8b
- *      refactor — replaces the text-only AddRepoDialog with a native
- *      folder picker + future GitHub / Quick start placeholders).
+ * Layout (per DESIGN.md + Conductor parity, S1.ui.1):
+ *   1. A `[≡][PROJECTS][+ Add]` nav strip across the top. The hamburger
+ *      "Toggle sidebar" affordance is disabled in v0.0.1 with a tooltip;
+ *      the `+ Add` button opens the `<app-add-project-menu>` (post-1.8b
+ *      refactor — native folder picker + future GitHub / Quick start
+ *      placeholders).
+ *
+ *      Per Conductor parity Q1/Q2 (plan foamy-percolating-feather), the
+ *      sidebar deliberately omits the recent-runs zone and any back /
+ *      forward navigation buttons that Conductor ships above the project
+ *      list.
  *   2. A scrollable region that switches between four states keyed off
  *      `withCallState`'s `projectsLoading()` / `projectsError()` and the
  *      length of `projects()`:
@@ -15,11 +20,11 @@
  *        - **Empty**   → `<mozart-sidebar-empty>`.
  *        - **Populated** → one `<mozart-project-row>` per project.
  *
- * The scroll area uses a plain `overflow:auto` container for v0.0.1.
- * The Spartan `<ng-scrollbar hlm>` styling lives in
- * `libs/ui/scroll-area`, but the underlying `ngx-scrollbar` package is
- * not yet installed (atom 2 deliberately deferred the dep). Wiring the
- * custom scrollbar is a 1.8b follow-up that needs `pnpm add`.
+ * The scroll container is a plain `<div>` with `overflow:auto` for
+ * v0.0.1 — the project list rarely exceeds a screen height. Spartan's
+ * `@mozart/ui/scroll-area` is a styling directive for `<ng-scrollbar>`
+ * from the `ngx-scrollbar` package; adopting it would require adding
+ * that dependency. Not worth it for a list this small.
  */
 import {
   ChangeDetectionStrategy,
@@ -62,28 +67,6 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
         [hlmTooltip]="'Coming in 0.2'"
       >
         &#9776;
-      </button>
-      <button
-        hlmBtn
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        disabled
-        aria-label="Navigate back"
-        [hlmTooltip]="'Coming in 0.2'"
-      >
-        &#8592;
-      </button>
-      <button
-        hlmBtn
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        disabled
-        aria-label="Navigate forward"
-        [hlmTooltip]="'Coming in 0.2'"
-      >
-        &#8594;
       </button>
       <span class="label">PROJECTS</span>
       <span class="spacer"></span>

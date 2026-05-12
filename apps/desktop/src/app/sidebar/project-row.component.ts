@@ -21,6 +21,7 @@ import {
   input,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmCollapsibleImports } from '@mozart/ui/collapsible';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import type {
@@ -36,9 +37,14 @@ import { WorkspaceItemComponent } from './workspace-item.component';
   selector: 'app-project-row',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [HlmButtonImports, HlmTooltipImports, WorkspaceItemComponent],
+  imports: [
+    HlmButtonImports,
+    HlmCollapsibleImports,
+    HlmTooltipImports,
+    WorkspaceItemComponent,
+  ],
   template: `
-    <div class="group">
+    <hlm-collapsible class="group" [expanded]="isExpanded()">
       <button
         hlmBtn
         variant="ghost"
@@ -77,20 +83,19 @@ import { WorkspaceItemComponent } from './workspace-item.component';
         </span>
       </button>
 
-      @if (isExpanded()) {
-        <div class="children" role="group">
-          @for (w of workspaces(); track w.workspace_id) {
-            <app-workspace-item [workspace]="w" />
-          } @empty {
-            <p class="empty">No workspaces yet.</p>
-          }
-        </div>
-      }
-    </div>
+      <hlm-collapsible-content class="children" role="group">
+        @for (w of workspaces(); track w.workspace_id) {
+          <app-workspace-item [workspace]="w" />
+        } @empty {
+          <p class="empty">No workspaces yet.</p>
+        }
+      </hlm-collapsible-content>
+    </hlm-collapsible>
   `,
   styles: `
     :host { display: block; }
-    .group { display: flex; flex-direction: column; }
+    hlm-collapsible.group { display: flex; flex-direction: column; }
+    hlm-collapsible-content.children { display: flex; flex-direction: column; }
     .header {
       display: grid;
       grid-template-columns: 16px 1fr auto;
@@ -130,7 +135,6 @@ import { WorkspaceItemComponent } from './workspace-item.component';
       transition: opacity 0.15s ease-in-out;
     }
     .header:hover .header-actions { opacity: 1; }
-    .children { display: flex; flex-direction: column; }
     .empty {
       margin: 0;
       padding: 6px 12px 8px 30px;
