@@ -63,26 +63,34 @@ const STATUS_COLORS: Record<WorkspaceDto['status'], string> = {
     HlmDropdownMenuImports,
     HlmTooltipImports,
   ],
+  host: { class: 'block' },
   template: `
     <button
       hlmBtn
       variant="ghost"
       type="button"
-      class="row"
+      class="row block w-full p-0 bg-transparent border-0 border-l-2 border-l-transparent text-left cursor-pointer text-inherit"
       [class.selected]="isSelected()"
       [attr.aria-pressed]="isSelected()"
       (click)="select()"
       (contextmenu)="onContext($event)"
     >
-      <span class="row-content" [hlmContextMenuTrigger]="contextMenu">
+      <span
+        class="grid grid-cols-[8px_1fr] gap-2 items-center w-full px-3 py-1.5"
+        [hlmContextMenuTrigger]="contextMenu"
+      >
         <span
-          class="status-dot"
+          class="status-dot w-2 h-2 rounded-full"
           [style.background-color]="statusColor()"
           aria-hidden="true"
         ></span>
-        <span class="labels">
-          <span class="title">{{ taskTitle() }}</span>
-          <span class="subtitle">{{ workspace().branch_name }}</span>
+        <span class="flex flex-col min-w-0">
+          <span
+            class="title text-sm text-foreground whitespace-nowrap overflow-hidden text-ellipsis"
+          >{{ taskTitle() }}</span>
+          <span
+            class="subtitle text-xs text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis"
+          >{{ workspace().branch_name }}</span>
         </span>
       </span>
     </button>
@@ -125,58 +133,12 @@ const STATUS_COLORS: Record<WorkspaceDto['status'], string> = {
     </ng-template>
   `,
   styles: `
-    :host { display: block; }
-    .row {
-      display: block;
-      width: 100%;
-      padding: 0;
-      background: transparent;
-      border: 0;
-      border-left: 2px solid transparent;
-      text-align: left;
-      cursor: pointer;
-      color: inherit;
-      font-family: var(--font-sans);
-    }
-    .row-content {
-      display: grid;
-      grid-template-columns: 8px 1fr;
-      gap: 8px;
-      align-items: center;
-      width: 100%;
-      padding: 6px 12px;
-    }
     .row:hover { background: var(--bg-hover); }
     .row.selected {
       background: var(--bg-selected);
       border-left-color: var(--status-running);
     }
-    .status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: var(--radius-pill);
-    }
-    .labels {
-      display: flex;
-      flex-direction: column;
-      min-width: 0;
-    }
-    .title {
-      font-size: 14px;
-      color: hsl(var(--foreground));
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .subtitle {
-      font-size: 12px;
-      font-family: var(--font-mono);
-      color: hsl(var(--muted-foreground));
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .grow { flex: 1 1 auto; }
+    .subtitle { font-family: var(--font-mono); }
   `,
 })
 export class WorkspaceItemComponent {

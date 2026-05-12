@@ -45,6 +45,7 @@ type ButtonSize = 'default' | 'sm' | 'icon-xs';
     HlmDropdownMenuImports,
     HlmTooltipImports,
   ],
+  host: { class: 'inline-flex' },
   template: `
     <button
       hlmBtn
@@ -63,7 +64,6 @@ type ButtonSize = 'default' | 'sm' | 'icon-xs';
         <button
           hlmDropdownMenuItem
           type="button"
-          class="open-project-item"
           (click)="openProject()"
         >
           Open project
@@ -86,12 +86,6 @@ type ButtonSize = 'default' | 'sm' | 'icon-xs';
         </button>
       </hlm-dropdown-menu>
     </ng-template>
-  `,
-  styles: `
-    :host {
-      display: inline-flex;
-    }
-    .trigger-btn { font-family: var(--font-sans); }
   `,
 })
 export class AddProjectMenuComponent {

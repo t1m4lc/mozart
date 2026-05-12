@@ -28,24 +28,27 @@ import { OsService } from '../services/os.service';
   selector: 'app-right-header',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { 'data-tauri-drag-region': '' },
+  host: {
+    'data-tauri-drag-region': '',
+    class: 'block h-full',
+  },
   imports: [NgIcon, HlmButtonImports, HlmTooltipImports],
   providers: [provideIcons({ lucideMinus, lucideSquare, lucideX })],
   template: `
     <div
-      class="right-segment"
+      class="flex items-center gap-2 h-full px-3 bg-card border-b border-border text-foreground"
       aria-label="Window controls"
       data-tauri-drag-region
     >
-      <span class="spacer" data-tauri-drag-region></span>
+      <span class="flex-auto" data-tauri-drag-region></span>
       @if (!isMacOS) {
-        <span class="window-controls" data-tauri-drag-region="false">
+        <span class="inline-flex items-center gap-0.5" data-tauri-drag-region="false">
           <button
             hlmBtn
             variant="ghost"
             size="icon-xs"
             type="button"
-            class="wc-btn"
+            class="text-muted-foreground hover:text-foreground"
             aria-label="Minimize"
             data-tauri-drag-region="false"
             [hlmTooltip]="'Minimize'"
@@ -58,7 +61,7 @@ import { OsService } from '../services/os.service';
             variant="ghost"
             size="icon-xs"
             type="button"
-            class="wc-btn"
+            class="text-muted-foreground hover:text-foreground"
             aria-label="Maximize"
             data-tauri-drag-region="false"
             [hlmTooltip]="'Maximize'"
@@ -71,7 +74,7 @@ import { OsService } from '../services/os.service';
             variant="ghost"
             size="icon-xs"
             type="button"
-            class="wc-btn"
+            class="text-muted-foreground hover:text-foreground"
             aria-label="Close"
             data-tauri-drag-region="false"
             [hlmTooltip]="'Close'"
@@ -84,37 +87,6 @@ import { OsService } from '../services/os.service';
     </div>
   `,
   styles: `
-    :host {
-      display: block;
-      height: 100%;
-    }
-    .right-segment {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 100%;
-      padding: 0 12px;
-      background: hsl(var(--card));
-      border-bottom: 1px solid hsl(var(--border));
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-    }
-    .spacer {
-      flex: 1 1 auto;
-    }
-    .window-controls {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-    }
-    /* hlmBtn variant="ghost" size="icon-xs" owns sizing + hover; we
-       only tint icon color so the controls match the muted palette. */
-    .wc-btn {
-      color: hsl(var(--muted-foreground));
-    }
-    .wc-btn:hover {
-      color: hsl(var(--foreground));
-    }
     .wc-icon {
       --ng-icon__size: 14px;
     }

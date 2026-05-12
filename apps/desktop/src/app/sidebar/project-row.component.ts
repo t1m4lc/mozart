@@ -43,27 +43,34 @@ import { WorkspaceItemComponent } from './workspace-item.component';
     HlmTooltipImports,
     WorkspaceItemComponent,
   ],
+  host: { class: 'block' },
   template: `
-    <hlm-collapsible class="group" [expanded]="isExpanded()">
+    <hlm-collapsible class="flex flex-col" [expanded]="isExpanded()">
       <button
         hlmBtn
         variant="ghost"
         type="button"
-        class="header"
+        class="header grid grid-cols-[16px_1fr_auto] gap-1.5 items-center w-full px-3 py-1 bg-transparent border-0 text-left cursor-pointer text-foreground hover:bg-muted/40"
         [attr.aria-expanded]="isExpanded()"
         (click)="toggle()"
       >
-        <span class="chevron" aria-hidden="true">
+        <span
+          class="inline-flex items-center justify-center text-[10px] text-muted-foreground"
+          aria-hidden="true"
+        >
           {{ isExpanded() ? '▾' : '▸' }}
         </span>
-        <span class="name">{{ project().display_name }}</span>
-        <span class="header-actions">
+        <span
+          class="text-xs font-semibold uppercase tracking-[0.04em] whitespace-nowrap overflow-hidden text-ellipsis"
+        >{{ project().display_name }}</span>
+        <span
+          class="header-actions inline-flex items-center gap-0.5 opacity-0 transition-opacity duration-150 ease-in-out"
+        >
           <button
             hlmBtn
             variant="ghost"
             size="icon-xs"
             type="button"
-            class="new-workspace-btn"
             aria-label="New workspace in project"
             (click)="openNewWorkspace($event)"
           >
@@ -83,65 +90,19 @@ import { WorkspaceItemComponent } from './workspace-item.component';
         </span>
       </button>
 
-      <hlm-collapsible-content class="children" role="group">
+      <hlm-collapsible-content class="flex flex-col" role="group">
         @for (w of workspaces(); track w.workspace_id) {
           <app-workspace-item [workspace]="w" />
         } @empty {
-          <p class="empty">No workspaces yet.</p>
+          <p class="m-0 pt-1.5 pr-3 pb-2 pl-[30px] text-xs text-muted-foreground">
+            No workspaces yet.
+          </p>
         }
       </hlm-collapsible-content>
     </hlm-collapsible>
   `,
   styles: `
-    :host { display: block; }
-    hlm-collapsible.group { display: flex; flex-direction: column; }
-    hlm-collapsible-content.children { display: flex; flex-direction: column; }
-    .header {
-      display: grid;
-      grid-template-columns: 16px 1fr auto;
-      gap: 6px;
-      align-items: center;
-      width: 100%;
-      padding: 4px 12px;
-      background: transparent;
-      border: 0;
-      text-align: left;
-      cursor: pointer;
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-    }
-    .header:hover { background: hsl(var(--muted) / 0.4); }
-    .chevron {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 10px;
-      color: hsl(var(--muted-foreground));
-    }
-    .name {
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.04em;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .header-actions {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      opacity: 0;
-      transition: opacity 0.15s ease-in-out;
-    }
     .header:hover .header-actions { opacity: 1; }
-    .empty {
-      margin: 0;
-      padding: 6px 12px 8px 30px;
-      font-family: var(--font-sans);
-      font-size: 12px;
-      color: hsl(var(--muted-foreground));
-    }
   `,
 })
 export class ProjectRowComponent {

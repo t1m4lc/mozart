@@ -32,12 +32,15 @@ import { OsService } from '../services/os.service';
   selector: 'app-top-bar',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { 'data-tauri-drag-region': '' },
+  host: {
+    'data-tauri-drag-region': '',
+    class: 'block h-full',
+  },
   imports: [HlmTooltipImports],
   template: `
     <header
       role="banner"
-      class="left-segment"
+      class="flex items-center gap-2 h-full px-3 bg-card border-b border-border text-foreground"
       aria-label="Window controls"
       data-tauri-drag-region
     >
@@ -52,10 +55,10 @@ import { OsService } from '../services/os.service';
           A tooltip is still attached to each control for parity with
           the Windows controls in <app-right-header>.
         -->
-        <span class="window-controls-mac" data-tauri-drag-region="false">
+        <span class="window-controls-mac inline-flex items-center gap-2" data-tauri-drag-region="false">
           <button
             type="button"
-            class="mac-btn mac-close"
+            class="mac-btn mac-close bg-[#ff5f57]"
             aria-label="Close"
             data-tauri-drag-region="false"
             [hlmTooltip]="'Close'"
@@ -63,7 +66,7 @@ import { OsService } from '../services/os.service';
           ></button>
           <button
             type="button"
-            class="mac-btn mac-minimize"
+            class="mac-btn mac-minimize bg-[#febc2e]"
             aria-label="Minimize"
             data-tauri-drag-region="false"
             [hlmTooltip]="'Minimize'"
@@ -71,7 +74,7 @@ import { OsService } from '../services/os.service';
           ></button>
           <button
             type="button"
-            class="mac-btn mac-maximize"
+            class="mac-btn mac-maximize bg-[#28c840]"
             aria-label="Maximize"
             data-tauri-drag-region="false"
             [hlmTooltip]="'Maximize'"
@@ -79,38 +82,10 @@ import { OsService } from '../services/os.service';
           ></button>
         </span>
       }
-      <span class="spacer" data-tauri-drag-region></span>
+      <span class="flex-auto" data-tauri-drag-region></span>
     </header>
   `,
   styles: `
-    :host {
-      display: block;
-      height: 100%;
-    }
-    .left-segment {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      height: 100%;
-      padding: 0 12px;
-      background: hsl(var(--card));
-      border-bottom: 1px solid hsl(var(--border));
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-    }
-    .left-segment button {
-      cursor: pointer;
-    }
-    .spacer {
-      flex: 1 1 auto;
-    }
-
-    /* macOS traffic-light cluster */
-    .window-controls-mac {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-    }
     .mac-btn {
       width: 12px;
       height: 12px;
@@ -127,16 +102,6 @@ import { OsService } from '../services/os.service';
       font-weight: 700;
       line-height: 1;
       color: transparent;
-      font-family: var(--font-sans);
-    }
-    .mac-close {
-      background: #ff5f57;
-    }
-    .mac-minimize {
-      background: #febc2e;
-    }
-    .mac-maximize {
-      background: #28c840;
     }
     .mac-btn::before {
       content: '';

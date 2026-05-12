@@ -17,40 +17,19 @@ import { AddProjectMenuComponent } from './add-project-menu.component';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [AddProjectMenuComponent],
+  host: { class: 'block p-3' },
   template: `
-    <div class="card">
-      <p class="copy">No projects yet.</p>
+    <div
+      class="flex flex-col items-center gap-2.5 p-3 rounded-md border border-dashed border-border bg-transparent text-center"
+    >
+      <p class="m-0 text-[13px] text-muted-foreground">No projects yet.</p>
       <app-add-project-menu
-        class="add-repo-menu"
         variant="outline"
         size="sm"
         label="+ Add repository"
         ariaLabel="Add project"
       />
     </div>
-  `,
-  styles: `
-    :host {
-      display: block;
-      padding: 12px;
-    }
-    .card {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-      padding: 12px;
-      border: 1px dashed hsl(var(--border));
-      border-radius: var(--radius-md);
-      background: transparent;
-      text-align: center;
-    }
-    .copy {
-      margin: 0;
-      font-family: var(--font-sans);
-      font-size: 13px;
-      color: hsl(var(--muted-foreground));
-    }
   `,
 })
 export class SidebarEmptyComponent {}

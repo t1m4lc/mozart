@@ -11,20 +11,16 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   selector: 'app-sidebar-skeleton',
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block p-3' },
   template: `
-    <div class="list" aria-hidden="true">
-      <div class="row"></div>
-      <div class="row"></div>
-      <div class="row"></div>
+    <div class="flex flex-col gap-2" aria-hidden="true">
+      <div class="row h-7 rounded-sm bg-card"></div>
+      <div class="row h-7 rounded-sm bg-card"></div>
+      <div class="row h-7 rounded-sm bg-card"></div>
     </div>
   `,
   styles: `
-    :host { display: block; padding: 12px; }
-    .list { display: flex; flex-direction: column; gap: 8px; }
     .row {
-      height: 28px;
-      border-radius: var(--radius-sm);
-      background: hsl(var(--card));
       animation: shimmer 1200ms ease-in-out infinite;
     }
     @keyframes shimmer {

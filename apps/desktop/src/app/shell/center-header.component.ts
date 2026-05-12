@@ -73,29 +73,32 @@ import { WorkspaceStore } from '../state/workspace.store';
   providers: [
     provideIcons({ lucideGitBranch, lucideMoreHorizontal, lucidePlus }),
   ],
+  host: { class: 'block h-full' },
   template: `
     @if (workspace(); as ws) {
       <header
-        class="center-header"
+        class="grid grid-rows-[32px_32px] h-full bg-card border-b border-border text-foreground"
         aria-label="Workspace location and tabs"
         data-tauri-drag-region
       >
         <div
-          class="row breadcrumb-row"
+          class="flex items-center gap-2 px-3 min-w-0 border-b border-border"
           data-tauri-drag-region
         >
           <nav hlmBreadcrumb aria-label="Workspace location">
             <ol hlmBreadcrumbList>
               <li hlmBreadcrumbItem>
-                <span class="crumb-project">{{ projectName() }}</span>
+                <span class="text-[13px] text-muted-foreground">{{
+                  projectName()
+                }}</span>
               </li>
               <li hlmBreadcrumbSeparator></li>
               <li hlmBreadcrumbItem>
-                <span hlmBreadcrumbPage class="crumb-workspace">{{
+                <span hlmBreadcrumbPage class="text-[13px] font-medium">{{
                   workspaceLabel()
                 }}</span>
                 <span
-                  class="ws-icon"
+                  class="inline-flex items-center justify-center text-muted-foreground cursor-default"
                   [hlmTooltip]="ws.base_branch"
                   data-tauri-drag-region="false"
                 >
@@ -104,19 +107,19 @@ import { WorkspaceStore } from '../state/workspace.store';
               </li>
             </ol>
           </nav>
-          <span class="spacer" data-tauri-drag-region></span>
+          <span class="flex-auto" data-tauri-drag-region></span>
           <button
             hlmBtn
             variant="ghost"
             size="icon-xs"
             type="button"
-            class="actions-trigger"
+            class="text-muted-foreground hover:text-foreground"
             aria-label="Workspace actions"
             data-tauri-drag-region="false"
             [hlmTooltip]="'Workspace actions'"
             [hlmDropdownMenuTrigger]="actionsMenu"
           >
-            <ng-icon name="lucideMoreHorizontal" class="actions-icon" />
+            <ng-icon name="lucideMoreHorizontal" class="header-icon" />
           </button>
           <ng-template #actionsMenu>
             <hlm-dropdown-menu>
@@ -146,13 +149,16 @@ import { WorkspaceStore } from '../state/workspace.store';
             </hlm-dropdown-menu>
           </ng-template>
         </div>
-        <div class="row tabs-row" data-tauri-drag-region>
-          <hlm-tabs [tab]="activeTabId()" class="tabs">
+        <div
+          class="flex items-center gap-2 px-3 min-w-0"
+          data-tauri-drag-region
+        >
+          <hlm-tabs [tab]="activeTabId()" class="min-w-0">
             <hlm-tabs-list variant="line">
               <button
                 [hlmTabsTrigger]="activeTabId()"
                 type="button"
-                class="tab-trigger"
+                class="cursor-pointer"
                 data-tauri-drag-region="false"
               >
                 {{ workspaceLabel() }}
@@ -164,87 +170,22 @@ import { WorkspaceStore } from '../state/workspace.store';
             variant="ghost"
             size="icon-xs"
             type="button"
-            class="new-tab-btn"
+            class="text-muted-foreground"
             aria-label="New tab"
             disabled
             data-tauri-drag-region="false"
             [hlmTooltip]="newTabComingSoon"
           >
-            <ng-icon name="lucidePlus" class="new-tab-icon" />
+            <ng-icon name="lucidePlus" class="header-icon" />
           </button>
-          <span class="spacer" data-tauri-drag-region></span>
+          <span class="flex-auto" data-tauri-drag-region></span>
         </div>
       </header>
     }
   `,
   styles: `
-    :host {
-      display: block;
-      height: 100%;
-    }
-    .center-header {
-      display: grid;
-      grid-template-rows: 32px 32px;
-      height: 100%;
-      background: hsl(var(--card));
-      border-bottom: 1px solid hsl(var(--border));
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-    }
-    .row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 0 12px;
-      min-width: 0;
-    }
-    .breadcrumb-row {
-      border-bottom: 1px solid hsl(var(--border));
-    }
-    .crumb-project {
-      font-size: 13px;
-      color: hsl(var(--muted-foreground));
-    }
-    .crumb-workspace {
-      font-size: 13px;
-      font-weight: 500;
-    }
-    .ws-icon {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      color: hsl(var(--muted-foreground));
-      cursor: default;
-    }
-    .ws-icon-svg {
-      --ng-icon__size: 12px;
-    }
-    .spacer {
-      flex: 1 1 auto;
-    }
-    /* hlmBtn variant="ghost" size="icon-xs" owns sizing + hover; we
-       only tint icon color so the trigger blends into the header. */
-    .actions-trigger {
-      color: hsl(var(--muted-foreground));
-    }
-    .actions-trigger:hover {
-      color: hsl(var(--foreground));
-    }
-    .actions-icon {
-      --ng-icon__size: 14px;
-    }
-    .tabs {
-      min-width: 0;
-    }
-    .tab-trigger {
-      cursor: pointer;
-    }
-    .new-tab-btn {
-      color: hsl(var(--muted-foreground));
-    }
-    .new-tab-icon {
-      --ng-icon__size: 14px;
-    }
+    .ws-icon-svg { --ng-icon__size: 12px; }
+    .header-icon { --ng-icon__size: 14px; }
   `,
 })
 export class CenterHeaderComponent {

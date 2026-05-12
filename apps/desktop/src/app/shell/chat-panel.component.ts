@@ -33,22 +33,33 @@ import { ComposerComponent } from './composer.component';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [HlmButtonImports, ComposerComponent],
+  host: { class: 'block w-full h-full text-foreground' },
   template: `
-    <div class="chat" role="region" aria-label="Workspace conversation">
-      <div class="stream">
+    <div
+      class="flex flex-col h-full min-h-0"
+      role="region"
+      aria-label="Workspace conversation"
+    >
+      <div class="flex-auto min-h-0 overflow-y-auto py-4 px-6">
         @if (isRunning()) {
           <div class="progress-bar" aria-hidden="true"></div>
         }
-        <pre class="tokens" aria-live="polite">{{ tokens() }}</pre>
+        <pre
+          class="tokens m-0 whitespace-pre-wrap break-words text-[13px] leading-[1.55] text-foreground"
+          aria-live="polite"
+        >{{ tokens() }}</pre>
         @if (errorMsg() !== null) {
-          <div class="error-banner" role="alert">
-            <span class="error-msg">{{ errorMsg() }}</span>
+          <div
+            class="error-banner flex items-center justify-between gap-3 mt-3 py-2 px-3 rounded-md text-[13px]"
+            role="alert"
+          >
+            <span class="flex-auto [overflow-wrap:anywhere]">{{ errorMsg() }}</span>
             <button
               hlmBtn
               variant="outline"
               size="sm"
-              class="retry-btn"
               type="button"
+              class="retry-btn"
               (click)="retry()"
             >
               Retry
@@ -66,24 +77,8 @@ import { ComposerComponent } from './composer.component';
   `,
   styles: `
     :host {
-      display: block;
-      width: 100%;
-      height: 100%;
       background: var(--bg-center, hsl(var(--background)));
-      color: hsl(var(--foreground));
       font-family: var(--font-sans);
-    }
-    .chat {
-      display: flex;
-      flex-direction: column;
-      height: 100%;
-      min-height: 0;
-    }
-    .stream {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      padding: 16px 24px;
     }
     .progress-bar {
       position: sticky;
@@ -105,31 +100,13 @@ import { ComposerComponent } from './composer.component';
       100% { background-position: -100% 0; }
     }
     .tokens {
-      margin: 0;
-      white-space: pre-wrap;
-      word-wrap: break-word;
       font-family: var(--font-mono, ui-monospace, monospace);
-      font-size: 13px;
-      line-height: 1.55;
-      color: hsl(var(--foreground));
     }
     .error-banner {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      margin-top: 12px;
-      padding: 8px 12px;
       border: 1px solid var(--accent-error-br, hsl(var(--destructive) / 0.4));
       background: var(--accent-error-bg, hsl(var(--destructive) / 0.08));
-      border-radius: var(--radius-md, 6px);
       color: var(--status-error, hsl(var(--destructive)));
       font-family: var(--font-mono, ui-monospace, monospace);
-      font-size: 13px;
-    }
-    .error-msg {
-      flex: 1 1 auto;
-      overflow-wrap: anywhere;
     }
   `,
 })

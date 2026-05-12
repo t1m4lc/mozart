@@ -69,21 +69,31 @@ import { TopBarComponent } from './top-bar.component';
     EmptyCenterComponent,
     EmptyRightComponent,
   ],
+  host: {
+    class: 'grid grid-rows-[64px_1fr] h-screen bg-background text-foreground',
+  },
   template: `
     <div
-      class="shell-header"
+      class="shell-header grid h-16 min-h-0 grid-cols-[var(--sidebar-width)_1fr_var(--right-panel-width)] max-[1099px]:grid-cols-[var(--sidebar-width)_1fr]"
       [class.no-right]="!shellStore.showRightPanel()"
       data-tauri-drag-region
     >
       <app-top-bar />
       <app-center-header />
       @if (shellStore.showRightPanel()) {
-        <app-right-header />
+        <app-right-header class="max-[1099px]:hidden" />
       }
     </div>
-    <div class="shell-grid" [class.no-right]="!shellStore.showRightPanel()">
+    <div
+      class="shell-grid grid min-h-0 h-full grid-cols-[var(--sidebar-width)_1fr_var(--right-panel-width)] max-[1099px]:grid-cols-[var(--sidebar-width)_1fr]"
+      [class.no-right]="!shellStore.showRightPanel()"
+    >
       <app-sidebar />
-      <main role="main" aria-label="Workspace conversation">
+      <main
+        role="main"
+        aria-label="Workspace conversation"
+        class="min-h-0 overflow-hidden"
+      >
         @if (shellStore.centerView() === 'chat') {
           <app-chat-panel />
         } @else {
@@ -91,51 +101,21 @@ import { TopBarComponent } from './top-bar.component';
         }
       </main>
       @if (shellStore.showRightPanel()) {
-        <aside role="complementary" aria-label="Workspace changes and terminal">
+        <aside
+          role="complementary"
+          aria-label="Workspace changes and terminal"
+          class="min-h-0 overflow-hidden bg-card border-l border-border max-[1099px]:hidden"
+        >
           <app-empty-right />
         </aside>
       }
     </div>
   `,
   styles: `
-    :host {
-      display: grid;
-      grid-template-rows: 64px 1fr;
-      height: 100vh;
-      background: hsl(var(--background));
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-    }
-    .shell-header {
-      display: grid;
-      grid-template-columns: var(--sidebar-width) 1fr var(--right-panel-width);
-      height: 64px;
-      min-height: 0;
-    }
-    .shell-header.no-right {
-      grid-template-columns: var(--sidebar-width) 1fr;
-    }
-    .shell-grid {
-      display: grid;
-      grid-template-columns: var(--sidebar-width) 1fr var(--right-panel-width);
-      min-height: 0;
-      height: 100%;
-    }
-    .shell-grid.no-right {
-      grid-template-columns: var(--sidebar-width) 1fr;
-    }
-    main, aside {
-      min-height: 0;
-      overflow: hidden;
-    }
+    :host { font-family: var(--font-sans); }
     main { background: var(--bg-center); }
-    aside { background: hsl(var(--card)); border-left: 1px solid hsl(var(--border)); }
-    @media (max-width: 1099px) {
-      .shell-header { grid-template-columns: var(--sidebar-width) 1fr; }
-      .shell-grid { grid-template-columns: var(--sidebar-width) 1fr; }
-      aside { display: none; }
-      app-right-header { display: none; }
-    }
+    .shell-header.no-right { grid-template-columns: var(--sidebar-width) 1fr; }
+    .shell-grid.no-right { grid-template-columns: var(--sidebar-width) 1fr; }
   `,
 })
 export class AppShellComponent {

@@ -110,8 +110,12 @@ type BranchesState =
     HlmTextareaImports,
     HlmTooltipImports,
   ],
+  host: {
+    class:
+      'block w-[480px] max-w-[90vw] p-6 rounded-md border border-border text-foreground',
+  },
   template: `
-    <div class="dialog-body">
+    <div class="flex flex-col gap-4">
       <hlm-dialog-header>
         <h2 hlmDialogTitle>New workspace</h2>
         <p hlmDialogDescription>
@@ -119,33 +123,37 @@ type BranchesState =
         </p>
       </hlm-dialog-header>
 
-      <form class="form" (submit)="onSubmit($event)" novalidate>
-        <div class="field">
+      <form
+        class="flex flex-col gap-3.5"
+        (submit)="onSubmit($event)"
+        novalidate
+      >
+        <div class="flex flex-col gap-1.5">
           <label hlmLabel for="cw-project">Project</label>
           @if (lockedProject() !== null) {
             <input
               id="cw-project"
               type="text"
-              class="project-name"
+              class="w-full px-2.5 py-1.5 bg-muted/40 border border-border rounded-md text-muted-foreground text-[13px] cursor-not-allowed"
               [value]="lockedProject()?.display_name ?? ''"
               disabled
               readonly
             />
           } @else {
-            <p class="select-project" role="alert">
+            <p class="error-msg m-0 text-[13px]" role="alert">
               Select a project first.
             </p>
           }
         </div>
 
-        <div class="field">
+        <div class="flex flex-col gap-1.5">
           <label hlmLabel for="cw-branch">Base branch</label>
           @switch (branches().status) {
             @case ('idle') {
               <select
                 id="cw-branch"
                 name="branch"
-                class="select"
+                class="select w-full px-2.5 py-1.5 border border-border rounded-md text-foreground text-[13px] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled
               >
                 <option value="">No project selected</option>
@@ -155,7 +163,7 @@ type BranchesState =
               <select
                 id="cw-branch"
                 name="branch"
-                class="select"
+                class="select w-full px-2.5 py-1.5 border border-border rounded-md text-foreground text-[13px] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled
               >
                 <option value="">Loading branches…</option>
@@ -165,7 +173,7 @@ type BranchesState =
               <select
                 id="cw-branch"
                 name="branch"
-                class="select"
+                class="select w-full px-2.5 py-1.5 border border-border rounded-md text-foreground text-[13px] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                 [value]="baseBranch()"
                 (change)="onBranchChange($event)"
               >
@@ -175,7 +183,7 @@ type BranchesState =
                 }
               </select>
               @if (branchList().length === 0) {
-                <p class="error-msg" role="alert">
+                <p class="error-msg m-0 text-xs" role="alert">
                   No branches found in this repository.
                 </p>
               }
@@ -184,23 +192,23 @@ type BranchesState =
               <select
                 id="cw-branch"
                 name="branch"
-                class="select"
+                class="select w-full px-2.5 py-1.5 border border-border rounded-md text-foreground text-[13px] outline-none disabled:opacity-60 disabled:cursor-not-allowed"
                 disabled
               >
                 <option value="">Failed to load branches</option>
               </select>
-              <p class="error-msg" role="alert">{{ branchesErrorMsg() }}</p>
+              <p class="error-msg m-0 text-xs" role="alert">{{ branchesErrorMsg() }}</p>
             }
           }
         </div>
 
-        <div class="field">
+        <div class="flex flex-col gap-1.5">
           <label hlmLabel for="cw-task">Task description</label>
           <textarea
             hlmTextarea
             id="cw-task"
             name="task"
-            class="task-textarea"
+            class="resize-y min-h-[96px]"
             rows="4"
             placeholder="Describe what the agent should do."
             [value]="taskText()"
@@ -209,11 +217,11 @@ type BranchesState =
         </div>
 
         @if (errorMsg() !== null) {
-          <p class="error-msg" role="alert">{{ errorMsg() }}</p>
+          <p class="error-msg m-0 text-xs" role="alert">{{ errorMsg() }}</p>
         }
       </form>
 
-      <hlm-dialog-footer class="footer">
+      <hlm-dialog-footer class="pt-2 border-t border-border">
         <button
           hlmBtn
           variant="ghost"
@@ -242,81 +250,14 @@ type BranchesState =
   `,
   styles: `
     :host {
-      display: block;
-      width: 480px;
-      max-width: 90vw;
-      padding: 24px;
       background: var(--bg-card, hsl(var(--card)));
-      border: 1px solid hsl(var(--border));
-      border-radius: var(--radius-md, 6px);
-      color: hsl(var(--foreground));
       font-family: var(--font-sans);
     }
-    .dialog-body {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    .form {
-      display: flex;
-      flex-direction: column;
-      gap: 14px;
-    }
-    .field {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-    .project-name {
-      width: 100%;
-      padding: 6px 10px;
-      background: hsl(var(--muted) / 0.4);
-      border: 1px solid hsl(var(--border));
-      border-radius: var(--radius-md, 6px);
-      color: hsl(var(--muted-foreground));
-      font-family: var(--font-sans);
-      font-size: 13px;
-      cursor: not-allowed;
-    }
-    .select-project {
-      margin: 0;
-      font-size: 13px;
-      color: var(--status-error, hsl(var(--destructive)));
-    }
-    .select {
-      width: 100%;
-      padding: 6px 10px;
-      background: var(--bg-card, hsl(var(--background)));
-      border: 1px solid hsl(var(--border));
-      border-radius: var(--radius-md, 6px);
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-      font-size: 13px;
-      outline: none;
-    }
+    .select { background: var(--bg-card, hsl(var(--background))); }
     .select:focus-visible {
       border-color: var(--border-focus, hsl(var(--ring)));
     }
-    .select:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-    }
-    /* hlmTextarea owns border, padding, font, focus ring; we only set
-       the dialog-specific min-height. */
-    .task-textarea {
-      resize: vertical;
-      min-height: 96px;
-    }
-    .error-msg {
-      margin: 0;
-      font-family: var(--font-sans);
-      font-size: 12px;
-      color: var(--status-error, hsl(var(--destructive)));
-    }
-    .footer {
-      padding-top: 8px;
-      border-top: 1px solid hsl(var(--border));
-    }
+    .error-msg { color: var(--status-error, hsl(var(--destructive))); }
   `,
 })
 export class CreateWorkspaceDialogComponent {

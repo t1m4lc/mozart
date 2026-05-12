@@ -13,11 +13,12 @@ import { MozartError } from '../services/mozart-error';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [HlmButtonImports],
+  host: { class: 'block p-3' },
   template: `
-    <div class="card" role="alert">
-      <p class="message">{{ error().message }}</p>
+    <div class="card flex flex-col gap-2 p-3 rounded-md" role="alert">
+      <p class="m-0 text-[13px] text-foreground">{{ error().message }}</p>
       @if (error().recovery) {
-        <p class="recovery">{{ error().recovery }}</p>
+        <p class="m-0 text-xs text-muted-foreground">{{ error().recovery }}</p>
       }
       <button
         hlmBtn
@@ -31,27 +32,9 @@ import { MozartError } from '../services/mozart-error';
     </div>
   `,
   styles: `
-    :host { display: block; padding: 12px; }
     .card {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 12px;
       border: 1px solid var(--accent-error-br, hsl(var(--border)));
-      border-radius: var(--radius-md);
       background: var(--accent-error-bg, transparent);
-    }
-    .message {
-      margin: 0;
-      font-family: var(--font-sans);
-      font-size: 13px;
-      color: hsl(var(--foreground));
-    }
-    .recovery {
-      margin: 0;
-      font-family: var(--font-sans);
-      font-size: 12px;
-      color: hsl(var(--muted-foreground));
     }
   `,
 })

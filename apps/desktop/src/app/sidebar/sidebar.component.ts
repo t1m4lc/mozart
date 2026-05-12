@@ -55,8 +55,16 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
     SidebarErrorComponent,
     SidebarSkeletonComponent,
   ],
+  host: {
+    class:
+      'flex flex-col min-h-0 h-full bg-sidebar border-r border-border text-foreground',
+  },
   template: `
-    <nav role="navigation" aria-label="Projects and workspaces" class="strip">
+    <nav
+      role="navigation"
+      aria-label="Projects and workspaces"
+      class="flex items-center gap-1 px-3 py-2 border-b border-border flex-none"
+    >
       <button
         hlmBtn
         variant="ghost"
@@ -68,10 +76,11 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
       >
         &#9776;
       </button>
-      <span class="label">PROJECTS</span>
-      <span class="spacer"></span>
+      <span
+        class="label ml-1 text-[11px] tracking-[0.08em] text-muted-foreground uppercase"
+      >PROJECTS</span>
+      <span class="flex-auto"></span>
       <app-add-project-menu
-        class="add-project-menu"
         variant="ghost"
         size="icon-xs"
         label="+"
@@ -79,7 +88,7 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
       />
     </nav>
 
-    <div class="scroll">
+    <div class="flex-auto min-h-0 overflow-auto">
       @if (projects.projectsLoading()) {
         <app-sidebar-skeleton />
       } @else if (projects.projectsError()) {
@@ -97,37 +106,7 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
     </div>
   `,
   styles: `
-    :host {
-      display: flex;
-      flex-direction: column;
-      min-height: 0;
-      height: 100%;
-      background: hsl(var(--sidebar));
-      border-right: 1px solid hsl(var(--border));
-      color: hsl(var(--foreground));
-      font-family: var(--font-sans);
-    }
-    .strip {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      padding: 8px 12px;
-      border-bottom: 1px solid hsl(var(--border));
-      flex: 0 0 auto;
-    }
-    .label {
-      margin-left: 4px;
-      font-size: 11px;
-      letter-spacing: 0.08em;
-      color: hsl(var(--muted-foreground));
-      text-transform: uppercase;
-    }
-    .spacer { flex: 1 1 auto; }
-    .scroll {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow: auto;
-    }
+    :host { font-family: var(--font-sans); }
   `,
 })
 export class SidebarComponent {

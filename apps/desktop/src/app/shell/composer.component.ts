@@ -68,11 +68,15 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
       lucidePaperclip,
     }),
   ],
+  host: { class: 'block' },
   template: `
-    <form class="composer" (submit)="onSubmit($event)">
+    <form
+      class="composer flex flex-col gap-2 px-4 py-3 border-t border-border"
+      (submit)="onSubmit($event)"
+    >
       <textarea
         hlmTextarea
-        class="composer-textarea"
+        class="resize-y min-h-[64px]"
         [ngModel]="value()"
         (ngModelChange)="value.set($event)"
         [disabled]="isRunning()"
@@ -82,7 +86,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
         (keydown)="onKeydown($event)"
       ></textarea>
 
-      <div class="toolbar">
+      <div class="flex items-center gap-1 flex-wrap">
         <!-- Left group: Model / Effort / Mode -->
         <button
           hlmBtn
@@ -93,7 +97,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
           [hlmTooltip]="comingSoon"
           [hlmDropdownMenuTrigger]="modelMenu"
           aria-label="Select model"
-          class="toolbar-btn"
+          class="text-muted-foreground"
         >
           <ng-icon name="lucideBot" class="toolbar-icon" />
           <span>Model</span>
@@ -111,7 +115,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
           [hlmTooltip]="comingSoon"
           [hlmDropdownMenuTrigger]="effortMenu"
           aria-label="Select effort"
-          class="toolbar-btn"
+          class="text-muted-foreground"
         >
           <ng-icon name="lucideGauge" class="toolbar-icon" />
           <span>Effort</span>
@@ -121,11 +125,11 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
         </ng-template>
 
         <span
-          class="mode-toggle-wrap"
+          class="inline-flex items-center mx-0.5"
           [hlmTooltip]="comingSoon"
         >
           <hlm-toggle-group
-            class="mode-toggle"
+            class="opacity-100"
             disabled
             value="normal"
             aria-label="Agent mode"
@@ -151,7 +155,10 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
           </hlm-toggle-group>
         </span>
 
-        <span class="separator" aria-hidden="true"></span>
+        <span
+          class="inline-block w-px h-5 mx-1.5 bg-border"
+          aria-hidden="true"
+        ></span>
 
         <!-- Middle group: attachments / links / issues -->
         <button
@@ -162,7 +169,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
           disabled
           [hlmTooltip]="comingSoon"
           aria-label="Attach file"
-          class="toolbar-icon-btn"
+          class="text-muted-foreground"
         >
           <ng-icon name="lucidePaperclip" />
         </button>
@@ -174,7 +181,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
           disabled
           [hlmTooltip]="comingSoon"
           aria-label="Link"
-          class="toolbar-icon-btn"
+          class="text-muted-foreground"
         >
           <ng-icon name="lucideLink" />
         </button>
@@ -186,15 +193,18 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
           disabled
           [hlmTooltip]="comingSoon"
           aria-label="Issue"
-          class="toolbar-icon-btn"
+          class="text-muted-foreground"
         >
           <ng-icon name="lucideHash" />
         </button>
 
-        <span class="spacer"></span>
+        <span class="flex-auto"></span>
 
         <!-- Right group: kbd hint + Send / Stop -->
-        <span class="kbd-hint" aria-hidden="true">
+        <span
+          class="inline-flex items-center gap-0.5 mr-1.5 text-muted-foreground"
+          aria-hidden="true"
+        >
           <kbd hlmKbd>&#8984;</kbd>
           <kbd hlmKbd>&#9166;</kbd>
         </span>
@@ -226,61 +236,10 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
     </form>
   `,
   styles: `
-    :host {
-      display: block;
-    }
     .composer {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 12px 16px;
-      border-top: 1px solid hsl(var(--border));
       background: var(--bg-composer, hsl(var(--card)));
     }
-    /* hlmTextarea owns border + focus ring; we only constrain sizing. */
-    .composer-textarea {
-      resize: vertical;
-      min-height: 64px;
-    }
-    .toolbar {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-    .toolbar-btn,
-    .toolbar-icon-btn {
-      color: hsl(var(--muted-foreground));
-    }
-    .toolbar-icon {
-      --ng-icon__size: 14px;
-    }
-    .mode-toggle-wrap {
-      display: inline-flex;
-      align-items: center;
-      margin-left: 2px;
-      margin-right: 2px;
-    }
-    .mode-toggle {
-      opacity: 1;
-    }
-    .separator {
-      display: inline-block;
-      width: 1px;
-      height: 20px;
-      background: hsl(var(--border));
-      margin: 0 6px;
-    }
-    .spacer {
-      flex: 1 1 auto;
-    }
-    .kbd-hint {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      margin-right: 6px;
-      color: hsl(var(--muted-foreground));
-    }
+    .toolbar-icon { --ng-icon__size: 14px; }
   `,
 })
 export class ComposerComponent {
