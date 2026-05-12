@@ -2,8 +2,10 @@ import { Route } from '@angular/router';
 
 export const appRoutes: Route[] = [
   {
-    path: '',
+    path: 'legacy',
     loadComponent: () =>
-      import('./shell/app-shell.component').then((m) => m.AppShellComponent),
+      import('./legacy/shell/app-shell.component').then(
+        (m) => m.AppShellComponent,
+      ),
   },
 ];
