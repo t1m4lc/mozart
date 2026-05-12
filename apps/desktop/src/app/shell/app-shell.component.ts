@@ -1,17 +1,27 @@
 /**
  * `AppShellComponent` — the dark 3-panel root view.
  *
- * Layout (per DESIGN.md):
- *   - Outer host: `display: grid` with two rows: a 36 px top bar +
- *     a 1fr body strip.
- *   - Body strip: `grid-template-columns: var(--sidebar-width) 1fr
- *     var(--right-panel-width)` when the right pane is visible,
- *     `var(--sidebar-width) 1fr` when hidden — the centre pane fills
- *     the freed track.
- *   - Below 1100 px viewport width the right `<aside>` collapses (hidden
- *     via `display: none`) — the centre pane expands to fill its track.
+ * Layout (per DESIGN.md, S1.ui.2 re-architecture):
+ *   - The host renders a 64px-tall header band on top of the body. The
+ *     band is column-aligned to the body's 3-column grid (sidebar /
+ *     center / right-panel), so every header segment sits directly
+ *     above its corresponding body column.
+ *   - LEFT segment   = `<app-top-bar>` (mac traffic-lights or empty +
+ *     draggable). Width: `var(--sidebar-width)`.
+ *   - CENTER segment = `<app-center-header>` (breadcrumb row + tabs
+ *     row, stacked to 2 × 32px). Width: `1fr`. Only renders when a
+ *     workspace is selected (matches `centerView() === 'chat'`).
+ *   - RIGHT segment  = `<app-right-header>` (win/linux controls or
+ *     empty + draggable). Width: `var(--right-panel-width)`.
+ *   - Body strip: same 3-column grid as before — sidebar / main /
+ *     aside, with the `aside` track collapsing when the right panel is
+ *     hidden or the viewport drops below 1100 px.
  *
- * ARIA landmarks: the top bar component owns `role="banner"`; the
+ * Hiding the right-panel column also hides the RIGHT header segment so
+ * the 3-segment header always matches the body grid exactly. The same
+ * `@media (max-width: 1099px)` rule applies to both rows.
+ *
+ * ARIA landmarks: the top-bar component owns `role="banner"`; the
  * sidebar owns `role="navigation"`; this component contributes
  * `role="main"` (centre) + `role="complementary"` (right).
  *
@@ -23,10 +33,6 @@
  *     `showRightPanel()` (right aside visibility). It reads
  *     `WorkspaceStore.selectedWorkspaceId()` via a computed — no
  *     duplicated state lives in the shell store.
- *
- * Center routing: S1.8b.4 will swap the `chat` branch for
- * `<app-chat-panel />`. Until then both branches render the empty-center
- * placeholder so the switch is visible in DevTools.
  */
 import {
   ChangeDetectionStrategy,
@@ -42,10 +48,12 @@ import { ProjectStore } from '../state/project.store';
 import { ShellStore } from '../state/shell.store';
 import { WorkspaceStore } from '../state/workspace.store';
 import { SidebarComponent } from '../sidebar/sidebar.component';
+import { CenterHeaderComponent } from './center-header.component';
 import { ChatPanelComponent } from './chat-panel.component';
 import { CreateWorkspaceDialogComponent } from './create-workspace-dialog.component';
 import { EmptyCenterComponent } from './empty-center.component';
 import { EmptyRightComponent } from './empty-right.component';
+import { RightHeaderComponent } from './right-header.component';
 import { TopBarComponent } from './top-bar.component';
 
 @Component({
@@ -54,13 +62,25 @@ import { TopBarComponent } from './top-bar.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   imports: [
     TopBarComponent,
+    CenterHeaderComponent,
+    RightHeaderComponent,
     SidebarComponent,
     ChatPanelComponent,
     EmptyCenterComponent,
     EmptyRightComponent,
   ],
   template: `
-    <app-top-bar />
+    <div
+      class="shell-header"
+      [class.no-right]="!shellStore.showRightPanel()"
+      data-tauri-drag-region
+    >
+      <app-top-bar />
+      <app-center-header />
+      @if (shellStore.showRightPanel()) {
+        <app-right-header />
+      }
+    </div>
     <div class="shell-grid" [class.no-right]="!shellStore.showRightPanel()">
       <app-sidebar />
       <main role="main" aria-label="Workspace conversation">
@@ -80,11 +100,20 @@ import { TopBarComponent } from './top-bar.component';
   styles: `
     :host {
       display: grid;
-      grid-template-rows: 32px 1fr;
+      grid-template-rows: 64px 1fr;
       height: 100vh;
       background: hsl(var(--background));
       color: hsl(var(--foreground));
       font-family: var(--font-sans);
+    }
+    .shell-header {
+      display: grid;
+      grid-template-columns: var(--sidebar-width) 1fr var(--right-panel-width);
+      height: 64px;
+      min-height: 0;
+    }
+    .shell-header.no-right {
+      grid-template-columns: var(--sidebar-width) 1fr;
     }
     .shell-grid {
       display: grid;
@@ -102,8 +131,10 @@ import { TopBarComponent } from './top-bar.component';
     main { background: var(--bg-center); }
     aside { background: hsl(var(--card)); border-left: 1px solid hsl(var(--border)); }
     @media (max-width: 1099px) {
+      .shell-header { grid-template-columns: var(--sidebar-width) 1fr; }
       .shell-grid { grid-template-columns: var(--sidebar-width) 1fr; }
       aside { display: none; }
+      app-right-header { display: none; }
     }
   `,
 })

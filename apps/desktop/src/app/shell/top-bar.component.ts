@@ -1,8 +1,30 @@
+/**
+ * `TopBarComponent` — LEFT segment of the 3-segment shell header.
+ *
+ * Per the S1.ui.2 shell re-architecture, the header is now split into
+ * three column-aligned segments (sidebar / center / right-panel). This
+ * component owns the LEFT segment only — sized to `var(--sidebar-width)`
+ * so it sits directly above the sidebar's existing internal nav strip.
+ *
+ * Platform split:
+ *   - macOS: traffic-light buttons (close / minimize / maximize) live
+ *     here. Apple's standard system colors are intentional raw `#hex`
+ *     values with no design-token equivalent — see the inline comment
+ *     above the cluster for the rationale carried over from S1.ui.0.
+ *   - Windows / Linux: this segment is empty + draggable. The window
+ *     controls (minimize / maximize / close) live in
+ *     `<app-right-header>` (the RIGHT segment).
+ *
+ * The brand wordmark + diamond glyph were dropped per the S1.ui.2
+ * decision to remove the brand string from the rendered UI.
+ *
+ * Drag region: every non-interactive area carries
+ * `data-tauri-drag-region`; every interactive control (the 3 mac
+ * buttons) carries `data-tauri-drag-region="false"` so clicks reach the
+ * handlers instead of starting a window drag.
+ */
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideMinus, lucideSquare, lucideX } from '@ng-icons/lucide';
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { OsService } from '../services/os.service';
 
@@ -11,20 +33,24 @@ import { OsService } from '../services/os.service';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { 'data-tauri-drag-region': '' },
-  imports: [NgIcon, HlmButtonImports, HlmTooltipImports],
-  providers: [provideIcons({ lucideMinus, lucideSquare, lucideX })],
+  imports: [HlmTooltipImports],
   template: `
-    <header role="banner" class="bar" data-tauri-drag-region>
+    <header
+      role="banner"
+      class="left-segment"
+      aria-label="Window controls"
+      data-tauri-drag-region
+    >
       @if (isMacOS) {
         <!--
           The macOS traffic-light cluster is a platform widget — the
           12×12 colored circles are standard Apple system colors, not
-          Mozart design tokens. The hex literals below are intentional
+          design tokens from this codebase. The hex literals below are intentional
           and have no theme-token equivalent; they remain raw <button>
           rather than hlmBtn because adopting Spartan would override the
           carefully-tuned circular look + the platform-recognized colors.
           A tooltip is still attached to each control for parity with
-          the Windows controls below.
+          the Windows controls in <app-right-header>.
         -->
         <span class="window-controls-mac" data-tauri-drag-region="false">
           <button
@@ -52,123 +78,31 @@ import { OsService } from '../services/os.service';
             (click)="toggleMaximize()"
           ></button>
         </span>
-        <span
-          class="brand brand-mac"
-          aria-label="Mozart"
-          data-tauri-drag-region
-        >
-          <span class="diamond" aria-hidden="true" data-tauri-drag-region
-            >&#9670;</span
-          >
-          <span class="name" data-tauri-drag-region>Mozart</span>
-        </span>
-        <span class="spacer" data-tauri-drag-region></span>
-      } @else {
-        <span class="brand" aria-label="Mozart" data-tauri-drag-region>
-          <span class="diamond" aria-hidden="true" data-tauri-drag-region
-            >&#9670;</span
-          >
-          <span class="name" data-tauri-drag-region>Mozart</span>
-        </span>
-        <span class="spacer" data-tauri-drag-region></span>
-        <span class="window-controls" data-tauri-drag-region="false">
-          <button
-            hlmBtn
-            variant="ghost"
-            size="icon-xs"
-            type="button"
-            class="wc-btn"
-            aria-label="Minimize"
-            data-tauri-drag-region="false"
-            [hlmTooltip]="'Minimize'"
-            (click)="minimize()"
-          >
-            <ng-icon name="lucideMinus" class="wc-icon" />
-          </button>
-          <button
-            hlmBtn
-            variant="ghost"
-            size="icon-xs"
-            type="button"
-            class="wc-btn"
-            aria-label="Maximize"
-            data-tauri-drag-region="false"
-            [hlmTooltip]="'Maximize'"
-            (click)="toggleMaximize()"
-          >
-            <ng-icon name="lucideSquare" class="wc-icon" />
-          </button>
-          <button
-            hlmBtn
-            variant="ghost"
-            size="icon-xs"
-            type="button"
-            class="wc-btn"
-            aria-label="Close"
-            data-tauri-drag-region="false"
-            [hlmTooltip]="'Close'"
-            (click)="close()"
-          >
-            <ng-icon name="lucideX" class="wc-icon" />
-          </button>
-        </span>
       }
+      <span class="spacer" data-tauri-drag-region></span>
     </header>
   `,
   styles: `
     :host {
       display: block;
+      height: 100%;
     }
-    .bar {
+    .left-segment {
       display: flex;
       align-items: center;
       gap: 8px;
-      height: 32px;
+      height: 100%;
       padding: 0 12px;
       background: hsl(var(--card));
       border-bottom: 1px solid hsl(var(--border));
       color: hsl(var(--foreground));
       font-family: var(--font-sans);
     }
-    .bar button {
+    .left-segment button {
       cursor: pointer;
-    }
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .brand-mac {
-      margin-left: 12px;
-    }
-    .diamond {
-      color: hsl(var(--foreground));
-      font-size: 14px;
-      line-height: 1;
-    }
-    .name {
-      font-size: 13px;
-      font-weight: 600;
     }
     .spacer {
       flex: 1 1 auto;
-    }
-
-    .window-controls {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-    }
-    /* hlmBtn variant="ghost" size="icon-xs" owns sizing + hover; we only
-       tint icon color so the controls match the muted top-bar palette. */
-    .wc-btn {
-      color: hsl(var(--muted-foreground));
-    }
-    .wc-btn:hover {
-      color: hsl(var(--foreground));
-    }
-    .wc-icon {
-      --ng-icon__size: 14px;
     }
 
     /* macOS traffic-light cluster */

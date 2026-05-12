@@ -4,6 +4,7 @@
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/shared-util-theme";
+@source "../../../libs/ui/breadcrumb";
 @source "../../../libs/ui/button";
 @source "../../../libs/ui/collapsible";
 @source "../../../libs/ui/context-menu";
@@ -11,6 +12,7 @@
 @source "../../../libs/ui/dropdown-menu";
 @source "../../../libs/ui/icon";
 @source "../../../libs/ui/label";
+@source "../../../libs/ui/tabs";
 @source "../../../libs/ui/textarea";
 @source "../../../libs/ui/tooltip";
 @source "../../../libs/ui/utils";
