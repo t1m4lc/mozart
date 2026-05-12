@@ -1,9 +1,15 @@
 /**
- * `EmptyRightComponent` — placeholder shown in the right `<aside>` when
- * no workspace is selected. Muted-tone card per DESIGN.md state matrix.
+ * `EmptyRightComponent` — scaffold for the right panel.
  *
- * The right pane will host the diff viewer + terminal (plans 09–10);
- * for v0.0.1 it is purely a "nothing selected" surface.
+ * Three stacked, empty sections separated by theme-bound borders:
+ *   1. Files
+ *   2. Run
+ *   3. Terminal
+ *
+ * v0.0.1 deliberately ships empty content areas — the diff viewer,
+ * run output, and terminal embedding land in later plans (09–10).
+ * Visibility is controlled by `ShellStore.showRightPanel` via the
+ * top-bar toggle in `app-shell`.
  */
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 
@@ -12,31 +18,47 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="card">
-      <p class="copy">No workspace selected.</p>
-    </div>
+    <section class="panel-section border-b border-border" aria-label="Files">
+      <header class="section-label">Files</header>
+      <div class="section-body"></div>
+    </section>
+
+    <section class="panel-section border-b border-border" aria-label="Run">
+      <header class="section-label">Run</header>
+      <div class="section-body"></div>
+    </section>
+
+    <section class="panel-section" aria-label="Terminal">
+      <header class="section-label">Terminal</header>
+      <div class="section-body"></div>
+    </section>
   `,
   styles: `
     :host {
       display: flex;
-      align-items: center;
-      justify-content: center;
+      flex-direction: column;
       width: 100%;
       height: 100%;
     }
-    .card {
-      max-width: 260px;
-      padding: 16px;
-      border: 1px dashed hsl(var(--border));
-      border-radius: var(--radius-md);
-      background: transparent;
-      text-align: center;
+    .panel-section {
+      display: flex;
+      flex-direction: column;
+      flex: 1 1 0;
+      min-height: 0;
+      padding: 12px 16px;
     }
-    .copy {
-      margin: 0;
+    .section-label {
       font-family: var(--font-sans);
-      font-size: 13px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
       color: hsl(var(--muted-foreground));
+      margin-bottom: 8px;
+    }
+    .section-body {
+      flex: 1 1 auto;
+      min-height: 0;
     }
   `,
 })
