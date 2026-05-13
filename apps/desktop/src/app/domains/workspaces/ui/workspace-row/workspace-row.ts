@@ -31,23 +31,27 @@ import type { Workspace } from '../../data/workspace.model';
   template: `
     @if (editing()) {
       <div
-        hlmSidebarMenuButton
-        class="relative cursor-text rounded-sm gap-1.5 px-2"
+        class="relative flex h-8 items-center gap-1.5 rounded-md px-2"
       >
         <ng-icon
           hlm
           name="lucideGitBranch"
           size="xs"
-          class="text-muted-foreground"
+          class="shrink-0 text-muted-foreground"
         />
         @if (workspace().pinned) {
-          <ng-icon hlm name="lucidePin" size="10px" class="text-brand" />
+          <ng-icon
+            hlm
+            name="lucidePin"
+            size="10px"
+            class="shrink-0 text-brand"
+          />
         }
         <input
           #renameInput
           type="text"
           [value]="workspace().title"
-          class="min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 py-0.5 text-sm font-normal text-foreground outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/30"
+          class="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-2 text-sm font-normal leading-none text-foreground outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/30"
           (click)="$event.stopPropagation()"
           (keydown.enter)="commitRename($any($event.target).value)"
           (keydown.escape)="cancelRename()"
