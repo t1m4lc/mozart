@@ -15,12 +15,15 @@ use crate::error::AppError;
 
 pub mod agent_events;
 pub mod agent_runs;
+pub mod chats;
 pub mod config;
+pub mod messages;
 pub mod models;
 pub mod outbox;
 pub mod repos;
 pub mod tasks;
 pub mod threads;
+pub mod workspace_active_chat;
 pub mod workspace_changes;
 pub mod workspaces;
 
@@ -31,6 +34,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("../../migrations/001_init.sql")),
     (2, include_str!("../../migrations/002_projects_user_state.sql")),
     (3, include_str!("../../migrations/003_workspaces_ui_status.sql")),
+    (4, include_str!("../../migrations/004_chat.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.

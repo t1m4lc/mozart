@@ -191,6 +191,99 @@ async discardWorkspaceChanges(workspaceId: string) : Promise<Result<null, AppErr
     else return { status: "error", error: e  as any };
 }
 },
+async listChats(workspaceId: string) : Promise<Result<Chat[], AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_chats", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async createChat(workspaceId: string, title: string, llmId: string | null) : Promise<Result<Chat, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_chat", { workspaceId, title, llmId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async renameChat(chatId: string, title: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("rename_chat", { chatId, title }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async closeChat(chatId: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("close_chat", { chatId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async getActiveChat(workspaceId: string) : Promise<Result<string | null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_active_chat", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async setActiveChat(workspaceId: string, chatId: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_active_chat", { workspaceId, chatId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async listMessages(chatId: string) : Promise<Result<Message[], AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_messages", { chatId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Inserts a message and returns the canonical row. Angular passes a
+ * pre-generated `message_id` so optimistic UI can swap by ID without
+ * a round-trip ambiguity.
+ */
+async insertMessage(messageId: string, chatId: string, role: string, content: string, mode: string | null, status: string, runId: string | null, timelineJson: string | null) : Promise<Result<Message, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("insert_message", { messageId, chatId, role, content, mode, status, runId, timelineJson }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateMessageContent(messageId: string, content: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_message_content", { messageId, content }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateMessageStatus(messageId: string, status: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_message_status", { messageId, status }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async updateMessageTimeline(messageId: string, timelineJson: string | null) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("update_message_timeline", { messageId, timelineJson }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async checkClaudeInstall() : Promise<ClaudeInstall> {
     return await TAURI_INVOKE("check_claude_install");
 },
@@ -286,10 +379,12 @@ export type AgentRun = { run_id: string; thread_id: string; prompt: string; stat
  */
 export type AgentRunTerminated = { run_id: string; status: string }
 export type AppError = { kind: "Db"; message: string } | { kind: "Io"; message: string } | { kind: "NotFound"; message: string } | { kind: "Validation"; message: string } | { kind: "AgentSpawn"; message: string } | { kind: "GitCmd"; message: string }
+export type Chat = { chat_id: string; workspace_id: string; title: string; llm_id: string | null; closed_at: number | null; created_at: number }
 /**
  * Outcome of probing for the `claude` CLI.
  */
 export type ClaudeInstall = { kind: "installed"; version: string } | { kind: "missing" }
+export type Message = { message_id: string; chat_id: string; run_id: string | null; role: string; content: string; mode: string | null; status: string; timeline_json: string | null; created_at: number }
 /**
  * Outcome of a probe call. Sent to the frontend via tauri-specta as a
  * tagged TS union `{ kind: 'connected' | 'invalid' | 'network_error' }`.

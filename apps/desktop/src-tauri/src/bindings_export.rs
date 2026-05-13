@@ -8,7 +8,9 @@
 use crate::claude_cli::{install::ClaudeInstall, AgentRunTerminated, StreamEvent};
 use crate::commands;
 use crate::credentials::anthropic_probe::ProbeResult;
-use crate::db::models::{AgentRun, Repo, Task, Thread, Workspace, WorkspaceChange};
+use crate::db::models::{
+    AgentRun, Chat, Message, Repo, Task, Thread, Workspace, WorkspaceChange,
+};
 use crate::error::AppError;
 
 pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
@@ -34,6 +36,17 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::list_runs,
             commands::get_workspace_diff,
             commands::discard_workspace_changes,
+            commands::list_chats,
+            commands::create_chat,
+            commands::rename_chat,
+            commands::close_chat,
+            commands::get_active_chat,
+            commands::set_active_chat,
+            commands::list_messages,
+            commands::insert_message,
+            commands::update_message_content,
+            commands::update_message_status,
+            commands::update_message_timeline,
             commands::check_claude_install,
             commands::check_claude_code_session,
             commands::has_anthropic_key,
@@ -51,5 +64,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<Thread>()
         .typ::<AgentRun>()
         .typ::<WorkspaceChange>()
+        .typ::<Chat>()
+        .typ::<Message>()
         .typ::<ProbeResult>()
 }

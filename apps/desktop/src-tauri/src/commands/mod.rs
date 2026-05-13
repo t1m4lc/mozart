@@ -25,8 +25,11 @@ use crate::claude_cli::session;
 use crate::claude_cli::{spawn_run, AgentRunTerminated, StreamEvent};
 use crate::credentials::anthropic_probe::{self, ProbeResult};
 use crate::credentials::keyring_store;
-use crate::db::models::{AgentRun, Repo, Task, Workspace, WorkspaceChange};
-use crate::db::{agent_runs, new_id, now_ms, repos, tasks, threads, workspace_changes, workspaces};
+use crate::db::models::{AgentRun, Chat, Message, Repo, Task, Workspace, WorkspaceChange};
+use crate::db::{
+    agent_runs, chats, messages, new_id, now_ms, repos, tasks, threads,
+    workspace_active_chat, workspace_changes, workspaces,
+};
 use crate::db::DbState;
 use crate::error::AppError;
 use crate::git_query;
@@ -553,6 +556,259 @@ pub(crate) async fn discard_workspace_changes_impl(
         (ws.worktree_path, sha)
     };
     sandbox::discard_changes_to(std::path::Path::new(&worktree_path), &checkpoint_sha).await
+}
+
+// ===========================================================================
+// Chat surface (S4.A)
+// ---------------------------------------------------------------------------
+// Tab bar + persistent messages. The Angular ChatFacade owns optimistic
+// store mutations; these commands persist and return the canonical row.
+// ===========================================================================
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_chats(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<Vec<Chat>, AppError> {
+    list_chats_impl(db.inner(), workspace_id).await
+}
+
+pub(crate) async fn list_chats_impl(
+    db: &DbState,
+    workspace_id: String,
+) -> Result<Vec<Chat>, AppError> {
+    let conn = db.lock();
+    chats::list_open_for_workspace(&conn, &workspace_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn create_chat(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    title: String,
+    llm_id: Option<String>,
+) -> Result<Chat, AppError> {
+    create_chat_impl(db.inner(), workspace_id, title, llm_id).await
+}
+
+pub(crate) async fn create_chat_impl(
+    db: &DbState,
+    workspace_id: String,
+    title: String,
+    llm_id: Option<String>,
+) -> Result<Chat, AppError> {
+    let c = Chat {
+        chat_id: new_id(),
+        workspace_id,
+        title,
+        llm_id,
+        closed_at: None,
+        created_at: now_ms(),
+    };
+    let conn = db.lock();
+    chats::create(&conn, &c)?;
+    Ok(c)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn rename_chat(
+    db: State<'_, DbState>,
+    chat_id: String,
+    title: String,
+) -> Result<(), AppError> {
+    rename_chat_impl(db.inner(), chat_id, title).await
+}
+
+pub(crate) async fn rename_chat_impl(
+    db: &DbState,
+    chat_id: String,
+    title: String,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    chats::set_title(&conn, &chat_id, &title)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn close_chat(db: State<'_, DbState>, chat_id: String) -> Result<(), AppError> {
+    close_chat_impl(db.inner(), chat_id).await
+}
+
+pub(crate) async fn close_chat_impl(db: &DbState, chat_id: String) -> Result<(), AppError> {
+    let conn = db.lock();
+    chats::close(&conn, &chat_id, now_ms())
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_active_chat(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<Option<String>, AppError> {
+    get_active_chat_impl(db.inner(), workspace_id).await
+}
+
+pub(crate) async fn get_active_chat_impl(
+    db: &DbState,
+    workspace_id: String,
+) -> Result<Option<String>, AppError> {
+    let conn = db.lock();
+    workspace_active_chat::get(&conn, &workspace_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_active_chat(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    chat_id: String,
+) -> Result<(), AppError> {
+    set_active_chat_impl(db.inner(), workspace_id, chat_id).await
+}
+
+pub(crate) async fn set_active_chat_impl(
+    db: &DbState,
+    workspace_id: String,
+    chat_id: String,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    workspace_active_chat::set(&conn, &workspace_id, &chat_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_messages(
+    db: State<'_, DbState>,
+    chat_id: String,
+) -> Result<Vec<Message>, AppError> {
+    list_messages_impl(db.inner(), chat_id).await
+}
+
+pub(crate) async fn list_messages_impl(
+    db: &DbState,
+    chat_id: String,
+) -> Result<Vec<Message>, AppError> {
+    let conn = db.lock();
+    messages::list_for_chat(&conn, &chat_id)
+}
+
+/// Inserts a message and returns the canonical row. Angular passes a
+/// pre-generated `message_id` so optimistic UI can swap by ID without
+/// a round-trip ambiguity.
+#[tauri::command]
+#[specta::specta]
+#[allow(clippy::too_many_arguments)]
+pub async fn insert_message(
+    db: State<'_, DbState>,
+    message_id: String,
+    chat_id: String,
+    role: String,
+    content: String,
+    mode: Option<String>,
+    status: String,
+    run_id: Option<String>,
+    timeline_json: Option<String>,
+) -> Result<Message, AppError> {
+    insert_message_impl(
+        db.inner(),
+        message_id,
+        chat_id,
+        role,
+        content,
+        mode,
+        status,
+        run_id,
+        timeline_json,
+    )
+    .await
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(crate) async fn insert_message_impl(
+    db: &DbState,
+    message_id: String,
+    chat_id: String,
+    role: String,
+    content: String,
+    mode: Option<String>,
+    status: String,
+    run_id: Option<String>,
+    timeline_json: Option<String>,
+) -> Result<Message, AppError> {
+    let msg = Message {
+        message_id,
+        chat_id,
+        run_id,
+        role,
+        content,
+        mode,
+        status,
+        timeline_json,
+        created_at: now_ms(),
+    };
+    let conn = db.lock();
+    messages::insert(&conn, &msg)?;
+    Ok(msg)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_message_content(
+    db: State<'_, DbState>,
+    message_id: String,
+    content: String,
+) -> Result<(), AppError> {
+    update_message_content_impl(db.inner(), message_id, content).await
+}
+
+pub(crate) async fn update_message_content_impl(
+    db: &DbState,
+    message_id: String,
+    content: String,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    messages::update_content(&conn, &message_id, &content)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_message_status(
+    db: State<'_, DbState>,
+    message_id: String,
+    status: String,
+) -> Result<(), AppError> {
+    update_message_status_impl(db.inner(), message_id, status).await
+}
+
+pub(crate) async fn update_message_status_impl(
+    db: &DbState,
+    message_id: String,
+    status: String,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    messages::update_status(&conn, &message_id, &status)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_message_timeline(
+    db: State<'_, DbState>,
+    message_id: String,
+    timeline_json: Option<String>,
+) -> Result<(), AppError> {
+    update_message_timeline_impl(db.inner(), message_id, timeline_json).await
+}
+
+pub(crate) async fn update_message_timeline_impl(
+    db: &DbState,
+    message_id: String,
+    timeline_json: Option<String>,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    messages::update_timeline(&conn, &message_id, timeline_json.as_deref())
 }
 
 // ---------------------------------------------------------------------------
@@ -1433,6 +1689,138 @@ mod tests {
             ),
             other => panic!("expected Validation, got {other:?}"),
         }
+    }
+
+    // -------------------------------------------------------------------
+    // 12a. Chat surface (S4.A)
+    // -------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn create_list_chats_round_trip() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/cc");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        let c = create_chat_impl(&db, ws_id.clone(), "alpha".into(), None)
+            .await
+            .unwrap();
+        let got = list_chats_impl(&db, ws_id.clone()).await.unwrap();
+        assert_eq!(got.len(), 1);
+        assert_eq!(got[0].chat_id, c.chat_id);
+        assert_eq!(got[0].title, "alpha");
+    }
+
+    #[tokio::test]
+    async fn rename_close_chat_round_trip() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/rcc");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        let c = create_chat_impl(&db, ws_id.clone(), "alpha".into(), None)
+            .await
+            .unwrap();
+        rename_chat_impl(&db, c.chat_id.clone(), "beta".into())
+            .await
+            .unwrap();
+        let open = list_chats_impl(&db, ws_id.clone()).await.unwrap();
+        assert_eq!(open[0].title, "beta");
+        close_chat_impl(&db, c.chat_id.clone()).await.unwrap();
+        let open = list_chats_impl(&db, ws_id).await.unwrap();
+        assert!(open.is_empty());
+    }
+
+    #[tokio::test]
+    async fn active_chat_set_get() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/ac");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        let c = create_chat_impl(&db, ws_id.clone(), "x".into(), None)
+            .await
+            .unwrap();
+        assert_eq!(
+            get_active_chat_impl(&db, ws_id.clone()).await.unwrap(),
+            None
+        );
+        set_active_chat_impl(&db, ws_id.clone(), c.chat_id.clone())
+            .await
+            .unwrap();
+        assert_eq!(
+            get_active_chat_impl(&db, ws_id).await.unwrap(),
+            Some(c.chat_id),
+        );
+    }
+
+    #[tokio::test]
+    async fn message_insert_and_list() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/mi");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        let c = create_chat_impl(&db, ws_id, "x".into(), None).await.unwrap();
+        let m1_id = new_id();
+        insert_message_impl(
+            &db,
+            m1_id.clone(),
+            c.chat_id.clone(),
+            "user".into(),
+            "hi".into(),
+            Some("normal".into()),
+            "done".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        let m2_id = new_id();
+        insert_message_impl(
+            &db,
+            m2_id.clone(),
+            c.chat_id.clone(),
+            "assistant".into(),
+            "".into(),
+            Some("normal".into()),
+            "streaming".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        let got = list_messages_impl(&db, c.chat_id).await.unwrap();
+        assert_eq!(got.len(), 2);
+        assert_eq!(got[0].message_id, m1_id);
+        assert_eq!(got[1].message_id, m2_id);
+    }
+
+    #[tokio::test]
+    async fn message_update_content_status_timeline() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/mu");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        let c = create_chat_impl(&db, ws_id, "x".into(), None).await.unwrap();
+        let mid = new_id();
+        insert_message_impl(
+            &db,
+            mid.clone(),
+            c.chat_id.clone(),
+            "assistant".into(),
+            "".into(),
+            None,
+            "streaming".into(),
+            None,
+            None,
+        )
+        .await
+        .unwrap();
+        update_message_content_impl(&db, mid.clone(), "partial".into())
+            .await
+            .unwrap();
+        update_message_status_impl(&db, mid.clone(), "done".into())
+            .await
+            .unwrap();
+        update_message_timeline_impl(&db, mid.clone(), Some(r#"{"x":1}"#.into()))
+            .await
+            .unwrap();
+        let got = list_messages_impl(&db, c.chat_id).await.unwrap();
+        assert_eq!(got[0].content, "partial");
+        assert_eq!(got[0].status, "done");
+        assert_eq!(got[0].timeline_json.as_deref(), Some(r#"{"x":1}"#));
     }
 
     // -------------------------------------------------------------------

@@ -54,6 +54,17 @@ fn export_contains_all_commands_and_types() {
         "listRuns",
         "getWorkspaceDiff",
         "discardWorkspaceChanges",
+        "listChats",
+        "createChat",
+        "renameChat",
+        "closeChat",
+        "getActiveChat",
+        "setActiveChat",
+        "listMessages",
+        "insertMessage",
+        "updateMessageContent",
+        "updateMessageStatus",
+        "updateMessageTimeline",
         "checkClaudeInstall",
         // Step 6 — Anthropic credentials + Claude Code session probe.
         "checkClaudeCodeSession",
@@ -82,6 +93,8 @@ fn export_contains_all_commands_and_types() {
         "Thread",
         "AgentRun",
         "WorkspaceChange",
+        "Chat",
+        "Message",
         "ProbeResult", // Step 6 — Anthropic connection probe outcome.
     ];
     for ty in expected_types {

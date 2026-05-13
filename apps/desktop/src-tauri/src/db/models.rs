@@ -103,3 +103,26 @@ pub struct ConfigEntry {
     pub key: String,
     pub value: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct Chat {
+    pub chat_id: String,
+    pub workspace_id: String,
+    pub title: String,
+    pub llm_id: Option<String>,
+    pub closed_at: Option<i64>,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct Message {
+    pub message_id: String,
+    pub chat_id: String,
+    pub run_id: Option<String>,
+    pub role: String,    // user | assistant | system
+    pub content: String,
+    pub mode: Option<String>, // normal | plan
+    pub status: String,  // pending | queued | streaming | done | error | stopped
+    pub timeline_json: Option<String>,
+    pub created_at: i64,
+}
