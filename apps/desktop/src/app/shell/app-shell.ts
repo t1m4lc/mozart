@@ -8,36 +8,33 @@ import {
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
-import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmResizableImports, HlmResizablePanel } from '@mozart/ui/resizable';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import { HlmToasterImports } from '@mozart/ui/sonner';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleQuestionMark,
-  lucideFolderOpen,
-  lucideFolderPlus,
-  lucideGithub,
   lucidePanelLeft,
   lucideSettings,
-  lucideZap,
 } from '@ng-icons/lucide';
 import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
 import {
+  FeatureAddProject,
   GroupByFilter,
-  ProjectListContainer,
+  ProjectsFacade,
   ProjectsHeaderContextMenu,
-} from '../domains/workspaces';
-import { ProjectListStore } from '../domains/workspaces/feature-list/project-list.store';
+} from '../domains/projects';
 import { ShellAside } from './shell-aside';
 import {
   SHELL_LEFT_PANEL_PX,
   SHELL_RIGHT_PANEL_PX,
   pxToPercent,
 } from './shell-panel.constants';
+import { ShellProjectList } from './shell-project-list';
 
 @Component({
   selector: 'app-shell',
@@ -48,25 +45,22 @@ import {
     MacWindowControls,
     HlmButtonImports,
     HlmContextMenuImports,
-    HlmDropdownMenuImports,
     HlmIconImports,
     HlmResizableImports,
     HlmSidebarImports,
+    HlmToasterImports,
     HlmTooltipImports,
+    FeatureAddProject,
     GroupByFilter,
-    ProjectListContainer,
     ProjectsHeaderContextMenu,
     ShellAside,
+    ShellProjectList,
   ],
   providers: [
     provideIcons({
       lucideCircleQuestionMark,
-      lucideFolderOpen,
-      lucideFolderPlus,
-      lucideGithub,
       lucidePanelLeft,
       lucideSettings,
-      lucideZap,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -121,58 +115,24 @@ import {
                 </span>
                 <app-group-by-filter
                   #filter
-                  [groupBy]="projectListStore.groupBy()"
-                  (groupByChange)="projectListStore.setGroupBy($event)"
+                  [groupBy]="projects.groupBy()"
+                  (groupByChange)="projects.setGroupBy($event)"
                 />
-                <button
-                  hlmBtn
-                  variant="ghost"
-                  size="icon-xs"
-                  hlmTooltip="Add project"
-                  position="bottom"
-                  class="size-7 rounded-md text-muted-foreground"
-                  [hlmDropdownMenuTrigger]="addMenu"
-                >
-                  <ng-icon hlm name="lucideFolderPlus" size="xs" />
-                </button>
-                <ng-template #addMenu>
-                  <hlm-dropdown-menu>
-                    <button hlmDropdownMenuItem type="button">
-                      <ng-icon hlm name="lucideFolderOpen" size="sm" />
-                      Open project
-                    </button>
-                    <button
-                      hlmDropdownMenuItem
-                      type="button"
-                      disabled
-                      hlmTooltip="Coming in v0.2"
-                    >
-                      <ng-icon hlm name="lucideGithub" size="sm" />
-                      Open GitHub project
-                    </button>
-                    <button
-                      hlmDropdownMenuItem
-                      type="button"
-                      disabled
-                      hlmTooltip="Coming in v0.2"
-                    >
-                      <ng-icon hlm name="lucideZap" size="sm" />
-                      Quick start
-                    </button>
-                  </hlm-dropdown-menu>
-                </ng-template>
+                <app-feature-add-project
+                  (openProject)="projects.openPickerAndAdd()"
+                />
               </div>
 
               <ng-template #projectsHeaderCtxMenu>
                 <app-projects-header-context-menu
-                  (expandAll)="projectListStore.expandAll()"
-                  (collapseAll)="projectListStore.collapseAll()"
+                  (expandAll)="projects.expandAll()"
+                  (collapseAll)="projects.collapseAll()"
                   (openFilter)="filter.open()"
                 />
               </ng-template>
 
               <div hlmSidebarGroupContent>
-                <app-project-list />
+                <app-shell-project-list />
               </div>
             </div>
           </div>
@@ -236,6 +196,8 @@ import {
         <app-shell-aside class="h-full w-full" />
       </div>
     </div>
+
+    <hlm-toaster position="bottom-right" />
   `,
 })
 export class AppShell {
@@ -244,7 +206,7 @@ export class AppShell {
 
   protected readonly isMac = inject(OsService).isMac();
   protected readonly layout = inject(LayoutService);
-  protected readonly projectListStore = inject(ProjectListStore);
+  protected readonly projects = inject(ProjectsFacade);
 
   protected readonly leftPanel_ = {
     default: pxToPercent(SHELL_LEFT_PANEL_PX.default),

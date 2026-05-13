@@ -7,10 +7,8 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import type { Project } from '../data/project.model';
-import { PROJECTS_MOCK } from '../data/projects.mock';
-import type { Workspace } from '../data/workspace.model';
-import type { UiWorkspaceStatus } from '../data/workspace-status';
+import type { Project } from './project.model';
+import { PROJECTS_MOCK } from './projects.mock';
 
 export type GroupBy = 'project' | 'status';
 
@@ -20,23 +18,20 @@ export type ProjectFilter = 'all' | ReadonlySet<string>;
 interface State {
   projects: Project[];
   expandedIds: ReadonlySet<string>;
-  activeWorkspaceId: string | null;
   hoveredProjectId: string | null;
   groupBy: GroupBy;
   projectFilter: ProjectFilter;
 }
 
 const initialState: State = {
-  // TODO: remplacer par appel Tauri réel (list_projects_with_workspaces)
   projects: PROJECTS_MOCK,
   expandedIds: new Set(PROJECTS_MOCK.map((p) => p.id)),
-  activeWorkspaceId: 'w1',
   hoveredProjectId: null,
   groupBy: 'project',
   projectFilter: 'all',
 };
 
-export const ProjectListStore = signalStore(
+export const ProjectStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
   withComputed(({ projects, projectFilter }) => ({
@@ -62,21 +57,7 @@ export const ProjectListStore = signalStore(
       });
     };
 
-    const mutateWorkspace = (
-      projectId: string,
-      workspaceId: string,
-      fn: (w: Workspace) => Workspace,
-    ): void => {
-      mutateProject(projectId, (p) => ({
-        ...p,
-        workspaces: p.workspaces.map((w) => (w.id === workspaceId ? fn(w) : w)),
-      }));
-    };
-
     return {
-      setActive(workspaceId: string): void {
-        patchState(store, { activeWorkspaceId: workspaceId });
-      },
       setHovered(projectId: string | null): void {
         patchState(store, { hoveredProjectId: projectId });
       },
@@ -100,13 +81,11 @@ export const ProjectListStore = signalStore(
       setGroupBy(group: GroupBy): void {
         patchState(store, { groupBy: group });
       },
-      // Reset project filter to "All projects" (no restriction).
       selectAllProjects(): void {
         patchState(store, { projectFilter: 'all' });
       },
       // Toggle a single project in the filter.
-      //  - From 'all': starts a new filter containing just this project
-      //    (selecting any specific project unchecks All projects).
+      //  - From 'all': starts a new filter containing just this project.
       //  - Already in set: remove. If the resulting set is empty, fall
       //    back to 'all' so the list never goes blank.
       //  - Not in set: add.
@@ -123,55 +102,34 @@ export const ProjectListStore = signalStore(
           projectFilter: next.size === 0 ? 'all' : next,
         });
       },
-      newWorkspace(projectId: string): string {
-        const ws: Workspace = {
-          id: `w${Date.now()}`,
-          title: 'new-workspace',
-          status: 'backlog',
-          pinned: false,
-          unread: false,
-          createdAt: new Date(),
+      // Idempotent on `path`. If a project already lives at the same
+      // path, returns it untouched. Otherwise inserts at the head and
+      // returns the new row.
+      addProject(input: {
+        name: string;
+        path: string;
+        icon?: string | null;
+      }): { project: Project; alreadyExisted: boolean } {
+        const existing = store.projects().find((p) => p.path === input.path);
+        if (existing) {
+          return { project: existing, alreadyExisted: true };
+        }
+        const project: Project = {
+          id:
+            typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID()
+              : `p${Date.now()}`,
+          name: input.name,
+          path: input.path,
+          icon: input.icon ?? null,
+          hidden: false,
+          addedAt: new Date(),
         };
-        mutateProject(projectId, (p) => ({
-          ...p,
-          workspaces: [ws, ...p.workspaces],
-        }));
-        patchState(store, { activeWorkspaceId: ws.id });
-        return ws.id;
-      },
-      archiveWorkspace(projectId: string, workspaceId: string): void {
-        mutateProject(projectId, (p) => ({
-          ...p,
-          workspaces: p.workspaces.filter((w) => w.id !== workspaceId),
-        }));
-      },
-      setWorkspaceStatus(
-        projectId: string,
-        workspaceId: string,
-        status: UiWorkspaceStatus,
-      ): void {
-        mutateWorkspace(projectId, workspaceId, (w) => ({ ...w, status }));
-      },
-      toggleUnread(projectId: string, workspaceId: string): void {
-        mutateWorkspace(projectId, workspaceId, (w) => ({
-          ...w,
-          unread: !w.unread,
-        }));
-      },
-      togglePinned(projectId: string, workspaceId: string): void {
-        mutateWorkspace(projectId, workspaceId, (w) => ({
-          ...w,
-          pinned: !w.pinned,
-        }));
-      },
-      renameWorkspace(
-        projectId: string,
-        workspaceId: string,
-        title: string,
-      ): void {
-        const next = title.trim();
-        if (!next) return;
-        mutateWorkspace(projectId, workspaceId, (w) => ({ ...w, title: next }));
+        patchState(store, {
+          projects: [project, ...store.projects()],
+          expandedIds: new Set([project.id, ...store.expandedIds()]),
+        });
+        return { project, alreadyExisted: false };
       },
       hideProject(projectId: string): void {
         mutateProject(projectId, (p) => ({ ...p, hidden: true }));

@@ -53,7 +53,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
                 class="flex items-center gap-1 text-sm font-normal"
               >
                 <span>{{ projectIcon() }}</span>
-                <span>{{ projectTitle() }}</span>
+                <span>{{ projectName() }}</span>
               </span>
             </li>
             <li hlmBreadcrumbSeparator class="shrink-0 flex items-center"></li>
@@ -133,7 +133,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
 })
 export class WorkspaceToolbar {
   readonly projectIcon = input.required<string | null>();
-  readonly projectTitle = input.required<string>();
+  readonly projectName = input.required<string>();
   readonly workspaceTitle = input.required<string>();
   readonly targetBranch = input.required<string>();
   readonly selectableBranches = input.required<readonly string[]>();

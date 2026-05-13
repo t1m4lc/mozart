@@ -14,7 +14,7 @@ import {
   lucideFolderCog,
   lucidePlus,
 } from '@ng-icons/lucide';
-import type { Project } from '../../data/project.model';
+import type { Project } from './data/project.model';
 
 @Component({
   selector: 'app-project-row',
@@ -60,10 +60,10 @@ import type { Project } from '../../data/project.model';
       }
 
       <span class="flex flex-1 min-w-0 items-baseline gap-1.5">
-        <span class="truncate text-left">{{ project().title }}</span>
+        <span class="truncate text-left">{{ project().name }}</span>
         @if (!expanded()) {
           <span class="shrink-0 text-xs tabular-nums text-muted-foreground">
-            {{ project().workspaces.length }}
+            {{ workspaceCount() }}
           </span>
         }
       </span>
@@ -101,6 +101,7 @@ import type { Project } from '../../data/project.model';
 })
 export class ProjectRow {
   readonly project = input.required<Project>();
+  readonly workspaceCount = input<number>(0);
   readonly hovered = input<boolean>(false);
   readonly expanded = input<boolean>(false);
 
@@ -110,7 +111,7 @@ export class ProjectRow {
   readonly settings = output<void>();
 
   protected readonly initial = computed(() => {
-    const title = this.project().title;
-    return (title.split(/[_\-\s]/)[0]?.[0] ?? title[0] ?? '?').toUpperCase();
+    const name = this.project().name;
+    return (name.split(/[_\-\s]/)[0]?.[0] ?? name[0] ?? '?').toUpperCase();
   });
 }

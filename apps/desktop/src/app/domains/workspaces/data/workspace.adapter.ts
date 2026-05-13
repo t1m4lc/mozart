@@ -4,6 +4,7 @@ import type { Workspace } from './workspace.model';
 export function workspaceFromDto(dto: WorkspaceDto): Workspace {
   return {
     id: dto.workspace_id,
+    projectId: dto.repo_id,
     title: dto.task_title,
     status: dto.ui_status,
     pinned: dto.pinned === 1,

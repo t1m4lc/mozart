@@ -7,6 +7,7 @@ import type { UiWorkspaceStatus } from './workspace-status';
 export interface WorkspaceDto {
   workspace_id: string;
   task_id: string;
+  repo_id: string; // joined from db.tasks.repo_id — owning project
   task_title: string; // joined from db.tasks.title
   // Runtime status from the agent — separate from UI status.
   runtime_status: string;

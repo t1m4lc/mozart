@@ -39,7 +39,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
   template: `
     <app-workspace-toolbar
       [projectIcon]="store.projectIcon()"
-      [projectTitle]="store.projectTitle()"
+      [projectName]="store.projectName()"
       [workspaceTitle]="store.workspaceTitle()"
       [targetBranch]="store.targetBranch()"
       [selectableBranches]="store.selectableBranches()"
@@ -55,7 +55,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     <app-workspace-tab-bar />
 
     <app-chat-empty-state
-      [projectName]="store.projectTitle()"
+      [projectName]="store.projectName()"
       [workspaceName]="store.workspaceTitle()"
       [sourceBranch]="store.workspaceTitle()"
       [targetBranch]="store.targetBranch()"

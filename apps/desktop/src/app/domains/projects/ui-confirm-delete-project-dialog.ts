@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogImports } from '@mozart/ui/dialog';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
-import type { Project } from '../../data/project.model';
+import type { Project } from './data/project.model';
 
 export interface ConfirmDeleteProjectContext {
   project: Project;
@@ -15,7 +15,7 @@ export interface ConfirmDeleteProjectContext {
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div hlmDialogHeader>
-      <h3 hlmDialogTitle>Remove "{{ ctx.project.title }}"?</h3>
+      <h3 hlmDialogTitle>Remove "{{ ctx.project.name }}"?</h3>
     </div>
     <p hlmDialogDescription class="text-sm text-muted-foreground px-6">
       The source repository at

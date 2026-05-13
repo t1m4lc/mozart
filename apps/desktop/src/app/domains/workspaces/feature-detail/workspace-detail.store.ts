@@ -14,7 +14,7 @@ interface State {
   workspaceId: string | null;
   workspaceTitle: string;
   projectId: string;
-  projectTitle: string;
+  projectName: string;
   projectIcon: string | null;
 
   branches: readonly string[];
@@ -29,7 +29,7 @@ const initialState: State = {
   workspaceId: 'w1',
   workspaceTitle: 'feat/shell-resizable',
   projectId: 'p1',
-  projectTitle: 'mozart',
+  projectName: 'mozart',
   projectIcon: '🧑‍🎤',
   branches: BRANCHES_MOCK,
   targetBranch: 'main',

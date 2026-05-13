@@ -15,8 +15,7 @@ import { HlmSeparatorImports } from '@mozart/ui/separator';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideListFilter } from '@ng-icons/lucide';
-import type { GroupBy } from '../../feature-list/project-list.store';
-import { ProjectListStore } from '../../feature-list/project-list.store';
+import { ProjectsFacade, type GroupBy } from './data/project.facade';
 
 interface GroupByItem {
   label: string;
@@ -37,11 +36,6 @@ interface ProjectFilterItem {
 
 // Filter popover: groups the GroupBy select and a project multi-select
 // behind a single icon-button trigger.
-//
-// "All projects" is modelled as a sentinel item so the spartan
-// hlm-select-multiple can drive both branches with one value array. The
-// mutual-exclusion rule (selecting any specific project unchecks All,
-// selecting All unchecks everything else) is enforced in valueChange.
 @Component({
   selector: 'app-group-by-filter',
   imports: [
@@ -147,7 +141,7 @@ interface ProjectFilterItem {
   `,
 })
 export class GroupByFilter {
-  private readonly store = inject(ProjectListStore);
+  private readonly facade = inject(ProjectsFacade);
   private readonly triggerBtn =
     viewChild<ElementRef<HTMLButtonElement>>('triggerBtn');
 
@@ -168,15 +162,15 @@ export class GroupByFilter {
   // hlm-select-multiple option list.
   protected readonly projectItems = computed<ProjectFilterItem[]>(() => [
     { id: ALL_PROJECTS_ID, label: 'All', icon: null },
-    ...this.store
-      .projects()
-      .map((p) => ({ id: p.id, label: p.title, icon: p.icon })),
+    ...this.facade
+      .all()
+      .map((p) => ({ id: p.id, label: p.name, icon: p.icon })),
   ]);
 
   // What the multi-select considers "selected" right now, derived from
-  // the store. Either the sentinel alone, or one item per filtered id.
+  // the facade. Either the sentinel alone, or one item per filtered id.
   protected readonly selectedItems = computed<ProjectFilterItem[]>(() => {
-    const f = this.store.projectFilter();
+    const f = this.facade.projectFilter();
     const all = this.projectItems();
     if (f === 'all') {
       return [all[0]];
@@ -196,54 +190,45 @@ export class GroupByFilter {
   ): boolean => a?.id === b?.id;
 
   // Mutual-exclusion logic between "All projects" and specific projects.
-  // The new array is whatever spartan computed after the user click; we
-  // reconcile and dispatch the corresponding store mutation.
   protected onValueChange(next: ProjectFilterItem[]): void {
     const previous = this.selectedItems();
     const prevHadAll = previous.some((i) => i.id === ALL_PROJECTS_ID);
     const nextHasAll = next.some((i) => i.id === ALL_PROJECTS_ID);
 
-    // Empty selection always falls back to "All projects".
     if (next.length === 0) {
-      this.store.selectAllProjects();
+      this.facade.selectAllProjects();
       return;
     }
 
-    // User just added "All projects" → force the state to all.
     if (nextHasAll && !prevHadAll) {
-      this.store.selectAllProjects();
+      this.facade.selectAllProjects();
       return;
     }
 
-    // "All projects" was selected before but the user picked a specific
-    // one → drop the sentinel, keep only specific ids.
     if (prevHadAll && nextHasAll && next.length > 1) {
       const specific = next.filter((i) => i.id !== ALL_PROJECTS_ID);
       this.commitSpecific(specific);
       return;
     }
 
-    // Plain multi-select of specific projects.
     this.commitSpecific(next.filter((i) => i.id !== ALL_PROJECTS_ID));
   }
 
   private commitSpecific(items: ProjectFilterItem[]): void {
     if (items.length === 0) {
-      this.store.selectAllProjects();
+      this.facade.selectAllProjects();
       return;
     }
-    // Diff current set vs target and apply per-id toggles, since the
-    // store's API is one-id-at-a-time. Cheap (n ≤ projects count).
-    const currentFilter = this.store.projectFilter();
+    const currentFilter = this.facade.projectFilter();
     const currentSet =
       currentFilter === 'all' ? new Set<string>() : new Set(currentFilter);
     const targetSet = new Set(items.map((i) => i.id));
 
     for (const id of currentSet) {
-      if (!targetSet.has(id)) this.store.toggleProjectInFilter(id);
+      if (!targetSet.has(id)) this.facade.toggleProjectInFilter(id);
     }
     for (const id of targetSet) {
-      if (!currentSet.has(id)) this.store.toggleProjectInFilter(id);
+      if (!currentSet.has(id)) this.facade.toggleProjectInFilter(id);
     }
   }
 }

@@ -38,7 +38,7 @@ pub fn run() {
     // and `if (run.exit_code === 0)` work without bigint coercion.
     #[cfg(debug_assertions)]
     {
-        const BINDINGS_PATH: &str = "../src/app/_bindings.ts";
+        const BINDINGS_PATH: &str = "../src/app/core/_bindings.ts";
         specta_builder
             .export(
                 specta_typescript::Typescript::default()

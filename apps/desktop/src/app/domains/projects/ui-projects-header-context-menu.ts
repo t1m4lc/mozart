@@ -12,13 +12,6 @@ import {
   lucideZap,
 } from '@ng-icons/lucide';
 
-/**
- * Context menu for the "Projects" sidebar group header.
- * Opened via right-click on the header strip. Items:
- *  - Collapse all / Expand all
- *  - Filter (re-opens the existing filter popover)
- *  - Add project → submenu mirroring the existing + dropdown
- */
 @Component({
   selector: 'app-projects-header-context-menu',
   imports: [NgIcon, HlmDropdownMenuImports, HlmIconImports],
