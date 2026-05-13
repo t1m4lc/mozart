@@ -1028,15 +1028,48 @@ For abstract behavior :
 
 ### Definition of done
 
-- [ ] The Settings page shows the Claude card with a clear status
-- [ ] Without a key: status "Not connected", "Connect" button active
-- [ ] After entering a valid key: status switches to "Connected"
-- [ ] The key persists across restarts
-- [ ] If I delete the API key and restart, status reverts to "Not connected"
-- [ ] The chat works immediately after connecting, no app restart needed
+- [x] The Settings page shows the Anthropic card with a clear status
+- [x] Without a key: status "Not connected", "Connect" button active
+- [x] After entering a valid key: status switches to "Connected" (green pill + check)
+- [x] The key persists across restarts (OS keyring, encrypted-at-rest)
+- [x] If I delete the API key and restart, status reverts to "Not connected"
+- [x] The chat works immediately after connecting, no app restart needed
+      (`claude_cli/runner.rs::inject_anthropic_key` reads the keyring
+      before each spawn)
 
-**Status : ⛔ not started** — `pages/settings.page.ts` is a placeholder
-`<h1>` and `settings-shell.ts` only provides the route's chrome.
+### Notes from implementation
+
+- Card titled **Anthropic** (the company) — "Claude" is the model /
+  Claude Code product name, kept only where it refers to the CLI
+  (`claude /login`).
+- **Dual-path Connect**: clicking Connect first probes for a
+  `claude /login` session (heuristic: `~/.claude/.credentials.json`).
+  If present, the card flips to `Connected · Claude Code` with no
+  dialog. Otherwise the API-key paste dialog opens. Lets Pro/Max
+  subscribers skip API-key management entirely.
+- `(?)` icon next to the title opens a help dialog explaining both
+  auth paths.
+- A disabled `GitHub` placeholder card sits below the Anthropic card
+  via the reusable `UiComingSoonCard` component, ready for v0.1.0.
+- Probe returns the user-spec'd discriminated union
+  `'connected' | 'invalid' | 'network_error'` (tauri-specta
+  generates the tagged TS shape; the adapter collapses to the bare
+  string in the facade).
+- Keyring failure path is "fail loudly" — no SQLite plaintext
+  fallback. Dialog shows a fixed-copy "Could not store the key on
+  this device" alert; no key data ever surfaces in the error.
+
+### Known follow-ups (deferred past v0.0.1)
+
+- **macOS Keychain detection**: the Claude Code CLI may store its
+  credential in macOS Keychain rather than `~/.claude/.credentials.json`,
+  so macOS Pro/Max users may see "Not connected" until they paste an
+  API key. A `security find-generic-password`-based probe is the
+  natural follow-up; the service/account naming is undocumented in
+  Claude Code 1.x so this needs investigation before implementing.
+
+**Status : ✅ shipped** — see commit `90ac1bb` (`feat(profile): add
+Anthropic + GitHub connection cards`). 29 files, +1769 / −14.
 
 ---
 
