@@ -48,6 +48,11 @@ export const WorkspaceDetailStore = signalStore(
     setTargetBranch(branch: string): void {
       patchState(store, { targetBranch: branch });
     },
+    setWorkspaceTitle(title: string): void {
+      const next = title.trim();
+      if (!next) return;
+      patchState(store, { workspaceTitle: next });
+    },
     openIn(tool: OpenInTool): void {
       patchState(store, { lastUsedTool: tool });
       // TODO: dispatch Tauri command `open_in(tool, project.path)`

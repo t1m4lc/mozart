@@ -2,9 +2,13 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   TemplateRef,
+  effect,
   input,
   output,
+  signal,
+  viewChild,
 } from '@angular/core';
 import { HlmBreadcrumbImports } from '@mozart/ui/breadcrumb';
 import { HlmButtonImports } from '@mozart/ui/button';
@@ -57,6 +61,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
               <span
                 hlmBreadcrumbPage
                 class="flex min-w-0 items-center gap-1 text-sm font-normal"
+                data-tauri-drag-region="false"
               >
                 <ng-icon
                   hlm
@@ -64,7 +69,25 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
                   size="xs"
                   class="shrink-0 text-muted-foreground"
                 />
-                <span class="truncate">{{ workspaceTitle() }}</span>
+                @if (renaming()) {
+                  <input
+                    #renameInput
+                    type="text"
+                    [value]="workspaceTitle()"
+                    class="min-w-0 flex-1 bg-transparent text-sm font-normal text-foreground outline-none"
+                    (click)="$event.stopPropagation()"
+                    (keydown.enter)="commitRename($any($event.target).value)"
+                    (keydown.escape)="cancelRename()"
+                    (blur)="commitRename($any($event.target).value)"
+                  />
+                } @else {
+                  <span
+                    class="truncate cursor-text"
+                    (dblclick)="startRename($event)"
+                  >
+                    {{ workspaceTitle() }}
+                  </span>
+                }
               </span>
             </li>
           </ol>
@@ -123,4 +146,41 @@ export class WorkspaceToolbar {
   readonly targetBranchChange = output<string>();
   readonly openIn = output<OpenInTool>();
   readonly toggleRightPanel = output<void>();
+  readonly workspaceTitleChange = output<string>();
+
+  protected readonly renaming = signal(false);
+  private readonly renameInput =
+    viewChild<ElementRef<HTMLInputElement>>('renameInput');
+
+  constructor() {
+    effect(() => {
+      if (this.renaming()) {
+        queueMicrotask(() => {
+          const el = this.renameInput()?.nativeElement;
+          if (el) {
+            el.focus();
+            el.select();
+          }
+        });
+      }
+    });
+  }
+
+  protected startRename(event: Event): void {
+    event.stopPropagation();
+    this.renaming.set(true);
+  }
+
+  protected commitRename(value: string): void {
+    if (!this.renaming()) return;
+    const next = value.trim();
+    if (next && next !== this.workspaceTitle()) {
+      this.workspaceTitleChange.emit(next);
+    }
+    this.renaming.set(false);
+  }
+
+  protected cancelRename(): void {
+    this.renaming.set(false);
+  }
 }

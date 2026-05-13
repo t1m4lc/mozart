@@ -164,6 +164,15 @@ export const ProjectListStore = signalStore(
           pinned: !w.pinned,
         }));
       },
+      renameWorkspace(
+        projectId: string,
+        workspaceId: string,
+        title: string,
+      ): void {
+        const next = title.trim();
+        if (!next) return;
+        mutateWorkspace(projectId, workspaceId, (w) => ({ ...w, title: next }));
+      },
       hideProject(projectId: string): void {
         mutateProject(projectId, (p) => ({ ...p, hidden: true }));
       },

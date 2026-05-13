@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  output,
+} from '@angular/core';
 import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -7,10 +12,11 @@ import {
   lucideBell,
   lucidePencil,
   lucidePin,
+  lucidePinOff,
   lucideTag,
 } from '@ng-icons/lucide';
-import type { Workspace } from '../../data/workspace.model';
 import type { UiWorkspaceStatus } from '../../data/workspace-status';
+import type { Workspace } from '../../data/workspace.model';
 import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-menu';
 
 @Component({
@@ -27,6 +33,7 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
       lucideBell,
       lucidePencil,
       lucidePin,
+      lucidePinOff,
       lucideTag,
     }),
   ],
@@ -39,17 +46,13 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
-          (triggered)="markUnread.emit()"
-        >
-          <ng-icon hlm name="lucideBell" size="xs" /> Mark as unread
-        </button>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          class="cursor-pointer"
           (triggered)="pin.emit()"
         >
-          <ng-icon hlm name="lucidePin" size="xs" /> Pin
+          @if (workspace().pinned) {
+            <ng-icon hlm name="lucidePinOff" size="xs" /> Unpin
+          } @else {
+            <ng-icon hlm name="lucidePin" size="xs" /> Pin
+          }
         </button>
         <button
           hlmDropdownMenuItem
@@ -69,6 +72,14 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
           (triggered)="rename.emit()"
         >
           <ng-icon hlm name="lucidePencil" size="xs" /> Rename
+        </button>
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="markUnread.emit()"
+        >
+          <ng-icon hlm name="lucideBell" size="xs" /> Mark as unread
         </button>
       </hlm-dropdown-menu-group>
       <hlm-dropdown-menu-separator />

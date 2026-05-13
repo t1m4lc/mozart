@@ -3,7 +3,12 @@ import {
   CdkDragDrop,
   CdkDropList,
 } from '@angular/cdk/drag-drop';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { HlmDialogService } from '@mozart/ui/dialog';
@@ -67,7 +72,10 @@ import { ProjectListStore } from './project-list.store';
                   />
                 </li>
               }
-              @for (workspace of project.workspaces; track workspace.id) {
+              @for (
+                workspace of sortPinned(project.workspaces);
+                track workspace.id
+              ) {
                 <li
                   hlmSidebarMenuItem
                   [hlmContextMenuTrigger]="workspaceCtxMenuTpl"
@@ -77,7 +85,12 @@ import { ProjectListStore } from './project-list.store';
                 >
                   <app-workspace-row
                     [workspace]="workspace"
+                    [editing]="editingWorkspaceId() === workspace.id"
                     (archive)="store.archiveWorkspace(project.id, workspace.id)"
+                    (renameCommit)="
+                      onRenameCommit(project.id, workspace.id, $event)
+                    "
+                    (renameCancel)="editingWorkspaceId.set(null)"
                   />
                 </li>
               }
@@ -100,6 +113,7 @@ import { ProjectListStore } from './project-list.store';
         [workspace]="ctx.workspace"
         (markUnread)="store.toggleUnread(ctx.projectId, ctx.workspace.id)"
         (pin)="store.togglePinned(ctx.projectId, ctx.workspace.id)"
+        (rename)="editingWorkspaceId.set(ctx.workspace.id)"
         (archive)="store.archiveWorkspace(ctx.projectId, ctx.workspace.id)"
         (setStatus)="onSetStatus(ctx, $event)"
       />
@@ -110,6 +124,25 @@ export class ProjectListContainer {
   protected readonly store = inject(ProjectListStore);
   private readonly _dialogService = inject(HlmDialogService);
   private readonly _router = inject(Router);
+
+  protected readonly editingWorkspaceId = signal<string | null>(null);
+
+  // Pinned workspaces float to the top while keeping relative order.
+  protected sortPinned(workspaces: readonly Workspace[]): readonly Workspace[] {
+    const pinned: Workspace[] = [];
+    const rest: Workspace[] = [];
+    for (const w of workspaces) (w.pinned ? pinned : rest).push(w);
+    return [...pinned, ...rest];
+  }
+
+  protected onRenameCommit(
+    projectId: string,
+    workspaceId: string,
+    title: string,
+  ): void {
+    this.store.renameWorkspace(projectId, workspaceId, title);
+    this.editingWorkspaceId.set(null);
+  }
 
   // Creating a workspace navigates to its detail route so the user lands
   // directly on the new conversation.

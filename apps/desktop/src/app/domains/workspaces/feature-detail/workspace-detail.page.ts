@@ -49,6 +49,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       (targetBranchChange)="store.setTargetBranch($event)"
       (openIn)="store.openIn($event)"
       (toggleRightPanel)="layout.toggleRightPanel()"
+      (workspaceTitleChange)="store.setWorkspaceTitle($event)"
     />
 
     <app-workspace-tab-bar />
