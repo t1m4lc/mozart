@@ -5,10 +5,16 @@ import {
   effect,
   inject,
   input,
-  viewChild,
+  signal,
   TemplateRef,
+  viewChild,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import {
+  HlmComposer,
+  type ComposerMode,
+  type ComposerSendEvent,
+} from '@mozart/ui/composer';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -32,13 +38,14 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     WorkspaceToolbar,
     WorkspaceTabBar,
     ChatEmptyState,
+    HlmComposer,
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
   ],
   providers: [provideIcons({ lucidePanelLeft })],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block h-full' },
+  host: { class: 'flex flex-col h-full' },
   template: `
     <app-workspace-toolbar
       [projectIcon]="projectIcon()"
@@ -57,13 +64,24 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
 
     <app-workspace-tab-bar />
 
-    <app-chat-empty-state
-      [projectName]="projectName()"
-      [workspaceName]="workspaceName()"
-      [sourceBranch]="workspaceName()"
-      [targetBranch]="store.targetBranch()"
-      [numberOfFiles]="0"
-    />
+    <div class="flex-1 min-h-0 overflow-auto">
+      <app-chat-empty-state
+        [projectName]="store.projectName()"
+        [workspaceName]="store.workspaceTitle()"
+        [sourceBranch]="store.workspaceTitle()"
+        [targetBranch]="store.targetBranch()"
+        [numberOfFiles]="0"
+      />
+    </div>
+
+    <div class="px-4 pb-4 pt-2">
+      <hlm-composer
+        [(value)]="composerValue"
+        [(mode)]="composerMode"
+        (send)="onComposerSend($event)"
+        (stop)="onComposerStop()"
+      />
+    </div>
 
     <ng-template #sidebarHeaderTpl>
       @if (isMac) {
@@ -78,10 +96,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
         position="bottom"
         class="size-7 rounded-md text-muted-foreground"
         data-tauri-drag-region="false"
-        (click)="
-          layout.toggleLeftPanel();
-          $any($event.currentTarget).blur()
-        "
+        (click)="layout.toggleLeftPanel(); $any($event.currentTarget).blur()"
       >
         <ng-icon hlm name="lucidePanelLeft" size="xs" />
       </button>
@@ -116,10 +131,19 @@ export class WorkspaceDetailPage {
 
   protected readonly projectName = computed(() => this.project()?.name ?? '');
   protected readonly projectIcon = computed(() => this.project()?.icon ?? null);
-  protected readonly workspaceName = computed(() => this.workspace()?.name ?? '');
+  protected readonly workspaceName = computed(
+    () => this.workspace()?.name ?? '',
+  );
 
   protected readonly sidebarHeader =
     viewChild.required<TemplateRef<unknown>>('sidebarHeaderTpl');
+
+  // Composer-preview state. Step 4 (Persistent chat) will move this to
+  // the chat facade ; for now we surface the new HlmComposer in the
+  // workspace view and log emissions so the visual stack matches the
+  // intended product layout.
+  protected readonly composerValue = signal('');
+  protected readonly composerMode = signal<ComposerMode>('normal');
 
   constructor() {
     effect(() => {
@@ -134,5 +158,16 @@ export class WorkspaceDetailPage {
   protected onRename(name: string): void {
     const id = this.id();
     if (id) this.workspaces.rename(id, name);
+  }
+
+  protected onComposerSend(event: ComposerSendEvent): void {
+    // eslint-disable-next-line no-console
+    console.info('[workspace-detail] composer send', event);
+    this.composerValue.set('');
+  }
+
+  protected onComposerStop(): void {
+    // eslint-disable-next-line no-console
+    console.info('[workspace-detail] composer stop');
   }
 }

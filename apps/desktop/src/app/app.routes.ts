@@ -38,4 +38,23 @@ export const appRoutes: Route[] = [
         (m) => m.AppShellComponent,
       ),
   },
+  {
+    path: 'sandbox',
+    loadComponent: () =>
+      import('./pages/sandbox/sandbox.page').then((m) => m.SandboxPage),
+  },
+  {
+    path: 'sandbox/composer',
+    loadComponent: () =>
+      import('./pages/sandbox/composer.sandbox').then(
+        (m) => m.ComposerSandbox,
+      ),
+  },
+  {
+    path: 'sandbox/timeline',
+    loadComponent: () =>
+      import('./pages/sandbox/timeline.sandbox').then(
+        (m) => m.TimelineSandbox,
+      ),
+  },
 ];
