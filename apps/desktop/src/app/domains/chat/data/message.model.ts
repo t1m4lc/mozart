@@ -1,6 +1,6 @@
 import type { TimelineTurn } from '@mozart/ui/timeline';
 
-export type MessageRole = 'user' | 'assistant';
+export type MessageRole = 'user' | 'assistant' | 'system';
 
 // Lifecycle phases. Step 4 emits `done` user messages ; Step 5
 // adds `streaming` / `stopped` for assistant messages and `error`

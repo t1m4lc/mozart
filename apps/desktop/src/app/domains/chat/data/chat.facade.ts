@@ -2,8 +2,12 @@ import { Injectable, Signal, computed, inject } from '@angular/core';
 import type { TimelineTurn } from '@mozart/ui/timeline';
 import { LLM_ADAPTER, type LlmRunHandle } from '../../llm-model';
 import { applyAgentEvent } from './agent-stream-parser';
+import {
+  CHATS_ADAPTER,
+  MESSAGES_ADAPTER,
+} from './chats.adapter';
 import type { Chat } from './chat.model';
-import type { Message } from './message.model';
+import type { Message, MessageStatus } from './message.model';
 import { ChatStore } from './chat.store';
 
 const EMPTY_TURN: TimelineTurn = {
@@ -13,24 +17,42 @@ const EMPTY_TURN: TimelineTurn = {
   showDoneMarker: false,
 };
 
+// Minimum gap between non-text agent events for the fake adapter's
+// pacing. The Tauri adapter delivers real-time events; the parser
+// uses `event.kind !== 'text'` to apply the gate, so real streams
+// only pace on tool_call/status, which is desired.
 const MIN_STEP_GAP_MS = 180;
 
+// Streaming-content updates are buffered and flushed at most every
+// 200ms (plus once on terminal status). Keeps SQLite write rate bounded
+// even on fast token streams.
+const STREAM_FLUSH_MS = 200;
+
 // Public API of the `chat` domain. Features inject this — never the
-// store directly. Owns the streaming lifecycle :
-//   - sendUserMessage(...) adds the user bubble and runs an assistant
-//     turn ;
+// store directly. Owns the streaming lifecycle + persistence:
+//   - hydrate(workspaceId) loads chats + active-chat's messages;
+//   - sendUserMessage(...) inserts a user bubble, persists it, runs an
+//     assistant turn;
 //   - sending a second message while the first is still streaming
-//     QUEUES it (status='queued') instead of cancelling — once the
-//     current turn ends, the queue is drained FIFO.
+//     QUEUES it (status='queued') instead of cancelling.
 @Injectable({ providedIn: 'root' })
 export class ChatFacade {
   private readonly store = inject(ChatStore);
-  private readonly adapter = inject(LLM_ADAPTER);
+  private readonly llm = inject(LLM_ADAPTER);
+  private readonly chats = inject(CHATS_ADAPTER);
+  private readonly messages = inject(MESSAGES_ADAPTER);
 
   // assistant-message-id -> handle of the in-flight run.
   private readonly activeRuns = new Map<string, LlmRunHandle>();
   // workspaceId -> assistant message id of the in-flight run.
   private readonly activeByWorkspace = new Map<string, string>();
+  // per-message debounced content flush state.
+  private readonly pendingFlush = new Map<
+    string,
+    { timer: ReturnType<typeof setTimeout> | null; lastSent: string }
+  >();
+  // workspaces whose chats have already been hydrated this session.
+  private readonly hydrated = new Set<string>();
 
   readonly chatByWorkspace = this.store.chatByWorkspace;
 
@@ -46,8 +68,44 @@ export class ChatFacade {
     });
   }
 
+  isStreaming(workspaceId: Signal<string | null>): Signal<boolean> {
+    return computed(() => {
+      const id = workspaceId();
+      if (!id) return false;
+      return this.activeByWorkspace.has(id);
+    });
+  }
+
+  // Idempotent — kept for FeatureChatPanel's effect, which calls this
+  // on workspace input. Triggers hydration; the returned Chat may be a
+  // synthetic placeholder until hydration completes.
   ensureChatForWorkspace(workspaceId: string): Chat {
+    void this.hydrate(workspaceId);
     return this.store.ensureChat(workspaceId);
+  }
+
+  // Hydrate chats + active-chat messages for a workspace from Tauri.
+  // Idempotent per workspace per session.
+  async hydrate(workspaceId: string): Promise<void> {
+    if (this.hydrated.has(workspaceId)) return;
+    this.hydrated.add(workspaceId);
+    try {
+      const list = await this.chats.listForWorkspace(workspaceId);
+      let firstChat = list[0];
+      if (!firstChat) {
+        // No chat yet — create one so the user can immediately type.
+        firstChat = await this.chats.create(workspaceId, 'Untitled');
+      }
+      this.store.setChatsForWorkspace(workspaceId, list.length > 0 ? list : [firstChat]);
+      const msgs = await this.messages.listForChat(firstChat.id);
+      this.store.setMessagesForChat(firstChat.id, msgs);
+    } catch (err) {
+      // Hydration failure shouldn't block the UI — log and let the
+      // user retry by typing (the next sendUserMessage will create
+      // the chat).
+      console.warn('[chat] hydrate failed for workspace', workspaceId, err);
+      this.hydrated.delete(workspaceId);
+    }
   }
 
   async sendUserMessage(
@@ -58,12 +116,20 @@ export class ChatFacade {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    const chat = this.store.ensureChat(workspaceId);
+    // Lazy-create-or-replace the chat row. If `ensureChat` returned a
+    // synthetic placeholder (no Tauri trip yet), upgrade it now.
+    let chat = this.store.chatByWorkspace().get(workspaceId);
+    if (!chat || chat.id.startsWith('pending-')) {
+      const created = await this.chats.create(workspaceId, 'Untitled');
+      if (chat) this.store.removeChat(chat.id); // drop placeholder
+      this.store.upsertChat(created);
+      chat = created;
+    }
 
-    // Streaming already ? Queue this user message — it will be
-    // promoted and processed once the current turn ends.
+    // Streaming already? Queue this user message — it will be promoted
+    // and processed once the current turn ends.
     if (this.activeByWorkspace.has(workspaceId)) {
-      this.store.addMessage({
+      await this._persistAndAddMessage({
         chatId: chat.id,
         role: 'user',
         content: trimmed,
@@ -73,7 +139,7 @@ export class ChatFacade {
       return;
     }
 
-    this.store.addMessage({
+    await this._persistAndAddMessage({
       chatId: chat.id,
       role: 'user',
       content: trimmed,
@@ -81,7 +147,7 @@ export class ChatFacade {
       status: 'done',
     });
 
-    await this._runAssistantTurn(workspaceId, mode);
+    await this._runAssistantTurn(workspaceId, chat.id, mode);
   }
 
   cancelActive(workspaceId: string): void {
@@ -98,25 +164,95 @@ export class ChatFacade {
     for (const msg of messages) {
       if (msg.status === 'queued') {
         this.store.updateMessage(msg.id, (m) => ({ ...m, status: 'stopped' }));
+        void this.messages
+          .updateStatus(msg.id, 'stopped')
+          .catch((err) => console.warn('persist stopped status failed', err));
       }
     }
   }
 
-  isStreaming(workspaceId: Signal<string | null>): Signal<boolean> {
-    return computed(() => {
-      const id = workspaceId();
-      if (!id) return false;
-      return this.activeByWorkspace.has(id);
-    });
+  // ---- internals -----------------------------------------------------
+
+  /**
+   * Insert a message into the store immediately (optimistic) and persist
+   * in parallel. On Tauri failure the optimistic row is marked 'error'.
+   * Returns the created Message (with its client-generated id).
+   */
+  private async _persistAndAddMessage(input: {
+    chatId: string;
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+    mode: 'normal' | 'plan';
+    status: MessageStatus;
+    timeline?: TimelineTurn;
+    runId?: string;
+  }): Promise<Message> {
+    const message: Message = {
+      id: crypto.randomUUID(),
+      chatId: input.chatId,
+      role: input.role,
+      content: input.content,
+      mode: input.mode,
+      status: input.status,
+      createdAt: Date.now(),
+      timeline: input.timeline,
+    };
+    this.store.addMessage(message);
+    try {
+      await this.messages.insert({
+        messageId: message.id,
+        chatId: message.chatId,
+        role: message.role,
+        content: message.content,
+        mode: message.mode ?? null,
+        status: message.status,
+        runId: input.runId ?? null,
+        timeline: message.timeline ?? null,
+      });
+    } catch (err) {
+      console.warn('[chat] persist message failed', err);
+      this.store.updateMessage(message.id, (m) => ({ ...m, status: 'error' }));
+    }
+    return message;
+  }
+
+  /**
+   * Buffer per-message content/status/timeline writes so a fast token
+   * stream doesn't hammer SQLite. Flushes either after STREAM_FLUSH_MS
+   * idle or on terminal-state.
+   */
+  private _scheduleContentFlush(messageId: string, content: string): void {
+    const existing = this.pendingFlush.get(messageId);
+    if (existing?.timer) clearTimeout(existing.timer);
+    const lastSent = existing?.lastSent ?? '';
+    if (content === lastSent) return;
+    const timer = setTimeout(() => {
+      this.pendingFlush.set(messageId, { timer: null, lastSent: content });
+      void this.messages
+        .updateContent(messageId, content)
+        .catch((err) =>
+          console.warn('persist message content failed', err),
+        );
+    }, STREAM_FLUSH_MS);
+    this.pendingFlush.set(messageId, { timer, lastSent });
+  }
+
+  private _flushContentNow(messageId: string, content: string): void {
+    const existing = this.pendingFlush.get(messageId);
+    if (existing?.timer) clearTimeout(existing.timer);
+    this.pendingFlush.set(messageId, { timer: null, lastSent: content });
+    void this.messages
+      .updateContent(messageId, content)
+      .catch((err) => console.warn('persist message content failed', err));
   }
 
   private async _runAssistantTurn(
     workspaceId: string,
+    chatId: string,
     mode: 'normal' | 'plan',
   ): Promise<void> {
-    const chat = this.store.ensureChat(workspaceId);
-    const assistantMsg = this.store.addMessage({
-      chatId: chat.id,
+    const assistantMsg = await this._persistAndAddMessage({
+      chatId,
       role: 'assistant',
       content: '',
       mode,
@@ -124,12 +260,14 @@ export class ChatFacade {
       timeline: EMPTY_TURN,
     });
 
-    const history = this.store.messagesByChat().get(chat.id) ?? [];
-    const handle = this.adapter.stream({ workspaceId, history, mode });
+    const history = this.store.messagesByChat().get(chatId) ?? [];
+    const handle = this.llm.stream({ workspaceId, history, mode });
     this.activeRuns.set(assistantMsg.id, handle);
     this.activeByWorkspace.set(workspaceId, assistantMsg.id);
 
     let lastStepAt = 0;
+    let lastContent = '';
+    let lastTimeline: TimelineTurn | undefined = EMPTY_TURN;
 
     try {
       for await (const event of handle.events$) {
@@ -146,35 +284,70 @@ export class ChatFacade {
           }
           lastStepAt = Date.now();
         }
-        this.store.updateMessage(assistantMsg.id, (m) =>
-          applyAgentEvent(m, event),
-        );
+        this.store.updateMessage(assistantMsg.id, (m) => {
+          const next = applyAgentEvent(m, event);
+          lastContent = next.content;
+          lastTimeline = next.timeline;
+          return next;
+        });
+        if (event.kind === 'text') {
+          this._scheduleContentFlush(assistantMsg.id, lastContent);
+        }
       }
     } catch (e) {
-      const message = e instanceof Error ? e.message : String(e);
-      this.store.updateMessage(assistantMsg.id, (m) =>
-        applyAgentEvent(m, { kind: 'error', message }),
-      );
+      const messageText = e instanceof Error ? e.message : String(e);
+      this.store.updateMessage(assistantMsg.id, (m) => {
+        const next = applyAgentEvent(m, {
+          kind: 'error',
+          message: messageText,
+        });
+        lastContent = next.content;
+        lastTimeline = next.timeline;
+        return next;
+      });
     } finally {
       this.activeRuns.delete(assistantMsg.id);
       if (this.activeByWorkspace.get(workspaceId) === assistantMsg.id) {
         this.activeByWorkspace.delete(workspaceId);
       }
-      // Drain the queue (FIFO).
-      void this._processQueue(workspaceId);
+      // Terminal flush: write content + status + timeline once, then
+      // drain the queue.
+      const finalMsg = (this.store.messagesByChat().get(chatId) ?? []).find(
+        (m) => m.id === assistantMsg.id,
+      );
+      if (finalMsg) {
+        this._flushContentNow(assistantMsg.id, finalMsg.content);
+        void this.messages
+          .updateStatus(assistantMsg.id, finalMsg.status)
+          .catch((err) => console.warn('persist terminal status failed', err));
+        void this.messages
+          .updateTimeline(assistantMsg.id, finalMsg.timeline ?? null)
+          .catch((err) => console.warn('persist timeline failed', err));
+      } else {
+        // Defensive: store row vanished. Write what we last saw.
+        this._flushContentNow(assistantMsg.id, lastContent);
+        void this.messages
+          .updateTimeline(assistantMsg.id, lastTimeline ?? null)
+          .catch(() => undefined);
+      }
+      void this._processQueue(workspaceId, chatId);
     }
   }
 
-  private async _processQueue(workspaceId: string): Promise<void> {
-    const chat = this.store.chatByWorkspace().get(workspaceId);
-    if (!chat) return;
-    const messages = this.store.messagesByChat().get(chat.id) ?? [];
+  private async _processQueue(
+    workspaceId: string,
+    chatId: string,
+  ): Promise<void> {
+    const messages = this.store.messagesByChat().get(chatId) ?? [];
     const queued = messages.find(
       (m) => m.status === 'queued' && m.role === 'user',
     );
     if (!queued) return;
 
     this.store.updateMessage(queued.id, (m) => ({ ...m, status: 'done' }));
-    await this._runAssistantTurn(workspaceId, queued.mode ?? 'normal');
+    void this.messages
+      .updateStatus(queued.id, 'done')
+      .catch((err) => console.warn('persist queued promotion failed', err));
+    await this._runAssistantTurn(workspaceId, chatId, queued.mode ?? 'normal');
   }
 }

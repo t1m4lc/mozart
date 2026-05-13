@@ -14,6 +14,15 @@ import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { appRoutes } from './app.routes';
 import { commands } from './core/_bindings';
+import {
+  CHATS_ADAPTER,
+  MESSAGES_ADAPTER,
+  chatFromDto,
+  messageFromDto,
+  timelineToJson,
+  type ChatsAdapter,
+  type MessagesAdapter,
+} from './domains/chat';
 import { FakeLlmAdapter, LLM_ADAPTER } from './domains/llm-model';
 import {
   CREDENTIALS_ADAPTER,
@@ -122,6 +131,71 @@ export const appConfig: ApplicationConfig = {
           unwrap(await commands.setWorkspaceUnread(workspaceId, unread));
         },
       } satisfies WorkspacesAdapter,
+    },
+    {
+      provide: CHATS_ADAPTER,
+      useValue: {
+        async listForWorkspace(workspaceId) {
+          const dtos = unwrap(await commands.listChats(workspaceId));
+          return dtos.map(chatFromDto);
+        },
+        async create(workspaceId, title) {
+          return chatFromDto(
+            unwrap(await commands.createChat(workspaceId, title, null)),
+          );
+        },
+        async rename(chatId, title) {
+          unwrap(await commands.renameChat(chatId, title));
+        },
+        async close(chatId) {
+          unwrap(await commands.closeChat(chatId));
+        },
+        async getActive(workspaceId) {
+          return unwrap(await commands.getActiveChat(workspaceId));
+        },
+        async setActive(workspaceId, chatId) {
+          unwrap(await commands.setActiveChat(workspaceId, chatId));
+        },
+      } satisfies ChatsAdapter,
+    },
+    {
+      provide: MESSAGES_ADAPTER,
+      useValue: {
+        async listForChat(chatId) {
+          const dtos = unwrap(await commands.listMessages(chatId));
+          return dtos.map(messageFromDto);
+        },
+        async insert(input) {
+          return messageFromDto(
+            unwrap(
+              await commands.insertMessage(
+                input.messageId,
+                input.chatId,
+                input.role,
+                input.content,
+                input.mode,
+                input.status,
+                input.runId ?? null,
+                timelineToJson(input.timeline ?? undefined),
+              ),
+            ),
+          );
+        },
+        async updateContent(messageId, content) {
+          unwrap(await commands.updateMessageContent(messageId, content));
+        },
+        async updateStatus(messageId, status) {
+          unwrap(await commands.updateMessageStatus(messageId, status));
+        },
+        async updateTimeline(messageId, timeline) {
+          unwrap(
+            await commands.updateMessageTimeline(
+              messageId,
+              timelineToJson(timeline ?? undefined),
+            ),
+          );
+        },
+      } satisfies MessagesAdapter,
     },
     {
       provide: TASKS_ADAPTER,
