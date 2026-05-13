@@ -51,7 +51,7 @@ import type { WorkspaceTab } from './workspace-tab.model';
         #renameInput
         type="text"
         [value]="tab().title"
-        class="min-w-0 flex-1 bg-transparent text-xs font-light text-foreground outline-none"
+        class="h-5 min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 text-xs font-light leading-none text-foreground outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/30"
         (click)="$event.stopPropagation()"
         (dblclick)="$event.stopPropagation()"
         (keydown.enter)="commitRename($any($event.target).value)"
