@@ -109,7 +109,7 @@ mod tests {
     use crate::db::models::{Repo, Task, Thread, Workspace};
 
     fn seed_thread(conn: &Connection) -> String {
-        let r = Repo { repo_id: new_id(), path: format!("/r-{}", new_id()), display_name: "r".into(), added_at: now_ms() };
+        let r = Repo { repo_id: new_id(), path: format!("/r-{}", new_id()), display_name: "r".into(), added_at: now_ms(), icon: None, hidden: false, sort_index: 0 };
         repos::create(conn, &r).unwrap();
         let t = Task { task_id: new_id(), repo_id: r.repo_id, title: "t".into(), task_text: "t".into(), status: "active".into(), created_at: now_ms() };
         tasks::create(conn, &t).unwrap();
@@ -118,7 +118,7 @@ mod tests {
             worktree_path: format!("/wt-{}", new_id()),
             branch_name: "agent/wip-x".into(), base_branch: "main".into(),
             status: "ready".into(), pinned: false, unread: false,
-            created_at: now_ms(), deletion_intent: 0,
+            created_at: now_ms(), deletion_intent: 0, ui_status: "backlog".into(),
         };
         workspaces::create(conn, &ws).unwrap();
         let th = Thread { thread_id: new_id(), workspace_id: ws.workspace_id, created_at: now_ms() };

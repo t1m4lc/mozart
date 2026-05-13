@@ -1,7 +1,6 @@
 import type { Project } from './project.model';
 
-// Seed for the in-memory store until Atom 5 wires the Tauri `list_repos`
-// command.
+// Test/Storybook fixture. Production hydrates from Tauri at boot.
 export const PROJECTS_MOCK: Project[] = [
   {
     id: 'p1',
@@ -9,6 +8,7 @@ export const PROJECTS_MOCK: Project[] = [
     icon: '🧑‍🎤',
     path: '~/dev/mozart',
     hidden: false,
+    sortIndex: 0,
     addedAt: new Date('2025-04-01T10:00:00'),
   },
   {
@@ -17,6 +17,7 @@ export const PROJECTS_MOCK: Project[] = [
     icon: null,
     path: '~/dev/api_server',
     hidden: false,
+    sortIndex: 1,
     addedAt: new Date('2025-04-05T10:00:00'),
   },
   {
@@ -25,6 +26,7 @@ export const PROJECTS_MOCK: Project[] = [
     icon: null,
     path: '~/dev/design_system',
     hidden: false,
+    sortIndex: 2,
     addedAt: new Date('2025-04-07T10:00:00'),
   },
 ];

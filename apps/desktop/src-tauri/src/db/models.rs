@@ -16,6 +16,9 @@ pub struct Repo {
     pub path: String,
     pub display_name: String,
     pub added_at: i64,
+    pub icon: Option<String>,
+    pub hidden: bool,
+    pub sort_index: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -41,6 +44,7 @@ pub struct Workspace {
     pub unread: bool,
     pub created_at: i64,
     pub deletion_intent: i64,
+    pub ui_status: String, // backlog | in_progress | in_review | done | canceled
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -98,4 +102,27 @@ pub struct OutboxEvent {
 pub struct ConfigEntry {
     pub key: String,
     pub value: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct Chat {
+    pub chat_id: String,
+    pub workspace_id: String,
+    pub title: String,
+    pub llm_id: Option<String>,
+    pub closed_at: Option<i64>,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct Message {
+    pub message_id: String,
+    pub chat_id: String,
+    pub run_id: Option<String>,
+    pub role: String,    // user | assistant | system
+    pub content: String,
+    pub mode: Option<String>, // normal | plan
+    pub status: String,  // pending | queued | streaming | done | error | stopped
+    pub timeline_json: Option<String>,
+    pub created_at: i64,
 }

@@ -113,7 +113,7 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
     <ng-template #projectCtxMenuTpl let-p>
       <app-project-context-menu
         (newWorkspace)="createWorkspace(p.id)"
-        (hide)="projects.hide(p.id)"
+        (hide)="hideProject(p.id)"
         (remove)="openDeleteDialog(p)"
       />
     </ng-template>
@@ -162,9 +162,18 @@ export class ShellProjectList {
     return [...pinned, ...rest];
   }
 
-  protected onRenameCommit(workspaceId: string, name: string): void {
-    this.workspaces.rename(workspaceId, name);
+  protected async onRenameCommit(
+    workspaceId: string,
+    name: string,
+  ): Promise<void> {
     this.editingWorkspaceId.set(null);
+    try {
+      await this.workspaces.rename(workspaceId, name);
+    } catch (err) {
+      toast.error('Could not rename workspace', {
+        description: errorMessage(err),
+      });
+    }
   }
 
   // Creating a workspace navigates to its detail route so the user lands
@@ -214,19 +223,41 @@ export class ShellProjectList {
   protected openDeleteDialog(project: Project): void {
     const context: ConfirmDeleteProjectContext = {
       project,
-      onConfirm: () => {
+      onConfirm: async () => {
         this.workspaces.removeForProject(project.id);
-        this.projects.remove(project.id);
+        try {
+          await this.projects.remove(project.id);
+        } catch (err) {
+          toast.error('Could not remove project', {
+            description: errorMessage(err),
+          });
+        }
       },
     };
     this._dialogService.open(ConfirmDeleteProjectDialog, { context });
   }
 
-  protected onSetStatus(
+  protected async hideProject(projectId: string): Promise<void> {
+    try {
+      await this.projects.hide(projectId);
+    } catch (err) {
+      toast.error('Could not hide project', {
+        description: errorMessage(err),
+      });
+    }
+  }
+
+  protected async onSetStatus(
     workspaceId: string,
     status: UiWorkspaceStatus,
-  ): void {
-    this.workspaces.setStatus(workspaceId, status);
+  ): Promise<void> {
+    try {
+      await this.workspaces.setStatus(workspaceId, status);
+    } catch (err) {
+      toast.error('Could not update status', {
+        description: errorMessage(err),
+      });
+    }
   }
 
   protected onProjectDrop(event: CdkDragDrop<readonly Project[]>): void {

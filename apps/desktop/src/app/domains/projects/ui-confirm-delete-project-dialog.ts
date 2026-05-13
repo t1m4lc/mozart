@@ -6,7 +6,7 @@ import type { Project } from './data/project.model';
 
 export interface ConfirmDeleteProjectContext {
   project: Project;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
 }
 
 @Component({

@@ -38,7 +38,7 @@ mod tests {
     use crate::db::models::{Repo, Task, Workspace};
 
     fn seed_workspace(conn: &Connection) -> String {
-        let r = Repo { repo_id: new_id(), path: format!("/r-{}", new_id()), display_name: "r".into(), added_at: now_ms() };
+        let r = Repo { repo_id: new_id(), path: format!("/r-{}", new_id()), display_name: "r".into(), added_at: now_ms(), icon: None, hidden: false, sort_index: 0 };
         repos::create(conn, &r).unwrap();
         let t = Task { task_id: new_id(), repo_id: r.repo_id.clone(), title: "t".into(), task_text: "t".into(), status: "active".into(), created_at: now_ms() };
         tasks::create(conn, &t).unwrap();
@@ -54,6 +54,7 @@ mod tests {
             unread: false,
             created_at: now_ms(),
             deletion_intent: 0,
+            ui_status: "backlog".into(),
         };
         workspaces::create(conn, &ws).unwrap();
         ws.workspace_id

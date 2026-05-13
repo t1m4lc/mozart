@@ -90,6 +90,7 @@ pub async fn create_workspace(
         unread: false,
         created_at: now,
         deletion_intent: 0,
+            ui_status: "backlog".into(),
     };
     {
         let conn = db.lock();
@@ -211,6 +212,9 @@ mod tests {
             path: format!("/r-{}", new_id()),
             display_name: "r".into(),
             added_at: now_ms(),
+            icon: None,
+            hidden: false,
+            sort_index: 0,
         };
         repos::create(&conn, &r).unwrap();
         r.repo_id

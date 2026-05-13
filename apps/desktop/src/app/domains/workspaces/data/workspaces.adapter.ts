@@ -1,4 +1,5 @@
 import { InjectionToken } from '@angular/core';
+import type { UiWorkspaceStatus } from './workspace-status';
 import type { WorkspaceDto } from './workspace.dto';
 
 // Tauri-backed IO for the workspaces domain. Concrete impl bound in
@@ -18,6 +19,10 @@ export interface WorkspacesAdapter {
   archive(workspaceId: string): Promise<void>;
 
   listBranches(repoPath: string): Promise<string[]>;
+
+  rename(workspaceId: string, name: string): Promise<void>;
+
+  setUiStatus(workspaceId: string, status: UiWorkspaceStatus): Promise<void>;
 
   setPinned(workspaceId: string, pinned: boolean): Promise<void>;
 

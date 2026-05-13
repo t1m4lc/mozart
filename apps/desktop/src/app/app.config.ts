@@ -14,7 +14,16 @@ import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { appRoutes } from './app.routes';
 import { commands } from './core/_bindings';
-import { FakeLlmAdapter, LLM_ADAPTER } from './domains/llm-model';
+import {
+  CHATS_ADAPTER,
+  MESSAGES_ADAPTER,
+  chatFromDto,
+  messageFromDto,
+  timelineToJson,
+  type ChatsAdapter,
+  type MessagesAdapter,
+} from './domains/chat';
+import { LLM_ADAPTER, TauriLlmAdapter } from './domains/llm-model';
 import {
   CREDENTIALS_ADAPTER,
   ProfileFacade,
@@ -73,11 +82,17 @@ export const appConfig: ApplicationConfig = {
           const dtos = unwrap(await commands.listRepos());
           return dtos.map(projectFromDto);
         },
-        async remove(_id) {
-          // No `remove_repo` Tauri command in v0.0.1. Soft-hide via
-          // ProjectStore.hideProject is the supported UX; physical
-          // removal lands when the backend exposes the command.
-          throw new Error('remove_repo not implemented in v0.0.1');
+        async remove(id) {
+          unwrap(await commands.removeRepo(id));
+        },
+        async setIcon(id, icon) {
+          unwrap(await commands.setRepoIcon(id, icon));
+        },
+        async setHidden(id, hidden) {
+          unwrap(await commands.setRepoHidden(id, hidden));
+        },
+        async setSort(orderedIds) {
+          unwrap(await commands.setRepoSort([...orderedIds]));
         },
       } satisfies ProjectsAdapter,
     },
@@ -103,6 +118,12 @@ export const appConfig: ApplicationConfig = {
         async listBranches(repoPath: string) {
           return unwrap(await commands.listBranches(repoPath));
         },
+        async rename(workspaceId: string, name: string) {
+          unwrap(await commands.renameWorkspace(workspaceId, name));
+        },
+        async setUiStatus(workspaceId, status) {
+          unwrap(await commands.setWorkspaceUiStatus(workspaceId, status));
+        },
         async setPinned(workspaceId: string, pinned: boolean) {
           unwrap(await commands.setWorkspacePinned(workspaceId, pinned));
         },
@@ -110,6 +131,71 @@ export const appConfig: ApplicationConfig = {
           unwrap(await commands.setWorkspaceUnread(workspaceId, unread));
         },
       } satisfies WorkspacesAdapter,
+    },
+    {
+      provide: CHATS_ADAPTER,
+      useValue: {
+        async listForWorkspace(workspaceId) {
+          const dtos = unwrap(await commands.listChats(workspaceId));
+          return dtos.map(chatFromDto);
+        },
+        async create(workspaceId, title) {
+          return chatFromDto(
+            unwrap(await commands.createChat(workspaceId, title, null)),
+          );
+        },
+        async rename(chatId, title) {
+          unwrap(await commands.renameChat(chatId, title));
+        },
+        async close(chatId) {
+          unwrap(await commands.closeChat(chatId));
+        },
+        async getActive(workspaceId) {
+          return unwrap(await commands.getActiveChat(workspaceId));
+        },
+        async setActive(workspaceId, chatId) {
+          unwrap(await commands.setActiveChat(workspaceId, chatId));
+        },
+      } satisfies ChatsAdapter,
+    },
+    {
+      provide: MESSAGES_ADAPTER,
+      useValue: {
+        async listForChat(chatId) {
+          const dtos = unwrap(await commands.listMessages(chatId));
+          return dtos.map(messageFromDto);
+        },
+        async insert(input) {
+          return messageFromDto(
+            unwrap(
+              await commands.insertMessage(
+                input.messageId,
+                input.chatId,
+                input.role,
+                input.content,
+                input.mode,
+                input.status,
+                input.runId ?? null,
+                timelineToJson(input.timeline ?? undefined),
+              ),
+            ),
+          );
+        },
+        async updateContent(messageId, content) {
+          unwrap(await commands.updateMessageContent(messageId, content));
+        },
+        async updateStatus(messageId, status) {
+          unwrap(await commands.updateMessageStatus(messageId, status));
+        },
+        async updateTimeline(messageId, timeline) {
+          unwrap(
+            await commands.updateMessageTimeline(
+              messageId,
+              timelineToJson(timeline ?? undefined),
+            ),
+          );
+        },
+      } satisfies MessagesAdapter,
     },
     {
       provide: TASKS_ADAPTER,
@@ -174,10 +260,10 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       void inject(ProfileFacade).initialize();
     }),
-    // v0.0.1 ships the fake LLM adapter — workspaces aren't yet
-    // backed by SQLite, so a real `commands.startAgentRun` would
-    // 404. Swap to `TauriLlmAdapter` when the Steps 2-3 SQLite
-    // sweep lands.
-    { provide: LLM_ADAPTER, useExisting: FakeLlmAdapter },
+    // Real Tauri-backed adapter. v0.0.1 SQLite sweep (S2-S5) hooked
+    // chat persistence onto the workspace_id, so `startAgentRun`
+    // now resolves a real DB row. FakeLlmAdapter stays exported for
+    // sandbox/Storybook.
+    { provide: LLM_ADAPTER, useExisting: TauriLlmAdapter },
   ],
 };

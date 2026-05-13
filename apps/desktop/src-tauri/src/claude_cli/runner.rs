@@ -653,6 +653,9 @@ mod tests {
                 path: format!("/r-{}", new_id()),
                 display_name: "r".into(),
                 added_at: now_ms(),
+                icon: None,
+                hidden: false,
+                sort_index: 0,
             };
             repos::create(&conn, &r).unwrap();
             let t = Task {
@@ -676,6 +679,7 @@ mod tests {
                 unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
+            ui_status: "backlog".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {

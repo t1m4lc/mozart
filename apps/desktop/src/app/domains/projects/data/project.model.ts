@@ -6,5 +6,6 @@ export interface Project {
   path: string;
   icon: string | null;
   hidden: boolean;
+  sortIndex: number;
   addedAt: Date;
 }
