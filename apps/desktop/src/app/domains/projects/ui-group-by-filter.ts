@@ -158,12 +158,13 @@ export class GroupByFilter {
     { label: 'Status', value: 'status', disabled: true },
   ];
 
-  // "All projects" sentinel + one item per project — drives the
-  // hlm-select-multiple option list.
+  // "All projects" sentinel + one item per visible project. Hidden
+  // projects are excluded — the dropdown should match what the
+  // sidebar shows, not what's in the DB.
   protected readonly projectItems = computed<ProjectFilterItem[]>(() => [
     { id: ALL_PROJECTS_ID, label: 'All', icon: null },
     ...this.facade
-      .all()
+      .visible()
       .map((p) => ({ id: p.id, label: p.name, icon: p.icon })),
   ]);
 
