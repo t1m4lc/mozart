@@ -1,3 +1,4 @@
+import { moveItemInArray } from '@angular/cdk/drag-drop';
 import { computed } from '@angular/core';
 import {
   patchState,
@@ -170,6 +171,24 @@ export const ProjectListStore = signalStore(
         patchState(store, {
           projects: store.projects().filter((p) => p.id !== projectId),
         });
+      },
+      // Indices come from the rendered list (visibleProjects), so we
+      // resolve them to ids and reorder the source array by id.
+      // Hidden projects keep their relative order at the tail.
+      reorderProjects(prevIndex: number, currentIndex: number): void {
+        if (prevIndex === currentIndex) return;
+        const visible = [...store.visibleProjects()];
+        if (
+          prevIndex < 0 ||
+          prevIndex >= visible.length ||
+          currentIndex < 0 ||
+          currentIndex >= visible.length
+        ) {
+          return;
+        }
+        moveItemInArray(visible, prevIndex, currentIndex);
+        const hidden = store.projects().filter((p) => p.hidden);
+        patchState(store, { projects: [...visible, ...hidden] });
       },
     };
   }),

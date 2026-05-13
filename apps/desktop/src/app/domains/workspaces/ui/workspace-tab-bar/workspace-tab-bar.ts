@@ -1,4 +1,10 @@
 import {
+  CdkDrag,
+  CdkDragDrop,
+  CdkDropList,
+  moveItemInArray,
+} from '@angular/cdk/drag-drop';
+import {
   ChangeDetectionStrategy,
   Component,
   computed,
@@ -45,6 +51,8 @@ const makeEmptyChatTab = (): ChatTab => ({
   imports: [
     NgIcon,
     TabItem,
+    CdkDropList,
+    CdkDrag,
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
@@ -53,20 +61,27 @@ const makeEmptyChatTab = (): ChatTab => ({
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block border-b border-sidebar-border bg-sidebar' },
   template: `
-    <div
-      role="tablist"
-      class="flex items-stretch overflow-hidden"
-    >
-      @for (tab of tabs(); track tab.id) {
-        <app-tab-item
-          [tab]="tab"
-          [active]="tab.id === activeTabId()"
-          [showClose]="tab.kind !== 'chat' || chatTabCount() > 1"
-          (activate)="setActive(tab.id)"
-          (dismiss)="closeTab(tab.id)"
-          (rename)="renameTab(tab.id, $event)"
-        />
-      }
+    <div role="tablist" class="flex items-stretch overflow-hidden">
+      <div
+        cdkDropList
+        cdkDropListOrientation="horizontal"
+        (cdkDropListDropped)="onDrop($event)"
+        class="flex items-stretch"
+      >
+        @for (tab of tabs(); track tab.id) {
+          <app-tab-item
+            cdkDrag
+            [cdkDragData]="tab"
+            cdkDragLockAxis="x"
+            [tab]="tab"
+            [active]="tab.id === activeTabId()"
+            [showClose]="tab.kind !== 'chat' || chatTabCount() > 1"
+            (activate)="setActive(tab.id)"
+            (dismiss)="closeTab(tab.id)"
+            (rename)="renameTab(tab.id, $event)"
+          />
+        }
+      </div>
 
       <div class="flex shrink-0 items-center px-1">
         <button
@@ -134,6 +149,15 @@ export class WorkspaceTabBar {
     this.tabs.update((list) =>
       list.map((t) => (t.id === id ? { ...t, title } : t)),
     );
+  }
+
+  protected onDrop(event: CdkDragDrop<readonly WorkspaceTab[]>): void {
+    if (event.previousIndex === event.currentIndex) return;
+    this.tabs.update((list) => {
+      const next = [...list];
+      moveItemInArray(next, event.previousIndex, event.currentIndex);
+      return next;
+    });
   }
 
   // TODO: hook — when the first user prompt is sent in a chat, derive

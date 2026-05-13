@@ -49,3 +49,17 @@ hlm-combobox-content [data-slot="input-group"] {
 [data-slot="resizable-handle"] {
   @apply transition-all duration-150 ease-in-out hover:bg-primary/50  active:bg-primary active:scale-x-125 delay-200;
 }
+
+/* CDK drag & drop — minimal visuals so reordering feels native */
+.cdk-drag-preview {
+  @apply rounded-md bg-sidebar text-foreground shadow-lg ring-1 ring-border;
+}
+.cdk-drag-placeholder {
+  @apply opacity-0;
+}
+.cdk-drag-animating {
+  transition: transform 180ms cubic-bezier(0, 0, 0.2, 1);
+}
+.cdk-drop-list-dragging .cdk-drag:not(.cdk-drag-placeholder) {
+  transition: transform 180ms cubic-bezier(0, 0, 0.2, 1);
+}

@@ -1,3 +1,8 @@
+import {
+  CdkDrag,
+  CdkDragDrop,
+  CdkDropList,
+} from '@angular/cdk/drag-drop';
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
@@ -20,6 +25,8 @@ import { ProjectListStore } from './project-list.store';
 @Component({
   selector: 'app-project-list',
   imports: [
+    CdkDropList,
+    CdkDrag,
     HlmContextMenuImports,
     HlmSidebarImports,
     ProjectRow,
@@ -30,9 +37,14 @@ import { ProjectListStore } from './project-list.store';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <ul hlmSidebarMenu>
+    <ul
+      hlmSidebarMenu
+      cdkDropList
+      cdkDropListLockAxis="y"
+      (cdkDropListDropped)="onProjectDrop($event)"
+    >
       @for (project of store.visibleProjects(); track project.id) {
-        <li hlmSidebarMenuItem>
+        <li hlmSidebarMenuItem cdkDrag [cdkDragData]="project">
           <app-project-row
             [project]="project"
             [hovered]="store.hoveredProjectId() === project.id"
@@ -119,5 +131,10 @@ export class ProjectListContainer {
     status: UiWorkspaceStatus,
   ): void {
     this.store.setWorkspaceStatus(ctx.projectId, ctx.workspace.id, status);
+  }
+
+  protected onProjectDrop(event: CdkDragDrop<readonly Project[]>): void {
+    if (event.previousIndex === event.currentIndex) return;
+    this.store.reorderProjects(event.previousIndex, event.currentIndex);
   }
 }
