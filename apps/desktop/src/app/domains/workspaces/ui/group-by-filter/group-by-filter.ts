@@ -1,14 +1,27 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmPopoverImports } from '@mozart/ui/popover';
 import { HlmSelectImports } from '@mozart/ui/select';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideListFilter } from '@ng-icons/lucide';
+import type { GroupBy } from '../../feature-list/project-list.store';
+
+interface GroupByItem {
+  label: string;
+  value: GroupBy;
+  disabled?: boolean;
+}
 
 @Component({
   selector: 'app-group-by-filter',
-  imports: [NgIcon, HlmButtonImports, HlmPopoverImports, HlmSelectImports, HlmTooltipImports],
+  imports: [
+    NgIcon,
+    HlmButtonImports,
+    HlmPopoverImports,
+    HlmSelectImports,
+    HlmTooltipImports,
+  ],
   providers: [provideIcons({ lucideListFilter })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
@@ -30,8 +43,8 @@ import { lucideListFilter } from '@ng-icons/lucide';
             <span class="text-xs font-medium whitespace-nowrap">Group by</span>
             <hlm-select
               [value]="groupBy()"
-              (valueChange)="groupBy.set($event ?? 'project')"
-              [itemToString]="groupByToString"
+              (valueChange)="groupByChange.emit(($event ?? 'project'))"
+              [itemToString]="itemToString"
               class="flex-1"
             >
               <hlm-select-trigger class="w-full h-7 text-xs">
@@ -40,8 +53,11 @@ import { lucideListFilter } from '@ng-icons/lucide';
               <hlm-select-content *hlmSelectPortal>
                 <hlm-select-group>
                   <hlm-select-label>Group by</hlm-select-label>
-                  @for (item of groupByItems; track item.value) {
-                    <hlm-select-item [value]="item.value" [disabled]="item.disabled ?? false">
+                  @for (item of items; track item.value) {
+                    <hlm-select-item
+                      [value]="item.value"
+                      [disabled]="item.disabled ?? false"
+                    >
                       {{ item.label }}
                     </hlm-select-item>
                   }
@@ -55,13 +71,14 @@ import { lucideListFilter } from '@ng-icons/lucide';
   `,
 })
 export class GroupByFilter {
-  protected readonly groupBy = signal('project');
+  readonly groupBy = input.required<GroupBy>();
+  readonly groupByChange = output<GroupBy>();
 
-  protected readonly groupByItems: { label: string; value: string; disabled?: boolean }[] = [
+  protected readonly items: GroupByItem[] = [
     { label: 'Project', value: 'project' },
     { label: 'Status', value: 'status', disabled: true },
   ];
 
-  protected readonly groupByToString = (value: string): string =>
-    this.groupByItems.find((i) => i.value === value)?.label ?? '';
+  protected readonly itemToString = (value: GroupBy): string =>
+    this.items.find((i) => i.value === value)?.label ?? '';
 }

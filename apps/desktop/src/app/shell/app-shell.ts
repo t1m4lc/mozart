@@ -22,11 +22,11 @@ import {
   lucideSettings,
   lucideZap,
 } from '@ng-icons/lucide';
+import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
-import { ShellLayoutService } from '../core/shell-layout.service';
-import { GroupByFilter } from './group-by-filter';
-import { MacWindowControls } from './mac-window-controls';
-import { ProjectList } from './project-list';
+import { MacWindowControls } from '../core/window-controls/mac-window-controls';
+import { GroupByFilter, ProjectListContainer } from '../domains/workspaces';
+import { ProjectListStore } from '../domains/workspaces/feature-list/project-list.store';
 import { ShellAside } from './shell-aside';
 import {
   SHELL_LEFT_PANEL_PX,
@@ -48,7 +48,7 @@ import {
     HlmSidebarImports,
     HlmTooltipImports,
     GroupByFilter,
-    ProjectList,
+    ProjectListContainer,
     ShellAside,
   ],
   providers: [
@@ -92,7 +92,10 @@ import {
               position="bottom"
               class="size-6 text-muted-foreground"
               data-tauri-drag-region="false"
-              (click)="layout.toggleLeftPanel()"
+              (click)="
+                layout.toggleLeftPanel();
+                $any($event.currentTarget).blur()
+              "
             >
               <ng-icon hlm name="lucidePanelLeft" size="sm" />
             </button>
@@ -106,7 +109,10 @@ import {
                 >
                   Projects
                 </span>
-                <app-group-by-filter />
+                <app-group-by-filter
+                  [groupBy]="projectListStore.groupBy()"
+                  (groupByChange)="projectListStore.setGroupBy($event)"
+                />
                 <button
                   hlmBtn
                   variant="ghost"
@@ -217,7 +223,8 @@ export class AppShell {
   private readonly _rightPanelRef = viewChild<HlmResizablePanel>('rightPanel');
 
   protected readonly isMac = inject(OsService).isMac();
-  protected readonly layout = inject(ShellLayoutService);
+  protected readonly layout = inject(LayoutService);
+  protected readonly projectListStore = inject(ProjectListStore);
 
   protected readonly leftPanel_ = {
     default: pxToPercent(SHELL_LEFT_PANEL_PX.default),

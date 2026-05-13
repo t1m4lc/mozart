@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 
 @Injectable({ providedIn: 'root' })
-export class ShellLayoutService {
+export class LayoutService {
   readonly leftPanelOpen = signal(true);
   readonly rightPanelOpen = signal(true);
 

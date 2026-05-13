@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { OsService } from '../core/os.service';
-import { NonMacWindowControls } from './non-mac-window-controls';
+import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
 
 @Component({
   selector: 'app-shell-aside',

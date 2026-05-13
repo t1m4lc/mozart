@@ -11,12 +11,12 @@ export const appRoutes: Route[] = [
       {
         path: 'workspaces',
         loadComponent: () =>
-          import('./pages/workspace.page').then((m) => m.WorkspacePage),
+          import('./domains/workspaces').then((m) => m.WorkspaceDetailPage),
       },
       {
         path: 'workspaces/:id',
         loadComponent: () =>
-          import('./pages/workspace.page').then((m) => m.WorkspacePage),
+          import('./domains/workspaces').then((m) => m.WorkspaceDetailPage),
       },
     ],
   },

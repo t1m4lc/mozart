@@ -1,0 +1,115 @@
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { HlmContextMenuImports } from '@mozart/ui/context-menu';
+import { HlmDialogService } from '@mozart/ui/dialog';
+import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import type { Project } from '../data/project.model';
+import type { Workspace } from '../data/workspace.model';
+import type { UiWorkspaceStatus } from '../data/workspace-status';
+import {
+  ConfirmDeleteProjectDialog,
+  type ConfirmDeleteProjectContext,
+} from '../ui/confirm-delete-project-dialog/confirm-delete-project-dialog';
+import { ProjectContextMenu } from '../ui/project-context-menu/project-context-menu';
+import { ProjectRow } from '../ui/project-row/project-row';
+import { WorkspaceContextMenu } from '../ui/workspace-context-menu/workspace-context-menu';
+import { WorkspaceEmptyState } from '../ui/workspace-empty-state/workspace-empty-state';
+import { WorkspaceRow } from '../ui/workspace-row/workspace-row';
+import { ProjectListStore } from './project-list.store';
+
+@Component({
+  selector: 'app-project-list',
+  imports: [
+    HlmContextMenuImports,
+    HlmSidebarImports,
+    ProjectRow,
+    WorkspaceRow,
+    ProjectContextMenu,
+    WorkspaceContextMenu,
+    WorkspaceEmptyState,
+  ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `
+    <ul hlmSidebarMenu>
+      @for (project of store.visibleProjects(); track project.id) {
+        <li hlmSidebarMenuItem>
+          <app-project-row
+            [project]="project"
+            [hovered]="store.hoveredProjectId() === project.id"
+            [expanded]="store.isExpanded(project.id)"
+            [hlmContextMenuTrigger]="projectCtxMenuTpl"
+            [hlmContextMenuTriggerData]="{ $implicit: project }"
+            (toggleExpanded)="store.toggleExpanded(project.id)"
+            (hoverChange)="store.setHovered($event ? project.id : null)"
+            (newWorkspace)="store.newWorkspace(project.id)"
+          />
+
+          @if (store.isExpanded(project.id)) {
+            <ul
+              class="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
+            >
+              @if (project.workspaces.length === 0) {
+                <li class="px-1 py-2">
+                  <app-workspace-empty-state
+                    (create)="store.newWorkspace(project.id)"
+                  />
+                </li>
+              }
+              @for (workspace of project.workspaces; track workspace.id) {
+                <li
+                  hlmSidebarMenuItem
+                  [hlmContextMenuTrigger]="workspaceCtxMenuTpl"
+                  [hlmContextMenuTriggerData]="{
+                    $implicit: { workspace, projectId: project.id },
+                  }"
+                >
+                  <app-workspace-row
+                    [workspace]="workspace"
+                    [active]="workspace.id === store.activeWorkspaceId()"
+                    (archive)="store.archiveWorkspace(project.id, workspace.id)"
+                  />
+                </li>
+              }
+            </ul>
+          }
+        </li>
+      }
+    </ul>
+
+    <ng-template #projectCtxMenuTpl let-p>
+      <app-project-context-menu
+        (newWorkspace)="store.newWorkspace(p.id)"
+        (hide)="store.hideProject(p.id)"
+        (remove)="openDeleteDialog(p)"
+      />
+    </ng-template>
+
+    <ng-template #workspaceCtxMenuTpl let-ctx>
+      <app-workspace-context-menu
+        [workspace]="ctx.workspace"
+        (markUnread)="store.toggleUnread(ctx.projectId, ctx.workspace.id)"
+        (pin)="store.togglePinned(ctx.projectId, ctx.workspace.id)"
+        (archive)="store.archiveWorkspace(ctx.projectId, ctx.workspace.id)"
+        (setStatus)="onSetStatus(ctx, $event)"
+      />
+    </ng-template>
+  `,
+})
+export class ProjectListContainer {
+  protected readonly store = inject(ProjectListStore);
+  private readonly _dialogService = inject(HlmDialogService);
+
+  protected openDeleteDialog(project: Project): void {
+    const context: ConfirmDeleteProjectContext = {
+      project,
+      onConfirm: () => this.store.removeProject(project.id),
+    };
+    this._dialogService.open(ConfirmDeleteProjectDialog, { context });
+  }
+
+  protected onSetStatus(
+    ctx: { projectId: string; workspace: Workspace },
+    status: UiWorkspaceStatus,
+  ): void {
+    this.store.setWorkspaceStatus(ctx.projectId, ctx.workspace.id, status);
+  }
+}
