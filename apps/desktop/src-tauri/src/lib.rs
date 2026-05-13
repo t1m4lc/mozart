@@ -2,6 +2,7 @@ pub mod bindings_export;
 pub mod branch_name;
 pub mod claude_cli;
 pub mod commands;
+pub mod credentials;
 pub mod db;
 pub mod error;
 pub mod git_query;

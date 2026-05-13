@@ -6,9 +6,10 @@
 
 use serde::{Deserialize, Serialize};
 
-pub mod parser;
 pub mod install;
+pub mod parser;
 pub mod runner;
+pub mod session;
 
 pub use runner::{spawn_run, RunHandle};
 

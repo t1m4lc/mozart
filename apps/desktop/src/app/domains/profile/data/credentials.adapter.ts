@@ -1,0 +1,30 @@
+import { InjectionToken } from '@angular/core';
+import type { ProbeResult } from './connection.model';
+
+// Tauri-backed credentials port. Concrete impl is bound in app.config.ts
+// (wraps has_anthropic_key / connect_anthropic / disconnect_anthropic /
+// refresh_anthropic_connection from core/_bindings). No file under
+// `domains/profile/` may import from `@tauri-apps/*` or `core/_bindings`
+// directly — adapter discipline (Convention #2).
+export interface CredentialsAdapter {
+  // Cheap presence check on the OS keyring. Never returns the key.
+  hasStoredKey(): Promise<boolean>;
+  // Heuristic probe for a `claude /login` session on this machine.
+  // Returns true if Claude Code's credential file is present in the
+  // user's home dir; false otherwise (including the macOS Keychain-only
+  // case, a known v0.0.1 limitation).
+  hasClaudeCodeSession(): Promise<boolean>;
+  // Probe `key` against Anthropic; on `connected` the backend persists it
+  // to the OS keyring before resolving. On `invalid` / `network_error` the
+  // key never touches disk.
+  connect(key: string): Promise<ProbeResult>;
+  // Idempotent removal of the stored key.
+  clear(): Promise<void>;
+  // Re-probe the currently stored key. Caller must guarantee a key is
+  // stored (use `hasStoredKey` to gate).
+  refresh(): Promise<ProbeResult>;
+}
+
+export const CREDENTIALS_ADAPTER = new InjectionToken<CredentialsAdapter>(
+  'CREDENTIALS_ADAPTER',
+);

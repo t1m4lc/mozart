@@ -1,0 +1,25 @@
+// Public surface of the `profile` domain. Stores and adapter
+// implementations stay private; features inject the facade.
+
+export type { Profile } from './data/profile.model';
+export type {
+  Connection,
+  ConnectionProvider,
+  ConnectionStatus,
+  ProbeResult,
+} from './data/connection.model';
+export { ProfileFacade } from './data/profile.facade';
+export {
+  CREDENTIALS_ADAPTER,
+  type CredentialsAdapter,
+} from './data/credentials.adapter';
+
+export { FeatureConnections } from './feature-connections';
+export { UiComingSoonCard } from './ui-coming-soon-card';
+export { UiConnectDialog } from './ui-connect-dialog';
+export {
+  UiConfirmDisconnectDialog,
+  type ConfirmDisconnectContext,
+} from './ui-confirm-disconnect-dialog';
+export { UiConnectionCard } from './ui-connection-card';
+export { UiConnectionHelpDialog } from './ui-connection-help-dialog';

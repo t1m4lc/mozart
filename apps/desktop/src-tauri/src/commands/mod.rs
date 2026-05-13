@@ -21,7 +21,10 @@ use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::claude_cli::install::{self, ClaudeInstall};
+use crate::claude_cli::session;
 use crate::claude_cli::{spawn_run, AgentRunTerminated, StreamEvent};
+use crate::credentials::anthropic_probe::{self, ProbeResult};
+use crate::credentials::keyring_store;
 use crate::db::models::{AgentRun, Repo, Task, Workspace, WorkspaceChange};
 use crate::db::{agent_runs, new_id, now_ms, repos, tasks, threads, workspace_changes, workspaces};
 use crate::db::DbState;
@@ -371,6 +374,80 @@ pub(crate) async fn discard_workspace_changes_impl(
 #[specta::specta]
 pub async fn check_claude_install() -> ClaudeInstall {
     install::check_installed().await
+}
+
+// ---------------------------------------------------------------------------
+// check_claude_code_session
+// ---------------------------------------------------------------------------
+
+/// Step 6d — heuristic probe for an existing `claude /login` session. The
+/// frontend uses this to give Pro/Max users a single-click "Connect"
+/// experience that bypasses the API-key dialog when their CLI is already
+/// authenticated.
+#[tauri::command]
+#[specta::specta]
+pub async fn check_claude_code_session() -> bool {
+    session::has_session()
+}
+
+// ---------------------------------------------------------------------------
+// has_anthropic_key
+// ---------------------------------------------------------------------------
+
+/// Step 6 — cheap presence check used by the frontend on app start to know
+/// whether to render "Not connected" immediately or to kick off a probe.
+/// Never returns the value of the key.
+#[tauri::command]
+#[specta::specta]
+pub async fn has_anthropic_key() -> Result<bool, AppError> {
+    keyring_store::has_anthropic_key()
+}
+
+// ---------------------------------------------------------------------------
+// connect_anthropic
+// ---------------------------------------------------------------------------
+
+/// Step 6 — probe-then-persist. Only writes to the keyring when the probe
+/// returns `Connected`. On `Invalid` / `NetworkError` the key is dropped at
+/// the end of this function frame and never touches disk. The argument
+/// `key` is the only place the value is ever passed by-value into Mozart
+/// from the frontend.
+#[tauri::command]
+#[specta::specta]
+pub async fn connect_anthropic(key: String) -> Result<ProbeResult, AppError> {
+    let result = anthropic_probe::probe(&key).await;
+    if matches!(result, ProbeResult::Connected) {
+        keyring_store::set_anthropic_key(&key)?;
+    }
+    Ok(result)
+}
+
+// ---------------------------------------------------------------------------
+// disconnect_anthropic
+// ---------------------------------------------------------------------------
+
+/// Step 6 — idempotent removal of the stored key. Safe to call when no
+/// entry exists.
+#[tauri::command]
+#[specta::specta]
+pub async fn disconnect_anthropic() -> Result<(), AppError> {
+    keyring_store::clear_anthropic_key()
+}
+
+// ---------------------------------------------------------------------------
+// refresh_anthropic_connection
+// ---------------------------------------------------------------------------
+
+/// Step 6 — re-probe the currently stored key. Returns `Validation` when no
+/// key is stored (the frontend gates this call on `has_anthropic_key()` so
+/// the error path is only hit on misuse).
+#[tauri::command]
+#[specta::specta]
+pub async fn refresh_anthropic_connection() -> Result<ProbeResult, AppError> {
+    match keyring_store::get_anthropic_key()? {
+        Some(k) => Ok(anthropic_probe::probe(&k).await),
+        None => Err(AppError::Validation("no stored anthropic key".into())),
+    }
 }
 
 // ===========================================================================

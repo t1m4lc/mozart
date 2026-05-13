@@ -1,0 +1,91 @@
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { HlmDialogService } from '@mozart/ui/dialog';
+import { ProfileFacade } from './data/profile.facade';
+import { UiComingSoonCard } from './ui-coming-soon-card';
+import { UiConnectDialog } from './ui-connect-dialog';
+import {
+  ConfirmDisconnectContext,
+  UiConfirmDisconnectDialog,
+} from './ui-confirm-disconnect-dialog';
+import { UiConnectionCard } from './ui-connection-card';
+import { UiConnectionHelpDialog } from './ui-connection-help-dialog';
+
+// Composes the `/settings` connection list. v0.0.1 ships one live card
+// (Anthropic) and a disabled placeholder (GitHub). v0.1.0 turns the
+// placeholder into a real integration.
+@Component({
+  selector: 'app-feature-connections',
+  imports: [UiConnectionCard, UiComingSoonCard],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  host: { class: 'block' },
+  template: `
+    <section class="space-y-3">
+      <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        Connections
+      </h2>
+      <div class="space-y-3">
+        <app-ui-connection-card
+          [connection]="facade.connection()"
+          (connect)="onConnect()"
+          (disconnect)="onDisconnect()"
+          (testConnection)="onTestConnection()"
+          (useApiKey)="onUseApiKey()"
+          (help)="onHelp()"
+        />
+        <app-ui-coming-soon-card
+          name="GitHub"
+          description="Pull requests, code review"
+          icon="lucideGithub"
+        />
+      </div>
+    </section>
+  `,
+})
+export class FeatureConnections {
+  protected readonly facade = inject(ProfileFacade);
+  private readonly dialogService = inject(HlmDialogService);
+
+  constructor() {
+    // Lazy probe on first /settings visit. Idempotent — the APP_INITIALIZER
+    // (in app.config.ts) and this call cooperate via the facade's own
+    // guard (`status === 'unknown'`).
+    void this.facade.initialize();
+  }
+
+  // Connect-button flow. The facade re-checks the claude /login session
+  // first; if one is found the card flips to "Using Claude Code" with no
+  // dialog. Otherwise we open the API-key dialog.
+  protected async onConnect(): Promise<void> {
+    const outcome = await this.facade.tryConnect();
+    if (outcome === 'needs_api_key') {
+      this.openApiKeyDialog();
+    }
+  }
+
+  // From the "Using Claude Code" state, the user can switch to an API
+  // key directly — same dialog as the not_connected → Connect path.
+  protected onUseApiKey(): void {
+    this.openApiKeyDialog();
+  }
+
+  protected onDisconnect(): void {
+    const context: ConfirmDisconnectContext = {
+      onConfirm: () => {
+        void this.facade.disconnect();
+      },
+    };
+    this.dialogService.open(UiConfirmDisconnectDialog, { context });
+  }
+
+  protected onTestConnection(): void {
+    void this.facade.testConnection();
+  }
+
+  protected onHelp(): void {
+    this.dialogService.open(UiConnectionHelpDialog, {});
+  }
+
+  private openApiKeyDialog(): void {
+    this.dialogService.open(UiConnectDialog, {});
+  }
+}
