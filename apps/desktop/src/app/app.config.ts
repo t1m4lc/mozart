@@ -23,7 +23,7 @@ import {
   type ChatsAdapter,
   type MessagesAdapter,
 } from './domains/chat';
-import { FakeLlmAdapter, LLM_ADAPTER } from './domains/llm-model';
+import { LLM_ADAPTER, TauriLlmAdapter } from './domains/llm-model';
 import {
   CREDENTIALS_ADAPTER,
   ProfileFacade,
@@ -260,10 +260,10 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       void inject(ProfileFacade).initialize();
     }),
-    // v0.0.1 ships the fake LLM adapter — workspaces aren't yet
-    // backed by SQLite, so a real `commands.startAgentRun` would
-    // 404. Swap to `TauriLlmAdapter` when the Steps 2-3 SQLite
-    // sweep lands.
-    { provide: LLM_ADAPTER, useExisting: FakeLlmAdapter },
+    // Real Tauri-backed adapter. v0.0.1 SQLite sweep (S2-S5) hooked
+    // chat persistence onto the workspace_id, so `startAgentRun`
+    // now resolves a real DB row. FakeLlmAdapter stays exported for
+    // sandbox/Storybook.
+    { provide: LLM_ADAPTER, useExisting: TauriLlmAdapter },
   ],
 };
