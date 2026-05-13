@@ -74,7 +74,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
                     #renameInput
                     type="text"
                     [value]="workspaceTitle()"
-                    class="min-w-0 flex-1 bg-transparent text-sm font-normal text-foreground outline-none"
+                    class="min-w-0 flex-1 rounded-sm border border-border bg-background px-1.5 py-0.5 text-sm font-normal text-foreground outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/30"
                     (click)="$event.stopPropagation()"
                     (keydown.enter)="commitRename($any($event.target).value)"
                     (keydown.escape)="cancelRename()"
