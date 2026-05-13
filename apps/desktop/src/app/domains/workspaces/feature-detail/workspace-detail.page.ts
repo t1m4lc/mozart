@@ -5,16 +5,11 @@ import {
   effect,
   inject,
   input,
-  signal,
   TemplateRef,
   viewChild,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
-import {
-  HlmComposer,
-  type ComposerMode,
-  type ComposerSendEvent,
-} from '@mozart/ui/composer';
+import { ComposerSendEvent } from '@mozart/ui/composer';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -22,6 +17,7 @@ import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
 import { OsService } from '../../../core/os.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
+import { FeatureChatPanel } from '../../chat';
 import { ProjectsFacade } from '../../projects';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
@@ -38,7 +34,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     WorkspaceToolbar,
     WorkspaceTabBar,
     ChatEmptyState,
-    HlmComposer,
+    FeatureChatPanel,
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
@@ -64,24 +60,19 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
 
     <app-workspace-tab-bar />
 
-    <div class="flex-1 min-h-0 overflow-auto">
+    <app-feature-chat-panel
+      class="flex-1 min-h-0"
+      [workspaceId]="store.workspaceId()"
+    >
       <app-chat-empty-state
+        chat-empty-state
         [projectName]="store.projectName()"
         [workspaceName]="store.workspaceTitle()"
         [sourceBranch]="store.workspaceTitle()"
         [targetBranch]="store.targetBranch()"
         [numberOfFiles]="0"
       />
-    </div>
-
-    <div class="px-4 pb-4 pt-2">
-      <hlm-composer
-        [(value)]="composerValue"
-        [(mode)]="composerMode"
-        (send)="onComposerSend($event)"
-        (stop)="onComposerStop()"
-      />
-    </div>
+    </app-feature-chat-panel>
 
     <ng-template #sidebarHeaderTpl>
       @if (isMac) {
@@ -104,8 +95,6 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
   `,
 })
 export class WorkspaceDetailPage {
-  // Route param — Angular's `withComponentInputBinding()` would normally
-  // hand us the `id` here. The current router setup binds via `input()`.
   readonly id = input<string | undefined>();
 
   protected readonly store = inject(WorkspaceDetailStore);
@@ -137,13 +126,6 @@ export class WorkspaceDetailPage {
 
   protected readonly sidebarHeader =
     viewChild.required<TemplateRef<unknown>>('sidebarHeaderTpl');
-
-  // Composer-preview state. Step 4 (Persistent chat) will move this to
-  // the chat facade ; for now we surface the new HlmComposer in the
-  // workspace view and log emissions so the visual stack matches the
-  // intended product layout.
-  protected readonly composerValue = signal('');
-  protected readonly composerMode = signal<ComposerMode>('normal');
 
   constructor() {
     effect(() => {
