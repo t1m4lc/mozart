@@ -9,7 +9,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { ComposerSendEvent } from '@mozart/ui/composer';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -145,16 +144,5 @@ export class WorkspaceDetailPage {
   protected onRename(name: string): void {
     const id = this.id();
     if (id) this.workspaces.rename(id, name);
-  }
-
-  protected onComposerSend(event: ComposerSendEvent): void {
-    // eslint-disable-next-line no-console
-    console.info('[workspace-detail] composer send', event);
-    this.composerValue.set('');
-  }
-
-  protected onComposerStop(): void {
-    // eslint-disable-next-line no-console
-    console.info('[workspace-detail] composer stop');
   }
 }
