@@ -1238,8 +1238,8 @@ Repository = optional technical output
 ```text
 /     = skills and commands
 @     = local context
-@web  = external web context from URL
-#     = Mozart, Git, or integration references
+@@  = external web context URL if not an url it make a search on google.
+#     = Mozart, Git, or integration references, PR, Chat, workflow...
 ```
 
 ### Strategic Summary
