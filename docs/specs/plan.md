@@ -23,135 +23,147 @@ show someone, even if not everything is wired yet.
 
 ---
 
-## Frontend progress snapshot — 2026-05-13
-
-This section reflects the **actual** state of `apps/desktop/` against the
-plan below. It is the source of truth for "what's left" ; the step
-descriptions further down keep the original intent so we can see the
-deviation.
-
-### TL;DR
-
-- **Step 1 (Shell)** : ✅ done — but **scope is larger than planned** (see deviations)
-- **Step 2 (Add project)** : 🟡 UI complete against mocks ; **no Tauri picker, no SQLite**
-- **Step 3 (Create workspace)** : 🟡 UI complete against mocks ; **no `tasks/`, no `worktree.adapter`, no real branch**
-- **Step 4 (Persistent chat)** : ⛔ not started (only a `ChatEmptyState` placeholder + a tab-strip data model)
-- **Step 5 (LLM streaming)** : ⛔ not started
-- **Step 6 (Settings)** : ⛔ shell only — `settings.page.ts` is a `<h1>` + `<!-- TODO -->`
-
-### What exists today in `apps/desktop/src/app/`
-
-```
-app.config.ts            provideRouter(appRoutes, hash, componentInputBinding) + provideTheme
-app.routes.ts            /workspaces, /workspaces/:id, /settings, /legacy
-core/
-  layout.service.ts      left/right panel open state
-  os.service.ts          isMac()
-  window-controls/       mac + non-mac native window buttons (Tauri-wired)
-shell/
-  app-shell.ts           3-column hlm-resizable layout, sidebar header,
-                         project list, gear→/settings, "Add project" dropdown
-  shell-aside.ts         right column shell, content is <!-- TODO -->
-  settings-shell.ts      shell variant for /settings
-  shell-panel.constants  px ↔ % helpers for resizable defaults/min/max
-pages/
-  settings.page.ts       placeholder
-domains/workspaces/
-  data/                  project + workspace models, DTOs, functional
-                         adapters (DTO↔Model), workspace-status, mocks
-                         (projects.mock, branches.mock), open-in-tools
-  feature-list/
-    project-list.store     signalStore (projects, groupBy, filter, expand,
-                           active, hover, newWorkspace, archive, hide…)
-    project-list.container sidebar list with context menus + delete dialog
-  feature-detail/
-    workspace-detail.page  toolbar + tab-bar + ChatEmptyState
-    workspace-detail.store signalStore seeded from mocks
-  ui/                    branch-picker, chat-empty-state,
-                         confirm-delete-project-dialog, group-by-filter,
-                         open-in-menu, project-context-menu, project-row,
-                         workspace-context-menu, workspace-empty-state,
-                         workspace-row, workspace-status-menu,
-                         workspace-tab-bar (+ tab-item, llm-icon, model),
-                         workspace-toolbar
-  index.ts               public surface (types + Container + Page + filter)
-legacy/                  previous Angular code, reachable via /legacy
-```
-
-### Deviations from the plan to acknowledge
-
-These are intentional choices already made in code. The plan below is the
-**original intent** ; the table is the **delta**.
-
-| Topic                          | Plan                                                   | Reality                                                                          |
-| ------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
-| Domain split                   | separate `projects/` and `workspaces/` domains         | single `workspaces/` domain hosts both (projects nested inside)                  |
-| Step 1 file budget             | "exactly 9 files, HlmButton+HlmIcon only"              | richer shell : resizable panes, sidebar primitives, dropdown menu, tooltip      |
-| Facade pattern                 | features inject a single facade                        | features inject the signal store directly ; no facade yet                        |
-| Adapter shape                  | `class XAdapter { static … }` ish                      | **functional adapters** : `projectFromDto`, `workspaceFromDto`                   |
-| Worktree boundary file         | `workspaces/data/worktree.adapter.ts`                  | not yet created — paths/branches still mocked                                    |
-| Tasks domain                   | `tasks/` created in Step 3                             | not yet created — `newWorkspace()` in the store fabricates a Workspace only      |
-| Backend wiring                 | Tauri commands consumed by adapters from Step 2 on     | only window controls call Tauri ; everything else is mocked                      |
-| Tab strip                      | (not in v0.0.1)                                        | `workspace-tab-bar` shipped early ; multi-chat tabs already modeled (ChatTab / FileTab) |
-| Routing                        | path location                                          | **hash location** (`withHashLocation()`)                                         |
-
-### What we still need before Step 4 (chat) can start usefully
-
-1. **Wire Tauri** for projects : real folder picker + SQLite insert/list
-   (`feature-list/project-list.store` currently bootstraps from
-   `PROJECTS_MOCK`).
-2. **Create the `tasks/` data layer** (model + store) — every Workspace
-   must hang off a Task per the architecture rule.
-3. **Create `workspaces/data/worktree.adapter.ts`** with the Tauri
-   `git_worktree_create` / `git_worktree_remove` mapping ; replace the
-   in-store `newWorkspace()` fabrication with a real branch + worktree
-   atomically created via the adapter, fed by a `workspace.facade`.
-4. Decide whether to **introduce facades retroactively** (Step 3) or
-   accept the "store-as-facade" pattern and update the architecture rule
-   in CLAUDE.md / DESIGN.md to reflect it. (Recommendation : introduce a
-   thin facade only when a domain needs to coordinate ≥2 stores or
-   adapters — keep current store-direct injection until then.)
-5. **Open question** : keep `workspaces/` as a mega-domain, or split out
-   `projects/` now while the surface is still small. Splitting later
-   costs more once `chat/` and `repositories/` arrive.
-
----
-
 ## Methodology — plan first, code second
 
-> **Mandatory rule**: every step (and every sub-step) **must start in
-> Claude Code plan mode**. The plan describes the **desired UI behavior**
-> — interactions, states, edge cases, copy — before any line of code is
-> written. Implementation only starts once the plan is reviewed and
-> validated.
+> **Mandatory rule** : every step starts in **Claude Code plan mode**
+> and is split into two phases :
+>
+> 1. **Phase A — Code reconnaissance** (always done, always real).
+>    Read the affected paths, inventory what already exists, surface
+>    blockers. **Do not invent ; do not paper over gaps.**
+> 2. **Phase B — Plan** (depth scales with the step's UX surface).
+>    Confirm UX micro-decisions and the implementation plan based on
+>    Phase A findings.
+>
+> Only after both phases are validated do you exit plan mode and
+> implement.
 
-Rationale: most of the time spent on a feature is in defining what it
-should do, not typing the code. Plan mode forces that conversation
-upfront, surfaces ambiguity before it becomes a bad implementation, and
-keeps the agent from over-engineering or going off-track.
+### Why two phases
 
-Practical loop for every step:
+`plan.md` is the architectural intent. It's true at the **strategic**
+level — domains, layers, conventions, file lists, DoD. It's **not** a
+ground-truth snapshot of the codebase at the moment you implement a
+given step. Between steps, the code evolves :
 
-1. `/plan` in Claude Code with the step's user goal as the prompt
-2. Iterate on the plan : UI states, edge cases, copy, tests
-3. Validate the plan
-4. Exit plan mode, implement
-5. Run the Definition-of-done checks at the bottom of the step
+- `libs/ui` gains new primitives **and composed dumb components**
+- Adapter signatures and DTOs shift as the Tauri side adds commands
+- New conventions emerge in earlier steps that should propagate
+- `legacy/` may reveal patterns or quirks we want to preserve (or
+  explicitly reject)
 
-This applies to **both v0.0.1 and v0.0.2** and to every individual
-sub-step (4a, 4b, …). Don't skip plan mode "because the step looks
-small". The small steps are where assumptions silently diverge.
+Pretending the spec is the truth = silent drift, integration bugs,
+duplicated UI components, hand-rolled adapters that don't match what
+Tauri actually exposes. Phase A prevents this.
+
+### Phase A — Code reconnaissance (mandatory for every step)
+
+Before proposing anything, the agent must read and inventory :
+
+1. **`libs/ui`** — both **primitives** (Spartan wrappers : button,
+   icon, dialog…) AND **composed dumb components** already built
+   (cards, items, list rows, message bubbles, …). Rule : if it
+   already exists, **use it**. Don't recreate a "project card" if
+   `libs/ui` already exposes one that fits.
+2. **The Tauri side** for any IO this step touches. Inventory the
+   actual command names, their parameter shapes, and their return
+   types. Adapter signatures + DTOs are derived from **what Tauri
+   exposes**, not from what `plan.md` guesses.
+3. **Existing domains** (if any from earlier steps) for the facade /
+   store / adapter conventions that crystallized. New domains copy
+   the latest pattern, not the spec's idealized version.
+4. **`legacy/`** for any prior implementation that informs route
+   names, copy, edge cases, or naming. Reference only — no imports.
+5. **`plan.md` for this step** to anchor the strategic intent.
+
+Output of Phase A : a short structured report :
+
+```
+### Already exists, will reuse
+- libs/ui : <component> for <purpose>
+- <existing facade / adapter / util>
+
+### Tauri inventory
+- Available commands : <name(args) → return> ...
+- DTOs already shaped on the Rust side : ...
+
+### Blockers / gaps
+- <thing> assumed by plan.md but not present : impact = ...
+- DTO mismatch between TS and Rust on <field> : impact = ...
+- Need new Tauri command : <suggested signature>
+
+### Proposed adapter signatures + DTOs
+- interface XAdapter { ... }
+- type XDTO = { ... }
+```
+
+**Blockers must be surfaced**, not worked around. "I'll just write a
+custom dumb component because the existing one doesn't quite fit" is
+the wrong answer. The right answer is : "the existing dumb component
+is missing X — should I extend it in `libs/ui` first, or do you
+accept a domain-local override for this step ?"
+
+### Phase B — Plan (depth scales with the step)
+
+Once Phase A is validated, plan the implementation. Depth depends on
+the step's UX surface :
+
+| Step type                                                                | Phase B depth                                                                                                         |
+| ------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Mechanical (e.g. Bootstrap, CRUD over Tauri, simple list)                | **Light** — confirm 3-5 UX micro-decisions, propose file list                                                         |
+| UX-rich (chat composer, streaming with structured segments, diff layout) | **Full** — interactions, states, edge cases, copy, error states, all states drawn from Phase A's available primitives |
+| Risky / new pattern (first domain, first adapter, first agent stream)    | **Full + design-by-example** — at least one code-level sketch of the trickiest part                                   |
+
+### Practical loop
+
+1. Enter plan mode
+2. **Phase A** : read code, output the reconnaissance report
+3. Wait for review of Phase A — adjust assumptions, unblock blockers
+4. **Phase B** : propose the implementation plan (file list, adapter
+   signatures, key templates, UX calls)
+5. Wait for approval
+6. Exit plan mode, implement
+7. Run the step's Definition-of-done checks
+
+This applies to **every step** in v0.0.1 and v0.0.2 — and to every
+sub-step (4a, 4b, …) when the sub-step touches a new boundary
+(adapter, DTO, primitive). The small steps are where assumptions
+silently diverge.
+
+### What goes in each step's prompt
+
+With this methodology in `plan.md`, each step's prompt becomes short :
+load the `@` context, point at the step in `plan.md`, and ask the
+agent to "follow the methodology" — i.e. run Phase A, then Phase B,
+then implement. The prompt does NOT need to re-list the conventions,
+the rules, or the constraints. They live here.
 
 ---
 
-## Foundational convention #1 — UI primitives come from `libs/ui`
+## Foundational convention #1 — UI comes from `libs/ui`
 
-**Hard rule** : no raw HTML form controls, no custom-built dialogs,
-tabs, dropdowns, popovers, tooltips, etc. **Every UI primitive is
-imported from `libs/ui`**, which provides Angular wrappers around the
-Spartan NG (shadcn-for-Angular) component set.
+**Hard rule** : every UI primitive AND every reusable dumb component
+is imported from `libs/ui`. Domain code composes what `libs/ui` already
+exposes ; it never rebuilds a control, a card, or a list row that
+already lives there.
 
-### Available primitives in `libs/ui` (Spartan NG)
+### Two layers inside `libs/ui`
+
+`libs/ui` evolves continuously. It contains :
+
+1. **Primitives** — thin Spartan NG (shadcn-for-Angular) wrappers
+   listed below. These are stable building blocks.
+2. **Composed dumb components** — higher-level pure presentational
+   components built from primitives (e.g. a generic list row, an icon
+   card, a connection card, a tab strip with copy slots, …). These
+   evolve fast.
+
+**Phase A of every step (see Methodology) must inventory both layers.**
+If a composed component already exists for the use case, reuse it. If
+one almost fits but needs a tweak, extend it inside `libs/ui` —
+**don't fork it inside a domain**. A domain-local override is a last
+resort and must be flagged explicitly to the reviewer.
+
+### Available primitives in `libs/ui` (Spartan NG, stable layer)
 
 ```
 Accordion        Alert            Alert Dialog     Aspect Ratio
@@ -170,7 +182,40 @@ Spinner          Switch           Table            Tabs
 Textarea         Toggle           Toggle Group     Tooltip
 ```
 
-Reference docs : https://www.spartan.ng/components/<name>
+Reference docs (upstream Spartan) : https://www.spartan.ng/components/<name>
+
+> Note : the exact exported symbols, selectors, and import paths in
+> `libs/ui` may not 1:1 mirror the upstream Spartan API. Phase A of
+> every step **must read `libs/ui` directly** to confirm.
+
+### Composed dumb components in `libs/ui` (evolving layer)
+
+This layer is not enumerated here because it changes between steps.
+**Read `libs/ui` in Phase A of every step** to inventory what's
+available. Typical citizens : list rows, icon cards, status pills,
+connection cards, toolbar buttons, etc. — anything pure
+presentational that's used in more than one place.
+
+**Currently known composed components in `libs/ui`** (non-exhaustive,
+verify in Phase A) :
+
+- **`WorkspaceTabBar`** — horizontal tab strip under the breadcrumb,
+  chat tabs with LLM icon + title + active violet border. Max 4 tabs.
+  Hover reveals pen (rename) and close icons. Close disabled while a
+  tab `isStreaming`, hidden when only one tab left. A pinned
+  "New chat" button on the far right. Supports a future `file` tab
+  variant (different icon, no rename, no close). State is owned
+  internally by the component ; consumers pass `tabs[]`, `activeTabId`,
+  and listen for create/close/rename/activate events.
+- **`ChatEmptyState`** — empty-state panel rendered in the chat area
+  when the active chat has no messages. Contains a workspace callout
+  ("You are in a new chat of _{project}_ called _{workspace}_") and a
+  3-row info list (Branch info with `<kbd>` chips, files count, setup
+  script status).
+
+When a step needs UI that overlaps with these, **reuse them**. If a
+near-fit is missing a small variant, extend `libs/ui` rather than
+forking the component locally.
 
 ### For lower-level behavior, use Angular CDK
 
@@ -182,6 +227,7 @@ https://material.angular.dev/cdk/categories
 
 Typical CDK modules we'll reach for in Mozart :
 
+- `@angular/cdk/overlay` — custom popovers, command palette
 - `@angular/cdk/drag-drop` — file tree reordering, tab reordering
 - `@angular/cdk/scrolling` — virtual scroll for long file trees / chat
 - `@angular/cdk/a11y` — focus trap inside dialogs, live announcer
@@ -241,7 +287,108 @@ should return matches **only** in files that explicitly comment why
 
 ---
 
-## Foundational convention #2 — Intra-domain architecture
+## Foundational convention #2 — Adapter & DTO discipline
+
+The frontend never speaks raw Tauri / IPC / HTTP. It speaks **adapter
+interfaces** that live next to the domain. The shape of every adapter
+method and every DTO is **derived from what the Tauri side actually
+exposes**, not from what the spec imagines.
+
+This convention is the single biggest source of silent bugs : if the
+TS adapter says `pickFolder(): Promise<string>` but the Rust command
+returns `{ path: string, name: string, is_repo: bool }`, the parsing
+explodes the first time a real user clicks the button. Phase A
+catches this before it lands.
+
+### Adapter shape
+
+```ts
+// domains/<x>/data/<x>.adapter.ts
+import { InjectionToken } from '@angular/core';
+
+// 1. DTOs — types describing the wire shape from/to Tauri.
+//    Co-located in this file (or split if many).
+export type PickFolderResult =
+  | { ok: true; path: string; isRepo: boolean }
+  | { ok: false; reason: 'cancelled' | 'invalid' };
+
+// 2. The interface — Angular-friendly verbs.
+export interface ProjectsAdapter {
+  pickFolder(): Promise<PickFolderResult>;
+  insert(input: { name: string; path: string }): Promise<Project>;
+  list(): Promise<Project[]>;
+}
+
+// 3. The token — how features and stores get the impl.
+export const PROJECTS_ADAPTER =
+  new InjectionToken<ProjectsAdapter>('PROJECTS_ADAPTER');
+```
+
+The concrete `TauriProjectsAdapter` is implemented in the same
+`data/` folder (typically as `tauri-projects.adapter.ts`) and is
+**the only file in the app** that imports `@tauri-apps/api/core` for
+this domain. It's registered as a provider in `app.config.ts`.
+
+### DTO rules
+
+1. **DTOs are derived from Tauri**, not invented in TS. Phase A
+   inventories the Rust command signatures (parameters + return
+   types) and **the TS DTOs mirror them exactly** — same fields, same
+   types, same nullability, same casing convention agreed with the
+   Rust side (typically `snake_case` on the wire converted to
+   `camelCase` in the adapter impl).
+2. **DTOs live in the adapter file**, not in `data/<entity>.model.ts`.
+   Models are the domain-internal shape — they may be simpler, richer,
+   or differently named than the DTO.
+3. **The adapter impl is the only place that maps DTO ↔ domain model.**
+   Features and stores see only domain models.
+4. **Discriminated unions for failure modes.** Adapters never throw
+   for expected outcomes (user cancelled, validation failed, …) ;
+   they return a tagged result. They throw only for unexpected /
+   programmer errors.
+
+### Phase A blocker template for adapters
+
+When an adapter is in scope, Phase A's report must include :
+
+```
+### Tauri commands inventory
+- command_a(params) -> return_type
+- command_b(params) -> return_type
+
+### Proposed adapter signatures
+interface XAdapter {
+  ...
+}
+
+### Proposed DTOs (mirror of wire shape)
+type CommandAResult = { ... }
+
+### Mapping DTO -> domain model
+- CommandAResult.foo_bar -> Model.fooBar
+- CommandAResult.is_valid -> Model.valid
+
+### Blockers
+- command_b returns `bool` but we need a reason for failure : ask
+  Rust side to return `{ ok: bool, reason?: string }` OR accept the
+  limitation and surface a generic error message
+```
+
+Without this report, no adapter is written.
+
+### Anti-regression checks
+
+- `import.*@tauri-apps/api` appears **only** in `*-tauri.adapter.ts`
+  files inside `domains/*/data/`. Zero matches elsewhere in domain
+  or shell code.
+- Features and stores never import DTO types from the adapter file —
+  they import domain models from `<entity>.model.ts`. Grep for
+  cross-imports of `*.adapter.ts` types outside the same `data/`
+  folder.
+
+---
+
+## Foundational convention #3 — Intra-domain architecture
 
 This section formalizes the structure inside a single domain folder.
 Inspired by `angular-architects/flights42` (`domains/ticketing`) and
@@ -604,18 +751,13 @@ Nothing.
 
 ### Definition of done
 
-- [x] ~~Exactly 9 new files + 1 tsconfig edit~~ — superseded : shell grew
-      to include resizable panes, project list, window controls
-- [x] `pnpm install && pnpm build` succeeds
-- [x] `pnpm tauri dev` opens a window with a visible 3-column layout
-- [x] Clicking the gear navigates to `/settings`
-- [x] `/workspaces` and `/workspaces/:id` swap to the workspace page
-- [x] No `@NgModule`, no `Component` suffix on class names
-- [x] `domains/` exists (created early ; acceptable)
-
-**Status : ✅ done** — implemented in `shell/app-shell.ts`,
-`shell/shell-aside.ts`, `shell/settings-shell.ts`,
-`core/layout.service.ts`, `core/window-controls/*`.
+- [ ] Exactly 9 new files + 1 tsconfig edit
+- [ ] `pnpm install && pnpm build` succeeds
+- [ ] `pnpm tauri dev` opens a window with a visible 3-column layout
+- [ ] Clicking the gear navigates to `/settings`
+- [ ] `/workspaces` and `/workspaces/:id` swap to the workspace page
+- [ ] No `@NgModule`, no `Component` suffix on class names
+- [ ] No file references the `domains/` folder yet
 
 ---
 
@@ -659,17 +801,9 @@ Nothing.
 ### Definition of done
 
 - [ ] Clicking "Add a project" opens the system picker
-      *(today : opens a dropdown with disabled "Coming in v0.2" items)*
-- [x] The project appears immediately in the sidebar
-      *(rendered from `PROJECTS_MOCK`, not from a real add)*
+- [ ] The project appears immediately in the sidebar
 - [ ] Close/restart the app → the project is still there
 - [ ] Adding the same folder twice does not create a duplicate
-
-**Status : 🟡 UI-only** — model / dto / functional adapter / signalStore
-+ context menu + delete dialog all exist. The "Add project" button in
-`shell/app-shell.ts` currently triggers a dropdown of stubs. Missing :
-Tauri `dialog::open({ directory: true })`, SQLite `projects` table,
-hydration on startup. Remaining work matches sub-steps **2b** and **2d**.
 
 ---
 
@@ -736,25 +870,246 @@ hydration on startup. Remaining work matches sub-steps **2b** and **2d**.
 
 ### Definition of done
 
-- [x] From a project, I can create a workspace in one click
-      *(`ProjectListStore.newWorkspace()` adds a Workspace in memory and
-      navigates to `/workspaces/:id`)*
+- [ ] From a project, I can create a workspace in one click
 - [ ] The folder `~/.mozart/worktrees/{id}/` exists with a checkout of the repo
 - [ ] `git branch` in the source repo shows the new branch
-- [x] The workspace appears in the sidebar; clicking navigates to `/workspaces/:id`
+- [ ] The workspace appears in the sidebar; clicking navigates to `/workspaces/:id`
 - [ ] A `tasks` row AND a `workspaces` row are in the DB, linked
-- [x] The word "worktree" appears nowhere in the rendered DOM
+- [ ] The word "worktree" appears nowhere in the rendered DOM
 
-**Status : 🟡 UI-only** — the visible flow works against in-memory state
-(branch picker, status menu, context menu, toolbar, tab bar, empty state
-all wired). Missing the backbone : **`tasks/` domain**,
-**`worktree.adapter.ts`**, **`workspace.facade.createForPrompt()`**,
-Tauri `git_worktree_create`, SQLite `tasks` + `workspaces` tables. Until
-those land, "new workspace" is a UI gesture without a branch.
+---
 
-The `workspace-tab-bar` shipped early and already models multi-chat /
-file tabs — that's ahead of plan but compatible with v0.0.1 (only one
-chat tab is active and closable).
+## Step 3.5 — Composer & Timeline UI in `libs/ui` (companion task)
+
+> **Companion spec** :
+> [`docs/specs/composer-timeline-ui.md`](./composer-timeline-ui.md).
+> That doc owns the deep contract — public surfaces, sub-component
+> structure, plan-mode visual treatment, file layout in `libs/ui`,
+> open questions. Read it in Phase A. Visual specs of the timeline
+> (shimmer, geometry, icons, file chips, diff stats) are owned by
+> [`llm-stream-parser.md`](./llm-stream-parser.md) §6.
+
+Companion `libs/ui` task between domain steps. **Strictly dumb
+components**, no domain wiring, no facade injection, no Tauri. Pure
+inputs / outputs. Lives in `libs/ui` so Steps 4 and 5 just mount it.
+
+### User goal
+
+> _"By the end of this task, `libs/ui` exposes a complete chat composer
+> and a complete agent timeline. They render in a Storybook-like
+> sandbox (or a route) with mock data ; both look right ; both react
+> to events without any domain state behind them."_
+
+### Why this is a separate task
+
+The composer (with model picker, effort selector, plan-mode toggle,
+context menu) and the timeline (with renderers, shimmer, file chips)
+are **rich UI surfaces** with their own UX micro-decisions. Building
+them alongside the chat domain in Step 4 / Step 5 would tangle dumb
+UI work with persistence and streaming work and make both harder to
+review.
+
+Pattern matches what we already did for `WorkspaceTabBar` and
+`ChatEmptyState` : ship the dumb UI in `libs/ui` first ; domain steps
+mount it later.
+
+### Scope — Composer
+
+**Positioning** : `position: absolute` relative to the middle shell
+column. Anchored to the bottom of that column, full width minus the
+column's gutter padding.
+
+**Textarea** :
+
+- Placeholder : `"ask to make changes, @mention file, reference PR with #, run /commands"`
+- Autosize : `cdkTextareaAutosize` (min 1 row, max 8 rows then
+  internal scroll)
+- Keyboard : Enter sends, Shift+Enter newline, Cmd/Ctrl+Enter optional
+- In plan mode, the textarea has a distinct visual treatment
+  (border + subtle bg ; spec it in Phase B)
+
+**Bottom-left cluster — left to right** :
+
+1. **`+` button → "Add context" menu**. Tooltip _"Add context"_.
+   Opens a dropdown menu with three items, each with an icon + label :
+   - `Paperclip` — _"Add attachment"_ → opens the OS file picker
+   - `LinkSimple` — _"Link issue (GitHub or Linear)"_ → opens a
+     submenu / dialog (Phase B picks pattern) prompting for issue URL
+   - `Folder` — _"Link workspace"_ → opens a Spartan `Command` palette
+     ("search workspace") seeded with the user's workspace list
+     In Step 3.5 these are wired as `(event: AddContextAction)` outputs
+     only ; the actual file-picker / palette logic comes when domains
+     need it.
+
+2. **Model selector** (uses `hlm-select` styled like the user's
+   `hlm-dropdown-menu` sample). Tooltip _"Change model"_. Trigger
+   shows the current model's icon + short name. Open content :
+   - Models grouped by **provider** (Anthropic, OpenAI, OpenRouter,
+     Local…) with a `hlm-dropdown-menu-label` per group
+   - Each model row : provider icon + model name + optional
+     `Badge` _"New"_ + a check indicator on the selected one
+   - Right-aligned check (`hlm-select`'s built-in radio indicator)
+     Inputs : `models: ModelOption[]`, `selectedModelId: string`.
+     Output : `(modelChange)`.
+
+3. **Effort selector**. Tooltip _"Adjust effort"_. Trigger shows a
+   **graduation icon** + the current effort. Open content : a single
+   group with five rows, each row's graduation icon scales with the
+   level :
+   `low | medium | high | xhigh | max`
+   Inputs : `effort: EffortLevel`. Output : `(effortChange)`.
+
+4. **"Enter plan mode" button** with the plan icon + label _"Plan"_.
+   Tooltip _"Enter plan mode"_. When in plan mode :
+   - Button stays visible, label still _"Plan"_, icon highlighted
+   - Tooltip flips to _"Exit plan mode"_
+   - The textarea's visual treatment changes (per Phase B)
+   - Output `(planModeChange: boolean)` lets the host toggle state
+
+**Bottom-right cluster** :
+
+5. **Send button** (`HlmButton`, primary variant). Disabled when the
+   textarea is empty (whitespace-only counts as empty) or while a
+   message is already streaming in the current chat.
+   Output `(send)` emits the trimmed value ; on success the
+   composer clears (host triggers via input `clearOnSend`).
+
+**Public surface (signal-based)**
+
+```ts
+// Inputs
+value: InputSignal<string>;
+disabled: InputSignal<boolean>;            // e.g. while streaming
+models: InputSignal<ModelOption[]>;
+selectedModelId: InputSignal<string>;
+effort: InputSignal<EffortLevel>;
+planMode: InputSignal<boolean>;
+// Outputs
+(valueChange)
+(send)
+(modelChange)
+(effortChange)
+(planModeChange)
+(addContext)                                // tagged union of actions
+```
+
+The composer is a **single dumb component** (`Composer`) ; sub-parts
+(`ComposerModelSelect`, `ComposerEffortSelect`, `ComposerPlanToggle`,
+`ComposerContextMenu`, `ComposerSend`) are private to the component.
+None of them know about facades.
+
+### Scope — Timeline
+
+There's already a Timeline in the codebase. Treat this step as a
+**review + refactor** to match the parser-driven model. Phase A reads
+the existing implementation and proposes either : refactor in place
+or rebuild side by side with a deprecation path.
+
+Target shape — strictly dumb, fed by a `TurnState` value :
+
+```
+<Timeline [state]="turnState()">          // pure input, no service
+  <TurnHeader />                          // shimmer summary, chevron
+  <TurnBody>
+    <MessageBody />                       // streamed text
+    @for (item of state.items; track item.id) {
+      <TimelineItem [item]="item" />     // delegates to a renderer
+    }
+    @if (state.done) { <DoneMarker /> }
+  </TurnBody>
+</Timeline>
+```
+
+`TimelineItem` switches on `item.kind` (or `item.toolName`) and picks
+a renderer via the registry. Available renderers in v0.0.1 :
+
+- `FileReadRenderer` — file-text icon + file chip
+- `FileEditRenderer` — file-pencil icon + file chip + diff stats
+- `FileCreateRenderer` — file-plus icon + file chip
+- `ShellRenderer` — terminal icon + stdout/stderr collapsible
+- `SearchRenderer` — magnifying-glass icon + query summary
+- `ThinkingRenderer` — clock icon + collapsible reasoning
+- `GenericToolRenderer` — wrench icon + JSON input collapsible
+- `DoneMarker` — check-circle + label _"Done"_
+- `ErrorMarker` — x-circle + label _"Error"_
+
+Visual specs (shimmer animation, geometry, icons, file chips, diff
+stats) come from `docs/specs/llm-stream-parser.md`. Step 3.5 is the
+**implementation** of those primitives ; Step 5 is the wiring.
+
+**Loaders** :
+
+- **Text loader** : while the streamed text portion is being emitted,
+  show a subtle pulsing dot at the cursor position (CSS animation,
+  respects `prefers-reduced-motion`).
+- **Spinner** : `HlmSpinner` on a TimelineItem in ACTIVE state when
+  no shimmer applies (e.g. shell command running with no text output).
+
+### What's NOT in Step 3.5
+
+- No parser, no reducer (those are Step 5, in `domains/llm-model/`)
+- No real LLM connection
+- No domain wiring (no facade, no signals from a store)
+- No file-picker logic for the `+` menu (output an event ; the host
+  in Step 5 / later wires the actual flow)
+- No command-palette logic for `Link workspace` (same — output an
+  event)
+
+### UI from `libs/ui` (primitives used)
+
+- `HlmButton` (composer buttons, send, plan mode)
+- `HlmSelect` (model + effort selectors)
+- `HlmDropdownMenu` (`+` context menu — keep model/effort as
+  `HlmSelect` per request)
+- `HlmTextarea` + `@angular/cdk/text-field` (composer textarea +
+  autosize)
+- `HlmTooltip` (every button)
+- `HlmBadge` (the _"New"_ badge on model rows)
+- `HlmCommand` (workspace search palette ; rendered on demand)
+- `HlmIcon` + chosen icon library for the graduation icon set
+- `HlmSpinner` (timeline ACTIVE state)
+- `HlmCollapsible` (per-item expand/collapse)
+
+### Phase A focus
+
+- The existing Timeline implementation — files, API, what it accepts
+  as input, what it imports. Decide refactor-in-place vs side-by-side.
+- The `+` menu surface : is there already a context-menu primitive
+  for this in `libs/ui` ?
+- Icon library : which one is wired ? (the user's sample uses
+  `@ng-icons/lucide` ; confirm the actual choice in the repo).
+- `prefers-reduced-motion` plumbing : confirm a single source of
+  truth (CSS media query, or an Angular signal from `cdk/a11y`).
+
+### Phase B focus
+
+- Final public-surface signatures for `Composer` and `Timeline`
+  (input names, output payloads).
+- The visual treatment of the textarea in plan mode.
+- The pattern for the `+` menu's submenus (cascading menu vs sequential
+  dialog vs route).
+- Storybook-like sandbox route to demo both with mock data
+  (Phase B confirms whether we use a real route in the app or a
+  separate Storybook setup).
+
+### Definition of done
+
+- [ ] `Composer` exported from `libs/ui` with the full public surface
+      listed above, all interactions working against mock state
+- [ ] Plan mode toggle visually distinguishes the textarea
+- [ ] Model selector renders grouped models with NEW badges and a
+      checkmark on the selected
+- [ ] Effort selector renders the five levels with graduation icons
+- [ ] `+` menu opens with three items ; clicking each emits the
+      right `addContext` event payload ; no real picker fires
+- [ ] `Timeline` exported from `libs/ui` ; fed with a mock
+      `TurnState`, renders correctly through all renderers
+- [ ] All tooltips render with the strings specified above
+- [ ] No facade or store import anywhere in this work
+- [ ] `prefers-reduced-motion` removes shimmer + pulses ; expand /
+      collapse stays functional (instantaneous)
+- [ ] A sandbox route (or Storybook) demonstrates both components
+      end-to-end
 
 ---
 
@@ -762,76 +1117,154 @@ chat tab is active and closable).
 
 ### User goal
 
-> _"In a workspace, I see a chat panel. I type a message, hit Enter, and
-> it shows up as a user message. It's still there if I leave and come
-> back to this workspace."_
+> _"In a workspace, I see a chat tab bar (with one tab — `Untitled`)
+> and an empty-state panel underneath. I type a message, hit Enter,
+> the empty state disappears and the message appears. I can open a
+> second chat tab in the same workspace. Messages persist across
+> restarts."_
 
-At this step, **the assistant does not respond yet**. This is intentional:
-we isolate the persistence + rendering mechanics from the streaming
-mechanics.
+At this step, **the assistant does not respond yet**. This is
+intentional : we isolate the persistence + tab plumbing from the
+streaming mechanics (Step 5).
 
 ### Scope
 
-- `chat/data/chat.model.ts`: `{ id, workspaceId, createdAt }`
-- `chat/data/message.model.ts`: `{ id, chatId, role: 'user' | 'assistant', content, createdAt, status }`
-- `chat/data/chat.store.ts` + `chat/data/chat.facade.ts`
-  - `loadForWorkspace(workspaceId)` returns **a single Chat** in v0.0.1
-  - `sendUserMessage(workspaceId, text)` just adds a user message
-- `chat/ui-message-list.ts`: renders the list, distinguishes user/agent
-- `chat/ui-user-message.ts`, `chat/ui-agent-message.ts`
-- `chat/feature-composer.ts`: textarea, Enter sends, Shift+Enter newline
-- `chat/feature-chat-panel.ts`: composes message-list + composer
-- `pages/workspace.page.ts`: embeds the panel
+Two halves : (a) data plumbing in `domains/chat/`, (b) mounting the
+existing `WorkspaceTabBar` and `ChatEmptyState` from `libs/ui` and
+wiring them to chat state.
 
-### UI primitives used (from `libs/ui`)
+**Domain `domains/chat/`** :
 
-- `HlmTextarea` — the composer (with Enter / Shift+Enter handling)
-- `HlmButton` — send button (visible even though Enter sends ; explicit
-  affordance helps discoverability)
-- `HlmScrollArea` — message list, with auto-scroll to bottom on new
-  message
-- `HlmAvatar` — small avatar next to user / agent messages
-- `HlmSeparator` — optional grouping line between message clusters
+- `chat/data/chat.model.ts` : `{ id, workspaceId, title, llmId, createdAt }`
+  - `title` defaults to `'Untitled'` ; later auto-generated from first
+    user prompt (placeholder hook in Step 4, real generation in Step 5+)
+  - `llmId` is `null` on a new chat ; set when the first LLM is used
+- `chat/data/message.model.ts` : `{ id, chatId, role, content, status, createdAt }`
+  - `status: 'sending' | 'done' | 'error' | 'streaming'` from day one
+    (`'streaming'` unused in Step 4, but the type is closed so Step 5
+    adds no schema change)
+- `chat/data/chat.store.ts` + `chat/data/chat.facade.ts` :
+  - `chatsForWorkspace(workspaceId): Signal<Chat[]>`
+  - `messages(chatId): Signal<Message[]>`
+  - `activeChatId(workspaceId): Signal<string | null>`
+  - `loadForWorkspace(workspaceId)` — get-or-create at least one chat
+  - `createChat(workspaceId)` — adds a sibling chat (multi-tab support)
+  - `closeChat(chatId)` — soft-delete or hard-delete (TBD in Phase B)
+  - `renameChat(chatId, title)`
+  - `setActiveChat(workspaceId, chatId)` — persisted per workspace
+  - `sendUserMessage(chatId, text)` — adds a user message
+- `chat/feature-chat-tab-bar.ts` — smart wrapper. Reads tabs + active
+  id from the facade ; passes them to the **existing
+  `WorkspaceTabBar` from `libs/ui`** ; routes events back to facade
+  methods.
+- `chat/feature-chat-area.ts` — smart, renders either :
+  - **`ChatEmptyState` from `libs/ui`** when the active chat has no
+    messages
+  - `feature-message-list` + `feature-composer` otherwise
+- `chat/ui-message-list.ts` — internal dumb list of messages
+  (or a `MessageList` composed component from `libs/ui` if Phase A
+  finds one already there)
+- `chat/feature-composer.ts` — textarea, send button, keyboard handling
 
-For abstract behavior :
+**Page composition** : `pages/workspace.page.ts` finally wakes up. It
+mounts (in order) the breadcrumb (TBD where), `feature-chat-tab-bar`,
+then `feature-chat-area`.
 
-- `@angular/cdk/text-field` — `cdkTextareaAutosize` on the composer
+### UI from `libs/ui` (reused, not rebuilt)
+
+- **`WorkspaceTabBar`** — already implemented. Step 4 only writes the
+  smart wrapper that connects it to `ChatFacade`.
+- **`ChatEmptyState`** — already implemented. Step 4 passes it the
+  project name, workspace name, branch info, files count, setup
+  status. Some of these need DTOs from Tauri (branch info, files
+  count, setup status) — Phase A inventories.
+- **`Composer`** — built in Step 3.5. Step 4 mounts it via a smart
+  wrapper that wires `value` ↔ local signal, `(send)` →
+  `facade.sendUserMessage`, and surfaces (`modelChange`, `effortChange`,
+  `planModeChange`, `addContext`) as `// TODO Step 5+` no-ops for now
+  (or persists the selected model/effort per chat — Phase B decides).
+- **`Timeline`** — built in Step 3.5. Not mounted in Step 4 (no
+  streaming yet) ; verified to render with empty `TurnState` for
+  forward-compat.
+- `HlmScrollArea` — message list scroll container
+- `@angular/cdk/text-field` — already in `Composer` via Step 3.5
 
 ### Tauri side
 
-- SQL schemas:
+- SQL schema (forward-compatible from day one) :
+
   ```sql
-  CREATE TABLE chats (id TEXT PRIMARY KEY, workspace_id TEXT UNIQUE, created_at INTEGER);
+  CREATE TABLE chats (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT,        -- NOT UNIQUE anymore : tab bar allows
+                              -- N chats per workspace already in v0.0.1
+    title TEXT NOT NULL DEFAULT 'Untitled',
+    llm_id TEXT,
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_chats_workspace ON chats(workspace_id);
+
   CREATE TABLE messages (
     id TEXT PRIMARY KEY,
-    chat_id TEXT,
-    role TEXT,
-    content TEXT,
-    status TEXT,
-    created_at INTEGER
+    chat_id TEXT NOT NULL,
+    role TEXT NOT NULL,         -- 'user' | 'assistant' | 'system'
+    content TEXT NOT NULL,
+    status TEXT NOT NULL,       -- 'sending' | 'done' | 'error' | 'streaming'
+    created_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_messages_chat ON messages(chat_id, created_at);
+
+  CREATE TABLE workspace_active_chat (
+    workspace_id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL
   );
   ```
-- Note: `workspace_id UNIQUE` enforces the 1:1 constraint in v0.0.1. It
-  will be relaxed in v0.1.0 without a data migration.
+
+  > Note : the `workspace_id UNIQUE` constraint mentioned in earlier
+  > drafts is **dropped**. The tab bar from `libs/ui` already permits
+  > up to 4 chats per workspace in v0.0.1, so the 1:1 invariant is
+  > no longer accurate. The 1:1 cap was a v0.0.1 simplification that
+  > no longer matches reality.
+
+- Workspace introspection for the empty state — Phase A inventories
+  whether these commands exist : `workspace_branch_info(id)`,
+  `workspace_file_count(id)`, `workspace_setup_status(id)`. If
+  missing, propose minimal additions.
 
 ### Sub-steps
 
-1. **4a** — Schema + facade (Chat lazily created when the workspace opens)
-2. **4b** — UI: empty `message-list` + `composer` that sends nowhere
-3. **4c** — Wire it up: Enter → `chat.facade.sendUserMessage(...)` → persistence + store update → re-render
-4. **4d** — Initial load: on arrival at `/workspaces/:id`, load existing messages
+1. **4a** — Schema + chat models + facade (in-memory, no Tauri yet)
+2. **4b** — Mount `WorkspaceTabBar` + `ChatEmptyState` from `libs/ui`
+   via thin smart wrappers ; verify the visual layout works
+   end-to-end with mock data
+3. **4c** — SQLite persistence : adapter + concrete Tauri impl ;
+   load chats + messages + active chat id on workspace open
+4. **4d** — Composer wired : Enter → `sendUserMessage` → persistence
+   → store update → re-render ; empty state disappears on first send
+5. **4e** — Tab interactions : new chat, rename, close, switch active
+
+### Rules to enforce
+
+- **No rebuilding `WorkspaceTabBar` or `ChatEmptyState`** — reuse from
+  `libs/ui`. If something doesn't fit, extend `libs/ui`.
+- The **smart wrappers in `domains/chat/`** own facade injection ;
+  the dumb components from `libs/ui` stay pure (input / output).
+- Forward-compat `messages.status` enum closed from day one.
+- The 1:1 chat-per-workspace cap is **gone** — tab bar permits up to 4.
 
 ### Definition of done
 
-- [ ] I type a message, press Enter, it appears instantly
-- [ ] Shift+Enter inserts a newline without sending
-- [ ] I switch workspace and come back: messages are still there
-- [ ] No error if I never sent a message in this workspace
-
-**Status : ⛔ not started** — only `ui/chat-empty-state` is rendered
-under the toolbar. No `chat/` domain, no composer, no message list, no
-SQL schema. Note : `workspace-tab-bar` already declares a `ChatTab` model
-that this step should consume rather than rebuild.
+- [ ] On arrival in a fresh workspace, the tab bar shows one `Untitled`
+      tab and the chat area shows `ChatEmptyState` with correct
+      workspace + branch + files info
+- [ ] I type a message, press Enter, the empty state vanishes, the
+      message appears
+- [ ] Shift+Enter inserts a newline
+- [ ] I click "New chat" → a second tab appears, switching tabs shows
+      its own (empty) state
+- [ ] Pen icon enters rename mode ; Enter saves ; Esc cancels
+- [ ] Close icon removes a tab ; hidden when only one tab left
+- [ ] Restart : tabs, messages, and active tab id are restored
 
 ---
 
@@ -839,148 +1272,174 @@ that this step should consume rather than rebuild.
 
 ### User goal
 
-> _"I type a question or a task, hit Enter. The assistant streams its
-> answer back — but it's doing more than talking. The agent is also
-> editing files in my workspace's repo in parallel. If I open the
-> workspace folder in my IDE on the workspace's branch, I see those
-> edits land live."_
+> _"I type a question or a task, hit Enter. The assistant streams back
+> a structured turn : a header summary with a shimmer animation, a
+> collapsible vertical timeline below showing each thinking block and
+> tool call as it happens, with file chips and diff stats on file
+> edits. The agent simultaneously edits files in the workspace's repo
+> on disk ; if I open the workspace in my IDE on the right branch, I
+> see edits land live."_
 
 ### Critical context — Mozart is not a chatbot
 
-The LLM endpoint on the Tauri side is **not** a plain Anthropic API call.
-It runs an **agent** (Claude Code or similar) that uses tools : it reads
-files, writes files, runs commands, all inside the workspace's worktree.
-The Angular frontend's job is to :
+The LLM endpoint on the Tauri side runs an **agent** (Claude Code or
+similar) that uses tools : it reads files, writes files, runs commands,
+all inside the workspace's worktree. The frontend's job is to :
 
-1. **Stream the agent's output** to the chat panel
-2. **Parse that stream** into a structured activity feed (text replies,
-   tool calls, file edits, status updates), not as a wall of raw text
-3. **Trust the worktree** for actual file changes — the agent writes
-   directly to disk under `~/.mozart/worktrees/{id}/`, and that's
-   visible to any tool the user opens (IDE, terminal, etc.) on the
-   workspace's branch
+1. **Receive the agent's stream** via a Tauri adapter
+2. **Parse it** into a normalized `StreamEvent` union (provider-agnostic)
+3. **Reduce events into a `TurnState`** (header summary, timeline
+   items, statuses)
+4. **Render the timeline** in a Claude.ai-style UI
 
-In v0.0.1 we don't yet show file changes inside the Mozart UI (that's
-v0.0.2). The user inspects changes by opening the worktree path in their
-IDE on the right branch. Mozart's job in v0.0.1 is to make the agent's
-chat-side output **legible**.
+In v0.0.1 we don't yet show file changes inside Mozart's UI (that's
+v0.0.2 — right aside with file tree + diff). Users inspect changes via
+an external IDE on the workspace's branch.
 
-### Scope
+### Dedicated spec : the stream parser
 
-- `llm-model/data/llm.adapter.ts` : already created in step 1 — signature
-  upgraded to stream **structured events**, not plain strings :
+Parser + reducer + rendering UI are detailed in a **separate
+specification** : `docs/specs/llm-stream-parser.md`. That spec defines :
 
-  ```ts
-  type AgentEvent =
-    | { kind: 'text'; delta: string }
-    | { kind: 'tool_call'; name: string; input: unknown; id: string }
-    | { kind: 'tool_result'; id: string; ok: boolean; summary?: string }
-    | { kind: 'status'; phase: 'thinking' | 'editing' | 'running' | 'done' }
-    | { kind: 'error'; message: string };
+- The `StreamEvent` union and parser state machine
+- The reducer producing `TurnState`
+- The tool family → renderer registry (file-read, file-edit,
+  file-create, shell, search, thinking, generic)
+- UI components : turn container, header with shimmer summary,
+  collapsible timeline, file chips, diff stats, done marker
+- Plan mode : agent-emitted `plan_proposal` rendered as PENDING
+  timeline items, awaiting user approve/cancel
+- Visual specs (shimmer animation, timeline geometry, icons)
 
-  interface LlmAdapter {
-    stream(messages: ChatMessage[]): AsyncIterable<AgentEvent>;
-  }
-  ```
+Treat that spec the same way `plan.md` is treated — source of truth
+for parser/UI behavior. **Phase A of Step 5 must read it first.**
 
-- A concrete Tauri implementation injected in `app.config.ts` :
-  - listens to the existing Tauri agent events
-  - normalizes them into `AgentEvent`
-- `chat/data/agent-stream-parser.ts` : new utility that consumes
-  `AgentEvent`s and accumulates them into a **MessageTimeline** (the
-  structured payload the UI renders)
-- `chat/data/message.model.ts` : `content` becomes a `MessageTimeline`
-  (a list of segments : text, tool_call, status), not a plain string
-- `chat/data/chat.facade.ts` : enriched `sendUserMessage(...)` that :
-  1. Adds the user message to the DB
-  2. Creates an assistant message with `status: 'streaming'` and an
-     empty timeline
-  3. Subscribes to `llmAdapter.stream(history)`, feeds the
-     `agent-stream-parser`, and patches the timeline on each event
-  4. Sets `status: 'done'` when the parser emits `phase: 'done'`
-- `chat/ui-agent-message.ts` : renders the timeline — each segment has
-  its own component :
-  - `ui-segment-text.ts` (markdown rendering of streamed text)
-  - `ui-segment-tool-call.ts` (collapsed by default : tool name +
-    one-line summary ; expandable to show full input/result)
-  - `ui-segment-status.ts` (subtle line : "Editing 3 files…",
-    "Running tests…")
-- Error handling : if the stream fails or the agent crashes, the
-  timeline gets a final `error` segment and `status: 'error'`
+### Architectural placement
 
-### UI primitives used (from `libs/ui`)
+| Concern                                                                                             | Lives in                             |
+| --------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Provider-specific stream parsing (Anthropic first, OpenAI later)                                    | `domains/llm-model/data/stream/`     |
+| Normalized `StreamEvent` union + reducer                                                            | `domains/llm-model/data/stream/`     |
+| Tool renderer registry                                                                              | `libs/ui` (composed dumb components) |
+| Timeline UI primitives (turn container, header, timeline, file chip, diff stats, done marker)       | `libs/ui` (composed dumb components) |
+| Chat-side wiring (chat facade subscribes to stream, drives reducer, feeds `TurnState` to renderers) | `domains/chat/`                      |
 
-- `HlmCollapsible` — each `tool_call` segment is a collapsed card the
-  user can expand to see full input/result
-- `HlmBadge` — the status pill on streaming messages
-  (`streaming` / `done` / `error`)
-- `HlmAlert` — final error segment when the agent crashes or auth fails
-- `HlmSpinner` — subtle indicator on the message header while streaming
-- `HlmIcon` — per-tool icons (file, terminal, search, …)
+The parser is **provider-aware** : it normalizes Anthropic's wire
+format to `StreamEvent`. Future providers add sibling parsers in the
+same folder. `llm-model` owns provider concerns — the parser belongs
+there.
+
+Renderers are pure presentational and reusable (the v1.0.0 review
+panel may replay past turns) — they belong in `libs/ui`.
+
+### Sub-steps — parser-first
+
+The parser is a **separate, testable task** before the UI is wired.
+It can be implemented and unit-tested with fixtures **before** any
+chat integration.
+
+**Track A — Parser (in `domains/llm-model/data/stream/`)**
+
+1. **5a** — Anthropic stream fixtures : capture or synthesize sample
+   raw event sequences (text-only turn, single tool call, multi-tool
+   turn with thinking, error, network truncation, plan_proposal).
+   Live in `__fixtures__/` next to the parser.
+2. **5b** — `event.types.ts` : the `StreamEvent` union (per the
+   parser spec).
+3. **5c** — `anthropic.parser.ts` : pure function transforming raw
+   Anthropic stream chunks → `StreamEvent`s. Unit-tested against
+   every fixture. **No DOM, no Angular, no IO.**
+4. **5d** — `reducer.ts` : pure function
+   `(state: TurnState, event: StreamEvent) => TurnState`. Unit-tested.
+
+**Track B — Tauri adapter (in `domains/llm-model/data/`)**
+
+5. **5e** — `LlmAdapter` interface + DTOs derived from the actual
+   Tauri command shape (Phase A inventories).
+6. **5f** — `TauriClaudeAdapter` : subscribes to Tauri events, feeds
+   them into `anthropic.parser`, exposes
+   `stream(messages): AsyncIterable<StreamEvent>`.
+
+**Track C — UI renderers (in `libs/ui`, only what's missing)**
+
+7. **5g** — Phase A inventories which renderers already exist in
+   `libs/ui` and which need to be added. Add the missing ones :
+   `TurnContainer`, `TurnHeader`, `Timeline`, `TimelineItem`,
+   `DoneMarker`, file-edit / file-read / file-create / shell /
+   search / thinking / generic renderers, `FileChip`, `DiffStats`.
+   Shimmer CSS lives next to `TurnHeader`.
+
+**Track D — Chat integration (in `domains/chat/`)**
+
+8. **5h** — `chat.facade.sendUserMessage(...)` enriched : adds the
+   user message, creates an assistant message with empty `TurnState`,
+   subscribes to the adapter's stream, runs the reducer, patches the
+   `TurnState` signal on each event, sets
+   `status: 'done' | 'error'` at the end.
+9. **5i** — `feature-agent-message.ts` mounts `TurnContainer` from
+   `libs/ui` with the `TurnState` signal.
+10. **5j** — Error & resume semantics : missing API key, network
+    error, app closed mid-stream (on restart the last assistant
+    message in `status: 'streaming'` flips to `'error'` with an
+    "interrupted" marker).
+
+Tracks A and B can run in parallel from C. **Track A is the
+recommended starting point** — it's pure, fixture-driven, and
+quickly provides a solid foundation that doesn't depend on Tauri
+being ready.
+
+### UI from `libs/ui` (built or to build)
+
+- **Existing** : `WorkspaceTabBar`, `ChatEmptyState` (both from
+  Step 4), Spartan primitives.
+- **To add for this step** : the agent timeline component family
+  (see Track C). Confirm in Phase A which are missing.
 
 For abstract behavior :
 
-- `@angular/cdk/scrolling` — `cdkVirtualScroll` if a chat grows long
-  (deferred to v0.0.2 if not strictly needed in v0.0.1)
+- `@angular/cdk/scrolling` — sticky-bottom auto-scroll on the message
+  list (parser spec §5.4)
+- `@angular/cdk/a11y` — `LiveAnnouncer` for screen-reader cues on
+  status changes and errors
 
 ### Tauri side
 
-- Verify the agent command exists and emits **structured events**
-  (text deltas, tool calls, results, status). If it currently emits raw
-  text only, we need richer events or a parser on the Rust side to
-  produce them.
-- Confirm the agent writes to `~/.mozart/worktrees/{workspaceId}/` (the
-  worktree path), not to the source repo.
-- The API key is read from config (prepared in step 6).
-- Events are received via `@tauri-apps/api/event::listen` and adapted
-  into `AsyncIterable<AgentEvent>` inside the adapter.
-
-### Sub-steps
-
-1. **5a** — Plan mode : define the `AgentEvent` shape and what each
-   segment looks like in the UI. **No code until this is reviewed.**
-2. **5b** — Tauri adapter : convert raw events → `AgentEvent` stream
-3. **5c** — `agent-stream-parser` : pure function turning a sequence of
-   `AgentEvent`s into a `MessageTimeline` (unit tested in isolation)
-4. **5d** — Provider in `app.config.ts`
-   (`provide: LLM_ADAPTER, useClass: TauriLlmAdapter`)
-5. **5e** — Facade : wire send → stream → parser → store updates
-6. **5f** — `ui-agent-message` : render the timeline with the three
-   segment components (text / tool_call / status)
-7. **5g** — Error handling : missing key, network error, agent crash
+- Verify the agent command exists and emits structured events. If it
+  emits raw SSE text only, the Anthropic parser handles the SSE
+  format directly — that's a legitimate path.
+- Confirm the agent writes to `~/.mozart/worktrees/{workspaceId}/`.
+- The API key is read from config (prepared in Step 6).
 
 ### Rules to enforce
 
-- **The parser is pure**. It must be testable without any Angular,
-  Tauri, or IO. Input : a sequence of `AgentEvent`s. Output : a
-  `MessageTimeline`. No side effects.
-- **No streaming logic in the facade** : the facade orchestrates ; the
-  adapter does the Tauri work ; the parser does the shape work.
-- **Don't re-render on every text delta**. Use signals on the timeline ;
-  each segment is its own OnPush component, so updates are localized.
-- **History sent to the LLM** : full message history, including past
-  tool calls and results when applicable (the Tauri agent decides what
-  to include in the model's context — Mozart just hands it over).
-- **Vocabulary still applies in tool-call summaries** : "Edited 3 files
-  in the workspace" — never "wrote to worktree" or "modified
-  refs/heads/...".
+- **Parser is pure.** No Angular, no Tauri, no IO. Input : provider
+  chunks. Output : `StreamEvent[]`.
+- **Reducer is pure.** No side effects, no DOM.
+- **Adapter discipline** (Convention #2) : the Tauri adapter is the
+  only file importing `@tauri-apps/api` for this domain. Provider
+  chunks → `StreamEvent` happens inside the adapter, not the facade.
+- **Timeline append-only during a turn** : items never reorder or
+  disappear (parser spec §5.2).
+- **Vocabulary** in tool-call summaries : "Edited 3 files in the
+  workspace" — never "worktree", "HEAD", or "refs/heads".
 
 ### Definition of done
 
-- [ ] User sends "create a hello world file in the readme" → text streams
-      back AND a `tool_call` segment appears in the chat AND the file
-      exists in `~/.mozart/worktrees/{id}/` after completion
-- [ ] Opening the worktree in an IDE on the workspace's branch shows
-      the agent's edits within seconds of them happening
-- [ ] The chat shows status updates ("Editing…", "Running…") as separate
-      subtle segments, not buried in the text
-- [ ] Tool calls are collapsed by default and expandable
-- [ ] Multiple turns work (full history goes to the agent)
-- [ ] Closing the app mid-stream → on restart, the message is in
-      `status: 'error'` with a clear note
-- [ ] No API key → clear error segment in the agent message
-
-**Status : ⛔ not started.**
+- [ ] Send "create a hello world README in the project" → header
+      streams a shimmer summary, timeline shows a file-create item,
+      the file exists on disk in the worktree after completion
+- [ ] Opening the worktree in an IDE on the branch shows the agent's
+      edits within seconds
+- [ ] Multi-tool turn : each tool call appears as its own timeline
+      item with the right icon (per renderer registry)
+- [ ] Thinking blocks collapsed by default, expandable
+- [ ] Plan mode : `plan_proposal` renders PENDING items + Approve /
+      Cancel ; approval flips items ACTIVE → DONE as tools run
+- [ ] Closing the app mid-stream → on restart the message is in
+      `status: 'error'` with an "interrupted" marker
+- [ ] No API key → clear error rendered as an `ErrorMarker` in the
+      timeline
+- [ ] Parser unit tests pass against every fixture
 
 ---
 
@@ -1034,9 +1493,6 @@ For abstract behavior :
 - [ ] The key persists across restarts
 - [ ] If I delete the API key and restart, status reverts to "Not connected"
 - [ ] The chat works immediately after connecting, no app restart needed
-
-**Status : ⛔ not started** — `pages/settings.page.ts` is a placeholder
-`<h1>` and `settings-shell.ts` only provides the route's chrome.
 
 ---
 
@@ -1159,11 +1615,13 @@ Same exclusions as v0.0.1, with these clarifications :
 
 ## Methodology (reminder)
 
-Same rule as v0.0.1 : **every step starts in Claude Code plan mode**. The
-plan specifies the desired UI behavior before any code is written. This
-matters even more in v0.0.2 because some choices are non-obvious — e.g.
-"does the terminal persist across workspaces?", "what happens to the Run
-process when I close the workspace?".
+Same rule as v0.0.1 : **every step runs Phase A (code reconnaissance)
+then Phase B (plan)** before implementing, per the Methodology section
+at the top of this doc. v0.0.2 has even more dependency on `libs/ui`'s
+composed components (tabs container, diff viewer chrome, dropdown,
+empty states) and on richer Tauri commands (PTY, FS watcher, IDE
+detection) — Phase A is where mismatches between what `plan.md`
+imagined and what's actually built come to the surface.
 
 ## Step order
 
