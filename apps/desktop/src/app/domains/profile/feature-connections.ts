@@ -1,5 +1,9 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HlmDialogService } from '@mozart/ui/dialog';
+import { HlmIconImports } from '@mozart/ui/icon';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideWifiOff } from '@ng-icons/lucide';
+import { ConnectivityService } from '../../core/connectivity.service';
 import { ProfileFacade } from './data/profile.facade';
 import { UiComingSoonCard } from './ui-coming-soon-card';
 import { UiConnectDialog } from './ui-connect-dialog';
@@ -15,7 +19,8 @@ import { UiConnectionHelpDialog } from './ui-connection-help-dialog';
 // placeholder into a real integration.
 @Component({
   selector: 'app-feature-connections',
-  imports: [UiConnectionCard, UiComingSoonCard],
+  imports: [UiConnectionCard, UiComingSoonCard, NgIcon, HlmIconImports],
+  providers: [provideIcons({ lucideWifiOff })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -23,6 +28,21 @@ import { UiConnectionHelpDialog } from './ui-connection-help-dialog';
       <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         Connections
       </h2>
+      @if (!connectivity.connected()) {
+        <div
+          role="status"
+          class="flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-amber-900 dark:text-amber-200"
+        >
+          <ng-icon hlm name="lucideWifiOff" size="sm" class="mt-0.5 shrink-0" />
+          <div>
+            <p class="font-medium">No internet connection</p>
+            <p class="text-xs opacity-80">
+              Hosted LLMs (Anthropic, OpenAI…) are unreachable. Connect once
+              you’re back online, or use a local model.
+            </p>
+          </div>
+        </div>
+      }
       <div class="space-y-3">
         <app-ui-connection-card
           [connection]="facade.connection()"
@@ -43,6 +63,7 @@ import { UiConnectionHelpDialog } from './ui-connection-help-dialog';
 })
 export class FeatureConnections {
   protected readonly facade = inject(ProfileFacade);
+  protected readonly connectivity = inject(ConnectivityService);
   private readonly dialogService = inject(HlmDialogService);
 
   constructor() {

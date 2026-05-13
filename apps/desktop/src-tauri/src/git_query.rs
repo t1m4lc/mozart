@@ -116,6 +116,34 @@ pub async fn validate_repo(path: &Path) -> Result<(), RepoIssue> {
     Ok(())
 }
 
+/// Initialise a fresh git repo at `path` on branch `main`, with a
+/// local user identity and one empty seed commit so the worktree has
+/// a HEAD to branch from. Idempotent on the local-config writes.
+/// Used by `add_repo_impl` when the user picks a folder that isn't
+/// yet a git repo — saves them a manual `git init` round-trip.
+pub async fn init_repo(path: &Path) -> Result<(), AppError> {
+    run_git(path, &["init", "--initial-branch=main"]).await?;
+    // Local identity so the seed commit doesn't fail when the user
+    // hasn't configured a global git user. Local config beats global,
+    // so this never overrides their preference.
+    run_git(path, &["config", "user.email", "mozart@local"]).await?;
+    run_git(path, &["config", "user.name", "Mozart"]).await?;
+    // Seed commit so HEAD points at a branch with at least one commit;
+    // otherwise `create_workspace` has no base branch to spawn from.
+    run_git(
+        path,
+        &[
+            "commit",
+            "--allow-empty",
+            "--no-gpg-sign",
+            "-m",
+            "Initial commit",
+        ],
+    )
+    .await?;
+    Ok(())
+}
+
 /// Enumerate local branches in `path` via
 /// `git for-each-ref --format=%(refname:short) refs/heads/`.
 pub async fn list_branches(path: &Path) -> Result<Vec<String>, AppError> {

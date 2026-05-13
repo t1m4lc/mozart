@@ -64,10 +64,28 @@ pub async fn add_repo(db: State<'_, DbState>, path: String) -> Result<Repo, AppE
 
 pub(crate) async fn add_repo_impl(db: &DbState, path: String) -> Result<Repo, AppError> {
     let p = std::path::Path::new(&path);
-    // Validate first; RepoIssue is collapsed into AppError::Validation.
-    git_query::validate_repo(p)
-        .await
-        .map_err(|issue| AppError::Validation(format!("repo not usable: {issue:?}")))?;
+    // Validate first. If the only issue is "not a git repo at all",
+    // auto-init it on the user's behalf — Mozart treats any folder
+    // the user points at as a candidate workspace, and forcing a
+    // manual `git init` is hostile UX. Other RepoIssue variants
+    // (nested repo, detached HEAD, submodules, LFS) still surface
+    // as Validation so the user can fix them.
+    match git_query::validate_repo(p).await {
+        Ok(()) => {}
+        Err(git_query::RepoIssue::NotARepo) => {
+            git_query::init_repo(p).await?;
+            git_query::validate_repo(p).await.map_err(|issue| {
+                AppError::Validation(format!(
+                    "repo not usable after auto-init: {issue:?}"
+                ))
+            })?;
+        }
+        Err(other) => {
+            return Err(AppError::Validation(format!(
+                "repo not usable: {other:?}"
+            )));
+        }
+    }
     let conn = db.lock();
     // Idempotent: if path already registered, return the existing row.
     if let Ok(existing) = repos::get_by_path(&conn, &path) {
@@ -100,8 +118,8 @@ pub async fn remove_repo(db: State<'_, DbState>, repo_id: String) -> Result<(), 
 }
 
 pub(crate) async fn remove_repo_impl(db: &DbState, repo_id: String) -> Result<(), AppError> {
-    let conn = db.lock();
-    repos::delete(&conn, &repo_id)
+    let mut conn = db.lock();
+    repos::delete(&mut conn, &repo_id)
 }
 
 // ---------------------------------------------------------------------------

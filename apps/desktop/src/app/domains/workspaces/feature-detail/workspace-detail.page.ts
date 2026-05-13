@@ -139,6 +139,19 @@ export class WorkspaceDetailPage {
         this.workspaces.setActive(id);
       }
     });
+
+    // Fetch real git branches whenever the resolved workspace (with
+    // its project) is available. Reruns when the workspace list
+    // hydrates so a freshly-added project's branches appear without
+    // navigating away and back.
+    effect(() => {
+      const ws = this.workspace();
+      if (!ws) return;
+      this.workspaces
+        .listBranchesForWorkspace(ws.id)
+        .then((branches) => this.store.setBranches(branches))
+        .catch((err) => console.warn('list branches failed', err));
+    });
   }
 
   protected async onRename(name: string): Promise<void> {
