@@ -113,7 +113,7 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
     <ng-template #projectCtxMenuTpl let-p>
       <app-project-context-menu
         (newWorkspace)="createWorkspace(p.id)"
-        (hide)="projects.hide(p.id)"
+        (hide)="hideProject(p.id)"
         (remove)="openDeleteDialog(p)"
       />
     </ng-template>
@@ -214,12 +214,28 @@ export class ShellProjectList {
   protected openDeleteDialog(project: Project): void {
     const context: ConfirmDeleteProjectContext = {
       project,
-      onConfirm: () => {
+      onConfirm: async () => {
         this.workspaces.removeForProject(project.id);
-        this.projects.remove(project.id);
+        try {
+          await this.projects.remove(project.id);
+        } catch (err) {
+          toast.error('Could not remove project', {
+            description: errorMessage(err),
+          });
+        }
       },
     };
     this._dialogService.open(ConfirmDeleteProjectDialog, { context });
+  }
+
+  protected async hideProject(projectId: string): Promise<void> {
+    try {
+      await this.projects.hide(projectId);
+    } catch (err) {
+      toast.error('Could not hide project', {
+        description: errorMessage(err),
+      });
+    }
   }
 
   protected onSetStatus(

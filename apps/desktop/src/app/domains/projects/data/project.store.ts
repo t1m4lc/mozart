@@ -139,10 +139,22 @@ export const ProjectStore = signalStore(
       hideProject(projectId: string): void {
         mutateProject(projectId, (p) => ({ ...p, hidden: true }));
       },
+      setHidden(projectId: string, hidden: boolean): void {
+        mutateProject(projectId, (p) => ({ ...p, hidden }));
+      },
+      setIcon(projectId: string, icon: string | null): void {
+        mutateProject(projectId, (p) => ({ ...p, icon }));
+      },
       removeProject(projectId: string): void {
         patchState(store, {
           projects: store.projects().filter((p) => p.id !== projectId),
         });
+      },
+      // Replace the full project list (used by rollback). Skips the
+      // expanded-state intersection so callers can restore an exact
+      // pre-mutation snapshot.
+      replaceAll(projects: readonly Project[]): void {
+        patchState(store, { projects: [...projects] });
       },
       // Indices come from the rendered list (visibleProjects), so we
       // resolve them to ids and reorder the source array by id.

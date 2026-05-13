@@ -70,6 +70,9 @@ mod tests {
             path: format!("/tmp/repo-{}", new_id()),
             display_name: "r".into(),
             added_at: now_ms(),
+            icon: None,
+            hidden: false,
+            sort_index: 0,
         };
         repos::create(conn, &r).unwrap();
         r.repo_id

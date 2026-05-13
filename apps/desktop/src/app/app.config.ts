@@ -73,11 +73,17 @@ export const appConfig: ApplicationConfig = {
           const dtos = unwrap(await commands.listRepos());
           return dtos.map(projectFromDto);
         },
-        async remove(_id) {
-          // No `remove_repo` Tauri command in v0.0.1. Soft-hide via
-          // ProjectStore.hideProject is the supported UX; physical
-          // removal lands when the backend exposes the command.
-          throw new Error('remove_repo not implemented in v0.0.1');
+        async remove(id) {
+          unwrap(await commands.removeRepo(id));
+        },
+        async setIcon(id, icon) {
+          unwrap(await commands.setRepoIcon(id, icon));
+        },
+        async setHidden(id, hidden) {
+          unwrap(await commands.setRepoHidden(id, hidden));
+        },
+        async setSort(orderedIds) {
+          unwrap(await commands.setRepoSort([...orderedIds]));
         },
       } satisfies ProjectsAdapter,
     },

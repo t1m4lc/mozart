@@ -24,8 +24,13 @@ pub mod threads;
 pub mod workspace_changes;
 pub mod workspaces;
 
-/// Embedded migration SQL. Ships with the binary — no filesystem dep at runtime.
-const INIT_SQL: &str = include_str!("../../migrations/001_init.sql");
+/// Embedded migration SQL. Each entry is `(target_version, sql)`. The
+/// runner applies any whose `target_version > current_version`, in
+/// ascending order. Ships with the binary — no filesystem dep at runtime.
+const MIGRATIONS: &[(i64, &str)] = &[
+    (1, include_str!("../../migrations/001_init.sql")),
+    (2, include_str!("../../migrations/002_projects_user_state.sql")),
+];
 
 /// Tauri State wrapper around the shared connection.
 pub struct DbState(pub Arc<Mutex<Connection>>);
@@ -74,15 +79,24 @@ fn apply_pragmas(conn: &Connection) -> Result<(), AppError> {
 /// installs self-heal without a manual `rm ~/.mozart`. The patch is a
 /// no-op once the columns exist.
 fn apply_migrations(conn: &Connection) -> Result<(), AppError> {
-    let exists: i64 = conn.query_row(
+    let bootstrapped: i64 = conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_version'",
         [],
         |r| r.get(0),
     )?;
-    if exists == 0 {
-        conn.execute_batch(INIT_SQL)?;
+    let mut current: i64 = if bootstrapped == 0 {
+        0
+    } else {
+        conn.query_row("SELECT version FROM schema_version", [], |r| r.get(0))?
+    };
+    for (target, sql) in MIGRATIONS {
+        if *target > current {
+            conn.execute_batch(sql)?;
+            current = *target;
+        }
     }
     patch_workspaces_columns(conn)?;
+    patch_repos_user_state_columns(conn)?;
     Ok(())
 }
 
@@ -109,6 +123,32 @@ fn patch_workspaces_columns(conn: &Connection) -> Result<(), AppError> {
     if !cols.iter().any(|c| c == "unread") {
         conn.execute_batch(
             "ALTER TABLE workspaces ADD COLUMN unread BOOLEAN NOT NULL DEFAULT false",
+        )?;
+    }
+    Ok(())
+}
+
+/// Belt-and-braces for v2 columns. Existing dev DBs that booted on v1
+/// pick these up via the migration runner above; this guard catches
+/// snapshots that recorded `version = 2` but skipped the column adds.
+fn patch_repos_user_state_columns(conn: &Connection) -> Result<(), AppError> {
+    let mut stmt = conn.prepare("PRAGMA table_info(repos)")?;
+    let cols: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    drop(stmt);
+
+    if !cols.iter().any(|c| c == "icon") {
+        conn.execute_batch("ALTER TABLE repos ADD COLUMN icon TEXT")?;
+    }
+    if !cols.iter().any(|c| c == "hidden") {
+        conn.execute_batch(
+            "ALTER TABLE repos ADD COLUMN hidden INTEGER NOT NULL DEFAULT 0",
+        )?;
+    }
+    if !cols.iter().any(|c| c == "sort_index") {
+        conn.execute_batch(
+            "ALTER TABLE repos ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0",
         )?;
     }
     Ok(())
@@ -171,13 +211,32 @@ mod tests {
     }
 
     #[test]
-    fn schema_version_is_one() {
+    fn schema_version_matches_latest_migration() {
         let db = init_db_memory().unwrap();
         let conn = db.lock();
         let v: i64 = conn
             .query_row("SELECT version FROM schema_version", [], |r| r.get(0))
             .unwrap();
-        assert_eq!(v, 1);
+        let latest = MIGRATIONS.last().expect("at least one migration").0;
+        assert_eq!(v, latest);
+    }
+
+    #[test]
+    fn repos_has_v2_user_state_columns() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let mut stmt = conn.prepare("PRAGMA table_info(repos)").unwrap();
+        let cols: Vec<String> = stmt
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+        for col in ["icon", "hidden", "sort_index"] {
+            assert!(
+                cols.iter().any(|c| c == col),
+                "expected repos.{col} after v2 migration, got cols={cols:?}"
+            );
+        }
     }
 
     #[test]

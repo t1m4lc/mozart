@@ -78,9 +78,97 @@ pub(crate) async fn add_repo_impl(db: &DbState, path: String) -> Result<Repo, Ap
             .map(|s| s.to_string_lossy().into_owned())
             .unwrap_or_else(|| path.clone()),
         added_at: now_ms(),
+        icon: None,
+        hidden: false,
+        sort_index: 0,
     };
     repos::create(&conn, &r)?;
     Ok(r)
+}
+
+// ---------------------------------------------------------------------------
+// remove_repo
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[specta::specta]
+pub async fn remove_repo(db: State<'_, DbState>, repo_id: String) -> Result<(), AppError> {
+    remove_repo_impl(db.inner(), repo_id).await
+}
+
+pub(crate) async fn remove_repo_impl(db: &DbState, repo_id: String) -> Result<(), AppError> {
+    let conn = db.lock();
+    repos::delete(&conn, &repo_id)
+}
+
+// ---------------------------------------------------------------------------
+// set_repo_icon
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_repo_icon(
+    db: State<'_, DbState>,
+    repo_id: String,
+    icon: Option<String>,
+) -> Result<(), AppError> {
+    set_repo_icon_impl(db.inner(), repo_id, icon).await
+}
+
+pub(crate) async fn set_repo_icon_impl(
+    db: &DbState,
+    repo_id: String,
+    icon: Option<String>,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    repos::set_icon(&conn, &repo_id, icon.as_deref())
+}
+
+// ---------------------------------------------------------------------------
+// set_repo_hidden
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_repo_hidden(
+    db: State<'_, DbState>,
+    repo_id: String,
+    hidden: bool,
+) -> Result<(), AppError> {
+    set_repo_hidden_impl(db.inner(), repo_id, hidden).await
+}
+
+pub(crate) async fn set_repo_hidden_impl(
+    db: &DbState,
+    repo_id: String,
+    hidden: bool,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    repos::set_hidden(&conn, &repo_id, hidden)
+}
+
+// ---------------------------------------------------------------------------
+// set_repo_sort
+// ---------------------------------------------------------------------------
+
+/// Apply a complete project ordering. `ordered_ids[i]` gets
+/// `sort_index = i`. The Angular store debounces drag bursts so this
+/// fires once per drop, not per dragOver.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_repo_sort(
+    db: State<'_, DbState>,
+    ordered_ids: Vec<String>,
+) -> Result<(), AppError> {
+    set_repo_sort_impl(db.inner(), ordered_ids).await
+}
+
+pub(crate) async fn set_repo_sort_impl(
+    db: &DbState,
+    ordered_ids: Vec<String>,
+) -> Result<(), AppError> {
+    let mut conn = db.lock();
+    repos::set_sort(&mut conn, &ordered_ids)
 }
 
 // ---------------------------------------------------------------------------
@@ -569,6 +657,9 @@ mod tests {
             path: path.into(),
             display_name: "test".into(),
             added_at: now_ms(),
+            icon: None,
+            hidden: false,
+            sort_index: 0,
         };
         repos::create(&conn, &r).unwrap();
         r.repo_id
@@ -676,6 +767,91 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM repos", [], |r| r.get(0))
             .unwrap();
         assert_eq!(n, 1, "no duplicate row may be inserted");
+    }
+
+    // -------------------------------------------------------------------
+    // 3a. remove_repo / set_repo_icon / set_repo_hidden / set_repo_sort
+    // -------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn remove_repo_deletes_row() {
+        let db = init_db_memory().unwrap();
+        let id = seed_repo_row(&db, "/tmp/rm");
+        remove_repo_impl(&db, id.clone()).await.unwrap();
+        let n: i64 = db
+            .lock()
+            .query_row(
+                "SELECT COUNT(*) FROM repos WHERE repo_id = ?1",
+                [&id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 0);
+    }
+
+    #[tokio::test]
+    async fn remove_repo_unknown_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let err = remove_repo_impl(&db, "no-such".into()).await.unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn set_repo_icon_round_trip() {
+        let db = init_db_memory().unwrap();
+        let id = seed_repo_row(&db, "/tmp/icon");
+        set_repo_icon_impl(&db, id.clone(), Some("🎵".into()))
+            .await
+            .unwrap();
+        let got: Option<String> = db
+            .lock()
+            .query_row(
+                "SELECT icon FROM repos WHERE repo_id = ?1",
+                [&id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(got.as_deref(), Some("🎵"));
+        set_repo_icon_impl(&db, id.clone(), None).await.unwrap();
+        let got: Option<String> = db
+            .lock()
+            .query_row(
+                "SELECT icon FROM repos WHERE repo_id = ?1",
+                [&id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(got, None);
+    }
+
+    #[tokio::test]
+    async fn set_repo_hidden_round_trip() {
+        let db = init_db_memory().unwrap();
+        let id = seed_repo_row(&db, "/tmp/hid");
+        set_repo_hidden_impl(&db, id.clone(), true).await.unwrap();
+        let got: i64 = db
+            .lock()
+            .query_row(
+                "SELECT hidden FROM repos WHERE repo_id = ?1",
+                [&id],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(got, 1);
+    }
+
+    #[tokio::test]
+    async fn set_repo_sort_applies_full_ordering() {
+        let db = init_db_memory().unwrap();
+        let a = seed_repo_row(&db, "/tmp/a");
+        let b = seed_repo_row(&db, "/tmp/b");
+        let c = seed_repo_row(&db, "/tmp/c");
+        set_repo_sort_impl(&db, vec![c.clone(), a.clone(), b.clone()])
+            .await
+            .unwrap();
+        let got = list_repos_impl(&db).await.unwrap();
+        let paths: Vec<_> = got.iter().map(|r| r.path.clone()).collect();
+        assert_eq!(paths, vec!["/tmp/c", "/tmp/a", "/tmp/b"]);
     }
 
     // -------------------------------------------------------------------

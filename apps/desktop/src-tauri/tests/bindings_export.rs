@@ -36,6 +36,10 @@ fn export_contains_all_commands_and_types() {
     let expected_commands = [
         "listRepos",
         "addRepo",
+        "removeRepo",
+        "setRepoIcon",
+        "setRepoHidden",
+        "setRepoSort",
         "listBranches",
         "createWorkspace",
         "listWorkspaces",

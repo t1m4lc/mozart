@@ -16,6 +16,10 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .commands(tauri_specta::collect_commands![
             commands::list_repos,
             commands::add_repo,
+            commands::remove_repo,
+            commands::set_repo_icon,
+            commands::set_repo_hidden,
+            commands::set_repo_sort,
             commands::list_branches,
             commands::create_workspace,
             commands::list_workspaces,

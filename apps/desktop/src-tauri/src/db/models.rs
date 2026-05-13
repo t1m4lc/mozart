@@ -16,6 +16,9 @@ pub struct Repo {
     pub path: String,
     pub display_name: String,
     pub added_at: i64,
+    pub icon: Option<String>,
+    pub hidden: bool,
+    pub sort_index: i64,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
