@@ -9,6 +9,7 @@ export {
   PROJECTS_ADAPTER,
   type ProjectsAdapter,
 } from './data/projects.adapter';
+export { projectFromDto } from './data/project.adapter';
 
 export { FeatureAddProject } from './feature-add-project';
 export { ProjectRow } from './ui-project-row';

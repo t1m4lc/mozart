@@ -14,6 +14,7 @@ import { Router } from '@angular/router';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import { toast } from '@spartan-ng/brain/sonner';
 import {
   ConfirmDeleteProjectDialog,
   type ConfirmDeleteProjectContext,
@@ -96,7 +97,7 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
                     <app-workspace-row
                       [workspace]="workspace"
                       [editing]="editingWorkspaceId() === workspace.id"
-                      (archive)="workspaces.archive(workspace.id)"
+                      (archive)="archiveWorkspace(workspace.id)"
                       (renameCommit)="onRenameCommit(workspace.id, $event)"
                       (renameCancel)="editingWorkspaceId.set(null)"
                     />
@@ -120,10 +121,10 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
     <ng-template #workspaceCtxMenuTpl let-w>
       <app-workspace-context-menu
         [workspace]="w"
-        (markUnread)="workspaces.toggleUnread(w.id)"
-        (pin)="workspaces.togglePinned(w.id)"
+        (markUnread)="toggleUnreadWorkspace(w.id)"
+        (pin)="togglePinnedWorkspace(w.id)"
         (rename)="editingWorkspaceId.set(w.id)"
-        (archive)="workspaces.archive(w.id)"
+        (archive)="archiveWorkspace(w.id)"
         (setStatus)="onSetStatus(w.id, $event)"
       />
     </ng-template>
@@ -161,16 +162,53 @@ export class ShellProjectList {
     return [...pinned, ...rest];
   }
 
-  protected onRenameCommit(workspaceId: string, title: string): void {
-    this.workspaces.rename(workspaceId, title);
+  protected onRenameCommit(workspaceId: string, name: string): void {
+    this.workspaces.rename(workspaceId, name);
     this.editingWorkspaceId.set(null);
   }
 
   // Creating a workspace navigates to its detail route so the user lands
-  // directly on the new conversation.
-  protected createWorkspace(projectId: string): void {
-    const id = this.workspaces.create(projectId);
-    void this._router.navigate(['/workspaces', id]);
+  // directly on the new conversation. The pending ghost row in the
+  // sidebar surfaces during the ~200ms Tauri round-trip.
+  protected async createWorkspace(projectId: string): Promise<void> {
+    try {
+      const id = await this.workspaces.createForPrompt({ projectId });
+      void this._router.navigate(['/workspaces', id]);
+    } catch (err) {
+      toast.error('Could not create workspace', {
+        description: errorMessage(err),
+      });
+    }
+  }
+
+  protected async archiveWorkspace(workspaceId: string): Promise<void> {
+    try {
+      await this.workspaces.archive(workspaceId);
+    } catch (err) {
+      toast.error('Could not archive workspace', {
+        description: errorMessage(err),
+      });
+    }
+  }
+
+  protected async togglePinnedWorkspace(workspaceId: string): Promise<void> {
+    try {
+      await this.workspaces.togglePinned(workspaceId);
+    } catch (err) {
+      toast.error('Could not update pin', {
+        description: errorMessage(err),
+      });
+    }
+  }
+
+  protected async toggleUnreadWorkspace(workspaceId: string): Promise<void> {
+    try {
+      await this.workspaces.toggleUnread(workspaceId);
+    } catch (err) {
+      toast.error('Could not update unread', {
+        description: errorMessage(err),
+      });
+    }
   }
 
   protected openDeleteDialog(project: Project): void {
@@ -195,4 +233,8 @@ export class ShellProjectList {
     if (event.previousIndex === event.currentIndex) return;
     this.projects.reorder(event.previousIndex, event.currentIndex);
   }
+}
+
+function errorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
 }

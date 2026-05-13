@@ -67,6 +67,12 @@ fn apply_pragmas(conn: &Connection) -> Result<(), AppError> {
 
 /// v0.0.1 migration runner: if `schema_version` table doesn't exist, run 001.
 /// v0.0.2+ will iterate over numbered files and track applied versions.
+///
+/// In v0.0.1 the schema is still settling (Step 3 added `name`, `pinned`,
+/// `unread` to `workspaces` after early dev DBs were already created).
+/// We patch missing columns idempotently on every boot so existing dev
+/// installs self-heal without a manual `rm ~/.mozart`. The patch is a
+/// no-op once the columns exist.
 fn apply_migrations(conn: &Connection) -> Result<(), AppError> {
     let exists: i64 = conn.query_row(
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='schema_version'",
@@ -75,6 +81,35 @@ fn apply_migrations(conn: &Connection) -> Result<(), AppError> {
     )?;
     if exists == 0 {
         conn.execute_batch(INIT_SQL)?;
+    }
+    patch_workspaces_columns(conn)?;
+    Ok(())
+}
+
+/// Idempotently add v0.0.1 columns to `workspaces` if a pre-existing
+/// dev DB is missing them. Once v0.0.1 ships, this lives forever as a
+/// safety net for upgraders from any 0.0.1-* dev snapshot.
+fn patch_workspaces_columns(conn: &Connection) -> Result<(), AppError> {
+    let mut stmt = conn.prepare("PRAGMA table_info(workspaces)")?;
+    let cols: Vec<String> = stmt
+        .query_map([], |r| r.get::<_, String>(1))?
+        .collect::<rusqlite::Result<Vec<_>>>()?;
+    drop(stmt);
+
+    if !cols.iter().any(|c| c == "name") {
+        conn.execute_batch(
+            "ALTER TABLE workspaces ADD COLUMN name TEXT NOT NULL DEFAULT ''",
+        )?;
+    }
+    if !cols.iter().any(|c| c == "pinned") {
+        conn.execute_batch(
+            "ALTER TABLE workspaces ADD COLUMN pinned BOOLEAN NOT NULL DEFAULT false",
+        )?;
+    }
+    if !cols.iter().any(|c| c == "unread") {
+        conn.execute_batch(
+            "ALTER TABLE workspaces ADD COLUMN unread BOOLEAN NOT NULL DEFAULT false",
+        )?;
     }
     Ok(())
 }

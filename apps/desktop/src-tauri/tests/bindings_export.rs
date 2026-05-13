@@ -29,9 +29,10 @@ fn export_contains_all_commands_and_types() {
 
     let content = std::fs::read_to_string(&out).expect("read generated bindings");
 
-    // All 13 commands (tauri-specta camelCases function names by default
+    // All 15 commands (tauri-specta camelCases function names by default
     // in v2; the spike-D test belt-and-braces both forms, but production
-    // bindings consistently use the camelCase form).
+    // bindings consistently use the camelCase form). Step 3 added the
+    // pinned/unread mutators.
     let expected_commands = [
         "listRepos",
         "addRepo",
@@ -40,6 +41,8 @@ fn export_contains_all_commands_and_types() {
         "listWorkspaces",
         "listTasks",
         "archiveWorkspace",
+        "setWorkspacePinned",
+        "setWorkspaceUnread",
         "startAgentRun",
         "stopAgentRun",
         "listRuns",

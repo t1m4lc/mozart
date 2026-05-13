@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   effect,
   inject,
   input,
@@ -15,7 +16,9 @@ import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
 import { OsService } from '../../../core/os.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
+import { ProjectsFacade } from '../../projects';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
+import { WorkspacesFacade } from '../data/workspace.facade';
 import { ChatEmptyState } from '../ui/chat-empty-state/chat-empty-state';
 import { WorkspaceTabBar } from '../ui/workspace-tab-bar/workspace-tab-bar';
 import { WorkspaceToolbar } from '../ui/workspace-toolbar/workspace-toolbar';
@@ -38,9 +41,9 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
   host: { class: 'block h-full' },
   template: `
     <app-workspace-toolbar
-      [projectIcon]="store.projectIcon()"
-      [projectName]="store.projectName()"
-      [workspaceTitle]="store.workspaceTitle()"
+      [projectIcon]="projectIcon()"
+      [projectName]="projectName()"
+      [workspaceTitle]="workspaceName()"
       [targetBranch]="store.targetBranch()"
       [selectableBranches]="store.selectableBranches()"
       [tools]="tools"
@@ -49,15 +52,15 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       (targetBranchChange)="store.setTargetBranch($event)"
       (openIn)="store.openIn($event)"
       (toggleRightPanel)="layout.toggleRightPanel()"
-      (workspaceTitleChange)="store.setWorkspaceTitle($event)"
+      (workspaceTitleChange)="onRename($event)"
     />
 
     <app-workspace-tab-bar />
 
     <app-chat-empty-state
-      [projectName]="store.projectName()"
-      [workspaceName]="store.workspaceTitle()"
-      [sourceBranch]="store.workspaceTitle()"
+      [projectName]="projectName()"
+      [workspaceName]="workspaceName()"
+      [sourceBranch]="workspaceName()"
       [targetBranch]="store.targetBranch()"
       [numberOfFiles]="0"
     />
@@ -94,6 +97,26 @@ export class WorkspaceDetailPage {
   protected readonly layout = inject(LayoutService);
   protected readonly isMac = inject(OsService).isMac();
   protected readonly tools = OPEN_IN_TOOLS;
+  private readonly workspaces = inject(WorkspacesFacade);
+  private readonly projects = inject(ProjectsFacade);
+
+  // Live workspace + project derived from the route id. The detail store
+  // still owns local UI state (target branch, last-used tool, etc.); the
+  // identity (which workspace, which project) is read fresh from the
+  // facades so the toolbar reacts to hydration and rename in real time.
+  protected readonly workspace = computed(() => {
+    const id = this.id();
+    return id ? this.workspaces.workspaceById(id)() : null;
+  });
+
+  protected readonly project = computed(() => {
+    const ws = this.workspace();
+    return ws ? this.projects.byId(ws.projectId)() : null;
+  });
+
+  protected readonly projectName = computed(() => this.project()?.name ?? '');
+  protected readonly projectIcon = computed(() => this.project()?.icon ?? null);
+  protected readonly workspaceName = computed(() => this.workspace()?.name ?? '');
 
   protected readonly sidebarHeader =
     viewChild.required<TemplateRef<unknown>>('sidebarHeaderTpl');
@@ -101,7 +124,15 @@ export class WorkspaceDetailPage {
   constructor() {
     effect(() => {
       const id = this.id();
-      if (id) this.store.loadWorkspace(id);
+      if (id) {
+        this.store.loadWorkspace(id);
+        this.workspaces.setActive(id);
+      }
     });
+  }
+
+  protected onRename(name: string): void {
+    const id = this.id();
+    if (id) this.workspaces.rename(id, name);
   }
 }

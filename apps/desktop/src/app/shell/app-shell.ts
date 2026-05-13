@@ -197,7 +197,10 @@ import { ShellProjectList } from './shell-project-list';
       </div>
     </div>
 
-    <hlm-toaster position="bottom-right" />
+    <hlm-toaster
+      position="bottom-right"
+      [style]="toasterStyle"
+    />
   `,
 })
 export class AppShell {
@@ -212,6 +215,19 @@ export class AppShell {
     default: pxToPercent(SHELL_LEFT_PANEL_PX.default),
     min: pxToPercent(SHELL_LEFT_PANEL_PX.min),
     max: pxToPercent(SHELL_LEFT_PANEL_PX.max),
+  };
+
+  // HlmToaster's default userStyle feeds the sonner CSS variables raw
+  // HSL components (e.g. `var(--popover)` -> `0 0% 100%`), which is not
+  // a valid CSS color and renders the toast transparent. We wrap each
+  // token in `hsl(...)` so the rendered toast picks up the theme's
+  // popover background, foreground, and border. libs/ui is read-only,
+  // so the override happens here at the consumer.
+  protected readonly toasterStyle: Record<string, string> = {
+    '--normal-bg': 'hsl(var(--popover))',
+    '--normal-text': 'hsl(var(--popover-foreground))',
+    '--normal-border': 'hsl(var(--border))',
+    '--border-radius': 'var(--radius)',
   };
 
   protected readonly rightPanel_ = {

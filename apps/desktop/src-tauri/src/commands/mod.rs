@@ -101,8 +101,9 @@ pub async fn create_workspace(
     repo_id: String,
     base_branch: String,
     task_text: String,
+    workspace_name: String,
 ) -> Result<Workspace, AppError> {
-    create_workspace_impl(db.inner(), repo_id, base_branch, task_text).await
+    create_workspace_impl(db.inner(), repo_id, base_branch, task_text, workspace_name).await
 }
 
 pub(crate) async fn create_workspace_impl(
@@ -110,6 +111,7 @@ pub(crate) async fn create_workspace_impl(
     repo_id: String,
     base_branch: String,
     task_text: String,
+    workspace_name: String,
 ) -> Result<Workspace, AppError> {
     // Resolve repo_id -> repo_path via repos::get (added in S1.7.1a).
     let repo_path = {
@@ -122,6 +124,7 @@ pub(crate) async fn create_workspace_impl(
         std::path::Path::new(&repo_path),
         &base_branch,
         &task_text,
+        &workspace_name,
     )
     .await
 }
@@ -181,6 +184,52 @@ pub(crate) async fn archive_workspace_impl(
 ) -> Result<(), AppError> {
     let conn = db.lock();
     workspaces::set_deletion_intent(&conn, &workspace_id, true)
+}
+
+// ---------------------------------------------------------------------------
+// set_workspace_pinned
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_workspace_pinned(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    pinned: bool,
+) -> Result<(), AppError> {
+    set_workspace_pinned_impl(db.inner(), workspace_id, pinned).await
+}
+
+pub(crate) async fn set_workspace_pinned_impl(
+    db: &DbState,
+    workspace_id: String,
+    pinned: bool,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    workspaces::set_pinned(&conn, &workspace_id, pinned)
+}
+
+// ---------------------------------------------------------------------------
+// set_workspace_unread
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[specta::specta]
+pub async fn set_workspace_unread(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    unread: bool,
+) -> Result<(), AppError> {
+    set_workspace_unread_impl(db.inner(), workspace_id, unread).await
+}
+
+pub(crate) async fn set_workspace_unread_impl(
+    db: &DbState,
+    workspace_id: String,
+    unread: bool,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    workspaces::set_unread(&conn, &workspace_id, unread)
 }
 
 // ---------------------------------------------------------------------------
@@ -464,10 +513,13 @@ mod tests {
         let ws = Workspace {
             workspace_id: new_id(),
             task_id: t.task_id.clone(),
+            name: "ws-seed".into(),
             worktree_path: format!("/wt-{}", new_id()),
             branch_name: "agent/wip-x".into(),
             base_branch: "main".into(),
             status: "ready".into(),
+            pinned: false,
+            unread: false,
             created_at: now_ms(),
             deletion_intent: 0,
         };
@@ -604,15 +656,14 @@ mod tests {
             repo_id,
             "main".into(),
             "Add OAuth\nfull body".into(),
+            "eminem".into(),
         )
         .await
         .expect("create_workspace_impl ok");
         assert_eq!(ws.status, "ready");
-        assert!(
-            ws.branch_name.starts_with("agent/wip-"),
-            "branch_name should follow agent/wip-<short>, got {}",
-            ws.branch_name
-        );
+        assert_eq!(ws.name, "eminem");
+        // Branch is derived from the workspace name.
+        assert_eq!(ws.branch_name, "agent/eminem");
 
         restore_root(prev);
     }
@@ -706,6 +757,54 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
+    // 7a. set_workspace_pinned
+    // -------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn set_workspace_pinned_round_trip() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/swp");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        set_workspace_pinned_impl(&db, ws_id.clone(), true).await.unwrap();
+        assert_eq!(workspaces::get(&db.lock(), &ws_id).unwrap().pinned, true);
+        set_workspace_pinned_impl(&db, ws_id.clone(), false).await.unwrap();
+        assert_eq!(workspaces::get(&db.lock(), &ws_id).unwrap().pinned, false);
+    }
+
+    #[tokio::test]
+    async fn set_workspace_pinned_unknown_id_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let err = set_workspace_pinned_impl(&db, "no-such-ws".into(), true)
+            .await
+            .expect_err("unknown id must error");
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    // -------------------------------------------------------------------
+    // 7b. set_workspace_unread
+    // -------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn set_workspace_unread_round_trip() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/swu");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        set_workspace_unread_impl(&db, ws_id.clone(), true).await.unwrap();
+        assert_eq!(workspaces::get(&db.lock(), &ws_id).unwrap().unread, true);
+        set_workspace_unread_impl(&db, ws_id.clone(), false).await.unwrap();
+        assert_eq!(workspaces::get(&db.lock(), &ws_id).unwrap().unread, false);
+    }
+
+    #[tokio::test]
+    async fn set_workspace_unread_unknown_id_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let err = set_workspace_unread_impl(&db, "no-such-ws".into(), true)
+            .await
+            .expect_err("unknown id must error");
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    // -------------------------------------------------------------------
     // 8. start_agent_run — happy path (unix + git only)
     // -------------------------------------------------------------------
 
@@ -744,10 +843,13 @@ mod tests {
             let ws = Workspace {
                 workspace_id: new_id(),
                 task_id: t.task_id.clone(),
+                name: "ws-x".into(),
                 worktree_path: wt.path().to_string_lossy().into_owned(),
                 branch_name: "agent/wip-x".into(),
                 base_branch: "main".into(),
                 status: "ready".into(),
+                pinned: false,
+                unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
             };
@@ -842,10 +944,13 @@ mod tests {
             let ws = Workspace {
                 workspace_id: new_id(),
                 task_id: t.task_id.clone(),
+                name: "ws-x".into(),
                 worktree_path: wt.path().to_string_lossy().into_owned(),
                 branch_name: "agent/wip-x".into(),
                 base_branch: "main".into(),
                 status: "ready".into(),
+                pinned: false,
+                unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
             };
@@ -1032,10 +1137,13 @@ mod tests {
             let ws = Workspace {
                 workspace_id: new_id(),
                 task_id: t.task_id.clone(),
+                name: "ws-x".into(),
                 worktree_path: wt.path().to_string_lossy().into_owned(),
                 branch_name: "agent/wip-x".into(),
                 base_branch: "main".into(),
                 status: "ready".into(),
+                pinned: false,
+                unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
             };
@@ -1157,10 +1265,13 @@ mod tests {
             let ws = Workspace {
                 workspace_id: new_id(),
                 task_id: t.task_id.clone(),
+                name: "ws-x".into(),
                 worktree_path: wt.path().to_string_lossy().into_owned(),
                 branch_name: "agent/wip-x".into(),
                 base_branch: "main".into(),
                 status: "ready".into(),
+                pinned: false,
+                unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
             };

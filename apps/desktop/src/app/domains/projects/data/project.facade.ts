@@ -3,14 +3,15 @@ import { DIALOG_ADAPTER } from './dialog.adapter';
 import type { Project } from './project.model';
 import type { GroupBy, ProjectFilter } from './project.store';
 import { ProjectStore } from './project.store';
+import { PROJECTS_ADAPTER } from './projects.adapter';
 
 // Public API of the `projects` domain. Features inject this — never
-// the store directly. The adapter tokens (DIALOG_ADAPTER, PROJECTS_ADAPTER)
-// will be wired in here in Atom 2+.
+// the store directly.
 @Injectable({ providedIn: 'root' })
 export class ProjectsFacade {
   private readonly store = inject(ProjectStore);
   private readonly dialog = inject(DIALOG_ADAPTER);
+  private readonly adapter = inject(PROJECTS_ADAPTER);
 
   // Reads
   readonly all = this.store.projects;
@@ -29,10 +30,17 @@ export class ProjectsFacade {
   }
 
   /**
+   * Hydrate from Tauri at boot. Idempotent on the store: re-loading
+   * preserves expanded-state for ids that still exist.
+   */
+  async loadAll(): Promise<void> {
+    const projects = await this.adapter.list();
+    this.store.setAll(projects);
+  }
+
+  /**
    * Opens the system folder picker. Cancellation returns null silently.
-   * On a valid pick, delegates to {@link add}. The Tauri-side
-   * persistence wiring lands in Atom 5; for now the project lives only
-   * in memory.
+   * On a valid pick, delegates to {@link add}.
    */
   async openPickerAndAdd(): Promise<Project | null> {
     const path = await this.dialog.pickFolder();
@@ -41,13 +49,13 @@ export class ProjectsFacade {
   }
 
   /**
-   * In-memory add. Derives the display name from the folder basename
-   * and is idempotent on path: re-adding the same folder selects the
-   * existing project instead of creating a duplicate.
+   * Persists via Tauri (`add_repo`, idempotent on path) and upserts
+   * the returned row into the store. Returns the canonical Project
+   * (with the Tauri-assigned `repo_id` as `id`).
    */
-  add(path: string): Project {
-    const name = basename(path);
-    const { project } = this.store.addProject({ name, path });
+  async add(path: string): Promise<Project> {
+    const project = await this.adapter.add(path);
+    this.store.upsertProject(project);
     return project;
   }
 

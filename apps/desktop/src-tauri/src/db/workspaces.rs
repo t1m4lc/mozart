@@ -7,16 +7,16 @@ use crate::error::AppError;
 
 pub fn create(conn: &Connection, ws: &Workspace) -> Result<(), AppError> {
     conn.execute(
-        "INSERT INTO workspaces(workspace_id, task_id, worktree_path, branch_name, base_branch, status, created_at, deletion_intent)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
-        params![ws.workspace_id, ws.task_id, ws.worktree_path, ws.branch_name, ws.base_branch, ws.status, ws.created_at, ws.deletion_intent],
+        "INSERT INTO workspaces(workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+        params![ws.workspace_id, ws.task_id, ws.name, ws.worktree_path, ws.branch_name, ws.base_branch, ws.status, ws.pinned, ws.unread, ws.created_at, ws.deletion_intent],
     )?;
     Ok(())
 }
 
 pub fn get(conn: &Connection, workspace_id: &str) -> Result<Workspace, AppError> {
     conn.query_row(
-        "SELECT workspace_id, task_id, worktree_path, branch_name, base_branch, status, created_at, deletion_intent
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent
          FROM workspaces WHERE workspace_id = ?1",
         [workspace_id],
         row_to_workspace,
@@ -31,7 +31,7 @@ pub fn get(conn: &Connection, workspace_id: &str) -> Result<Workspace, AppError>
 
 pub fn list_by_task(conn: &Connection, task_id: &str) -> Result<Vec<Workspace>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT workspace_id, task_id, worktree_path, branch_name, base_branch, status, created_at, deletion_intent
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent
          FROM workspaces WHERE task_id = ?1 ORDER BY created_at DESC",
     )?;
     let rows = stmt.query_map([task_id], row_to_workspace)?;
@@ -42,7 +42,7 @@ pub fn list_by_task(conn: &Connection, task_id: &str) -> Result<Vec<Workspace>, 
 
 pub fn list_all(conn: &Connection) -> Result<Vec<Workspace>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT workspace_id, task_id, worktree_path, branch_name, base_branch, status, created_at, deletion_intent
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent
          FROM workspaces ORDER BY created_at DESC",
     )?;
     let rows = stmt.query_map([], row_to_workspace)?;
@@ -95,16 +95,41 @@ pub fn set_deletion_intent(conn: &Connection, workspace_id: &str, intent: bool) 
     Ok(())
 }
 
+pub fn set_pinned(conn: &Connection, workspace_id: &str, pinned: bool) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE workspaces SET pinned = ?1 WHERE workspace_id = ?2",
+        params![pinned, workspace_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("workspace id={workspace_id}")));
+    }
+    Ok(())
+}
+
+pub fn set_unread(conn: &Connection, workspace_id: &str, unread: bool) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE workspaces SET unread = ?1 WHERE workspace_id = ?2",
+        params![unread, workspace_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("workspace id={workspace_id}")));
+    }
+    Ok(())
+}
+
 fn row_to_workspace(row: &rusqlite::Row<'_>) -> rusqlite::Result<Workspace> {
     Ok(Workspace {
         workspace_id: row.get(0)?,
         task_id: row.get(1)?,
-        worktree_path: row.get(2)?,
-        branch_name: row.get(3)?,
-        base_branch: row.get(4)?,
-        status: row.get(5)?,
-        created_at: row.get(6)?,
-        deletion_intent: row.get(7)?,
+        name: row.get(2)?,
+        worktree_path: row.get(3)?,
+        branch_name: row.get(4)?,
+        base_branch: row.get(5)?,
+        status: row.get(6)?,
+        pinned: row.get(7)?,
+        unread: row.get(8)?,
+        created_at: row.get(9)?,
+        deletion_intent: row.get(10)?,
     })
 }
 
@@ -126,10 +151,13 @@ mod tests {
         Workspace {
             workspace_id: new_id(),
             task_id: task_id.to_string(),
+            name: format!("ws-{suffix}"),
             worktree_path: format!("/wt-{suffix}-{}", new_id()),
             branch_name: format!("agent/wip-{suffix}"),
             base_branch: "main".into(),
             status: "initializing".into(),
+            pinned: false,
+            unread: false,
             created_at: now_ms(),
             deletion_intent: 0,
         }
@@ -223,5 +251,60 @@ mod tests {
         let conn = db.lock();
         let err = update_status(&conn, "no-such-ws", "done").unwrap_err();
         assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn pinned_toggle_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        let ws = make_ws(&task_id, "pin");
+        create(&conn, &ws).unwrap();
+        assert_eq!(get(&conn, &ws.workspace_id).unwrap().pinned, false);
+        set_pinned(&conn, &ws.workspace_id, true).unwrap();
+        assert_eq!(get(&conn, &ws.workspace_id).unwrap().pinned, true);
+        set_pinned(&conn, &ws.workspace_id, false).unwrap();
+        assert_eq!(get(&conn, &ws.workspace_id).unwrap().pinned, false);
+    }
+
+    #[test]
+    fn unread_toggle_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        let ws = make_ws(&task_id, "unr");
+        create(&conn, &ws).unwrap();
+        assert_eq!(get(&conn, &ws.workspace_id).unwrap().unread, false);
+        set_unread(&conn, &ws.workspace_id, true).unwrap();
+        assert_eq!(get(&conn, &ws.workspace_id).unwrap().unread, true);
+        set_unread(&conn, &ws.workspace_id, false).unwrap();
+        assert_eq!(get(&conn, &ws.workspace_id).unwrap().unread, false);
+    }
+
+    #[test]
+    fn set_pinned_missing_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let err = set_pinned(&conn, "no-such-ws", true).unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn set_unread_missing_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let err = set_unread(&conn, "no-such-ws", true).unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn name_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        let mut ws = make_ws(&task_id, "name");
+        ws.name = "eminem".into();
+        create(&conn, &ws).unwrap();
+        assert_eq!(get(&conn, &ws.workspace_id).unwrap().name, "eminem");
     }
 }

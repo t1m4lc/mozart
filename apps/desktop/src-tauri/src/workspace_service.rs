@@ -31,12 +31,18 @@ use crate::worktree;
 /// every side-effect committed, or returns `Err(_)` after rolling back
 /// (marking the `workspaces` row `deletion_intent=1` and removing the
 /// worktree directory if it was created).
+///
+/// `workspace_name` is the friendly name surfaced to the user (e.g. a
+/// singer-pool entry like `eminem`). It feeds both the persisted
+/// `workspaces.name` column and the branch derivation
+/// (`agent/<slug-of-name>` via `branch_name::make_task_branch`).
 pub async fn create_workspace(
     db: &DbState,
     repo_id: &str,
     repo_path: &Path,
     base_branch: &str,
     task_text: &str,
+    workspace_name: &str,
 ) -> Result<Workspace, AppError> {
     // Step 1 — refuse early.
     validate_repo(repo_path)
@@ -75,10 +81,13 @@ pub async fn create_workspace(
     let mut ws = Workspace {
         workspace_id: workspace_id.clone(),
         task_id: task_id.clone(),
+        name: workspace_name.into(),
         worktree_path: String::new(),
         branch_name: String::new(),
         base_branch: base_branch.into(),
         status: "initializing".into(),
+        pinned: false,
+        unread: false,
         created_at: now,
         deletion_intent: 0,
     };
@@ -88,7 +97,7 @@ pub async fn create_workspace(
     }
 
     // Step 4 — git worktree on disk.
-    let handle = match worktree::create(repo_path, base_branch, &workspace_id).await {
+    let handle = match worktree::create(repo_path, base_branch, &workspace_id, workspace_name).await {
         Ok(h) => h,
         Err(e) => {
             let conn = db.lock();
@@ -227,22 +236,19 @@ mod tests {
         let db = init_db_memory().unwrap();
         let repo_id = seed_repo_row(&db);
 
-        let ws = create_workspace(&db, &repo_id, &repo, "main", "Add OAuth\nfull body")
+        let ws = create_workspace(&db, &repo_id, &repo, "main", "Add OAuth\nfull body", "eminem")
             .await
             .expect("create_workspace ok");
 
         assert_eq!(ws.status, "ready");
-        assert!(
-            ws.branch_name.starts_with("agent/wip-"),
-            "branch_name should follow agent/wip-<short> convention, got {}",
-            ws.branch_name
-        );
-        // short id is first 8 chars of workspace_id
-        assert_eq!(
-            ws.branch_name,
-            format!("agent/wip-{}", &ws.workspace_id[..8])
-        );
+        // Workspace name persisted on the row.
+        assert_eq!(ws.name, "eminem");
+        // Branch derived from the workspace name via make_task_branch.
+        assert_eq!(ws.branch_name, "agent/eminem");
         assert!(!ws.worktree_path.is_empty(), "worktree_path must be set");
+        // pinned/unread default to 0.
+        assert_eq!(ws.pinned, false);
+        assert_eq!(ws.unread, false);
 
         // Task row: title trimmed to first line, full text preserved.
         let conn = db.lock();
@@ -270,7 +276,7 @@ mod tests {
         let db = init_db_memory().unwrap();
         let repo_id = seed_repo_row(&db);
 
-        let err = create_workspace(&db, &repo_id, &repo, "main", "task body")
+        let err = create_workspace(&db, &repo_id, &repo, "main", "task body", "callas")
             .await
             .expect_err("non-repo must refuse");
         match err {
@@ -321,6 +327,7 @@ mod tests {
             &repo,
             "nope-this-branch-does-not-exist",
             "task body",
+            "sinatra",
         )
         .await
         .expect_err("bad base must fail");

@@ -1,12 +1,7 @@
-// Raw shape returned by the Tauri backend. Mirrors `Repo` from
-// src-tauri/src/db/models.rs. Internal — never exported from the
-// domain barrel.
-export interface ProjectDto {
-  repo_id: string;
-  display_name: string;
-  path: string;
-  added_at: number; // unix ms
-  // Atom 5 migration (002_repos_metadata.sql) adds the next two columns.
-  icon: string | null;
-  hidden: number; // SQLite 0/1
-}
+// Raw shape returned by Tauri. Re-exported under a domain-local name so
+// no other file in this domain reaches into `core/_bindings`. `icon`
+// and `hidden` are client-only fields in v0.0.1 — a later migration
+// adds them to the `repos` table, at which point the DTO grows two
+// more columns and the adapter starts reading them.
+
+export type { Repo as ProjectDto } from '../../../core/_bindings';

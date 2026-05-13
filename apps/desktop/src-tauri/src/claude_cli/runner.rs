@@ -593,10 +593,13 @@ mod tests {
             let ws = Workspace {
                 workspace_id: new_id(),
                 task_id: t.task_id.clone(),
+                name: "ws-x".into(),
                 worktree_path: wt_dir.path().to_string_lossy().into_owned(),
                 branch_name: "agent/wip-x".into(),
                 base_branch: "main".into(),
                 status: "ready".into(),
+                pinned: false,
+                unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
             };

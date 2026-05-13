@@ -32,10 +32,13 @@ pub struct Task {
 pub struct Workspace {
     pub workspace_id: String,
     pub task_id: String,
+    pub name: String,
     pub worktree_path: String,
     pub branch_name: String,
     pub base_branch: String,
     pub status: String, // initializing | ready | running | done | error | conflict | stopped | crashed
+    pub pinned: bool,
+    pub unread: bool,
     pub created_at: i64,
     pub deletion_intent: i64,
 }

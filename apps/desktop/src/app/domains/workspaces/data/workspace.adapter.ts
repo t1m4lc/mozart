@@ -1,28 +1,23 @@
 import type { WorkspaceDto } from './workspace.dto';
 import type { Workspace } from './workspace.model';
 
-export function workspaceFromDto(dto: WorkspaceDto): Workspace {
+// DTO -> Model mapper. `projectId` is supplied by the caller — for
+// freshly-created workspaces the projectId is the input to the create
+// flow; for hydration it's looked up via the TaskStore using
+// `dto.task_id -> task.projectId`. v0.0.1 keeps `ui_status` defaulted
+// to 'backlog' until a future migration adds the kanban column.
+export function workspaceFromDto(
+  dto: WorkspaceDto,
+  projectId: string,
+): Workspace {
   return {
     id: dto.workspace_id,
-    projectId: dto.repo_id,
-    title: dto.task_title,
-    status: dto.ui_status,
-    pinned: dto.pinned === 1,
-    unread: dto.unread === 1,
+    projectId,
+    name: dto.name,
+    status: 'backlog',
+    pinned: dto.pinned,
+    unread: dto.unread,
+    pending: false,
     createdAt: new Date(dto.created_at),
-  };
-}
-
-// Used when the UI mutates a workspace and pushes back to the backend.
-// Only fields the UI is allowed to write are returned.
-export function workspaceToDto(
-  model: Partial<Workspace>,
-): Partial<WorkspaceDto> {
-  return {
-    workspace_id: model.id,
-    task_title: model.title,
-    ui_status: model.status,
-    pinned: model.pinned === undefined ? undefined : model.pinned ? 1 : 0,
-    unread: model.unread === undefined ? undefined : model.unread ? 1 : 0,
   };
 }

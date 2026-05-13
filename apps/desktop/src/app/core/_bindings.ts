@@ -35,6 +35,7 @@ export const commands = {
     repoId: string,
     baseBranch: string,
     taskText: string,
+    workspaceName: string,
   ): Promise<Result<Workspace, AppError>> {
     try {
       return {
@@ -43,6 +44,7 @@ export const commands = {
           repoId,
           baseBranch,
           taskText,
+          workspaceName,
         }),
       };
     } catch (e) {
@@ -74,6 +76,40 @@ export const commands = {
       return {
         status: 'ok',
         data: await TAURI_INVOKE('archive_workspace', { workspaceId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async setWorkspacePinned(
+    workspaceId: string,
+    pinned: boolean,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('set_workspace_pinned', {
+          workspaceId,
+          pinned,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async setWorkspaceUnread(
+    workspaceId: string,
+    unread: boolean,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('set_workspace_unread', {
+          workspaceId,
+          unread,
+        }),
       };
     } catch (e) {
       if (e instanceof Error) throw e;
@@ -244,10 +280,13 @@ export type Thread = {
 export type Workspace = {
   workspace_id: string;
   task_id: string;
+  name: string;
   worktree_path: string;
   branch_name: string;
   base_branch: string;
   status: string;
+  pinned: boolean;
+  unread: boolean;
   created_at: number;
   deletion_intent: number;
 };

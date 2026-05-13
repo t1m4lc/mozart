@@ -12,7 +12,12 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmPopoverImports } from '@mozart/ui/popover';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArchive, lucideGitBranch, lucidePin } from '@ng-icons/lucide';
+import {
+  lucideArchive,
+  lucideGitBranch,
+  lucideLoader,
+  lucidePin,
+} from '@ng-icons/lucide';
 import type { Workspace } from '../../data/workspace.model';
 
 @Component({
@@ -25,14 +30,29 @@ import type { Workspace } from '../../data/workspace.model';
     HlmPopoverImports,
     HlmSidebarImports,
   ],
-  providers: [provideIcons({ lucideArchive, lucideGitBranch, lucidePin })],
+  providers: [
+    provideIcons({ lucideArchive, lucideGitBranch, lucideLoader, lucidePin }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block relative group/ws-item' },
   template: `
-    @if (editing()) {
+    @if (workspace().pending) {
       <div
-        class="relative flex h-8 items-center gap-1.5 rounded-md px-2"
+        hlmSidebarMenuButton
+        aria-busy="true"
+        aria-disabled="true"
+        class="relative cursor-default gap-1.5 rounded-sm px-2 text-muted-foreground"
       >
+        <ng-icon
+          hlm
+          name="lucideLoader"
+          size="xs"
+          class="animate-spin text-muted-foreground"
+        />
+        <span class="animate-pulse">{{ workspace().name }}</span>
+      </div>
+    } @else if (editing()) {
+      <div class="relative flex h-8 items-center gap-1.5 rounded-md px-2">
         <ng-icon
           hlm
           name="lucideGitBranch"
@@ -50,7 +70,7 @@ import type { Workspace } from '../../data/workspace.model';
         <input
           #renameInput
           type="text"
-          [value]="workspace().title"
+          [value]="workspace().name"
           class="h-7 min-w-0 flex-1 rounded-sm border border-border bg-background px-2 text-sm font-normal leading-none text-foreground outline-none focus:border-brand/60 focus:ring-1 focus:ring-brand/30"
           (click)="$event.stopPropagation()"
           (keydown.enter)="commitRename($any($event.target).value)"
@@ -78,7 +98,7 @@ import type { Workspace } from '../../data/workspace.model';
         @if (workspace().pinned) {
           <ng-icon hlm name="lucidePin" size="10px" class="text-brand" />
         }
-        <span>{{ workspace().title }}</span>
+        <span>{{ workspace().name }}</span>
       </a>
 
       <div hlmPopover>
@@ -99,7 +119,7 @@ import type { Workspace } from '../../data/workspace.model';
             <div class="mt-1.5 flex justify-end">
               <button
                 hlmBtn
-                size="sm"
+                size="xs"
                 variant="destructive"
                 type="button"
                 (click)="archive.emit()"
@@ -140,7 +160,7 @@ export class WorkspaceRow {
   protected commitRename(value: string): void {
     if (!this.editing()) return;
     const next = value.trim();
-    if (next && next !== this.workspace().title) {
+    if (next && next !== this.workspace().name) {
       this.renameCommit.emit(next);
     } else {
       this.renameCancel.emit();

@@ -6,19 +6,20 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import { generateWorkspaceName } from '../util-workspace-name';
 import type { UiWorkspaceStatus } from './workspace-status';
 import type { Workspace } from './workspace.model';
-import { WORKSPACES_MOCK } from './workspaces.mock';
 
 interface State {
   workspaces: Workspace[];
   activeWorkspaceId: string | null;
 }
 
+// v0.0.1: hydrated from Tauri at boot via WorkspacesFacade.loadAll().
+// The mock seed in workspaces.mock.ts is kept for component tests / Storybook
+// but is no longer the initial state.
 const initialState: State = {
-  workspaces: WORKSPACES_MOCK,
-  activeWorkspaceId: 'w1',
+  workspaces: [],
+  activeWorkspaceId: null,
 };
 
 export const WorkspaceStore = signalStore(
@@ -34,6 +35,7 @@ export const WorkspaceStore = signalStore(
       }
       return map;
     }),
+    pending: computed(() => workspaces().filter((w) => w.pending)),
   })),
   withMethods((store) => {
     const mutate = (
@@ -48,59 +50,73 @@ export const WorkspaceStore = signalStore(
     };
 
     return {
-      setActive(workspaceId: string): void {
-        patchState(store, { activeWorkspaceId: workspaceId });
+      // Replaces the entire collection. Used by hydration.
+      setAll(workspaces: readonly Workspace[]): void {
+        patchState(store, { workspaces: [...workspaces] });
       },
-      forProject(projectId: string): readonly Workspace[] {
-        return store.byProject().get(projectId) ?? [];
+
+      // Adds or replaces a single workspace, preserving order. New rows
+      // land at the head (newest first) to match the "just created"
+      // expectation.
+      upsertOne(workspace: Workspace): void {
+        const existingIdx = store
+          .workspaces()
+          .findIndex((w) => w.id === workspace.id);
+        if (existingIdx === -1) {
+          patchState(store, {
+            workspaces: [workspace, ...store.workspaces()],
+          });
+        } else {
+          patchState(store, {
+            workspaces: store
+              .workspaces()
+              .map((w, i) => (i === existingIdx ? workspace : w)),
+          });
+        }
       },
-      // Adds a workspace to the front of its project's list. Returns the
-      // new id so callers can navigate. The title is drawn from a pool
-      // of famous singers (classical → rap), suffixed with `-N` if
-      // already taken within this project.
-      add(projectId: string): string {
-        const taken = new Set(
-          store
-            .workspaces()
-            .filter((w) => w.projectId === projectId)
-            .map((w) => w.title),
-        );
-        const ws: Workspace = {
-          id: `w${Date.now()}`,
-          projectId,
-          title: generateWorkspaceName(taken),
-          status: 'backlog',
-          pinned: false,
-          unread: false,
-          createdAt: new Date(),
-        };
-        patchState(store, { workspaces: [ws, ...store.workspaces()] });
-        patchState(store, { activeWorkspaceId: ws.id });
-        return ws.id;
-      },
-      archive(workspaceId: string): void {
+
+      removeById(workspaceId: string): void {
         patchState(store, {
           workspaces: store.workspaces().filter((w) => w.id !== workspaceId),
         });
       },
+
+      setActive(workspaceId: string | null): void {
+        patchState(store, { activeWorkspaceId: workspaceId });
+      },
+
+      forProject(projectId: string): readonly Workspace[] {
+        return store.byProject().get(projectId) ?? [];
+      },
+
       removeForProject(projectId: string): void {
         patchState(store, {
-          workspaces: store.workspaces().filter((w) => w.projectId !== projectId),
+          workspaces: store
+            .workspaces()
+            .filter((w) => w.projectId !== projectId),
         });
       },
+
       setStatus(workspaceId: string, status: UiWorkspaceStatus): void {
         mutate(workspaceId, (w) => ({ ...w, status }));
       },
-      toggleUnread(workspaceId: string): void {
-        mutate(workspaceId, (w) => ({ ...w, unread: !w.unread }));
+
+      setPinned(workspaceId: string, pinned: boolean): void {
+        mutate(workspaceId, (w) => ({ ...w, pinned }));
       },
-      togglePinned(workspaceId: string): void {
-        mutate(workspaceId, (w) => ({ ...w, pinned: !w.pinned }));
+
+      setUnread(workspaceId: string, unread: boolean): void {
+        mutate(workspaceId, (w) => ({ ...w, unread }));
       },
-      rename(workspaceId: string, title: string): void {
-        const next = title.trim();
+
+      setPending(workspaceId: string, pending: boolean): void {
+        mutate(workspaceId, (w) => ({ ...w, pending }));
+      },
+
+      setName(workspaceId: string, name: string): void {
+        const next = name.trim();
         if (!next) return;
-        mutate(workspaceId, (w) => ({ ...w, title: next }));
+        mutate(workspaceId, (w) => ({ ...w, name: next }));
       },
     };
   }),

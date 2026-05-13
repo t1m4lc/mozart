@@ -25,11 +25,14 @@ CREATE TABLE tasks (
 CREATE TABLE workspaces (
   workspace_id    TEXT PRIMARY KEY,
   task_id         TEXT NOT NULL REFERENCES tasks(task_id),
+  name            TEXT NOT NULL,         -- user-facing workspace name (e.g. singer pool: 'eminem')
   worktree_path   TEXT NOT NULL UNIQUE,  -- absolute, slash-normalized
-  branch_name     TEXT NOT NULL,         -- starts as 'agent/wip-{shortid}', renamed after first run
+  branch_name     TEXT NOT NULL,         -- derived from `name`, prefixed agent/<slug>
   base_branch     TEXT NOT NULL,
   status          TEXT NOT NULL DEFAULT 'initializing',
   -- initializing | ready | running | done | error | conflict | stopped | crashed
+  pinned          BOOLEAN NOT NULL DEFAULT false,
+  unread          BOOLEAN NOT NULL DEFAULT false,
   created_at      INTEGER NOT NULL,
   deletion_intent INTEGER NOT NULL DEFAULT 0
 );

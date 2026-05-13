@@ -8,7 +8,6 @@ import {
   withState,
 } from '@ngrx/signals';
 import type { Project } from './project.model';
-import { PROJECTS_MOCK } from './projects.mock';
 
 export type GroupBy = 'project' | 'status';
 
@@ -23,9 +22,12 @@ interface State {
   projectFilter: ProjectFilter;
 }
 
+// v0.0.1: hydrated from Tauri at boot via ProjectsFacade.loadAll(). The
+// mock seed in projects.mock.ts is kept for component tests / Storybook
+// but is no longer the initial state.
 const initialState: State = {
-  projects: PROJECTS_MOCK,
-  expandedIds: new Set(PROJECTS_MOCK.map((p) => p.id)),
+  projects: [],
+  expandedIds: new Set<string>(),
   hoveredProjectId: null,
   groupBy: 'project',
   projectFilter: 'all',
@@ -102,34 +104,37 @@ export const ProjectStore = signalStore(
           projectFilter: next.size === 0 ? 'all' : next,
         });
       },
-      // Idempotent on `path`. If a project already lives at the same
-      // path, returns it untouched. Otherwise inserts at the head and
-      // returns the new row.
-      addProject(input: {
-        name: string;
-        path: string;
-        icon?: string | null;
-      }): { project: Project; alreadyExisted: boolean } {
-        const existing = store.projects().find((p) => p.path === input.path);
-        if (existing) {
-          return { project: existing, alreadyExisted: true };
+      // Replaces the entire collection. Used by hydration. Expanded
+      // state is intersected with the new id set so a stale expansion
+      // for a removed project gets dropped.
+      setAll(projects: readonly Project[]): void {
+        const validIds = new Set(projects.map((p) => p.id));
+        const expanded = new Set<string>();
+        for (const id of store.expandedIds()) {
+          if (validIds.has(id)) expanded.add(id);
         }
-        const project: Project = {
-          id:
-            typeof crypto !== 'undefined' && 'randomUUID' in crypto
-              ? crypto.randomUUID()
-              : `p${Date.now()}`,
-          name: input.name,
-          path: input.path,
-          icon: input.icon ?? null,
-          hidden: false,
-          addedAt: new Date(),
-        };
-        patchState(store, {
-          projects: [project, ...store.projects()],
-          expandedIds: new Set([project.id, ...store.expandedIds()]),
-        });
-        return { project, alreadyExisted: false };
+        patchState(store, { projects: [...projects], expandedIds: expanded });
+      },
+
+      // Adds or replaces a single project, preserving order. New rows
+      // land at the head (newest first) and are auto-expanded so the
+      // user sees the "no workspaces yet" empty state immediately.
+      upsertProject(project: Project): void {
+        const existingIdx = store
+          .projects()
+          .findIndex((p) => p.id === project.id);
+        if (existingIdx === -1) {
+          patchState(store, {
+            projects: [project, ...store.projects()],
+            expandedIds: new Set([project.id, ...store.expandedIds()]),
+          });
+        } else {
+          patchState(store, {
+            projects: store
+              .projects()
+              .map((p, i) => (i === existingIdx ? project : p)),
+          });
+        }
       },
       hideProject(projectId: string): void {
         mutateProject(projectId, (p) => ({ ...p, hidden: true }));

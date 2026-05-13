@@ -6,11 +6,14 @@
 //! `crate::sandbox::canonical_worktrees_root`).
 //!
 //! Locked decisions (plan §4 — Step 1.6):
-//! - **D1.6-H** — `create` derives the placeholder branch via
-//!   `branch_name::make_initial_branch(short_id)` where `short_id` is the
-//!   first 8 chars of `workspace_id`, then collapses to a single
+//! - **D1.6-H** — `create` derives the branch via
+//!   `branch_name::make_task_branch(workspace_name, short_id)` (Step 3
+//!   upgrade: was `make_initial_branch` before the friendly-name surface
+//!   landed), then collapses to a single
 //!   `git worktree add -b <branch> <path> <base_branch>` call through
-//!   `sandbox::run_git` so error mapping stays in one place.
+//!   `sandbox::run_git` so error mapping stays in one place. Falls back
+//!   to `make_initial_branch` if the name slug is rejected by
+//!   `git check-ref-format`.
 //! - **D1.6-I** — `remove` is best-effort + idempotent: it tries
 //!   `git worktree remove --force` first (swallowing any error), then
 //!   falls back to `remove_dir_all` if the directory still exists. A
@@ -25,7 +28,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::branch_name::make_initial_branch;
+use crate::branch_name::make_task_branch;
 use crate::db::DbState;
 use crate::error::AppError;
 use crate::sandbox::{canonical_worktrees_root, run_git};
@@ -41,17 +44,19 @@ pub struct WorktreeHandle {
 
 /// Create a new git worktree for `workspace_id` branching from
 /// `base_branch` (D1.6-H). Path is `<canonical_worktrees_root>/<workspace_id>`;
-/// branch is `agent/wip-<first-8-chars-of-workspace_id>`.
+/// branch is `agent/<slug-of-workspace_name>` (e.g. `agent/eminem`), or
+/// `agent/wip-<short_id>` if the name slug fails `git check-ref-format`.
 pub async fn create(
     repo_path: &Path,
     base_branch: &str,
     workspace_id: &str,
+    workspace_name: &str,
 ) -> Result<WorktreeHandle, AppError> {
     if base_branch.is_empty() {
         return Err(AppError::Validation("base_branch is empty".into()));
     }
     let short = &workspace_id[..8.min(workspace_id.len())];
-    let branch = make_initial_branch(short);
+    let branch = make_task_branch(workspace_name, short).await;
     let path = canonical_worktrees_root()?.join(workspace_id);
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
@@ -182,7 +187,7 @@ mod tests {
         init_repo_with_main(&repo);
 
         let workspace_id = "abcdef1234567890";
-        let handle = create(&repo, "main", workspace_id)
+        let handle = create(&repo, "main", workspace_id, "eminem")
             .await
             .expect("create ok");
 
@@ -196,7 +201,35 @@ mod tests {
             gitfile.is_file(),
             ".git inside a linked worktree must be a gitfile (file), got dir"
         );
-        assert_eq!(handle.branch_name, "agent/wip-abcdef12");
+        // Friendly name "eminem" yields `agent/eminem` via make_task_branch.
+        assert_eq!(handle.branch_name, "agent/eminem");
+
+        restore_root(prev);
+    }
+
+    // Empty workspace_name slug falls back to the deterministic wip branch.
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test]
+    async fn create_falls_back_to_wip_when_name_slug_empty() {
+        if !git_available() {
+            eprintln!("SKIP create_falls_back_to_wip_when_name_slug_empty: git not on PATH");
+            return;
+        }
+        let _gate = test_env_gate().lock().unwrap_or_else(|e| e.into_inner());
+        let prev = std::env::var_os("MOZART_WORKTREES_ROOT");
+
+        let root_dir = tempfile::tempdir().unwrap();
+        std::env::set_var("MOZART_WORKTREES_ROOT", root_dir.path());
+        let repo = root_dir.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo_with_main(&repo);
+
+        let workspace_id = "fbacdef123456789";
+        // All-special-character name slugs to empty; falls back to wip.
+        let handle = create(&repo, "main", workspace_id, "!!! @@@ ###")
+            .await
+            .expect("create ok");
+        assert_eq!(handle.branch_name, "agent/wip-fbacdef1");
 
         restore_root(prev);
     }
@@ -212,7 +245,7 @@ mod tests {
         let repo = root_dir.path().join("repo");
         std::fs::create_dir_all(&repo).unwrap();
 
-        let err = create(&repo, "", "ws-empty-base")
+        let err = create(&repo, "", "ws-empty-base", "eminem")
             .await
             .expect_err("empty base_branch must reject");
         match err {
@@ -245,7 +278,7 @@ mod tests {
         std::fs::create_dir_all(&repo).unwrap();
         init_repo_with_main(&repo);
 
-        let err = create(&repo, "nope-this-branch-does-not-exist", "ws-bad-base")
+        let err = create(&repo, "nope-this-branch-does-not-exist", "ws-bad-base", "eminem")
             .await
             .expect_err("invalid base must fail");
         match err {
@@ -282,7 +315,7 @@ mod tests {
         init_repo_with_main(&repo);
 
         let workspace_id = "rm-1234567890ab";
-        let handle = create(&repo, "main", workspace_id).await.expect("create ok");
+        let handle = create(&repo, "main", workspace_id, "callas").await.expect("create ok");
         assert!(handle.worktree_path.exists());
 
         remove(&repo, workspace_id).await.expect("remove ok");
@@ -311,7 +344,7 @@ mod tests {
         init_repo_with_main(&repo);
 
         let workspace_id = "idem-1234567890";
-        create(&repo, "main", workspace_id).await.expect("create ok");
+        create(&repo, "main", workspace_id, "sinatra").await.expect("create ok");
         remove(&repo, workspace_id).await.expect("first remove ok");
         remove(&repo, workspace_id)
             .await
@@ -374,10 +407,13 @@ mod tests {
             let ws = Workspace {
                 workspace_id: "keep-id".into(),
                 task_id: t.task_id,
+                name: "keep".into(),
                 worktree_path: keep.to_string_lossy().into_owned(),
                 branch_name: "agent/wip-keep-id".into(),
                 base_branch: "main".into(),
                 status: "initializing".into(),
+                pinned: false,
+                unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
             };
