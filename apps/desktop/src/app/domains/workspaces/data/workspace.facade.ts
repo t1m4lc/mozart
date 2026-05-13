@@ -129,8 +129,17 @@ export class WorkspacesFacade {
     this.store.removeForProject(projectId);
   }
 
-  setStatus(id: string, status: UiWorkspaceStatus): void {
+  async setStatus(id: string, status: UiWorkspaceStatus): Promise<void> {
+    const current = this.workspaceById(id)();
+    if (!current) return;
+    const previous = current.status;
     this.store.setStatus(id, status);
+    try {
+      await this.adapter.setUiStatus(id, status);
+    } catch (err) {
+      this.store.setStatus(id, previous);
+      throw err;
+    }
   }
 
   // Optimistic toggle: flip in-memory immediately, persist via Tauri,
@@ -161,10 +170,20 @@ export class WorkspacesFacade {
     }
   }
 
-  // Rename stays in-memory in v0.0.1 — no Tauri command for set_name yet.
-  // The singer pool ensures uniqueness, and most users won't rename.
-  rename(id: string, name: string): void {
+  // Optimistic rename: patch the store immediately so the new title
+  // shows mid-keystroke, persist via Tauri, revert on failure.
+  async rename(id: string, name: string): Promise<void> {
+    const current = this.workspaceById(id)();
+    if (!current) return;
+    const previous = current.name;
+    if (previous === name) return;
     this.store.setName(id, name);
+    try {
+      await this.adapter.rename(id, name);
+    } catch (err) {
+      this.store.setName(id, previous);
+      throw err;
+    }
   }
 }
 

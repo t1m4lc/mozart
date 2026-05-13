@@ -44,6 +44,7 @@ pub struct Workspace {
     pub unread: bool,
     pub created_at: i64,
     pub deletion_intent: i64,
+    pub ui_status: String, // backlog | in_progress | in_review | done | canceled
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

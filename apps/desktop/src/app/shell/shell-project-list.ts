@@ -162,9 +162,18 @@ export class ShellProjectList {
     return [...pinned, ...rest];
   }
 
-  protected onRenameCommit(workspaceId: string, name: string): void {
-    this.workspaces.rename(workspaceId, name);
+  protected async onRenameCommit(
+    workspaceId: string,
+    name: string,
+  ): Promise<void> {
     this.editingWorkspaceId.set(null);
+    try {
+      await this.workspaces.rename(workspaceId, name);
+    } catch (err) {
+      toast.error('Could not rename workspace', {
+        description: errorMessage(err),
+      });
+    }
   }
 
   // Creating a workspace navigates to its detail route so the user lands
@@ -238,11 +247,17 @@ export class ShellProjectList {
     }
   }
 
-  protected onSetStatus(
+  protected async onSetStatus(
     workspaceId: string,
     status: UiWorkspaceStatus,
-  ): void {
-    this.workspaces.setStatus(workspaceId, status);
+  ): Promise<void> {
+    try {
+      await this.workspaces.setStatus(workspaceId, status);
+    } catch (err) {
+      toast.error('Could not update status', {
+        description: errorMessage(err),
+      });
+    }
   }
 
   protected onProjectDrop(event: CdkDragDrop<readonly Project[]>): void {

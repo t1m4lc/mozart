@@ -25,6 +25,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::list_workspaces,
             commands::list_tasks,
             commands::archive_workspace,
+            commands::rename_workspace,
+            commands::set_workspace_ui_status,
             commands::set_workspace_pinned,
             commands::set_workspace_unread,
             commands::start_agent_run,

@@ -56,7 +56,7 @@ mod tests {
             worktree_path: format!("/wt-{}", new_id()),
             branch_name: "b".into(), base_branch: "main".into(),
             status: "ready".into(), pinned: false, unread: false,
-            created_at: now_ms(), deletion_intent: 0,
+            created_at: now_ms(), deletion_intent: 0, ui_status: "backlog".into(),
         };
         workspaces::create(conn, &ws).unwrap();
         ws.workspace_id

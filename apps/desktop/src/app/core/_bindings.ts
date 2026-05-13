@@ -99,6 +99,32 @@ async archiveWorkspace(workspaceId: string) : Promise<Result<null, AppError>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Rename the user-facing workspace title. Intentionally does NOT
+ * touch `branch_name` — the branch is derived from the original
+ * name at create time and never re-derived (vocabulary contract).
+ */
+async renameWorkspace(workspaceId: string, name: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("rename_workspace", { workspaceId, name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Set the kanban-lane label. The backend does not validate the value
+ * against an enum; the Angular side owns the closed-set of allowed
+ * `UiWorkspaceStatus` strings.
+ */
+async setWorkspaceUiStatus(workspaceId: string, uiStatus: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_workspace_ui_status", { workspaceId, uiStatus }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async setWorkspacePinned(workspaceId: string, pinned: boolean) : Promise<Result<null, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("set_workspace_pinned", { workspaceId, pinned }) };
@@ -282,7 +308,7 @@ export type StreamEvent = { kind: "stream_token"; text: string } |
 { kind: "status_update"; status: string } | { kind: "error"; message: string }
 export type Task = { task_id: string; repo_id: string; title: string; task_text: string; status: string; created_at: number }
 export type Thread = { thread_id: string; workspace_id: string; created_at: number }
-export type Workspace = { workspace_id: string; task_id: string; name: string; worktree_path: string; branch_name: string; base_branch: string; status: string; pinned: boolean; unread: boolean; created_at: number; deletion_intent: number }
+export type Workspace = { workspace_id: string; task_id: string; name: string; worktree_path: string; branch_name: string; base_branch: string; status: string; pinned: boolean; unread: boolean; created_at: number; deletion_intent: number; ui_status: string }
 export type WorkspaceChange = { change_id: number; workspace_id: string; run_id: string | null; diff_text: string; files_added: number; files_modified: number; files_deleted: number; captured_at: number }
 
 /** tauri-specta globals **/

@@ -54,6 +54,7 @@ mod tests {
             unread: false,
             created_at: now_ms(),
             deletion_intent: 0,
+            ui_status: "backlog".into(),
         };
         workspaces::create(conn, &ws).unwrap();
         ws.workspace_id

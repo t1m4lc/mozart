@@ -90,6 +90,7 @@ pub async fn create_workspace(
         unread: false,
         created_at: now,
         deletion_intent: 0,
+            ui_status: "backlog".into(),
     };
     {
         let conn = db.lock();

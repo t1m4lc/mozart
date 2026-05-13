@@ -141,8 +141,13 @@ export class WorkspaceDetailPage {
     });
   }
 
-  protected onRename(name: string): void {
+  protected async onRename(name: string): Promise<void> {
     const id = this.id();
-    if (id) this.workspaces.rename(id, name);
+    if (!id) return;
+    try {
+      await this.workspaces.rename(id, name);
+    } catch (err) {
+      console.warn('rename workspace failed', err);
+    }
   }
 }

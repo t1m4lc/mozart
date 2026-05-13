@@ -30,6 +30,7 @@ pub mod workspaces;
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("../../migrations/001_init.sql")),
     (2, include_str!("../../migrations/002_projects_user_state.sql")),
+    (3, include_str!("../../migrations/003_workspaces_ui_status.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.
@@ -123,6 +124,11 @@ fn patch_workspaces_columns(conn: &Connection) -> Result<(), AppError> {
     if !cols.iter().any(|c| c == "unread") {
         conn.execute_batch(
             "ALTER TABLE workspaces ADD COLUMN unread BOOLEAN NOT NULL DEFAULT false",
+        )?;
+    }
+    if !cols.iter().any(|c| c == "ui_status") {
+        conn.execute_batch(
+            "ALTER TABLE workspaces ADD COLUMN ui_status TEXT NOT NULL DEFAULT 'backlog'",
         )?;
     }
     Ok(())

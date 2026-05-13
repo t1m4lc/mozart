@@ -278,6 +278,58 @@ pub(crate) async fn archive_workspace_impl(
 }
 
 // ---------------------------------------------------------------------------
+// rename_workspace
+// ---------------------------------------------------------------------------
+
+/// Rename the user-facing workspace title. Intentionally does NOT
+/// touch `branch_name` — the branch is derived from the original
+/// name at create time and never re-derived (vocabulary contract).
+#[tauri::command]
+#[specta::specta]
+pub async fn rename_workspace(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    name: String,
+) -> Result<(), AppError> {
+    rename_workspace_impl(db.inner(), workspace_id, name).await
+}
+
+pub(crate) async fn rename_workspace_impl(
+    db: &DbState,
+    workspace_id: String,
+    name: String,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    workspaces::set_name(&conn, &workspace_id, &name)
+}
+
+// ---------------------------------------------------------------------------
+// set_workspace_ui_status
+// ---------------------------------------------------------------------------
+
+/// Set the kanban-lane label. The backend does not validate the value
+/// against an enum; the Angular side owns the closed-set of allowed
+/// `UiWorkspaceStatus` strings.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_workspace_ui_status(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    ui_status: String,
+) -> Result<(), AppError> {
+    set_workspace_ui_status_impl(db.inner(), workspace_id, ui_status).await
+}
+
+pub(crate) async fn set_workspace_ui_status_impl(
+    db: &DbState,
+    workspace_id: String,
+    ui_status: String,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    workspaces::set_ui_status(&conn, &workspace_id, &ui_status)
+}
+
+// ---------------------------------------------------------------------------
 // set_workspace_pinned
 // ---------------------------------------------------------------------------
 
@@ -690,6 +742,7 @@ mod tests {
             unread: false,
             created_at: now_ms(),
             deletion_intent: 0,
+            ui_status: "backlog".into(),
         };
         workspaces::create(&conn, &ws).unwrap();
         let th = Thread {
@@ -1010,6 +1063,52 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
+    // 7. rename_workspace + set_workspace_ui_status
+    // -------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn rename_workspace_round_trip() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/rw");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        rename_workspace_impl(&db, ws_id.clone(), "pavarotti".into())
+            .await
+            .unwrap();
+        let conn = db.lock();
+        let ws = workspaces::get(&conn, &ws_id).unwrap();
+        assert_eq!(ws.name, "pavarotti");
+        // branch_name is decoupled — must not change.
+        assert_eq!(ws.branch_name, "agent/wip-x");
+    }
+
+    #[tokio::test]
+    async fn rename_workspace_unknown_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let err = rename_workspace_impl(&db, "no-such".into(), "x".into())
+            .await
+            .unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[tokio::test]
+    async fn set_workspace_ui_status_round_trip() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/us");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().ui_status,
+            "backlog"
+        );
+        set_workspace_ui_status_impl(&db, ws_id.clone(), "in_progress".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().ui_status,
+            "in_progress"
+        );
+    }
+
+    // -------------------------------------------------------------------
     // 7a. set_workspace_pinned
     // -------------------------------------------------------------------
 
@@ -1105,6 +1204,7 @@ mod tests {
                 unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
+            ui_status: "backlog".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -1206,6 +1306,7 @@ mod tests {
                 unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
+            ui_status: "backlog".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -1399,6 +1500,7 @@ mod tests {
                 unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
+            ui_status: "backlog".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -1527,6 +1629,7 @@ mod tests {
                 unread: false,
                 created_at: now_ms(),
                 deletion_intent: 0,
+            ui_status: "backlog".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {

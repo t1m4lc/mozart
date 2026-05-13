@@ -55,7 +55,7 @@ mod tests {
             worktree_path: format!("/wt-{}", new_id()),
             branch_name: "agent/wip-x".into(), base_branch: "main".into(),
             status: "ready".into(), pinned: false, unread: false,
-            created_at: now_ms(), deletion_intent: 0,
+            created_at: now_ms(), deletion_intent: 0, ui_status: "backlog".into(),
         };
         workspaces::create(conn, &ws).unwrap();
         let th = Thread { thread_id: new_id(), workspace_id: ws.workspace_id, created_at: now_ms() };

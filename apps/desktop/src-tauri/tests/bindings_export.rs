@@ -45,6 +45,8 @@ fn export_contains_all_commands_and_types() {
         "listWorkspaces",
         "listTasks",
         "archiveWorkspace",
+        "renameWorkspace",
+        "setWorkspaceUiStatus",
         "setWorkspacePinned",
         "setWorkspaceUnread",
         "startAgentRun",

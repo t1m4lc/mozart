@@ -109,6 +109,12 @@ export const appConfig: ApplicationConfig = {
         async listBranches(repoPath: string) {
           return unwrap(await commands.listBranches(repoPath));
         },
+        async rename(workspaceId: string, name: string) {
+          unwrap(await commands.renameWorkspace(workspaceId, name));
+        },
+        async setUiStatus(workspaceId, status) {
+          unwrap(await commands.setWorkspaceUiStatus(workspaceId, status));
+        },
         async setPinned(workspaceId: string, pinned: boolean) {
           unwrap(await commands.setWorkspacePinned(workspaceId, pinned));
         },
