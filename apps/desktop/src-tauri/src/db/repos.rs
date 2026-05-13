@@ -100,15 +100,98 @@ pub fn set_sort(conn: &mut Connection, ordered_ids: &[String]) -> Result<(), App
     Ok(())
 }
 
-/// Hard delete. FK cascades aren't on the schema, so the caller must
-/// archive workspaces / tasks first if it wants to preserve referential
-/// integrity. v0.0.1: features call this only from the "Remove project"
-/// menu, which the UI also confirms with a dialog.
-pub fn delete(conn: &Connection, repo_id: &str) -> Result<(), AppError> {
-    let n = conn.execute("DELETE FROM repos WHERE repo_id = ?1", [repo_id])?;
+/// Hard delete. FK cascades aren't declared on the schema, so this
+/// function deletes the dependent rows in dependency order inside a
+/// single transaction. Tables touched (leaf-first):
+///   agent_events  -> agent_runs -> messages -> chats
+///   -> workspace_active_chat -> workspace_changes -> threads
+///   -> workspaces -> tasks -> repos
+/// Any pre-existing orphan (a leaf row whose parent already vanished)
+/// is still removed because the predicate joins back to repo_id.
+pub fn delete(conn: &mut Connection, repo_id: &str) -> Result<(), AppError> {
+    let tx = conn.transaction()?;
+    // 1. agent_events (events of runs of threads of workspaces of tasks of this repo)
+    tx.execute(
+        "DELETE FROM agent_events WHERE run_id IN (
+            SELECT r.run_id FROM agent_runs r
+            JOIN threads th ON th.thread_id = r.thread_id
+            JOIN workspaces ws ON ws.workspace_id = th.workspace_id
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 2. agent_runs
+    tx.execute(
+        "DELETE FROM agent_runs WHERE thread_id IN (
+            SELECT th.thread_id FROM threads th
+            JOIN workspaces ws ON ws.workspace_id = th.workspace_id
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 3. messages (chat-side; only present once migration 004 ran)
+    tx.execute(
+        "DELETE FROM messages WHERE chat_id IN (
+            SELECT c.chat_id FROM chats c
+            JOIN workspaces ws ON ws.workspace_id = c.workspace_id
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 4. workspace_active_chat
+    tx.execute(
+        "DELETE FROM workspace_active_chat WHERE workspace_id IN (
+            SELECT ws.workspace_id FROM workspaces ws
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 5. chats
+    tx.execute(
+        "DELETE FROM chats WHERE workspace_id IN (
+            SELECT ws.workspace_id FROM workspaces ws
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 6. workspace_changes
+    tx.execute(
+        "DELETE FROM workspace_changes WHERE workspace_id IN (
+            SELECT ws.workspace_id FROM workspaces ws
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 7. threads
+    tx.execute(
+        "DELETE FROM threads WHERE workspace_id IN (
+            SELECT ws.workspace_id FROM workspaces ws
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 8. workspaces
+    tx.execute(
+        "DELETE FROM workspaces WHERE task_id IN (
+            SELECT task_id FROM tasks WHERE repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 9. tasks
+    tx.execute("DELETE FROM tasks WHERE repo_id = ?1", [repo_id])?;
+    // 10. repos
+    let n = tx.execute("DELETE FROM repos WHERE repo_id = ?1", [repo_id])?;
     if n == 0 {
         return Err(AppError::NotFound(format!("repo_id={repo_id}")));
     }
+    tx.commit()?;
     Ok(())
 }
 
@@ -253,10 +336,10 @@ mod tests {
     #[test]
     fn delete_removes_row() {
         let db = init_db_memory().unwrap();
-        let conn = db.lock();
+        let mut conn = db.lock();
         let r = sample("/d");
         create(&conn, &r).unwrap();
-        delete(&conn, &r.repo_id).unwrap();
+        delete(&mut conn, &r.repo_id).unwrap();
         assert!(matches!(
             get(&conn, &r.repo_id),
             Err(AppError::NotFound(_))
@@ -266,10 +349,99 @@ mod tests {
     #[test]
     fn delete_unknown_returns_not_found() {
         let db = init_db_memory().unwrap();
-        let conn = db.lock();
+        let mut conn = db.lock();
         assert!(matches!(
-            delete(&conn, "no-such-id"),
+            delete(&mut conn, "no-such-id"),
             Err(AppError::NotFound(_))
         ));
+    }
+
+    #[test]
+    fn delete_cascades_through_workspaces_tasks_threads_chats() {
+        use crate::db::models::{Chat, Message, Task, Thread, Workspace};
+        use crate::db::{chats, messages, tasks, threads, workspaces};
+
+        let db = init_db_memory().unwrap();
+        let mut conn = db.lock();
+        let r = sample("/cascade");
+        create(&conn, &r).unwrap();
+        let t = Task {
+            task_id: new_id(),
+            repo_id: r.repo_id.clone(),
+            title: "t".into(),
+            task_text: "t".into(),
+            status: "active".into(),
+            created_at: now_ms(),
+        };
+        tasks::create(&conn, &t).unwrap();
+        let ws = Workspace {
+            workspace_id: new_id(),
+            task_id: t.task_id.clone(),
+            name: "ws".into(),
+            worktree_path: format!("/wt-{}", new_id()),
+            branch_name: "agent/wip".into(),
+            base_branch: "main".into(),
+            status: "ready".into(),
+            pinned: false,
+            unread: false,
+            created_at: now_ms(),
+            deletion_intent: 0,
+            ui_status: "backlog".into(),
+        };
+        workspaces::create(&conn, &ws).unwrap();
+        let th = Thread {
+            thread_id: new_id(),
+            workspace_id: ws.workspace_id.clone(),
+            created_at: now_ms(),
+        };
+        threads::create(&conn, &th).unwrap();
+        let c = Chat {
+            chat_id: new_id(),
+            workspace_id: ws.workspace_id.clone(),
+            title: "Untitled".into(),
+            llm_id: None,
+            closed_at: None,
+            created_at: now_ms(),
+        };
+        chats::create(&conn, &c).unwrap();
+        let m = Message {
+            message_id: new_id(),
+            chat_id: c.chat_id.clone(),
+            run_id: None,
+            role: "user".into(),
+            content: "hi".into(),
+            mode: None,
+            status: "done".into(),
+            timeline_json: None,
+            created_at: now_ms(),
+        };
+        messages::insert(&conn, &m).unwrap();
+
+        delete(&mut conn, &r.repo_id).unwrap();
+
+        // All descendant rows must be gone.
+        let n_msg: i64 = conn
+            .query_row("SELECT COUNT(*) FROM messages", [], |row| row.get(0))
+            .unwrap();
+        let n_chat: i64 = conn
+            .query_row("SELECT COUNT(*) FROM chats", [], |row| row.get(0))
+            .unwrap();
+        let n_th: i64 = conn
+            .query_row("SELECT COUNT(*) FROM threads", [], |row| row.get(0))
+            .unwrap();
+        let n_ws: i64 = conn
+            .query_row("SELECT COUNT(*) FROM workspaces", [], |row| row.get(0))
+            .unwrap();
+        let n_t: i64 = conn
+            .query_row("SELECT COUNT(*) FROM tasks", [], |row| row.get(0))
+            .unwrap();
+        let n_r: i64 = conn
+            .query_row("SELECT COUNT(*) FROM repos", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            (n_msg, n_chat, n_th, n_ws, n_t, n_r),
+            (0, 0, 0, 0, 0, 0),
+            "expected full cascade"
+        );
     }
 }
