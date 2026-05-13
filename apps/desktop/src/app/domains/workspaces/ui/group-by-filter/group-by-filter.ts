@@ -1,10 +1,12 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   computed,
   inject,
   input,
   output,
+  viewChild,
 } from '@angular/core';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmPopoverImports } from '@mozart/ui/popover';
@@ -56,6 +58,7 @@ interface ProjectFilterItem {
   template: `
     <div hlmPopover>
       <button
+        #triggerBtn
         hlmPopoverTrigger
         type="button"
         aria-label="Filter"
@@ -145,9 +148,16 @@ interface ProjectFilterItem {
 })
 export class GroupByFilter {
   private readonly store = inject(ProjectListStore);
+  private readonly triggerBtn =
+    viewChild<ElementRef<HTMLButtonElement>>('triggerBtn');
 
   readonly groupBy = input.required<GroupBy>();
   readonly groupByChange = output<GroupBy>();
+
+  /** Open the filter popover programmatically (used by the projects-header context menu). */
+  open(): void {
+    this.triggerBtn()?.nativeElement.click();
+  }
 
   protected readonly groupByItems: GroupByItem[] = [
     { label: 'Project', value: 'project' },

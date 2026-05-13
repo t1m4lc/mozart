@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmPopoverImports } from '@mozart/ui/popover';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
@@ -12,6 +12,7 @@ import type { Workspace } from '../../data/workspace.model';
   imports: [
     NgIcon,
     RouterLink,
+    RouterLinkActive,
     HlmButtonImports,
     HlmPopoverImports,
     HlmSidebarImports,
@@ -22,9 +23,13 @@ import type { Workspace } from '../../data/workspace.model';
   template: `
     <a
       hlmSidebarMenuButton
-      [isActive]="active()"
       [routerLink]="['/workspaces', workspace().id]"
-      class="cursor-pointer rounded-sm gap-1.5 px-2"
+      routerLinkActive="bg-brand/15 text-foreground
+                        before:absolute before:left-0 before:top-0.5 before:bottom-0.5
+                        before:w-1 before:rounded-r-full before:bg-brand
+                        before:shadow-[0_0_10px_hsl(var(--brand)/0.7)]
+                        [&_ng-icon]:text-brand!"
+      class="relative cursor-pointer rounded-sm gap-1.5 px-2"
     >
       <ng-icon
         hlm
@@ -68,6 +73,5 @@ import type { Workspace } from '../../data/workspace.model';
 })
 export class WorkspaceRow {
   readonly workspace = input.required<Workspace>();
-  readonly active = input<boolean>(false);
   readonly archive = output<void>();
 }

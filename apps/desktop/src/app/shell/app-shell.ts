@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterOutlet } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmResizableImports, HlmResizablePanel } from '@mozart/ui/resizable';
@@ -25,7 +26,11 @@ import {
 import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
-import { GroupByFilter, ProjectListContainer } from '../domains/workspaces';
+import {
+  GroupByFilter,
+  ProjectListContainer,
+  ProjectsHeaderContextMenu,
+} from '../domains/workspaces';
 import { ProjectListStore } from '../domains/workspaces/feature-list/project-list.store';
 import { ShellAside } from './shell-aside';
 import {
@@ -42,6 +47,7 @@ import {
     NgIcon,
     MacWindowControls,
     HlmButtonImports,
+    HlmContextMenuImports,
     HlmDropdownMenuImports,
     HlmIconImports,
     HlmResizableImports,
@@ -49,6 +55,7 @@ import {
     HlmTooltipImports,
     GroupByFilter,
     ProjectListContainer,
+    ProjectsHeaderContextMenu,
     ShellAside,
   ],
   providers: [
@@ -103,13 +110,17 @@ import {
 
           <div hlmSidebarContent>
             <div hlmSidebarGroup class="px-2 py-1">
-              <div class="flex h-8 items-center gap-0.5">
+              <div
+                class="flex h-8 items-center gap-0.5"
+                [hlmContextMenuTrigger]="projectsHeaderCtxMenu"
+              >
                 <span
                   class="text-sidebar-foreground/70 flex-1 text-xs font-medium"
                 >
                   Projects
                 </span>
                 <app-group-by-filter
+                  #filter
                   [groupBy]="projectListStore.groupBy()"
                   (groupByChange)="projectListStore.setGroupBy($event)"
                 />
@@ -151,6 +162,14 @@ import {
                   </hlm-dropdown-menu>
                 </ng-template>
               </div>
+
+              <ng-template #projectsHeaderCtxMenu>
+                <app-projects-header-context-menu
+                  (expandAll)="projectListStore.expandAll()"
+                  (collapseAll)="projectListStore.collapseAll()"
+                  (openFilter)="filter.open()"
+                />
+              </ng-template>
 
               <div hlmSidebarGroupContent>
                 <app-project-list />

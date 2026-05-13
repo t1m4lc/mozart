@@ -1,61 +1,80 @@
+/* ----------------------------------------------------------------------------
+ * Zinc — Cyber Midnight
+ *   light: neutral zinc surface, indigo brand
+ *   dark : Tailwind slate-950 base, cyan-400 brand, violet-500 subtle accent
+ *          (mirrors the logo glow palette #22D3EE / #8B5CF6 / #4F46E5)
+ * ------------------------------------------------------------------------- */
+
 :root .theme-zinc {
   color-scheme: light;
 
-  --background:             0deg 0% 100%;
-  --foreground:             344.97deg 13.46% 3.85%;
-  --card:                   0deg 0% 100%;
-  --card-foreground:        344.97deg 13.46% 3.85%;
-  --popover:                0deg 0% 100%;
-  --popover-foreground:     344.97deg 13.46% 3.85%;
-  --primary:                344.35deg 7.21% 9.8%;
-  --primary-foreground:     0deg 0.5% 98.03%;
-  --secondary:              344.02deg 3.93% 95.75%;
-  --secondary-foreground:   344.35deg 7.21% 9.8%;
-  --muted:                  344.02deg 3.93% 95.75%;
-  --muted-foreground:       239.97deg 4.41% 46.34%;
-  --accent:                 344.02deg 3.93% 95.75%;
-  --accent-foreground:      344.35deg 7.21% 9.8%;
-  --destructive:            351.72deg 100% 40.53%;
-  --destructive-foreground: 0deg 0.5% 98.03%;
-  --border:                 344.76deg 6.76% 89.87%;
-  --input:                  344.76deg 6.76% 89.87%;
-  --ring:                   239.9deg 5.73% 64.3%;
+  --background:             0 0% 100%;
+  --foreground:             222 47% 11%;          /* slate-900 */
+  --card:                   0 0% 100%;
+  --card-foreground:        222 47% 11%;
+  --popover:                0 0% 100%;
+  --popover-foreground:     222 47% 11%;
+  --primary:                222 47% 11%;
+  --primary-foreground:     210 40% 98%;          /* slate-50 */
+  --secondary:              210 40% 96%;          /* slate-100 */
+  --secondary-foreground:   222 47% 11%;
+  --muted:                  210 40% 96%;
+  --muted-foreground:       215 16% 47%;          /* slate-500 */
+  --accent:                 210 40% 96%;
+  --accent-foreground:      222 47% 11%;
+  --destructive:            0 84% 60%;            /* red-500 */
+  --destructive-foreground: 210 40% 98%;
+  --border:                 214 32% 91%;          /* slate-200 */
+  --input:                  214 32% 91%;
+  --ring:                   244 75% 58%;          /* indigo-600 */
   --radius:                 0.625rem;
-  --sidebar:                240, 5%, 98%;
-  --sidebar-foreground:     240, 4%, 16%;
-  --sidebar-accent:         240, 5%, 96%;
-  --sidebar-accent-foreground: 240, 5%, 22%;
-  --sidebar-border:         240, 4%, 88%;
-  --sidebar-ring:           240, 3%, 70%;
+
+  --sidebar:                210 40% 98%;
+  --sidebar-foreground:     222 47% 11%;
+  --sidebar-accent:         210 40% 96%;
+  --sidebar-accent-foreground: 222 47% 11%;
+  --sidebar-border:         214 32% 91%;
+  --sidebar-ring:           238 55% 62%;
+
+  /* Brand — softened to integrate with neutral slate palette */
+  --brand:                  238 55% 62%;          /* soft indigo */
+  --brand-foreground:       210 40% 98%;
+  --brand-subtle:           252 45% 70%;          /* dusty lavender */
 }
 
 :root.dark .theme-zinc {
   color-scheme: dark;
 
-  /* Spartan zinc base palette (unchanged) */
-  --background:             344.97deg 13.46% 3.85%;
-  --foreground:             0deg 0.5% 98.03%;
-  --card:                   344.35deg 7.21% 9.8%;
-  --card-foreground:        0deg 0.5% 98.03%;
-  --popover:                344.35deg 7.21% 9.8%;
-  --popover-foreground:     0deg 0.5% 98.03%;
-  --primary:                344.76deg 6.76% 89.87%;
-  --primary-foreground:     344.35deg 7.21% 9.8%;
-  --secondary:              344.51deg 4.81% 15.74%;
-  --secondary-foreground:   0deg 0.5% 98.03%;
-  --muted:                  344.51deg 4.81% 15.74%;
-  --muted-foreground:       239.9deg 5.73% 64.3%;
-  --accent:                 344.51deg 4.81% 15.74%;
-  --accent-foreground:      0deg 0.5% 98.03%;
-  --destructive:            358.76deg 100% 69.84%;
-  --destructive-foreground: 344.35deg 7.21% 9.8%;
-  --border:                 0deg 0% 13.73%;
-  --input:                  0deg 0% 18.43%;
-  --ring:                   239.97deg 4.41% 46.34%;
-  --sidebar:                240, 5%, 22%;
-  --sidebar-foreground:     0, 0%, 98%;
-  --sidebar-accent:         240, 4%, 26%;
-  --sidebar-accent-foreground: 0, 0%, 98%;
-  --sidebar-border:         0, 0%, 10%;
-  --sidebar-ring:           240, 3%, 65%;
+  /* Surfaces — derived from logo palette (Frame #050816 / Logo bg #0B1020) */
+  --background:             229 64% 5%;           /* #050816 */
+  --foreground:             210 40% 98%;          /* #F8FAFC slate-50 */
+  --card:                   225 50% 9%;           /* #0B1020 */
+  --card-foreground:        210 40% 98%;
+  --popover:                225 50% 9%;
+  --popover-foreground:     210 40% 98%;
+  --primary:                210 40% 98%;
+  --primary-foreground:     222 47% 11%;
+  --secondary:              217 33% 17%;          /* slate-800 */
+  --secondary-foreground:   210 40% 98%;
+  --muted:                  217 33% 17%;
+  --muted-foreground:       215 20% 65%;          /* slate-400 */
+  --accent:                 217 33% 17%;          /* hover bg — must stay subtle */
+  --accent-foreground:      210 40% 98%;
+  --destructive:            0 72% 51%;            /* red-600 */
+  --destructive-foreground: 210 40% 98%;
+  --border:                 215 25% 27%;          /* slate-700 (stroke #334155) */
+  --input:                  217 33% 20%;
+  --ring:                   192 55% 62%;          /* soft cyan focus ring */
+
+  --sidebar:                225 50% 9%;           /* matches card */
+  --sidebar-foreground:     210 40% 98%;
+  --sidebar-accent:         217 33% 17%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border:         215 25% 22%;
+  --sidebar-ring:           192 55% 62%;
+
+  /* Brand — softened, blends with slate surfaces */
+  --brand:                  192 55% 62%;          /* dusty cyan, derived from #22D3EE */
+  --brand-foreground:       229 64% 5%;
+  --brand-subtle:           250 45% 68%;          /* muted violet, derived from #8B5CF6 */
 }

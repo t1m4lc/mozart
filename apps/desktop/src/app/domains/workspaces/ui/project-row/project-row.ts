@@ -27,12 +27,12 @@ import type { Project } from '../../data/project.model';
   template: `
     <button
       type="button"
+      tabindex="-1"
       (mouseenter)="hoverChange.emit(true)"
       (mouseleave)="hoverChange.emit(false)"
       (click)="toggleExpanded.emit()"
-      class="flex h-full w-full items-center gap-1.5 rounded-md pl-0 pr-12 text-sm
-             hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
-             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+      class="flex h-full w-full items-center gap-1.5 rounded-md pl-0 pr-12 text-sm outline-none
+             hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     >
       @if (hovered()) {
         <span class="flex size-5 shrink-0 items-center justify-center">
@@ -74,9 +74,10 @@ import type { Project } from '../../data/project.model';
       hlmTooltip="Project settings"
       position="top"
       aria-label="Project settings"
+      tabindex="-1"
       (click)="settings.emit(); $event.stopPropagation()"
       class="absolute top-1.5 right-6.5 flex size-5 items-center justify-center rounded-md p-0
-             text-muted-foreground opacity-0
+             text-muted-foreground opacity-0 outline-none
              hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
              group-hover/trig:opacity-100"
     >
@@ -88,9 +89,10 @@ import type { Project } from '../../data/project.model';
       hlmTooltip="New workspace"
       position="top"
       aria-label="New workspace"
+      tabindex="-1"
       (click)="newWorkspace.emit(); $event.stopPropagation()"
       class="absolute top-1.5 right-1 flex size-5 items-center justify-center rounded-md p-0
-             text-muted-foreground
+             text-muted-foreground outline-none
              hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
     >
       <ng-icon hlm name="lucidePlus" size="xs" />

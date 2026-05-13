@@ -23,6 +23,100 @@ show someone, even if not everything is wired yet.
 
 ---
 
+## Frontend progress snapshot — 2026-05-13
+
+This section reflects the **actual** state of `apps/desktop/` against the
+plan below. It is the source of truth for "what's left" ; the step
+descriptions further down keep the original intent so we can see the
+deviation.
+
+### TL;DR
+
+- **Step 1 (Shell)** : ✅ done — but **scope is larger than planned** (see deviations)
+- **Step 2 (Add project)** : 🟡 UI complete against mocks ; **no Tauri picker, no SQLite**
+- **Step 3 (Create workspace)** : 🟡 UI complete against mocks ; **no `tasks/`, no `worktree.adapter`, no real branch**
+- **Step 4 (Persistent chat)** : ⛔ not started (only a `ChatEmptyState` placeholder + a tab-strip data model)
+- **Step 5 (LLM streaming)** : ⛔ not started
+- **Step 6 (Settings)** : ⛔ shell only — `settings.page.ts` is a `<h1>` + `<!-- TODO -->`
+
+### What exists today in `apps/desktop/src/app/`
+
+```
+app.config.ts            provideRouter(appRoutes, hash, componentInputBinding) + provideTheme
+app.routes.ts            /workspaces, /workspaces/:id, /settings, /legacy
+core/
+  layout.service.ts      left/right panel open state
+  os.service.ts          isMac()
+  window-controls/       mac + non-mac native window buttons (Tauri-wired)
+shell/
+  app-shell.ts           3-column hlm-resizable layout, sidebar header,
+                         project list, gear→/settings, "Add project" dropdown
+  shell-aside.ts         right column shell, content is <!-- TODO -->
+  settings-shell.ts      shell variant for /settings
+  shell-panel.constants  px ↔ % helpers for resizable defaults/min/max
+pages/
+  settings.page.ts       placeholder
+domains/workspaces/
+  data/                  project + workspace models, DTOs, functional
+                         adapters (DTO↔Model), workspace-status, mocks
+                         (projects.mock, branches.mock), open-in-tools
+  feature-list/
+    project-list.store     signalStore (projects, groupBy, filter, expand,
+                           active, hover, newWorkspace, archive, hide…)
+    project-list.container sidebar list with context menus + delete dialog
+  feature-detail/
+    workspace-detail.page  toolbar + tab-bar + ChatEmptyState
+    workspace-detail.store signalStore seeded from mocks
+  ui/                    branch-picker, chat-empty-state,
+                         confirm-delete-project-dialog, group-by-filter,
+                         open-in-menu, project-context-menu, project-row,
+                         workspace-context-menu, workspace-empty-state,
+                         workspace-row, workspace-status-menu,
+                         workspace-tab-bar (+ tab-item, llm-icon, model),
+                         workspace-toolbar
+  index.ts               public surface (types + Container + Page + filter)
+legacy/                  previous Angular code, reachable via /legacy
+```
+
+### Deviations from the plan to acknowledge
+
+These are intentional choices already made in code. The plan below is the
+**original intent** ; the table is the **delta**.
+
+| Topic                          | Plan                                                   | Reality                                                                          |
+| ------------------------------ | ------------------------------------------------------ | -------------------------------------------------------------------------------- |
+| Domain split                   | separate `projects/` and `workspaces/` domains         | single `workspaces/` domain hosts both (projects nested inside)                  |
+| Step 1 file budget             | "exactly 9 files, HlmButton+HlmIcon only"              | richer shell : resizable panes, sidebar primitives, dropdown menu, tooltip      |
+| Facade pattern                 | features inject a single facade                        | features inject the signal store directly ; no facade yet                        |
+| Adapter shape                  | `class XAdapter { static … }` ish                      | **functional adapters** : `projectFromDto`, `workspaceFromDto`                   |
+| Worktree boundary file         | `workspaces/data/worktree.adapter.ts`                  | not yet created — paths/branches still mocked                                    |
+| Tasks domain                   | `tasks/` created in Step 3                             | not yet created — `newWorkspace()` in the store fabricates a Workspace only      |
+| Backend wiring                 | Tauri commands consumed by adapters from Step 2 on     | only window controls call Tauri ; everything else is mocked                      |
+| Tab strip                      | (not in v0.0.1)                                        | `workspace-tab-bar` shipped early ; multi-chat tabs already modeled (ChatTab / FileTab) |
+| Routing                        | path location                                          | **hash location** (`withHashLocation()`)                                         |
+
+### What we still need before Step 4 (chat) can start usefully
+
+1. **Wire Tauri** for projects : real folder picker + SQLite insert/list
+   (`feature-list/project-list.store` currently bootstraps from
+   `PROJECTS_MOCK`).
+2. **Create the `tasks/` data layer** (model + store) — every Workspace
+   must hang off a Task per the architecture rule.
+3. **Create `workspaces/data/worktree.adapter.ts`** with the Tauri
+   `git_worktree_create` / `git_worktree_remove` mapping ; replace the
+   in-store `newWorkspace()` fabrication with a real branch + worktree
+   atomically created via the adapter, fed by a `workspace.facade`.
+4. Decide whether to **introduce facades retroactively** (Step 3) or
+   accept the "store-as-facade" pattern and update the architecture rule
+   in CLAUDE.md / DESIGN.md to reflect it. (Recommendation : introduce a
+   thin facade only when a domain needs to coordinate ≥2 stores or
+   adapters — keep current store-direct injection until then.)
+5. **Open question** : keep `workspaces/` as a mega-domain, or split out
+   `projects/` now while the surface is still small. Splitting later
+   costs more once `chat/` and `repositories/` arrive.
+
+---
+
 ## Methodology — plan first, code second
 
 > **Mandatory rule**: every step (and every sub-step) **must start in
@@ -510,13 +604,18 @@ Nothing.
 
 ### Definition of done
 
-- [ ] Exactly 9 new files + 1 tsconfig edit
-- [ ] `pnpm install && pnpm build` succeeds
-- [ ] `pnpm tauri dev` opens a window with a visible 3-column layout
-- [ ] Clicking the gear navigates to `/settings`
-- [ ] `/workspaces` and `/workspaces/:id` swap to the workspace page
-- [ ] No `@NgModule`, no `Component` suffix on class names
-- [ ] No file references the `domains/` folder yet
+- [x] ~~Exactly 9 new files + 1 tsconfig edit~~ — superseded : shell grew
+      to include resizable panes, project list, window controls
+- [x] `pnpm install && pnpm build` succeeds
+- [x] `pnpm tauri dev` opens a window with a visible 3-column layout
+- [x] Clicking the gear navigates to `/settings`
+- [x] `/workspaces` and `/workspaces/:id` swap to the workspace page
+- [x] No `@NgModule`, no `Component` suffix on class names
+- [x] `domains/` exists (created early ; acceptable)
+
+**Status : ✅ done** — implemented in `shell/app-shell.ts`,
+`shell/shell-aside.ts`, `shell/settings-shell.ts`,
+`core/layout.service.ts`, `core/window-controls/*`.
 
 ---
 
@@ -560,9 +659,17 @@ Nothing.
 ### Definition of done
 
 - [ ] Clicking "Add a project" opens the system picker
-- [ ] The project appears immediately in the sidebar
+      *(today : opens a dropdown with disabled "Coming in v0.2" items)*
+- [x] The project appears immediately in the sidebar
+      *(rendered from `PROJECTS_MOCK`, not from a real add)*
 - [ ] Close/restart the app → the project is still there
 - [ ] Adding the same folder twice does not create a duplicate
+
+**Status : 🟡 UI-only** — model / dto / functional adapter / signalStore
++ context menu + delete dialog all exist. The "Add project" button in
+`shell/app-shell.ts` currently triggers a dropdown of stubs. Missing :
+Tauri `dialog::open({ directory: true })`, SQLite `projects` table,
+hydration on startup. Remaining work matches sub-steps **2b** and **2d**.
 
 ---
 
@@ -629,12 +736,25 @@ Nothing.
 
 ### Definition of done
 
-- [ ] From a project, I can create a workspace in one click
+- [x] From a project, I can create a workspace in one click
+      *(`ProjectListStore.newWorkspace()` adds a Workspace in memory and
+      navigates to `/workspaces/:id`)*
 - [ ] The folder `~/.mozart/worktrees/{id}/` exists with a checkout of the repo
 - [ ] `git branch` in the source repo shows the new branch
-- [ ] The workspace appears in the sidebar; clicking navigates to `/workspaces/:id`
+- [x] The workspace appears in the sidebar; clicking navigates to `/workspaces/:id`
 - [ ] A `tasks` row AND a `workspaces` row are in the DB, linked
-- [ ] The word "worktree" appears nowhere in the rendered DOM
+- [x] The word "worktree" appears nowhere in the rendered DOM
+
+**Status : 🟡 UI-only** — the visible flow works against in-memory state
+(branch picker, status menu, context menu, toolbar, tab bar, empty state
+all wired). Missing the backbone : **`tasks/` domain**,
+**`worktree.adapter.ts`**, **`workspace.facade.createForPrompt()`**,
+Tauri `git_worktree_create`, SQLite `tasks` + `workspaces` tables. Until
+those land, "new workspace" is a UI gesture without a branch.
+
+The `workspace-tab-bar` shipped early and already models multi-chat /
+file tabs — that's ahead of plan but compatible with v0.0.1 (only one
+chat tab is active and closable).
 
 ---
 
@@ -707,6 +827,11 @@ For abstract behavior :
 - [ ] Shift+Enter inserts a newline without sending
 - [ ] I switch workspace and come back: messages are still there
 - [ ] No error if I never sent a message in this workspace
+
+**Status : ⛔ not started** — only `ui/chat-empty-state` is rendered
+under the toolbar. No `chat/` domain, no composer, no message list, no
+SQL schema. Note : `workspace-tab-bar` already declares a `ChatTab` model
+that this step should consume rather than rebuild.
 
 ---
 
@@ -855,6 +980,8 @@ For abstract behavior :
       `status: 'error'` with a clear note
 - [ ] No API key → clear error segment in the agent message
 
+**Status : ⛔ not started.**
+
 ---
 
 ## Step 6 — Settings and connection status
@@ -907,6 +1034,9 @@ For abstract behavior :
 - [ ] The key persists across restarts
 - [ ] If I delete the API key and restart, status reverts to "Not connected"
 - [ ] The chat works immediately after connecting, no app restart needed
+
+**Status : ⛔ not started** — `pages/settings.page.ts` is a placeholder
+`<h1>` and `settings-shell.ts` only provides the route's chrome.
 
 ---
 

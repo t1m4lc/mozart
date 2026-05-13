@@ -65,7 +65,6 @@ import { ProjectListStore } from './project-list.store';
                 >
                   <app-workspace-row
                     [workspace]="workspace"
-                    [active]="workspace.id === store.activeWorkspaceId()"
                     (archive)="store.archiveWorkspace(project.id, workspace.id)"
                   />
                 </li>

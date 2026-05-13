@@ -88,6 +88,14 @@ export const ProjectListStore = signalStore(
       isExpanded(projectId: string): boolean {
         return store.expandedIds().has(projectId);
       },
+      expandAll(): void {
+        patchState(store, {
+          expandedIds: new Set(store.projects().map((p) => p.id)),
+        });
+      },
+      collapseAll(): void {
+        patchState(store, { expandedIds: new Set<string>() });
+      },
       setGroupBy(group: GroupBy): void {
         patchState(store, { groupBy: group });
       },
