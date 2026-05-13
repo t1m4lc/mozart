@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
@@ -40,7 +41,7 @@ import { ProjectListStore } from './project-list.store';
             [hlmContextMenuTriggerData]="{ $implicit: project }"
             (toggleExpanded)="store.toggleExpanded(project.id)"
             (hoverChange)="store.setHovered($event ? project.id : null)"
-            (newWorkspace)="store.newWorkspace(project.id)"
+            (newWorkspace)="createWorkspace(project.id)"
           />
 
           @if (store.isExpanded(project.id)) {
@@ -50,7 +51,7 @@ import { ProjectListStore } from './project-list.store';
               @if (project.workspaces.length === 0) {
                 <li class="px-1 py-2">
                   <app-workspace-empty-state
-                    (create)="store.newWorkspace(project.id)"
+                    (create)="createWorkspace(project.id)"
                   />
                 </li>
               }
@@ -77,7 +78,7 @@ import { ProjectListStore } from './project-list.store';
 
     <ng-template #projectCtxMenuTpl let-p>
       <app-project-context-menu
-        (newWorkspace)="store.newWorkspace(p.id)"
+        (newWorkspace)="createWorkspace(p.id)"
         (hide)="store.hideProject(p.id)"
         (remove)="openDeleteDialog(p)"
       />
@@ -97,6 +98,14 @@ import { ProjectListStore } from './project-list.store';
 export class ProjectListContainer {
   protected readonly store = inject(ProjectListStore);
   private readonly _dialogService = inject(HlmDialogService);
+  private readonly _router = inject(Router);
+
+  // Creating a workspace navigates to its detail route so the user lands
+  // directly on the new conversation.
+  protected createWorkspace(projectId: string): void {
+    const id = this.store.newWorkspace(projectId);
+    void this._router.navigate(['/workspaces', id]);
+  }
 
   protected openDeleteDialog(project: Project): void {
     const context: ConfirmDeleteProjectContext = {

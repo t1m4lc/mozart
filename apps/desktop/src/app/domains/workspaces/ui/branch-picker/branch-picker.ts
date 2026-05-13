@@ -41,7 +41,7 @@ import {
         type="button"
         hlmTooltip="Target branch"
         position="bottom"
-        class="size-6 shrink-0 rounded-md text-muted-foreground"
+        class="size-7 shrink-0 rounded-md text-muted-foreground"
         data-tauri-drag-region="false"
       >
         <ng-icon hlm name="lucideGitPullRequestArrow" size="xs" />

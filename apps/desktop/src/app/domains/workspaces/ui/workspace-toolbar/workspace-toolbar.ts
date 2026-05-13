@@ -34,7 +34,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
   template: `
     <div
       data-tauri-drag-region
-      class="flex h-9 items-center gap-1 border-b border-sidebar-border bg-accent px-1"
+      class="flex h-9 items-center gap-1 border-b border-sidebar-border bg-sidebar px-1"
     >
       @if (leadingSlot()) {
         <ng-container [ngTemplateOutlet]="leadingSlot()!" />
@@ -91,17 +91,18 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         <button
           hlmBtn
           variant="ghost"
-          size="icon-sm"
+          size="icon-xs"
           type="button"
           hlmTooltip="Toggle right sidebar"
           position="bottom"
-          class="size-7 text-muted-foreground"
+          class="size-7 rounded-md text-muted-foreground"
+          data-tauri-drag-region="false"
           (click)="
             toggleRightPanel.emit();
             $any($event.currentTarget).blur()
           "
         >
-          <ng-icon hlm name="lucidePanelRight" size="sm" />
+          <ng-icon hlm name="lucidePanelRight" size="xs" />
         </button>
       </div>
     </div>

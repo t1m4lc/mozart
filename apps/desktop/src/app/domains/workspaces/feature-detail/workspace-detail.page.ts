@@ -16,6 +16,8 @@ import { LayoutService } from '../../../core/layout.service';
 import { OsService } from '../../../core/os.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
+import { ChatEmptyState } from '../ui/chat-empty-state/chat-empty-state';
+import { WorkspaceTabBar } from '../ui/workspace-tab-bar/workspace-tab-bar';
 import { WorkspaceToolbar } from '../ui/workspace-toolbar/workspace-toolbar';
 import { WorkspaceDetailStore } from './workspace-detail.store';
 
@@ -25,6 +27,8 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     NgIcon,
     MacWindowControls,
     WorkspaceToolbar,
+    WorkspaceTabBar,
+    ChatEmptyState,
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
@@ -47,9 +51,15 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       (toggleRightPanel)="layout.toggleRightPanel()"
     />
 
-    <section class="p-2">
-      <h1 class="text-lg font-medium">Workspace</h1>
-    </section>
+    <app-workspace-tab-bar />
+
+    <app-chat-empty-state
+      [projectName]="store.projectTitle()"
+      [workspaceName]="store.workspaceTitle()"
+      [sourceBranch]="store.workspaceTitle()"
+      [targetBranch]="store.targetBranch()"
+      [numberOfFiles]="0"
+    />
 
     <ng-template #sidebarHeaderTpl>
       @if (isMac) {
@@ -62,14 +72,14 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
         type="button"
         hlmTooltip="Toggle left sidebar"
         position="bottom"
-        class="size-6 text-muted-foreground"
+        class="size-7 rounded-md text-muted-foreground"
         data-tauri-drag-region="false"
         (click)="
           layout.toggleLeftPanel();
           $any($event.currentTarget).blur()
         "
       >
-        <ng-icon hlm name="lucidePanelLeft" size="sm" />
+        <ng-icon hlm name="lucidePanelLeft" size="xs" />
       </button>
     </ng-template>
   `,

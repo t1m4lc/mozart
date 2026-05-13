@@ -72,6 +72,7 @@ import {
         [defaultSize]="leftPanel_.default"
         [minSize]="layout.leftPanelOpen() ? leftPanel_.min : 0"
         [maxSize]="leftPanel_.max"
+        class="transition-[flex] duration-200 ease-out"
       >
         <hlm-sidebar side="left" collapsible="none" class="h-full w-full">
           <div
@@ -79,7 +80,7 @@ import {
             data-tauri-drag-region
             class="h-9 flex-row items-center gap-1 border-b border-sidebar-border px-2 py-1"
           >
-            @if (isMac) {
+            @if (!isMac) {
               <app-mac-window-controls />
             }
             <span class="flex-1" data-tauri-drag-region></span>
@@ -90,14 +91,13 @@ import {
               type="button"
               hlmTooltip="Toggle left sidebar"
               position="bottom"
-              class="size-6 text-muted-foreground"
+              class="size-7 rounded-md text-muted-foreground"
               data-tauri-drag-region="false"
               (click)="
-                layout.toggleLeftPanel();
-                $any($event.currentTarget).blur()
+                layout.toggleLeftPanel(); $any($event.currentTarget).blur()
               "
             >
-              <ng-icon hlm name="lucidePanelLeft" size="sm" />
+              <ng-icon hlm name="lucidePanelLeft" size="xs" />
             </button>
           </div>
 
@@ -117,8 +117,8 @@ import {
                   hlmBtn
                   variant="ghost"
                   size="icon-xs"
-                  hlmTooltip="Add repository"
-                  position="top"
+                  hlmTooltip="Add project"
+                  position="bottom"
                   class="size-7 rounded-md text-muted-foreground"
                   [hlmDropdownMenuTrigger]="addMenu"
                 >
@@ -166,27 +166,27 @@ import {
               disabled
               hlmBtn
               variant="ghost"
-              size="icon-sm"
+              size="icon-xs"
               type="button"
               aria-label="Help"
-              class="text-muted-foreground"
+              class="size-7 rounded-md text-muted-foreground"
               hlmTooltip="Help"
               position="top"
             >
-              <ng-icon hlm name="lucideCircleQuestionMark" size="sm" />
+              <ng-icon hlm name="lucideCircleQuestionMark" size="xs" />
             </button>
             <button
               hlmBtn
               variant="ghost"
-              size="icon-sm"
+              size="icon-xs"
               type="button"
               routerLink="/settings"
               aria-label="Settings"
-              class="text-muted-foreground"
+              class="size-7 rounded-md text-muted-foreground"
               hlmTooltip="Settings"
               position="top"
             >
-              <ng-icon hlm name="lucideSettings" size="sm" />
+              <ng-icon hlm name="lucideSettings" size="xs" />
             </button>
           </div>
         </hlm-sidebar>
@@ -212,6 +212,7 @@ import {
         [defaultSize]="rightPanel_.default"
         [minSize]="layout.rightPanelOpen() ? rightPanel_.min : 0"
         [maxSize]="rightPanel_.max"
+        class="transition-[flex] duration-200 ease-out"
       >
         <app-shell-aside class="h-full w-full" />
       </div>
