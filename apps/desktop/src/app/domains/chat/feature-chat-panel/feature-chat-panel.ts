@@ -28,7 +28,7 @@ import { MessageList } from '../ui/message-list/message-list';
     >
       @if (messages().length > 0) {
         <app-message-list [messages]="messages()" />
-        <div class="h-3/4" aria-hidden="true"></div>
+        <div class="h-48" aria-hidden="true"></div>
       } @else {
         <ng-content select="[chat-empty-state]" />
       }
@@ -41,6 +41,7 @@ import { MessageList } from '../ui/message-list/message-list';
         <hlm-composer
           [(value)]="value"
           [(mode)]="mode"
+          [isRunning]="isStreaming()"
           (send)="onSend($event)"
           (stop)="onStop()"
         />
@@ -60,6 +61,7 @@ export class FeatureChatPanel {
   protected readonly messages = this.facade.messagesForWorkspace(
     this.workspaceId,
   );
+  protected readonly isStreaming = this.facade.isStreaming(this.workspaceId);
 
   constructor() {
     effect(() => {
@@ -67,14 +69,21 @@ export class FeatureChatPanel {
       if (id) this.facade.ensureChatForWorkspace(id);
     });
 
-    // Position the last message's TOP at ~70% from the top of the
-    // visible viewport — message sits in the lower portion, leaving
-    // the lower ~30% for the (future) assistant reply, like
-    // Claude.ai / ChatGPT. The trailing h-3/4 spacer guarantees the
-    // scroll position is reachable even for short messages.
+    // Auto-scroll strategy :
+    //   - last message `streaming` → keep its BOTTOM at ~70 % from
+    //     the viewport top (bubble grows upward, lower 30 % stays
+    //     clean for the composer overlay) ;
+    //   - otherwise (user just sent, or assistant done/stopped) →
+    //     anchor the TOP at ~70 %.
+    // The trailing h-48 spacer matches the composer's visual
+    // footprint (~192 px) so manually scrolling to the bottom puts
+    // the last message just above the composer, with no excess
+    // empty space.
     effect(() => {
-      const count = this.messages().length;
-      if (count === 0) return;
+      const msgs = this.messages();
+      if (msgs.length === 0) return;
+      const last = msgs[msgs.length - 1];
+      if (!last) return;
       queueMicrotask(() => {
         const container = this.scrollContainer()?.nativeElement;
         if (!container) return;
@@ -83,12 +92,22 @@ export class FeatureChatPanel {
         if (!(lastItem instanceof HTMLElement)) return;
         const containerRect = container.getBoundingClientRect();
         const itemRect = lastItem.getBoundingClientRect();
-        const currentTop = itemRect.top - containerRect.top;
-        const targetTop = container.clientHeight * 0.7;
-        container.scrollBy({
-          top: currentTop - targetTop,
-          behavior: 'smooth',
-        });
+
+        if (last.status === 'streaming') {
+          const currentBottom = itemRect.bottom - containerRect.top;
+          const targetBottom = container.clientHeight * 0.7;
+          const delta = currentBottom - targetBottom;
+          if (delta > 12) {
+            container.scrollBy({ top: delta, behavior: 'smooth' });
+          }
+        } else {
+          const currentTop = itemRect.top - containerRect.top;
+          const targetTop = container.clientHeight * 0.7;
+          const delta = currentTop - targetTop;
+          if (Math.abs(delta) > 4) {
+            container.scrollBy({ top: delta, behavior: 'smooth' });
+          }
+        }
       });
     });
   }
@@ -96,11 +115,13 @@ export class FeatureChatPanel {
   protected onSend(event: ComposerSendEvent): void {
     const id = this.workspaceId();
     if (!id) return;
-    this.facade.sendUserMessage(id, event.text, event.mode);
+    void this.facade.sendUserMessage(id, event.text, event.mode);
     this.value.set('');
   }
 
   protected onStop(): void {
-    /* Step 5 will cancel the in-flight stream. */
+    const id = this.workspaceId();
+    if (!id) return;
+    this.facade.cancelActive(id);
   }
 }

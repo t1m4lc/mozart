@@ -1,9 +1,17 @@
+import type { TimelineTurn } from '@mozart/ui/timeline';
+
 export type MessageRole = 'user' | 'assistant';
 
-// Lifecycle phases. Step 4 only emits `done` user messages. Step 5
-// adds `pending` / `streaming` for assistant messages and `error` for
-// agent failures.
-export type MessageStatus = 'pending' | 'streaming' | 'done' | 'error';
+// Lifecycle phases. Step 4 emits `done` user messages ; Step 5
+// adds `streaming` / `stopped` for assistant messages and `error`
+// for agent failures.
+export type MessageStatus =
+  | 'pending'
+  | 'queued'
+  | 'streaming'
+  | 'done'
+  | 'error'
+  | 'stopped';
 
 export interface Message {
   readonly id: string;
@@ -13,4 +21,6 @@ export interface Message {
   readonly mode?: 'normal' | 'plan';
   readonly status: MessageStatus;
   readonly createdAt: number;
+  // Assistant only — structured turn rendered via <hlm-timeline>.
+  readonly timeline?: TimelineTurn;
 }

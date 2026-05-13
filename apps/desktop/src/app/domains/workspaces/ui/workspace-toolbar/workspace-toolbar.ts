@@ -13,6 +13,7 @@ import {
 import { HlmBreadcrumbImports } from '@mozart/ui/breadcrumb';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucidePanelRight } from '@ng-icons/lucide';
@@ -30,6 +31,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
     HlmBreadcrumbImports,
     HlmButtonImports,
     HlmIconImports,
+    HlmSpinnerImports,
     HlmTooltipImports,
   ],
   providers: [provideIcons({ lucideGitBranch, lucidePanelRight })],
@@ -98,6 +100,15 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
           [branches]="selectableBranches()"
           (valueChange)="targetBranchChange.emit($event)"
         />
+
+        @if (isStreaming()) {
+          <hlm-spinner
+            aria-label="Agent running"
+            hlmTooltip="Agent is running"
+            position="bottom"
+            class="shrink-0 text-brand"
+          />
+        }
       </div>
 
       <div
@@ -139,6 +150,7 @@ export class WorkspaceToolbar {
   readonly selectableBranches = input.required<readonly string[]>();
   readonly tools = input.required<readonly OpenInTool[]>();
   readonly lastUsedTool = input.required<OpenInTool>();
+  readonly isStreaming = input<boolean>(false);
   // When set, rendered before the breadcrumb (used to inject window controls
   // + sidebar toggle when the left panel is collapsed).
   readonly leadingSlot = input<TemplateRef<unknown> | null>(null);

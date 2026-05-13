@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import type { Message } from '../../data/message.model';
+import { AgentMessage } from '../agent-message/agent-message';
 import { UserMessage } from '../user-message/user-message';
 
 @Component({
   selector: 'app-message-list',
-  imports: [UserMessage],
+  imports: [UserMessage, AgentMessage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -16,7 +17,7 @@ import { UserMessage } from '../user-message/user-message';
               <app-user-message [message]="msg" />
             }
             @case ('assistant') {
-              <!-- Step 5 : ui-agent-message + HlmTimeline -->
+              <app-agent-message [message]="msg" />
             }
           }
         </li>

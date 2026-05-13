@@ -14,10 +14,11 @@ import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { appRoutes } from './app.routes';
 import { commands } from './core/_bindings';
+import { FakeLlmAdapter, LLM_ADAPTER } from './domains/llm-model';
 import {
   CREDENTIALS_ADAPTER,
-  type CredentialsAdapter,
   ProfileFacade,
+  type CredentialsAdapter,
 } from './domains/profile';
 import {
   DIALOG_ADAPTER,
@@ -173,5 +174,10 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(() => {
       void inject(ProfileFacade).initialize();
     }),
+    // v0.0.1 ships the fake LLM adapter — workspaces aren't yet
+    // backed by SQLite, so a real `commands.startAgentRun` would
+    // 404. Swap to `TauriLlmAdapter` when the Steps 2-3 SQLite
+    // sweep lands.
+    { provide: LLM_ADAPTER, useExisting: FakeLlmAdapter },
   ],
 };

@@ -17,7 +17,7 @@ import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
 import { OsService } from '../../../core/os.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
-import { FeatureChatPanel } from '../../chat';
+import { ChatFacade, FeatureChatPanel } from '../../chat';
 import { ProjectsFacade } from '../../projects';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
@@ -51,6 +51,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       [selectableBranches]="store.selectableBranches()"
       [tools]="tools"
       [lastUsedTool]="store.lastUsedTool()"
+      [isStreaming]="isStreaming()"
       [leadingSlot]="layout.leftPanelOpen() ? null : sidebarHeader()"
       (targetBranchChange)="store.setTargetBranch($event)"
       (openIn)="store.openIn($event)"
@@ -122,6 +123,10 @@ export class WorkspaceDetailPage {
   protected readonly projectIcon = computed(() => this.project()?.icon ?? null);
   protected readonly workspaceName = computed(
     () => this.workspace()?.name ?? '',
+  );
+
+  protected readonly isStreaming = inject(ChatFacade).isStreaming(
+    this.store.workspaceId,
   );
 
   protected readonly sidebarHeader =

@@ -64,7 +64,7 @@ export interface ComposerSendEvent {
           class="hlm-composer-textarea block w-full border-0 outline-none shadow-none rounded-none resize-none bg-transparent dark:bg-transparent px-3 pt-3 pb-6 text-sm leading-6 min-h-28 max-h-72 overflow-y-auto scroll-pb-3 focus-visible:ring-0 focus-visible:border-0"
           [ngModel]="value()"
           (ngModelChange)="value.set($event)"
-          [disabled]="isRunning() || disabled()"
+          [disabled]="disabled()"
           name="prompt"
           [placeholder]="placeholder()"
           (keydown)="_onKeydown($event)"
@@ -133,27 +133,30 @@ export interface ComposerSendEvent {
             <button
               hlmBtn
               variant="destructive"
-              size="sm"
+              size="icon-sm"
               type="button"
+              hlmTooltip="Stop"
               class="ml-2 rounded-lg"
               (click)="_emitStop()"
+              aria-label="Stop current run"
             >
               <ng-icon hlm name="lucideSquare" size="xs" />
-              Stop
-            </button>
-          } @else {
-            <button
-              hlmBtn
-              variant="default"
-              size="sm"
-              type="submit"
-              class="ml-2 rounded-lg"
-              [disabled]="!_canSubmit()"
-            >
-              <span>{{ mode() === 'plan' ? 'Plan' : 'Send' }}</span>
-              <ng-icon hlm name="lucideCornerDownLeft" size="xs" />
             </button>
           }
+          <button
+            hlmBtn
+            variant="default"
+            size="sm"
+            type="submit"
+            [class.ml-1]="isRunning()"
+            [class.ml-2]="!isRunning()"
+            class="rounded-lg"
+            [disabled]="!_canSubmit()"
+            [hlmTooltip]="isRunning() ? 'Queue message — the current run keeps going' : null"
+          >
+            <span>{{ mode() === 'plan' ? 'Plan' : 'Send' }}</span>
+            <ng-icon hlm name="lucideCornerDownLeft" size="xs" />
+          </button>
         </div>
       </div>
     </form>
@@ -189,10 +192,7 @@ export class HlmComposer {
   readonly stop = output<void>();
 
   protected readonly _canSubmit = computed(
-    () =>
-      !this.isRunning() &&
-      !this.disabled() &&
-      this.value().trim().length > 0,
+    () => !this.disabled() && this.value().trim().length > 0,
   );
 
   protected _onSubmit(event: Event): void {

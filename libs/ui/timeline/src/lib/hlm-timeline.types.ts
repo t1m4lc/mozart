@@ -25,11 +25,17 @@ export interface TimelineItem {
   readonly defaultExpanded?: boolean;
 }
 
+export type TimelineOutcome = 'done' | 'stopped' | 'error';
+
 export interface TimelineTurn {
   readonly summary: string;
   readonly isStreaming: boolean;
   readonly items: readonly TimelineItem[];
   readonly showDoneMarker: boolean;
+  // Set when `isStreaming` flips to false. Drives the header swap
+  // from CLI spinner + status text → check/X + elapsed time.
+  readonly outcome?: TimelineOutcome;
+  readonly elapsedMs?: number;
 }
 
 export interface TimelineFileChipClick {

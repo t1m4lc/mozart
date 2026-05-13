@@ -54,5 +54,12 @@ export const ChatStore = signalStore(
       patchState(store, { messages: [...store.messages(), message] });
       return message;
     },
+    updateMessage(id: string, updater: (m: Message) => Message): void {
+      patchState(store, {
+        messages: store
+          .messages()
+          .map((m) => (m.id === id ? updater(m) : m)),
+      });
+    },
   })),
 );

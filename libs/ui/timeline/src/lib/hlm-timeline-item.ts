@@ -7,6 +7,7 @@ import {
   signal,
 } from '@angular/core';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronDown,
@@ -54,7 +55,7 @@ const STATE_TITLE_CLASS: Record<TimelineItemState, string> = {
 
 @Component({
   selector: 'hlm-timeline-item',
-  imports: [NgIcon, HlmIconImports],
+  imports: [NgIcon, HlmIconImports, HlmSpinnerImports],
   providers: [
     provideIcons({
       lucideChevronDown,
@@ -87,6 +88,11 @@ const STATE_TITLE_CLASS: Record<TimelineItemState, string> = {
             size="sm"
             [class]="_iconClass()"
           />
+        } @else if (item().state === 'active') {
+          <hlm-spinner
+            aria-label="Running"
+            class="text-foreground"
+          />
         } @else {
           <ng-icon hlm [name]="_iconName()" size="sm" [class]="_iconClass()" />
         }
@@ -99,10 +105,20 @@ const STATE_TITLE_CLASS: Record<TimelineItemState, string> = {
           (click)="_toggleExpanded()"
         >
           <span
+            class="inline-flex items-center gap-1"
             [class]="_titleClass()"
-            [class.hlm-shimmer-text]="item().state === 'active'"
           >
-            {{ item().title }}
+            <span [class.hlm-shimmer-text]="item().state === 'active'">{{ item().title }}</span>
+            @if (item().body) {
+              <ng-icon
+                hlm
+                [name]="
+                  _expanded() ? 'lucideChevronDown' : 'lucideChevronRight'
+                "
+                size="xs"
+                class="text-muted-foreground"
+              />
+            }
           </span>
 
           @if (item().fileChip; as chip) {
@@ -130,17 +146,6 @@ const STATE_TITLE_CLASS: Record<TimelineItemState, string> = {
                 }
               </span>
             }
-          }
-
-          @if (item().body) {
-            <ng-icon
-              hlm
-              [name]="
-                _expanded() ? 'lucideChevronDown' : 'lucideChevronRight'
-              "
-              size="xs"
-              class="ml-auto text-muted-foreground"
-            />
           }
         </button>
 
