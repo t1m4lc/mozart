@@ -6,7 +6,6 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import { BRANCHES_MOCK } from '../data/branches.mock';
 import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
 
 interface State {
@@ -22,16 +21,16 @@ interface State {
   lastUsedTool: OpenInTool;
 }
 
-// Until the workspace detail is loaded from the backend, the store seeds
-// itself with the same mock data the legacy page hard-coded.
-// TODO: replace with `get_workspace(workspaceId)` Tauri command.
+// Branches are loaded from Tauri on workspace open (see
+// `loadWorkspace`). Identity fields (workspaceTitle, projectName,
+// projectIcon) come from the WorkspacesFacade via the page's effect.
 const initialState: State = {
-  workspaceId: 'w1',
-  workspaceTitle: 'feat/shell-resizable',
-  projectId: 'p1',
-  projectName: 'mozart',
-  projectIcon: '🧑‍🎤',
-  branches: BRANCHES_MOCK,
+  workspaceId: null,
+  workspaceTitle: '',
+  projectId: '',
+  projectName: '',
+  projectIcon: null,
+  branches: [],
   targetBranch: 'main',
   lastUsedTool: OPEN_IN_TOOLS[0],
 };
@@ -59,9 +58,10 @@ export const WorkspaceDetailStore = signalStore(
     },
     // Called by the page when the route param `id` changes.
     loadWorkspace(workspaceId: string): void {
-      // TODO: replace with backend call. For now we only track the id
-      //       and keep the mocked title/project pair intact.
       patchState(store, { workspaceId });
+    },
+    setBranches(branches: readonly string[]): void {
+      patchState(store, { branches });
     },
   })),
 );

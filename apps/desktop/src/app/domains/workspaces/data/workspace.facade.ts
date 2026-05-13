@@ -115,6 +115,17 @@ export class WorkspacesFacade {
     }
   }
 
+  // Fetch the real git branches for the project owning `workspaceId`.
+  // Returns an empty array if the workspace or its project can't be
+  // resolved (the toolbar handles empty gracefully).
+  async listBranchesForWorkspace(workspaceId: string): Promise<string[]> {
+    const ws = this.workspaceById(workspaceId)();
+    if (!ws) return [];
+    const project = this.projects.byId(ws.projectId)();
+    if (!project) return [];
+    return this.adapter.listBranches(project.path);
+  }
+
   // ---- Mutators ------------------------------------------------------
 
   async archive(id: string): Promise<void> {
