@@ -30,6 +30,12 @@ import {
   output,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
+import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
+import { HlmKbdImports } from '@mozart/ui/kbd';
+import { HlmTextareaImports } from '@mozart/ui/textarea';
+import { HlmToggleGroupImports } from '@mozart/ui/toggle-group';
+import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBot,
@@ -38,12 +44,6 @@ import {
   lucideLink,
   lucidePaperclip,
 } from '@ng-icons/lucide';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
-import { HlmKbdImports } from '@mozart/ui/kbd';
-import { HlmTextareaImports } from '@mozart/ui/textarea';
-import { HlmToggleGroupImports } from '@mozart/ui/toggle-group';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
 
 @Component({
   selector: 'app-composer',
@@ -76,7 +76,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
     >
       <textarea
         hlmTextarea
-        class="resize-y min-h-[64px]"
+        class="resize-y min-h-16"
         [ngModel]="value()"
         (ngModelChange)="value.set($event)"
         [disabled]="isRunning()"
@@ -124,10 +124,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
           <hlm-dropdown-menu></hlm-dropdown-menu>
         </ng-template>
 
-        <span
-          class="inline-flex items-center mx-0.5"
-          [hlmTooltip]="comingSoon"
-        >
+        <span class="inline-flex items-center mx-0.5" [hlmTooltip]="comingSoon">
           <hlm-toggle-group
             class="opacity-100"
             disabled
@@ -239,7 +236,9 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
     .composer {
       background: var(--bg-composer, hsl(var(--card)));
     }
-    .toolbar-icon { --ng-icon__size: 14px; }
+    .toolbar-icon {
+      --ng-icon__size: 14px;
+    }
   `,
 })
 export class ComposerComponent {

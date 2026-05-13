@@ -78,7 +78,8 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
       </button>
       <span
         class="label ml-1 text-[11px] tracking-[0.08em] text-muted-foreground uppercase"
-      >PROJECTS</span>
+        >PROJECTS</span
+      >
       <span class="flex-auto"></span>
       <app-add-project-menu
         variant="ghost"
@@ -92,10 +93,7 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
       @if (projects.projectsLoading()) {
         <app-sidebar-skeleton />
       } @else if (projects.projectsError()) {
-        <app-sidebar-error
-          [error]="errorOrFallback()"
-          (retry)="onRetry()"
-        />
+        <app-sidebar-error [error]="errorOrFallback()" (retry)="onRetry()" />
       } @else if (projects.projects().length === 0) {
         <app-sidebar-empty />
       } @else {
@@ -106,7 +104,9 @@ import { SidebarSkeletonComponent } from './sidebar-skeleton.component';
     </div>
   `,
   styles: `
-    :host { font-family: var(--font-sans); }
+    :host {
+      font-family: var(--font-sans);
+    }
   `,
 })
 export class SidebarComponent {
@@ -119,9 +119,10 @@ export class SidebarComponent {
    * `MozartError` so `SidebarErrorComponent`'s `input.required<MozartError>()`
    * always has a value.
    */
-  protected readonly errorOrFallback = computed<MozartError>(() =>
-    this.projects.errorDetail() ??
-    new MozartError('Db', 'Failed to load projects.'),
+  protected readonly errorOrFallback = computed<MozartError>(
+    () =>
+      this.projects.errorDetail() ??
+      new MozartError('Db', 'Failed to load projects.'),
   );
 
   protected onRetry(): void {

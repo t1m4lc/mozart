@@ -1,7 +1,7 @@
 @import "@angular/cdk/overlay-prebuilt.css";
 
-@import "./lib/themes/zinc.css";
-
 @import "./lib/base.css";
 
-@import "./lib/shell.css";
+@import "./lib/themes/zinc.css";
+@import "./lib/themes/stone.css";
+

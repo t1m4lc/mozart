@@ -7,12 +7,23 @@
 @source "../../../libs/ui/breadcrumb";
 @source "../../../libs/ui/button";
 @source "../../../libs/ui/collapsible";
+@source "../../../libs/ui/combobox";
 @source "../../../libs/ui/context-menu";
 @source "../../../libs/ui/dialog";
 @source "../../../libs/ui/dropdown-menu";
+@source "../../../libs/ui/empty";
 @source "../../../libs/ui/icon";
+@source "../../../libs/ui/input";
+@source "../../../libs/ui/input-group";
 @source "../../../libs/ui/kbd";
 @source "../../../libs/ui/label";
+@source "../../../libs/ui/popover";
+@source "../../../libs/ui/resizable";
+@source "../../../libs/ui/select";
+@source "../../../libs/ui/separator";
+@source "../../../libs/ui/sheet";
+@source "../../../libs/ui/sidebar";
+@source "../../../libs/ui/skeleton";
 @source "../../../libs/ui/tabs";
 @source "../../../libs/ui/textarea";
 @source "../../../libs/ui/toggle";
@@ -20,3 +31,21 @@
 @source "../../../libs/ui/tooltip";
 @source "../../../libs/ui/utils";
 /* nx-tailwind-sources:end */
+
+/* Toolbar breadcrumb: single line, last segment truncates */
+nav[aria-label="Workspace"] [data-slot="breadcrumb-list"] {
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow: hidden;
+}
+
+/* Combobox input: lighter background with visible border */
+hlm-combobox-content [data-slot="input-group"] {
+  background-color: var(--color-background) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* Resizable handle: visible on hover, bold during drag */
+[data-slot="resizable-handle"] {
+  @apply transition-all duration-150 ease-in-out hover:bg-primary/50  active:bg-primary active:scale-x-125 delay-200;
+}

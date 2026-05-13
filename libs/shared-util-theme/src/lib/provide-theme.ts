@@ -11,7 +11,7 @@ import { themes, type ThemeConfig } from './theme.types';
 export const THEME_CONFIG = new InjectionToken<ThemeConfig>('THEME_CONFIG');
 
 const DEFAULT_CONFIG: ThemeConfig = {
-  theme: 'zinc',
+  theme: 'stone',
   mode: 'system',
   options: themes,
 };

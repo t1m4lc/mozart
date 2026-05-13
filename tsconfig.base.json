@@ -73,7 +73,8 @@
       "@mozart/ui/tooltip": ["./libs/ui/tooltip/src/index.ts"],
       "@mozart/ui/typography": ["./libs/ui/typography/src/index.ts"],
       "@mozart/ui/utils": ["./libs/ui/utils/src/index.ts"],
-      "@mozart/shared-util-theme": ["./libs/shared-util-theme/src/index.ts"]
+      "@mozart/shared-util-theme": ["./libs/shared-util-theme/src/index.ts"],
+      "@mozart/*": ["./apps/desktop/src/app/domains/*"]
     }
   }
 }

@@ -13,7 +13,12 @@
  *     currently selected project (so the dialog locks to it).
  *     UNCHANGED by this refactor.
  */
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { AddProjectMenuComponent } from '../sidebar/add-project-menu.component';
@@ -58,7 +63,9 @@ import { CreateWorkspaceDialogComponent } from './create-workspace-dialog.compon
     </div>
   `,
   styles: `
-    :host { background: var(--bg-center); }
+    :host {
+      background: var(--bg-center);
+    }
   `,
 })
 export class EmptyCenterComponent {

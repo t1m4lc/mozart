@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronDown } from '@ng-icons/lucide';
+import { lucideChevronsUpDown } from '@ng-icons/lucide';
 import { BrnFieldControlDescribedBy } from '@spartan-ng/brain/field';
 import { BrnSelectTrigger } from '@spartan-ng/brain/select';
 import { hlm } from '@mozart/ui/utils';
@@ -9,7 +9,7 @@ import type { ClassValue } from 'clsx';
 @Component({
 	selector: 'hlm-select-trigger',
 	imports: [NgIcon, BrnSelectTrigger, BrnFieldControlDescribedBy],
-	providers: [provideIcons({ lucideChevronDown })],
+	providers: [provideIcons({ lucideChevronsUpDown })],
 	changeDetection: ChangeDetectionStrategy.OnPush,
 	template: `
 		<button
@@ -21,7 +21,7 @@ import type { ClassValue } from 'clsx';
 			data-slot="select-trigger"
 		>
 			<ng-content />
-			<ng-icon name="lucideChevronDown" class="text-muted-foreground pointer-events-none text-base" />
+			<ng-icon name="lucideChevronsUpDown" class="text-muted-foreground pointer-events-none text-sm" />
 		</button>
 	`,
 })
