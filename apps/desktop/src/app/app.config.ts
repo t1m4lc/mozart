@@ -15,17 +15,18 @@ import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { appRoutes } from './app.routes';
 import { commands } from './core/_bindings';
 import {
+  CREDENTIALS_ADAPTER,
+  type CredentialsAdapter,
+  ProfileFacade,
+} from './domains/profile';
+import {
   DIALOG_ADAPTER,
   PROJECTS_ADAPTER,
   ProjectsFacade,
   projectFromDto,
   type ProjectsAdapter,
 } from './domains/projects';
-import {
-  TASKS_ADAPTER,
-  type TasksAdapter,
-  taskFromDto,
-} from './domains/tasks';
+import { TASKS_ADAPTER, taskFromDto, type TasksAdapter } from './domains/tasks';
 import {
   WORKSPACES_ADAPTER,
   WorkspacesFacade,
@@ -34,7 +35,11 @@ import {
 
 // Small helper: unwrap the tauri-specta Result envelope into a value or
 // thrown error so the rest of the app can write straight `await`s.
-function unwrap<T>(r: { status: 'ok'; data: T } | { status: 'error'; error: { message: string } }): T {
+function unwrap<T>(
+  r:
+    | { status: 'ok'; data: T }
+    | { status: 'error'; error: { message: string } },
+): T {
   if (r.status === 'error') throw new Error(r.error.message);
   return r.data;
 }
@@ -44,7 +49,6 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(appRoutes, withHashLocation(), withComponentInputBinding()),
     provideTheme(),
-
     {
       provide: DIALOG_ADAPTER,
       useFactory: () => ({
@@ -58,7 +62,6 @@ export const appConfig: ApplicationConfig = {
         },
       }),
     },
-
     {
       provide: PROJECTS_ADAPTER,
       useValue: {
@@ -77,7 +80,6 @@ export const appConfig: ApplicationConfig = {
         },
       } satisfies ProjectsAdapter,
     },
-
     {
       provide: WORKSPACES_ADAPTER,
       useValue: {
@@ -94,21 +96,20 @@ export const appConfig: ApplicationConfig = {
         async list() {
           return unwrap(await commands.listWorkspaces());
         },
-        async archive(workspaceId) {
+        async archive(workspaceId: string) {
           unwrap(await commands.archiveWorkspace(workspaceId));
         },
-        async listBranches(repoPath) {
+        async listBranches(repoPath: string) {
           return unwrap(await commands.listBranches(repoPath));
         },
-        async setPinned(workspaceId, pinned) {
+        async setPinned(workspaceId: string, pinned: boolean) {
           unwrap(await commands.setWorkspacePinned(workspaceId, pinned));
         },
-        async setUnread(workspaceId, unread) {
+        async setUnread(workspaceId: string, unread: boolean) {
           unwrap(await commands.setWorkspaceUnread(workspaceId, unread));
         },
       } satisfies WorkspacesAdapter,
     },
-
     {
       provide: TASKS_ADAPTER,
       useValue: {
@@ -117,6 +118,37 @@ export const appConfig: ApplicationConfig = {
           return dtos.map(taskFromDto);
         },
       } satisfies TasksAdapter,
+    },
+    // Tauri-backed credentials adapter for the Anthropic key. This is the
+    // ONLY file in the app that touches `core/_bindings` for credentials —
+    // the profile domain stays Tauri-agnostic per Convention #2.
+    {
+      provide: CREDENTIALS_ADAPTER,
+      useFactory: (): CredentialsAdapter => ({
+        async hasStoredKey() {
+          const r = await commands.hasAnthropicKey();
+          if (r.status === 'error') throw new Error(r.error.kind);
+          return r.data;
+        },
+        async hasClaudeCodeSession() {
+          // Returns plain boolean (not Result-wrapped) — see commands/mod.rs.
+          return await commands.checkClaudeCodeSession();
+        },
+        async connect(key: string) {
+          const r = await commands.connectAnthropic(key);
+          if (r.status === 'error') throw new Error(r.error.kind);
+          return r.data.kind;
+        },
+        async clear() {
+          const r = await commands.disconnectAnthropic();
+          if (r.status === 'error') throw new Error(r.error.kind);
+        },
+        async refresh() {
+          const r = await commands.refreshAnthropicConnection();
+          if (r.status === 'error') throw new Error(r.error.kind);
+          return r.data.kind;
+        },
+      }),
     },
 
     // Hydrate from Tauri at boot. Order matters: projects first
@@ -132,6 +164,14 @@ export const appConfig: ApplicationConfig = {
       } catch (err) {
         console.error('hydration failed on boot', err);
       }
+    }),
+
+    // Fire-and-forget probe at app start so /settings is up-to-date even
+    // when the user doesn't open the settings page first. The facade's
+    // own `status === 'unknown'` guard makes this idempotent with the
+    // lazy call in feature-connections.constructor.
+    provideAppInitializer(() => {
+      void inject(ProfileFacade).initialize();
     }),
   ],
 };

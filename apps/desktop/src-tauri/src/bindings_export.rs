@@ -7,6 +7,7 @@
 
 use crate::claude_cli::{install::ClaudeInstall, AgentRunTerminated, StreamEvent};
 use crate::commands;
+use crate::credentials::anthropic_probe::ProbeResult;
 use crate::db::models::{AgentRun, Repo, Task, Thread, Workspace, WorkspaceChange};
 use crate::error::AppError;
 
@@ -28,6 +29,11 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::get_workspace_diff,
             commands::discard_workspace_changes,
             commands::check_claude_install,
+            commands::check_claude_code_session,
+            commands::has_anthropic_key,
+            commands::connect_anthropic,
+            commands::disconnect_anthropic,
+            commands::refresh_anthropic_connection,
         ])
         .events(tauri_specta::collect_events![AgentRunTerminated])
         .typ::<AppError>()
@@ -39,4 +45,5 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<Thread>()
         .typ::<AgentRun>()
         .typ::<WorkspaceChange>()
+        .typ::<ProbeResult>()
 }

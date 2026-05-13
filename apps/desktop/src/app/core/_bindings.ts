@@ -196,6 +196,74 @@ export const commands = {
   async checkClaudeInstall(): Promise<ClaudeInstall> {
     return await TAURI_INVOKE('check_claude_install');
   },
+  /**
+   * Step 6d — heuristic probe for an existing `claude /login` session. The
+   * frontend uses this to give Pro/Max users a single-click "Connect"
+   * experience that bypasses the API-key dialog when their CLI is already
+   * authenticated.
+   */
+  async checkClaudeCodeSession(): Promise<boolean> {
+    return await TAURI_INVOKE('check_claude_code_session');
+  },
+  /**
+   * Step 6 — cheap presence check used by the frontend on app start to know
+   * whether to render "Not connected" immediately or to kick off a probe.
+   * Never returns the value of the key.
+   */
+  async hasAnthropicKey(): Promise<Result<boolean, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('has_anthropic_key') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Step 6 — probe-then-persist. Only writes to the keyring when the probe
+   * returns `Connected`. On `Invalid` / `NetworkError` the key is dropped at
+   * the end of this function frame and never touches disk. The argument
+   * `key` is the only place the value is ever passed by-value into Mozart
+   * from the frontend.
+   */
+  async connectAnthropic(key: string): Promise<Result<ProbeResult, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('connect_anthropic', { key }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Step 6 — idempotent removal of the stored key. Safe to call when no
+   * entry exists.
+   */
+  async disconnectAnthropic(): Promise<Result<null, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('disconnect_anthropic') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Step 6 — re-probe the currently stored key. Returns `Validation` when no
+   * key is stored (the frontend gates this call on `has_anthropic_key()` so
+   * the error path is only hit on misuse).
+   */
+  async refreshAnthropicConnection(): Promise<Result<ProbeResult, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('refresh_anthropic_connection'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
 };
 
 /** user-defined events **/
@@ -245,6 +313,14 @@ export type AppError =
 export type ClaudeInstall =
   | { kind: 'installed'; version: string }
   | { kind: 'missing' };
+/**
+ * Outcome of a probe call. Sent to the frontend via tauri-specta as a
+ * tagged TS union `{ kind: 'connected' | 'invalid' | 'network_error' }`.
+ */
+export type ProbeResult =
+  | { kind: 'connected' }
+  | { kind: 'invalid' }
+  | { kind: 'network_error' };
 export type Repo = {
   repo_id: string;
   path: string;

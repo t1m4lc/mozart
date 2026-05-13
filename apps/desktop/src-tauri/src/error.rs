@@ -39,3 +39,26 @@ impl From<std::io::Error> for AppError {
         AppError::Io(err.to_string())
     }
 }
+
+impl From<keyring::Error> for AppError {
+    // Step 6 — Anthropic key storage. We deliberately do NOT call
+    // `err.to_string()` here: the `BadEncoding(Vec<u8>)` variant carries
+    // the raw bytes of an unreadable credential, and downstream Display
+    // impls (now or in future keyring releases) could embed those bytes in
+    // the formatted string. Mapping by variant to a fixed message keeps
+    // the API key out of every code path that ever sees an `AppError`.
+    fn from(err: keyring::Error) -> Self {
+        use keyring::Error as K;
+        let msg = match err {
+            K::PlatformFailure(_) => "keyring platform failure",
+            K::NoStorageAccess(_) => "no keyring backend available",
+            K::NoEntry => "no keyring entry",
+            K::BadEncoding(_) => "keyring entry has bad encoding",
+            K::TooLong(_, _) => "keyring entry exceeds platform limit",
+            K::Invalid(_, _) => "invalid keyring entry parameters",
+            K::Ambiguous(_) => "ambiguous keyring entry",
+            _ => "keyring error",
+        };
+        AppError::Io(msg.into())
+    }
+}

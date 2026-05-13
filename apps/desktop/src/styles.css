@@ -4,8 +4,11 @@
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/shared-util-theme";
+@source "../../../libs/ui/alert";
+@source "../../../libs/ui/badge";
 @source "../../../libs/ui/breadcrumb";
 @source "../../../libs/ui/button";
+@source "../../../libs/ui/card";
 @source "../../../libs/ui/collapsible";
 @source "../../../libs/ui/combobox";
 @source "../../../libs/ui/context-menu";
@@ -25,6 +28,7 @@
 @source "../../../libs/ui/sidebar";
 @source "../../../libs/ui/skeleton";
 @source "../../../libs/ui/sonner";
+@source "../../../libs/ui/spinner";
 @source "../../../libs/ui/tabs";
 @source "../../../libs/ui/textarea";
 @source "../../../libs/ui/toggle";

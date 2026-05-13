@@ -1494,6 +1494,9 @@ For abstract behavior :
 - [ ] If I delete the API key and restart, status reverts to "Not connected"
 - [ ] The chat works immediately after connecting, no app restart needed
 
+**Status : ⛔ not started** — `pages/settings.page.ts` is a placeholder
+`<h1>` and `settings-shell.ts` only provides the route's chrome.
+
 ---
 
 ## Recap: slice order and demos

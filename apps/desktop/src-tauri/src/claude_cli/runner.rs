@@ -49,6 +49,7 @@ use tokio::task::JoinHandle;
 
 use crate::claude_cli::parser::parse_line;
 use crate::claude_cli::{AgentRunTerminated, StreamEvent};
+use crate::credentials::keyring_store;
 use crate::db::models::{AgentRun, Workspace, WorkspaceChange};
 use crate::db::{agent_events, agent_runs, now_ms, workspace_changes, DbState};
 use crate::error::AppError;
@@ -104,6 +105,38 @@ impl RunHandle {
 /// callers never set this env var.
 fn resolve_claude_bin() -> OsString {
     std::env::var_os("MOZART_CLAUDE_BIN").unwrap_or_else(|| OsString::from("claude"))
+}
+
+/// Step 6d — inject the keyring-stored Anthropic key into `cmd`'s env as
+/// `ANTHROPIC_API_KEY` so the spawned `claude` subprocess uses it.
+///
+/// Silent on either branch of failure:
+///  - keyring read returns `Ok(None)`  → no key stored (Pro/Max users on
+///    `claude /login`, or fresh installs) — leave env unchanged.
+///  - keyring read returns `Err(_)`    → keyring backend unavailable
+///    (rare; headless Linux without Secret Service) — leave env
+///    unchanged and let `claude` fall back to whatever auth it has on
+///    disk.
+///
+/// The key is read once and written into the spawn env. It is never
+/// logged; the debug message below confirms the *presence* of a key,
+/// never its value.
+fn inject_anthropic_key(cmd: &mut Command) {
+    let key = keyring_store::get_anthropic_key().ok().flatten();
+    if key.is_some() {
+        log::debug!("anthropic key found in keyring; injecting into claude env");
+    }
+    inject_anthropic_key_env(cmd, key.as_deref());
+}
+
+/// Testable seam for [`inject_anthropic_key`]. Splitting on the keyring
+/// boundary lets unit tests exercise the env-mutation logic without
+/// touching the real keyring slot (which may hold the developer's actual
+/// API key during local runs).
+fn inject_anthropic_key_env(cmd: &mut Command, key: Option<&str>) {
+    if let Some(k) = key {
+        cmd.env("ANTHROPIC_API_KEY", k);
+    }
 }
 
 /// Test-only introspection of the argv `spawn_run` constructs (after
@@ -175,6 +208,7 @@ where
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
+    inject_anthropic_key(&mut cmd);
 
     let mut child = cmd
         .spawn()
@@ -465,6 +499,46 @@ mod tests {
     use super::*;
     use crate::db::models::{Repo, Task, Thread};
     use crate::db::{init_db_memory, new_id, repos, tasks, threads, workspaces};
+
+    // --- inject_anthropic_key_env unit tests (no keyring, no subprocess) ---
+
+    /// Searches `cmd.as_std().get_envs()` for the named var, returning
+    /// its value if set, `None` if explicitly removed, or panicking via
+    /// `expect` if absent — caller decides the contract per assertion.
+    fn lookup_env<'a>(
+        cmd: &'a Command,
+        name: &str,
+    ) -> Option<Option<&'a std::ffi::OsStr>> {
+        for (k, v) in cmd.as_std().get_envs() {
+            if k == name {
+                return Some(v);
+            }
+        }
+        None
+    }
+
+    #[test]
+    fn inject_anthropic_key_env_sets_var_when_key_provided() {
+        let mut cmd = Command::new("/bin/true");
+        inject_anthropic_key_env(&mut cmd, Some("sk-ant-fixture"));
+        let value = lookup_env(&cmd, "ANTHROPIC_API_KEY")
+            .expect("env must contain ANTHROPIC_API_KEY")
+            .expect("ANTHROPIC_API_KEY must have a value, not be cleared");
+        assert_eq!(value, "sk-ant-fixture");
+    }
+
+    #[test]
+    fn inject_anthropic_key_env_leaves_env_untouched_when_none() {
+        let mut cmd = Command::new("/bin/true");
+        inject_anthropic_key_env(&mut cmd, None);
+        // The helper must not touch the env at all when no key is given —
+        // including no "clear" entry that would shadow the inherited
+        // process env.
+        assert!(
+            lookup_env(&cmd, "ANTHROPIC_API_KEY").is_none(),
+            "no ANTHROPIC_API_KEY override should be staged when key is None"
+        );
+    }
 
     // --- argv unit test (no fixture, no subprocess) ---
 
