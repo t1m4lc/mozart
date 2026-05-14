@@ -9,8 +9,10 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmHoverCardImports } from '@mozart/ui/hover-card';
 import { HlmPopoverImports } from '@mozart/ui/popover';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArchive,
@@ -18,7 +20,36 @@ import {
   lucideLoader,
   lucidePin,
 } from '@ng-icons/lucide';
+import { relativeTime } from '../../util-relative-time';
 import type { Workspace } from '../../data/workspace.model';
+
+// Maps a UI workspace status to the dot color in the hover popover.
+const STATUS_COLOR: Record<string, string> = {
+  backlog: 'bg-muted-foreground/40',
+  in_progress: 'bg-brand',
+  in_review: 'bg-amber-500',
+  done: 'bg-emerald-500',
+  canceled: 'bg-muted-foreground/30',
+};
+
+function statusDotColor(status: string): string {
+  return STATUS_COLOR[status] ?? 'bg-muted-foreground/40';
+}
+
+function statusLabel(status: string): string {
+  switch (status) {
+    case 'in_progress':
+      return 'In progress';
+    case 'in_review':
+      return 'In review';
+    case 'done':
+      return 'Done';
+    case 'canceled':
+      return 'Canceled';
+    default:
+      return 'Backlog';
+  }
+}
 
 @Component({
   selector: 'app-workspace-row',
@@ -27,8 +58,10 @@ import type { Workspace } from '../../data/workspace.model';
     RouterLink,
     RouterLinkActive,
     HlmButtonImports,
+    HlmHoverCardImports,
     HlmPopoverImports,
     HlmSidebarImports,
+    HlmSpinnerImports,
   ],
   providers: [
     provideIcons({ lucideArchive, lucideGitBranch, lucideLoader, lucidePin }),
@@ -79,27 +112,64 @@ import type { Workspace } from '../../data/workspace.model';
         />
       </div>
     } @else {
-      <a
-        hlmSidebarMenuButton
-        [routerLink]="['/workspaces', workspace().id]"
-        routerLinkActive="bg-brand/15 text-foreground
-                          before:absolute before:left-0 before:top-0.5 before:bottom-0.5
-                          before:w-1 before:rounded-r-full before:bg-brand
-                          before:shadow-[0_0_10px_hsl(var(--brand)/0.7)]
-                          [&_ng-icon]:text-brand!"
-        class="relative cursor-pointer rounded-sm gap-1.5 px-2"
-      >
-        <ng-icon
-          hlm
-          name="lucideGitBranch"
-          size="xs"
-          class="text-muted-foreground"
-        />
-        @if (workspace().pinned) {
-          <ng-icon hlm name="lucidePin" size="10px" class="text-brand" />
-        }
-        <span>{{ workspace().name }}</span>
-      </a>
+      <hlm-hover-card>
+        <a
+          hlmSidebarMenuButton
+          hlmHoverCardTrigger
+          [routerLink]="['/workspaces', workspace().id]"
+          routerLinkActive="bg-brand/15 text-foreground
+                            before:absolute before:left-0 before:top-0.5 before:bottom-0.5
+                            before:w-1 before:rounded-r-full before:bg-brand
+                            before:shadow-[0_0_10px_hsl(var(--brand)/0.7)]
+                            [&_ng-icon]:text-brand!"
+          class="relative cursor-pointer rounded-sm gap-1.5 px-2"
+        >
+          @if (isStreaming()) {
+            <hlm-spinner
+              aria-label="Agent running"
+              class="size-3 shrink-0 text-brand"
+            />
+          } @else {
+            <ng-icon
+              hlm
+              name="lucideGitBranch"
+              size="xs"
+              class="text-muted-foreground"
+            />
+          }
+          @if (workspace().pinned) {
+            <ng-icon hlm name="lucidePin" size="10px" class="text-brand" />
+          }
+          <span [class.font-semibold]="workspace().unread">{{
+            displayTitle()
+          }}</span>
+        </a>
+        <ng-template hlmHoverCardPortal>
+          <div hlmHoverCardContent class="w-64">
+            <div class="flex items-center gap-2">
+              <span
+                aria-hidden="true"
+                [class]="
+                  'inline-block size-2 rounded-full ' +
+                  statusDotColor(workspace().status)
+                "
+              ></span>
+              <span class="text-sm font-medium">{{ workspace().name }}</span>
+              <span class="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+                {{ statusLabel(workspace().status) }}
+              </span>
+            </div>
+            @if (chatTitle()) {
+              <p class="mt-2 truncate text-xs text-muted-foreground">
+                {{ chatTitle() }}
+              </p>
+            }
+            <p class="mt-1 text-[11px] text-muted-foreground">
+              {{ relativeTime(lastActivityAt()) }}
+            </p>
+          </div>
+        </ng-template>
+      </hlm-hover-card>
 
       <div hlmPopover>
         <button
@@ -136,9 +206,35 @@ import type { Workspace } from '../../data/workspace.model';
 export class WorkspaceRow {
   readonly workspace = input.required<Workspace>();
   readonly editing = input<boolean>(false);
+  // True while an agent run is streaming for this workspace. Drives
+  // the cli-loader-in-place-of-branch-icon affordance.
+  readonly isStreaming = input<boolean>(false);
+  // Title of the first/active chat for this workspace. Empty string =
+  // fall back to workspace name; non-empty + not 'Start' is shown
+  // instead of the workspace name in the row (better reflects user
+  // intent once they've started a real conversation).
+  readonly chatTitle = input<string>('');
   readonly archive = output<void>();
   readonly renameCommit = output<string>();
   readonly renameCancel = output<void>();
+
+  // Last meaningful activity timestamp for the hover popover. Falls
+  // back to workspace.createdAt when no later signal is available.
+  protected lastActivityAt(): number {
+    return this.workspace().createdAt.getTime();
+  }
+
+  // Title rendered in the row: chat title if it differs from the
+  // default first-chat name 'Start', otherwise workspace name.
+  protected displayTitle(): string {
+    const title = this.chatTitle().trim();
+    if (title && title !== 'Start') return title;
+    return this.workspace().name;
+  }
+
+  protected statusDotColor = statusDotColor;
+  protected statusLabel = statusLabel;
+  protected relativeTime = relativeTime;
 
   private readonly renameInput =
     viewChild<ElementRef<HTMLInputElement>>('renameInput');

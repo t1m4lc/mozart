@@ -1,4 +1,4 @@
-import { Injectable, Signal, computed, inject } from '@angular/core';
+import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import type { TimelineTurn } from '@mozart/ui/timeline';
 import { LLM_ADAPTER, type LlmRunHandle } from '../../llm-model';
 import { applyAgentEvent } from './agent-stream-parser';
@@ -45,7 +45,13 @@ export class ChatFacade {
   // assistant-message-id -> handle of the in-flight run.
   private readonly activeRuns = new Map<string, LlmRunHandle>();
   // workspaceId -> assistant message id of the in-flight run.
-  private readonly activeByWorkspace = new Map<string, string>();
+  // Backed by a signal so consumers (sidebar workspace rows, etc.) get
+  // reactive updates when a run starts or ends. The map itself is
+  // replaced wholesale on every mutation — small (<= number of open
+  // workspaces in flight) so the copy is cheap.
+  private readonly activeByWorkspace = signal<ReadonlyMap<string, string>>(
+    new Map(),
+  );
   // per-message debounced content flush state.
   private readonly pendingFlush = new Map<
     string,
@@ -75,9 +81,16 @@ export class ChatFacade {
     return computed(() => {
       const id = workspaceId();
       if (!id) return false;
-      return this.activeByWorkspace.has(id);
+      return this.activeByWorkspace().has(id);
     });
   }
+
+  // Set of workspace ids whose chat is currently streaming. Sidebar
+  // workspace rows derive their cli-loader / branch-icon state from
+  // this — `set.has(id)` cheaper than a per-id computed at the leaf.
+  readonly streamingWorkspaceIds = computed<ReadonlySet<string>>(
+    () => new Set(this.activeByWorkspace().keys()),
+  );
 
   // Idempotent — kept for FeatureChatPanel's effect, which calls this
   // on workspace input. Triggers hydration; the returned Chat may be a
@@ -145,7 +158,7 @@ export class ChatFacade {
 
     // Streaming already? Queue this user message — it will be promoted
     // and processed once the current turn ends.
-    if (this.activeByWorkspace.has(workspaceId)) {
+    if (this.activeByWorkspace().has(workspaceId)) {
       await this._persistAndAddMessage({
         chatId: chat.id,
         role: 'user',
@@ -168,7 +181,7 @@ export class ChatFacade {
   }
 
   cancelActive(workspaceId: string): void {
-    const id = this.activeByWorkspace.get(workspaceId);
+    const id = this.activeByWorkspace().get(workspaceId);
     if (id) {
       const handle = this.activeRuns.get(id);
       if (handle) handle.cancel();
@@ -280,7 +293,11 @@ export class ChatFacade {
     const history = this.store.messagesByChat().get(chatId) ?? [];
     const handle = this.llm.stream({ workspaceId, history, mode });
     this.activeRuns.set(assistantMsg.id, handle);
-    this.activeByWorkspace.set(workspaceId, assistantMsg.id);
+    this.activeByWorkspace.update((m) => {
+      const next = new Map(m);
+      next.set(workspaceId, assistantMsg.id);
+      return next;
+    });
 
     let lastStepAt = 0;
     let lastContent = '';
@@ -324,8 +341,12 @@ export class ChatFacade {
       });
     } finally {
       this.activeRuns.delete(assistantMsg.id);
-      if (this.activeByWorkspace.get(workspaceId) === assistantMsg.id) {
-        this.activeByWorkspace.delete(workspaceId);
+      if (this.activeByWorkspace().get(workspaceId) === assistantMsg.id) {
+        this.activeByWorkspace.update((m) => {
+          const next = new Map(m);
+          next.delete(workspaceId);
+          return next;
+        });
       }
       // Terminal flush: write content + status + timeline once, then
       // drain the queue.

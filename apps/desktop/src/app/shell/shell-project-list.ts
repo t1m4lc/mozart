@@ -24,6 +24,7 @@ import {
   ProjectsFacade,
   type Project,
 } from '../domains/projects';
+import { ChatFacade } from '../domains/chat';
 import { WorkspaceContextMenu } from '../domains/workspaces/ui/workspace-context-menu/workspace-context-menu';
 import { WorkspaceEmptyState } from '../domains/workspaces/ui/workspace-empty-state/workspace-empty-state';
 import { WorkspaceRow } from '../domains/workspaces/ui/workspace-row/workspace-row';
@@ -97,6 +98,8 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
                     <app-workspace-row
                       [workspace]="workspace"
                       [editing]="editingWorkspaceId() === workspace.id"
+                      [isStreaming]="streamingIds().has(workspace.id)"
+                      [chatTitle]="chatTitleFor(workspace.id)"
                       (archive)="archiveWorkspace(workspace.id)"
                       (renameCommit)="onRenameCommit(workspace.id, $event)"
                       (renameCancel)="editingWorkspaceId.set(null)"
@@ -133,8 +136,21 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
 export class ShellProjectList {
   protected readonly projects = inject(ProjectsFacade);
   protected readonly workspaces = inject(WorkspacesFacade);
+  private readonly _chat = inject(ChatFacade);
   private readonly _dialogService = inject(HlmDialogService);
   private readonly _router = inject(Router);
+
+  // Workspace ids currently streaming. Each row reads
+  // `streamingIds().has(workspace.id)` rather than a per-id computed —
+  // one Set lookup per render beats N computed signals.
+  protected readonly streamingIds = this._chat.streamingWorkspaceIds;
+
+  // Returns the first chat's title for a workspace, or '' when none
+  // is loaded. The row falls back to workspace.name when this is empty
+  // or equals the default 'Start'.
+  protected chatTitleFor(workspaceId: string): string {
+    return this._chat.chatByWorkspace().get(workspaceId)?.title ?? '';
+  }
 
   protected readonly editingWorkspaceId = signal<string | null>(null);
   protected readonly visibleProjects = this.projects.visible;
