@@ -25,13 +25,14 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(async () => {
       const projects = inject(ProjectsFacade);
       const workspaces = inject(WorkspacesFacade);
+      const profile = inject(ProfileFacade);
       try {
         await projects.loadAll();
         await workspaces.loadAll();
       } catch (err) {
         console.error('hydration failed on boot', err);
       }
-      void inject(ProfileFacade).initialize();
+      void profile.initialize();
     }),
   ],
 };
