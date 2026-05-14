@@ -6,6 +6,10 @@ import type { Project } from './project.model';
 // _bindings).
 export interface ProjectsAdapter {
   add(path: string): Promise<Project>;
+  // Runs `git init` + identity config + an initial empty commit at
+  // `path`. Called after the user confirms the Initialize-project
+  // dialog when add() throws NotARepo.
+  initRepo(path: string): Promise<void>;
   list(): Promise<Project[]>;
   remove(id: string): Promise<void>;
   setIcon(id: string, icon: string | null): Promise<void>;

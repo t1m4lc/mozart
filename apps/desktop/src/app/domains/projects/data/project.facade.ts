@@ -51,6 +51,14 @@ export class ProjectsFacade {
     return project;
   }
 
+  // Run `git init` + initial commit at `path`. Called by the
+  // AddProjectFlow after the user confirms the Initialize-project
+  // dialog. Does not register the project — the flow re-runs `add`
+  // once initialization succeeds.
+  async initRepo(path: string): Promise<void> {
+    await this.adapter.initRepo(path);
+  }
+
   toggleExpanded(id: string): void {
     this.store.toggleExpanded(id);
   }

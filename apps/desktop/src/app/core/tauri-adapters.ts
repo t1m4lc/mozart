@@ -64,6 +64,9 @@ function provideProjectsAdapter(): Provider {
       async add(path) {
         return projectFromDto(unwrap(await commands.addRepo(path)));
       },
+      async initRepo(path) {
+        unwrap(await commands.initRepo(path));
+      },
       async list() {
         return unwrap(await commands.listRepos()).map(projectFromDto);
       },

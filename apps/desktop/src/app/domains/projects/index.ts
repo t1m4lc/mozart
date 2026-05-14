@@ -19,5 +19,9 @@ export {
   ConfirmDeleteProjectDialog,
   type ConfirmDeleteProjectContext,
 } from './ui-confirm-delete-project-dialog';
+export {
+  InitProjectDialog,
+  type InitProjectContext,
+} from './ui-init-project-dialog';
 export { GroupByFilter } from './ui-group-by-filter';
 export { ProjectsEmptyState } from './ui-projects-empty-state';

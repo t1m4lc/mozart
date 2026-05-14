@@ -64,21 +64,15 @@ pub async fn add_repo(db: State<'_, DbState>, path: String) -> Result<Repo, AppE
 
 pub(crate) async fn add_repo_impl(db: &DbState, path: String) -> Result<Repo, AppError> {
     let p = std::path::Path::new(&path);
-    // Validate first. If the only issue is "not a git repo at all",
-    // auto-init it on the user's behalf — Mozart treats any folder
-    // the user points at as a candidate workspace, and forcing a
-    // manual `git init` is hostile UX. Other RepoIssue variants
-    // (nested repo, detached HEAD, submodules, LFS) still surface
-    // as Validation so the user can fix them.
+    // Validate. Phase 1 deliberately refuses non-git folders with the
+    // sentinel "NotARepo" so the frontend can detect it and prompt the
+    // user via the Initialize-project dialog (see `init_repo` command).
+    // Other RepoIssue variants (nested, detached HEAD, submodules, LFS)
+    // surface as Validation with the debug-formatted issue.
     match git_query::validate_repo(p).await {
         Ok(()) => {}
         Err(git_query::RepoIssue::NotARepo) => {
-            git_query::init_repo(p).await?;
-            git_query::validate_repo(p).await.map_err(|issue| {
-                AppError::Validation(format!(
-                    "repo not usable after auto-init: {issue:?}"
-                ))
-            })?;
+            return Err(AppError::Validation("NotARepo".into()));
         }
         Err(other) => {
             return Err(AppError::Validation(format!(
@@ -105,6 +99,25 @@ pub(crate) async fn add_repo_impl(db: &DbState, path: String) -> Result<Repo, Ap
     };
     repos::create(&conn, &r)?;
     Ok(r)
+}
+
+// ---------------------------------------------------------------------------
+// init_repo
+// ---------------------------------------------------------------------------
+
+/// Run `git init --initial-branch=main` + identity config + an initial
+/// empty commit at `path` so the folder becomes a valid git repository
+/// Mozart can register. Called by the frontend after the user confirms
+/// the Initialize-project dialog (triggered when `add_repo` returns the
+/// `NotARepo` validation error).
+#[tauri::command]
+#[specta::specta]
+pub async fn init_repo(path: String) -> Result<(), AppError> {
+    init_repo_impl(path).await
+}
+
+pub(crate) async fn init_repo_impl(path: String) -> Result<(), AppError> {
+    git_query::init_repo(std::path::Path::new(&path)).await
 }
 
 // ---------------------------------------------------------------------------
