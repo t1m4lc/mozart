@@ -1,14 +1,17 @@
 //! Branch-name construction for agent worktrees (Step 1.6).
 //!
 //! Two public surfaces:
-//! - `make_initial_branch(short_id)` — deterministic `agent/wip-{short_id}`
+//! - `make_initial_branch(short_id)` — deterministic `mozart/wip-{short_id}`
 //!   placeholder branch, used at workspace creation time before a task
 //!   title exists, and as the fallback whenever slug derivation or
 //!   `git check-ref-format` validation fails.
 //! - `make_task_branch(title, short_id)` — derives a slug from a
 //!   human-readable task title, validates it via `git check-ref-format`,
-//!   and either returns `agent/{slug}` on acceptance or falls back to
+//!   and either returns `mozart/{slug}` on acceptance or falls back to
 //!   `make_initial_branch(short_id)` on rejection.
+//!
+//! Phase 1 prefix is `mozart/` (formerly `agent/`); once GitHub auth
+//! ships the prefix becomes `{github-username}/` per Phase 1 spec.
 //!
 //! Locked decisions (plan §4):
 //! - **D1.6-A** — slug rules: lowercase, replace non-`[a-z0-9]` with `-`,
@@ -25,20 +28,20 @@ use crate::sandbox::run_git;
 use std::path::Path;
 
 /// Build the deterministic placeholder branch used at workspace creation
-/// time. Format: `agent/wip-{short_id}`.
+/// time. Format: `mozart/wip-{short_id}`.
 pub fn make_initial_branch(short_id: &str) -> String {
-    format!("agent/wip-{short_id}")
+    format!("mozart/wip-{short_id}")
 }
 
 /// Derive a branch name from a task `title`, validate it via
-/// `git check-ref-format`, and either return `agent/{slug}` on success
+/// `git check-ref-format`, and either return `mozart/{slug}` on success
 /// or fall back to `make_initial_branch(short_id)` on any rejection.
 pub async fn make_task_branch(title: &str, short_id: &str) -> String {
     let slug = slugify(title);
     if slug.is_empty() {
         return make_initial_branch(short_id);
     }
-    let candidate = format!("agent/{slug}");
+    let candidate = format!("mozart/{slug}");
     let cwd = std::env::current_dir().unwrap_or_else(|_| Path::new(".").to_path_buf());
     match run_git(
         &cwd,
@@ -112,7 +115,7 @@ mod tests {
             return;
         }
         let b = make_task_branch("Add OAuth login", "abcd1234").await;
-        assert_eq!(b, "agent/add-oauth-login");
+        assert_eq!(b, "mozart/add-oauth-login");
     }
 
     #[tokio::test]
@@ -121,7 +124,7 @@ mod tests {
             return;
         }
         let b = make_task_branch("!!! @@@ ###", "abcd1234").await;
-        assert_eq!(b, "agent/wip-abcd1234");
+        assert_eq!(b, "mozart/wip-abcd1234");
     }
 
     #[tokio::test]
@@ -131,7 +134,7 @@ mod tests {
         }
         let title = "a".repeat(200);
         let b = make_task_branch(&title, "abcd1234").await;
-        let expected = format!("agent/{}", "a".repeat(40));
+        let expected = format!("mozart/{}", "a".repeat(40));
         assert_eq!(b, expected);
     }
 
@@ -141,7 +144,7 @@ mod tests {
             return;
         }
         let b = make_task_branch("Café noir", "abcd1234").await;
-        assert_eq!(b, "agent/caf-noir");
+        assert_eq!(b, "mozart/caf-noir");
     }
 
     #[tokio::test]
@@ -150,7 +153,7 @@ mod tests {
             return;
         }
         let b = make_task_branch("---hello", "abcd1234").await;
-        assert_eq!(b, "agent/hello");
+        assert_eq!(b, "mozart/hello");
     }
 
     #[tokio::test]
@@ -158,14 +161,14 @@ mod tests {
         if skip_if_no_git() {
             return;
         }
-        // `agent/.invalid` has a segment starting with `.`, which
+        // `mozart/.invalid` has a segment starting with `.`, which
         // `git check-ref-format` rejects.
-        let ok = validate_branch_via_git("agent/.invalid").await;
+        let ok = validate_branch_via_git("mozart/.invalid").await;
         assert!(!ok);
     }
 
     #[test]
     fn make_initial_branch_is_deterministic() {
-        assert_eq!(make_initial_branch("abcd1234"), "agent/wip-abcd1234");
+        assert_eq!(make_initial_branch("abcd1234"), "mozart/wip-abcd1234");
     }
 }

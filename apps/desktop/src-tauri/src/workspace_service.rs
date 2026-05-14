@@ -35,7 +35,7 @@ use crate::worktree;
 /// `workspace_name` is the friendly name surfaced to the user (e.g. a
 /// singer-pool entry like `eminem`). It feeds both the persisted
 /// `workspaces.name` column and the branch derivation
-/// (`agent/<slug-of-name>` via `branch_name::make_task_branch`).
+/// (`mozart/<slug-of-name>` via `branch_name::make_task_branch`).
 pub async fn create_workspace(
     db: &DbState,
     repo_id: &str,
@@ -248,7 +248,7 @@ mod tests {
         // Workspace name persisted on the row.
         assert_eq!(ws.name, "eminem");
         // Branch derived from the workspace name via make_task_branch.
-        assert_eq!(ws.branch_name, "agent/eminem");
+        assert_eq!(ws.branch_name, "mozart/eminem");
         assert!(!ws.worktree_path.is_empty(), "worktree_path must be set");
         // pinned/unread default to 0.
         assert_eq!(ws.pinned, false);

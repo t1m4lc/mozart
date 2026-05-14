@@ -94,7 +94,7 @@ export class ChatFacade {
       let firstChat = list[0];
       if (!firstChat) {
         // No chat yet — create one so the user can immediately type.
-        firstChat = await this.chats.create(workspaceId, 'Untitled');
+        firstChat = await this.chats.create(workspaceId, 'Start');
       }
       this.store.setChatsForWorkspace(workspaceId, list.length > 0 ? list : [firstChat]);
       const msgs = await this.messages.listForChat(firstChat.id);
@@ -120,7 +120,7 @@ export class ChatFacade {
     // synthetic placeholder (no Tauri trip yet), upgrade it now.
     let chat = this.store.chatByWorkspace().get(workspaceId);
     if (!chat || chat.id.startsWith('pending-')) {
-      const created = await this.chats.create(workspaceId, 'Untitled');
+      const created = await this.chats.create(workspaceId, 'Start');
       if (chat) this.store.removeChat(chat.id); // drop placeholder
       this.store.upsertChat(created);
       chat = created;

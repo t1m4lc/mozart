@@ -22,4 +22,4 @@ export interface FileTab {
 export type WorkspaceTab = ChatTab | FileTab;
 
 export const MAX_TABS = 4;
-export const DEFAULT_CHAT_TITLE = 'Untitled';
+export const DEFAULT_CHAT_TITLE = 'Start';

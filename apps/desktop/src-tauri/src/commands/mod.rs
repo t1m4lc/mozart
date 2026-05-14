@@ -6,7 +6,7 @@
 //! Field-naming contract (plan §4, D17 vocabulary): argument identifiers
 //! use canonical concepts only (`workspace_id`, `task_id`, `run_id`,
 //! `repo_id`, `prompt`, `path`). No `worktree_path` / `branch_name` /
-//! `agent/wip-…` may appear as command arguments.
+//! `mozart/wip-…` may appear as command arguments.
 //!
 //! Each `#[tauri::command]` wrapper is a thin shim over a
 //! `pub(crate) async fn <name>_impl(...)` that takes plain references
@@ -1243,7 +1243,7 @@ mod tests {
         assert_eq!(ws.status, "ready");
         assert_eq!(ws.name, "eminem");
         // Branch is derived from the workspace name.
-        assert_eq!(ws.branch_name, "agent/eminem");
+        assert_eq!(ws.branch_name, "mozart/eminem");
 
         restore_root(prev);
     }

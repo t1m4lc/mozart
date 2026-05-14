@@ -44,8 +44,8 @@ pub struct WorktreeHandle {
 
 /// Create a new git worktree for `workspace_id` branching from
 /// `base_branch` (D1.6-H). Path is `<canonical_worktrees_root>/<workspace_id>`;
-/// branch is `agent/<slug-of-workspace_name>` (e.g. `agent/eminem`), or
-/// `agent/wip-<short_id>` if the name slug fails `git check-ref-format`.
+/// branch is `mozart/<slug-of-workspace_name>` (e.g. `mozart/eminem`), or
+/// `mozart/wip-<short_id>` if the name slug fails `git check-ref-format`.
 pub async fn create(
     repo_path: &Path,
     base_branch: &str,
@@ -201,8 +201,8 @@ mod tests {
             gitfile.is_file(),
             ".git inside a linked worktree must be a gitfile (file), got dir"
         );
-        // Friendly name "eminem" yields `agent/eminem` via make_task_branch.
-        assert_eq!(handle.branch_name, "agent/eminem");
+        // Friendly name "eminem" yields `mozart/eminem` via make_task_branch.
+        assert_eq!(handle.branch_name, "mozart/eminem");
 
         restore_root(prev);
     }
@@ -229,7 +229,7 @@ mod tests {
         let handle = create(&repo, "main", workspace_id, "!!! @@@ ###")
             .await
             .expect("create ok");
-        assert_eq!(handle.branch_name, "agent/wip-fbacdef1");
+        assert_eq!(handle.branch_name, "mozart/wip-fbacdef1");
 
         restore_root(prev);
     }

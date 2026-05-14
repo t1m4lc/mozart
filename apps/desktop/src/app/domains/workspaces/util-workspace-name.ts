@@ -1,6 +1,7 @@
-// Workspace name generator. Picks from a curated pool of 10 famous
-// singers spanning classical to rap. Per-project uniqueness is enforced
-// by suffixing a numeric counter ("eminem", "eminem-2", "eminem-3", …).
+// Workspace name generator. Picks from a curated pool of famous musicians
+// spanning opera, classical, jazz, soul, rock, pop, rap, chanson and
+// electronic. Per-project uniqueness is enforced by suffixing a numeric
+// counter ("eminem", "eminem-2", "eminem-3", …).
 
 export const WORKSPACE_NAME_POOL: readonly string[] = [
   'pavarotti',
@@ -13,6 +14,26 @@ export const WORKSPACE_NAME_POOL: readonly string[] = [
   'jackson',
   'marley',
   'eminem',
+  'coltrane',
+  'davis',
+  'hendrix',
+  'prince',
+  'lennon',
+  'dylan',
+  'beyonce',
+  'madonna',
+  'bjork',
+  'aznavour',
+  'piaf',
+  'gainsbourg',
+  'daft-punk',
+  'beethoven',
+  'chopin',
+  'tupac',
+  'kendrick',
+  'whitney',
+  'billie',
+  'stevie',
 ];
 
 /**
