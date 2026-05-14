@@ -121,6 +121,102 @@ pub(crate) async fn init_repo_impl(path: String) -> Result<(), AppError> {
 }
 
 // ---------------------------------------------------------------------------
+// install_workspace_packages
+// ---------------------------------------------------------------------------
+
+/// Outcome of an attempt to install package-manager dependencies for a
+/// workspace. `ran=false` means no `package.json` was found; the other
+/// two flags describe what happened when we did try.
+#[derive(serde::Serialize, specta::Type, Debug, Clone)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallResult {
+    /// Detected package manager. "none" when ran=false.
+    pub manager: String,
+    /// True if a package.json was present and we attempted install.
+    pub ran: bool,
+    /// True iff the install command exited 0.
+    pub success: bool,
+    /// Stderr tail on failure (empty otherwise). Bounded so we don't
+    /// dump megabytes of npm output back to the UI.
+    pub message: String,
+}
+
+/// Detect the package manager for `workspace_id`'s worktree and run
+/// `<manager> install`. Used by the Phase 1 add-project flow to make
+/// the freshly-cloned workspace immediately usable. Non-blocking
+/// from the user's perspective: the frontend fires this without
+/// awaiting and toasts the outcome.
+///
+/// Detection order: pnpm-lock.yaml -> yarn.lock -> package-lock.json
+/// -> npm (default when package.json exists but no lockfile).
+#[tauri::command]
+#[specta::specta]
+pub async fn install_workspace_packages(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<InstallResult, AppError> {
+    install_workspace_packages_impl(db.inner(), workspace_id).await
+}
+
+pub(crate) async fn install_workspace_packages_impl(
+    db: &DbState,
+    workspace_id: String,
+) -> Result<InstallResult, AppError> {
+    // Resolve the worktree path. Holding the lock across the install
+    // would block other DB ops for minutes — read the path and drop.
+    let worktree_path = {
+        let conn = db.lock();
+        let ws = crate::db::workspaces::get(&conn, &workspace_id)?;
+        ws.worktree_path
+    };
+
+    let worktree = std::path::Path::new(&worktree_path);
+    if !worktree.join("package.json").exists() {
+        return Ok(InstallResult {
+            manager: "none".into(),
+            ran: false,
+            success: false,
+            message: String::new(),
+        });
+    }
+
+    let manager = if worktree.join("pnpm-lock.yaml").exists() {
+        "pnpm"
+    } else if worktree.join("yarn.lock").exists() {
+        "yarn"
+    } else if worktree.join("package-lock.json").exists() {
+        "npm"
+    } else {
+        "npm"
+    };
+
+    let output = tokio::process::Command::new(manager)
+        .arg("install")
+        .current_dir(worktree)
+        .output()
+        .await
+        .map_err(|e| AppError::Io(format!("spawn {} install: {e}", manager)))?;
+
+    let success = output.status.success();
+    let stderr_tail = if success {
+        String::new()
+    } else {
+        // Cap at 2 KiB so the toast description stays readable.
+        let s = String::from_utf8_lossy(&output.stderr);
+        let trimmed = s.trim();
+        let limit = 2048usize.min(trimmed.len());
+        trimmed[trimmed.len() - limit..].to_string()
+    };
+
+    Ok(InstallResult {
+        manager: manager.to_string(),
+        ran: true,
+        success,
+        message: stderr_tail,
+    })
+}
+
+// ---------------------------------------------------------------------------
 // create_project_folder
 // ---------------------------------------------------------------------------
 

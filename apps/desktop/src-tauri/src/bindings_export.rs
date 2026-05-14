@@ -21,6 +21,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::init_repo,
             commands::clone_repo,
             commands::create_project_folder,
+            commands::install_workspace_packages,
             commands::remove_repo,
             commands::set_repo_icon,
             commands::set_repo_hidden,

@@ -70,6 +70,24 @@ async createProjectFolder(parent: string, name: string) : Promise<Result<string,
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Detect the package manager for `workspace_id`'s worktree and run
+ * `<manager> install`. Used by the Phase 1 add-project flow to make
+ * the freshly-cloned workspace immediately usable. Non-blocking
+ * from the user's perspective: the frontend fires this without
+ * awaiting and toasts the outcome.
+ * 
+ * Detection order: pnpm-lock.yaml -> yarn.lock -> package-lock.json
+ * -> npm (default when package.json exists but no lockfile).
+ */
+async installWorkspacePackages(workspaceId: string) : Promise<Result<InstallResult, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("install_workspace_packages", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async removeRepo(repoId: string) : Promise<Result<null, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("remove_repo", { repoId }) };
@@ -432,6 +450,29 @@ export type Chat = { chat_id: string; workspace_id: string; title: string; llm_i
  * Outcome of probing for the `claude` CLI.
  */
 export type ClaudeInstall = { kind: "installed"; version: string } | { kind: "missing" }
+/**
+ * Outcome of an attempt to install package-manager dependencies for a
+ * workspace. `ran=false` means no `package.json` was found; the other
+ * two flags describe what happened when we did try.
+ */
+export type InstallResult = { 
+/**
+ * Detected package manager. "none" when ran=false.
+ */
+manager: string; 
+/**
+ * True if a package.json was present and we attempted install.
+ */
+ran: boolean; 
+/**
+ * True iff the install command exited 0.
+ */
+success: boolean; 
+/**
+ * Stderr tail on failure (empty otherwise). Bounded so we don't
+ * dump megabytes of npm output back to the UI.
+ */
+message: string }
 export type Message = { message_id: string; chat_id: string; run_id: string | null; role: string; content: string; mode: string | null; status: string; timeline_json: string | null; created_at: number }
 /**
  * Outcome of a probe call. Sent to the frontend via tauri-specta as a

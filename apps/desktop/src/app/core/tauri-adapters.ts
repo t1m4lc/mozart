@@ -130,6 +130,9 @@ function provideWorkspacesAdapter(): Provider {
       async setUnread(workspaceId: string, unread: boolean) {
         unwrap(await commands.setWorkspaceUnread(workspaceId, unread));
       },
+      async installPackages(workspaceId: string) {
+        return unwrap(await commands.installWorkspacePackages(workspaceId));
+      },
     } satisfies WorkspacesAdapter,
   };
 }

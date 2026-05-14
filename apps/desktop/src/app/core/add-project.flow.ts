@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmDialogService } from '@mozart/ui/dialog';
+import { toast } from '@spartan-ng/brain/sonner';
 import { ChatFacade } from '../domains/chat';
 import {
   CloneRepoDialog,
@@ -101,6 +102,46 @@ export class AddProjectFlow {
     // exists, persisting the title server-side.
     await this.chat.hydrate(workspaceId);
     await this.router.navigate(['/workspaces', workspaceId]);
+    // Fire-and-forget package install. The user is already in the
+    // workspace and free to type; the toast updates when install
+    // completes or fails.
+    void this._installPackagesWithToast(workspaceId);
+  }
+
+  // Background package-manager install with toast feedback. Silent when
+  // there is no package.json (most repos don't have one or aren't JS).
+  private async _installPackagesWithToast(workspaceId: string): Promise<void> {
+    let id: string | number | null = null;
+    try {
+      // Defer the toast.loading until we know there is a package.json
+      // — otherwise every repo flashes a spinner. The Rust side does
+      // the detect-and-install in one round trip, so we toast on
+      // ran=true responses only.
+      const probePromise = this.workspaces.installPackages(workspaceId);
+      // Show the loading toast eagerly: most JS repos install for tens
+      // of seconds; the user wants to know something is happening.
+      id = toast.loading('Installing dependencies…');
+      const result = await probePromise;
+      if (!result.ran) {
+        toast.dismiss(id);
+        return;
+      }
+      if (result.success) {
+        toast.success(`Installed dependencies with ${result.manager}`, { id });
+      } else {
+        toast.error(`${result.manager} install failed`, {
+          id,
+          description: result.message.slice(0, 240),
+        });
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (id !== null) {
+        toast.error('Install failed', { id, description: msg.slice(0, 240) });
+      } else {
+        console.error('install packages failed', err);
+      }
+    }
   }
 
   // `add_repo` returns the sentinel `Validation("NotARepo")` when the

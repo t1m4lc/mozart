@@ -6,7 +6,10 @@ import type { UiWorkspaceStatus } from './workspace-status';
 import { workspaceFromDto } from './workspace.adapter';
 import type { Workspace } from './workspace.model';
 import { WorkspaceStore } from './workspace.store';
-import { WORKSPACES_ADAPTER } from './workspaces.adapter';
+import {
+  WORKSPACES_ADAPTER,
+  type InstallPackagesResult,
+} from './workspaces.adapter';
 
 // Public API of the `workspaces` domain. Features inject this — never
 // the store or adapter directly. Cross-domain calls to `projects` and
@@ -114,6 +117,14 @@ export class WorkspacesFacade {
       this.store.removeById(pendingId);
       throw err;
     }
+  }
+
+  // Detect package manager in the workspace's worktree and run install.
+  // Returns the structured InstallResult so the caller can toast the
+  // outcome. Errors propagate — callers that want fire-and-forget should
+  // wrap in `void` + `.catch`.
+  async installPackages(workspaceId: string): Promise<InstallPackagesResult> {
+    return this.adapter.installPackages(workspaceId);
   }
 
   // Fetch the real git branches for the project owning `workspaceId`.
