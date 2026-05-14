@@ -32,13 +32,6 @@ export const appRoutes: Route[] = [
     ],
   },
   {
-    path: 'legacy',
-    loadComponent: () =>
-      import('./legacy/shell/app-shell.component').then(
-        (m) => m.AppShellComponent,
-      ),
-  },
-  {
     path: 'sandbox',
     loadComponent: () =>
       import('./pages/sandbox/sandbox.page').then((m) => m.SandboxPage),
