@@ -52,6 +52,22 @@ pub fn list_open_for_workspace(
     Ok(out)
 }
 
+/// All open chats across every workspace, newest first. Backs the
+/// sidebar "Chats" group introduced in Phase 1: the UI buckets by
+/// created_at into Today / Yesterday / This week / Older.
+pub fn list_all_open(conn: &Connection) -> Result<Vec<Chat>, AppError> {
+    let mut stmt = conn.prepare(&format!(
+        "SELECT {COLS} FROM chats WHERE closed_at IS NULL \
+         ORDER BY created_at DESC"
+    ))?;
+    let rows = stmt.query_map([], row_to_chat)?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
 pub fn set_title(conn: &Connection, chat_id: &str, title: &str) -> Result<(), AppError> {
     let n = conn.execute(
         "UPDATE chats SET title = ?2 WHERE chat_id = ?1",

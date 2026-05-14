@@ -893,6 +893,19 @@ pub(crate) async fn list_chats_impl(
     chats::list_open_for_workspace(&conn, &workspace_id)
 }
 
+/// All open chats across every workspace, newest first. Backs the
+/// Phase 1 sidebar "Chats" group.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_all_chats(db: State<'_, DbState>) -> Result<Vec<Chat>, AppError> {
+    list_all_chats_impl(db.inner()).await
+}
+
+pub(crate) async fn list_all_chats_impl(db: &DbState) -> Result<Vec<Chat>, AppError> {
+    let conn = db.lock();
+    chats::list_all_open(&conn)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn create_chat(

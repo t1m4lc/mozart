@@ -1,9 +1,10 @@
-// One chat per workspace in v0.0.1 (workspace_id is UNIQUE). The
-// multi-chat-per-workspace expansion is v0.1.0 — we keep `id` as the
-// chat-side primary key so the schema migration is a constraint relax,
-// not a key rewrite.
+// One or more chats per workspace. The tab bar shows up to MAX_TABS;
+// the sidebar Chats group lists every open chat across every workspace
+// grouped by created_at bucket. `title` is what both surfaces render —
+// "Start" for first-of-workspace, "Untitled" for `+ New chat`.
 export interface Chat {
   readonly id: string;
   readonly workspaceId: string;
+  readonly title: string;
   readonly createdAt: number;
 }

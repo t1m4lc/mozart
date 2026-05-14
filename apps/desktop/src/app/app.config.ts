@@ -12,6 +12,7 @@ import {
 import { provideTheme } from '@mozart/shared-util-theme';
 import { appRoutes } from './app.routes';
 import { provideTauriAdapters } from './core/tauri-adapters';
+import { ChatFacade } from './domains/chat';
 import { ProfileFacade } from './domains/profile';
 import { ProjectsFacade } from './domains/projects';
 import { WorkspacesFacade } from './domains/workspaces';
@@ -25,10 +26,12 @@ export const appConfig: ApplicationConfig = {
     provideAppInitializer(async () => {
       const projects = inject(ProjectsFacade);
       const workspaces = inject(WorkspacesFacade);
+      const chat = inject(ChatFacade);
       const profile = inject(ProfileFacade);
       try {
         await projects.loadAll();
         await workspaces.loadAll();
+        await chat.loadAllChats();
       } catch (err) {
         console.error('hydration failed on boot', err);
       }

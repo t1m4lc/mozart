@@ -55,6 +55,9 @@ export class ChatFacade {
   private readonly hydrated = new Set<string>();
 
   readonly chatByWorkspace = this.store.chatByWorkspace;
+  // All open chats across every workspace, newest first. Sidebar
+  // chat-list reads this to render its day-bucketed group.
+  readonly allChats = this.store.allChatsSorted;
 
   messagesForWorkspace(
     workspaceId: Signal<string | null>,
@@ -82,6 +85,20 @@ export class ChatFacade {
   ensureChatForWorkspace(workspaceId: string): Chat {
     void this.hydrate(workspaceId);
     return this.store.ensureChat(workspaceId);
+  }
+
+  // Load every open chat across every workspace into the store. Called
+  // once at boot (app.config.ts) so the sidebar Chats group has data
+  // before the user opens any workspace. Subsequent chat creations
+  // upsert into the same store via the normal hydrate/sendUserMessage
+  // path, so the signal stays live without a re-fetch.
+  async loadAllChats(): Promise<void> {
+    try {
+      const list = await this.chats.listAll();
+      this.store.setAllChats(list);
+    } catch (err) {
+      console.warn('[chat] loadAllChats failed', err);
+    }
   }
 
   // Hydrate chats + active-chat messages for a workspace from Tauri.

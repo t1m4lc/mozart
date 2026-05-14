@@ -24,6 +24,7 @@ import { AddProjectFlow } from '../core/add-project.flow';
 import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
+import { FeatureChatList } from '../domains/chat';
 import {
   FeatureAddProject,
   GroupByFilter,
@@ -54,6 +55,7 @@ import { ShellProjectList } from './shell-project-list';
     HlmToasterImports,
     HlmTooltipImports,
     FeatureAddProject,
+    FeatureChatList,
     GroupByFilter,
     ProjectsHeaderContextMenu,
     ShellAside,
@@ -137,6 +139,10 @@ import { ShellProjectList } from './shell-project-list';
               <div hlmSidebarGroupContent>
                 <app-shell-project-list />
               </div>
+            </div>
+
+            <div hlmSidebarGroup class="px-2 py-1">
+              <app-feature-chat-list />
             </div>
           </div>
 

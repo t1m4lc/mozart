@@ -41,6 +41,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::get_workspace_diff,
             commands::discard_workspace_changes,
             commands::list_chats,
+            commands::list_all_chats,
             commands::create_chat,
             commands::rename_chat,
             commands::close_chat,

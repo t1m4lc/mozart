@@ -36,6 +36,11 @@ export const ChatStore = signalStore(
       }
       return map;
     }),
+    // Every chat in the store, newest first. Backs the sidebar's Chats
+    // group (renders all open chats across all workspaces, day-bucketed).
+    allChatsSorted: computed(() =>
+      [...chats()].sort((a, b) => b.createdAt - a.createdAt),
+    ),
     messagesByChat: computed(() => {
       const map = new Map<string, Message[]>();
       for (const message of messages()) {
@@ -61,6 +66,7 @@ export const ChatStore = signalStore(
       const chat: Chat = {
         id: `pending-${crypto.randomUUID()}`,
         workspaceId,
+        title: 'Start',
         createdAt: Date.now(),
       };
       patchState(store, { chats: [...store.chats(), chat] });
@@ -89,6 +95,16 @@ export const ChatStore = signalStore(
     setChatsForWorkspace(workspaceId: string, chats: readonly Chat[]): void {
       const kept = store.chats().filter((c) => c.workspaceId !== workspaceId);
       patchState(store, { chats: [...kept, ...chats] });
+    },
+    /**
+     * Replace the entire chats list with the canonical server set.
+     * Used by app-level hydration that lists every workspace's chats
+     * up front (sidebar Chats group). Messages are preserved — the
+     * existing message rows remain keyed by chatId and reattach when
+     * the chats list reasserts.
+     */
+    setAllChats(allChats: readonly Chat[]): void {
+      patchState(store, { chats: [...allChats] });
     },
     /**
      * Replace the messages for a chat. Preserves messages from other

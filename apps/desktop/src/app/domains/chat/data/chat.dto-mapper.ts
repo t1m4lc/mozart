@@ -7,6 +7,7 @@ export function chatFromDto(dto: ChatDto): Chat {
   return {
     id: dto.chat_id,
     workspaceId: dto.workspace_id,
+    title: dto.title,
     createdAt: dto.created_at,
   };
 }

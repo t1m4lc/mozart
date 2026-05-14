@@ -10,6 +10,9 @@ import type { TimelineTurn } from '@mozart/ui/timeline';
 
 export interface ChatsAdapter {
   listForWorkspace(workspaceId: string): Promise<Chat[]>;
+  // All open chats across every workspace, newest-first. Backs the
+  // sidebar "Chats" group introduced in Phase 1.
+  listAll(): Promise<Chat[]>;
   create(workspaceId: string, title: string): Promise<Chat>;
   rename(chatId: string, title: string): Promise<void>;
   close(chatId: string): Promise<void>;

@@ -144,6 +144,9 @@ function provideChatsAdapter(): Provider {
       async listForWorkspace(workspaceId) {
         return unwrap(await commands.listChats(workspaceId)).map(chatFromDto);
       },
+      async listAll() {
+        return unwrap(await commands.listAllChats()).map(chatFromDto);
+      },
       async create(workspaceId, title) {
         return chatFromDto(
           unwrap(await commands.createChat(workspaceId, title, null)),
