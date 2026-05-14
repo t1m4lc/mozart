@@ -14,6 +14,7 @@ export function workspaceFromDto(
     id: dto.workspace_id,
     projectId,
     name: dto.name,
+    branch: dto.branch_name,
     status: coerceUiStatus(dto.ui_status),
     pinned: dto.pinned,
     unread: dto.unread,

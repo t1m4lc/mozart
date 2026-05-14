@@ -46,6 +46,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       [projectIcon]="projectIcon()"
       [projectName]="projectName()"
       [workspaceTitle]="workspaceName()"
+      [currentBranch]="store.currentBranch()"
       [targetBranch]="store.targetBranch()"
       [selectableBranches]="store.selectableBranches()"
       [tools]="tools"
@@ -58,7 +59,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       (workspaceTitleChange)="onRename($event)"
     />
 
-    <app-workspace-tab-bar />
+    <app-workspace-tab-bar #tabBar />
 
     <app-feature-chat-panel
       class="flex-1 min-h-0"
@@ -66,6 +67,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     >
       <app-chat-empty-state
         chat-empty-state
+        [variant]="tabBar.activeTabIsFirst() ? 'start' : 'untitled'"
         [projectName]="store.projectName()"
         [workspaceName]="store.workspaceTitle()"
         [sourceBranch]="store.workspaceTitle()"
@@ -138,6 +140,13 @@ export class WorkspaceDetailPage {
         this.store.loadWorkspace(id);
         this.workspaces.setActive(id);
       }
+    });
+
+    // Push the workspace's own branch into the store so the picker can
+    // mark it as current and filter it from the selectable list.
+    effect(() => {
+      const ws = this.workspace();
+      if (ws) this.store.setCurrentBranch(ws.branch);
     });
 
     // Fetch real git branches whenever the resolved workspace (with

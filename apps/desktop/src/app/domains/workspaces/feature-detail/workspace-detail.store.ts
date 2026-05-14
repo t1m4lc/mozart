@@ -16,6 +16,10 @@ interface State {
   projectName: string;
   projectIcon: string | null;
 
+  // Git branch the workspace owns (e.g. "mozart/coltrane"). Used by
+  // the branch picker to mark "current" and exclude it from the
+  // selectable target list. Empty until hydration resolves it.
+  currentBranch: string;
   branches: readonly string[];
   targetBranch: string;
   lastUsedTool: OpenInTool;
@@ -30,6 +34,7 @@ const initialState: State = {
   projectId: '',
   projectName: '',
   projectIcon: null,
+  currentBranch: '',
   branches: [],
   targetBranch: 'main',
   lastUsedTool: OPEN_IN_TOOLS[0],
@@ -38,9 +43,12 @@ const initialState: State = {
 export const WorkspaceDetailStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
-  withComputed(({ branches, workspaceTitle }) => ({
+  withComputed(({ branches, currentBranch }) => ({
+    // Target-branch options exclude the workspace's own branch (you
+    // can't target your own work). When this set is empty the picker
+    // renders an empty state ("No other branches available").
     selectableBranches: computed(() =>
-      branches().filter((b) => b !== workspaceTitle()),
+      branches().filter((b) => b !== currentBranch()),
     ),
   })),
   withMethods((store) => ({
@@ -51,6 +59,9 @@ export const WorkspaceDetailStore = signalStore(
       const next = title.trim();
       if (!next) return;
       patchState(store, { workspaceTitle: next });
+    },
+    setCurrentBranch(branch: string): void {
+      patchState(store, { currentBranch: branch });
     },
     openIn(tool: OpenInTool): void {
       patchState(store, { lastUsedTool: tool });

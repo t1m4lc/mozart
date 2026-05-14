@@ -86,6 +86,7 @@ export class WorkspacesFacade {
       id: pendingId,
       projectId: input.projectId,
       name,
+      branch: '',
       status: 'backlog',
       pinned: false,
       unread: false,

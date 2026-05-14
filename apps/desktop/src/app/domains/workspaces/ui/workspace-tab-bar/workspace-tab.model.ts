@@ -22,4 +22,9 @@ export interface FileTab {
 export type WorkspaceTab = ChatTab | FileTab;
 
 export const MAX_TABS = 4;
+// First chat tab title. Carries the workspace-initialization empty-state
+// (branched from, files ready, setup complete, compose first prompt).
 export const DEFAULT_CHAT_TITLE = 'Start';
+// Title for tabs created via the `+ New chat` affordance. No init copy
+// — just a lightweight "waiting for your instructions" empty state.
+export const NEW_CHAT_TITLE = 'Untitled';

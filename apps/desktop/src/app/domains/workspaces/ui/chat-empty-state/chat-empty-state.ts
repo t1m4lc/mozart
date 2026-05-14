@@ -11,9 +11,11 @@ import {
 
 /**
  * Rendered in the main chat area when the active chat tab has no
- * messages yet. Provisional copy — wired to inputs so it can move to a
- * smart wrapper once the workspace store exposes branch/file/setup
- * metadata.
+ * messages yet. Two variants:
+ *   - 'start'    -> workspace initialization checklist (first tab)
+ *   - 'untitled' -> light "waiting for your instructions" line
+ * Provisional copy — wired to inputs so it can move to a smart wrapper
+ * once the workspace store exposes branch/file/setup metadata.
  */
 @Component({
   selector: 'app-chat-empty-state',
@@ -31,6 +33,18 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
   template: `
+    @if (variant() === 'untitled') {
+      <div class="flex w-full items-center gap-3 p-6">
+        <span
+          class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
+        >
+          <ng-icon hlm name="lucideSparkles" size="10px" />
+        </span>
+        <p class="text-sm font-light leading-none text-foreground">
+          Ready when you are — what should we do next?
+        </p>
+      </div>
+    } @else {
     <div class="w-full p-6">
       <ol class="flex w-full flex-col">
         <!-- Step 1 — context info -->
@@ -130,9 +144,11 @@ import {
         </li>
       </ol>
     </div>
+    }
   `,
 })
 export class ChatEmptyState {
+  readonly variant = input<'start' | 'untitled'>('start');
   readonly projectName = input.required<string>();
   readonly workspaceName = input.required<string>();
   readonly sourceBranch = input.required<string>();

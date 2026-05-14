@@ -19,6 +19,7 @@ import { TabItem } from './tab-item';
 import {
   DEFAULT_CHAT_TITLE,
   MAX_TABS,
+  NEW_CHAT_TITLE,
   type ChatTab,
   type WorkspaceTab,
 } from './workspace-tab.model';
@@ -26,10 +27,10 @@ import {
 let tabIdCounter = 0;
 const nextTabId = (): string => `tab-${++tabIdCounter}`;
 
-const makeEmptyChatTab = (): ChatTab => ({
+const makeChatTab = (title: string): ChatTab => ({
   id: nextTabId(),
   kind: 'chat',
-  title: DEFAULT_CHAT_TITLE,
+  title,
   llmId: null,
   isStreaming: false,
   hasMessages: false,
@@ -104,11 +105,20 @@ const makeEmptyChatTab = (): ChatTab => ({
 })
 export class WorkspaceTabBar {
   // Initialize with one empty chat tab so the workspace always has at
-  // least one active conversation.
-  private readonly initialTab = makeEmptyChatTab();
+  // least one active conversation. The first tab is the "Start" tab —
+  // empty state shows the workspace-init checklist. Subsequent tabs
+  // (via `addChatTab`) get the lighter "Untitled" treatment.
+  private readonly initialTab = makeChatTab(DEFAULT_CHAT_TITLE);
 
   protected readonly tabs = signal<readonly WorkspaceTab[]>([this.initialTab]);
   protected readonly activeTabId = signal<string>(this.initialTab.id);
+
+  // Exposed publicly so the page can pick the right empty-state variant.
+  // True when the active tab is the leading (first) tab in the strip.
+  readonly activeTabIsFirst = computed(() => {
+    const list = this.tabs();
+    return list.length > 0 && list[0].id === this.activeTabId();
+  });
 
   protected readonly chatTabCount = computed(
     () => this.tabs().filter((t) => t.kind === 'chat').length,
@@ -121,7 +131,7 @@ export class WorkspaceTabBar {
 
   protected addChatTab(): void {
     if (this.atMaxTabs()) return;
-    const tab = makeEmptyChatTab();
+    const tab = makeChatTab(NEW_CHAT_TITLE);
     this.tabs.update((list) => [...list, tab]);
     this.activeTabId.set(tab.id);
   }

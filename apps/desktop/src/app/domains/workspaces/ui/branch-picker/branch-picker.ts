@@ -56,6 +56,20 @@ import {
             showClear="true"
           />
           <div hlmComboboxList>
+            @if (currentBranch()) {
+              <hlm-combobox-item [value]="currentBranch()" disabled>
+                <ng-icon
+                  hlm
+                  name="lucideGitBranch"
+                  size="xs"
+                  class="shrink-0 text-muted-foreground"
+                />
+                <span class="truncate">{{ currentBranch() }}</span>
+                <span class="ml-auto text-xs text-muted-foreground">
+                  current
+                </span>
+              </hlm-combobox-item>
+            }
             @for (branch of branches(); track branch) {
               <hlm-combobox-item [value]="branch">
                 <ng-icon
@@ -68,6 +82,10 @@ import {
                   branch
                 }}</span>
               </hlm-combobox-item>
+            } @empty {
+              <div class="px-3 py-2 text-center text-sm text-muted-foreground">
+                No other branches available.
+              </div>
             }
             <hlm-combobox-empty>No branch found.</hlm-combobox-empty>
           </div>
@@ -79,6 +97,7 @@ import {
 export class BranchPicker {
   readonly value = input.required<string>();
   readonly branches = input.required<readonly string[]>();
+  readonly currentBranch = input<string>('');
   readonly valueChange = output<string>();
 
   protected readonly toString = (v: string | null): string => v ?? '';

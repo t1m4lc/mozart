@@ -97,6 +97,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
 
         <app-branch-picker
           [value]="targetBranch()"
+          [currentBranch]="currentBranch()"
           [branches]="selectableBranches()"
           (valueChange)="targetBranchChange.emit($event)"
         />
@@ -146,6 +147,7 @@ export class WorkspaceToolbar {
   readonly projectIcon = input.required<string | null>();
   readonly projectName = input.required<string>();
   readonly workspaceTitle = input.required<string>();
+  readonly currentBranch = input.required<string>();
   readonly targetBranch = input.required<string>();
   readonly selectableBranches = input.required<readonly string[]>();
   readonly tools = input.required<readonly OpenInTool[]>();
