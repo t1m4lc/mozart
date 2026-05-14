@@ -20,6 +20,7 @@ import {
   lucidePanelLeft,
   lucideSettings,
 } from '@ng-icons/lucide';
+import { AddProjectFlow } from '../core/add-project.flow';
 import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
@@ -121,7 +122,7 @@ import { ShellProjectList } from './shell-project-list';
                   (groupByChange)="projects.setGroupBy($event)"
                 />
                 <app-feature-add-project
-                  (openProject)="projects.openPickerAndAdd()"
+                  (openProject)="addProjectFlow.openPickerAndOpen()"
                 />
               </div>
 
@@ -212,6 +213,7 @@ export class AppShell {
   protected readonly isMac = inject(OsService).isMac();
   protected readonly layout = inject(LayoutService);
   protected readonly projects = inject(ProjectsFacade);
+  protected readonly addProjectFlow = inject(AddProjectFlow);
   private readonly workspaces = inject(WorkspacesFacade);
 
   // Right aside is only meaningful inside a workspace context. Hidden
