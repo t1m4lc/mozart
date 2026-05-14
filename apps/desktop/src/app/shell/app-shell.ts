@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   effect,
   inject,
   viewChild,
@@ -28,6 +29,7 @@ import {
   ProjectsFacade,
   ProjectsHeaderContextMenu,
 } from '../domains/projects';
+import { WorkspacesFacade } from '../domains/workspaces';
 import { ShellAside } from './shell-aside';
 import {
   SHELL_LEFT_PANEL_PX,
@@ -181,15 +183,15 @@ import { ShellProjectList } from './shell-project-list';
       </main>
 
       <hlm-resizable-handle
-        [class.hidden]="!layout.rightPanelOpen()"
+        [class.hidden]="!showRightAside()"
         (dblclick)="resetRightPanel()"
       />
 
       <div
         hlmResizablePanel
         #rightPanel="hlmResizablePanel"
-        [defaultSize]="rightPanel_.default"
-        [minSize]="layout.rightPanelOpen() ? rightPanel_.min : 0"
+        [defaultSize]="rightPanelDefault()"
+        [minSize]="showRightAside() ? rightPanel_.min : 0"
         [maxSize]="rightPanel_.max"
         class="transition-[flex] duration-200 ease-out"
       >
@@ -210,6 +212,24 @@ export class AppShell {
   protected readonly isMac = inject(OsService).isMac();
   protected readonly layout = inject(LayoutService);
   protected readonly projects = inject(ProjectsFacade);
+  private readonly workspaces = inject(WorkspacesFacade);
+
+  // Right aside is only meaningful inside a workspace context. Hidden
+  // on the dashboard and any non-workspace route. Combines with the
+  // user's manual toggle so closing it in a workspace is still respected.
+  protected readonly showRightAside = computed(
+    () => this.workspaces.activeId() !== null && this.layout.rightPanelOpen(),
+  );
+
+  // Default-size binding. Brn applies defaultSize at panel init and
+  // ignores subsequent imperative setSize when it conflicts with the
+  // group's first layout pass — driving defaultSize off the same signal
+  // keeps initial render in sync with the showRightAside state.
+  protected readonly rightPanelDefault = computed(() =>
+    this.workspaces.activeId() !== null
+      ? pxToPercent(SHELL_RIGHT_PANEL_PX.default)
+      : 0,
+  );
 
   protected readonly leftPanel_ = {
     default: pxToPercent(SHELL_LEFT_PANEL_PX.default),
@@ -246,7 +266,7 @@ export class AppShell {
     });
 
     effect(() => {
-      const open = this.layout.rightPanelOpen();
+      const open = this.showRightAside();
       const panel = this._rightPanelRef();
       if (panel) {
         panel.setSize(open ? pxToPercent(SHELL_RIGHT_PANEL_PX.default) : 0);

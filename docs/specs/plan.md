@@ -643,6 +643,45 @@ import { WorkspaceFacade, type Workspace } from '@mozart/workspaces';
 
 ---
 
+## Cross-cutting tech conventions
+
+These apply across every phase, not just the architecture layout.
+
+### Forms — Angular Signal Forms
+
+Every form in the app uses **Signal Forms**
+(https://angular.dev/essentials/signal-forms), not the legacy
+Reactive Forms / Template-driven Forms. Rationale : aligned with
+the rest of the app's signal-based state (the foundational
+conventions assume signal-based public surfaces), simpler typing,
+no `FormGroup` ceremony.
+
+Examples : the Clone GitHub repo form (URL + location), the
+Create project form (name + parent + template), the Initialize
+project dialog form (owner + repo name), the composer (input
+text + mode + model + effort), the onboarding API-key entry.
+
+### Icons — Lucide via `@ng-icons/lucide`
+
+Use the wrapper already installed. Icon imports go via
+`provideIcons({ lucideX })` on the components that render them.
+Never inline SVG.
+
+### Animations — `prefers-reduced-motion`
+
+Every animation (shimmer, transitions, autoscroll, hover effects)
+must respect `prefers-reduced-motion: reduce` and fall back to
+static / instantaneous.
+
+### Date formatting — `dayjs`
+
+Relative dates in hover popovers, chat list timestamps, etc.
+use `dayjs` (already wired). Format presets : `dayjs().fromNow()`
+for relative ("2 min ago"), `dayjs().format('MMM D, HH:mm')` for
+absolute.
+
+---
+
 # v0.0.1 MVP — Six phases
 
 The phases below are the actual delivery plan. They share a common
@@ -696,8 +735,15 @@ hidden.
    workspace"_ :
    - Project name (text input)
    - Parent folder (text input + `Browse` button)
-   - Template (radio cards : `Empty`, `gstack (SOON)` — disabled
-     for now)
+   - Template (radio cards) :
+     - `Empty` — creates a new folder with a styled `README.md`
+       (project title + brief blurb) and a sensible `.gitignore`
+       (Node-default for v0.0.1 — detection of stack post-MVP)
+     - `gstack` (SOON, disabled in MVP) — clones
+       https://github.com/garrytan/gstack as the starter, which
+       includes a curated set of skills. Full integration with
+       the skills system is post-MVP (skills shortcuts are
+       post-MVP, see bottom of doc).
    - `Create` button
 
 **Add-project flow (all 3 cards converge to the same outcome)** :
@@ -763,7 +809,7 @@ Action on submit :
 ```
 [macOS window controls]
 ─────────────────────────────────────
-[back] [forward] [history] [search ← v0.0.X deferred]
+[back] [forward] [history] [search ← post-MVP deferred]
 ─────────────────────────────────────
 Projects                  [+ Add a project]
   ▾ project-alpha
@@ -771,14 +817,13 @@ Projects                  [+ Add a project]
       ◦ radiohead-2
   ▸ project-beta
 ─────────────────────────────────────
-Chats                     [+ New ask chat]
-  ◦ Today
-      ◦ "{generated chat title — Untitled if blank}"
-  ◦ Yesterday
-      ◦ …
-─────────────────────────────────────
 [Help]                   [⚙ Settings]
 ```
+
+> **Out of MVP scope** : a separate **Chats group** in the
+> sidebar (listing all chats chronologically across workspaces,
+> including non-contextualized "Ask" chats) is deferred post-MVP.
+> See "Out of scope (post-MVP)" for the full deferred spec.
 
 Rules :
 
@@ -801,8 +846,17 @@ Rules :
 - The `+ Add a project` button next to the _Projects_ group title
   opens the dashboard's three cards as a dialog (or routes back
   to `/` if the dashboard is the right answer — Phase B picks).
-- The `+ New ask chat` button next to the _Chats_ group title
-  creates a new non-contextualized chat (Ask mode, see Phase 2).
+- **Right-click on the _Projects_ group title** opens a context
+  menu with : `Expand all`, `Collapse all`, `Create project`,
+  `Filters` (the last one is a future affordance — can ship as a
+  no-op item or be omitted in MVP).
+- **Right-click on a project row** opens the existing project
+  context menu (rename / remove / open in finder / open in IDE /
+  add workspace — preserve what exists today, audit confirms).
+- **Right-click on a workspace row** opens the workspace context
+  menu : `Mark as read`, `Pin`, `Set status` (sub-menu :
+  idle / running / changed / failed — manual override),
+  `Rename`, `Archive`.
 
 **State coherence — no workspace selected** :
 
@@ -902,8 +956,8 @@ auth gate (Phase 5).
 
 > _"In a workspace, I type a message in the composer, I pick a
 > mode (Agent / Plan / Ask), I send. My message appears. I can
-> switch between chats in the tab bar. From the sidebar Chats
-> group I can open a standalone Ask chat outside any workspace."_
+> switch between chats in the tab bar (the workspace can have up
+> to 4 chat tabs)."_
 
 **Phase 2 does not include LLM streaming** — that's Phase 3.
 Messages send, persist, and render. The agent doesn't reply yet
@@ -964,42 +1018,18 @@ max`. Tooltip _"Adjust effort"_.
 
 - `chats.mode: 'agent' | 'plan' | 'ask'` (NEW column, **migration
   required**).
-- Default per context :
-  - Chat opened **inside a workspace** (via tab bar or new-chat
-    button) → default `agent`.
-  - Chat opened **from the sidebar Chats group** (non-
-    contextualized) → forced `ask`.
-- Attaching a `@workspace` to an Ask chat **does NOT auto-switch
-  to agent** — read-only intent is preserved. To switch to agent
-  the user must explicitly change the mode (and Phase B may
-  decide that's blocked unless the chat is bound to a real
-  workspace).
+- All v0.0.1 MVP chats are bound to a workspace (no standalone
+  chats — see post-MVP scope below). Default mode = `agent`.
+- The user may switch any chat to `plan` or `ask` at any time
+  via the segmented control, including between messages — mode
+  is not locked after first send.
 - Mode is **sticky per chat** (persisted in DB).
 
-**Non-contextualized chats — data model** :
-
-- No separate table.
-- `chats.workspace_id` stays NOT NULL but uses a **hidden system
-  workspace** per user (id like `__system_chats__:{user_id}`) for
-  all standalone chats. Not displayed in the sidebar Projects
-  group ; surfaces only via the sidebar Chats group.
-- Rationale (decided over alternative `workspace_id NULLABLE`
-  approach) : avoids `WHERE workspace_id IS NOT NULL` filters
-  scattered everywhere, and the system workspace can carry any
-  chat type (ask, agent-with-attached-context, plan).
-
-**Sidebar Chats group** :
-
-- Lists all chats chronologically, grouped by `Today /
-Yesterday / Last 7 days / Older`.
-- Each entry shows the chat title (generated from first prompt ;
-  `Untitled` if no prompt yet).
-- Click → navigate to `/chats/:id` (or
-  `/workspaces/{system-id}/chats/:id` depending on the routing
-  choice in Phase B).
-- Bold when unread.
-- `+ New ask chat` button next to the group title → creates a
-  new chat in the system workspace with `mode = 'ask'`.
+> **Out of MVP scope** : non-contextualized chats opened from a
+> sidebar Chats group (chats not bound to any workspace). The
+> Chats group + the system workspace pattern for these chats is
+> deferred post-MVP. See "Out of scope (post-MVP)" for the
+> deferred spec.
 
 **Providers — config, not DB** :
 
@@ -1020,7 +1050,6 @@ config that could be tampered with.
   `libs/ui` `Composer`
 - `chat/feature-chat-tab-bar/` — smart wrapper around
   `WorkspaceTabBar`
-- `chat/feature-chat-list/` — sidebar Chats group (new)
 
 ### Database migrations summary
 
@@ -1030,15 +1059,11 @@ config that could be tampered with.
 ALTER TABLE chats ADD COLUMN mode TEXT NOT NULL DEFAULT 'agent';
 ALTER TABLE chats ADD COLUMN title TEXT;                     -- generated
 ALTER TABLE chats ADD COLUMN last_read_message_id TEXT;      -- for unread
-
--- System workspace per user (created on first launch) :
-INSERT OR IGNORE INTO workspaces (id, task_id, name, branch, base_branch, status, worktree_path, created_at)
-VALUES ('__system_chats__:default-user', '__system_task__', '__system__', 'mozart/__system__', 'main', 'idle', '/dev/null', strftime('%s','now') * 1000);
 ```
 
-> No `skills` table, no `attached_skills` / `attached_contexts`
-> columns in v0.0.1 MVP. Those land post-MVP with the shortcuts
-> feature.
+> No system workspace, no `skills` table, no `attached_skills` /
+> `attached_contexts` columns in v0.0.1 MVP. Those land post-MVP
+> with the chats group + shortcuts features.
 
 ### Foundational invariants
 
@@ -1053,13 +1078,17 @@ VALUES ('__system_chats__:default-user', '__system_task__', '__system__', 'mozar
 End of Phase 2, the user can :
 
 1. Type a message with mode selection, send it, see it persist
-2. Switch chats in the tab bar
-3. Open a standalone Ask chat from the sidebar Chats group
-4. See the new buttons appear when relevant (scroll-to-bottom,
-   next-unread)
-5. Notice the Ask mode visual treatment (muted, read-only label)
+2. Switch chats in the tab bar (up to 4 per workspace)
+3. Switch between Agent / Plan / Ask modes via the segmented
+   control — see the visual treatments change
+4. See the absolute-positioned composer buttons appear when
+   relevant (scroll-to-bottom when scrolled up ; next-unread when
+   another workspace in the same project has unread)
+5. Notice the Ask mode visual treatment (muted border, read-only
+   label)
 
-What's **not** in Phase 2 : the LLM actually responding (Phase 3) ; skills + context shortcuts (post-MVP).
+What's **not** in Phase 2 : the LLM actually responding (Phase 3) ; sidebar Chats group + standalone non-contextualized chats
+(post-MVP) ; skills + context shortcuts (post-MVP).
 
 ---
 
@@ -1692,6 +1721,82 @@ community skills to the `user` scope.
 
 ### Other deferred items
 
+### Sidebar Chats group + non-contextualized chats
+
+**Why deferred** : the MVP loop is workspace-centric (project →
+workspace → chat → agent edits → commit → PR). Adding a parallel
+chat browsing surface and a special "system workspace" for chats
+without a project muddies the MVP without serving the core
+hypothesis. It's a clear post-MVP feature.
+
+**When this lands** :
+
+- A new **Chats group** in the sidebar, below Projects :
+  - Lists all chats chronologically, grouped by `Today /
+Yesterday / Last 7 days / Older`
+  - Each entry : chat title (generated from first prompt ;
+    `Untitled` if blank) + status icon if streaming
+  - Bold if unread
+  - Click → navigates to the chat
+- A **hidden system workspace** per user (id pattern like
+  `__system_chats__:{user_id}`) that holds chats not bound to
+  any project. Not displayed in the sidebar Projects group ;
+  surfaces only via the sidebar Chats group.
+- A `+ New ask chat` button on the Chats group title → creates a
+  new chat in the system workspace with `mode = 'ask'`.
+- **Chat context menu** :
+  - `Rename`
+  - `Delete`
+  - `Go to workspace` (only visible if the chat is bound to a
+    real workspace — the menu shows up everywhere a chat is
+    listed, including the future unified chat view)
+
+**Required schema migration when this ships** :
+
+```sql
+-- The system workspace insert per user :
+INSERT OR IGNORE INTO workspaces (id, task_id, name, branch, base_branch, status, worktree_path, created_at)
+VALUES ('__system_chats__:' || ?, '__system_task__', '__system__', 'mozart/__system__', 'main', 'idle', '/dev/null', strftime('%s','now') * 1000);
+```
+
+### GitHub-Mozart linked account (idea to explore)
+
+**Status** : speculative — to flesh out post-MVP.
+
+The idea : Mozart has a first-class GitHub App / Mozart-owned
+GitHub identity that users link to their personal GitHub account
+during the onboarding. Unlocks several use cases :
+
+- **Shared blank projects** : when a user creates a project via
+  Quick start with no GitHub repo, Mozart can host it under a
+  `mozart-projects/{slug}` org and the user is added as
+  collaborator. Lets users share project context without yet
+  having a personal repo.
+- **Collaboration visibility** : Mozart sees who's working on
+  what across multiple users via the shared org, enables
+  workspace handoff between teammates (early multi-user signal
+  on the v1.0.0 coordination vision).
+- **Cross-user skills marketplace** : skills authored by user A
+  can be discovered by user B because both are visible to the
+  Mozart GitHub App.
+- **PR co-authorship** : PRs created by Mozart on behalf of a
+  user are co-signed by `mozart-bot`, giving the act of
+  creating a PR through Mozart a small recognizable footprint.
+
+**Risks / open questions** :
+
+- GitHub App permissions model (read-only vs write to user's
+  personal repos)
+- Trust / security : users must opt in explicitly and
+  understand what Mozart sees / does on their behalf
+- Cost : a Mozart-owned GitHub Enterprise / Org tier
+- Privacy : the shared-org pattern for blank projects must be
+  opt-in (default = private to user)
+
+To explore in a dedicated design doc before any implementation.
+
+### Other deferred items
+
 - **Saved & organized chats** : favorite / rename / folders /
   tags / cross-chat search
 - **Domain `metrics`** : time used per provider / model /
@@ -1699,10 +1804,6 @@ community skills to the `user` scope.
 - **Offline PR management** : semi-remote internal PRs with
   merge + conflict resolution. Combined with a local LLM, fully
   offline workflow.
-- **Unified chat section view** : chats from workspaces +
-  non-contextualized side by side with filters (the sidebar
-  Chats group is a v0.0.1 MVP minimum ; richer browsing is
-  post-MVP)
 - **Task workflow + conflict management UI** : the v1.0.0
   coordination vision (parallel agents, candidate review, merge
   decision)
@@ -1717,6 +1818,13 @@ community skills to the `user` scope.
 - **Multi-org / multi-owner GitHub** flows beyond the default
   user
 - **PR review + comment inside Mozart**
+- **Tab bar `file` variant** (already designed in
+  `WorkspaceTabBar` but not routed in MVP — file tabs become
+  relevant when in-Mozart editing ships, far post-MVP)
+- **Tech-stack auto-detection** for the Empty template
+  `.gitignore` and the project init command (Phase 1 ships
+  Node-default `npm install` only ; cargo / pip / etc. are
+  post-MVP)
 
 ---
 

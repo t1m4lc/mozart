@@ -7,12 +7,13 @@ export const appRoutes: Route[] = [
     path: '',
     component: AppShell,
     children: [
-      { path: '', pathMatch: 'full', redirectTo: 'workspaces' },
       {
-        path: 'workspaces',
+        path: '',
+        pathMatch: 'full',
         loadComponent: () =>
-          import('./domains/workspaces').then((m) => m.WorkspaceDetailPage),
+          import('./pages/dashboard.page').then((m) => m.DashboardPage),
       },
+      { path: 'workspaces', pathMatch: 'full', redirectTo: '' },
       {
         path: 'workspaces/:id',
         loadComponent: () =>
