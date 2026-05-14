@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import type { AgentEvent } from './agent-event.model';
+import type { AgentEvent } from './stream/event.types';
 import type { LlmAdapter, LlmRunHandle, LlmStreamInput } from './llm.adapter';
 
 interface ScriptStep {

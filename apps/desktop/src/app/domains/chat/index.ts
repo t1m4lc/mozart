@@ -13,6 +13,6 @@ export {
   type ChatsAdapter,
   type MessagesAdapter,
 } from './data/chats.adapter';
-export { chatFromDto, messageFromDto, timelineToJson } from './data/chat.dto-mapper';
+export { chatFromDto, messageFromDto, turnStateToJson } from './data/chat.dto-mapper';
 export { FeatureChatPanel } from './feature-chat-panel/feature-chat-panel';
 export { FeatureChatList } from './feature-chat-list/feature-chat-list';

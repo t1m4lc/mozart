@@ -1,4 +1,4 @@
-import type { TimelineTurn } from '@mozart/ui/timeline';
+import type { TurnState } from '../../llm-model';
 import type { ChatDto, MessageDto } from './chat.dto';
 import type { Chat, ChatMode, EffortLevel } from './chat.model';
 import type { Message, MessageRole, MessageStatus } from './message.model';
@@ -44,7 +44,7 @@ export function messageFromDto(dto: MessageDto): Message {
     mode: coerceMessageMode(dto.mode),
     status: coerceStatus(dto.status),
     createdAt: dto.created_at,
-    timeline: parseTimeline(dto.timeline_json),
+    turnState: parseTurnState(dto.timeline_json),
   };
 }
 
@@ -75,19 +75,19 @@ function coerceStatus(raw: string): MessageStatus {
     : 'done';
 }
 
-function parseTimeline(json: string | null): TimelineTurn | undefined {
+function parseTurnState(json: string | null): TurnState | undefined {
   if (json == null) return undefined;
   try {
-    return JSON.parse(json) as TimelineTurn;
+    return JSON.parse(json) as TurnState;
   } catch {
     return undefined;
   }
 }
 
-export function timelineToJson(timeline: TimelineTurn | undefined): string | null {
-  if (timeline == null) return null;
+export function turnStateToJson(turnState: TurnState | undefined): string | null {
+  if (turnState == null) return null;
   try {
-    return JSON.stringify(timeline);
+    return JSON.stringify(turnState);
   } catch {
     return null;
   }

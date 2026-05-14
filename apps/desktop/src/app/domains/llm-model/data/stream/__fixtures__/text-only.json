@@ -1,0 +1,13 @@
+{
+  "name": "text-only",
+  "description": "Simplest happy path — assistant streams text then completes.",
+  "startedAt": 1700000000000,
+  "endedAt": 1700000002500,
+  "events": [
+    { "kind": "status", "text": "Thinking…" },
+    { "kind": "text", "delta": "Hello, " },
+    { "kind": "text", "delta": "Phase " },
+    { "kind": "text", "delta": "3a!" },
+    { "kind": "done" }
+  ]
+}

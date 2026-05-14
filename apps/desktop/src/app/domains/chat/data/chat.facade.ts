@@ -1,7 +1,12 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
-import type { TimelineTurn } from '@mozart/ui/timeline';
-import { LLM_ADAPTER, type LlmRunHandle } from '../../llm-model';
-import { applyAgentEvent } from './agent-stream-parser';
+import {
+  EMPTY_TURN_STATE,
+  LLM_ADAPTER,
+  applyAgentEvent,
+  type LlmRunHandle,
+  type TurnOutcome,
+  type TurnState,
+} from '../../llm-model';
 import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,
@@ -10,12 +15,14 @@ import type { Chat, ChatMode, EffortLevel } from './chat.model';
 import type { Message, MessageStatus } from './message.model';
 import { ChatStore } from './chat.store';
 
-const EMPTY_TURN: TimelineTurn = {
-  summary: '',
-  isStreaming: true,
-  items: [],
-  showDoneMarker: false,
-};
+function outcomeToStatus(
+  outcome: TurnOutcome | undefined,
+): MessageStatus | undefined {
+  if (outcome === 'done') return 'done';
+  if (outcome === 'stopped') return 'stopped';
+  if (outcome === 'error') return 'error';
+  return undefined;
+}
 
 // Minimum gap between non-text agent events for the fake adapter's
 // pacing. The Tauri adapter delivers real-time events; the parser
@@ -381,7 +388,7 @@ export class ChatFacade {
     content: string;
     mode: ChatMode;
     status: MessageStatus;
-    timeline?: TimelineTurn;
+    turnState?: TurnState;
     runId?: string;
   }): Promise<Message> {
     const message: Message = {
@@ -392,7 +399,7 @@ export class ChatFacade {
       mode: input.mode,
       status: input.status,
       createdAt: Date.now(),
-      timeline: input.timeline,
+      turnState: input.turnState,
     };
     this.store.addMessage(message);
     this._bumpActivityForChat(input.chatId, message.createdAt);
@@ -405,7 +412,7 @@ export class ChatFacade {
         mode: message.mode ?? null,
         status: message.status,
         runId: input.runId ?? null,
-        timeline: message.timeline ?? null,
+        turnState: message.turnState ?? null,
       });
     } catch (err) {
       console.warn('[chat] persist message failed', err);
@@ -415,9 +422,9 @@ export class ChatFacade {
   }
 
   /**
-   * Buffer per-message content/status/timeline writes so a fast token
-   * stream doesn't hammer SQLite. Flushes either after STREAM_FLUSH_MS
-   * idle or on terminal-state.
+   * Buffer per-message content/status/turn-state writes so a fast
+   * token stream doesn't hammer SQLite. Flushes either after
+   * STREAM_FLUSH_MS idle or on terminal-state.
    */
   private _scheduleContentFlush(messageId: string, content: string): void {
     const existing = this.pendingFlush.get(messageId);
@@ -449,13 +456,15 @@ export class ChatFacade {
     chatId: string,
     mode: ChatMode,
   ): Promise<void> {
+    const startedAt = Date.now();
+    const initialState = EMPTY_TURN_STATE(startedAt);
     const assistantMsg = await this._persistAndAddMessage({
       chatId,
       role: 'assistant',
       content: '',
       mode,
       status: 'streaming',
-      timeline: EMPTY_TURN,
+      turnState: initialState,
     });
 
     const history = this.store.messagesByChat().get(chatId) ?? [];
@@ -469,7 +478,7 @@ export class ChatFacade {
 
     let lastStepAt = 0;
     let lastContent = '';
-    let lastTimeline: TimelineTurn | undefined = EMPTY_TURN;
+    let lastTurnState: TurnState = initialState;
 
     try {
       for await (const event of handle.events$) {
@@ -487,10 +496,16 @@ export class ChatFacade {
           lastStepAt = Date.now();
         }
         this.store.updateMessage(assistantMsg.id, (m) => {
-          const next = applyAgentEvent(m, event);
-          lastContent = next.content;
-          lastTimeline = next.timeline;
-          return next;
+          const prevState = m.turnState ?? EMPTY_TURN_STATE(m.createdAt);
+          const nextState = applyAgentEvent(prevState, event);
+          lastContent = nextState.text;
+          lastTurnState = nextState;
+          return {
+            ...m,
+            content: nextState.text,
+            turnState: nextState,
+            status: outcomeToStatus(nextState.outcome) ?? m.status,
+          };
         });
         if (event.kind === 'text') {
           this._scheduleContentFlush(assistantMsg.id, lastContent);
@@ -499,13 +514,19 @@ export class ChatFacade {
     } catch (e) {
       const messageText = e instanceof Error ? e.message : String(e);
       this.store.updateMessage(assistantMsg.id, (m) => {
-        const next = applyAgentEvent(m, {
+        const prevState = m.turnState ?? EMPTY_TURN_STATE(m.createdAt);
+        const nextState = applyAgentEvent(prevState, {
           kind: 'error',
           message: messageText,
         });
-        lastContent = next.content;
-        lastTimeline = next.timeline;
-        return next;
+        lastContent = nextState.text;
+        lastTurnState = nextState;
+        return {
+          ...m,
+          content: nextState.text,
+          turnState: nextState,
+          status: 'error' as const,
+        };
       });
     } finally {
       this.activeRuns.delete(assistantMsg.id);
@@ -516,8 +537,8 @@ export class ChatFacade {
           return next;
         });
       }
-      // Terminal flush: write content + status + timeline once, then
-      // drain the queue.
+      // Terminal flush: write content + status + turn state once,
+      // then drain the queue.
       const finalMsg = (this.store.messagesByChat().get(chatId) ?? []).find(
         (m) => m.id === assistantMsg.id,
       );
@@ -527,13 +548,13 @@ export class ChatFacade {
           .updateStatus(assistantMsg.id, finalMsg.status)
           .catch((err) => console.warn('persist terminal status failed', err));
         void this.messages
-          .updateTimeline(assistantMsg.id, finalMsg.timeline ?? null)
-          .catch((err) => console.warn('persist timeline failed', err));
+          .updateTurnState(assistantMsg.id, finalMsg.turnState ?? null)
+          .catch((err) => console.warn('persist turnState failed', err));
       } else {
         // Defensive: store row vanished. Write what we last saw.
         this._flushContentNow(assistantMsg.id, lastContent);
         void this.messages
-          .updateTimeline(assistantMsg.id, lastTimeline ?? null)
+          .updateTurnState(assistantMsg.id, lastTurnState ?? null)
           .catch(() => undefined);
       }
       void this._processQueue(workspaceId, chatId);

@@ -1,14 +1,7 @@
-import { HlmTimeline } from './lib/hlm-timeline';
-import { HlmTimelineDoneMarker } from './lib/hlm-timeline-done-marker';
-import { HlmTimelineItem } from './lib/hlm-timeline-item';
+// Public API of @mozart/ui/timeline (Phase 3a baseline).
+//
+// MessageBody renders the agent's streamed prose as a clean paragraph.
+// Phase 3b will reintroduce the Claude-style turn header, vertical
+// timeline items, file chips, and done/error markers as siblings here.
 
-export * from './lib/hlm-timeline';
-export * from './lib/hlm-timeline-item';
-export * from './lib/hlm-timeline-done-marker';
-export * from './lib/hlm-timeline.types';
-
-export const HlmTimelineImports = [
-  HlmTimeline,
-  HlmTimelineItem,
-  HlmTimelineDoneMarker,
-] as const;
+export { MessageBody } from './lib/message-body';

@@ -44,11 +44,4 @@ export const appRoutes: Route[] = [
         (m) => m.ComposerSandbox,
       ),
   },
-  {
-    path: 'sandbox/timeline',
-    loadComponent: () =>
-      import('./pages/sandbox/timeline.sandbox').then(
-        (m) => m.TimelineSandbox,
-      ),
-  },
 ];

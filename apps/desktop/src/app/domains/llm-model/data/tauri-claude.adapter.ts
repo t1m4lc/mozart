@@ -1,18 +1,12 @@
-// Real Tauri-backed LLM adapter. Bridges the canonical Rust
+// Real Tauri-backed Claude adapter. Bridges the canonical Rust
 // `StreamEvent` shape from `commands.startAgentRun` (over a typed
 // Channel) and the lifecycle event `events.agentRunTerminated` into
 // Mozart's UI-facing `AgentEvent` shape.
 //
-// Mapping (StreamEvent → AgentEvent):
-//   stream_token { text }    → { kind: 'text', delta: text }
-//   tool_call { name, args } → { kind: 'tool_call', id: <hash>, toolName, input }
-//   cli_output { line }      → folded into a debug `text` (one line == one delta)
-//   status_update { status } → { kind: 'status', text }
-//   error { message }        → { kind: 'error', message }
-// agentRunTerminated:
-//   status='done'                  → { kind: 'done' }
-//   status='stopped' | 'crashed'   → { kind: 'stopped' }
-//   status='error'                 → { kind: 'error', message: 'agent run error' }
+// Mapping + terminal coercion live in `./stream/anthropic.parser.ts`
+// as pure functions. This file owns the Tauri IO concern only —
+// channel setup, listener registration, the cancellation pathway,
+// and the async iterator the chat facade consumes.
 //
 // Cancel: stop_agent_run(runId). The supervisor task on the Rust side
 // will emit agentRunTerminated with status='stopped' which closes the
@@ -21,25 +15,23 @@
 import { Injectable } from '@angular/core';
 import { Channel } from '@tauri-apps/api/core';
 import { commands, events } from '../../../core/_bindings';
-import type { AgentEvent } from './agent-event.model';
 import type { LlmAdapter, LlmRunHandle, LlmStreamInput } from './llm.adapter';
-
-type StreamEvent =
-  | { readonly kind: 'stream_token'; readonly text: string }
-  | { readonly kind: 'tool_call'; readonly name: string; readonly args_json: string }
-  | { readonly kind: 'cli_output'; readonly line: string }
-  | { readonly kind: 'status_update'; readonly status: string }
-  | { readonly kind: 'error'; readonly message: string };
+import {
+  type ClaudeStreamEvent,
+  terminalEvent,
+  translate,
+} from './stream/anthropic.parser';
+import type { AgentEvent } from './stream/event.types';
 
 // Synthetic terminator pushed into the queue when agentRunTerminated
 // fires for this run. Drives the iterator to completion.
 const TERMINATE: unique symbol = Symbol('terminate');
 
 @Injectable({ providedIn: 'root' })
-export class TauriLlmAdapter implements LlmAdapter {
+export class TauriClaudeAdapter implements LlmAdapter {
   stream(input: LlmStreamInput): LlmRunHandle {
     const queue = new AsyncQueue<AgentEvent | typeof TERMINATE>();
-    const channel = new Channel<StreamEvent>();
+    const channel = new Channel<ClaudeStreamEvent>();
     let runId: string | null = null;
     let toolCallCounter = 0;
     let unlistenTerminated: (() => void) | null = null as
@@ -126,47 +118,6 @@ export class TauriLlmAdapter implements LlmAdapter {
       },
     };
   }
-}
-
-function translate(
-  ev: StreamEvent,
-  nextToolId: () => string,
-): AgentEvent {
-  switch (ev.kind) {
-    case 'stream_token':
-      return { kind: 'text', delta: ev.text };
-    case 'tool_call': {
-      let parsed: unknown = undefined;
-      try {
-        parsed = JSON.parse(ev.args_json);
-      } catch {
-        parsed = ev.args_json;
-      }
-      return {
-        kind: 'tool_call',
-        id: nextToolId(),
-        toolName: ev.name,
-        input: parsed,
-        title: ev.name,
-      };
-    }
-    case 'cli_output':
-      // v0.0.1 fold: surface CLI lines as debug text deltas. v0.1.0
-      // can expose a power-user toggle to render these distinctly.
-      return { kind: 'text', delta: ev.line + '\n' };
-    case 'status_update':
-      return { kind: 'status', text: ev.status };
-    case 'error':
-      return { kind: 'error', message: ev.message };
-  }
-}
-
-function terminalEvent(status: string): AgentEvent {
-  if (status === 'done') return { kind: 'done' };
-  if (status === 'error')
-    return { kind: 'error', message: 'agent run error' };
-  // stopped | crashed | anything else
-  return { kind: 'stopped' };
 }
 
 function lastUserPrompt(

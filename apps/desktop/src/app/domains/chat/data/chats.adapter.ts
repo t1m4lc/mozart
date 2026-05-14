@@ -1,7 +1,7 @@
 import { InjectionToken } from '@angular/core';
+import type { TurnState } from '../../llm-model';
 import type { Chat, ChatMode, EffortLevel } from './chat.model';
 import type { Message, MessageStatus } from './message.model';
-import type { TimelineTurn } from '@mozart/ui/timeline';
 
 // Tauri-backed IO for the chat domain. Concrete impl bound in
 // app.config.ts. Two interfaces — chats vs messages — bound under the
@@ -36,11 +36,13 @@ export interface MessagesAdapter {
     mode: ChatMode | null;
     status: MessageStatus;
     runId?: string | null;
-    timeline?: TimelineTurn | null;
+    turnState?: TurnState | null;
   }): Promise<Message>;
   updateContent(messageId: string, content: string): Promise<void>;
   updateStatus(messageId: string, status: MessageStatus): Promise<void>;
-  updateTimeline(messageId: string, timeline: TimelineTurn | null): Promise<void>;
+  // Persists the turn state as JSON on the DB column `timeline_json`
+  // (column name retained for backwards compat with migration 004).
+  updateTurnState(messageId: string, turnState: TurnState | null): Promise<void>;
 }
 
 export const CHATS_ADAPTER = new InjectionToken<ChatsAdapter>('CHATS_ADAPTER');

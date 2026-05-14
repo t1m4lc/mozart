@@ -1,11 +1,11 @@
-import type { TimelineTurn } from '@mozart/ui/timeline';
+import type { TurnState } from '../../llm-model';
 import type { ChatMode } from './chat.model';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 
-// Lifecycle phases. Step 4 emits `done` user messages ; Step 5
-// adds `streaming` / `stopped` for assistant messages and `error`
-// for agent failures.
+// Lifecycle phases. User messages emit `done` (or `queued` if a turn
+// is already in flight); assistant messages cycle through `streaming`
+// → `done` / `stopped` / `error`.
 export type MessageStatus =
   | 'pending'
   | 'queued'
@@ -22,6 +22,8 @@ export interface Message {
   readonly mode?: ChatMode;
   readonly status: MessageStatus;
   readonly createdAt: number;
-  // Assistant only — structured turn rendered via <hlm-timeline>.
-  readonly timeline?: TimelineTurn;
+  // Assistant only — accumulated state of the agent's turn. Phase 3a
+  // reads `.text` via <message-body>; Phase 3b will render the full
+  // Claude-style timeline from `.items` + `.summary` + `.outcome`.
+  readonly turnState?: TurnState;
 }

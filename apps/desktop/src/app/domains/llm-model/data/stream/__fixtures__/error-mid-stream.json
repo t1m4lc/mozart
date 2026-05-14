@@ -1,0 +1,10 @@
+{
+  "name": "error-mid-stream",
+  "description": "Text then an error event flips outcome to 'error' and appends a generic error item.",
+  "startedAt": 1700000000000,
+  "endedAt": 1700000001000,
+  "events": [
+    { "kind": "text", "delta": "Working on it" },
+    { "kind": "error", "message": "Network refused" }
+  ]
+}

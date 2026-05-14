@@ -6,11 +6,11 @@ import {
   MESSAGES_ADAPTER,
   chatFromDto,
   messageFromDto,
-  timelineToJson,
+  turnStateToJson,
   type ChatsAdapter,
   type MessagesAdapter,
 } from '../domains/chat';
-import { LLM_ADAPTER, TauriLlmAdapter } from '../domains/llm-model';
+import { LLM_ADAPTER, TauriClaudeAdapter } from '../domains/llm-model';
 import {
   CREDENTIALS_ADAPTER,
   type CredentialsAdapter,
@@ -198,7 +198,7 @@ function provideMessagesAdapter(): Provider {
               input.mode,
               input.status,
               input.runId ?? null,
-              timelineToJson(input.timeline ?? undefined),
+              turnStateToJson(input.turnState ?? undefined),
             ),
           ),
         );
@@ -209,11 +209,11 @@ function provideMessagesAdapter(): Provider {
       async updateStatus(messageId, status) {
         unwrap(await commands.updateMessageStatus(messageId, status));
       },
-      async updateTimeline(messageId, timeline) {
+      async updateTurnState(messageId, turnState) {
         unwrap(
           await commands.updateMessageTimeline(
             messageId,
-            timelineToJson(timeline ?? undefined),
+            turnStateToJson(turnState ?? undefined),
           ),
         );
       },
@@ -263,7 +263,7 @@ function provideCredentialsAdapter(): Provider {
 }
 
 function provideLlmAdapter(): Provider {
-  return { provide: LLM_ADAPTER, useExisting: TauriLlmAdapter };
+  return { provide: LLM_ADAPTER, useExisting: TauriClaudeAdapter };
 }
 
 export function provideTauriAdapters(): Provider[] {

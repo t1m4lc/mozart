@@ -23,11 +23,6 @@ import { HlmButtonImports } from '@mozart/ui/button';
             HlmComposer →
           </a>
         </li>
-        <li>
-          <a hlmBtn variant="outline" routerLink="/sandbox/timeline">
-            HlmTimeline →
-          </a>
-        </li>
       </ul>
     </section>
   `,

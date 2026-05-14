@@ -1,0 +1,30 @@
+{
+  "name": "multi-tool-with-thinking",
+  "description": "Thinking block + two tool calls + closing text. Exercises demote-active and tool-kind mapping.",
+  "startedAt": 1700000000000,
+  "endedAt": 1700000005000,
+  "events": [
+    { "kind": "thinking", "id": "th-1", "delta": "Let me check the file." },
+    { "kind": "thinking", "id": "th-1", "delta": " I'll read it first." },
+    { "kind": "status", "text": "Reading files" },
+    {
+      "kind": "tool_call",
+      "id": "t-1",
+      "toolName": "read_file",
+      "title": "Read source",
+      "fileChip": { "label": "src/foo.ts" }
+    },
+    { "kind": "tool_result", "id": "t-1", "ok": true },
+    { "kind": "status", "text": "Editing files" },
+    {
+      "kind": "tool_call",
+      "id": "t-2",
+      "toolName": "edit_file",
+      "title": "Update foo",
+      "fileChip": { "label": "src/foo.ts", "added": 5, "removed": 2 }
+    },
+    { "kind": "tool_result", "id": "t-2", "ok": true },
+    { "kind": "text", "delta": "Done updating foo.ts." },
+    { "kind": "done" }
+  ]
+}
