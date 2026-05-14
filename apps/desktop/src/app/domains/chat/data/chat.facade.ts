@@ -1,4 +1,6 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
+import { NotificationService } from '../../../core/notification.service';
+import { WindowFocusService } from '../../../core/window-focus.service';
 import {
   EMPTY_TURN_STATE,
   LLM_ADAPTER,
@@ -7,6 +9,7 @@ import {
   type TurnOutcome,
   type TurnState,
 } from '../../llm-model';
+import { WorkspacesFacade } from '../../workspaces';
 import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,
@@ -22,6 +25,14 @@ function outcomeToStatus(
   if (outcome === 'stopped') return 'stopped';
   if (outcome === 'error') return 'error';
   return undefined;
+}
+
+function firstLine(text: string): string {
+  const trimmed = text.trim();
+  if (!trimmed) return '';
+  const newline = trimmed.indexOf('\n');
+  const line = newline === -1 ? trimmed : trimmed.slice(0, newline);
+  return line.length > 80 ? line.slice(0, 77) + '…' : line;
 }
 
 // Minimum gap between non-text agent events for the fake adapter's
@@ -48,6 +59,9 @@ export class ChatFacade {
   private readonly llm = inject(LLM_ADAPTER);
   private readonly chats = inject(CHATS_ADAPTER);
   private readonly messages = inject(MESSAGES_ADAPTER);
+  private readonly workspaces = inject(WorkspacesFacade);
+  private readonly windowFocus = inject(WindowFocusService);
+  private readonly notify = inject(NotificationService);
 
   // assistant-message-id -> handle of the in-flight run.
   private readonly activeRuns = new Map<string, LlmRunHandle>();
@@ -550,6 +564,9 @@ export class ChatFacade {
         void this.messages
           .updateTurnState(assistantMsg.id, finalMsg.turnState ?? null)
           .catch((err) => console.warn('persist turnState failed', err));
+        if (finalMsg.status === 'done' || finalMsg.status === 'error') {
+          this._maybeNotifyTurnEnd(workspaceId, finalMsg.content);
+        }
       } else {
         // Defensive: store row vanished. Write what we last saw.
         this._flushContentNow(assistantMsg.id, lastContent);
@@ -559,6 +576,27 @@ export class ChatFacade {
       }
       void this._processQueue(workspaceId, chatId);
     }
+  }
+
+  // On terminal `done` / `error`, if the user isn't focused on this
+  // workspace, emit a desktop notification + sound and flip the
+  // workspace's `unread` flag (already wired to bold styling in the
+  // sidebar). `stopped` is user-initiated so it's intentionally not
+  // notified.
+  private _maybeNotifyTurnEnd(workspaceId: string, content: string): void {
+    const userIsHere =
+      this.windowFocus.isWindowFocused() &&
+      this.workspaces.activeId() === workspaceId;
+    if (userIsHere) return;
+
+    const ws = this.workspaces.workspaceById(workspaceId)();
+    if (ws && !ws.unread) {
+      void this.workspaces.toggleUnread(workspaceId);
+    }
+    void this.notify.notify({
+      title: ws?.name ?? 'Mozart',
+      body: firstLine(content),
+    });
   }
 
   private async _processQueue(
