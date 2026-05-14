@@ -9,7 +9,6 @@
 @source "../../../libs/ui/breadcrumb";
 @source "../../../libs/ui/button";
 @source "../../../libs/ui/card";
-@source "../../../libs/ui/collapsible";
 @source "../../../libs/ui/combobox";
 @source "../../../libs/ui/composer";
 @source "../../../libs/ui/context-menu";
@@ -19,9 +18,9 @@
 @source "../../../libs/ui/icon";
 @source "../../../libs/ui/input";
 @source "../../../libs/ui/input-group";
-@source "../../../libs/ui/kbd";
 @source "../../../libs/ui/label";
 @source "../../../libs/ui/popover";
+@source "../../../libs/ui/radio-group";
 @source "../../../libs/ui/resizable";
 @source "../../../libs/ui/select";
 @source "../../../libs/ui/separator";
@@ -30,11 +29,9 @@
 @source "../../../libs/ui/skeleton";
 @source "../../../libs/ui/sonner";
 @source "../../../libs/ui/spinner";
-@source "../../../libs/ui/tabs";
 @source "../../../libs/ui/textarea";
 @source "../../../libs/ui/timeline";
 @source "../../../libs/ui/toggle";
-@source "../../../libs/ui/toggle-group";
 @source "../../../libs/ui/tooltip";
 @source "../../../libs/ui/utils";
 /* nx-tailwind-sources:end */

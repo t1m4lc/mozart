@@ -13,6 +13,9 @@ export interface ProjectsAdapter {
   // git clone <url> into <destDir>/<derived-name>. Returns the absolute
   // path of the cloned folder so the caller can hand it to add().
   cloneRepo(url: string, destDir: string): Promise<string>;
+  // Creates an empty `<parent>/<name>` directory for Quick start.
+  // Refuses if the target already exists. Returns the absolute path.
+  createProjectFolder(parent: string, name: string): Promise<string>;
   list(): Promise<Project[]>;
   remove(id: string): Promise<void>;
   setIcon(id: string, icon: string | null): Promise<void>;

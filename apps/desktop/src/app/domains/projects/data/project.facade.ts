@@ -66,6 +66,12 @@ export class ProjectsFacade {
     return this.adapter.cloneRepo(url, destDir);
   }
 
+  // Create an empty `<parent>/<name>` directory for Quick start. Returns
+  // the absolute path. AddProjectFlow runs initRepo + add afterwards.
+  async createProjectFolder(parent: string, name: string): Promise<string> {
+    return this.adapter.createProjectFolder(parent, name);
+  }
+
   toggleExpanded(id: string): void {
     this.store.toggleExpanded(id);
   }

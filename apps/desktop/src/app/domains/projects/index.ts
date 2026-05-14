@@ -27,5 +27,9 @@ export {
   CloneRepoDialog,
   type CloneRepoContext,
 } from './ui-clone-repo-dialog';
+export {
+  CreateProjectDialog,
+  type CreateProjectContext,
+} from './ui-create-project-dialog';
 export { GroupByFilter } from './ui-group-by-filter';
 export { ProjectsEmptyState } from './ui-projects-empty-state';

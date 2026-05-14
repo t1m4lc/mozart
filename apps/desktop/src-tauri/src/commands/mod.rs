@@ -121,6 +121,64 @@ pub(crate) async fn init_repo_impl(path: String) -> Result<(), AppError> {
 }
 
 // ---------------------------------------------------------------------------
+// create_project_folder
+// ---------------------------------------------------------------------------
+
+/// Create an empty directory `<parent>/<name>` for a fresh "Quick start"
+/// project. Validates inputs, refuses if the target already exists, and
+/// returns the canonicalised absolute path so the frontend can hand it
+/// to the unified add-project flow (which will trigger `git init` next).
+#[tauri::command]
+#[specta::specta]
+pub async fn create_project_folder(parent: String, name: String) -> Result<String, AppError> {
+    create_project_folder_impl(parent, name).await
+}
+
+pub(crate) async fn create_project_folder_impl(
+    parent: String,
+    name: String,
+) -> Result<String, AppError> {
+    let parent_trim = parent.trim();
+    let name_trim = name.trim();
+    if parent_trim.is_empty() {
+        return Err(AppError::Validation("parent folder is empty".into()));
+    }
+    if name_trim.is_empty() {
+        return Err(AppError::Validation("project name is empty".into()));
+    }
+    // Reject path separators in `name` so the user can't accidentally
+    // nest by typing "foo/bar" — Quick start is a single-level create.
+    if name_trim.contains('/') || name_trim.contains('\\') {
+        return Err(AppError::Validation(
+            "project name cannot contain path separators".into(),
+        ));
+    }
+
+    let parent_path = std::path::Path::new(parent_trim);
+    // Ensure parent exists (Quick start may seed `<home>/mozart/repos`
+    // even if the user has never used that folder before).
+    std::fs::create_dir_all(parent_path)
+        .map_err(|e| AppError::Io(format!("create {}: {e}", parent_path.display())))?;
+
+    let target = parent_path.join(name_trim);
+    if target.exists() {
+        return Err(AppError::Validation(format!(
+            "destination already exists: {}",
+            target.display()
+        )));
+    }
+    std::fs::create_dir(&target)
+        .map_err(|e| AppError::Io(format!("create {}: {e}", target.display())))?;
+
+    let canon = target
+        .canonicalize()
+        .map_err(|e| AppError::Io(format!("canonicalize created path: {e}")))?
+        .to_string_lossy()
+        .into_owned();
+    Ok(canon)
+}
+
+// ---------------------------------------------------------------------------
 // clone_repo
 // ---------------------------------------------------------------------------
 

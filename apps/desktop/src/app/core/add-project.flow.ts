@@ -5,6 +5,8 @@ import { ChatFacade } from '../domains/chat';
 import {
   CloneRepoDialog,
   type CloneRepoContext,
+  CreateProjectDialog,
+  type CreateProjectContext,
   DIALOG_ADAPTER,
   InitProjectDialog,
   type InitProjectContext,
@@ -40,10 +42,7 @@ export class AddProjectFlow {
   // success, hands the cloned path to the shared add-project path so
   // the user lands in a freshly-created workspace just like card 1.
   async openCloneDialog(): Promise<void> {
-    const home = await this.dialog.homeDir();
-    const sep = home.includes('\\') ? '\\' : '/';
-    const defaultLocation = `${home}${sep}mozart${sep}repos`;
-
+    const defaultLocation = await this._defaultReposDir();
     const context: CloneRepoContext = {
       defaultLocation,
       doClone: (url, destDir) => this.projects.cloneRepo(url, destDir),
@@ -52,6 +51,22 @@ export class AddProjectFlow {
       },
     };
     this.dialogService.open(CloneRepoDialog, { context });
+  }
+
+  // Dashboard card 3 entry point. Opens the Create project dialog,
+  // creates a fresh `<parent>/<name>` folder, then runs init + add
+  // without bouncing through the Init confirmation dialog — Quick
+  // start implies init.
+  async openCreateDialog(): Promise<void> {
+    const defaultParent = await this._defaultReposDir();
+    const context: CreateProjectContext = {
+      defaultParent,
+      doCreate: (parent, name) => this.projects.createProjectFolder(parent, name),
+      onCreated: async (path) => {
+        await this._initAndContinue(path);
+      },
+    };
+    this.dialogService.open(CreateProjectDialog, { context });
   }
 
   async addAndOpen(path: string): Promise<void> {
@@ -100,14 +115,30 @@ export class AddProjectFlow {
     const context: InitProjectContext = {
       path,
       onConfirm: async () => {
-        try {
-          await this.projects.initRepo(path);
-          await this._addAndContinue(path);
-        } catch (err) {
-          console.error('init + add project flow failed', err);
-        }
+        await this._initAndContinue(path);
       },
     };
     this.dialogService.open(InitProjectDialog, { context });
+  }
+
+  // Run `git init` + initial commit at `path`, then re-enter the
+  // happy add-project path. Used both by the Init confirmation dialog
+  // (after the user agrees) and by Quick start (init is implicit).
+  private async _initAndContinue(path: string): Promise<void> {
+    try {
+      await this.projects.initRepo(path);
+      await this._addAndContinue(path);
+    } catch (err) {
+      console.error('init + add project flow failed', err);
+    }
+  }
+
+  // Default `<home>/mozart/repos` used as the seed for Clone (Location)
+  // and Create (Parent folder) dialogs. Honors the host OS separator so
+  // Windows users get a backslash path.
+  private async _defaultReposDir(): Promise<string> {
+    const home = await this.dialog.homeDir();
+    const sep = home.includes('\\') ? '\\' : '/';
+    return `${home}${sep}mozart${sep}repos`;
   }
 }

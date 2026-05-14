@@ -56,6 +56,20 @@ async cloneRepo(url: string, destDir: string) : Promise<Result<string, AppError>
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Create an empty directory `<parent>/<name>` for a fresh "Quick start"
+ * project. Validates inputs, refuses if the target already exists, and
+ * returns the canonicalised absolute path so the frontend can hand it
+ * to the unified add-project flow (which will trigger `git init` next).
+ */
+async createProjectFolder(parent: string, name: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_project_folder", { parent, name }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async removeRepo(repoId: string) : Promise<Result<null, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("remove_repo", { repoId }) };

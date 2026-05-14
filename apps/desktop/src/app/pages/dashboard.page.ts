@@ -57,16 +57,13 @@ import { WorkspacesFacade } from '../domains/workspaces';
       <button
         type="button"
         hlmCard
-        disabled
-        class="cursor-not-allowed p-6 text-left opacity-50"
+        class="cursor-pointer p-6 text-left transition hover:bg-accent"
+        (click)="onQuickStart()"
       >
         <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
           <ng-icon hlm name="lucideZap" size="base" />
         </div>
-        <h2 class="text-base font-medium">
-          Quick start
-          <span class="ml-1 text-xs font-normal text-muted-foreground">Soon</span>
-        </h2>
+        <h2 class="text-base font-medium">Quick start</h2>
         <p class="mt-1 text-sm text-muted-foreground">
           Create a local folder and an empty project.
         </p>
@@ -96,6 +93,14 @@ export class DashboardPage {
       await this.addProjectFlow.openCloneDialog();
     } catch (err) {
       console.error('clone repo flow failed', err);
+    }
+  }
+
+  protected async onQuickStart(): Promise<void> {
+    try {
+      await this.addProjectFlow.openCreateDialog();
+    } catch (err) {
+      console.error('quick start flow failed', err);
     }
   }
 }

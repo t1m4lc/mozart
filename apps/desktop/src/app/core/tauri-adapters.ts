@@ -73,6 +73,9 @@ function provideProjectsAdapter(): Provider {
       async cloneRepo(url, destDir) {
         return unwrap(await commands.cloneRepo(url, destDir));
       },
+      async createProjectFolder(parent, name) {
+        return unwrap(await commands.createProjectFolder(parent, name));
+      },
       async list() {
         return unwrap(await commands.listRepos()).map(projectFromDto);
       },
