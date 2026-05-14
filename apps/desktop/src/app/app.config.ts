@@ -10,238 +10,18 @@ import {
   withHashLocation,
 } from '@angular/router';
 import { provideTheme } from '@mozart/shared-util-theme';
-import { homeDir } from '@tauri-apps/api/path';
-import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import { appRoutes } from './app.routes';
-import { commands } from './core/_bindings';
-import {
-  CHATS_ADAPTER,
-  MESSAGES_ADAPTER,
-  chatFromDto,
-  messageFromDto,
-  timelineToJson,
-  type ChatsAdapter,
-  type MessagesAdapter,
-} from './domains/chat';
-import { LLM_ADAPTER, TauriLlmAdapter } from './domains/llm-model';
-import {
-  CREDENTIALS_ADAPTER,
-  ProfileFacade,
-  type CredentialsAdapter,
-} from './domains/profile';
-import {
-  DIALOG_ADAPTER,
-  PROJECTS_ADAPTER,
-  ProjectsFacade,
-  projectFromDto,
-  type ProjectsAdapter,
-} from './domains/projects';
-import { TASKS_ADAPTER, taskFromDto, type TasksAdapter } from './domains/tasks';
-import {
-  WORKSPACES_ADAPTER,
-  WorkspacesFacade,
-  type WorkspacesAdapter,
-} from './domains/workspaces';
-
-// Small helper: unwrap the tauri-specta Result envelope into a value or
-// thrown error so the rest of the app can write straight `await`s.
-function unwrap<T>(
-  r:
-    | { status: 'ok'; data: T }
-    | { status: 'error'; error: { message: string } },
-): T {
-  if (r.status === 'error') throw new Error(r.error.message);
-  return r.data;
-}
+import { provideTauriAdapters } from './core/tauri-adapters';
+import { ProfileFacade } from './domains/profile';
+import { ProjectsFacade } from './domains/projects';
+import { WorkspacesFacade } from './domains/workspaces';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(appRoutes, withHashLocation(), withComponentInputBinding()),
     provideTheme(),
-    {
-      provide: DIALOG_ADAPTER,
-      useFactory: () => ({
-        async pickFolder(opts?: { defaultPath?: string }) {
-          const result = await openDialog({
-            directory: true,
-            multiple: false,
-            defaultPath: opts?.defaultPath ?? (await homeDir()),
-          });
-          return typeof result === 'string' ? result : null;
-        },
-      }),
-    },
-    {
-      provide: PROJECTS_ADAPTER,
-      useValue: {
-        async add(path) {
-          return projectFromDto(unwrap(await commands.addRepo(path)));
-        },
-        async list() {
-          const dtos = unwrap(await commands.listRepos());
-          return dtos.map(projectFromDto);
-        },
-        async remove(id) {
-          unwrap(await commands.removeRepo(id));
-        },
-        async setIcon(id, icon) {
-          unwrap(await commands.setRepoIcon(id, icon));
-        },
-        async setHidden(id, hidden) {
-          unwrap(await commands.setRepoHidden(id, hidden));
-        },
-        async setSort(orderedIds) {
-          unwrap(await commands.setRepoSort([...orderedIds]));
-        },
-      } satisfies ProjectsAdapter,
-    },
-    {
-      provide: WORKSPACES_ADAPTER,
-      useValue: {
-        async create({ projectId, baseBranch, taskText, workspaceName }) {
-          return unwrap(
-            await commands.createWorkspace(
-              projectId,
-              baseBranch,
-              taskText,
-              workspaceName,
-            ),
-          );
-        },
-        async list() {
-          return unwrap(await commands.listWorkspaces());
-        },
-        async archive(workspaceId: string) {
-          unwrap(await commands.archiveWorkspace(workspaceId));
-        },
-        async listBranches(repoPath: string) {
-          return unwrap(await commands.listBranches(repoPath));
-        },
-        async rename(workspaceId: string, name: string) {
-          unwrap(await commands.renameWorkspace(workspaceId, name));
-        },
-        async setUiStatus(workspaceId, status) {
-          unwrap(await commands.setWorkspaceUiStatus(workspaceId, status));
-        },
-        async setPinned(workspaceId: string, pinned: boolean) {
-          unwrap(await commands.setWorkspacePinned(workspaceId, pinned));
-        },
-        async setUnread(workspaceId: string, unread: boolean) {
-          unwrap(await commands.setWorkspaceUnread(workspaceId, unread));
-        },
-      } satisfies WorkspacesAdapter,
-    },
-    {
-      provide: CHATS_ADAPTER,
-      useValue: {
-        async listForWorkspace(workspaceId) {
-          const dtos = unwrap(await commands.listChats(workspaceId));
-          return dtos.map(chatFromDto);
-        },
-        async create(workspaceId, title) {
-          return chatFromDto(
-            unwrap(await commands.createChat(workspaceId, title, null)),
-          );
-        },
-        async rename(chatId, title) {
-          unwrap(await commands.renameChat(chatId, title));
-        },
-        async close(chatId) {
-          unwrap(await commands.closeChat(chatId));
-        },
-        async getActive(workspaceId) {
-          return unwrap(await commands.getActiveChat(workspaceId));
-        },
-        async setActive(workspaceId, chatId) {
-          unwrap(await commands.setActiveChat(workspaceId, chatId));
-        },
-      } satisfies ChatsAdapter,
-    },
-    {
-      provide: MESSAGES_ADAPTER,
-      useValue: {
-        async listForChat(chatId) {
-          const dtos = unwrap(await commands.listMessages(chatId));
-          return dtos.map(messageFromDto);
-        },
-        async insert(input) {
-          return messageFromDto(
-            unwrap(
-              await commands.insertMessage(
-                input.messageId,
-                input.chatId,
-                input.role,
-                input.content,
-                input.mode,
-                input.status,
-                input.runId ?? null,
-                timelineToJson(input.timeline ?? undefined),
-              ),
-            ),
-          );
-        },
-        async updateContent(messageId, content) {
-          unwrap(await commands.updateMessageContent(messageId, content));
-        },
-        async updateStatus(messageId, status) {
-          unwrap(await commands.updateMessageStatus(messageId, status));
-        },
-        async updateTimeline(messageId, timeline) {
-          unwrap(
-            await commands.updateMessageTimeline(
-              messageId,
-              timelineToJson(timeline ?? undefined),
-            ),
-          );
-        },
-      } satisfies MessagesAdapter,
-    },
-    {
-      provide: TASKS_ADAPTER,
-      useValue: {
-        async list(projectId) {
-          const dtos = unwrap(await commands.listTasks(projectId));
-          return dtos.map(taskFromDto);
-        },
-      } satisfies TasksAdapter,
-    },
-    // Tauri-backed credentials adapter for the Anthropic key. This is the
-    // ONLY file in the app that touches `core/_bindings` for credentials —
-    // the profile domain stays Tauri-agnostic per Convention #2.
-    {
-      provide: CREDENTIALS_ADAPTER,
-      useFactory: (): CredentialsAdapter => ({
-        async hasStoredKey() {
-          const r = await commands.hasAnthropicKey();
-          if (r.status === 'error') throw new Error(r.error.kind);
-          return r.data;
-        },
-        async hasClaudeCodeSession() {
-          // Returns plain boolean (not Result-wrapped) — see commands/mod.rs.
-          return await commands.checkClaudeCodeSession();
-        },
-        async connect(key: string) {
-          const r = await commands.connectAnthropic(key);
-          if (r.status === 'error') throw new Error(r.error.kind);
-          return r.data.kind;
-        },
-        async clear() {
-          const r = await commands.disconnectAnthropic();
-          if (r.status === 'error') throw new Error(r.error.kind);
-        },
-        async refresh() {
-          const r = await commands.refreshAnthropicConnection();
-          if (r.status === 'error') throw new Error(r.error.kind);
-          return r.data.kind;
-        },
-      }),
-    },
-
-    // Hydrate from Tauri at boot. Order matters: projects first
-    // (workspaces.loadAll depends on the project list to enumerate
-    // tasks per project). Errors are swallowed (logged) so a hydration
-    // failure never blocks the app from rendering.
+    provideTauriAdapters(),
     provideAppInitializer(async () => {
       const projects = inject(ProjectsFacade);
       const workspaces = inject(WorkspacesFacade);
@@ -251,19 +31,7 @@ export const appConfig: ApplicationConfig = {
       } catch (err) {
         console.error('hydration failed on boot', err);
       }
-    }),
-
-    // Fire-and-forget probe at app start so /settings is up-to-date even
-    // when the user doesn't open the settings page first. The facade's
-    // own `status === 'unknown'` guard makes this idempotent with the
-    // lazy call in feature-connections.constructor.
-    provideAppInitializer(() => {
       void inject(ProfileFacade).initialize();
     }),
-    // Real Tauri-backed adapter. v0.0.1 SQLite sweep (S2-S5) hooked
-    // chat persistence onto the workspace_id, so `startAgentRun`
-    // now resolves a real DB row. FakeLlmAdapter stays exported for
-    // sandbox/Storybook.
-    { provide: LLM_ADAPTER, useExisting: TauriLlmAdapter },
   ],
 };
