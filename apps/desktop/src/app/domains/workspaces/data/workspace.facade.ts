@@ -1,4 +1,4 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { ProjectsFacade } from '../../projects';
 import { TasksFacade } from '../../tasks';
 import { generateWorkspaceName } from '../util-workspace-name';
@@ -10,6 +10,22 @@ import {
   WORKSPACES_ADAPTER,
   type InstallPackagesResult,
 } from './workspaces.adapter';
+
+// Per-workspace package-manager install state, surfaced to the chat
+// empty-state checklist (step 4 — "Setup script completed.").
+export type InstallState =
+  | 'idle'
+  | 'running'
+  | 'success'
+  | 'failed'
+  | 'no_package';
+
+export interface WorkspaceInstall {
+  state: InstallState;
+  manager: string;
+}
+
+const NO_INSTALL: WorkspaceInstall = { state: 'idle', manager: '' };
 
 // Public API of the `workspaces` domain. Features inject this — never
 // the store or adapter directly. Cross-domain calls to `projects` and
@@ -119,12 +135,47 @@ export class WorkspacesFacade {
     }
   }
 
-  // Detect package manager in the workspace's worktree and run install.
-  // Returns the structured InstallResult so the caller can toast the
-  // outcome. Errors propagate — callers that want fire-and-forget should
-  // wrap in `void` + `.catch`.
-  async installPackages(workspaceId: string): Promise<InstallPackagesResult> {
-    return this.adapter.installPackages(workspaceId);
+  // Per-workspace install lifecycle state. Read by the chat empty-state
+  // step 4 to swap "Setup script completed." for the live install
+  // status (running → success/failed). Stored as a signal Map so adding
+  // / removing workspaces is one update; reads via installFor(id).
+  private readonly _installs = signal<ReadonlyMap<string, WorkspaceInstall>>(
+    new Map(),
+  );
+
+  installFor(workspaceId: string): WorkspaceInstall {
+    return this._installs().get(workspaceId) ?? NO_INSTALL;
+  }
+
+  // Detect package manager in the workspace's worktree and run install,
+  // tracking lifecycle state in the local signal Map. Replaces the
+  // toast-based feedback — the chat Start tab is the single source of
+  // truth for install progress now.
+  async runInstall(workspaceId: string): Promise<void> {
+    this._setInstall(workspaceId, { state: 'running', manager: '' });
+    try {
+      const result: InstallPackagesResult =
+        await this.adapter.installPackages(workspaceId);
+      if (!result.ran) {
+        this._setInstall(workspaceId, { state: 'no_package', manager: '' });
+        return;
+      }
+      this._setInstall(workspaceId, {
+        state: result.success ? 'success' : 'failed',
+        manager: result.manager,
+      });
+    } catch (err) {
+      console.warn('[workspaces] install failed', workspaceId, err);
+      this._setInstall(workspaceId, { state: 'failed', manager: '' });
+    }
+  }
+
+  private _setInstall(workspaceId: string, update: WorkspaceInstall): void {
+    this._installs.update((m) => {
+      const next = new Map(m);
+      next.set(workspaceId, update);
+      return next;
+    });
   }
 
   // Fetch the real git branches for the project owning `workspaceId`.

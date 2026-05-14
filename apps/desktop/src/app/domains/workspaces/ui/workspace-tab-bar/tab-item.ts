@@ -13,6 +13,7 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFileCode, lucidePencil, lucideX } from '@ng-icons/lucide';
+import { CliLoader } from '../cli-loader/cli-loader';
 import { LlmIcon } from './llm-icon';
 import type { WorkspaceTab } from './workspace-tab.model';
 
@@ -20,7 +21,7 @@ import type { WorkspaceTab } from './workspace-tab.model';
 // pen icon) and close (✕); file variant is read-only.
 @Component({
   selector: 'app-tab-item',
-  imports: [NgIcon, LlmIcon, HlmButtonImports, HlmIconImports],
+  imports: [NgIcon, LlmIcon, CliLoader, HlmButtonImports, HlmIconImports],
   providers: [provideIcons({ lucideFileCode, lucidePencil, lucideX })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -36,7 +37,11 @@ import type { WorkspaceTab } from './workspace-tab.model';
   },
   template: `
     @if (tab().kind === 'chat') {
-      <app-llm-icon [llmId]="$any(tab()).llmId" />
+      @if ($any(tab()).isStreaming) {
+        <app-cli-loader class="text-brand" />
+      } @else {
+        <app-llm-icon [llmId]="$any(tab()).llmId" />
+      }
     } @else {
       <ng-icon
         hlm

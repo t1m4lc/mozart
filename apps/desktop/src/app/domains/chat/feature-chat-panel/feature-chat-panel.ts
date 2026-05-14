@@ -39,6 +39,7 @@ import { MessageList } from '../ui/message-list/message-list';
     >
       <div class="pointer-events-auto">
         <hlm-composer
+          #composerEl
           [(value)]="value"
           [(mode)]="mode"
           [isRunning]="isStreaming()"
@@ -55,6 +56,9 @@ export class FeatureChatPanel {
   private readonly facade = inject(ChatFacade);
   private readonly scrollContainer =
     viewChild<ElementRef<HTMLDivElement>>('scrollContainer');
+  private readonly composerEl = viewChild('composerEl', {
+    read: ElementRef<HTMLElement>,
+  });
 
   protected readonly value = signal('');
   protected readonly mode = signal<ComposerMode>('normal');
@@ -63,10 +67,41 @@ export class FeatureChatPanel {
   );
   protected readonly isStreaming = this.facade.isStreaming(this.workspaceId);
 
+  // Bring focus to the embedded HlmComposer's textarea. Public so the
+  // workspace-detail page can refocus on tab-active-change without
+  // plumbing the event through the dumb tab bar. Scoped through a
+  // viewChild on the composer's host element so we never reach into
+  // the panel's own host.
+  focusComposer(): void {
+    queueMicrotask(() => {
+      const ta = this.composerEl()?.nativeElement.querySelector('textarea');
+      ta?.focus();
+    });
+  }
+
+  // Tracked across effect runs to detect the streaming false-edge
+  // (run ended OR was stopped) — that's when we refocus the composer.
+  private _wasStreaming = false;
+
   constructor() {
     effect(() => {
       const id = this.workspaceId();
-      if (id) this.facade.ensureChatForWorkspace(id);
+      if (id) {
+        this.facade.ensureChatForWorkspace(id);
+        // Workspace entered -> focus composer so the user can type
+        // immediately without a manual click.
+        this.focusComposer();
+      }
+    });
+
+    // Refocus the composer the moment a run ends or is stopped so the
+    // user can keep typing without grabbing the mouse.
+    effect(() => {
+      const streaming = this.isStreaming();
+      if (this._wasStreaming && !streaming) {
+        this.focusComposer();
+      }
+      this._wasStreaming = streaming;
     });
 
     // Auto-scroll strategy :

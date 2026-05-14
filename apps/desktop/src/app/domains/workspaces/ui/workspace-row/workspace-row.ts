@@ -12,7 +12,6 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmHoverCardImports } from '@mozart/ui/hover-card';
 import { HlmPopoverImports } from '@mozart/ui/popover';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
-import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArchive,
@@ -20,8 +19,9 @@ import {
   lucideLoader,
   lucidePin,
 } from '@ng-icons/lucide';
-import { relativeTime } from '../../util-relative-time';
 import type { Workspace } from '../../data/workspace.model';
+import { relativeTime } from '../../util-relative-time';
+import { CliLoader } from '../cli-loader/cli-loader';
 
 // Maps a UI workspace status to the dot color in the hover popover.
 const STATUS_COLOR: Record<string, string> = {
@@ -58,7 +58,7 @@ function statusLabel(status: string): string {
     HlmHoverCardImports,
     HlmPopoverImports,
     HlmSidebarImports,
-    HlmSpinnerImports,
+    CliLoader,
   ],
   providers: [
     provideIcons({ lucideArchive, lucideGitBranch, lucideLoader, lucidePin }),
@@ -113,6 +113,8 @@ function statusLabel(status: string): string {
         <a
           hlmSidebarMenuButton
           hlmHoverCardTrigger
+          [showDelay]="800"
+          align="right"
           [routerLink]="['/workspaces', workspace().id]"
           routerLinkActive="bg-brand/15 text-foreground
                             before:absolute before:left-0 before:top-0.5 before:bottom-0.5
@@ -122,10 +124,7 @@ function statusLabel(status: string): string {
           class="relative cursor-pointer rounded-sm gap-1.5 px-2"
         >
           @if (isStreaming()) {
-            <hlm-spinner
-              aria-label="Agent running"
-              class="size-3 shrink-0 text-brand"
-            />
+            <app-cli-loader class="text-brand" />
           } @else {
             <ng-icon
               hlm
@@ -152,7 +151,9 @@ function statusLabel(status: string): string {
                 "
               ></span>
               <span class="text-sm font-medium">{{ workspace().name }}</span>
-              <span class="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground">
+              <span
+                class="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground"
+              >
                 {{ statusLabel(workspace().status) }}
               </span>
             </div>
@@ -211,14 +212,18 @@ export class WorkspaceRow {
   // instead of the workspace name in the row (better reflects user
   // intent once they've started a real conversation).
   readonly chatTitle = input<string>('');
+  // Latest activity timestamp for the hover popover. When 0, falls
+  // back to workspace.createdAt. Driven from ChatFacade's
+  // lastActivityByWorkspace signal via the smart parent.
+  readonly lastActivity = input<number>(0);
   readonly archive = output<void>();
   readonly renameCommit = output<string>();
   readonly renameCancel = output<void>();
 
   // Last meaningful activity timestamp for the hover popover. Falls
-  // back to workspace.createdAt when no later signal is available.
+  // back to workspace.createdAt when no later activity is tracked.
   protected lastActivityAt(): number {
-    return this.workspace().createdAt.getTime();
+    return this.lastActivity() || this.workspace().createdAt.getTime();
   }
 
   // Title rendered in the row: chat title if it differs from the

@@ -86,7 +86,7 @@ import {
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
-          disabled
+          (triggered)="openGithubProject.emit()"
         >
           <ng-icon hlm name="lucideGithub" size="xs" /> Open GitHub project
         </button>
@@ -94,7 +94,7 @@ import {
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
-          disabled
+          (triggered)="quickStart.emit()"
         >
           <ng-icon hlm name="lucideZap" size="xs" /> Quick start
         </button>
@@ -107,4 +107,6 @@ export class ProjectsHeaderContextMenu {
   readonly collapseAll = output<void>();
   readonly openFilter = output<void>();
   readonly openProject = output<void>();
+  readonly openGithubProject = output<void>();
+  readonly quickStart = output<void>();
 }

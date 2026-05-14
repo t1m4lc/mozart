@@ -2,12 +2,26 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideCheck,
+  lucideCircleAlert,
   lucideFolder,
   lucideGitBranch,
   lucideInfo,
   lucideSparkles,
   lucideTerminal,
 } from '@ng-icons/lucide';
+import type { InstallState } from '../../data/workspace.facade';
+import { CliLoader } from '../cli-loader/cli-loader';
+
+// Step 4 copy lookup. Manager suffix is appended in the template when
+// state is `success` or `failed` and a manager name is known.
+const SETUP_LABEL: Record<InstallState, string> = {
+  idle: 'Setup script completed.',
+  no_package: 'No setup needed.',
+  running: 'Installing dependencies…',
+  success: 'Installed dependencies',
+  failed: 'Install failed',
+};
 
 /**
  * Rendered in the main chat area when the active chat tab has no
@@ -19,14 +33,15 @@ import {
  */
 @Component({
   selector: 'app-chat-empty-state',
-  imports: [NgIcon, HlmIconImports],
+  imports: [NgIcon, HlmIconImports, CliLoader],
   providers: [
     provideIcons({
+      lucideCheck,
+      lucideCircleAlert,
       lucideInfo,
       lucideGitBranch,
       lucideFolder,
       lucideTerminal,
-
       lucideSparkles,
     }),
   ],
@@ -115,19 +130,54 @@ import {
           </p>
         </li>
 
-        <!-- Step 4 — setup -->
+        <!-- Step 4 — setup / package install lifecycle -->
         <li class="relative flex w-full items-center gap-3 pb-5">
           <span
             class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
             aria-hidden="true"
           ></span>
-          <span
-            class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground [--ng-icon__stroke-width:1.5]"
-          >
-            <ng-icon hlm name="lucideTerminal" size="10px" />
-          </span>
+          @switch (installState()) {
+            @case ('running') {
+              <span
+                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"
+              >
+                <app-cli-loader />
+              </span>
+            }
+            @case ('success') {
+              <span
+                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 [--ng-icon__stroke-width:1.5]"
+              >
+                <ng-icon hlm name="lucideCheck" size="10px" />
+              </span>
+            }
+            @case ('failed') {
+              <span
+                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive [--ng-icon__stroke-width:1.5]"
+              >
+                <ng-icon hlm name="lucideCircleAlert" size="10px" />
+              </span>
+            }
+            @default {
+              <span
+                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground [--ng-icon__stroke-width:1.5]"
+              >
+                <ng-icon hlm name="lucideTerminal" size="10px" />
+              </span>
+            }
+          }
           <p class="text-sm font-light leading-none text-muted-foreground">
-            Setup script completed.
+            {{ setupLabel() }}
+            @if (
+              installManager() &&
+              (installState() === 'success' || installState() === 'failed')
+            ) {
+              with
+              <span class="font-medium text-foreground">{{ installManager() }}</span>
+            }
+            @if (installState() === 'success' || installState() === 'failed') {
+              .
+            }
           </p>
         </li>
 
@@ -154,4 +204,12 @@ export class ChatEmptyState {
   readonly sourceBranch = input.required<string>();
   readonly targetBranch = input.required<string>();
   readonly numberOfFiles = input.required<number>();
+  // Step 4 lifecycle. 'idle' renders the original "Setup script
+  // completed." copy; the other states swap icon + label.
+  readonly installState = input<InstallState>('idle');
+  readonly installManager = input<string>('');
+
+  protected setupLabel(): string {
+    return SETUP_LABEL[this.installState()];
+  }
 }

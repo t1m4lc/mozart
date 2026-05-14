@@ -13,8 +13,8 @@ import {
 import { HlmBreadcrumbImports } from '@mozart/ui/breadcrumb';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { CliLoader } from '../cli-loader/cli-loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucidePanelRight } from '@ng-icons/lucide';
 import type { OpenInTool } from '../../data/open-in-tools';
@@ -31,8 +31,8 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
     HlmBreadcrumbImports,
     HlmButtonImports,
     HlmIconImports,
-    HlmSpinnerImports,
     HlmTooltipImports,
+    CliLoader,
   ],
   providers: [provideIcons({ lucideGitBranch, lucidePanelRight })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -103,11 +103,10 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         />
 
         @if (isStreaming()) {
-          <hlm-spinner
-            aria-label="Agent running"
+          <app-cli-loader
+            class="shrink-0 text-brand"
             hlmTooltip="Agent is running"
             position="bottom"
-            class="shrink-0 text-brand"
           />
         }
       </div>

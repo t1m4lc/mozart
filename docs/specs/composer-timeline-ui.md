@@ -1,43 +1,49 @@
-# Mozart — Composer & Timeline UI Specification
+# Mozart — Composer & Timeline UI Specification (v2)
 
-> **Scope** : v0.0.1 — Step 3.5 (companion `libs/ui` task) and its
-> downstream consumers (Step 4 chat, Step 5 streaming).
-> **Purpose** : specify the chat **Composer** (textarea + model
-> picker + effort selector + plan-mode toggle + context menu + send)
-> and the **Timeline** (refactored to be parser-driven), both shipped
-> as **dumb composed components** in `libs/ui`.
+> **Scope** : v0.0.1 MVP — companion `libs/ui` task for Phase 2
+> (Composer surface) and Phase 3 (Timeline + scroll plumbing).
+> **Purpose** : specify the chat **Composer** (textarea + mode
+> segmented control + model + effort + send + scroll-to-bottom +
+> next-unread) and the **Timeline** (raw text in 3a, full
+> Claude-style in 3b), both shipped as **dumb composed
+> components** in `libs/ui`.
 >
 > **Architectural placement** : both live in `libs/ui`. No facade
-> import, no store, no Tauri. Inputs in, outputs out. Smart wrappers
-> in domain steps (Step 4 for the composer, Step 5 for the timeline)
-> connect them to the chat facade.
+> import, no store, no Tauri. Inputs in, outputs out. Smart
+> wrappers in domain steps (Phase 2 for the composer, Phase 3 for
+> the timeline) connect them to the chat facade.
 >
-> **Companion spec** : visual specs of the timeline (shimmer, icons,
-> file chips, diff stats, geometry) are owned by
-> [`llm-stream-parser.md`](./llm-stream-parser.md). This document
-> defines the **component surface and behavior** ; it never
-> re-specifies visuals already in the parser spec — it points at
-> them.
+> **Companion specs** :
+>
+> - `llm-stream-parser.md` owns the parser + reducer + `TurnState`
+>   contract + visual specs for the Claude-style timeline (Phase
+>   3b reference). The Composer + Timeline implementation consume
+>   the `TurnState` produced there.
+> - `plan.md` owns the cross-cutting tech conventions (Signal
+>   Forms, Lucide, `prefers-reduced-motion`, `dayjs`) — they apply
+>   to everything in this doc.
 
 ---
 
 ## 1. Why this is a dedicated `libs/ui` task
 
-The Composer and Timeline are rich UI surfaces with their own UX
-micro-decisions (keyboard handling, dropdown shapes, plan-mode
+The Composer and the Timeline are rich UI surfaces with their own
+UX micro-decisions (keyboard handling, dropdown shapes, plan-mode
 visual treatment, sticky-bottom scroll, expand/collapse, shimmer).
-Building them inline with Step 4 (persistence) or Step 5 (streaming)
-would tangle dumb UI with state + IPC and slow both down.
+Building them inline with Phase 2 (persistence) or Phase 3
+(streaming) would tangle dumb UI with state + IPC and slow both
+down.
 
 Same pattern as `WorkspaceTabBar` and `ChatEmptyState`, already
-shipped to `libs/ui` : ship the dumb UI first ; domain steps mount it
-later.
+shipped to `libs/ui` : ship the dumb UI first ; domain steps
+mount it later.
 
-Out of this step :
+Out of this task :
 
 - No facade wiring
 - No real LLM connection
-- No file picker / command palette logic (events out, no handlers in)
+- No `/` skills, no `@` context attachments (those are post-MVP
+  per `plan.md`)
 - No persistence
 
 ---
@@ -47,17 +53,22 @@ Out of this step :
 ### 2.1 Positioning
 
 `position: absolute` relative to the **middle shell column** (the
-content column between sidebar and aside). Anchored to the bottom of
-that column, full width minus the column's gutter padding.
+content column between sidebar and aside). Anchored to the bottom
+of that column, full width minus the column's gutter padding.
 
-The chat message list above it scrolls under the composer (the
-composer floats on top with a subtle backdrop / blur to soften the
-visual transition).
+The chat message list above it scrolls under the composer. The
+composer floats on top with a subtle backdrop / blur to soften
+the visual transition.
+
+The composer is **hidden when no workspace is selected** (state
+coherence rule from `plan.md` Phase 1).
 
 ### 2.2 Textarea
 
-- **Placeholder** :
-  `ask to make changes, @mention file, reference PR with #, run /commands`
+- **Placeholder** (changes by mode) :
+  - Agent : `"Ask Mozart to make a change, run a command, or anything else"`
+  - Plan : `"Describe the change — Mozart will plan before touching files"`
+  - Ask : `"Ask anything — read-only mode, no file edits"`
 - **Autosize** : `cdkTextareaAutosize` from `@angular/cdk/text-field`.
   Min 1 row, max 8 rows ; beyond 8 rows the textarea scrolls
   internally without growing further.
@@ -70,37 +81,48 @@ visual transition).
   the send button stays disabled.
 - **Disabled state** : while a message is streaming in the current
   chat (host passes `disabled` input), the textarea is dimmed and
-  read-only, the send button is replaced by a stop button (optional
-  in v0.0.1 — see §2.10).
+  read-only, the send button is replaced by a stop button (see
+  §2.4).
+- **Focus management** : after a successful `(send)`, focus
+  returns to the textarea automatically.
 
 ### 2.3 Layout — bottom-left cluster
 
-Left to right, anchored to the bottom-left of the composer :
+Left to right :
 
-#### `+` button → "Add context" menu
+#### Mode segmented control
 
-- **Tooltip** : _"Add context"_
-- **Icon** : a `+` glyph from the wired icon library
-- **Open** : `HlmDropdownMenu`
-- **Menu items** (each with icon + label) :
-  1. _"Add attachment"_ — icon : paperclip. On click, emits
-     `(addContext)` with payload `{ kind: 'attachment' }`. Step 3.5
-     does NOT open the OS file picker — that's the host's job in a
-     later step.
-  2. _"Link issue (GitHub or Linear)"_ — icon : link.
-     Emits `(addContext)` with `{ kind: 'issue' }`. The host will
-     later present a sub-dialog or sub-menu prompting for an issue
-     URL.
-  3. _"Link workspace"_ — icon : folder. Emits `(addContext)` with
-     `{ kind: 'workspace' }`. The host will later open an
-     `HlmCommand` palette ("search workspace") seeded with the
-     user's workspace list.
+Three options, always visible : `Agent | Plan | Ask`. Spartan
+`HlmToggleGroup` (or `HlmTabs` rendered as a segmented control —
+Phase B decides per actual API).
+
+- **Always visible** so the user sees the current mode at a
+  glance
+- **One-click switch** between modes
+- **Changeable before every message** (not locked after first
+  send)
+- Inputs : `mode: InputSignal<ChatMode>`
+- Output : `(modeChange: ChatMode)`
+
+Visual treatment per mode (applies to the **whole composer
+container**, not just the textarea) :
+
+| Mode  | Border                     | Background tint | Label                                     | Placeholder               |
+| ----- | -------------------------- | --------------- | ----------------------------------------- | ------------------------- |
+| Agent | default                    | none            | none                                      | (Agent placeholder above) |
+| Plan  | 1px solid accent           | 4% accent       | none (segmented control already shows it) | (Plan placeholder)        |
+| Ask   | 1px solid muted-foreground | none            | `Read-only` at top-left                   | (Ask placeholder)         |
+
+```ts
+type ChatMode = 'agent' | 'plan' | 'ask';
+```
 
 #### Model selector
 
-- **Component** : `HlmSelect` (NOT `HlmDropdownMenu`), styled with
-  the **content structure** of the dropdown sample provided by the
-  user (groups, labels, separators, indicators).
+`HlmSelect` (NOT `HlmDropdownMenu`), styled with the content
+structure of the user's dropdown sample (groups, labels,
+separators, selected indicators).
+
 - **Tooltip on trigger** : _"Change model"_
 - **Trigger** : provider icon + short model name
 - **Content** :
@@ -109,80 +131,9 @@ Left to right, anchored to the bottom-left of the composer :
     OpenRouter, Local…)
   - Each model row : provider icon + model name + optional
     `HlmBadge` _"New"_ + a check indicator on the selected one
-    (right-aligned, via `hlm-select`'s built-in selected mark)
+    (right-aligned)
 - **Inputs** : `models: ModelOption[]`, `selectedModelId: string`
 - **Output** : `(modelChange: string)`
-
-#### Effort selector
-
-- **Component** : `HlmSelect`, same content pattern
-- **Tooltip on trigger** : _"Adjust effort"_
-- **Trigger** : graduation icon (scales with current level) + the
-  current effort label
-- **Content** : five rows, each row's graduation icon scales with
-  the level :
-  - _low_ · _medium_ · _high_ · _xhigh_ · _max_
-- **Inputs** : `effort: EffortLevel`
-- **Output** : `(effortChange: EffortLevel)`
-
-#### "Enter plan mode" toggle button
-
-- **Component** : `HlmButton` (toggle behavior managed by host via
-  input)
-- **Idle visual** : plan icon + label _"Plan"_
-- **Tooltip when OFF** : _"Enter plan mode"_
-- **Tooltip when ON** : _"Exit plan mode"_
-- **When ON** :
-  - Icon highlighted (accent color from theme)
-  - Textarea visual treatment changes (see §2.5)
-  - Label still _"Plan"_
-- **Output** : `(planModeChange: boolean)`
-
-### 2.4 Layout — bottom-right cluster
-
-#### Send button
-
-- **Component** : `HlmButton`, primary variant
-- **Disabled when** :
-  - Textarea is empty or whitespace-only
-  - `disabled` input is true (chat is streaming)
-- **On click** : emits `(send: string)` with the trimmed value ;
-  the host clears the input on success (composer never clears on
-  its own — keeps optimistic clearing under host control)
-
-### 2.5 Plan mode — visual treatment
-
-When `planMode` is `true` :
-
-- The textarea border switches to the accent / violet theme token
-- A subtle accent background tint on the textarea (e.g. 4% tint)
-- An inline label appears at the top-left of the textarea :
-  _"Plan mode"_ in muted accent color
-- The placeholder text changes to :
-  `describe the change you want to plan — Mozart will draft a step-by-step plan before touching files`
-
-The visual treatment is reversed atomically when `planMode` flips
-back to `false`.
-
-### 2.6 Public surface (signal-based)
-
-```ts
-// Inputs
-value: InputSignal<string>;
-disabled: InputSignal<boolean>;
-models: InputSignal<ModelOption[]>;
-selectedModelId: InputSignal<string>;
-effort: InputSignal<EffortLevel>;
-planMode: InputSignal<boolean>;
-
-// Output emitters
-(valueChange: string)            // two-way binding of textarea
-(send: string)                   // user pressed Enter or Send
-(modelChange: string)
-(effortChange: EffortLevel)
-(planModeChange: boolean)
-(addContext: AddContextAction)
-```
 
 ```ts
 type ModelOption = {
@@ -192,93 +143,351 @@ type ModelOption = {
   providerIcon: string;       // icon name in the wired library
   isNew?: boolean;
 };
+```
 
+Default model resolution : when a fresh chat is opened, the host
+picks the `defaultModel` property of the user's configured
+provider (from `providers.config.ts`, see `plan.md`).
+
+#### Effort selector
+
+`HlmSelect`, same content pattern.
+
+- **Tooltip on trigger** : _"Adjust effort"_
+- **Trigger** : Lucide `Signal` graduation icon (scales with the
+  level) + the current effort label
+- **Content** : five rows, each row's `Signal` icon scales with
+  the level, plus the text :
+  - _Low_ · _Medium_ · _High_ · _XHigh_ · _Max_
+- **Inputs** : `effort: EffortLevel`
+- **Output** : `(effortChange: EffortLevel)`
+
+```ts
 type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
+```
 
-type AddContextAction =
-  | { kind: 'attachment' }
-  | { kind: 'issue' }
-  | { kind: 'workspace' };
+> Lucide icon ladder : `signal-zero` (low), `signal-low`,
+> `signal-medium`, `signal-high`, `signal` (max). Confirm exact
+> names against the installed `@ng-icons/lucide` version in
+> Phase A.
+
+### 2.4 Layout — bottom-right cluster
+
+#### Send button / Stop button
+
+- **Default** : `HlmButton` with `Send` Lucide icon, primary
+  variant. Disabled when textarea is empty or whitespace-only,
+  or when `disabled` input is true with `streaming = false`.
+- **Streaming** : the same button slot renders a **Stop** button
+  (square icon, destructive variant). On click, emits `(stop)`.
+
+Inputs that drive the slot : `disabled`, `streaming`.
+
+### 2.5 Two absolute-positioned overlay buttons
+
+These sit **above** the composer (visually overlapping the
+message list bottom), absolute-positioned :
+
+#### Top-left — `scroll-to-bottom` button
+
+- **Visible** when the user has scrolled away from the bottom of
+  the chat (i.e. `autoFollowChat = false`, see §3).
+- **Hidden** when the user is following the stream
+  (`autoFollowChat = true`).
+- **Icon** : `arrow-down` Lucide.
+- **Click** : emits `(scrollToBottom)`. Host re-engages
+  `autoFollowChat = true` and scroll-jumps to the anchor.
+
+#### Top-right — `next-unread-workspace` button
+
+- **Visible** when the host signals
+  `hasNextUnreadInProject = true`.
+- **Hidden** otherwise.
+- **Icon** : Lucide `bell` (subtle) or `arrow-right` — Phase B
+  picks based on visual balance with scroll-to-bottom.
+- **Tooltip** : _"Next unread workspace in this project"_.
+- **Click** : emits `(nextUnreadWorkspace)`. Host navigates.
+
+Both buttons :
+
+- Anchored absolutely to the composer top edge, offset upward so
+  they sit above the composer visually (a few pixels of overlap
+  with the message list bottom)
+- `HlmButton` with `outline` variant and rounded-full (pill)
+- Subtle fade transition on appear / disappear
+
+### 2.6 Public surface (signal-based)
+
+```ts
+// Inputs
+value:                  InputSignal<string>;
+disabled:               InputSignal<boolean>;        // hard disable
+streaming:              InputSignal<boolean>;        // turns Send into Stop
+mode:                   InputSignal<ChatMode>;
+models:                 InputSignal<ModelOption[]>;
+selectedModelId:        InputSignal<string>;
+effort:                 InputSignal<EffortLevel>;
+autoFollowChat:         InputSignal<boolean>;        // drives scroll-to-bottom btn
+hasNextUnreadInProject: InputSignal<boolean>;        // drives next-unread btn
+
+// Outputs (output emitters, not EventEmitter)
+(valueChange:           string)
+(send:                  string)                       // user pressed Enter or Send
+(stop:                  void)                         // user clicked Stop mid-stream
+(modeChange:            ChatMode)
+(modelChange:           string)
+(effortChange:          EffortLevel)
+(scrollToBottom:        void)
+(nextUnreadWorkspace:   void)
 ```
 
 ### 2.7 Component structure
 
 ```
 <Composer>                       // single public component, dumb
-  ├── <ComposerContextMenu />    // the + button + dropdown
-  ├── <ComposerTextarea />       // the actual textarea
+  ├── <ComposerScrollOverlay />  // the two absolute-positioned buttons
+  ├── <ComposerTextarea />       // the actual textarea + autosize
+  ├── <ComposerModeControl />    // segmented control
   ├── <ComposerModelSelect />    // hlm-select wrapper
   ├── <ComposerEffortSelect />   // hlm-select wrapper
-  ├── <ComposerPlanToggle />     // plan mode button
-  └── <ComposerSend />           // send button
+  └── <ComposerSend />           // Send / Stop button
 ```
 
 Sub-components are **private** to `Composer` — they are not
-re-exported from `libs/ui`. They communicate via inputs/outputs only ;
-no shared service inside `Composer`.
+re-exported from `libs/ui`. They communicate via inputs / outputs
+only ; no shared service inside `Composer`.
 
 ### 2.8 Primitives used (from `libs/ui` + CDK)
 
-- `HlmButton` (send, plan toggle, context menu trigger)
+- `HlmButton` (send / stop / scroll-to-bottom / next-unread)
 - `HlmSelect` (model + effort selectors)
-- `HlmDropdownMenu` (`+` context menu)
+- `HlmToggleGroup` or `HlmTabs` rendered as segmented control
+  (Phase B picks the closer fit for `ChatMode` toggle)
 - `HlmTextarea` (composer textarea base)
 - `HlmTooltip` (every button)
 - `HlmBadge` (the _"New"_ badge on model rows)
-- `HlmIcon` + chosen icon library (Lucide via `@ng-icons/lucide`)
+- `HlmIcon` + Lucide icons via `@ng-icons/lucide`
 - `@angular/cdk/text-field` (`cdkTextareaAutosize`)
 
 ### 2.9 Accessibility
 
-- Every button has a discernible accessible name (the tooltip text
-  doubles as `aria-label` when there's no visible label).
+- Every button has a discernible accessible name (the tooltip
+  text doubles as `aria-label` when there's no visible label).
+- The mode segmented control uses `role="radiogroup"` with
+  `aria-checked` per option.
 - `Enter` vs `Shift+Enter` keyboard hints live in the placeholder
-  copy (per §2.2). Power-user `Cmd+Enter` is not advertised.
-- The plan-mode toggle is `role="switch"` with
-  `aria-checked` reflecting `planMode`.
-- Focus management : after `send`, focus returns to the textarea.
+  copy. Power-user `Cmd+Enter` is not advertised.
+- The scroll-to-bottom and next-unread buttons have `aria-live`
+  attached to their visibility changes so screen readers
+  announce them when they appear.
 
-### 2.10 Open question — stop button (TBD in Phase B)
+### 2.10 Form handling
 
-While a message is streaming, the send button could be replaced by
-a **stop** button that emits `(stop)`. v0.0.1 might keep this simple
-and just disable the send button. Phase B of Step 3.5 confirms.
+The composer uses **Signal Forms**
+(https://angular.dev/essentials/signal-forms), per `plan.md`'s
+cross-cutting tech conventions. Even though the surface is small
+(just the textarea), the form provides validation (whitespace-
+only rejection), submit handling (Enter + Cmd+Enter), and
+typed state out of the box.
 
 ---
 
-## 3. Timeline
+## 3. Scroll & autoFollowChat pattern
 
-### 3.1 Refactor of the existing implementation
+This is the structurally-clean replacement for the current broken
+ad-hoc scroll patches in the codebase. Phase 3a implementation
+strips out the existing patches and ships this pattern instead.
 
-A Timeline already exists in the codebase. Step 3.5 reviews it and
-chooses one of :
+### 3.1 Concept
 
-- **Refactor in place** — preferred if the existing API is close to
-  the target shape.
-- **Rebuild side by side** — preferred if the existing API leaks
-  domain concerns or fights signals. Old timeline gets deprecated
-  with a migration window.
+The chat message list scrolls inside a container. After the last
+message, a single `<div #anchor></div>` is rendered. The host
+signal `autoFollowChat` tracks whether the user is "following the
+stream" (default `true`) or has scrolled up to read (becomes
+`false`).
 
-Phase A of Step 3.5 documents the choice with rationale.
+Logic :
 
-### 3.2 Public surface
+- **`autoFollowChat = true`** (default) :
+  - On every content update (new chunk during streaming, new
+    message), `requestAnimationFrame` → scroll the anchor into
+    view smoothly.
+  - The composer's `scroll-to-bottom` button is **hidden**.
+- **User scrolls up** (detected via the chat container's
+  `scroll` event, debounced) :
+  - `autoFollowChat` flips to `false`.
+  - The user can read freely without being interrupted.
+  - The composer's `scroll-to-bottom` button **appears** as soon
+    as the anchor is no longer visible (intersection observer).
+- **User clicks `scroll-to-bottom`** :
+  - `autoFollowChat` flips back to `true`.
+  - Smooth scroll to the anchor.
+- **User sends a new message via the composer** :
+  - `autoFollowChat` resets to `true` (the user is implicitly
+    re-engaging with the stream).
+  - Smooth scroll to the anchor.
+
+### 3.2 Implementation primitives
+
+The smart wrapper around `<MessageList>` + `<Composer>` (in
+`domains/chat/feature-chat-area`) owns this concern. It uses :
+
+- **`@angular/cdk/scrolling`** for `cdk-virtual-scroll-viewport`
+  on the message list — avoids keeping a 1000-message DOM around
+  when chats grow long. Use the autosize virtual scroll strategy
+  if available in the installed CDK version (Phase A confirms).
+- **`@angular/cdk/observers`** for `cdkObserveContent` on the
+  message list, so content mutations during streaming trigger
+  the re-scroll logic.
+- **`IntersectionObserver`** on the anchor (`viewChild('anchor')`
+  to grab it) — emits visible / not-visible. Drives both
+  `autoFollowChat` updates and the scroll-to-bottom button.
+- **`viewChild('anchor')`** — access pattern. No service, no
+  view-model class needed.
+
+### 3.3 Pseudo-code sketch (Phase 3a implementation reference)
+
+```ts
+@Component({...})
+export class FeatureChatArea {
+  private readonly anchor = viewChild<ElementRef<HTMLDivElement>>('anchor');
+  private readonly scroller = viewChild<CdkScrollable>('scroller');
+
+  protected readonly autoFollowChat = signal(true);
+  protected readonly anchorVisible = signal(true);
+
+  ngAfterViewInit() {
+    // Observe anchor visibility
+    const io = new IntersectionObserver((entries) => {
+      this.anchorVisible.set(entries[0].isIntersecting);
+    });
+    io.observe(this.anchor()!.nativeElement);
+
+    // User scrolling up disengages autoFollow
+    this.scroller()!.elementScrolled().pipe(
+      debounceTime(50),
+    ).subscribe(() => {
+      if (!this.anchorVisible() && this.autoFollowChat()) {
+        this.autoFollowChat.set(false);
+      }
+    });
+  }
+
+  protected onContentMutation() {
+    if (this.autoFollowChat()) {
+      requestAnimationFrame(() => {
+        this.anchor()!.nativeElement.scrollIntoView({
+          behavior: 'smooth',
+          block: 'end',
+        });
+      });
+    }
+  }
+
+  protected scrollToBottom() {
+    this.autoFollowChat.set(true);
+    this.anchor()!.nativeElement.scrollIntoView({
+      behavior: 'smooth',
+      block: 'end',
+    });
+  }
+
+  protected onSend(text: string) {
+    this.facade.sendMessage(text /* + mode */);
+    this.autoFollowChat.set(true);  // re-engage
+  }
+}
+```
+
+This is illustrative, not authoritative — Phase 3a's Phase B
+plan refines it.
+
+### 3.4 Reduced motion
+
+When `prefers-reduced-motion: reduce` is set, smooth scrolling
+falls back to instantaneous (`behavior: 'auto'`). The
+`autoFollowChat` logic itself doesn't change.
+
+### 3.5 Composer wires the buttons via inputs
+
+The Composer dumb component receives :
+
+- `autoFollowChat: InputSignal<boolean>` — drives visibility of
+  `scroll-to-bottom`
+- `hasNextUnreadInProject: InputSignal<boolean>` — drives
+  visibility of `next-unread-workspace`
+
+And emits :
+
+- `(scrollToBottom)` — the host re-engages `autoFollowChat` and
+  scrolls
+- `(nextUnreadWorkspace)` — the host navigates
+
+This keeps the Composer truly dumb : it doesn't know how scroll
+works, just whether to show a button.
+
+---
+
+## 4. Timeline
+
+### 4.1 Phase 3a vs Phase 3b
+
+Per `plan.md` Phase 3, the Timeline ships in two sub-phases :
+
+- **Phase 3a** : remove the visually broken existing Timeline.
+  Render assistant messages as **raw text only** (clean
+  paragraph) inside a `cdk-virtual-scroll-viewport`. No
+  collapsible turn header, no timeline items, no shimmer. The
+  scroll pattern from §3 is wired in.
+- **Phase 3b** : after 3a is stable, bring back the Claude.ai-
+  style UI (collapsible turn header with shimmer summary +
+  vertical timeline of items + file chips + diff stats +
+  plan-mode UI). Done with **reference HTML / CSS snippets
+  captured from Claude.ai's browser inspector and pasted into
+  `llm-stream-parser.md` v2 §6** before starting implementation.
+
+This doc describes the **3b end state**. Phase 3a is just _"a
+plain `<MessageBody>` rendering `turnState.text`, mounted inside
+the scroll plumbing from §3."_
+
+### 4.2 Phase 3b — refactor of the existing implementation
+
+A Timeline already exists in the codebase. Its current state is
+visually broken (collapse arrows misaligned, ugly styling). Phase
+3a starts by **removing the broken UI** (keep the parser +
+reducer in `domains/llm-model/data/stream/` — those are pure and
+reusable).
+
+Phase 3b rebuilds the Timeline UI cleanly in `libs/ui/timeline/`
+per the structure below.
+
+### 4.3 Public surface (Phase 3b)
 
 ```ts
 // Inputs
-state: InputSignal<TurnState>;   // the only state in, from llm-model reducer
-collapsed: InputSignal<boolean>; // host can force collapsed
+state:                InputSignal<TurnState>;        // from llm-model reducer
+collapsed:            InputSignal<boolean>;          // host can force collapsed
 // Outputs
-(collapsedChange: boolean)       // user toggled the chevron
-(approvePlan)                    // user clicked Approve on a plan
-(cancelPlan)                     // user clicked Cancel on a plan
-(fileChipClick: { path: string }) // user clicked a file chip
+(collapsedChange:     boolean)                        // user toggled the chevron
+(approvePlan:         void)                           // plan mode approve
+(cancelPlan:          void)                           // plan mode cancel
+(fileChipClick:       { path: string })               // user clicked a file chip
 ```
 
 `TurnState` is the shape produced by the reducer in
 `domains/llm-model/data/stream/`. It is the contract between the
-provider-agnostic parser and the dumb Timeline.
+provider-agnostic parser and the dumb Timeline. Import as a
+**type only** from `@mozart/llm-model` :
 
-### 3.3 Component tree (recap of parser spec §4)
+```ts
+import type { TurnState } from '@mozart/llm-model';
+```
+
+Type-only import is allowed by Convention #1 (UI imports a type,
+not state). Runtime imports from `@mozart/llm-model` are still
+forbidden.
+
+### 4.4 Component tree (Phase 3b)
 
 ```
 <TurnContainer>
@@ -290,12 +499,13 @@ provider-agnostic parser and the dumb Timeline.
               └── <DoneMarker /> | <ErrorMarker />
 ```
 
-Each `TimelineItem` switches on `item.kind` (or `item.toolName`) and
-picks a renderer via the registry (parser spec §3.3, §11).
+Each `TimelineItem` switches on `item.kind` (or `item.toolName`)
+and picks a renderer via the registry. See `llm-stream-parser.md`
+§3.3 for the renderer registry and §6 for the visual specs.
 
-### 3.4 Renderers
+### 4.5 Renderers (Phase 3b)
 
-The available renderers (parser spec §3.3) :
+The available renderers per `llm-stream-parser.md` §3.3 :
 
 - `FileReadRenderer` — file-text icon + file chip
 - `FileEditRenderer` — file-pen icon + file chip + diff stats
@@ -308,84 +518,79 @@ The available renderers (parser spec §3.3) :
 - `ErrorMarker` — x-circle, label _"Error"_
 
 Adding a new renderer = one file in `libs/ui/timeline/renderers/`
-plus one line in `tool-renderers.registry.ts`. The parser is never
-touched.
+plus one line in `tool-renderers.registry.ts`. The parser is
+never touched.
 
-### 3.5 Plan mode rendering
+### 4.6 Plan mode rendering (Phase 3b)
 
-When the `TurnState` contains a `planProposal` (parser spec §7.2) :
+When the `TurnState` contains a `planProposal` (parser spec
+§7.2) :
 
 - Render the plan steps as PENDING `TimelineItem`s, immediately.
 - Render two action buttons at the bottom of the timeline :
   _"Approve"_ (primary) and _"Cancel"_ (ghost).
-- On click, emit `(approvePlan)` or `(cancelPlan)` (no state change
-  inside Timeline ; the host updates `TurnState` based on user
-  decision).
+- On click, emit `(approvePlan)` or `(cancelPlan)` (no state
+  change inside Timeline ; the host updates `TurnState` based on
+  user decision).
 - Once approved, subsequent tool calls flip the PENDING items to
-  ACTIVE → DONE as they correspond (via `planStepId` matching ; the
-  host has already done this work via the reducer).
+  ACTIVE → DONE as they correspond (via `planStepId` matching ;
+  the host has already done this work via the reducer).
 
-### 3.6 Loaders
+### 4.7 Loaders (Phase 3b)
 
-- **Text loader** : while the streamed text portion is being emitted
-  (i.e. `<MessageBody>` is receiving `text_delta`), a subtle
-  pulsing dot appears at the cursor position. CSS animation,
-  `prefers-reduced-motion` removes it.
+- **Text loader** : while the streamed text portion is being
+  emitted (i.e. `<MessageBody>` is receiving `text_delta`), a
+  subtle pulsing dot appears at the cursor position. CSS
+  animation, `prefers-reduced-motion` removes it.
 - **Spinner** : `HlmSpinner` on a `TimelineItem` in ACTIVE state
-  **only when no shimmer applies** (e.g. shell command running with
-  no text output yet). Shimmer is the default ACTIVE indicator (per
-  parser spec §6.1) ; spinner is the fallback for renderers that
-  don't show text.
+  **only when no shimmer applies** (e.g. shell command running
+  with no text output yet). Shimmer is the default ACTIVE
+  indicator (per parser spec §6.1) ; spinner is the fallback
+  for renderers that don't show text.
 
-### 3.7 Visual specs
+### 4.8 Visual specs
 
-Visual specs (shimmer animation timing, timeline geometry, icon
-sizes, file chip styling, diff stats colors) are owned by
-[`llm-stream-parser.md`](./llm-stream-parser.md) §6. This spec does
-not duplicate them. Step 3.5 implements those visuals exactly as
-specified there.
+All visual specs (shimmer animation timing, timeline geometry,
+icon sizes, file chip styling, diff stats colors) are owned by
+[`llm-stream-parser.md`](./llm-stream-parser.md) §6. This spec
+does not duplicate them.
 
-### 3.8 Sticky-bottom auto-scroll
+Phase 3b implementation : capture HTML / CSS reference snippets
+from Claude.ai (via browser inspector) and paste them into
+`llm-stream-parser.md` v2 §6 before starting implementation. The
+reference resolves any ambiguity in the textual specs.
 
-Per parser spec §5.4. The Timeline does not implement scroll itself
-— it's just a list. The smart wrapper in `domains/chat/` (Step 5)
-or the host page handles the scroll container via `cdkScrollable` +
-the sticky-bottom pattern.
-
-### 3.9 Primitives used (from `libs/ui` + CDK)
+### 4.9 Primitives used (from `libs/ui` + CDK)
 
 - `HlmButton` (Approve / Cancel plan buttons)
-- `HlmCollapsible` (per-item expand/collapse)
+- `HlmCollapsible` (per-item expand / collapse)
 - `HlmSpinner` (timeline ACTIVE fallback)
 - `HlmBadge` (renderer-specific accents)
-- `HlmIcon` + Lucide icons
-- `@angular/cdk/scrolling` (sticky-bottom — managed by host, not
-  Timeline)
+- `HlmIcon` + Lucide icons via `@ng-icons/lucide`
 - `@angular/cdk/a11y` `LiveAnnouncer` (announces ERROR state to
   screen readers)
 
 ---
 
-## 4. File layout in `libs/ui`
+## 5. File layout in `libs/ui`
 
 ```
 libs/ui/
 ├── composer/
-│   ├── composer.component.ts            # public
-│   ├── composer-textarea.component.ts   # private
-│   ├── composer-model-select.component.ts
-│   ├── composer-effort-select.component.ts
-│   ├── composer-plan-toggle.component.ts
-│   ├── composer-context-menu.component.ts
-│   ├── composer-send.component.ts
-│   ├── composer.types.ts                # ModelOption, EffortLevel, AddContextAction
-│   └── composer.spec.ts
+│   ├── composer.component.ts                    # public
+│   ├── composer.types.ts                        # ChatMode, ModelOption, EffortLevel
+│   ├── composer-textarea.component.ts           # private
+│   ├── composer-mode-control.component.ts       # private
+│   ├── composer-model-select.component.ts       # private
+│   ├── composer-effort-select.component.ts      # private
+│   ├── composer-send.component.ts               # private (Send + Stop variants)
+│   └── composer-scroll-overlay.component.ts     # private (two absolute buttons)
 │
-└── timeline/                             # (also detailed in parser spec §11)
+└── timeline/                                     # Phase 3b ; not built in 3a
     ├── turn-container.component.ts
-    ├── turn-header.component.ts          # shimmer summary + chevron
+    ├── turn-header.component.ts                 # shimmer summary + chevron
     ├── turn-body.component.ts
-    ├── message-body.component.ts
+    ├── message-body.component.ts                # text stream rendering — USED IN 3a
     ├── timeline.component.ts
     ├── timeline-item.component.ts
     ├── done-marker.component.ts
@@ -405,100 +610,112 @@ libs/ui/
 
 Public exports from `libs/ui` :
 
-- `Composer` (the composer surface, with its types)
-- `TurnContainer` (the timeline surface, with `TurnState` type
-  imported from `@mozart/llm-model`)
+- `Composer` and its types (`ChatMode`, `ModelOption`,
+  `EffortLevel`)
+- `MessageBody` (Phase 3a) — to render raw streamed text
+- `TurnContainer` (Phase 3b) — to render the full Claude-style turn
 
-All sub-components are **private** — not re-exported. Smart wrappers
-in domains only import the public surfaces.
+All sub-components are **private** — not re-exported.
 
 ---
 
-## 5. Sandbox / demo
+## 6. Sandbox / demo
 
 Step 3.5's Definition-of-done requires a way to demonstrate both
-components with mock data, without any domain wiring. Two options
-(Phase B of Step 3.5 picks one) :
+components with mock data, without any domain wiring. Pick one of :
 
 1. **Storybook setup in `libs/ui`** if not already configured.
 2. **A dev route** in the app (`/__sandbox/composer`,
-   `/__sandbox/timeline`) gated to non-production builds. The route
-   feeds mock `ModelOption[]` and mock `TurnState` to demo all
-   renderers.
+   `/__sandbox/timeline`) gated to non-production builds. The
+   route feeds mock `ModelOption[]` and mock `TurnState` to demo
+   all renderers.
+
+Phase B of the relevant phase decides.
 
 The sandbox covers :
 
-- Composer in all states (idle, plan mode, disabled, with various
-  models + efforts)
-- Timeline with each renderer family
-- Timeline in plan-proposal state with Approve / Cancel
+- Composer in all states : idle / streaming / disabled, all three
+  modes, with various model + effort selections
+- Composer overlay buttons appearing / disappearing on prop
+  toggle
+- Timeline with each renderer family (Phase 3b)
+- Timeline in plan-proposal state with Approve / Cancel (Phase
+  3b)
 - Reduced-motion mode (shimmer + pulses replaced by static)
 
 ---
 
-## 6. Anti-regression checks
+## 7. Anti-regression checks
 
-1. **No domain imports.** `grep -rn "from '@mozart/" libs/ui/composer
-libs/ui/timeline` returns zero matches (except, if applicable, an
-   import of `TurnState` type from `@mozart/llm-model` which is
-   acceptable — it's a type, not state).
-2. **No Tauri.** `grep -rn "@tauri-apps/api" libs/ui` returns zero
-   matches.
-3. **Public surface stable.** Inputs and outputs of `Composer` and
-   `TurnContainer` are signal-based (no `@Input()` decorators, no
-   `EventEmitter`). The contract is the same shape on both ends of
-   v0.0.1 → v0.0.2 (no breaking changes).
-4. **Reduced motion.** With `prefers-reduced-motion: reduce`, no
-   shimmer, no pulses, no transitions ; expand / collapse stays
-   functional (instantaneous).
-5. **Sub-components private.** Only `Composer` and the timeline
-   public components are re-exported from `libs/ui`'s entry point.
-
----
-
-## 7. Out of scope (deferred)
-
-- Real file-picker logic for _"Add attachment"_ — host wires it in
-  the step that needs it.
-- Real `HlmCommand` palette for _"Link workspace"_ — same.
-- Issue-URL parser for _"Link issue"_ — same.
-- Per-chat persistence of selected model / effort / plan mode — this
-  is the host's concern (Step 4 Phase B decides whether to persist
-  in the chat row or to keep them transient).
-- Stop button replacing send during streaming — TBD (§2.10).
-- Inline edit / rollback of past timeline items — v1.0.0+.
-- Streaming response replay for review panel — v1.0.0+ (Timeline is
-  designed to support it as a future capability).
+1. **No domain imports** : `grep -rn "from '@mozart/"
+libs/ui/composer libs/ui/timeline` returns only **type-only**
+   imports of `TurnState` from `@mozart/llm-model`. No runtime
+   imports from any `@mozart/` domain.
+2. **No Tauri** : `grep -rn "@tauri-apps/api" libs/ui` returns
+   zero matches.
+3. **Public surface stable** : Inputs and outputs of `Composer`
+   and `TurnContainer` / `MessageBody` are signal-based (no
+   `@Input()` decorators, no `EventEmitter`).
+4. **Reduced motion** : with `prefers-reduced-motion: reduce`,
+   no shimmer, no pulses, no transitions ; expand / collapse
+   stays functional (instantaneous).
+5. **Sub-components private** : only `Composer`, `MessageBody`,
+   `TurnContainer` are re-exported from `libs/ui`'s entry point.
+6. **Signal Forms only** : `grep -rn "FormGroup\|FormControl\|FormBuilder"
+libs/ui/composer` returns zero matches (Signal Forms per
+   `plan.md` tech conventions).
+7. **OnPush** : every component has
+   `changeDetection: ChangeDetectionStrategy.OnPush`.
 
 ---
 
-## 8. Open questions for arbitration
+## 8. Out of scope (deferred per `plan.md` post-MVP)
 
-1. **HlmSelect vs HlmDropdownMenu for model / effort selectors.**
-   Spec says `HlmSelect` with the content structure of the dropdown
-   sample. Confirm that `HlmSelect` supports : groups with labels,
-   row icons, right-aligned check indicator, badges in rows. If
-   not, fall back to `HlmDropdownMenu` and add the radio-indicator
-   pattern from the dropdown sample.
+Recap of what's NOT in this `libs/ui` task :
 
+- `/` skills shortcut + chip rendering
+- `@` context shortcut + chip rendering
+- `+` add-context button (lives next to mode / model in the
+  post-MVP version of the composer)
+- `HlmCombobox` overlay at caret
+- Multi-context warning at 5+ chips
+- Web URL mini-input chip
+- PR / Workspace / Chat chip variants
+- `skills` table integration
+- File tabs (in tab bar, not the composer — already designed in
+  `WorkspaceTabBar` but not routed in MVP)
+
+When these ship (post-MVP), the Composer gains a new private
+sub-component `composer-context-row.component.ts` for the chip
+rail, and `composer-shortcut-overlay.component.ts` for the
+`HlmCombobox` overlay. The public surface gains
+`(addContext: AddContextAction)` and `(applySkill: SkillId)`
+outputs. No breaking change to existing inputs / outputs.
+
+---
+
+## 9. Open questions for Phase B (companion task)
+
+1. **HlmToggleGroup vs HlmTabs for the mode segmented control.**
+   The exact API in the installed Spartan version determines
+   which renders best as 3-option pills. Phase A confirms,
+   Phase B picks.
 2. **Composer position : truly absolute or sticky ?**
    Spec says `position: absolute` relative to middle column. An
-   alternative is `position: sticky; bottom: 0` inside the column's
-   scroll container. Both achieve the floating-at-bottom effect ;
-   sticky is friendlier with the message list's scroll. Phase B
-   confirms.
-
-3. **Plan mode placeholder copy.**
-   Default proposed : _"describe the change you want to plan — Mozart
-   will draft a step-by-step plan before touching files"_. Adjust
-   for tone in Phase B.
-
-4. **Effort default.**
-   Spec doesn't fix a default. Recommend `medium`. The selected
-   value lives in the host ; Composer is just a dumb display.
-
-5. **`+` menu submenus.**
-   Three patterns possible : cascading submenu (native dropdown
-   nested), sequential dialog ("Add attachment" closes the menu then
-   opens a file picker), or full-screen command palette. Phase B
-   picks per item ; the menu just emits the event.
+   alternative is `position: sticky; bottom: 0` inside the
+   column's scroll container. Both achieve the floating-at-
+   bottom effect ; sticky is friendlier with the message list's
+   scroll. Phase B confirms.
+3. **Stop button behavior mid-stream** — does it cancel
+   immediately (SIGINT-style on the agent) or just stop the
+   stream rendering ? Likely the former, but Phase B confirms
+   with the chat facade contract.
+4. **Effort `xhigh` icon** — Lucide's `signal-high` is the
+   second-highest ; the gap to `signal` (full) doesn't naturally
+   express _"xhigh"_. Phase B may pick a different mapping or a
+   custom 5-bar SVG.
+5. **Plan mode placeholder copy** — proposed default :
+   _"Describe the change — Mozart will plan before touching
+   files"_. Adjust for tone in Phase B.
+6. **Default effort per chat** — the host picks. Plan.md
+   leaves this open ; recommend `medium`.

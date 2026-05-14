@@ -14,11 +14,11 @@ import { HlmToggleImports } from '@mozart/ui/toggle';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideArrowUp,
   lucideBot,
-  lucideCornerDownLeft,
+  lucideCircleStop,
   lucideMap,
   lucideSignalMedium,
-  lucideSquare,
 } from '@ng-icons/lucide';
 import { HlmComposerPlusMenu } from './hlm-composer-plus-menu';
 
@@ -43,11 +43,11 @@ export interface ComposerSendEvent {
   ],
   providers: [
     provideIcons({
+      lucideArrowUp,
       lucideBot,
-      lucideCornerDownLeft,
       lucideMap,
       lucideSignalMedium,
-      lucideSquare,
+      lucideCircleStop,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -71,6 +71,8 @@ export interface ComposerSendEvent {
         ></textarea>
 
         <div class="flex items-center gap-1 px-2 py-2">
+          <hlm-composer-plus-menu />
+
           <button
             hlmBtn
             variant="ghost"
@@ -119,7 +121,7 @@ export interface ComposerSendEvent {
             "
             class="rounded-lg"
           >
-            <ng-icon hlm name="lucideMap" size="xs" />
+            <ng-icon hlm name="lucideMap" size="sm" />
             @if (mode() === 'plan') {
               <span>Plan</span>
             }
@@ -127,36 +129,37 @@ export interface ComposerSendEvent {
 
           <span class="flex-auto"></span>
 
-          <hlm-composer-plus-menu />
-
-          @if (isRunning()) {
+          @if (isRunning() && value().trim().length === 0) {
             <button
               hlmBtn
               variant="destructive"
               size="icon-sm"
               type="button"
               hlmTooltip="Stop"
-              class="ml-2 rounded-lg"
+              class="rounded-lg"
               (click)="_emitStop()"
               aria-label="Stop current run"
             >
-              <ng-icon hlm name="lucideSquare" size="xs" />
+              <ng-icon hlm name="lucideCircleStop" size="sm" />
+            </button>
+          } @else {
+            <button
+              hlmBtn
+              variant="default"
+              size="icon-sm"
+              type="submit"
+              class="rounded-lg"
+              [disabled]="!_canSubmit()"
+              [hlmTooltip]="
+                isRunning()
+                  ? 'Queue message — current run keeps going'
+                  : 'Send message'
+              "
+              [attr.aria-label]="mode() === 'plan' ? 'Plan' : 'Send message'"
+            >
+              <ng-icon hlm name="lucideArrowUp" size="sm" />
             </button>
           }
-          <button
-            hlmBtn
-            variant="default"
-            size="sm"
-            type="submit"
-            [class.ml-1]="isRunning()"
-            [class.ml-2]="!isRunning()"
-            class="rounded-lg"
-            [disabled]="!_canSubmit()"
-            [hlmTooltip]="isRunning() ? 'Queue message — the current run keeps going' : null"
-          >
-            <span>{{ mode() === 'plan' ? 'Plan' : 'Send' }}</span>
-            <ng-icon hlm name="lucideCornerDownLeft" size="xs" />
-          </button>
         </div>
       </div>
     </form>

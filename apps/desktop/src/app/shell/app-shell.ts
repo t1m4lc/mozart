@@ -122,9 +122,12 @@ import { ShellProjectList } from './shell-project-list';
                   #filter
                   [groupBy]="projects.groupBy()"
                   (groupByChange)="projects.setGroupBy($event)"
+                  [class.hidden]="projects.visible().length === 0"
                 />
                 <app-feature-add-project
                   (openProject)="addProjectFlow.openPickerAndOpen()"
+                  (openGithubProject)="addProjectFlow.openCloneDialog()"
+                  (quickStart)="addProjectFlow.openCreateDialog()"
                 />
               </div>
 
@@ -133,6 +136,9 @@ import { ShellProjectList } from './shell-project-list';
                   (expandAll)="projects.expandAll()"
                   (collapseAll)="projects.collapseAll()"
                   (openFilter)="filter.open()"
+                  (openProject)="addProjectFlow.openPickerAndOpen()"
+                  (openGithubProject)="addProjectFlow.openCloneDialog()"
+                  (quickStart)="addProjectFlow.openCreateDialog()"
                 />
               </ng-template>
 

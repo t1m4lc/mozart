@@ -1626,6 +1626,269 @@ End of Phase 6 = **end of v0.0.1 MVP**.
 
 ---
 
+# Post-MVP, pre-production — three consolidation phases
+
+Once the six MVP phases land, three consolidation phases prepare
+Mozart for production : a clean refactor + dev-tools-visible store
+(Phase 7), an e2e regression suite (Phase 8), and the production
+readiness work (Phase 9).
+
+These three phases are NOT part of v0.0.1 MVP. They run after.
+They sit before any post-production feature work (skills
+shortcuts, chats group, metrics dashboard, telemetry, etc.).
+
+## Phase 7 — Refactor & UI state store cleanup
+
+### Goal
+
+> _"The MVP works end-to-end, but the codebase has accumulated
+> small inconsistencies during a fast build. Phase 7 is a
+> dedicated pass to tidy up, normalize the store layer to one
+> consistent pattern, and make all app state visible in the
+> Redux DevTools browser extension."_
+
+### Scope
+
+- **Store audit** : list every store in
+  `apps/desktop/src/app/domains/*/data/*.store.ts`. Confirm they
+  all use `@ngrx/signals` `signalStore`. Migrate any outliers
+  (vanilla signals, BehaviorSubject leftovers from `legacy/`,
+  service-with-properties patterns) to the consistent signalStore
+  pattern.
+- **Redux DevTools integration** : every signalStore gets
+  `withDevtools('storeName')` from `@ngrx/signals/store-feature`
+  (or the equivalent in the installed `@ngrx/signals` version).
+  Verify the Redux DevTools Chrome / Firefox extension shows the
+  full state tree of the running app with time-travel debugging.
+- **UI state store** : if no dedicated UI state store exists,
+  create `domains/ui-state/` :
+  - Sidebar collapsed / expanded state of each project
+  - Active modal stack
+  - Current theme (dark / light / system)
+  - Last visited workspace per project (for session restore)
+  - Tour completion flags
+  - Sound + notification preferences
+  - Any other ephemeral UI state currently scattered in
+    components
+
+  Even if some of this is in localStorage today, surface it
+  through the UI state store so DevTools can inspect it.
+
+- **Facade gate enforcement** : run the
+  `inject(\w*Store|\w*ADAPTER)` grep and fix any violation that
+  slipped in during MVP rush.
+- **Adapter discipline pass** : confirm `@tauri-apps/api` only
+  in `*-tauri.adapter.ts`. Move any drift.
+- **Dead code removal** : delete anything in `legacy/` that is
+  no longer referenced anywhere.
+- **Worktree boundary** : final grep for the path /
+  vocabulary leaks per Anti-regression rules.
+
+### Deliverables
+
+1. Every store visible in Redux DevTools with descriptive names
+2. `domains/ui-state/` shipped (if not already present)
+3. Zero facade gate violations
+4. `legacy/` folder reduced to only what's still referenced (or
+   deleted entirely if nothing remains)
+5. A short `ARCHITECTURE.md` in the repo root summarizing the
+   final architecture (one page : domains map + conventions
+   recap)
+
+### Demoable milestone
+
+Open Redux DevTools in the running desktop app → see the full
+state tree → click a state entry → see it update live as you use
+the app → time-travel through last 10 actions.
+
+---
+
+## Phase 8 — Non-regression tests in `apps/desktop-e2e`
+
+### Goal
+
+> _"Critical user flows are protected by end-to-end tests that
+> run in CI before any merge. Refactors can land without fear of
+> silently breaking the prompt-to-PR loop."_
+
+### Testing philosophy
+
+Mozart follows a deliberate testing strategy :
+
+- **Unit tests** : only for **pure logic** (parsers, reducers,
+  mappers, util functions, critical signal store state
+  transitions). Co-located `.spec.ts` files. Total budget : ~30
+  unit tests in MVP, focused on `domains/llm-model/data/stream/`
+  - adapter mappers + a few stores. **No unit tests on
+    components or templates** — they add noise without value.
+- **E2e tests** : the main investment. Test what the user does,
+  not how the code is structured. Run against the built desktop
+  binary.
+- **No integration tests** in between. The dichotomy unit-pure
+  vs e2e-flow covers the spectrum.
+
+### Scope
+
+- **Framework selection** : pick one of
+  - WebdriverIO + `tauri-driver` (official Tauri recommendation)
+  - Playwright with Tauri integration (community-supported)
+  - Phase B picks based on installed deps + maintenance trade-
+    offs
+- **`apps/desktop-e2e` project setup** in the Nx monorepo,
+  separate from `apps/desktop`
+- **Test scenarios** (the ~10 e2e tests of MVP) :
+  1. Onboarding happy path : sign-in → Git OK → Claude Code
+     login → GitHub connect → tour finish
+  2. Onboarding skip path : sign-in → Git OK → Claude Code via
+     API key → skip GitHub → skip tour
+  3. Add project flow (Open project card → existing git folder
+     → workspace auto-created → composer focused)
+  4. Add project flow (Quick start → folder created → GitHub
+     repo created → workspace ready)
+  5. Send message in Agent mode → assistant streams response →
+     a file is created on disk
+  6. Send message in Ask mode → assistant responds without file
+     edits (read-only enforced)
+  7. Send message in Plan mode → plan_proposal shows → user
+     approves → execution proceeds (Phase 3b dependency)
+  8. Open in IDE handoff → external command spawned
+  9. Commit dialog → commit lands → Create PR dialog → PR
+     submitted → URL displayed
+  10. Restart app while authenticated → straight to dashboard
+      without re-auth
+- **CI integration** : tests run on every PR, block merge on
+  failure
+- **Per-phase coverage** : retroactively add an e2e test for
+  every demoable milestone from Phases 1-6 that isn't already
+  covered
+
+### Deliverables
+
+1. `apps/desktop-e2e/` project bootstrapped
+2. ~10 e2e tests passing locally + in CI
+3. CI pipeline updated to run e2e on every PR
+4. README in `apps/desktop-e2e/` documenting how to run / debug
+5. A small `~30` unit tests landed in `domains/llm-model` + a
+   few critical mappers (per testing philosophy above)
+
+### Demoable milestone
+
+Open a PR with a small refactor → CI runs e2e → all green →
+merge confident.
+
+---
+
+## Phase 9 — Production readiness
+
+### Goal
+
+> _"Mozart ships to real users. Code is signed, updates are
+> delivered automatically, crashes surface centrally, and the
+> distribution funnel is in place."_
+
+### Scope
+
+- **Code signing** :
+  - macOS : Apple Developer ID + notarization (`tauri-cli`'s
+    macOS signing config)
+  - Windows : Authenticode certificate
+  - Linux : not strictly required ; consider AppImage signing
+- **Auto-update** :
+  - `tauri-plugin-updater` with an update manifest endpoint
+    served from `mozart.build/updates/` (or a CDN)
+  - Update flow : check on launch + every 24 h, download in
+    background, prompt user to relaunch
+  - Beta / stable channels (post-MVP can stay on a single
+    channel for first releases)
+- **Crash reporting** :
+  - Sentry SDK on both Rust (Tauri side) and Angular (front
+    side)
+  - Crash reports include : version, OS, anonymized user ID
+    (post-MVP : opt-in via telemetry settings)
+  - PII scrubbing : prompts, file contents, API keys never in
+    error reports
+- **Telemetry initial wiring** :
+  - The `telemetry` domain (post-MVP feature, per Out of scope
+    section) lands here with the minimum events :
+    `app_launched`, `onboarding_completed`, `project_added`,
+    `prompt_sent`, `pr_created`
+  - PostHog or equivalent provider
+  - **Opt-in mandatory** at the end of onboarding ; disclosure
+    of what's collected ; zero PII
+- **Distribution** :
+  - Download links on `mozart.build` (DMG / MSI / AppImage)
+  - SHA256 checksums published alongside each binary
+  - Versioning : semver, starting at `0.1.0` (v0.0.1 MVP =
+    `0.1.0-beta.1` or similar, Phase B decides)
+- **Release notes infrastructure** :
+  - `CHANGELOG.md` in the repo, conventional commits drive it
+  - Release notes shown in-app after auto-update (post-
+    production polish)
+- **Logs in production** :
+  - Strip `console.log` from production builds (Angular build
+    config)
+  - Tauri-side logs go to OS-standard locations
+    (`~/Library/Logs/Mozart/` on macOS, etc.)
+  - Log level configurable in Settings (post-production polish)
+- **Privacy + ToS** :
+  - Privacy policy + ToS pages on `mozart.build`
+  - Linked from onboarding step 1 (welcome) and Settings
+
+### Deliverables
+
+1. Signed + notarized macOS build
+2. Signed Windows build
+3. Auto-update working end-to-end against a staging endpoint
+4. Sentry capturing both Rust panics and Angular errors
+5. Telemetry domain shipped with 5 base events, opt-in flow in
+   onboarding
+6. Public download page on `mozart.build` with checksums
+7. `CHANGELOG.md` + versioning convention documented
+8. Privacy + ToS published
+
+### Demoable milestone
+
+Real user on a fresh machine : downloads from `mozart.build`,
+installs, opens Mozart, signs in, completes onboarding, sends a
+prompt, commits a PR, restarts the app a week later, gets an
+auto-update prompt, applies it, continues working. Zero
+Mozart-side crashes ; one anonymized session shows up in
+PostHog.
+
+End of Phase 9 = **Mozart is in production for real users**.
+
+---
+
+## Plan maintenance — `done.md` migration
+
+Once all six MVP phases are complete (end of Phase 6), perform
+a one-time cleanup :
+
+1. Create `docs/done.md` in the repo
+2. Move the full content of Phases 1-6 from `plan.md` to
+   `done.md`, preserving every detail as a historical record
+3. In `plan.md`, replace each phase section with a one-line
+   summary :
+   ```
+   ## Phase 1 — Project + Workspace flow ✅ DONE
+   See `done.md` for the full historical spec.
+   ```
+4. Update `plan.md`'s intro to reflect the new state :
+   _"MVP shipped. Current work : Phase 7-9 (consolidation +
+   production). Next : post-production feature work, see
+   priorities below."_
+5. The "Out of scope (post-MVP)" section becomes the
+   **active backlog** to prioritize
+
+This keeps `plan.md` a forward-looking document and preserves
+the MVP work as immutable history in `done.md` (useful for
+onboarding new contributors).
+
+Same migration happens at the end of Phase 7, 8, 9 : each phase
+moves to `done.md` when complete.
+
+---
+
 ## Anti-regression checks across all phases
 
 Run these greps + assertions at the end of every phase :
@@ -1799,8 +2062,19 @@ To explore in a dedicated design doc before any implementation.
 
 - **Saved & organized chats** : favorite / rename / folders /
   tags / cross-chat search
-- **Domain `metrics`** : time used per provider / model /
-  project, tokens consumed, tokens saved by Mozart strategies
+- **Domain `metrics`** (user-facing) : time used per provider /
+  model / project, tokens consumed, tokens saved by Mozart
+  strategies. Surfaced to the user in a dashboard, lets them
+  see their own usage.
+- **Domain `telemetry`** (product analytics) : anonymous usage
+  signals sent to PostHog (or equivalent) for understanding how
+  users interact with Mozart — onboarding funnel completion,
+  feature adoption, retention, crash reports. **Opt-in
+  mandatory** at onboarding ; transparent disclosure of what's
+  collected ; zero PII (no prompts, no file content, no chat
+  text, no GitHub identifiers — just events with anonymous
+  user IDs). Separate domain from `metrics` because the
+  audience, lifecycle, and consent model differ.
 - **Offline PR management** : semi-remote internal PRs with
   merge + conflict resolution. Combined with a local LLM, fully
   offline workflow.

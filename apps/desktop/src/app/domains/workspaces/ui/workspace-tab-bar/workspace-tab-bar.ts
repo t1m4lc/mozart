@@ -8,6 +8,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
+  input,
   signal,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
@@ -104,6 +106,11 @@ const makeChatTab = (title: string): ChatTab => ({
   `,
 })
 export class WorkspaceTabBar {
+  // Streaming flag pushed from the page (one chat per workspace in
+  // Phase 1, so the flag mirrors onto the first chat tab). Drives the
+  // tab icon -> cli-loader swap.
+  readonly streaming = input<boolean>(false);
+
   // Initialize with one empty chat tab so the workspace always has at
   // least one active conversation. The first tab is the "Start" tab —
   // empty state shows the workspace-init checklist. Subsequent tabs
@@ -111,7 +118,23 @@ export class WorkspaceTabBar {
   private readonly initialTab = makeChatTab(DEFAULT_CHAT_TITLE);
 
   protected readonly tabs = signal<readonly WorkspaceTab[]>([this.initialTab]);
-  protected readonly activeTabId = signal<string>(this.initialTab.id);
+  // Public readonly so the page can react to tab-active changes
+  // (currently used to refocus the composer on switch).
+  readonly activeTabId = signal<string>(this.initialTab.id);
+
+  constructor() {
+    // Mirror the page-level streaming signal onto the first chat tab.
+    // Phase 2's "smart tab bar" wiring will let each tab carry its own
+    // streaming state; until then this is the single source of truth.
+    effect(() => {
+      const isStreaming = this.streaming();
+      this.tabs.update((list) =>
+        list.map((t, i) =>
+          i === 0 && t.kind === 'chat' ? { ...t, isStreaming } : t,
+        ),
+      );
+    });
+  }
 
   // Exposed publicly so the page can pick the right empty-state variant.
   // True when the active tab is the leading (first) tab in the strip.
@@ -131,7 +154,14 @@ export class WorkspaceTabBar {
 
   protected addChatTab(): void {
     if (this.atMaxTabs()) return;
-    const tab = makeChatTab(NEW_CHAT_TITLE);
+    // Number new tabs incrementally: Untitled, Untitled2, Untitled3…
+    // Numbering is local to the tab bar instance.
+    const taken = new Set(this.tabs().map((t) => t.title));
+    let title = NEW_CHAT_TITLE;
+    for (let i = 2; taken.has(title); i++) {
+      title = `${NEW_CHAT_TITLE}${i}`;
+    }
+    const tab = makeChatTab(title);
     this.tabs.update((list) => [...list, tab]);
     this.activeTabId.set(tab.id);
   }

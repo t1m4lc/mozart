@@ -59,8 +59,7 @@ import {
         <button
           hlmDropdownMenuItem
           type="button"
-          disabled
-          hlmTooltip="Coming in v0.2"
+          (triggered)="openGithubProject.emit()"
         >
           <ng-icon hlm name="lucideGithub" size="sm" />
           Open GitHub project
@@ -68,8 +67,7 @@ import {
         <button
           hlmDropdownMenuItem
           type="button"
-          disabled
-          hlmTooltip="Coming in v0.2"
+          (triggered)="quickStart.emit()"
         >
           <ng-icon hlm name="lucideZap" size="sm" />
           Quick start
@@ -80,4 +78,6 @@ import {
 })
 export class FeatureAddProject {
   readonly openProject = output<void>();
+  readonly openGithubProject = output<void>();
+  readonly quickStart = output<void>();
 }

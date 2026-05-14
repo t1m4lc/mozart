@@ -1,18 +1,91 @@
-# Mozart — LLM Stream Parser & UI Specification
+# Mozart — LLM Stream Parser & UI Specification (v2)
 
-> **Scope :** v0.0.1 — Step 5 (agentic streaming chat) and its
-> supporting parser.
-> **Purpose :** Specify how the raw LLM stream is parsed into
+> **Scope :** v0.0.1 MVP — Phase 3 (agentic streaming chat) and
+> its supporting parser.
+> **Purpose :** specify how the raw LLM stream is parsed into
 > structured events, and how those events are rendered into the
-> live "agent activity" UI (the equivalent of what Claude.ai shows
-> during a tool-using turn).
+> live "agent activity" UI (the equivalent of what Claude.ai
+> shows during a tool-using turn).
 >
-> **Architectural placement :** parser + reducer live in
-> `domains/llm-model/data/stream/`. UI components (turn container,
-> timeline, renderers, file chips, diff stats) live in `libs/ui` as
-> composed dumb components. Chat-side wiring lives in
-> `domains/chat/`. The first provider parser implemented is
-> **Anthropic / Claude**.
+> **Architectural placement :**
+>
+> - **Parser + reducer + types** live in
+>   `domains/llm-model/data/stream/` as **pure functions** — no
+>   DOM, no Angular, no Tauri. Anthropic / Claude is the first
+>   provider parser ; future providers add siblings producing the
+>   same normalized `StreamEvent` union.
+> - **Tauri adapter** lives in `domains/llm-model/data/` as
+>   `tauri-claude.adapter.ts` — the only file importing
+>   `@tauri-apps/api` for the LLM concern.
+> - **UI components** (turn container, timeline, renderers, file
+>   chips, diff stats) live in `libs/ui/timeline/` as composed
+>   dumb components.
+> - **Chat-side wiring** (subscribing to the stream, feeding the
+>   reducer, exposing `TurnState` to the renderers) lives in
+>   `domains/chat/`.
+
+---
+
+## Phase 3a vs Phase 3b — read this first
+
+Per `plan.md` Phase 3, this work ships in two sub-phases :
+
+### Phase 3a — Parser, reducer, raw text rendering, clean scroll
+
+**Priority work.** Builds the foundation :
+
+- Parser + reducer + fixtures + types in
+  `domains/llm-model/data/stream/`
+- Tauri adapter that feeds the parser
+- Chat facade subscribes to the stream and patches `TurnState`
+- UI : **only `<MessageBody>`** from `libs/ui/timeline/` is
+  used in 3a — it renders `turnState.text` as a clean paragraph.
+  No collapsible header, no timeline items, no shimmer, no plan
+  mode UI.
+- The composer's anchor / `autoFollowChat` scroll pattern (per
+  `composer-timeline-ui.md` §3) replaces the current broken
+  scroll patches.
+- Notification + sound on `message_end` when the user isn't on
+  the focused chat.
+
+End of Phase 3a : the agent can actually edit files, the user
+sees the text response, scroll is clean. The full visual specs
+below (sections 4-6) are **not yet implemented**.
+
+### Phase 3b — Full Claude-style Timeline UI
+
+Done **after Phase 3a is stable**. Implements everything in
+sections 4-6 of this doc :
+
+- Collapsible turn header with shimmer summary
+- Vertical timeline of items
+- File-edit / file-read / file-create / shell / search /
+  thinking / generic renderers
+- File chips + diff stats
+- Plan mode UI (`plan_proposal` → PENDING items → Approve /
+  Cancel)
+- Done / Error markers
+- Reduced-motion handling
+
+**Reference snippets** : Phase 3b implementation requires
+**HTML / CSS snippets captured from Claude.ai** to disambiguate
+the visual specs. Before starting Phase 3b :
+
+1. Open a real Claude.ai chat that includes file edits + tool
+   calls + thinking blocks.
+2. Use the browser inspector to copy the relevant DOM and CSS
+   for : the turn header (shimmer summary), the timeline item
+   structure, the file chip, the diff stats, the collapsed
+   thinking block, the done marker.
+3. Paste those snippets into a new appendix `§A — Reference
+snippets` at the bottom of this doc (one block per UI
+   element, with the source date).
+4. Also paste a **public Claude.ai share URL** of the
+   conversation so the agent implementing Phase 3b can verify
+   behavior on a live example.
+
+Without these snippets, Phase 3b is blocked — the textual specs
+below are necessary but not sufficient.
 
 ---
 
@@ -415,16 +488,34 @@ Invariants :
 
 ---
 
-## 10. Out of scope (deferred to v0.0.2+)
+## 10. Out of scope (deferred post-MVP)
 
-- Full diff viewer on click (v0.0.2 right panel).
-- File tree showing modified files (v0.0.2).
-- Terminal / Run tab (v0.0.2).
-- "Open in IDE" dropdown (v0.0.2).
-- Inline edit / rollback of individual tool calls.
-- Branching / "regenerate from here".
-- Cost / token usage display (will live in a separate footer
-  component).
+The agent stream parser captures everything it sees ; UI surfaces
+for some of it are deferred :
+
+- **Full diff viewer on click** — Phase 4 ships an aside diff
+  view (the `(fileChipClick)` event in §4 routes there).
+- **File tree showing modified files** — Phase 4 ships the Files
+  tab.
+- **Terminal / Run tab** — Phase 4.
+- **"Open in IDE" dropdown** — Phase 4 (in the workspace header,
+  not the timeline).
+- **Inline edit / rollback of individual tool calls** — post-MVP.
+- **Branching / "regenerate from here"** — post-MVP.
+- **Token usage display** — **capture-now, display-later**
+  pattern :
+  - The parser DOES capture `TokenUsage` from the
+    `message_end` event (`{ inputTokens, outputTokens,
+cacheCreationTokens?, cacheReadTokens? }`).
+  - The reducer DOES include it in the resulting `TurnState`.
+  - The data IS persisted on `messages.token_usage` (JSON column
+    — add this in the Phase 3 schema migration).
+  - But it is **NOT displayed in MVP**. The post-MVP `metrics`
+    domain (per `plan.md`) will surface it in a usage
+    dashboard.
+- **Cost display** — same pattern as token usage. Captured if
+  the provider returns cost data, persisted, not displayed
+  until `metrics` ships.
 
 ---
 
@@ -505,3 +596,81 @@ Rules :
    OFF for pure-Q&A turns (no tool calls expected). The agent
    decides based on the prompt and emits or skips the
    `plan_proposal`.
+
+---
+
+## Appendix A — Reference snippets from Claude.ai (Phase 3b)
+
+> **TO BE FILLED BEFORE PHASE 3b STARTS.**
+>
+> Use the browser inspector on a real Claude.ai conversation to
+> copy the DOM + CSS for each UI element below. Paste the
+> snippets here with date and source note. The implementing
+> agent will mirror these visuals.
+
+### A.1 — Public Claude.ai conversation URL
+
+> _(Paste here a share URL of a real Claude.ai chat that
+> includes file edits + tool calls + thinking blocks. The agent
+> can refer to this for verifying behavior on a live example.)_
+
+`https://claude.ai/share/...`
+
+### A.2 — Turn header (shimmer summary + chevron)
+
+> _(Paste DOM snippet + CSS rules)_
+
+```html
+<!-- TODO Phase 3b prep -->
+```
+
+```css
+/* TODO Phase 3b prep */
+```
+
+### A.3 — Timeline item (active state, with shimmer on title)
+
+```html
+<!-- TODO Phase 3b prep -->
+```
+
+```css
+/* TODO Phase 3b prep */
+```
+
+### A.4 — File chip + diff stats
+
+```html
+<!-- TODO Phase 3b prep -->
+```
+
+```css
+/* TODO Phase 3b prep */
+```
+
+### A.5 — Thinking block (collapsed default)
+
+```html
+<!-- TODO Phase 3b prep -->
+```
+
+```css
+/* TODO Phase 3b prep */
+```
+
+### A.6 — Done marker
+
+```html
+<!-- TODO Phase 3b prep -->
+```
+
+```css
+/* TODO Phase 3b prep */
+```
+
+### A.7 — Notes
+
+> _(Anything that wasn't obvious from the live UI : animation
+> easing, particular state transitions, etc.)_
+
+---

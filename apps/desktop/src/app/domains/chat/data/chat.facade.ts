@@ -65,6 +65,15 @@ export class ChatFacade {
   // chat-list reads this to render its day-bucketed group.
   readonly allChats = this.store.allChatsSorted;
 
+  // workspaceId -> ms timestamp of the latest message in any of its
+  // chats. Drives the sidebar hover popover's relative-time string so
+  // it reflects the workspace's most recent activity, not its
+  // creation date. Bumped on every persisted message.
+  private readonly _lastActivityByWorkspace = signal<
+    ReadonlyMap<string, number>
+  >(new Map());
+  readonly lastActivityByWorkspace = this._lastActivityByWorkspace.asReadonly();
+
   messagesForWorkspace(
     workspaceId: Signal<string | null>,
   ): Signal<readonly Message[]> {
@@ -203,6 +212,20 @@ export class ChatFacade {
 
   // ---- internals -----------------------------------------------------
 
+  // Bump the workspace's lastActivity if `ms` is strictly newer than
+  // what we have on file. Looking the chat -> workspace mapping up
+  // from the store keeps the call site noise-free.
+  private _bumpActivityForChat(chatId: string, ms: number): void {
+    const chat = this.store.chats().find((c) => c.id === chatId);
+    if (!chat) return;
+    this._lastActivityByWorkspace.update((m) => {
+      if ((m.get(chat.workspaceId) ?? 0) >= ms) return m;
+      const next = new Map(m);
+      next.set(chat.workspaceId, ms);
+      return next;
+    });
+  }
+
   /**
    * Insert a message into the store immediately (optimistic) and persist
    * in parallel. On Tauri failure the optimistic row is marked 'error'.
@@ -228,6 +251,7 @@ export class ChatFacade {
       timeline: input.timeline,
     };
     this.store.addMessage(message);
+    this._bumpActivityForChat(input.chatId, message.createdAt);
     try {
       await this.messages.insert({
         messageId: message.id,

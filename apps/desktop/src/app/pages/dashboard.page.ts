@@ -1,13 +1,17 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmCardImports } from '@mozart/ui/card';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFolderOpen,
   lucideGithub,
+  lucidePanelLeft,
   lucideZap,
 } from '@ng-icons/lucide';
 import { AddProjectFlow } from '../core/add-project.flow';
+import { LayoutService } from '../core/layout.service';
 import { WorkspacesFacade } from '../domains/workspaces';
 
 // Phase 1 dashboard. Renders when no workspace is selected (`/`).
@@ -16,13 +20,34 @@ import { WorkspacesFacade } from '../domains/workspaces';
 // Clone GitHub repo / Create project dialogs.
 @Component({
   selector: 'app-dashboard-page',
-  imports: [NgIcon, HlmCardImports, HlmIconImports],
+  imports: [
+    NgIcon,
+    HlmButtonImports,
+    HlmCardImports,
+    HlmIconImports,
+    HlmTooltipImports,
+  ],
   providers: [
-    provideIcons({ lucideFolderOpen, lucideGithub, lucideZap }),
+    provideIcons({ lucideFolderOpen, lucideGithub, lucidePanelLeft, lucideZap }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex h-full items-center justify-center p-8' },
+  host: { class: 'relative flex h-full items-center justify-center p-8' },
   template: `
+    @if (!layout.leftPanelOpen()) {
+      <button
+        hlmBtn
+        variant="ghost"
+        size="icon-xs"
+        type="button"
+        hlmTooltip="Toggle left sidebar"
+        position="bottom"
+        class="absolute left-2 top-2 size-7 rounded-md text-muted-foreground"
+        (click)="layout.toggleLeftPanel(); $any($event.currentTarget).blur()"
+      >
+        <ng-icon hlm name="lucidePanelLeft" size="xs" />
+      </button>
+    }
+
     <div class="grid w-full max-w-4xl grid-cols-1 gap-6 md:grid-cols-3">
       <button
         type="button"
@@ -73,6 +98,7 @@ import { WorkspacesFacade } from '../domains/workspaces';
 })
 export class DashboardPage {
   private readonly addProjectFlow = inject(AddProjectFlow);
+  protected readonly layout = inject(LayoutService);
 
   constructor() {
     // Clear active workspace so the shell knows we are not in a

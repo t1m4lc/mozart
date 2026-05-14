@@ -59,9 +59,10 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       (workspaceTitleChange)="onRename($event)"
     />
 
-    <app-workspace-tab-bar #tabBar />
+    <app-workspace-tab-bar #tabBar [streaming]="isStreaming()" />
 
     <app-feature-chat-panel
+      #chatPanel
       class="flex-1 min-h-0"
       [workspaceId]="store.workspaceId()"
     >
@@ -73,6 +74,8 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
         [sourceBranch]="store.workspaceTitle()"
         [targetBranch]="store.targetBranch()"
         [numberOfFiles]="0"
+        [installState]="install().state"
+        [installManager]="install().manager"
       />
     </app-feature-chat-panel>
 
@@ -130,10 +133,30 @@ export class WorkspaceDetailPage {
     this.store.workspaceId,
   );
 
+  // Current package-install lifecycle for this workspace. Tracks the
+  // running -> success/failed/no_package transitions so the empty-state
+  // step 4 renders the live status without needing a toast.
+  protected readonly install = computed(() => {
+    const id = this.id();
+    return id
+      ? this.workspaces.installFor(id)
+      : ({ state: 'idle' as const, manager: '' });
+  });
+
   protected readonly sidebarHeader =
     viewChild.required<TemplateRef<unknown>>('sidebarHeaderTpl');
+  private readonly tabBar = viewChild.required(WorkspaceTabBar);
+  private readonly chatPanel = viewChild.required(FeatureChatPanel);
 
   constructor() {
+    // Tab activated -> refocus the composer. The dumb tab bar exposes
+    // its activeTabId signal; this effect runs whenever it changes
+    // (including the initial mount).
+    effect(() => {
+      const _ = this.tabBar().activeTabId();
+      this.chatPanel().focusComposer();
+    });
+
     effect(() => {
       const id = this.id();
       if (id) {

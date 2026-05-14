@@ -12,6 +12,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
+import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { toast } from '@spartan-ng/brain/sonner';
@@ -24,6 +25,7 @@ import {
   ProjectsFacade,
   type Project,
 } from '../domains/projects';
+import { AddProjectFlow } from '../core/add-project.flow';
 import { ChatFacade } from '../domains/chat';
 import { WorkspaceContextMenu } from '../domains/workspaces/ui/workspace-context-menu/workspace-context-menu';
 import { WorkspaceEmptyState } from '../domains/workspaces/ui/workspace-empty-state/workspace-empty-state';
@@ -41,6 +43,7 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
     CdkDropList,
     CdkDrag,
     HlmContextMenuImports,
+    HlmDropdownMenuImports,
     HlmSidebarImports,
     ProjectRow,
     WorkspaceRow,
@@ -52,7 +55,9 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (visibleProjects().length === 0) {
-      <app-projects-empty-state />
+      <app-projects-empty-state
+        [hlmContextMenuTrigger]="emptyProjectsCtxMenuTpl"
+      />
     } @else {
       <ul
         hlmSidebarMenu
@@ -82,6 +87,8 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
                 @if (projectWorkspaces.length === 0) {
                   <li class="px-1 py-2">
                     <app-workspace-empty-state
+                      [hlmContextMenuTrigger]="emptyWorkspacesCtxMenuTpl"
+                      [hlmContextMenuTriggerData]="{ $implicit: project.id }"
                       (create)="createWorkspace(project.id)"
                     />
                   </li>
@@ -100,6 +107,7 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
                       [editing]="editingWorkspaceId() === workspace.id"
                       [isStreaming]="streamingIds().has(workspace.id)"
                       [chatTitle]="chatTitleFor(workspace.id)"
+                      [lastActivity]="lastActivityFor(workspace.id)"
                       (archive)="archiveWorkspace(workspace.id)"
                       (renameCommit)="onRenameCommit(workspace.id, $event)"
                       (renameCancel)="editingWorkspaceId.set(null)"
@@ -131,11 +139,58 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
         (setStatus)="onSetStatus(w.id, $event)"
       />
     </ng-template>
+
+    <!-- Context menus surfaced on the empty states (right-click on
+         "No projects yet." / "No workspaces yet") so the user has the
+         same add-project / new-workspace entry points without needing
+         to find the sidebar header `+` button. -->
+    <ng-template #emptyProjectsCtxMenuTpl>
+      <hlm-dropdown-menu class="w-52">
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="addProjectFlow.openPickerAndOpen()"
+        >
+          Open project
+        </button>
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="addProjectFlow.openCloneDialog()"
+        >
+          Open GitHub project
+        </button>
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="addProjectFlow.openCreateDialog()"
+        >
+          Quick start
+        </button>
+      </hlm-dropdown-menu>
+    </ng-template>
+
+    <ng-template #emptyWorkspacesCtxMenuTpl let-pid>
+      <hlm-dropdown-menu class="w-52">
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="createWorkspace(pid)"
+        >
+          New workspace
+        </button>
+      </hlm-dropdown-menu>
+    </ng-template>
   `,
 })
 export class ShellProjectList {
   protected readonly projects = inject(ProjectsFacade);
   protected readonly workspaces = inject(WorkspacesFacade);
+  protected readonly addProjectFlow = inject(AddProjectFlow);
   private readonly _chat = inject(ChatFacade);
   private readonly _dialogService = inject(HlmDialogService);
   private readonly _router = inject(Router);
@@ -150,6 +205,12 @@ export class ShellProjectList {
   // or equals the default 'Start'.
   protected chatTitleFor(workspaceId: string): string {
     return this._chat.chatByWorkspace().get(workspaceId)?.title ?? '';
+  }
+
+  // Last message timestamp for a workspace, or 0 when no activity has
+  // been tracked yet (the row falls back to workspace.createdAt).
+  protected lastActivityFor(workspaceId: string): number {
+    return this._chat.lastActivityByWorkspace().get(workspaceId) ?? 0;
   }
 
   protected readonly editingWorkspaceId = signal<string | null>(null);

@@ -1,8 +1,15 @@
 import { CdkTrapFocus } from '@angular/cdk/a11y';
-import { ChangeDetectionStrategy, Component, input, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  output,
+} from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmComboboxImports } from '@mozart/ui/combobox';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmKbdImports } from '@mozart/ui/kbd';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucideGitPullRequestArrow } from '@ng-icons/lucide';
@@ -21,6 +28,7 @@ import {
     HlmButtonImports,
     HlmComboboxImports,
     HlmIconImports,
+    HlmKbdImports,
     HlmTooltipImports,
   ],
   providers: [provideIcons({ lucideGitBranch, lucideGitPullRequestArrow })],
@@ -56,6 +64,36 @@ import {
             showClear="true"
           />
           <div hlmComboboxList>
+            @if (value()) {
+              <hlm-combobox-item [value]="value()" disabled>
+                <ng-icon
+                  hlm
+                  name="lucideGitBranch"
+                  size="xs"
+                  class="shrink-0 text-muted-foreground"
+                />
+                <span class="truncate font-semibold">{{ value() }}</span>
+                <span class="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                  <span>target</span>
+                  <kbd hlmKbd>Tab</kbd>
+                </span>
+              </hlm-combobox-item>
+            }
+            @for (branch of otherBranches(); track branch) {
+              <hlm-combobox-item [value]="branch">
+                <ng-icon
+                  hlm
+                  name="lucideGitBranch"
+                  size="xs"
+                  class="shrink-0 text-muted-foreground"
+                />
+                <span>{{ branch }}</span>
+              </hlm-combobox-item>
+            } @empty {
+              <div class="px-3 py-2 text-center text-sm text-muted-foreground">
+                No other branches available.
+              </div>
+            }
             @if (currentBranch()) {
               <hlm-combobox-item [value]="currentBranch()" disabled>
                 <ng-icon
@@ -70,23 +108,6 @@ import {
                 </span>
               </hlm-combobox-item>
             }
-            @for (branch of branches(); track branch) {
-              <hlm-combobox-item [value]="branch">
-                <ng-icon
-                  hlm
-                  name="lucideGitBranch"
-                  size="xs"
-                  class="shrink-0 text-muted-foreground"
-                />
-                <span [class.font-semibold]="branch === value()">{{
-                  branch
-                }}</span>
-              </hlm-combobox-item>
-            } @empty {
-              <div class="px-3 py-2 text-center text-sm text-muted-foreground">
-                No other branches available.
-              </div>
-            }
             <hlm-combobox-empty>No branch found.</hlm-combobox-empty>
           </div>
         </hlm-combobox-content>
@@ -99,6 +120,13 @@ export class BranchPicker {
   readonly branches = input.required<readonly string[]>();
   readonly currentBranch = input<string>('');
   readonly valueChange = output<string>();
+
+  // Selectable branches minus the current target (the target is pinned
+  // at the top of the list, the current workspace branch at the
+  // bottom — both rendered as disabled focus-skipped rows).
+  protected readonly otherBranches = computed(() =>
+    this.branches().filter((b) => b !== this.value()),
+  );
 
   protected readonly toString = (v: string | null): string => v ?? '';
   protected readonly filter = (v: string, search: string): boolean =>

@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmEmptyImports } from '@mozart/ui/empty';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -64,6 +65,7 @@ function bucketFor(createdAt: number, now: number): Bucket {
     RouterLinkActive,
     NgIcon,
     HlmButtonImports,
+    HlmEmptyImports,
     HlmIconImports,
     HlmTooltipImports,
   ],
@@ -91,9 +93,12 @@ function bucketFor(createdAt: number, now: number): Bucket {
     </div>
 
     @if (groups().length === 0) {
-      <p class="px-2 py-3 text-xs text-muted-foreground">
-        No chats yet. Start one from a workspace.
-      </p>
+      <div hlmEmpty class="gap-1 rounded-md border p-3">
+        <p class="text-xs text-muted-foreground">No chats yet.</p>
+        <p class="text-xs text-muted-foreground/70">
+          Open a workspace to start one.
+        </p>
+      </div>
     } @else {
       <ul class="flex flex-col gap-1">
         @for (group of groups(); track group.id) {
@@ -108,9 +113,14 @@ function bucketFor(createdAt: number, now: number): Bucket {
                 hlmBtn
                 variant="ghost"
                 size="sm"
-                class="h-7 w-full justify-start gap-2 truncate px-2 text-sm font-normal text-foreground"
+                class="relative h-7 w-full justify-start gap-2 truncate px-2 text-sm font-normal text-foreground"
                 [routerLink]="['/workspaces', chat.workspaceId]"
-                routerLinkActive="bg-accent"
+                routerLinkActive="bg-brand/15 text-foreground
+                                  before:absolute before:left-0 before:top-1
+                                  before:bottom-1 before:w-1 before:rounded-r-full
+                                  before:bg-brand
+                                  before:shadow-[0_0_10px_hsl(var(--brand)/0.7)]
+                                  [&_ng-icon]:text-brand!"
               >
                 <ng-icon
                   hlm
