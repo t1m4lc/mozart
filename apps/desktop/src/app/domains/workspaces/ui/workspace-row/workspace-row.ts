@@ -32,23 +32,20 @@ const STATUS_COLOR: Record<string, string> = {
   canceled: 'bg-muted-foreground/30',
 };
 
+const STATUS_LABEL: Record<string, string> = {
+  backlog: 'Backlog',
+  in_progress: 'In progress',
+  in_review: 'In review',
+  done: 'Done',
+  canceled: 'Canceled',
+};
+
 function statusDotColor(status: string): string {
-  return STATUS_COLOR[status] ?? 'bg-muted-foreground/40';
+  return STATUS_COLOR[status] ?? STATUS_COLOR['backlog'];
 }
 
 function statusLabel(status: string): string {
-  switch (status) {
-    case 'in_progress':
-      return 'In progress';
-    case 'in_review':
-      return 'In review';
-    case 'done':
-      return 'Done';
-    case 'canceled':
-      return 'Canceled';
-    default:
-      return 'Backlog';
-  }
+  return STATUS_LABEL[status] ?? STATUS_LABEL['backlog'];
 }
 
 @Component({
