@@ -10,6 +10,9 @@ export interface ProjectsAdapter {
   // `path`. Called after the user confirms the Initialize-project
   // dialog when add() throws NotARepo.
   initRepo(path: string): Promise<void>;
+  // git clone <url> into <destDir>/<derived-name>. Returns the absolute
+  // path of the cloned folder so the caller can hand it to add().
+  cloneRepo(url: string, destDir: string): Promise<string>;
   list(): Promise<Project[]>;
   remove(id: string): Promise<void>;
   setIcon(id: string, icon: string | null): Promise<void>;

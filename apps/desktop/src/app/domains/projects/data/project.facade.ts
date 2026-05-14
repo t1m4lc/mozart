@@ -59,6 +59,13 @@ export class ProjectsFacade {
     await this.adapter.initRepo(path);
   }
 
+  // Clone the remote at `url` into `<destDir>/<derived-name>`. Returns
+  // the absolute path of the cloned folder so AddProjectFlow can hand
+  // it to add() afterwards.
+  async cloneRepo(url: string, destDir: string): Promise<string> {
+    return this.adapter.cloneRepo(url, destDir);
+  }
+
   toggleExpanded(id: string): void {
     this.store.toggleExpanded(id);
   }

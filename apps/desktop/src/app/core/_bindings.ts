@@ -37,6 +37,25 @@ async initRepo(path: string) : Promise<Result<null, AppError>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Clone the git repository at `url` into `<dest_dir>/<name>`, where
+ * `name` is derived from the URL (last `/`-segment, trailing `.git`
+ * stripped). Creates `dest_dir` if it does not exist. Returns the
+ * absolute path of the cloned folder so the frontend can hand it to
+ * `add_repo` for registration.
+ * 
+ * Refuses `file://` URLs (only http/https/ssh-like remote URLs are
+ * allowed). Refuses if `<dest_dir>/<name>` already exists — the user
+ * should pick a different location or remove the existing folder.
+ */
+async cloneRepo(url: string, destDir: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("clone_repo", { url, destDir }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async removeRepo(repoId: string) : Promise<Result<null, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("remove_repo", { repoId }) };

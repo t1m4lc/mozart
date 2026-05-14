@@ -42,16 +42,13 @@ import { WorkspacesFacade } from '../domains/workspaces';
       <button
         type="button"
         hlmCard
-        disabled
-        class="cursor-not-allowed p-6 text-left opacity-50"
+        class="cursor-pointer p-6 text-left transition hover:bg-accent"
+        (click)="onOpenGithubProject()"
       >
         <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
           <ng-icon hlm name="lucideGithub" size="base" />
         </div>
-        <h2 class="text-base font-medium">
-          Open GitHub project
-          <span class="ml-1 text-xs font-normal text-muted-foreground">Soon</span>
-        </h2>
+        <h2 class="text-base font-medium">Open GitHub project</h2>
         <p class="mt-1 text-sm text-muted-foreground">
           Clone a repo from GitHub and start working.
         </p>
@@ -91,6 +88,14 @@ export class DashboardPage {
       await this.addProjectFlow.openPickerAndOpen();
     } catch (err) {
       console.error('add project flow failed', err);
+    }
+  }
+
+  protected async onOpenGithubProject(): Promise<void> {
+    try {
+      await this.addProjectFlow.openCloneDialog();
+    } catch (err) {
+      console.error('clone repo flow failed', err);
     }
   }
 }

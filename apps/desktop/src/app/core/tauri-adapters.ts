@@ -53,6 +53,9 @@ function provideDialogAdapter(): Provider {
         });
         return typeof result === 'string' ? result : null;
       },
+      async homeDir() {
+        return await homeDir();
+      },
     }),
   };
 }
@@ -66,6 +69,9 @@ function provideProjectsAdapter(): Provider {
       },
       async initRepo(path) {
         unwrap(await commands.initRepo(path));
+      },
+      async cloneRepo(url, destDir) {
+        return unwrap(await commands.cloneRepo(url, destDir));
       },
       async list() {
         return unwrap(await commands.listRepos()).map(projectFromDto);

@@ -3,6 +3,8 @@ import { Router } from '@angular/router';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { ChatFacade } from '../domains/chat';
 import {
+  CloneRepoDialog,
+  type CloneRepoContext,
   DIALOG_ADAPTER,
   InitProjectDialog,
   type InitProjectContext,
@@ -31,6 +33,25 @@ export class AddProjectFlow {
     const path = await this.dialog.pickFolder();
     if (!path) return;
     await this.addAndOpen(path);
+  }
+
+  // Dashboard card 2 entry point. Computes the default location
+  // (`<home>/mozart/repos`) and opens the Clone dialog. On clone
+  // success, hands the cloned path to the shared add-project path so
+  // the user lands in a freshly-created workspace just like card 1.
+  async openCloneDialog(): Promise<void> {
+    const home = await this.dialog.homeDir();
+    const sep = home.includes('\\') ? '\\' : '/';
+    const defaultLocation = `${home}${sep}mozart${sep}repos`;
+
+    const context: CloneRepoContext = {
+      defaultLocation,
+      doClone: (url, destDir) => this.projects.cloneRepo(url, destDir),
+      onCloned: async (path) => {
+        await this.addAndOpen(path);
+      },
+    };
+    this.dialogService.open(CloneRepoDialog, { context });
   }
 
   async addAndOpen(path: string): Promise<void> {

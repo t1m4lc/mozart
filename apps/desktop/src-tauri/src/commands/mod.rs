@@ -121,6 +121,132 @@ pub(crate) async fn init_repo_impl(path: String) -> Result<(), AppError> {
 }
 
 // ---------------------------------------------------------------------------
+// clone_repo
+// ---------------------------------------------------------------------------
+
+/// Clone the git repository at `url` into `<dest_dir>/<name>`, where
+/// `name` is derived from the URL (last `/`-segment, trailing `.git`
+/// stripped). Creates `dest_dir` if it does not exist. Returns the
+/// absolute path of the cloned folder so the frontend can hand it to
+/// `add_repo` for registration.
+///
+/// Refuses `file://` URLs (only http/https/ssh-like remote URLs are
+/// allowed). Refuses if `<dest_dir>/<name>` already exists — the user
+/// should pick a different location or remove the existing folder.
+#[tauri::command]
+#[specta::specta]
+pub async fn clone_repo(url: String, dest_dir: String) -> Result<String, AppError> {
+    clone_repo_impl(url, dest_dir).await
+}
+
+pub(crate) async fn clone_repo_impl(
+    url: String,
+    dest_dir: String,
+) -> Result<String, AppError> {
+    let url_trim = url.trim();
+    if url_trim.is_empty() {
+        return Err(AppError::Validation("clone url is empty".into()));
+    }
+    let lower = url_trim.to_ascii_lowercase();
+    if lower.starts_with("file://") {
+        return Err(AppError::Validation(
+            "local file:// URLs are not allowed".into(),
+        ));
+    }
+
+    let name = derive_clone_repo_name(url_trim)?;
+
+    let dest_root = std::path::Path::new(&dest_dir);
+    if dest_dir.trim().is_empty() {
+        return Err(AppError::Validation("destination directory is empty".into()));
+    }
+    std::fs::create_dir_all(dest_root)
+        .map_err(|e| AppError::Io(format!("create {}: {e}", dest_root.display())))?;
+
+    let target = dest_root.join(&name);
+    if target.exists() {
+        return Err(AppError::Validation(format!(
+            "destination already exists: {}",
+            target.display()
+        )));
+    }
+
+    let target_str = target.to_string_lossy().into_owned();
+    sandbox::run_git(dest_root, &["clone", url_trim, &target_str]).await?;
+
+    let canon = target
+        .canonicalize()
+        .map_err(|e| AppError::Io(format!("canonicalize cloned path: {e}")))?
+        .to_string_lossy()
+        .into_owned();
+    Ok(canon)
+}
+
+/// Derive the repository name from a clone URL. Strips trailing slashes
+/// and `.git` so both `https://github.com/foo/bar`,
+/// `https://github.com/foo/bar.git`, and `git@github.com:foo/bar.git`
+/// yield `bar`.
+fn derive_clone_repo_name(url: &str) -> Result<String, AppError> {
+    let trimmed = url.trim().trim_end_matches('/');
+    // SSH-style URLs use `:` as the host/path separator (e.g.
+    // `git@github.com:foo/bar.git`). Split on `/` and `:` so the last
+    // segment is the repo name in both forms.
+    let last = trimmed
+        .rsplit(|c| c == '/' || c == ':')
+        .next()
+        .unwrap_or("");
+    let stripped = last.trim_end_matches(".git");
+    if stripped.is_empty() {
+        return Err(AppError::Validation(format!(
+            "could not derive repo name from url: {url}"
+        )));
+    }
+    Ok(stripped.to_string())
+}
+
+#[cfg(test)]
+mod derive_clone_repo_name_tests {
+    use super::derive_clone_repo_name;
+
+    #[test]
+    fn https_with_git_suffix() {
+        assert_eq!(
+            derive_clone_repo_name("https://github.com/foo/bar.git").unwrap(),
+            "bar"
+        );
+    }
+
+    #[test]
+    fn https_no_suffix() {
+        assert_eq!(
+            derive_clone_repo_name("https://github.com/foo/bar").unwrap(),
+            "bar"
+        );
+    }
+
+    #[test]
+    fn trailing_slash_tolerated() {
+        assert_eq!(
+            derive_clone_repo_name("https://github.com/foo/bar/").unwrap(),
+            "bar"
+        );
+    }
+
+    #[test]
+    fn ssh_form() {
+        assert_eq!(
+            derive_clone_repo_name("git@github.com:foo/bar.git").unwrap(),
+            "bar"
+        );
+    }
+
+    #[test]
+    fn refuses_only_slashes() {
+        assert!(derive_clone_repo_name("///").is_err());
+    }
+}
+
+// ---------------------------------------------------------------------------
 // remove_repo
 // ---------------------------------------------------------------------------
 
