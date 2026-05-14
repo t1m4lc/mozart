@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import {
-  HlmComposer,
+  HlmComposerImports,
   type ComposerMode,
   type ComposerSendEvent,
 } from '@mozart/ui/composer';
@@ -16,16 +16,14 @@ interface SandboxLogEntry {
 
 @Component({
   selector: 'app-composer-sandbox',
-  imports: [RouterLink, HlmButtonImports, HlmComposer],
+  imports: [RouterLink, HlmButtonImports, HlmComposerImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full w-full' },
   template: `
     <section class="flex flex-col gap-4 max-w-3xl mx-auto p-6 h-full">
       <header class="flex items-center justify-between">
         <h1 class="text-lg font-semibold">HlmComposer sandbox</h1>
-        <a hlmBtn variant="ghost" size="sm" routerLink="/sandbox">
-          ← Back
-        </a>
+        <a hlmBtn variant="ghost" size="sm" routerLink="/sandbox"> ← Back </a>
       </header>
 
       <div class="flex items-center gap-2 text-sm">
@@ -68,7 +66,9 @@ interface SandboxLogEntry {
       </div>
 
       <section class="flex flex-col gap-2">
-        <h2 class="text-sm font-medium text-muted-foreground">Emitted events</h2>
+        <h2 class="text-sm font-medium text-muted-foreground">
+          Emitted events
+        </h2>
         @if (log().length === 0) {
           <p class="text-sm text-muted-foreground italic">
             No event yet. Press Enter / ⌘↵ / click Send.
