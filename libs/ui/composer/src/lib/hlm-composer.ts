@@ -10,24 +10,42 @@ import { FormsModule } from '@angular/forms';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTextareaImports } from '@mozart/ui/textarea';
-import { HlmToggleImports } from '@mozart/ui/toggle';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideArrowUp, lucideCircleStop } from '@ng-icons/lucide';
+import { ComposerEffortSelect } from './composer-effort-select';
+import { ComposerModeSelect } from './composer-mode-select';
 import {
-  lucideArrowUp,
-  lucideBot,
-  lucideCircleStop,
-  lucideMap,
-  lucideSignalMedium,
-} from '@ng-icons/lucide';
+  ComposerModelSelect,
+  type ModelOption,
+  type ProviderId,
+  type ProviderInfo,
+} from './composer-model-select';
+import { ComposerScrollOverlay } from './composer-scroll-overlay';
 import { HlmComposerPlusMenu } from './hlm-composer-plus-menu';
 
-export type ComposerMode = 'normal' | 'plan';
+export type ChatMode = 'agent' | 'plan' | 'ask';
+/** @deprecated Use `ChatMode`. Kept as an alias during Phase 2 rename. */
+export type ComposerMode = ChatMode;
+
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 export interface ComposerSendEvent {
   readonly text: string;
-  readonly mode: ComposerMode;
+  readonly mode: ChatMode;
 }
+
+const PLACEHOLDER_BY_MODE: Record<ChatMode, string> = {
+  agent: 'Ask Mozart to make a change, run a command, or anything else',
+  plan: 'Describe the change — Mozart will plan before touching files',
+  ask: 'Ask anything — read-only mode, no file edits',
+};
+
+const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
+  agent: 'border-border bg-muted/40 dark:bg-muted/20',
+  plan: 'border-primary border-dashed bg-primary/5',
+  ask: 'border-muted-foreground bg-muted/30 dark:bg-muted/15',
+};
 
 @Component({
   selector: 'hlm-composer',
@@ -37,97 +55,77 @@ export interface ComposerSendEvent {
     HlmButtonImports,
     HlmIconImports,
     HlmTextareaImports,
-    HlmToggleImports,
     HlmTooltipImports,
     HlmComposerPlusMenu,
+    ComposerModeSelect,
+    ComposerModelSelect,
+    ComposerEffortSelect,
+    ComposerScrollOverlay,
   ],
   providers: [
     provideIcons({
       lucideArrowUp,
-      lucideBot,
-      lucideMap,
-      lucideSignalMedium,
       lucideCircleStop,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <form class="block" (submit)="_onSubmit($event)">
+    <form class="relative block" (submit)="_onSubmit($event)">
+      <composer-scroll-overlay
+        [autoFollowChat]="autoFollowChat()"
+        [hasNextUnreadInProject]="hasNextUnreadInProject()"
+        (scrollToBottom)="scrollToBottom.emit()"
+        (nextUnreadWorkspace)="nextUnreadWorkspace.emit()"
+      />
       <div
-        class="flex flex-col rounded-xl border border-border bg-background dark:bg-card shadow-sm overflow-hidden transition-colors"
-        [class.border-primary]="mode() === 'plan'"
-        [class.border-dashed]="mode() === 'plan'"
+        class="relative flex flex-col rounded-xl border bg-background dark:bg-card shadow-sm overflow-hidden transition-colors"
+        [class]="_containerClasses()"
       >
+        @if (mode() === 'ask') {
+          <span
+            class="absolute top-2 right-3 z-10 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+            aria-hidden="true"
+          >
+            Read-only
+          </span>
+        }
+
         <textarea
           hlmTextarea
-          class="hlm-composer-textarea block w-full border-0 outline-none shadow-none rounded-none resize-none bg-transparent dark:bg-transparent px-3 pt-3 pb-6 text-sm leading-6 min-h-28 max-h-72 overflow-y-auto scroll-pb-3 focus-visible:ring-0 focus-visible:border-0"
+          class="hlm-composer-textarea block w-full border-0 outline-none shadow-none rounded-none resize-none bg-transparent dark:bg-transparent px-3 pt-4 pb-3 text-sm leading-6 min-h-28 max-h-72 overflow-y-auto scroll-pb-3 focus-visible:ring-0 focus-visible:border-0"
           [ngModel]="value()"
           (ngModelChange)="value.set($event)"
           [disabled]="disabled()"
           name="prompt"
-          [placeholder]="placeholder()"
+          [placeholder]="_effectivePlaceholder()"
           (keydown)="_onKeydown($event)"
         ></textarea>
 
-        <div class="flex items-center gap-1 px-2 py-2">
+        <div class="flex items-center gap-1 px-2 pt-1 pb-1.5">
           <hlm-composer-plus-menu />
 
-          <button
-            hlmBtn
-            variant="ghost"
-            size="xs"
-            type="button"
-            disabled
-            hlmTooltip="Coming soon"
-            aria-label="Select model"
-            class="rounded-lg text-muted-foreground"
-          >
-            <ng-icon hlm name="lucideBot" size="xs" />
-            <span>Claude Sonnet 4.6</span>
-          </button>
+          <composer-effort-select
+            [effort]="effort()"
+            (effortChange)="effort.set($event)"
+          />
 
-          <button
-            hlmBtn
-            variant="ghost"
-            size="xs"
-            type="button"
-            disabled
-            hlmTooltip="Adjust effort level"
-            aria-label="Adjust effort level"
-            class="rounded-lg text-muted-foreground"
-          >
-            <ng-icon
-              hlm
-              name="lucideSignalMedium"
-              size="xs"
-              class="text-brand/70"
-            />
-            <span>Medium</span>
-          </button>
-
-          <button
-            hlmToggle
-            size="sm"
-            type="button"
-            [state]="mode() === 'plan' ? 'on' : 'off'"
-            (stateChange)="_onPlanStateChange($event)"
+          <composer-mode-select
+            [mode]="mode()"
             [disabled]="isRunning() || disabled()"
-            [hlmTooltip]="
-              mode() === 'plan' ? 'Exit plan mode' : 'Enter plan mode'
-            "
-            [attr.aria-label]="
-              mode() === 'plan' ? 'Exit plan mode' : 'Enter plan mode'
-            "
-            class="rounded-lg"
-          >
-            <ng-icon hlm name="lucideMap" size="sm" />
-            @if (mode() === 'plan') {
-              <span>Plan</span>
-            }
-          </button>
+            (modeChange)="mode.set($event)"
+          />
 
           <span class="flex-auto"></span>
+
+          @if (models().length > 0) {
+            <composer-model-select
+              [models]="models()"
+              [providers]="providers()"
+              [selectedModelId]="selectedModelId()"
+              (modelChange)="modelChange.emit($event)"
+            />
+          }
 
           @if (isRunning() && value().trim().length === 0) {
             <button
@@ -155,7 +153,13 @@ export interface ComposerSendEvent {
                   ? 'Queue message — current run keeps going'
                   : 'Send message'
               "
-              [attr.aria-label]="mode() === 'plan' ? 'Plan' : 'Send message'"
+              [attr.aria-label]="
+                mode() === 'plan'
+                  ? 'Plan'
+                  : mode() === 'ask'
+                  ? 'Ask'
+                  : 'Send message'
+              "
             >
               <ng-icon hlm name="lucideArrowUp" size="sm" />
             </button>
@@ -186,16 +190,43 @@ export interface ComposerSendEvent {
 })
 export class HlmComposer {
   readonly value = model('');
-  readonly mode = model<ComposerMode>('normal');
+  readonly mode = model<ChatMode>('agent');
+  readonly effort = model<EffortLevel>('medium');
   readonly isRunning = input(false);
-  readonly placeholder = input('Type a message…');
+  /** Override the mode-derived placeholder. Empty string = use the
+   * mode default from `PLACEHOLDER_BY_MODE`. */
+  readonly placeholder = input('');
   readonly disabled = input(false);
+  readonly models = input<readonly ModelOption[]>([]);
+  readonly providers = input<Record<ProviderId, ProviderInfo>>({
+    anthropic: {
+      id: 'anthropic',
+      label: 'Anthropic',
+      iconName: 'lucideSparkles',
+    },
+    openai: { id: 'openai', label: 'OpenAI', iconName: 'lucideCpu' },
+    local: { id: 'local', label: 'Local', iconName: 'lucideHardDrive' },
+  });
+  readonly selectedModelId = input<string>('');
+  readonly autoFollowChat = input(true);
+  readonly hasNextUnreadInProject = input(false);
 
   readonly send = output<ComposerSendEvent>();
   readonly stop = output<void>();
+  readonly modelChange = output<string>();
+  readonly scrollToBottom = output<void>();
+  readonly nextUnreadWorkspace = output<void>();
 
   protected readonly _canSubmit = computed(
     () => !this.disabled() && this.value().trim().length > 0,
+  );
+
+  protected readonly _effectivePlaceholder = computed(
+    () => this.placeholder() || PLACEHOLDER_BY_MODE[this.mode()],
+  );
+
+  protected readonly _containerClasses = computed(
+    () => CONTAINER_CLASSES_BY_MODE[this.mode()],
   );
 
   protected _onSubmit(event: Event): void {
@@ -213,10 +244,6 @@ export class HlmComposer {
     if (event.shiftKey) return;
     event.preventDefault();
     this._emitSubmit();
-  }
-
-  protected _onPlanStateChange(state: 'on' | 'off'): void {
-    this.mode.set(state === 'on' ? 'plan' : 'normal');
   }
 
   protected _emitStop(): void {

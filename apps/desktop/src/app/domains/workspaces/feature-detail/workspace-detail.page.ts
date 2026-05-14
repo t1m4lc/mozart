@@ -20,8 +20,8 @@ import { ChatFacade, FeatureChatPanel } from '../../chat';
 import { ProjectsFacade } from '../../projects';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
+import { FeatureChatTabBar } from '../feature-chat-tab-bar/feature-chat-tab-bar';
 import { ChatEmptyState } from '../ui/chat-empty-state/chat-empty-state';
-import { WorkspaceTabBar } from '../ui/workspace-tab-bar/workspace-tab-bar';
 import { WorkspaceToolbar } from '../ui/workspace-toolbar/workspace-toolbar';
 import { WorkspaceDetailStore } from './workspace-detail.store';
 
@@ -31,7 +31,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     NgIcon,
     MacWindowControls,
     WorkspaceToolbar,
-    WorkspaceTabBar,
+    FeatureChatTabBar,
     ChatEmptyState,
     FeatureChatPanel,
     HlmButtonImports,
@@ -59,7 +59,10 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       (workspaceTitleChange)="onRename($event)"
     />
 
-    <app-workspace-tab-bar #tabBar [streaming]="isStreaming()" />
+    <app-feature-chat-tab-bar
+      #tabBar
+      [workspaceId]="store.workspaceId()"
+    />
 
     <app-feature-chat-panel
       #chatPanel
@@ -68,7 +71,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     >
       <app-chat-empty-state
         chat-empty-state
-        [variant]="tabBar.activeTabIsFirst() ? 'start' : 'untitled'"
+        [variant]="activeTabIsFirst() ? 'start' : 'untitled'"
         [projectName]="store.projectName()"
         [workspaceName]="store.workspaceTitle()"
         [sourceBranch]="store.workspaceTitle()"
@@ -129,9 +132,21 @@ export class WorkspaceDetailPage {
     () => this.workspace()?.name ?? '',
   );
 
-  protected readonly isStreaming = inject(ChatFacade).isStreaming(
+  private readonly chatFacade = inject(ChatFacade);
+  protected readonly isStreaming = this.chatFacade.isStreaming(
     this.store.workspaceId,
   );
+
+  // True when the active chat is the first (oldest) chat in the
+  // workspace — drives the empty-state copy ('Start' vs 'Untitled').
+  protected readonly activeTabIsFirst = computed(() => {
+    const ws = this.store.workspaceId();
+    if (!ws) return true;
+    const list = this.chatFacade.chatsByWorkspace().get(ws) ?? [];
+    if (list.length === 0) return true;
+    const activeId = this.chatFacade.activeChatIdFor(ws) ?? list[0].id;
+    return list[0].id === activeId;
+  });
 
   // Current package-install lifecycle for this workspace. Tracks the
   // running -> success/failed/no_package transitions so the empty-state
@@ -145,15 +160,18 @@ export class WorkspaceDetailPage {
 
   protected readonly sidebarHeader =
     viewChild.required<TemplateRef<unknown>>('sidebarHeaderTpl');
-  private readonly tabBar = viewChild.required(WorkspaceTabBar);
   private readonly chatPanel = viewChild.required(FeatureChatPanel);
 
   constructor() {
-    // Tab activated -> refocus the composer. The dumb tab bar exposes
-    // its activeTabId signal; this effect runs whenever it changes
-    // (including the initial mount).
+    // Active chat changed -> refocus the composer. Mirrors the previous
+    // tab-bar-driven refocus, now sourced from the facade's per-workspace
+    // active-chat map.
     effect(() => {
-      const _ = this.tabBar().activeTabId();
+      const ws = this.store.workspaceId();
+      if (ws) {
+        // touch to subscribe; value not used
+        this.chatFacade.activeChatIdFor(ws);
+      }
       this.chatPanel().focusComposer();
     });
 
@@ -166,10 +184,14 @@ export class WorkspaceDetailPage {
     });
 
     // Push the workspace's own branch into the store so the picker can
-    // mark it as current and filter it from the selectable list.
+    // mark it as current and filter it from the selectable list. Also
+    // seed the target branch from `baseBranch` (the branch the
+    // workspace was forked from) on first resolution.
     effect(() => {
       const ws = this.workspace();
-      if (ws) this.store.setCurrentBranch(ws.branch);
+      if (!ws) return;
+      this.store.setCurrentBranch(ws.branch);
+      this.store.seedTargetBranch(ws.baseBranch);
     });
 
     // Fetch real git branches whenever the resolved workspace (with

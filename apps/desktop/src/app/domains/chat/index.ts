@@ -1,6 +1,6 @@
 // Public API of the `chat` domain. Store + adapters stay internal.
 
-export type { Chat } from './data/chat.model';
+export type { Chat, ChatMode, EffortLevel } from './data/chat.model';
 export type {
   Message,
   MessageRole,

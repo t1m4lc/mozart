@@ -2,17 +2,26 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  computed,
   effect,
   inject,
   input,
   signal,
   viewChild,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   HlmComposer,
-  type ComposerMode,
+  type ChatMode,
   type ComposerSendEvent,
+  type EffortLevel,
 } from '@mozart/ui/composer';
+import {
+  DEFAULT_MODEL_ID,
+  LLM_MODEL_CATALOG,
+  PROVIDERS,
+} from '../../llm-model';
+import { WorkspacesFacade } from '../../workspaces';
 import { ChatFacade } from '../data/chat.facade';
 import { MessageList } from '../ui/message-list/message-list';
 
@@ -25,10 +34,11 @@ import { MessageList } from '../ui/message-list/message-list';
     <div
       #scrollContainer
       class="absolute inset-0 overflow-y-auto"
+      (scroll)="onContainerScroll()"
     >
       @if (messages().length > 0) {
         <app-message-list [messages]="messages()" />
-        <div class="h-48" aria-hidden="true"></div>
+        <div class="h-64" aria-hidden="true"></div>
       } @else {
         <ng-content select="[chat-empty-state]" />
       }
@@ -41,10 +51,21 @@ import { MessageList } from '../ui/message-list/message-list';
         <hlm-composer
           #composerEl
           [(value)]="value"
-          [(mode)]="mode"
+          [mode]="currentMode()"
+          (modeChange)="onModeChange($event)"
+          [effort]="currentEffort()"
+          (effortChange)="onEffortChange($event)"
+          [models]="catalog"
+          [providers]="providers"
+          [selectedModelId]="currentModelId()"
+          (modelChange)="onModelChange($event)"
           [isRunning]="isStreaming()"
+          [autoFollowChat]="autoFollowChat()"
+          [hasNextUnreadInProject]="hasNextUnreadInProject()"
           (send)="onSend($event)"
           (stop)="onStop()"
+          (scrollToBottom)="onScrollToBottom()"
+          (nextUnreadWorkspace)="onNextUnreadWorkspace()"
         />
       </div>
     </div>
@@ -54,6 +75,8 @@ export class FeatureChatPanel {
   readonly workspaceId = input<string | null>(null);
 
   private readonly facade = inject(ChatFacade);
+  private readonly workspaces = inject(WorkspacesFacade);
+  private readonly router = inject(Router);
   private readonly scrollContainer =
     viewChild<ElementRef<HTMLDivElement>>('scrollContainer');
   private readonly composerEl = viewChild('composerEl', {
@@ -61,11 +84,36 @@ export class FeatureChatPanel {
   });
 
   protected readonly value = signal('');
-  protected readonly mode = signal<ComposerMode>('normal');
   protected readonly messages = this.facade.messagesForWorkspace(
     this.workspaceId,
   );
   protected readonly isStreaming = this.facade.isStreaming(this.workspaceId);
+  /** `true` when the scroll container is parked at the bottom (or
+   * close to it). Drives the composer's scroll-to-bottom overlay. */
+  protected readonly autoFollowChat = signal(true);
+  protected readonly hasNextUnreadInProject =
+    this.workspaces.hasOtherUnreadInProject(this.workspaceId);
+
+  protected readonly catalog = LLM_MODEL_CATALOG;
+  protected readonly providers = PROVIDERS;
+
+  private readonly _activeChat = computed(() => {
+    // Read the underlying store signals so this computed updates when
+    // the active-chat map or the chats list changes.
+    const id = this.workspaceId();
+    if (!id) return null;
+    return this.facade.activeChatFor(id);
+  });
+
+  protected readonly currentMode = computed<ChatMode>(
+    () => this._activeChat()?.mode ?? 'agent',
+  );
+  protected readonly currentEffort = computed<EffortLevel>(
+    () => this._activeChat()?.effort ?? 'medium',
+  );
+  protected readonly currentModelId = computed<string>(
+    () => this._activeChat()?.modelId ?? DEFAULT_MODEL_ID,
+  );
 
   // Bring focus to the embedded HlmComposer's textarea. Public so the
   // workspace-detail page can refocus on tab-active-change without
@@ -158,5 +206,51 @@ export class FeatureChatPanel {
     const id = this.workspaceId();
     if (!id) return;
     this.facade.cancelActive(id);
+  }
+
+  protected onModeChange(mode: ChatMode): void {
+    const chat = this._activeChat();
+    if (!chat) return;
+    void this.facade.setChatMode(chat.id, mode);
+  }
+
+  protected onEffortChange(effort: EffortLevel): void {
+    const chat = this._activeChat();
+    if (!chat) return;
+    void this.facade.setChatEffort(chat.id, effort);
+  }
+
+  protected onModelChange(modelId: string): void {
+    const chat = this._activeChat();
+    if (!chat) return;
+    void this.facade.setChatModel(chat.id, modelId);
+  }
+
+  // Threshold (px) within which we consider the scroll container
+  // "parked at the bottom". Phase 3a's anchor + IntersectionObserver
+  // pattern replaces this heuristic.
+  private static readonly AT_BOTTOM_PX = 32;
+
+  protected onContainerScroll(): void {
+    const el = this.scrollContainer()?.nativeElement;
+    if (!el) return;
+    const remaining = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const atBottom = remaining <= FeatureChatPanel.AT_BOTTOM_PX;
+    if (atBottom !== this.autoFollowChat()) {
+      this.autoFollowChat.set(atBottom);
+    }
+  }
+
+  protected onScrollToBottom(): void {
+    const el = this.scrollContainer()?.nativeElement;
+    if (!el) return;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    this.autoFollowChat.set(true);
+  }
+
+  protected onNextUnreadWorkspace(): void {
+    const target = this.workspaces.nextUnreadInProject(this.workspaceId());
+    if (!target) return;
+    void this.router.navigate(['/workspaces', target]);
   }
 }

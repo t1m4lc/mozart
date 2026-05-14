@@ -17,6 +17,9 @@ export interface Workspace {
   projectId: string;
   name: string;
   branch: string;
+  /** Branch the workspace was forked from (defaults to the target
+   * branch shown in the branch picker). */
+  baseBranch: string;
   status: UiWorkspaceStatus;
   pinned: boolean;
   unread: boolean;

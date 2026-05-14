@@ -164,6 +164,18 @@ function provideChatsAdapter(): Provider {
       async setActive(workspaceId, chatId) {
         unwrap(await commands.setActiveChat(workspaceId, chatId));
       },
+      async updateMode(chatId, mode) {
+        unwrap(await commands.updateChatMode(chatId, mode));
+      },
+      async updateEffort(chatId, effort) {
+        unwrap(await commands.updateChatEffort(chatId, effort));
+      },
+      async updateModel(chatId, modelId) {
+        unwrap(await commands.updateChatModel(chatId, modelId));
+      },
+      async markRead(chatId, messageId) {
+        unwrap(await commands.markChatRead(chatId, messageId));
+      },
     } satisfies ChatsAdapter,
   };
 }

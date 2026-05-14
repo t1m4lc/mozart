@@ -110,6 +110,9 @@ pub struct Chat {
     pub workspace_id: String,
     pub title: String,
     pub llm_id: Option<String>,
+    pub mode: String,   // agent | plan | ask  (validated server-side)
+    pub effort: String, // low | medium | high | xhigh | max
+    pub last_read_message_id: Option<String>,
     pub closed_at: Option<i64>,
     pub created_at: i64,
 }

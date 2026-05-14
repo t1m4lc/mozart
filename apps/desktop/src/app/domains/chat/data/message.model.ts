@@ -1,4 +1,5 @@
 import type { TimelineTurn } from '@mozart/ui/timeline';
+import type { ChatMode } from './chat.model';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
 
@@ -18,7 +19,7 @@ export interface Message {
   readonly chatId: string;
   readonly role: MessageRole;
   readonly content: string;
-  readonly mode?: 'normal' | 'plan';
+  readonly mode?: ChatMode;
   readonly status: MessageStatus;
   readonly createdAt: number;
   // Assistant only — structured turn rendered via <hlm-timeline>.

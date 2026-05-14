@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { Chat } from './chat.model';
+import type { Chat, ChatMode, EffortLevel } from './chat.model';
 import type { Message, MessageStatus } from './message.model';
 import type { TimelineTurn } from '@mozart/ui/timeline';
 
@@ -18,6 +18,10 @@ export interface ChatsAdapter {
   close(chatId: string): Promise<void>;
   getActive(workspaceId: string): Promise<string | null>;
   setActive(workspaceId: string, chatId: string): Promise<void>;
+  updateMode(chatId: string, mode: ChatMode): Promise<void>;
+  updateEffort(chatId: string, effort: EffortLevel): Promise<void>;
+  updateModel(chatId: string, modelId: string): Promise<void>;
+  markRead(chatId: string, messageId: string): Promise<void>;
 }
 
 export interface MessagesAdapter {
@@ -29,7 +33,7 @@ export interface MessagesAdapter {
     chatId: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
-    mode: 'normal' | 'plan' | null;
+    mode: ChatMode | null;
     status: MessageStatus;
     runId?: string | null;
     timeline?: TimelineTurn | null;

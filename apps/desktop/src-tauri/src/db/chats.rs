@@ -5,17 +5,21 @@ use rusqlite::{params, Connection};
 use crate::db::models::Chat;
 use crate::error::AppError;
 
-const COLS: &str = "chat_id, workspace_id, title, llm_id, closed_at, created_at";
+const COLS: &str =
+    "chat_id, workspace_id, title, llm_id, mode, effort, last_read_message_id, closed_at, created_at";
 
 pub fn create(conn: &Connection, chat: &Chat) -> Result<(), AppError> {
     conn.execute(
-        "INSERT INTO chats(chat_id, workspace_id, title, llm_id, closed_at, created_at) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+        "INSERT INTO chats(chat_id, workspace_id, title, llm_id, mode, effort, last_read_message_id, closed_at, created_at) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             chat.chat_id,
             chat.workspace_id,
             chat.title,
             chat.llm_id,
+            chat.mode,
+            chat.effort,
+            chat.last_read_message_id,
             chat.closed_at,
             chat.created_at,
         ],
@@ -79,6 +83,54 @@ pub fn set_title(conn: &Connection, chat_id: &str, title: &str) -> Result<(), Ap
     Ok(())
 }
 
+pub fn set_mode(conn: &Connection, chat_id: &str, mode: &str) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE chats SET mode = ?2 WHERE chat_id = ?1",
+        params![chat_id, mode],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("chat_id={chat_id}")));
+    }
+    Ok(())
+}
+
+pub fn set_effort(conn: &Connection, chat_id: &str, effort: &str) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE chats SET effort = ?2 WHERE chat_id = ?1",
+        params![chat_id, effort],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("chat_id={chat_id}")));
+    }
+    Ok(())
+}
+
+pub fn set_llm_id(conn: &Connection, chat_id: &str, llm_id: &str) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE chats SET llm_id = ?2 WHERE chat_id = ?1",
+        params![chat_id, llm_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("chat_id={chat_id}")));
+    }
+    Ok(())
+}
+
+pub fn mark_read(
+    conn: &Connection,
+    chat_id: &str,
+    message_id: &str,
+) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE chats SET last_read_message_id = ?2 WHERE chat_id = ?1",
+        params![chat_id, message_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("chat_id={chat_id}")));
+    }
+    Ok(())
+}
+
 pub fn close(conn: &Connection, chat_id: &str, closed_at: i64) -> Result<(), AppError> {
     let n = conn.execute(
         "UPDATE chats SET closed_at = ?2 WHERE chat_id = ?1",
@@ -96,8 +148,11 @@ fn row_to_chat(row: &rusqlite::Row<'_>) -> rusqlite::Result<Chat> {
         workspace_id: row.get(1)?,
         title: row.get(2)?,
         llm_id: row.get(3)?,
-        closed_at: row.get(4)?,
-        created_at: row.get(5)?,
+        mode: row.get(4)?,
+        effort: row.get(5)?,
+        last_read_message_id: row.get(6)?,
+        closed_at: row.get(7)?,
+        created_at: row.get(8)?,
     })
 }
 
@@ -151,6 +206,9 @@ mod tests {
             workspace_id: workspace_id.into(),
             title: "Untitled".into(),
             llm_id: None,
+            mode: "agent".into(),
+            effort: "medium".into(),
+            last_read_message_id: None,
             closed_at: None,
             created_at,
         }
@@ -166,6 +224,9 @@ mod tests {
         let got = get(&conn, &c.chat_id).unwrap();
         assert_eq!(got.workspace_id, ws);
         assert_eq!(got.title, "Untitled");
+        assert_eq!(got.mode, "agent");
+        assert_eq!(got.effort, "medium");
+        assert!(got.last_read_message_id.is_none());
     }
 
     #[test]
@@ -204,5 +265,55 @@ mod tests {
             set_title(&conn, "no-such", "x"),
             Err(AppError::NotFound(_))
         ));
+    }
+
+    #[test]
+    fn set_mode_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let ws = seed_workspace(&conn);
+        let c = make_chat(&ws, now_ms());
+        create(&conn, &c).unwrap();
+        set_mode(&conn, &c.chat_id, "plan").unwrap();
+        assert_eq!(get(&conn, &c.chat_id).unwrap().mode, "plan");
+    }
+
+    #[test]
+    fn set_effort_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let ws = seed_workspace(&conn);
+        let c = make_chat(&ws, now_ms());
+        create(&conn, &c).unwrap();
+        set_effort(&conn, &c.chat_id, "high").unwrap();
+        assert_eq!(get(&conn, &c.chat_id).unwrap().effort, "high");
+    }
+
+    #[test]
+    fn set_llm_id_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let ws = seed_workspace(&conn);
+        let c = make_chat(&ws, now_ms());
+        create(&conn, &c).unwrap();
+        set_llm_id(&conn, &c.chat_id, "claude-opus-4-7").unwrap();
+        assert_eq!(
+            get(&conn, &c.chat_id).unwrap().llm_id.as_deref(),
+            Some("claude-opus-4-7")
+        );
+    }
+
+    #[test]
+    fn mark_read_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let ws = seed_workspace(&conn);
+        let c = make_chat(&ws, now_ms());
+        create(&conn, &c).unwrap();
+        mark_read(&conn, &c.chat_id, "msg-1").unwrap();
+        assert_eq!(
+            get(&conn, &c.chat_id).unwrap().last_read_message_id.as_deref(),
+            Some("msg-1")
+        );
     }
 }

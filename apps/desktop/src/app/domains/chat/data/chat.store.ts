@@ -67,10 +67,21 @@ export const ChatStore = signalStore(
         id: `pending-${crypto.randomUUID()}`,
         workspaceId,
         title: 'Start',
+        modelId: null,
+        mode: 'agent',
+        effort: 'medium',
+        lastReadMessageId: null,
         createdAt: Date.now(),
       };
       patchState(store, { chats: [...store.chats(), chat] });
       return chat;
+    },
+    patchChat(chatId: string, patch: Partial<Chat>): void {
+      patchState(store, {
+        chats: store
+          .chats()
+          .map((c) => (c.id === chatId ? { ...c, ...patch } : c)),
+      });
     },
     upsertChat(chat: Chat): void {
       const idx = store.chats().findIndex((c) => c.id === chat.id);

@@ -35,6 +35,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (2, include_str!("../../migrations/002_projects_user_state.sql")),
     (3, include_str!("../../migrations/003_workspaces_ui_status.sql")),
     (4, include_str!("../../migrations/004_chat.sql")),
+    (5, include_str!("../../migrations/005_chat_phase2.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.

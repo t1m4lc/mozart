@@ -65,7 +65,11 @@ import {
           />
           <div hlmComboboxList>
             @if (value()) {
-              <hlm-combobox-item [value]="value()" disabled>
+              <hlm-combobox-item
+                [value]="value()"
+                disabled
+                class="group/branch-item"
+              >
                 <ng-icon
                   hlm
                   name="lucideGitBranch"
@@ -75,7 +79,12 @@ import {
                 <span class="truncate font-semibold">{{ value() }}</span>
                 <span class="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
                   <span>target</span>
-                  <kbd hlmKbd>Tab</kbd>
+                  <kbd
+                    hlmKbd
+                    class="opacity-0 transition-opacity group-hover/branch-item:opacity-100 group-data-[active=true]/branch-item:opacity-100 group-data-[state=active]/branch-item:opacity-100"
+                  >
+                    Tab
+                  </kbd>
                 </span>
               </hlm-combobox-item>
             }
@@ -89,10 +98,6 @@ import {
                 />
                 <span>{{ branch }}</span>
               </hlm-combobox-item>
-            } @empty {
-              <div class="px-3 py-2 text-center text-sm text-muted-foreground">
-                No other branches available.
-              </div>
             }
             @if (currentBranch()) {
               <hlm-combobox-item [value]="currentBranch()" disabled>
@@ -107,6 +112,11 @@ import {
                   current
                 </span>
               </hlm-combobox-item>
+            }
+            @if (!hasAlternates()) {
+              <div class="px-3 py-2 text-center text-sm text-muted-foreground">
+                No other branches available.
+              </div>
             }
             <hlm-combobox-empty>No branch found.</hlm-combobox-empty>
           </div>
@@ -127,6 +137,14 @@ export class BranchPicker {
   protected readonly otherBranches = computed(() =>
     this.branches().filter((b) => b !== this.value()),
   );
+
+  // `true` when there is at least one branch beyond the workspace's
+  // current branch — i.e. either a target is set or an other branch is
+  // available. Drives the "No other branches available." empty state.
+  protected readonly hasAlternates = computed(() => {
+    if (this.value()) return true;
+    return this.otherBranches().length > 0;
+  });
 
   protected readonly toString = (v: string | null): string => v ?? '';
   protected readonly filter = (v: string, search: string): boolean =>

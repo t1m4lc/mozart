@@ -6,7 +6,7 @@ import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,
 } from './chats.adapter';
-import type { Chat } from './chat.model';
+import type { Chat, ChatMode, EffortLevel } from './chat.model';
 import type { Message, MessageStatus } from './message.model';
 import { ChatStore } from './chat.store';
 
@@ -61,9 +61,33 @@ export class ChatFacade {
   private readonly hydrated = new Set<string>();
 
   readonly chatByWorkspace = this.store.chatByWorkspace;
+  readonly chatsByWorkspace = this.store.chatsByWorkspace;
+  readonly messagesByChat = this.store.messagesByChat;
   // All open chats across every workspace, newest first. Sidebar
   // chat-list reads this to render its day-bucketed group.
   readonly allChats = this.store.allChatsSorted;
+
+  // workspaceId -> chatId, mirrors `workspace_active_chat` table. Lazily
+  // hydrated per-workspace via `setActiveChat` or first hydrate().
+  private readonly _activeChatByWorkspace = signal<
+    ReadonlyMap<string, string>
+  >(new Map());
+
+  /** Set of chatIds that currently have a streaming assistant message.
+   * Derived from the messages store — the WorkspaceTabBar feature uses
+   * it to swap the LLM icon for a cli-loader per tab. */
+  readonly streamingChatIds = computed<ReadonlySet<string>>(() => {
+    const out = new Set<string>();
+    for (const m of this.store.messages()) {
+      if (m.status === 'streaming') out.add(m.chatId);
+    }
+    return out;
+  });
+
+  activeChatIdFor(workspaceId: string | null): string | null {
+    if (!workspaceId) return null;
+    return this._activeChatByWorkspace().get(workspaceId) ?? null;
+  }
 
   // workspaceId -> ms timestamp of the latest message in any of its
   // chats. Drives the sidebar hover popover's relative-time string so
@@ -80,10 +104,23 @@ export class ChatFacade {
     return computed(() => {
       const id = workspaceId();
       if (!id) return [];
-      const chat = this.store.chatByWorkspace().get(id);
-      if (!chat) return [];
-      return this.store.messagesByChat().get(chat.id) ?? [];
+      const activeId = this._activeChatByWorkspace().get(id);
+      const fallback = this.store.chatByWorkspace().get(id);
+      const chatId = activeId ?? fallback?.id;
+      if (!chatId) return [];
+      return this.store.messagesByChat().get(chatId) ?? [];
     });
+  }
+
+  /** The currently-active chat for the workspace, or null. */
+  activeChatFor(workspaceId: string | null): Chat | null {
+    if (!workspaceId) return null;
+    const activeId = this._activeChatByWorkspace().get(workspaceId);
+    if (activeId) {
+      const found = this.store.chats().find((c) => c.id === activeId);
+      if (found) return found;
+    }
+    return this.store.chatByWorkspace().get(workspaceId) ?? null;
   }
 
   isStreaming(workspaceId: Signal<string | null>): Signal<boolean> {
@@ -136,8 +173,16 @@ export class ChatFacade {
         firstChat = await this.chats.create(workspaceId, 'Start');
       }
       this.store.setChatsForWorkspace(workspaceId, list.length > 0 ? list : [firstChat]);
-      const msgs = await this.messages.listForChat(firstChat.id);
-      this.store.setMessagesForChat(firstChat.id, msgs);
+
+      const persisted = await this.chats.getActive(workspaceId);
+      const activeId =
+        persisted && list.some((c) => c.id === persisted)
+          ? persisted
+          : firstChat.id;
+      this._setActiveLocal(workspaceId, activeId);
+
+      const msgs = await this.messages.listForChat(activeId);
+      this.store.setMessagesForChat(activeId, msgs);
     } catch (err) {
       // Hydration failure shouldn't block the UI — log and let the
       // user retry by typing (the next sendUserMessage will create
@@ -147,21 +192,120 @@ export class ChatFacade {
     }
   }
 
+  // ---- chat lifecycle (create / close / rename / activate) ----------
+
+  /**
+   * Create a new chat for the workspace, upsert it into the store, and
+   * make it active. Honors the per-workspace MAX cap (4 chats) by
+   * silently no-op when the cap is hit — the dumb tab bar already hides
+   * the `+` button at the cap, so this is defensive.
+   */
+  async createChat(
+    workspaceId: string,
+    title = 'Untitled',
+  ): Promise<Chat | null> {
+    const existing = this.store.chatsByWorkspace().get(workspaceId) ?? [];
+    if (existing.length >= 4) return null;
+    try {
+      const chat = await this.chats.create(workspaceId, title);
+      this.store.upsertChat(chat);
+      await this.setActiveChat(workspaceId, chat.id);
+      return chat;
+    } catch (err) {
+      console.warn('[chat] createChat failed', err);
+      return null;
+    }
+  }
+
+  async closeChat(chatId: string): Promise<void> {
+    const chats = this.store.chats();
+    const target = chats.find((c) => c.id === chatId);
+    if (!target) return;
+    const siblings = (
+      this.store.chatsByWorkspace().get(target.workspaceId) ?? []
+    ).filter((c) => c.id !== chatId);
+    this.store.removeChat(chatId);
+    if (this.activeChatIdFor(target.workspaceId) === chatId) {
+      const fallback = siblings[0];
+      if (fallback) {
+        await this.setActiveChat(target.workspaceId, fallback.id);
+      } else {
+        this._clearActiveLocal(target.workspaceId);
+      }
+    }
+    try {
+      await this.chats.close(chatId);
+    } catch (err) {
+      console.warn('[chat] closeChat failed', err);
+    }
+  }
+
+  async renameChat(chatId: string, title: string): Promise<void> {
+    const next = title.trim();
+    if (!next) return;
+    this.store.patchChat(chatId, { title: next });
+    try {
+      await this.chats.rename(chatId, next);
+    } catch (err) {
+      console.warn('[chat] renameChat failed', err);
+    }
+  }
+
+  async setActiveChat(workspaceId: string, chatId: string): Promise<void> {
+    if (this.activeChatIdFor(workspaceId) === chatId) return;
+    this._setActiveLocal(workspaceId, chatId);
+    // Lazy-hydrate this chat's messages if we don't have them yet.
+    const have = this.store.messagesByChat().has(chatId);
+    if (!have) {
+      try {
+        const msgs = await this.messages.listForChat(chatId);
+        this.store.setMessagesForChat(chatId, msgs);
+      } catch (err) {
+        console.warn('[chat] setActiveChat messages-load failed', err);
+      }
+    }
+    try {
+      await this.chats.setActive(workspaceId, chatId);
+    } catch (err) {
+      console.warn('[chat] setActiveChat persist failed', err);
+    }
+  }
+
+  private _setActiveLocal(workspaceId: string, chatId: string): void {
+    this._activeChatByWorkspace.update((m) => {
+      if (m.get(workspaceId) === chatId) return m;
+      const next = new Map(m);
+      next.set(workspaceId, chatId);
+      return next;
+    });
+  }
+
+  private _clearActiveLocal(workspaceId: string): void {
+    this._activeChatByWorkspace.update((m) => {
+      if (!m.has(workspaceId)) return m;
+      const next = new Map(m);
+      next.delete(workspaceId);
+      return next;
+    });
+  }
+
   async sendUserMessage(
     workspaceId: string,
     text: string,
-    mode: 'normal' | 'plan',
+    mode: ChatMode,
   ): Promise<void> {
     const trimmed = text.trim();
     if (!trimmed) return;
 
-    // Lazy-create-or-replace the chat row. If `ensureChat` returned a
-    // synthetic placeholder (no Tauri trip yet), upgrade it now.
-    let chat = this.store.chatByWorkspace().get(workspaceId);
+    // Target the currently-active chat, falling back to the first chat
+    // for the workspace. Lazy-create-or-replace if the active row is a
+    // synthetic placeholder (no Tauri trip yet).
+    let chat = this.activeChatFor(workspaceId);
     if (!chat || chat.id.startsWith('pending-')) {
       const created = await this.chats.create(workspaceId, 'Start');
       if (chat) this.store.removeChat(chat.id); // drop placeholder
       this.store.upsertChat(created);
+      this._setActiveLocal(workspaceId, created.id);
       chat = created;
     }
 
@@ -197,7 +341,7 @@ export class ChatFacade {
     }
     // Stop also drops any queued user messages — user intent is
     // "halt all activity in this workspace".
-    const chat = this.store.chatByWorkspace().get(workspaceId);
+    const chat = this.activeChatFor(workspaceId);
     if (!chat) return;
     const messages = this.store.messagesByChat().get(chat.id) ?? [];
     for (const msg of messages) {
@@ -235,7 +379,7 @@ export class ChatFacade {
     chatId: string;
     role: 'user' | 'assistant' | 'system';
     content: string;
-    mode: 'normal' | 'plan';
+    mode: ChatMode;
     status: MessageStatus;
     timeline?: TimelineTurn;
     runId?: string;
@@ -303,7 +447,7 @@ export class ChatFacade {
   private async _runAssistantTurn(
     workspaceId: string,
     chatId: string,
-    mode: 'normal' | 'plan',
+    mode: ChatMode,
   ): Promise<void> {
     const assistantMsg = await this._persistAndAddMessage({
       chatId,
@@ -410,6 +554,44 @@ export class ChatFacade {
     void this.messages
       .updateStatus(queued.id, 'done')
       .catch((err) => console.warn('persist queued promotion failed', err));
-    await this._runAssistantTurn(workspaceId, chatId, queued.mode ?? 'normal');
+    await this._runAssistantTurn(workspaceId, chatId, queued.mode ?? 'agent');
+  }
+
+  // ---- chat mutators (mode / effort / model / read-marker) -----------
+
+  async setChatMode(chatId: string, mode: ChatMode): Promise<void> {
+    this.store.patchChat(chatId, { mode });
+    try {
+      await this.chats.updateMode(chatId, mode);
+    } catch (err) {
+      console.warn('[chat] setChatMode failed', err);
+    }
+  }
+
+  async setChatEffort(chatId: string, effort: EffortLevel): Promise<void> {
+    this.store.patchChat(chatId, { effort });
+    try {
+      await this.chats.updateEffort(chatId, effort);
+    } catch (err) {
+      console.warn('[chat] setChatEffort failed', err);
+    }
+  }
+
+  async setChatModel(chatId: string, modelId: string): Promise<void> {
+    this.store.patchChat(chatId, { modelId });
+    try {
+      await this.chats.updateModel(chatId, modelId);
+    } catch (err) {
+      console.warn('[chat] setChatModel failed', err);
+    }
+  }
+
+  async markChatRead(chatId: string, messageId: string): Promise<void> {
+    this.store.patchChat(chatId, { lastReadMessageId: messageId });
+    try {
+      await this.chats.markRead(chatId, messageId);
+    } catch (err) {
+      console.warn('[chat] markChatRead failed', err);
+    }
   }
 }

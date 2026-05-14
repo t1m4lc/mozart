@@ -74,6 +74,9 @@ mod tests {
             workspace_id: ws.workspace_id.clone(),
             title: "a".into(),
             llm_id: None,
+            mode: "agent".into(),
+            effort: "medium".into(),
+            last_read_message_id: None,
             closed_at: None,
             created_at: now_ms(),
         };
@@ -82,6 +85,9 @@ mod tests {
             workspace_id: ws.workspace_id.clone(),
             title: "b".into(),
             llm_id: None,
+            mode: "agent".into(),
+            effort: "medium".into(),
+            last_read_message_id: None,
             closed_at: None,
             created_at: now_ms() + 1,
         };

@@ -928,12 +928,111 @@ pub(crate) async fn create_chat_impl(
         workspace_id,
         title,
         llm_id,
+        mode: "agent".into(),
+        effort: "medium".into(),
+        last_read_message_id: None,
         closed_at: None,
         created_at: now_ms(),
     };
     let conn = db.lock();
     chats::create(&conn, &c)?;
     Ok(c)
+}
+
+// ---------------------------------------------------------------------------
+// Phase 2 chat mutators — mode / effort / model / read-marker
+// ---------------------------------------------------------------------------
+
+const VALID_MODES: &[&str] = &["agent", "plan", "ask"];
+const VALID_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_chat_mode(
+    db: State<'_, DbState>,
+    chat_id: String,
+    mode: String,
+) -> Result<(), AppError> {
+    update_chat_mode_impl(db.inner(), chat_id, mode).await
+}
+
+pub(crate) async fn update_chat_mode_impl(
+    db: &DbState,
+    chat_id: String,
+    mode: String,
+) -> Result<(), AppError> {
+    if !VALID_MODES.contains(&mode.as_str()) {
+        return Err(AppError::Validation(format!(
+            "mode must be one of agent|plan|ask, got `{mode}`"
+        )));
+    }
+    let conn = db.lock();
+    chats::set_mode(&conn, &chat_id, &mode)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_chat_effort(
+    db: State<'_, DbState>,
+    chat_id: String,
+    effort: String,
+) -> Result<(), AppError> {
+    update_chat_effort_impl(db.inner(), chat_id, effort).await
+}
+
+pub(crate) async fn update_chat_effort_impl(
+    db: &DbState,
+    chat_id: String,
+    effort: String,
+) -> Result<(), AppError> {
+    if !VALID_EFFORTS.contains(&effort.as_str()) {
+        return Err(AppError::Validation(format!(
+            "effort must be one of low|medium|high|xhigh|max, got `{effort}`"
+        )));
+    }
+    let conn = db.lock();
+    chats::set_effort(&conn, &chat_id, &effort)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn update_chat_model(
+    db: State<'_, DbState>,
+    chat_id: String,
+    llm_id: String,
+) -> Result<(), AppError> {
+    update_chat_model_impl(db.inner(), chat_id, llm_id).await
+}
+
+pub(crate) async fn update_chat_model_impl(
+    db: &DbState,
+    chat_id: String,
+    llm_id: String,
+) -> Result<(), AppError> {
+    if llm_id.trim().is_empty() {
+        return Err(AppError::Validation("llm_id must not be empty".into()));
+    }
+    let conn = db.lock();
+    chats::set_llm_id(&conn, &chat_id, &llm_id)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_chat_read(
+    db: State<'_, DbState>,
+    chat_id: String,
+    message_id: String,
+) -> Result<(), AppError> {
+    mark_chat_read_impl(db.inner(), chat_id, message_id).await
+}
+
+pub(crate) async fn mark_chat_read_impl(
+    db: &DbState,
+    chat_id: String,
+    message_id: String,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    chats::mark_read(&conn, &chat_id, &message_id)
 }
 
 #[tauri::command]

@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import {
   HlmComposerImports,
-  type ComposerMode,
+  type ChatMode,
   type ComposerSendEvent,
 } from '@mozart/ui/composer';
 
@@ -11,7 +11,7 @@ interface SandboxLogEntry {
   readonly t: number;
   readonly kind: 'send' | 'stop';
   readonly text?: string;
-  readonly mode?: ComposerMode;
+  readonly mode?: ChatMode;
 }
 
 @Component({
@@ -97,7 +97,7 @@ interface SandboxLogEntry {
 })
 export class ComposerSandbox {
   protected readonly value = signal('');
-  protected readonly mode = signal<ComposerMode>('normal');
+  protected readonly mode = signal<ChatMode>('agent');
   protected readonly isRunning = signal(false);
   protected readonly disabled = signal(false);
   protected readonly log = signal<readonly SandboxLogEntry[]>([]);

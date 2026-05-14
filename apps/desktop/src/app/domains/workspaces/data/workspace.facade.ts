@@ -1,4 +1,4 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { ProjectsFacade } from '../../projects';
 import { TasksFacade } from '../../tasks';
 import { generateWorkspaceName } from '../util-workspace-name';
@@ -50,6 +50,34 @@ export class WorkspacesFacade {
     return computed(
       () => this.store.workspaces().find((w) => w.id === id) ?? null,
     );
+  }
+
+  /**
+   * `true` when any **other** workspace in the same project as
+   * `workspaceId` has `unread === true`. Drives the composer's
+   * next-unread overlay button.
+   */
+  hasOtherUnreadInProject(
+    workspaceId: Signal<string | null>,
+  ): Signal<boolean> {
+    return computed(() => this._nextUnreadId(workspaceId()) !== null);
+  }
+
+  /**
+   * Returns the id of the next unread workspace in the same project as
+   * `workspaceId`, or null. Picked deterministically (sidebar order).
+   */
+  nextUnreadInProject(workspaceId: string | null): string | null {
+    return this._nextUnreadId(workspaceId);
+  }
+
+  private _nextUnreadId(workspaceId: string | null): string | null {
+    if (!workspaceId) return null;
+    const current = this.store.workspaces().find((w) => w.id === workspaceId);
+    if (!current) return null;
+    const siblings = this.store.byProject().get(current.projectId) ?? [];
+    const match = siblings.find((w) => w.id !== workspaceId && w.unread);
+    return match?.id ?? null;
   }
 
   setActive(id: string | null): void {
@@ -106,6 +134,7 @@ export class WorkspacesFacade {
       projectId: input.projectId,
       name,
       branch: '',
+      baseBranch: '',
       status: 'backlog',
       pinned: false,
       unread: false,

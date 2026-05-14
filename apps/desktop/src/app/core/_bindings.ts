@@ -462,6 +462,62 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async updateChatMode(
+    chatId: string,
+    mode: string,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('update_chat_mode', { chatId, mode }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async updateChatEffort(
+    chatId: string,
+    effort: string,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('update_chat_effort', { chatId, effort }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async updateChatModel(
+    chatId: string,
+    llmId: string,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('update_chat_model', { chatId, llmId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async markChatRead(
+    chatId: string,
+    messageId: string,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('mark_chat_read', { chatId, messageId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   async listMessages(chatId: string): Promise<Result<Message[], AppError>> {
     try {
       return {
@@ -677,6 +733,9 @@ export type Chat = {
   workspace_id: string;
   title: string;
   llm_id: string | null;
+  mode: string;
+  effort: string;
+  last_read_message_id: string | null;
   closed_at: number | null;
   created_at: number;
 };

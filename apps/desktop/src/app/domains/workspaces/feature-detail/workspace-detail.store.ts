@@ -36,7 +36,7 @@ const initialState: State = {
   projectIcon: null,
   currentBranch: '',
   branches: [],
-  targetBranch: 'main',
+  targetBranch: '',
   lastUsedTool: OPEN_IN_TOOLS[0],
 };
 
@@ -53,6 +53,14 @@ export const WorkspaceDetailStore = signalStore(
   })),
   withMethods((store) => ({
     setTargetBranch(branch: string): void {
+      patchState(store, { targetBranch: branch });
+    },
+    /** Seed the target branch on first resolution if not yet set. Picks
+     * up the workspace's base branch (fork source) so the picker opens
+     * pointing at the right default. */
+    seedTargetBranch(branch: string): void {
+      if (!branch) return;
+      if (store.targetBranch()) return;
       patchState(store, { targetBranch: branch });
     },
     setWorkspaceTitle(title: string): void {

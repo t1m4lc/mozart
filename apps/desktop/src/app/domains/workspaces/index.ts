@@ -18,3 +18,4 @@ export {
 } from './data/workspaces.adapter';
 
 export { WorkspaceDetailPage } from './feature-detail/workspace-detail.page';
+export { FeatureChatTabBar } from './feature-chat-tab-bar/feature-chat-tab-bar';
