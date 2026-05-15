@@ -246,6 +246,25 @@ export class ClerkService {
     await clerk.user?.reload();
   }
 
+  /**
+   * URL the in-flight sign-in attempt expects the browser to navigate
+   * to for the external OAuth verification step. `null` when there is
+   * no pending sign-in or the attempt does not carry an external URL.
+   *
+   * Exposed so route components can recover from a known
+   * `@clerk/clerk-js@6.11.0` bug : the SDK's `authenticateWithRedirect`
+   * sometimes navigates to the local `redirectUrl` instead of the
+   * provider URL. The destination route can read this and bounce the
+   * browser onward.
+   */
+  pendingOAuthRedirectUrl(): string | null {
+    const url =
+      this.clerk?.client?.signIn?.firstFactorVerification
+        ?.externalVerificationRedirectURL;
+    if (!url) return null;
+    return typeof url === 'string' ? url : url.toString();
+  }
+
   private requireClerk(): Clerk {
     if (!this.clerk) {
       throw new Error(

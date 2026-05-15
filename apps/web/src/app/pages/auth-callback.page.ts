@@ -63,6 +63,8 @@ export class AuthCallbackPage {
   private timeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
+    const pendingOauthUrl = this.clerk.pendingOAuthRedirectUrl();
+
     console.info(
       '[auth-callback] mount — clerk.isLoaded:',
       this.clerk.isLoaded(),
@@ -70,7 +72,24 @@ export class AuthCallbackPage {
       this.clerk.user(),
       'session:',
       this.clerk.session(),
+      'pendingOauthUrl:',
+      pendingOauthUrl,
     );
+
+    // Workaround : when @clerk/clerk-js@6.11.0 mis-navigates to
+    // redirectUrl (= here) instead of the OAuth provider, the pending
+    // sign-in still carries the GitHub URL in its
+    // firstFactorVerification. Detect that and bounce the browser
+    // onward ourselves — same effect as if the SDK had done it.
+    if (!this.auth.isAuthenticated() && pendingOauthUrl) {
+      const href = String(pendingOauthUrl);
+      console.warn(
+        '[auth-callback] pending OAuth attempt detected — bouncing to provider:',
+        href,
+      );
+      window.location.assign(href);
+      return;
+    }
 
     // Race : Clerk's listener may fire any moment after mount with the
     // resolved session. We arm a 2 s fallback that flips to "failed"
