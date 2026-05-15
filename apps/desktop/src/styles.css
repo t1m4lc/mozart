@@ -17,6 +17,7 @@
 @source "../../../libs/ui/dialog";
 @source "../../../libs/ui/dropdown-menu";
 @source "../../../libs/ui/empty";
+@source "../../../libs/ui/highlight-overlay";
 @source "../../../libs/ui/hover-card";
 @source "../../../libs/ui/icon";
 @source "../../../libs/ui/input";
@@ -33,6 +34,7 @@
 @source "../../../libs/ui/skeleton";
 @source "../../../libs/ui/sonner";
 @source "../../../libs/ui/spinner";
+@source "../../../libs/ui/switch";
 @source "../../../libs/ui/tabs";
 @source "../../../libs/ui/textarea";
 @source "../../../libs/ui/timeline";

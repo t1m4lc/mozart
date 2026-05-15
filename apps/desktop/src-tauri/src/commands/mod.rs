@@ -1807,6 +1807,99 @@ pub async fn auth_clear_session() -> Result<(), AppError> {
 }
 
 // ---------------------------------------------------------------------------
+// Notification preferences + emit_message_end_notification (Phase 6 / Atom 10)
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct NotificationPreferences {
+    pub desktop: bool,
+    pub sound: bool,
+}
+
+const NOTIF_DESKTOP_KEY: &str = "notifications_desktop";
+const NOTIF_SOUND_KEY: &str = "notifications_sound";
+
+fn read_bool(conn: &rusqlite::Connection, key: &str, default: bool) -> bool {
+    match config::get(conn, key) {
+        Ok(Some(v)) => v == "true",
+        _ => default,
+    }
+}
+
+/// Phase 6 / Atom 10 — read notification preferences from the config
+/// table. Both toggles default to `true` on a fresh install.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_notification_preferences(
+    db: State<'_, DbState>,
+) -> Result<NotificationPreferences, AppError> {
+    let conn = db.lock();
+    Ok(NotificationPreferences {
+        desktop: read_bool(&conn, NOTIF_DESKTOP_KEY, true),
+        sound: read_bool(&conn, NOTIF_SOUND_KEY, true),
+    })
+}
+
+/// Phase 6 / Atom 10 — persist notification preferences. Settings UI
+/// calls this on every toggle.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_notification_preferences(
+    prefs: NotificationPreferences,
+    db: State<'_, DbState>,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    config::set(
+        &conn,
+        NOTIF_DESKTOP_KEY,
+        Some(if prefs.desktop { "true" } else { "false" }),
+    )?;
+    config::set(
+        &conn,
+        NOTIF_SOUND_KEY,
+        Some(if prefs.sound { "true" } else { "false" }),
+    )?;
+    Ok(())
+}
+
+/// Phase 6 / Atom 10 — surface a desktop notification when an agent
+/// turn finishes on a chat the user isn't currently looking at. The
+/// front-end decides when to call this (workspace unfocused / window
+/// unfocused) ; the Rust side only enforces the user's pref toggle so
+/// a stale call after toggle-off is still suppressed.
+#[tauri::command]
+#[specta::specta]
+pub async fn emit_message_end_notification(
+    app: tauri::AppHandle,
+    db: State<'_, DbState>,
+    chat_title: String,
+) -> Result<(), AppError> {
+    use tauri_plugin_notification::NotificationExt;
+    let prefs = {
+        let conn = db.lock();
+        NotificationPreferences {
+            desktop: read_bool(&conn, NOTIF_DESKTOP_KEY, true),
+            sound: read_bool(&conn, NOTIF_SOUND_KEY, true),
+        }
+    };
+    if !prefs.desktop {
+        return Ok(());
+    }
+    let mut builder = app
+        .notification()
+        .builder()
+        .title("Mozart")
+        .body(format!("{chat_title} is ready"));
+    if prefs.sound {
+        builder = builder.sound("default");
+    }
+    builder
+        .show()
+        .map_err(|e| AppError::Io(format!("notification: {e}")))?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // create_get_started_project (Phase 6 / Atom 6)
 // ---------------------------------------------------------------------------
 

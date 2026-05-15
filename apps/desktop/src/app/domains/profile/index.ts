@@ -25,3 +25,9 @@ export { UiConnectionCard } from './ui-connection-card';
 export { UiConnectionHelpDialog } from './ui-connection-help-dialog';
 export { UiGithubCard } from './ui-github-card';
 export { UiGithubConnectDialog } from './ui-github-connect-dialog';
+export { FeatureNotificationPrefs } from './feature-notification-prefs';
+export {
+  NOTIFICATION_PREFS_ADAPTER,
+  type NotificationPrefsAdapter,
+  type NotificationPreferences,
+} from './data/notification-prefs.adapter';

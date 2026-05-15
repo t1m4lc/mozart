@@ -26,8 +26,10 @@ import { tauriOnboardingAdapter } from '../domains/onboarding/data/tauri-onboard
 import { tauriProviderSetupAdapter } from '../domains/onboarding/data/tauri-provider-setup.adapter';
 import {
   CREDENTIALS_ADAPTER,
+  NOTIFICATION_PREFS_ADAPTER,
   type CredentialsAdapter,
 } from '../domains/profile';
+import { tauriNotificationPrefsAdapter } from '../domains/profile/data/tauri-notification-prefs.adapter';
 import {
   DIALOG_ADAPTER,
   PROJECTS_ADAPTER,
@@ -102,6 +104,13 @@ function provideGetStartedProjectAdapter(): Provider {
   return {
     provide: GET_STARTED_PROJECT_ADAPTER,
     useFactory: () => tauriGetStartedProjectAdapter(),
+  };
+}
+
+function provideNotificationPrefsAdapter(): Provider {
+  return {
+    provide: NOTIFICATION_PREFS_ADAPTER,
+    useFactory: () => tauriNotificationPrefsAdapter(),
   };
 }
 
@@ -458,6 +467,7 @@ export function provideTauriAdapters(): Provider[] {
     provideGitCheckAdapter(),
     provideProviderSetupAdapter(),
     provideGetStartedProjectAdapter(),
+    provideNotificationPrefsAdapter(),
     provideDialogAdapter(),
     provideProjectsAdapter(),
     provideWorkspacesAdapter(),

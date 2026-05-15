@@ -3,13 +3,14 @@ import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { AuthFacade } from '../domains/auth';
 import { FeatureGitStatus, OnboardingFacade } from '../domains/onboarding';
-import { FeatureConnections } from '../domains/profile';
+import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile';
 
 @Component({
   selector: 'app-settings-page',
   imports: [
     FeatureConnections,
     FeatureGitStatus,
+    FeatureNotificationPrefs,
     HlmButtonImports,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,6 +31,13 @@ import { FeatureConnections } from '../domains/profile';
           Git
         </h2>
         <app-feature-git-status />
+      </section>
+
+      <section class="space-y-3">
+        <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Notifications
+        </h2>
+        <app-feature-notification-prefs />
       </section>
 
       <section class="space-y-3">

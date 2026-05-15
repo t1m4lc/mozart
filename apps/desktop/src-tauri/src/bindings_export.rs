@@ -98,6 +98,9 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::git_version,
             commands::spawn_claude_login,
             commands::create_get_started_project,
+            commands::get_notification_preferences,
+            commands::set_notification_preferences,
+            commands::emit_message_end_notification,
         ])
         .events(tauri_specta::collect_events![
             AgentRunTerminated,
@@ -124,4 +127,5 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<CreatedPr>()
         .typ::<AuthSessionDto>()
         .typ::<GetStartedProject>()
+        .typ::<commands::NotificationPreferences>()
 }

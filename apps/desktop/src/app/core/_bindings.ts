@@ -832,6 +832,45 @@ async createGetStartedProject() : Promise<Result<GetStartedProject, AppError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Phase 6 / Atom 10 — read notification preferences from the config
+ * table. Both toggles default to `true` on a fresh install.
+ */
+async getNotificationPreferences() : Promise<Result<NotificationPreferences, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_notification_preferences") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Phase 6 / Atom 10 — persist notification preferences. Settings UI
+ * calls this on every toggle.
+ */
+async setNotificationPreferences(prefs: NotificationPreferences) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_notification_preferences", { prefs }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Phase 6 / Atom 10 — surface a desktop notification when an agent
+ * turn finishes on a chat the user isn't currently looking at. The
+ * front-end decides when to call this (workspace unfocused / window
+ * unfocused) ; the Rust side only enforces the user's pref toggle so
+ * a stale call after toggle-off is still suppressed.
+ */
+async emitMessageEndNotification(chatTitle: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("emit_message_end_notification", { chatTitle }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -975,6 +1014,7 @@ success: boolean;
  */
 message: string }
 export type Message = { message_id: string; chat_id: string; run_id: string | null; role: string; content: string; mode: string | null; status: string; timeline_json: string | null; created_at: number }
+export type NotificationPreferences = { desktop: boolean; sound: boolean }
 /**
  * Outcome of a probe call. Sent to the frontend via tauri-specta as a
  * tagged TS union `{ kind: 'connected' | 'invalid' | 'network_error' }`.
