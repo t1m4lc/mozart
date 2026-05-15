@@ -14,6 +14,8 @@ import {
   type MessagesAdapter,
 } from '../domains/chat';
 import { LLM_ADAPTER, TauriClaudeAdapter } from '../domains/llm-model';
+import { ONBOARDING_ADAPTER } from '../domains/onboarding';
+import { tauriOnboardingAdapter } from '../domains/onboarding/data/tauri-onboarding.adapter';
 import {
   CREDENTIALS_ADAPTER,
   type CredentialsAdapter,
@@ -64,6 +66,13 @@ function provideAuthAdapter(): Provider {
   return {
     provide: AUTH_ADAPTER,
     useFactory: () => tauriAuthAdapter(),
+  };
+}
+
+function provideOnboardingAdapter(): Provider {
+  return {
+    provide: ONBOARDING_ADAPTER,
+    useFactory: () => tauriOnboardingAdapter(),
   };
 }
 
@@ -416,6 +425,7 @@ function toTerminalEventModel(ev: TerminalEventDto): TerminalEventModel {
 export function provideTauriAdapters(): Provider[] {
   return [
     provideAuthAdapter(),
+    provideOnboardingAdapter(),
     provideDialogAdapter(),
     provideProjectsAdapter(),
     provideWorkspacesAdapter(),

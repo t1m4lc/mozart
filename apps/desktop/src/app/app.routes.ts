@@ -1,5 +1,6 @@
 import { Route } from '@angular/router';
 import { authGuard } from './domains/auth';
+import { onboardingGuard } from './domains/onboarding';
 import { AppShell } from './shell/app-shell';
 import { SettingsShell } from './shell/settings-shell';
 
@@ -10,9 +11,21 @@ export const appRoutes: Route[] = [
       import('./pages/welcome.page').then((m) => m.WelcomePage),
   },
   {
+    path: 'onboarding',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/onboarding.page').then((m) => m.OnboardingPage),
+  },
+  {
+    path: 'tour',
+    canActivate: [authGuard],
+    loadComponent: () =>
+      import('./pages/tour.page').then((m) => m.TourPage),
+  },
+  {
     path: '',
     component: AppShell,
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingGuard],
     children: [
       {
         path: '',
@@ -31,7 +44,7 @@ export const appRoutes: Route[] = [
   {
     path: 'settings',
     component: SettingsShell,
-    canActivate: [authGuard],
+    canActivate: [authGuard, onboardingGuard],
     children: [
       {
         path: '',

@@ -28,7 +28,7 @@ use crate::credentials::anthropic_probe::{self, ProbeResult};
 use crate::credentials::keyring_store;
 use crate::db::models::{AgentRun, Chat, Message, Repo, Task, Workspace, WorkspaceChange};
 use crate::db::{
-    agent_runs, chats, messages, new_id, now_ms, repos, tasks, threads,
+    agent_runs, chats, config, messages, new_id, now_ms, repos, tasks, threads,
     workspace_active_chat, workspace_changes, workspaces,
 };
 use crate::db::DbState;
@@ -1804,6 +1804,46 @@ pub async fn auth_save_session(session: AuthSessionDto) -> Result<(), AppError> 
 #[specta::specta]
 pub async fn auth_clear_session() -> Result<(), AppError> {
     auth_store::clear_session()
+}
+
+// ---------------------------------------------------------------------------
+// get_onboarding_completed / set_onboarding_completed
+// ---------------------------------------------------------------------------
+
+/// Phase 6 / Atom 1 — read the local onboarding-completed mirror from the
+/// `config` key-value table. Missing row fails-closed to `false` so a
+/// brand-new install routes into the wizard.
+///
+/// Source-of-truth contract : the JWT carries an `onboarding` claim that
+/// seeds initial routing on first sign-in (Atom 0). This local mirror
+/// then takes over on every restart so the user doesn't re-onboard if
+/// the mock-Clerk token resets the claim.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_onboarding_completed(
+    db: State<'_, DbState>,
+) -> Result<bool, AppError> {
+    let conn = db.lock();
+    let value = config::get(&conn, "onboarding_completed")?;
+    Ok(value.as_deref() == Some("true"))
+}
+
+/// Phase 6 / Atom 1 — write the onboarding-completed flag. Called by the
+/// onboarding facade when the user finishes step 4, and from settings'
+/// "Revisit tour" (passes `false` to gate the wizard again).
+#[tauri::command]
+#[specta::specta]
+pub async fn set_onboarding_completed(
+    value: bool,
+    db: State<'_, DbState>,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    config::set(
+        &conn,
+        "onboarding_completed",
+        Some(if value { "true" } else { "false" }),
+    )?;
+    Ok(())
 }
 
 // ===========================================================================

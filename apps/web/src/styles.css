@@ -5,7 +5,9 @@
 /* nx-tailwind-sources:start */
 @source "../../../libs/shared-util-theme";
 @source "../../../libs/ui/button";
+@source "../../../libs/ui/empty";
 @source "../../../libs/ui/icon";
 @source "../../../libs/ui/spinner";
+@source "../../../libs/ui/typography";
 @source "../../../libs/ui/utils";
 /* nx-tailwind-sources:end */

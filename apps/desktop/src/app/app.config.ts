@@ -14,6 +14,7 @@ import { appRoutes } from './app.routes';
 import { provideTauriAdapters } from './core/tauri-adapters';
 import { AuthFacade } from './domains/auth';
 import { ChatFacade } from './domains/chat';
+import { OnboardingFacade } from './domains/onboarding';
 import { ProfileFacade } from './domains/profile';
 import { ProjectsFacade } from './domains/projects';
 import { WorkspacesFacade } from './domains/workspaces';
@@ -28,14 +29,16 @@ export const appConfig: ApplicationConfig = {
       // All inject() calls MUST happen synchronously before any await —
       // Angular's injection context is lost across microtasks.
       const auth = inject(AuthFacade);
+      const onboarding = inject(OnboardingFacade);
       const projects = inject(ProjectsFacade);
       const workspaces = inject(WorkspacesFacade);
       const chat = inject(ChatFacade);
       const profile = inject(ProfileFacade);
 
-      // Boot auth first so the route guard sees the persisted session
-      // before the router resolves the initial URL.
+      // Boot auth + onboarding first so route guards see the persisted
+      // state before the router resolves the initial URL.
       await auth.bootstrap();
+      await onboarding.bootstrap();
 
       try {
         await projects.loadAll();
