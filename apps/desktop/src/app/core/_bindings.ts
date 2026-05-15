@@ -477,11 +477,10 @@ async listRepositoryTree(workspaceId: string, showIgnored: boolean) : Promise<Re
 }
 },
 /**
- * Subscribe to FS-change events for the workspace's worktree. Atom C
- * validates the workspace and registers a placeholder handle so the
- * adapter contract is final; atom E swaps the placeholder for a real
- * `notify-debouncer-mini` watcher that pushes `FileTreeEvent::Changed`
- * pings through `on_event`.
+ * Subscribe to FS-change events for the workspace's worktree. Spawns
+ * a `notify-debouncer-mini` watcher (200ms window) and registers it
+ * keyed by `workspace_id` so a subsequent call for the same workspace
+ * replaces the previous watcher.
  */
 async watchRepositoryTree(workspaceId: string, onEvent: TAURI_CHANNEL<FileTreeEvent>) : Promise<Result<null, AppError>> {
     try {

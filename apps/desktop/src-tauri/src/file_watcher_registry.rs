@@ -3,26 +3,28 @@
 //! same workspace (so tab toggles or workspace switches don't leak inotify
 //! handles). Mirrors the shape of `run_registry::RunRegistry`.
 //!
-//! Atom C registers the registry struct only. Atom E plugs
-//! `notify-debouncer-mini` into `WatcherHandle` and uses `register` /
-//! `cancel` from the `watch_repository_tree` command.
+//! The handle wraps a `notify-debouncer-mini::Debouncer<RecommendedWatcher>`.
+//! Dropping the handle (via `register` overwrite or `cancel`) drops the
+//! debouncer, which signals its background thread to shut down and
+//! releases the underlying notify watcher (inotify on Linux, FSEvents on
+//! macOS, ReadDirectoryChangesW on Windows).
 
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 
-/// Opaque handle returned by `notify-debouncer-mini`. Atom E will
-/// replace the marker with the real debouncer; for Atom C the registry
-/// is wired but never populated.
+use notify::RecommendedWatcher;
+use notify_debouncer_mini::Debouncer;
+
+/// Owns the debouncer for one workspace's watcher. Drop = stop.
 pub struct WatcherHandle {
-    /// Phantom field to keep the type non-empty until Atom E assigns
-    /// the real debouncer. Drop runs when the handle is replaced or the
-    /// app shuts down.
-    _placeholder: (),
+    _debouncer: Debouncer<RecommendedWatcher>,
 }
 
 impl WatcherHandle {
-    pub fn placeholder() -> Self {
-        Self { _placeholder: () }
+    pub fn new(debouncer: Debouncer<RecommendedWatcher>) -> Self {
+        Self {
+            _debouncer: debouncer,
+        }
     }
 }
 
@@ -34,7 +36,7 @@ impl FileWatcherRegistry {
     }
 
     /// Insert (or replace) the handle for `workspace_id`. Replacing
-    /// drops the previous handle, which stops the underlying watcher.
+    /// drops the previous handle, which stops its watcher.
     pub fn register(&self, workspace_id: String, handle: WatcherHandle) {
         let mut g = self.0.lock().expect("registry poisoned");
         g.insert(workspace_id, handle);

@@ -2,6 +2,7 @@ import { CdkTreeModule, NestedTreeControl } from '@angular/cdk/tree';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   effect,
   inject,
   input,
@@ -112,6 +113,7 @@ export class FeatureFileTree {
   readonly fileSelected = output<FileNode>();
 
   private readonly repos = inject(RepositoriesFacade);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly nodes = signal<FileNode[]>([]);
   protected readonly loading = signal(false);
@@ -129,16 +131,25 @@ export class FeatureFileTree {
   protected readonly isDirectory = (_index: number, node: FileNode): boolean =>
     node.kind === 'directory';
 
+  // The currently-active watcher unsubscribe, if any. Replaced when
+  // workspaceId changes, called on destroy.
+  private currentUnwatch: (() => void) | null = null;
+
   constructor() {
-    effect(() => {
+    effect((onCleanup) => {
       const id = this.workspaceId();
       const showIgn = this.showIgnored();
       if (!id) {
         this.nodes.set([]);
+        this.detachWatcher();
         return;
       }
       void this.fetch(id, showIgn);
+      void this.attachWatcher(id, showIgn);
+      onCleanup(() => this.detachWatcher());
     });
+
+    this.destroyRef.onDestroy(() => this.detachWatcher());
   }
 
   protected toggleIgnored(): void {
@@ -166,6 +177,54 @@ export class FeatureFileTree {
       this.nodes.set([]);
     } finally {
       this.loading.set(false);
+    }
+  }
+
+  private async attachWatcher(
+    workspaceId: string,
+    showIgnored: boolean,
+  ): Promise<void> {
+    // Drop any prior subscription before opening a new one. The Rust
+    // registry already replaces by workspaceId, but the unsubscribe
+    // also clears the JS-side onmessage handler.
+    this.detachWatcher();
+    try {
+      const unwatch = await this.repos.watch(workspaceId, () => {
+        // Re-fetch with the *current* showIgnored, not the captured one
+        // — toggling between pings should still take effect.
+        if (this.workspaceId() === workspaceId) {
+          void this.fetch(workspaceId, this.showIgnored());
+        }
+      });
+      // If the workspace changed (or component destroyed) while we were
+      // awaiting, immediately tear down the just-attached subscription.
+      if (this.workspaceId() !== workspaceId) {
+        try {
+          unwatch();
+        } catch (e) {
+          console.warn('[file-tree] late unwatch failed:', e);
+        }
+        return;
+      }
+      this.currentUnwatch = unwatch;
+    } catch (err) {
+      // Watcher failure shouldn't block the tree — log and carry on.
+      console.warn('[file-tree] watch failed:', err);
+    }
+    // Suppress unused-parameter lint when showIgnored is captured only
+    // by the closure above (kept in the signature to make the dataflow
+    // explicit at the call site).
+    void showIgnored;
+  }
+
+  private detachWatcher(): void {
+    const fn = this.currentUnwatch;
+    this.currentUnwatch = null;
+    if (!fn) return;
+    try {
+      fn();
+    } catch (e) {
+      console.warn('[file-tree] unwatch failed:', e);
     }
   }
 }

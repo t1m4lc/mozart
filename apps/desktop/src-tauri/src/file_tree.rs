@@ -2,28 +2,36 @@
 //! status against `base_branch`, return a nested `FileNodeDto` tree
 //! consumed by `domains/repositories/` on the Angular side.
 //!
-//! v0.0.1 scope (Phase 4b atom C):
+//! v0.0.1 scope (Phase 4b atoms C+E):
 //! - `list_tree(worktree, base_branch, show_ignored)` — async, single-shot.
 //!   Walks via the `ignore` crate (honors `.gitignore` when
 //!   `show_ignored=false`). Status overlay merges
 //!   `git diff --name-status <base>...HEAD` (committed range vs. merge
 //!   base) with `git status --porcelain=v1` (working tree + index).
 //!   Working-tree state wins on overlap.
-//! - Atom E adds `spawn_watcher` (notify-debouncer-mini) — placeholder
-//!   stub here returning `Ok(())` so the adapter shape is final.
+//! - `spawn_watcher(worktree, channel)` — notify-debouncer-mini at 200ms.
+//!   Emits a single `FileTreeEvent::Changed` per debounce window; the
+//!   front-end re-fetches via `list_tree` on each ping.
 //!
 //! Vocabulary: `worktree_path` / `base_branch` are accepted as args
 //! (Rust-internal); the DTO surface uses workspace-relative `path`.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use ignore::{gitignore::Gitignore, WalkBuilder};
+use notify::{RecommendedWatcher, RecursiveMode};
+use notify_debouncer_mini::{new_debouncer, DebounceEventResult, Debouncer};
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use tauri::ipc::Channel;
 
 use crate::error::AppError;
 use crate::sandbox;
+
+/// Debounce window for FS events (D4b — single ping per window).
+const WATCHER_DEBOUNCE: Duration = Duration::from_millis(200);
 
 /// Per-file change classification against the workspace's base branch.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -97,10 +105,39 @@ pub async fn list_tree(
     Ok(build_tree(entries, &status_map))
 }
 
-/// Atom E placeholder. Returns immediately so the adapter contract is
-/// final. Atom E replaces this with a `notify-debouncer-mini` spawn.
-pub fn spawn_watcher_stub() -> Result<(), AppError> {
-    Ok(())
+/// Spawn a debounced FS watcher rooted at `worktree`. The returned
+/// `Debouncer` owns the underlying notify watcher; dropping it stops
+/// the watcher and joins its background thread.
+///
+/// Each debounce window collapses to a single `FileTreeEvent::Changed`
+/// pushed on `on_event`. The front-end re-fetches the full tree on
+/// each ping — bandwidth is small (one no-payload event) and the
+/// rebuild is cheap relative to a real burst (e.g. `pnpm install`).
+pub fn spawn_watcher(
+    worktree: PathBuf,
+    on_event: Channel<FileTreeEvent>,
+) -> Result<Debouncer<RecommendedWatcher>, AppError> {
+    let mut debouncer = new_debouncer(WATCHER_DEBOUNCE, move |res: DebounceEventResult| {
+        match res {
+            Ok(events) => {
+                if events.is_empty() {
+                    return;
+                }
+                if let Err(e) = on_event.send(FileTreeEvent::Changed) {
+                    log::warn!("file_tree watcher: channel send failed: {e}");
+                }
+            }
+            Err(err) => {
+                log::warn!("file_tree watcher: notify error: {err:?}");
+            }
+        }
+    })
+    .map_err(|e| AppError::Io(format!("create fs debouncer: {e}")))?;
+    debouncer
+        .watcher()
+        .watch(&worktree, RecursiveMode::Recursive)
+        .map_err(|e| AppError::Io(format!("watch worktree {worktree:?}: {e}")))?;
+    Ok(debouncer)
 }
 
 #[derive(Debug, Clone)]

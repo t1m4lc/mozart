@@ -1359,32 +1359,32 @@ pub(crate) async fn list_repository_tree_impl(
 }
 
 // ---------------------------------------------------------------------------
-// watch_repository_tree (Phase 4b atom C — placeholder; atom E activates)
+// watch_repository_tree (Phase 4b atom E)
 // ---------------------------------------------------------------------------
 
-/// Subscribe to FS-change events for the workspace's worktree. Atom C
-/// validates the workspace and registers a placeholder handle so the
-/// adapter contract is final; atom E swaps the placeholder for a real
-/// `notify-debouncer-mini` watcher that pushes `FileTreeEvent::Changed`
-/// pings through `on_event`.
+/// Subscribe to FS-change events for the workspace's worktree. Spawns
+/// a `notify-debouncer-mini` watcher (200ms window) and registers it
+/// keyed by `workspace_id` so a subsequent call for the same workspace
+/// replaces the previous watcher.
 #[tauri::command]
 #[specta::specta]
 pub async fn watch_repository_tree(
     db: State<'_, DbState>,
     registry: State<'_, FileWatcherRegistry>,
     workspace_id: String,
-    #[allow(unused_variables)] on_event: Channel<FileTreeEvent>,
+    on_event: Channel<FileTreeEvent>,
 ) -> Result<(), AppError> {
-    // Validate the workspace exists; surfaces NotFound if the caller
-    // passes a bogus id.
-    {
+    let ws = {
         let conn = db.lock();
-        workspaces::get(&conn, &workspace_id)?;
-    }
-    file_tree::spawn_watcher_stub()?;
+        workspaces::get(&conn, &workspace_id)?
+    };
+    let debouncer = file_tree::spawn_watcher(
+        std::path::PathBuf::from(&ws.worktree_path),
+        on_event,
+    )?;
     registry.register(
         workspace_id,
-        crate::file_watcher_registry::WatcherHandle::placeholder(),
+        crate::file_watcher_registry::WatcherHandle::new(debouncer),
     );
     Ok(())
 }
