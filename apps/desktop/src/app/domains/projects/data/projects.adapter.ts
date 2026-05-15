@@ -21,6 +21,8 @@ export interface ProjectsAdapter {
   setIcon(id: string, icon: string | null): Promise<void>;
   setHidden(id: string, hidden: boolean): Promise<void>;
   setSort(orderedIds: readonly string[]): Promise<void>;
+  /** Persist the project's run command. Pass `null` to clear. */
+  setRunCommand(id: string, command: string | null): Promise<void>;
 }
 
 export const PROJECTS_ADAPTER = new InjectionToken<ProjectsAdapter>(

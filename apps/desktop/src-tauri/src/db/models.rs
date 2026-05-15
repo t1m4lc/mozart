@@ -19,6 +19,9 @@ pub struct Repo {
     pub icon: Option<String>,
     pub hidden: bool,
     pub sort_index: i64,
+    /// Optional dev/run command (e.g. `pnpm dev`) Phase 4e's Run tab
+    /// invokes inside a workspace's worktree.
+    pub run_command: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

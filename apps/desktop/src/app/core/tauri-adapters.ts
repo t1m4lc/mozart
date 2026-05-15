@@ -106,6 +106,9 @@ function provideProjectsAdapter(): Provider {
       async setSort(orderedIds) {
         unwrap(await commands.setRepoSort([...orderedIds]));
       },
+      async setRunCommand(id, command) {
+        unwrap(await commands.setRepoRunCommand(id, command));
+      },
     } satisfies ProjectsAdapter,
   };
 }

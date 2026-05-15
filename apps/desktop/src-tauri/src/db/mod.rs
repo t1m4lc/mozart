@@ -36,6 +36,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (3, include_str!("../../migrations/003_workspaces_ui_status.sql")),
     (4, include_str!("../../migrations/004_chat.sql")),
     (5, include_str!("../../migrations/005_chat_phase2.sql")),
+    (6, include_str!("../../migrations/006_repos_run_command.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.
@@ -161,6 +162,9 @@ fn patch_repos_user_state_columns(conn: &Connection) -> Result<(), AppError> {
         conn.execute_batch(
             "ALTER TABLE repos ADD COLUMN sort_index INTEGER NOT NULL DEFAULT 0",
         )?;
+    }
+    if !cols.iter().any(|c| c == "run_command") {
+        conn.execute_batch("ALTER TABLE repos ADD COLUMN run_command TEXT")?;
     }
     Ok(())
 }

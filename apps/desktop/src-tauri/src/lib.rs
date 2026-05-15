@@ -13,6 +13,7 @@ pub mod run_registry;
 pub mod sandbox;
 pub mod terminal;
 pub mod terminal_registry;
+pub mod workspace_run_registry;
 pub mod workspace_service;
 pub mod worktree;
 
@@ -139,6 +140,11 @@ pub fn run() {
             // Terminal registry holds PTY handles keyed by workspace_id
             // (Phase 4d). One PTY per workspace, killed on archive.
             app.manage(terminal_registry::TerminalRegistry::new());
+
+            // Run registry holds PTY handles for the project's run
+            // command, also keyed by workspace_id (Phase 4e). Killed
+            // on archive.
+            app.manage(workspace_run_registry::WorkspaceRunRegistry::new());
 
             // Typed event mounting: no-op for v0.0.1 (no events declared
             // yet) but forward-compatible — future Builder.events() calls

@@ -72,6 +72,9 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::write_terminal,
             commands::resize_terminal,
             commands::close_terminal,
+            commands::set_repo_run_command,
+            commands::start_workspace_run,
+            commands::stop_workspace_run,
         ])
         .events(tauri_specta::collect_events![AgentRunTerminated])
         .typ::<AppError>()

@@ -92,6 +92,29 @@ pub fn spawn(
     rows: u16,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalHandle, AppError> {
+    spawn_inner(worktree, cols, rows, None, on_event)
+}
+
+/// Spawn the user's shell with `-c "<command>"`, streaming the
+/// command's output through `on_event`. When the command exits, the
+/// reader emits `Exited`. Used by Phase 4e's Run tab.
+pub fn spawn_command(
+    worktree: &Path,
+    cols: u16,
+    rows: u16,
+    command: String,
+    on_event: Channel<TerminalEvent>,
+) -> Result<TerminalHandle, AppError> {
+    spawn_inner(worktree, cols, rows, Some(command), on_event)
+}
+
+fn spawn_inner(
+    worktree: &Path,
+    cols: u16,
+    rows: u16,
+    command: Option<String>,
+    on_event: Channel<TerminalEvent>,
+) -> Result<TerminalHandle, AppError> {
     let pty_system = native_pty_system();
     let pair = pty_system
         .openpty(PtySize {
@@ -103,6 +126,12 @@ pub fn spawn(
         .map_err(|e| AppError::Io(format!("openpty: {e}")))?;
 
     let mut cmd = CommandBuilder::new(default_shell());
+    if let Some(c) = command.as_ref() {
+        // `-c <command>` runs once and exits; the reader's `Exited`
+        // pulse drives the Run tab status badge.
+        cmd.arg("-c");
+        cmd.arg(c);
+    }
     cmd.cwd(worktree);
     // Hint shells that we're running an interactive PTY.
     cmd.env("TERM", "xterm-256color");

@@ -10,5 +10,6 @@ export function projectFromDto(dto: ProjectDto): Project {
     hidden: dto.hidden,
     sortIndex: dto.sort_index,
     addedAt: new Date(dto.added_at),
+    runCommand: dto.run_command ?? null,
   };
 }

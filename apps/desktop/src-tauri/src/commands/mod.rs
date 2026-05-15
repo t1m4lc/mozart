@@ -37,6 +37,7 @@ use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
 use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::terminal::{self, TerminalEvent};
 use crate::terminal_registry::TerminalRegistry;
+use crate::workspace_run_registry::WorkspaceRunRegistry;
 use crate::git_query;
 use crate::run_registry::RunRegistry;
 use crate::sandbox;
@@ -101,6 +102,7 @@ pub(crate) async fn add_repo_impl(db: &DbState, path: String) -> Result<Repo, Ap
         icon: None,
         hidden: false,
         sort_index: 0,
+        run_command: None,
     };
     repos::create(&conn, &r)?;
     Ok(r)
@@ -584,15 +586,15 @@ pub(crate) async fn list_tasks_impl(
 pub async fn archive_workspace(
     db: State<'_, DbState>,
     terminal_registry: State<'_, TerminalRegistry>,
+    workspace_run_registry: State<'_, WorkspaceRunRegistry>,
     file_watcher_registry: State<'_, FileWatcherRegistry>,
     workspace_id: String,
 ) -> Result<(), AppError> {
     // Release per-workspace runtime resources before flipping the
-    // deletion intent. Cancelling the terminal registry drops the PTY
-    // handle (kills child + closes master), which lets the reader
-    // thread emit `Exited` and exit. Cancelling the file watcher stops
-    // the notify-debouncer.
+    // deletion intent. Cancelling each registry drops the held handle:
+    // PTYs (terminal + run) get killed, the notify-debouncer stops.
     terminal_registry.cancel(&workspace_id);
+    workspace_run_registry.cancel(&workspace_id);
     file_watcher_registry.cancel(&workspace_id);
     archive_workspace_impl(db.inner(), workspace_id).await
 }
@@ -1526,6 +1528,71 @@ pub async fn close_terminal(
     Ok(())
 }
 
+// ---------------------------------------------------------------------------
+// Run command management (Phase 4e)
+// ---------------------------------------------------------------------------
+
+/// Update the project's `run_command`. Pass `None` to clear it.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_repo_run_command(
+    db: State<'_, DbState>,
+    repo_id: String,
+    command: Option<String>,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    repos::set_run_command(&conn, &repo_id, command.as_deref())
+}
+
+/// Spawn the project's `run_command` in a PTY rooted at the workspace's
+/// worktree. Streams output through `on_event`. Replaces any prior run
+/// PTY for the same workspace (the previous run is killed). Returns
+/// `Validation` if the project has no `run_command` set.
+#[tauri::command]
+#[specta::specta]
+pub async fn start_workspace_run(
+    db: State<'_, DbState>,
+    registry: State<'_, WorkspaceRunRegistry>,
+    workspace_id: String,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<TerminalEvent>,
+) -> Result<(), AppError> {
+    let (worktree_path, command) = {
+        let conn = db.lock();
+        let ws = workspaces::get(&conn, &workspace_id)?;
+        let task = tasks::get(&conn, &ws.task_id)?;
+        let repo = repos::get(&conn, &task.repo_id)?;
+        let cmd = repo.run_command.ok_or_else(|| {
+            AppError::Validation(
+                "no run_command configured for this project".into(),
+            )
+        })?;
+        (ws.worktree_path, cmd)
+    };
+    registry.cancel(&workspace_id);
+    let handle = terminal::spawn_command(
+        std::path::Path::new(&worktree_path),
+        cols.max(1),
+        rows.max(1),
+        command,
+        on_event,
+    )?;
+    registry.register(workspace_id, Arc::new(handle));
+    Ok(())
+}
+
+/// Stop the workspace's run (kill the child, drop the PTY).
+#[tauri::command]
+#[specta::specta]
+pub async fn stop_workspace_run(
+    registry: State<'_, WorkspaceRunRegistry>,
+    workspace_id: String,
+) -> Result<(), AppError> {
+    registry.cancel(&workspace_id);
+    Ok(())
+}
+
 // ===========================================================================
 // Tests
 // ===========================================================================
@@ -1599,6 +1666,7 @@ mod tests {
             icon: None,
             hidden: false,
             sort_index: 0,
+            run_command: None,
         };
         repos::create(&conn, &r).unwrap();
         r.repo_id

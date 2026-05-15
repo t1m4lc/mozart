@@ -145,6 +145,9 @@ export const ProjectStore = signalStore(
       setIcon(projectId: string, icon: string | null): void {
         mutateProject(projectId, (p) => ({ ...p, icon }));
       },
+      setRunCommand(projectId: string, runCommand: string | null): void {
+        mutateProject(projectId, (p) => ({ ...p, runCommand }));
+      },
       removeProject(projectId: string): void {
         patchState(store, {
           projects: store.projects().filter((p) => p.id !== projectId),

@@ -566,6 +566,42 @@ async closeTerminal(workspaceId: string) : Promise<Result<null, AppError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Update the project's `run_command`. Pass `None` to clear it.
+ */
+async setRepoRunCommand(repoId: string, command: string | null) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_repo_run_command", { repoId, command }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Spawn the project's `run_command` in a PTY rooted at the workspace's
+ * worktree. Streams output through `on_event`. Replaces any prior run
+ * PTY for the same workspace (the previous run is killed). Returns
+ * `Validation` if the project has no `run_command` set.
+ */
+async startWorkspaceRun(workspaceId: string, cols: number, rows: number, onEvent: TAURI_CHANNEL<TerminalEvent>) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("start_workspace_run", { workspaceId, cols, rows, onEvent }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Stop the workspace's run (kill the child, drop the PTY).
+ */
+async stopWorkspaceRun(workspaceId: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("stop_workspace_run", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -666,7 +702,12 @@ export type Message = { message_id: string; chat_id: string; run_id: string | nu
  * tagged TS union `{ kind: 'connected' | 'invalid' | 'network_error' }`.
  */
 export type ProbeResult = { kind: "connected" } | { kind: "invalid" } | { kind: "network_error" }
-export type Repo = { repo_id: string; path: string; display_name: string; added_at: number; icon: string | null; hidden: boolean; sort_index: number }
+export type Repo = { repo_id: string; path: string; display_name: string; added_at: number; icon: string | null; hidden: boolean; sort_index: number; 
+/**
+ * Optional dev/run command (e.g. `pnpm dev`) Phase 4e's Run tab
+ * invokes inside a workspace's worktree.
+ */
+run_command: string | null }
 export type StreamEvent = { kind: "stream_token"; text: string } | 
 /**
  * Declared for `agent_events.event_type` round-trip + Angular binding stability;

@@ -8,4 +8,7 @@ export interface Project {
   hidden: boolean;
   sortIndex: number;
   addedAt: Date;
+  /** Optional dev/run command (e.g. `pnpm dev`). Set via the Run tab.
+   *  `null` until the user configures it. */
+  runCommand: string | null;
 }

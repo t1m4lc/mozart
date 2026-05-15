@@ -134,6 +134,21 @@ export class ProjectsFacade {
     }
   }
 
+  /** Persist the project's run command. Optimistic; rolls back on
+   *  Tauri failure so the UI stays consistent. */
+  async setRunCommand(id: string, command: string | null): Promise<void> {
+    const current = this.byId(id)();
+    if (!current) return;
+    const next = command && command.trim().length > 0 ? command.trim() : null;
+    this.store.setRunCommand(id, next);
+    try {
+      await this.adapter.setRunCommand(id, next);
+    } catch (err) {
+      this.store.setRunCommand(id, current.runCommand);
+      throw err;
+    }
+  }
+
   async remove(id: string): Promise<void> {
     const snapshot = this.store.projects();
     this.store.removeProject(id);

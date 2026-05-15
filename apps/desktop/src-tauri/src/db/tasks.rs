@@ -73,6 +73,7 @@ mod tests {
             icon: None,
             hidden: false,
             sort_index: 0,
+            run_command: None,
         };
         repos::create(conn, &r).unwrap();
         r.repo_id
