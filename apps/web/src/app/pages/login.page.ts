@@ -8,10 +8,15 @@ import {
 import { ActivatedRoute } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { HlmTypographyImports } from '@mozart/ui/typography';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGithub, lucideMail } from '@ng-icons/lucide';
-import { AuthFacade, FeatureLaunchMozart } from '../domains/auth';
+import {
+  AuthFacade,
+  FeatureLaunchMozart,
+  type OAuthProvider,
+} from '../domains/auth';
 import { UiAuthCard } from '../domains/auth/ui-auth-card';
 
 // /login — single hub for everything browser-side auth.
@@ -36,6 +41,7 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
     NgIcon,
     HlmButtonImports,
     HlmIconImports,
+    HlmSpinnerImports,
     HlmTypographyImports,
     UiAuthCard,
     FeatureLaunchMozart,
@@ -62,11 +68,16 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
         type="button"
         class="w-full"
         [variant]="authed() ? 'outline' : 'default'"
-        [disabled]="busy()"
-        (click)="onGithub()"
+        [disabled]="busy() !== null"
+        (click)="onProvider('github')"
       >
-        <ng-icon hlm name="lucideGithub" size="sm" />
-        Sign in with GitHub
+        @if (busy() === 'github') {
+          <hlm-spinner class="size-4" />
+          Redirecting to GitHub…
+        } @else {
+          <ng-icon hlm name="lucideGithub" size="sm" />
+          Sign in with GitHub
+        }
       </button>
 
       <button
@@ -74,11 +85,16 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
         variant="outline"
         type="button"
         class="w-full"
-        [disabled]="busy()"
-        (click)="onGoogle()"
+        [disabled]="busy() !== null"
+        (click)="onProvider('google')"
       >
-        <ng-icon hlm name="lucideMail" size="sm" />
-        Sign in with Google
+        @if (busy() === 'google') {
+          <hlm-spinner class="size-4" />
+          Redirecting to Google…
+        } @else {
+          <ng-icon hlm name="lucideMail" size="sm" />
+          Sign in with Google
+        }
       </button>
     </app-ui-auth-card>
   `,
@@ -87,7 +103,10 @@ export class LoginPage {
   private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthFacade);
 
-  protected readonly busy = signal(false);
+  /** Which provider is mid-redirect — drives the spinner inside the
+   *  clicked button and disables both buttons while the page is
+   *  about to unload. Stays `null` until the user clicks. */
+  protected readonly busy = signal<OAuthProvider | null>(null);
   protected readonly authed = computed(() => this.auth.isAuthenticated());
   protected readonly firstName = computed(() => {
     const fullName = this.auth.user()?.name ?? '';
@@ -112,21 +131,20 @@ export class LoginPage {
     this.auth.ingestDesktopHandoff(params.get('state'), params.get('port'));
   }
 
-  protected async onGithub(): Promise<void> {
-    this.busy.set(true);
+  protected async onProvider(provider: OAuthProvider): Promise<void> {
+    if (this.busy() !== null) return;
+    this.busy.set(provider);
     try {
-      await this.auth.signIn('github');
-    } finally {
-      this.busy.set(false);
-    }
-  }
-
-  protected async onGoogle(): Promise<void> {
-    this.busy.set(true);
-    try {
-      await this.auth.signIn('google');
-    } finally {
-      this.busy.set(false);
+      await this.auth.signIn(provider);
+      // `signIn` triggers a redirect — the page is unloading. We do
+      // NOT clear `busy()` on success so the spinner stays until the
+      // navigation actually starts. If the redirect doesn't happen
+      // within 8 s, give the button back to the user so they can
+      // retry without a full page reload.
+      setTimeout(() => this.busy.set(null), 8000);
+    } catch (err) {
+      console.error('[login] signIn failed:', err);
+      this.busy.set(null);
     }
   }
 }

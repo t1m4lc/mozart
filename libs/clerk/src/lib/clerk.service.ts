@@ -247,6 +247,39 @@ export class ClerkService {
   }
 
   /**
+   * Tell Clerk to process the redirect-back URL from a custom OAuth
+   * flow. Reads the `__clerk_db_jwt` (or hash) query param the
+   * provider's callback appended, exchanges it for a session, and
+   * fires the listener with the resolved user.
+   *
+   * Clerk's pre-built components (`<RedirectToSignIn>`, the Account
+   * Portal) call this automatically. When you wire `authenticateWith
+   * Redirect` against your own `redirectUrl`, you have to call it
+   * yourself from the destination page — Clerk's `load()` does NOT
+   * run it implicitly.
+   *
+   * Safe to call when no OAuth callback is pending : it becomes a
+   * no-op. The Promise resolves once the session (if any) has been
+   * established and the resource listener has fired.
+   */
+  async handleRedirectCallback(options?: {
+    readonly afterSignInUrl?: string;
+    readonly afterSignUpUrl?: string;
+  }): Promise<void> {
+    const clerk = this.requireClerk();
+    try {
+      await (
+        clerk as unknown as {
+          handleRedirectCallback: (opts?: unknown) => Promise<void>;
+        }
+      ).handleRedirectCallback(options ?? {});
+    } catch (err) {
+      console.error('[clerk] handleRedirectCallback failed:', err);
+      throw err;
+    }
+  }
+
+  /**
    * URL the in-flight sign-in attempt expects the browser to navigate
    * to for the external OAuth verification step. `null` when there is
    * no pending sign-in or the attempt does not carry an external URL.

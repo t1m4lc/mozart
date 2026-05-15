@@ -12,41 +12,44 @@ import { ClerkService } from '@mozart/clerk';
 import { AuthFacade } from '../domains/auth';
 import { UiAuthCard } from '../domains/auth/ui-auth-card';
 
-// How long we give Clerk to settle before declaring sign-in failed.
-// Clerk's session listener typically fires within 100-300 ms once the
-// page mounts — 2 s is generous. Pushed higher only buys us more
-// "Signing you in" spinner time for users with slow networks.
-const SETTLE_TIMEOUT_MS = 2000;
+// Settle timeout. Clerk usually fires the listener within a few
+// hundred ms once handleRedirectCallback resolves — 4 s is enough
+// headroom for slow networks without dragging out the error state.
+const SETTLE_TIMEOUT_MS = 4000;
 
-// /auth-callback — intermediate route reached after Clerk's hosted
-// OAuth flow redirects back to apps/web. By the time this page
-// mounts, `provideClerk`'s appInitializer has already awaited
-// `clerk.load()` — so Clerk has consulted the session cookie and
-// `isAuthenticated()` is the source of truth.
+// /auth-callback — intermediate route reached after Clerk's OAuth
+// flow redirects back to apps/web.
 //
-// On a successful round-trip : navigate to /dashboard.
-// On failure (no session, or stuck in a sign-in attempt) : after a
-// short timeout surface a diagnostic message + a button back to
-// /login. We deliberately do NOT auto-bounce back to /login because
-// the silent redirect made every Clerk dashboard misconfiguration
-// look identical to the user.
+// On mount :
+//   1. Detect a pending sign-in attempt with a verification URL
+//      (= `@clerk/clerk-js@6.11.0` SDK bug where the SDK navigated
+//      here instead of to the provider). Bounce to the provider.
+//   2. Otherwise call `clerk.handleRedirectCallback()` so Clerk
+//      processes the URL params from the OAuth provider's return.
+//      Clerk's `load()` does NOT do this implicitly for custom
+//      redirect URLs ; pre-built components like `<RedirectToSignIn>`
+//      handle it for you.
+//   3. Wait for the session to resolve (listener fires) ; on success
+//      → /dashboard. On settle timeout → show diagnostic UI with a
+//      back-to-sign-in button.
 @Component({
   selector: 'app-auth-callback-page',
   imports: [HlmButtonImports, HlmSpinnerImports, UiAuthCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-ui-auth-card>
+      <span card-title>{{
+        state() === 'waiting' ? 'Signing you in' : "Sign-in didn't complete"
+      }}</span>
+      <span card-subtitle>{{
+        state() === 'waiting'
+          ? 'One moment please.'
+          : 'Clerk routed back without a session. Check docs/setup-clerk.md §3 — likely a missing Fallback Development Host or path.'
+      }}</span>
+
       @if (state() === 'waiting') {
-        <span card-title>Signing you in</span>
-        <span card-subtitle>One moment please.</span>
         <hlm-spinner aria-label="Signing in" />
       } @else {
-        <span card-title>Sign-in didn't complete</span>
-        <span card-subtitle>
-          Clerk routed back without a session. The most common cause is
-          a missing Fallback Development Host or path in the Clerk
-          dashboard — see docs/setup-clerk.md §3.
-        </span>
         <button hlmBtn type="button" (click)="onBackToLogin()">
           Back to sign-in
         </button>
@@ -78,27 +81,45 @@ export class AuthCallbackPage {
 
     // Workaround : when @clerk/clerk-js@6.11.0 mis-navigates to
     // redirectUrl (= here) instead of the OAuth provider, the pending
-    // sign-in still carries the GitHub URL in its
-    // firstFactorVerification. Detect that and bounce the browser
-    // onward ourselves — same effect as if the SDK had done it.
+    // sign-in still carries the GitHub URL. Bounce the browser to
+    // the provider — same effect as if the SDK had done it.
     if (!this.auth.isAuthenticated() && pendingOauthUrl) {
-      const href = String(pendingOauthUrl);
       console.warn(
         '[auth-callback] pending OAuth attempt detected — bouncing to provider:',
-        href,
+        pendingOauthUrl,
       );
-      window.location.assign(href);
+      window.location.assign(pendingOauthUrl);
       return;
     }
 
-    // Race : Clerk's listener may fire any moment after mount with the
-    // resolved session. We arm a 2 s fallback that flips to "failed"
-    // and clear it as soon as isAuthenticated() turns true.
+    // Standard path : we just landed back from the OAuth provider's
+    // callback. Clerk needs to be told to process the redirect URL
+    // — `load()` does NOT do this automatically for custom redirect
+    // URLs. After this resolves the listener fires with the session.
+    if (!this.auth.isAuthenticated()) {
+      console.info('[auth-callback] running handleRedirectCallback');
+      void this.clerk
+        .handleRedirectCallback({
+          afterSignInUrl: '/dashboard',
+          afterSignUpUrl: '/dashboard',
+        })
+        .catch((err) => {
+          console.error('[auth-callback] handleRedirectCallback rejected:', err);
+        });
+    }
+
+    // Race : Clerk's listener may fire any moment with the resolved
+    // session. We arm a 4 s fallback that flips to "failed" if
+    // nothing happens, and clear it as soon as isAuthenticated()
+    // turns true.
     this.timeoutHandle = setTimeout(() => {
       console.warn(
         '[auth-callback] settle timeout — Clerk did not produce a session within',
         SETTLE_TIMEOUT_MS,
-        'ms',
+        'ms. clerk.user:',
+        this.clerk.user(),
+        'clerk.session:',
+        this.clerk.session(),
       );
       this.state.set('failed');
     }, SETTLE_TIMEOUT_MS);
