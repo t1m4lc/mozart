@@ -15,3 +15,9 @@ export {
   type RepositoriesAdapter,
 } from './data/repositories.adapter';
 export { FeatureFileTree } from './feature-file-tree/feature-file-tree';
+export { FeatureFileDiff } from './feature-file-diff/feature-file-diff';
+export {
+  parseUnifiedDiff,
+  type DiffLine,
+  type DiffLineKind,
+} from './util-diff-parser/util-diff-parser';

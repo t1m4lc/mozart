@@ -3,12 +3,18 @@ import {
   Component,
   computed,
   inject,
+  signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HlmResizableImports } from '@mozart/ui/resizable';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { map } from 'rxjs/operators';
-import { FeatureFileTree, type FileNode } from '../../repositories';
+import {
+  FeatureFileDiff,
+  FeatureFileTree,
+  type FileNode,
+} from '../../repositories';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { WorkspaceDetailStore } from '../feature-detail/workspace-detail.store';
@@ -27,7 +33,13 @@ function coerceTab(raw: string | null): AsideTab {
 
 @Component({
   selector: 'app-feature-workspace-aside',
-  imports: [HlmTabsImports, WorkspaceAsideHeader, FeatureFileTree],
+  imports: [
+    HlmTabsImports,
+    HlmResizableImports,
+    WorkspaceAsideHeader,
+    FeatureFileTree,
+    FeatureFileDiff,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col bg-sidebar' },
   template: `
@@ -72,11 +84,32 @@ function coerceTab(raw: string | null): AsideTab {
       </hlm-tabs-list>
 
       <div hlmTabsContent="files" class="min-h-0 flex-1">
-        <app-feature-file-tree
-          class="block h-full w-full"
-          [workspaceId]="workspaceId()"
-          (fileSelected)="onFileSelected($event)"
-        />
+        <hlm-resizable-group direction="vertical" class="h-full w-full">
+          <hlm-resizable-panel
+            [defaultSize]="35"
+            [minSize]="20"
+            class="overflow-hidden"
+          >
+            <app-feature-file-tree
+              class="block h-full w-full"
+              [workspaceId]="workspaceId()"
+              (fileSelected)="onFileSelected($event)"
+            />
+          </hlm-resizable-panel>
+          <hlm-resizable-handle />
+          <hlm-resizable-panel
+            [defaultSize]="65"
+            [minSize]="20"
+            class="overflow-hidden"
+          >
+            <app-feature-file-diff
+              class="block h-full w-full"
+              [workspaceId]="workspaceId()"
+              [path]="selectedPath()"
+              [refreshTick]="watcherTick()"
+            />
+          </hlm-resizable-panel>
+        </hlm-resizable-group>
       </div>
 
       <div hlmTabsContent="terminal" class="min-h-0 flex-1 overflow-auto">
@@ -118,10 +151,19 @@ export class FeatureWorkspaceAside {
     return this.workspaces.workspaceById(id)()?.name ?? '';
   });
 
+  // Path of the file whose diff is mounted in the bottom Files panel.
+  // Cleared whenever the active workspace changes (handled by an effect
+  // that watches workspaceId and resets selectedPath when it shifts).
+  protected readonly selectedPath = signal<string | null>(null);
+
+  // Bumped on FS-watcher pings (Atom 4c-3 lifts the subscription here);
+  // for atom 2 only, this stays at 0 so the diff component still has a
+  // stable input shape.
+  protected readonly watcherTick = signal(0);
+
   protected onFileSelected(node: FileNode): void {
-    // Phase 4c will mount the diff view here. For now we surface the
-    // selection via console so the wiring is testable end-to-end.
-    console.debug('[aside] file selected:', node.path);
+    if (node.kind === 'directory') return;
+    this.selectedPath.set(node.path);
   }
 
   protected onTabActivated(next: string): void {
