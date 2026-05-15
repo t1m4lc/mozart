@@ -13,6 +13,7 @@ use crate::db::models::{
 };
 use crate::error::AppError;
 use crate::file_tree::{FileNodeDto, FileTreeEvent};
+use crate::ide_launch::DetectedIde;
 use crate::terminal::TerminalEvent;
 
 pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
@@ -75,6 +76,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::set_repo_run_command,
             commands::start_workspace_run,
             commands::stop_workspace_run,
+            commands::detect_installed_ides,
+            commands::open_in_ide,
         ])
         .events(tauri_specta::collect_events![AgentRunTerminated])
         .typ::<AppError>()
@@ -92,4 +95,5 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<FileNodeDto>()
         .typ::<FileTreeEvent>()
         .typ::<TerminalEvent>()
+        .typ::<DetectedIde>()
 }

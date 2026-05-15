@@ -73,7 +73,9 @@ export const WorkspaceDetailStore = signalStore(
     },
     openIn(tool: OpenInTool): void {
       patchState(store, { lastUsedTool: tool });
-      // TODO: dispatch Tauri command `open_in(tool, project.path)`
+      // Actual launch lives on the WorkspacesFacade — the store stays
+      // free of injected services so the aside can subscribe via the
+      // facade and dispatch openInIde() on its own.
     },
     // Called by the page when the route param `id` changes.
     loadWorkspace(workspaceId: string): void {

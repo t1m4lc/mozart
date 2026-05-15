@@ -602,6 +602,32 @@ async stopWorkspaceRun(workspaceId: string) : Promise<Result<null, AppError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Probe `$PATH` for known IDE binaries. The list is ordered as in
+ * `KNOWN_IDES`. Front-end uses this to filter the static
+ * `OPEN_IN_TOOLS` array.
+ */
+async detectInstalledIdes() : Promise<Result<DetectedIde[], AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("detect_installed_ides") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Launch `id` (e.g. `"vscode"`, `"cursor"`, `"finder"`) against the
+ * workspace's worktree. The path is resolved server-side from the
+ * workspace_id; the front-end never sees it.
+ */
+async openInIde(workspaceId: string, ideId: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_in_ide", { workspaceId, ideId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -638,6 +664,15 @@ export type Chat = { chat_id: string; workspace_id: string; title: string; llm_i
  * Outcome of probing for the `claude` CLI.
  */
 export type ClaudeInstall = { kind: "installed"; version: string } | { kind: "missing" }
+export type DetectedIde = { 
+/**
+ * Stable identifier (e.g. `"vscode"`).
+ */
+id: string; 
+/**
+ * Resolved absolute binary path (informational).
+ */
+binary_path: string }
 /**
  * Wire shape consumed by the Angular `RepositoriesAdapter`. Names are
  * snake_case on the wire; the TS side maps to camelCase via

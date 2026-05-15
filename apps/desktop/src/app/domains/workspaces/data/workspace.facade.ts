@@ -2,6 +2,8 @@ import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { ProjectsFacade } from '../../projects';
 import { TasksFacade } from '../../tasks';
 import { generateWorkspaceName } from '../util-workspace-name';
+import { IdeDetectionService } from './ide-detection.service';
+import type { OpenInToolId } from './open-in-tools';
 import type { UiWorkspaceStatus } from './workspace-status';
 import { workspaceFromDto } from './workspace.adapter';
 import type { Workspace } from './workspace.model';
@@ -37,6 +39,7 @@ export class WorkspacesFacade {
   private readonly adapter = inject(WORKSPACES_ADAPTER);
   private readonly projects = inject(ProjectsFacade);
   private readonly tasks = inject(TasksFacade);
+  private readonly ideDetection = inject(IdeDetectionService);
 
   readonly all = this.store.workspaces;
   readonly activeId = this.store.activeWorkspaceId;
@@ -103,6 +106,22 @@ export class WorkspacesFacade {
       })
       .filter((w) => w.projectId !== ''); // defensive: drop orphans
     this.store.setAll(workspaces);
+  }
+
+  /** Probe `$PATH` for known IDEs and update the IdeDetectionService.
+   *  Called from app initialization. */
+  async detectIdes(): Promise<void> {
+    try {
+      const detected = await this.adapter.detectInstalledIdes();
+      this.ideDetection.set(detected);
+    } catch (err) {
+      console.warn('[workspaces] detectInstalledIdes failed:', err);
+    }
+  }
+
+  /** Launch `ideId` against the workspace's worktree. */
+  async openInIde(workspaceId: string, ideId: OpenInToolId): Promise<void> {
+    await this.adapter.openInIde(workspaceId, ideId);
   }
 
   // Creates a workspace from a single click on a project's "+ workspace"

@@ -20,7 +20,8 @@ import {
 } from '../../repositories';
 import { FeatureWorkspaceRun } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
-import { OPEN_IN_TOOLS } from '../data/open-in-tools';
+import { IdeDetectionService } from '../data/ide-detection.service';
+import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { WorkspaceDetailStore } from '../feature-detail/workspace-detail.store';
 import { WorkspaceAsideHeader } from '../ui/workspace-aside-header/workspace-aside-header';
@@ -52,10 +53,10 @@ function coerceTab(raw: string | null): AsideTab {
   template: `
     <app-workspace-aside-header
       [branch]="branch()"
-      [tools]="tools"
-      [lastUsedTool]="store.lastUsedTool()"
+      [tools]="availableTools()"
+      [lastUsedTool]="effectiveLastUsedTool()"
       [workspaceName]="workspaceName()"
-      (openIn)="store.openIn($event)"
+      (openIn)="onOpenIn($event)"
     />
 
     <hlm-tabs
@@ -142,11 +143,21 @@ export class FeatureWorkspaceAside {
   protected readonly store = inject(WorkspaceDetailStore);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly repos = inject(RepositoriesFacade);
+  private readonly ides = inject(IdeDetectionService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
-  protected readonly tools = OPEN_IN_TOOLS;
+  protected readonly availableTools = this.ides.availableTools;
+
+  /** Falls back to the first available tool when the previously
+   *  remembered choice isn't installed (e.g. user removed VSCode). */
+  protected readonly effectiveLastUsedTool = computed<OpenInTool>(() => {
+    const tools = this.availableTools();
+    const last = this.store.lastUsedTool();
+    if (tools.find((t) => t.id === last.id)) return last;
+    return tools[0] ?? OPEN_IN_TOOLS[0];
+  });
 
   // Reflects `?tab=...` from the URL; default `files` so the param can
   // stay absent in the canonical case.
@@ -196,6 +207,17 @@ export class FeatureWorkspaceAside {
   protected onFileSelected(node: FileNode): void {
     if (node.kind === 'directory') return;
     this.selectedPath.set(node.path);
+  }
+
+  protected async onOpenIn(tool: OpenInTool): Promise<void> {
+    this.store.openIn(tool);
+    const id = this.workspaceId();
+    if (!id) return;
+    try {
+      await this.workspaces.openInIde(id, tool.id);
+    } catch (err) {
+      console.warn('[aside] open-in-ide failed:', err);
+    }
   }
 
   protected onTabActivated(next: string): void {

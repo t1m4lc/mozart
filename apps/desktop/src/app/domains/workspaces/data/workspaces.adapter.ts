@@ -1,5 +1,6 @@
 import { InjectionToken } from '@angular/core';
 import type { InstallResult } from '../../../core/_bindings';
+import type { OpenInToolId } from './open-in-tools';
 import type { UiWorkspaceStatus } from './workspace-status';
 import type { WorkspaceDto } from './workspace.dto';
 
@@ -39,6 +40,14 @@ export interface WorkspacesAdapter {
   // perspective — AddProjectFlow fires this without awaiting and
   // toasts the outcome.
   installPackages(workspaceId: string): Promise<InstallPackagesResult>;
+
+  /** Probe `$PATH` for known IDE binaries; returns the IDs of those
+   *  resolved. Cached at boot by `IdeDetectionService`. */
+  detectInstalledIdes(): Promise<readonly OpenInToolId[]>;
+
+  /** Launch `ideId` against the workspace's worktree. The path is
+   *  resolved Rust-side; the UI never sees it. */
+  openInIde(workspaceId: string, ideId: OpenInToolId): Promise<void>;
 }
 
 export const WORKSPACES_ADAPTER = new InjectionToken<WorkspacesAdapter>(

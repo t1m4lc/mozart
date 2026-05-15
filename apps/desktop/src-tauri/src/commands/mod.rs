@@ -35,6 +35,7 @@ use crate::error::AppError;
 use crate::file_diff;
 use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
 use crate::file_watcher_registry::FileWatcherRegistry;
+use crate::ide_launch::{self, DetectedIde};
 use crate::terminal::{self, TerminalEvent};
 use crate::terminal_registry::TerminalRegistry;
 use crate::workspace_run_registry::WorkspaceRunRegistry;
@@ -1591,6 +1592,36 @@ pub async fn stop_workspace_run(
 ) -> Result<(), AppError> {
     registry.cancel(&workspace_id);
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// IDE detection + launch (Phase 4f atom 1)
+// ---------------------------------------------------------------------------
+
+/// Probe `$PATH` for known IDE binaries. The list is ordered as in
+/// `KNOWN_IDES`. Front-end uses this to filter the static
+/// `OPEN_IN_TOOLS` array.
+#[tauri::command]
+#[specta::specta]
+pub async fn detect_installed_ides() -> Result<Vec<DetectedIde>, AppError> {
+    Ok(ide_launch::detect_installed_ides())
+}
+
+/// Launch `id` (e.g. `"vscode"`, `"cursor"`, `"finder"`) against the
+/// workspace's worktree. The path is resolved server-side from the
+/// workspace_id; the front-end never sees it.
+#[tauri::command]
+#[specta::specta]
+pub async fn open_in_ide(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    ide_id: String,
+) -> Result<(), AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    ide_launch::open_in_ide(&ide_id, std::path::Path::new(&ws.worktree_path))
 }
 
 // ===========================================================================

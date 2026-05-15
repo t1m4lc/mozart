@@ -35,6 +35,9 @@ export const appConfig: ApplicationConfig = {
       } catch (err) {
         console.error('hydration failed on boot', err);
       }
+      // Probe installed IDEs so the Open-in dropdown reflects what the
+      // user actually has on PATH.
+      void workspaces.detectIdes();
       void profile.initialize();
     }),
   ],

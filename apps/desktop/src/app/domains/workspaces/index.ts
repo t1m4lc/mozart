@@ -10,7 +10,8 @@ export {
   type UiWorkspaceStatus,
   type UiWorkspaceStatusMeta,
 } from './data/workspace-status';
-export type { OpenInTool } from './data/open-in-tools';
+export type { OpenInTool, OpenInToolId } from './data/open-in-tools';
+export { IdeDetectionService } from './data/ide-detection.service';
 export { WorkspacesFacade } from './data/workspace.facade';
 export {
   WORKSPACES_ADAPTER,

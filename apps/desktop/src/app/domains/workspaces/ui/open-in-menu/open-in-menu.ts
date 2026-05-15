@@ -5,11 +5,16 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideBookOpen,
+  lucideBraces,
   lucideChevronDown,
   lucideCode2,
   lucideCopy,
   lucideFolderOpen,
+  lucideMousePointerClick,
   lucideTerminal,
+  lucideWind,
+  lucideZap,
 } from '@ng-icons/lucide';
 import type { OpenInTool } from '../../data/open-in-tools';
 
@@ -24,11 +29,16 @@ import type { OpenInTool } from '../../data/open-in-tools';
   ],
   providers: [
     provideIcons({
+      lucideBookOpen,
+      lucideBraces,
       lucideChevronDown,
       lucideCode2,
       lucideCopy,
       lucideFolderOpen,
+      lucideMousePointerClick,
       lucideTerminal,
+      lucideWind,
+      lucideZap,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,

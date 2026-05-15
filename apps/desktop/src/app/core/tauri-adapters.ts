@@ -40,6 +40,7 @@ import {
 } from '../domains/terminals';
 import {
   WORKSPACES_ADAPTER,
+  type OpenInToolId as OpenInToolIdAlias,
   type WorkspacesAdapter,
 } from '../domains/workspaces';
 import {
@@ -151,6 +152,13 @@ function provideWorkspacesAdapter(): Provider {
       },
       async installPackages(workspaceId: string) {
         return unwrap(await commands.installWorkspacePackages(workspaceId));
+      },
+      async detectInstalledIdes() {
+        const detected = unwrap(await commands.detectInstalledIdes());
+        return detected.map((d) => d.id as OpenInToolIdAlias);
+      },
+      async openInIde(workspaceId, ideId) {
+        unwrap(await commands.openInIde(workspaceId, ideId));
       },
     } satisfies WorkspacesAdapter,
   };
