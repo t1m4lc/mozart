@@ -12,10 +12,13 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HlmResizableImports } from '@mozart/ui/resizable';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { map } from 'rxjs/operators';
+import { HlmDialogService } from '@mozart/ui/dialog';
 import {
+  FeatureCommitDialog,
   FeatureFileDiff,
   FeatureFileTree,
   RepositoriesFacade,
+  type CommitDialogContext,
   type FileNode,
 } from '../../repositories';
 import { FeatureWorkspaceRun } from '../../runs';
@@ -57,6 +60,7 @@ function coerceTab(raw: string | null): AsideTab {
       [lastUsedTool]="effectiveLastUsedTool()"
       [workspaceName]="workspaceName()"
       (openIn)="onOpenIn($event)"
+      (commit)="onCommit()"
     />
 
     <hlm-tabs
@@ -144,6 +148,7 @@ export class FeatureWorkspaceAside {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly repos = inject(RepositoriesFacade);
   private readonly ides = inject(IdeDetectionService);
+  private readonly dialog = inject(HlmDialogService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -218,6 +223,22 @@ export class FeatureWorkspaceAside {
     } catch (err) {
       console.warn('[aside] open-in-ide failed:', err);
     }
+  }
+
+  protected onCommit(): void {
+    const id = this.workspaceId();
+    if (!id) return;
+    const context: CommitDialogContext = {
+      workspaceId: id,
+      onCommitted: () => {
+        // Bump the watcher tick so the file tree + diff re-fetch and
+        // reflect the post-commit state immediately. The notify
+        // watcher would also catch the change, but a direct kick keeps
+        // the UI in sync without waiting for the debounce window.
+        this.watcherTick.update((n) => n + 1);
+      },
+    };
+    this.dialog.open(FeatureCommitDialog, { context });
   }
 
   protected onTabActivated(next: string): void {

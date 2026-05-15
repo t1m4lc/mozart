@@ -56,9 +56,9 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         size="sm"
         type="button"
         class="h-7 px-2 text-xs font-normal text-muted-foreground"
-        hlmTooltip="Commit changes (coming soon)"
+        hlmTooltip="Commit changes"
         position="bottom"
-        disabled
+        (click)="commit.emit()"
       >
         <ng-icon hlm name="lucideGitCommitVertical" size="xs" />
         <span>Commit</span>

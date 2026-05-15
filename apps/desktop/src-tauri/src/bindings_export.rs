@@ -11,6 +11,7 @@ use crate::credentials::anthropic_probe::ProbeResult;
 use crate::db::models::{
     AgentRun, Chat, Message, Repo, Task, Thread, Workspace, WorkspaceChange,
 };
+use crate::commit::ChangedFile;
 use crate::error::AppError;
 use crate::file_tree::{FileNodeDto, FileTreeEvent};
 use crate::ide_launch::DetectedIde;
@@ -78,6 +79,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::stop_workspace_run,
             commands::detect_installed_ides,
             commands::open_in_ide,
+            commands::list_changed_files,
+            commands::commit_workspace,
         ])
         .events(tauri_specta::collect_events![AgentRunTerminated])
         .typ::<AppError>()
@@ -96,4 +99,5 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<FileTreeEvent>()
         .typ::<TerminalEvent>()
         .typ::<DetectedIde>()
+        .typ::<ChangedFile>()
 }

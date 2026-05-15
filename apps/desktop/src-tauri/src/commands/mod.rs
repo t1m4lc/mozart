@@ -32,6 +32,7 @@ use crate::db::{
 };
 use crate::db::DbState;
 use crate::error::AppError;
+use crate::commit::{self, ChangedFile};
 use crate::file_diff;
 use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
 use crate::file_watcher_registry::FileWatcherRegistry;
@@ -1622,6 +1623,47 @@ pub async fn open_in_ide(
         workspaces::get(&conn, &workspace_id)?
     };
     ide_launch::open_in_ide(&ide_id, std::path::Path::new(&ws.worktree_path))
+}
+
+// ---------------------------------------------------------------------------
+// Commit (Phase 4f atom 2)
+// ---------------------------------------------------------------------------
+
+/// Flat list of changed files in the workspace's worktree. Powers the
+/// commit dialog's checkbox list.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_changed_files(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<Vec<ChangedFile>, AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    commit::list_changed_files(std::path::Path::new(&ws.worktree_path)).await
+}
+
+/// Stage `paths` and create a commit with `message`. Returns the new
+/// commit's sha. Refuses on empty path list / empty message.
+#[tauri::command]
+#[specta::specta]
+pub async fn commit_workspace(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    paths: Vec<String>,
+    message: String,
+) -> Result<String, AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    commit::commit(
+        std::path::Path::new(&ws.worktree_path),
+        &paths,
+        &message,
+    )
+    .await
 }
 
 // ===========================================================================

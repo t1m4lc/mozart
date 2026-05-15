@@ -34,4 +34,20 @@ export class RepositoriesFacade {
   async loadFileDiff(workspaceId: string, path: string): Promise<string> {
     return this.adapter.getFileDiff(workspaceId, path);
   }
+
+  /** List uncommitted + untracked files (commit dialog input). */
+  async listChangedFiles(
+    workspaceId: string,
+  ): Promise<readonly import('./repositories.adapter').ChangedFile[]> {
+    return this.adapter.listChangedFiles(workspaceId);
+  }
+
+  /** Stage + commit. Resolves to the new commit's sha. */
+  async commitWorkspace(
+    workspaceId: string,
+    paths: readonly string[],
+    message: string,
+  ): Promise<string> {
+    return this.adapter.commitWorkspace(workspaceId, paths, message);
+  }
 }

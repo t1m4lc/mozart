@@ -628,6 +628,30 @@ async openInIde(workspaceId: string, ideId: string) : Promise<Result<null, AppEr
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Flat list of changed files in the workspace's worktree. Powers the
+ * commit dialog's checkbox list.
+ */
+async listChangedFiles(workspaceId: string) : Promise<Result<ChangedFile[], AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_changed_files", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Stage `paths` and create a commit with `message`. Returns the new
+ * commit's sha. Refuses on empty path list / empty message.
+ */
+async commitWorkspace(workspaceId: string, paths: string[], message: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("commit_workspace", { workspaceId, paths, message }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -659,6 +683,12 @@ export type AgentRun = { run_id: string; thread_id: string; prompt: string; stat
  */
 export type AgentRunTerminated = { run_id: string; status: string }
 export type AppError = { kind: "Db"; message: string } | { kind: "Io"; message: string } | { kind: "NotFound"; message: string } | { kind: "Validation"; message: string } | { kind: "AgentSpawn"; message: string } | { kind: "GitCmd"; message: string }
+export type ChangedFile = { path: string; 
+/**
+ * `"added" | "modified" | "deleted"`. Untracked files surface as
+ * "added" so the dialog presents them uniformly.
+ */
+status: string }
 export type Chat = { chat_id: string; workspace_id: string; title: string; llm_id: string | null; mode: string; effort: string; last_read_message_id: string | null; closed_at: number | null; created_at: number }
 /**
  * Outcome of probing for the `claude` CLI.

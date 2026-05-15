@@ -40,6 +40,25 @@ export interface RepositoriesAdapter {
    * "all-added" diff. An empty string means the file is unchanged.
    */
   getFileDiff(workspaceId: string, path: string): Promise<string>;
+
+  /** Flat list of changed files in the workspace's worktree (uncommitted +
+   *  untracked). Powers the commit dialog's checkbox list. */
+  listChangedFiles(workspaceId: string): Promise<readonly ChangedFile[]>;
+
+  /** Stage `paths` and create a commit with `message`. Returns the new
+   *  commit's sha. */
+  commitWorkspace(
+    workspaceId: string,
+    paths: readonly string[],
+    message: string,
+  ): Promise<string>;
+}
+
+/** UI-facing changed-file entry. Wire status normalised to one of
+ *  `'added' | 'modified' | 'deleted'`. */
+export interface ChangedFile {
+  readonly path: string;
+  readonly status: 'added' | 'modified' | 'deleted';
 }
 
 export const REPOSITORIES_ADAPTER = new InjectionToken<RepositoriesAdapter>(

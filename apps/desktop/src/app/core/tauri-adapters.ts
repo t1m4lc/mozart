@@ -316,6 +316,21 @@ function provideRepositoriesAdapter(): Provider {
       async getFileDiff(workspaceId, path) {
         return unwrap(await commands.getFileDiff(workspaceId, path));
       },
+      async listChangedFiles(workspaceId) {
+        const list = unwrap(await commands.listChangedFiles(workspaceId));
+        return list.map((f) => ({
+          path: f.path,
+          status:
+            f.status === 'added' || f.status === 'deleted'
+              ? f.status
+              : 'modified',
+        }));
+      },
+      async commitWorkspace(workspaceId, paths, message) {
+        return unwrap(
+          await commands.commitWorkspace(workspaceId, [...paths], message),
+        );
+      },
     } satisfies RepositoriesAdapter,
   };
 }
