@@ -32,6 +32,7 @@ import {
   taskFromDto,
   type TasksAdapter,
 } from '../domains/tasks';
+import { RUNS_ADAPTER, type RunsAdapter } from '../domains/runs';
 import {
   TERMINALS_ADAPTER,
   type TerminalEvent as TerminalEventModel,
@@ -338,6 +339,24 @@ function provideTerminalsAdapter(): Provider {
   };
 }
 
+function provideRunsAdapter(): Provider {
+  return {
+    provide: RUNS_ADAPTER,
+    useValue: {
+      async openRun(workspaceId, cols, rows, onEvent) {
+        const channel = new Channel<TerminalEventDto>();
+        channel.onmessage = (ev) => onEvent(toTerminalEventModel(ev));
+        unwrap(
+          await commands.startWorkspaceRun(workspaceId, cols, rows, channel),
+        );
+      },
+      async stopRun(workspaceId) {
+        unwrap(await commands.stopWorkspaceRun(workspaceId));
+      },
+    } satisfies RunsAdapter,
+  };
+}
+
 function toTerminalEventModel(ev: TerminalEventDto): TerminalEventModel {
   if (ev.kind === 'output') {
     return { kind: 'output', data: ev.data };
@@ -357,5 +376,6 @@ export function provideTauriAdapters(): Provider[] {
     provideLlmAdapter(),
     provideRepositoriesAdapter(),
     provideTerminalsAdapter(),
+    provideRunsAdapter(),
   ];
 }

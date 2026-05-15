@@ -18,6 +18,7 @@ import {
   RepositoriesFacade,
   type FileNode,
 } from '../../repositories';
+import { FeatureWorkspaceRun } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
@@ -44,6 +45,7 @@ function coerceTab(raw: string | null): AsideTab {
     FeatureFileTree,
     FeatureFileDiff,
     FeatureWorkspaceTerminal,
+    FeatureWorkspaceRun,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col bg-sidebar' },
@@ -126,10 +128,12 @@ function coerceTab(raw: string | null): AsideTab {
         />
       </div>
 
-      <div hlmTabsContent="run" class="min-h-0 flex-1 overflow-auto">
-        <div class="p-3 text-xs text-muted-foreground">
-          Run coming soon.
-        </div>
+      <div hlmTabsContent="run" class="min-h-0 flex-1 overflow-hidden">
+        <app-feature-workspace-run
+          class="block h-full w-full"
+          [workspaceId]="workspaceId()"
+          [active]="activeTab() === 'run'"
+        />
       </div>
     </hlm-tabs>
   `,
