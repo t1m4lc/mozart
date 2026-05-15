@@ -1807,6 +1807,22 @@ pub async fn auth_clear_session() -> Result<(), AppError> {
 }
 
 // ---------------------------------------------------------------------------
+// create_get_started_project (Phase 6 / Atom 6)
+// ---------------------------------------------------------------------------
+
+/// Materialize (if missing) the bundled `~/Mozart/get-started/` project,
+/// then ensure a `welcome-1` workspace exists on `main`. Idempotent —
+/// re-entry from Settings → "Revisit tour" reuses the existing repo +
+/// workspace instead of duplicating either.
+#[tauri::command]
+#[specta::specta]
+pub async fn create_get_started_project(
+    db: State<'_, DbState>,
+) -> Result<crate::get_started::GetStartedProject, AppError> {
+    crate::get_started::create(db.inner()).await
+}
+
+// ---------------------------------------------------------------------------
 // spawn_claude_login (Phase 6 / Atom 3)
 // ---------------------------------------------------------------------------
 

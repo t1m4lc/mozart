@@ -15,10 +15,12 @@ import {
 } from '../domains/chat';
 import { LLM_ADAPTER, TauriClaudeAdapter } from '../domains/llm-model';
 import {
+  GET_STARTED_PROJECT_ADAPTER,
   GIT_CHECK_ADAPTER,
   ONBOARDING_ADAPTER,
   PROVIDER_SETUP_ADAPTER,
 } from '../domains/onboarding';
+import { tauriGetStartedProjectAdapter } from '../domains/onboarding/data/tauri-get-started-project.adapter';
 import { tauriGitCheckAdapter } from '../domains/onboarding/data/tauri-git-check.adapter';
 import { tauriOnboardingAdapter } from '../domains/onboarding/data/tauri-onboarding.adapter';
 import { tauriProviderSetupAdapter } from '../domains/onboarding/data/tauri-provider-setup.adapter';
@@ -93,6 +95,13 @@ function provideProviderSetupAdapter(): Provider {
   return {
     provide: PROVIDER_SETUP_ADAPTER,
     useFactory: () => tauriProviderSetupAdapter(),
+  };
+}
+
+function provideGetStartedProjectAdapter(): Provider {
+  return {
+    provide: GET_STARTED_PROJECT_ADAPTER,
+    useFactory: () => tauriGetStartedProjectAdapter(),
   };
 }
 
@@ -448,6 +457,7 @@ export function provideTauriAdapters(): Provider[] {
     provideOnboardingAdapter(),
     provideGitCheckAdapter(),
     provideProviderSetupAdapter(),
+    provideGetStartedProjectAdapter(),
     provideDialogAdapter(),
     provideProjectsAdapter(),
     provideWorkspacesAdapter(),

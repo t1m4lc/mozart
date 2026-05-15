@@ -818,6 +818,20 @@ async spawnClaudeLogin(cols: number, rows: number, onEvent: TAURI_CHANNEL<Termin
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Materialize (if missing) the bundled `~/Mozart/get-started/` project,
+ * then ensure a `welcome-1` workspace exists on `main`. Idempotent —
+ * re-entry from Settings → "Revisit tour" reuses the existing repo +
+ * workspace instead of duplicating either.
+ */
+async createGetStartedProject() : Promise<Result<GetStartedProject, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_get_started_project") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -928,6 +942,11 @@ children: FileNodeDto[] | null }
  * single variant — the front-end re-fetches on every ping.
  */
 export type FileTreeEvent = { kind: "changed" }
+/**
+ * Return type — pairs the registered repo with the auto-created
+ * workspace. The TS bindings expose this as `GetStartedProject`.
+ */
+export type GetStartedProject = { repo: Repo; workspace: Workspace }
 /**
  * Result of a `GET /user` probe with the candidate token.
  */

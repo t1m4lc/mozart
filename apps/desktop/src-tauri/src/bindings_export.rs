@@ -16,6 +16,7 @@ use crate::db::models::{
 use crate::commit::ChangedFile;
 use crate::error::AppError;
 use crate::file_tree::{FileNodeDto, FileTreeEvent};
+use crate::get_started::GetStartedProject;
 use crate::github::{CreatedPr, GithubProbeResult};
 use crate::ide_launch::DetectedIde;
 use crate::terminal::TerminalEvent;
@@ -96,6 +97,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::set_onboarding_completed,
             commands::git_version,
             commands::spawn_claude_login,
+            commands::create_get_started_project,
         ])
         .events(tauri_specta::collect_events![
             AgentRunTerminated,
@@ -121,4 +123,5 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<GithubProbeResult>()
         .typ::<CreatedPr>()
         .typ::<AuthSessionDto>()
+        .typ::<GetStartedProject>()
 }

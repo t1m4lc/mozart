@@ -19,6 +19,11 @@ export {
   PROVIDER_SETUP_ADAPTER,
   type ProviderSetupAdapter,
 } from './data/provider-setup.adapter';
+export {
+  GET_STARTED_PROJECT_ADAPTER,
+  type GetStartedProjectAdapter,
+  type GetStartedResult,
+} from './data/get-started-project.adapter';
 export { onboardingGuard } from './onboarding.guard';
 export { UiOnboardingStepShell } from './ui-onboarding-step-shell';
 export { UiDisclosureCard } from './ui-disclosure-card';
