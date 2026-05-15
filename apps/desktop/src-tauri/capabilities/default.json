@@ -20,7 +20,7 @@
     {
       "identifier": "shell:allow-open",
       "allow": [
-        { "url": "http://localhost:4201/**" },
+        { "url": "https://localhost:4201/**" },
         { "url": "https://app.mozart.build/**" }
       ]
     }

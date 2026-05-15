@@ -3,4 +3,9 @@
 @import "../../../libs/shared-styles-theme/src/index.css";
 
 /* nx-tailwind-sources:start */
+@source "../../../libs/shared-util-theme";
+@source "../../../libs/ui/button";
+@source "../../../libs/ui/icon";
+@source "../../../libs/ui/spinner";
+@source "../../../libs/ui/utils";
 /* nx-tailwind-sources:end */

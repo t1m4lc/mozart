@@ -75,6 +75,21 @@ import type { WelcomeState } from './data/auth.model';
           }}
         </button>
 
+        @if (state() === 'opening' && signInUrl()) {
+          <p hlmMuted class="text-center text-xs">
+            Browser didn't open?
+            <button
+              hlmBtn
+              variant="link"
+              type="button"
+              class="h-auto p-0 text-xs"
+              (click)="retryOpen.emit()"
+            >
+              Try again
+            </button>
+          </p>
+        }
+
         @if (state() === 'opening' || state() === 'timed-out') {
           <button
             hlmBtn
@@ -91,6 +106,11 @@ import type { WelcomeState } from './data/auth.model';
 })
 export class UiWelcomeCard {
   readonly state = input.required<WelcomeState>();
+  /** Non-null while a sign-in is in flight — surfaces the "Try again"
+   *  link so the user can re-fire `shell.open` if their browser
+   *  failed to handle the first attempt. */
+  readonly signInUrl = input<string | null>(null);
   readonly signIn = output<void>();
   readonly cancelled = output<void>();
+  readonly retryOpen = output<void>();
 }

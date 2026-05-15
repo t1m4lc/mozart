@@ -16,14 +16,17 @@ import { UiWelcomeCard } from '../ui-welcome-card';
   template: `
     <app-ui-welcome-card
       [state]="state()"
+      [signInUrl]="signInUrl()"
       (signIn)="onSignIn()"
       (cancelled)="onCancel()"
+      (retryOpen)="onRetryOpen()"
     />
   `,
 })
 export class FeatureWelcome {
   private readonly auth = inject(AuthFacade);
   protected readonly state = this.auth.welcomeState;
+  protected readonly signInUrl = this.auth.signInUrl;
 
   protected onSignIn(): void {
     void this.auth.signIn();
@@ -31,5 +34,9 @@ export class FeatureWelcome {
 
   protected onCancel(): void {
     this.auth.cancelSignIn();
+  }
+
+  protected onRetryOpen(): void {
+    void this.auth.retryOpenSignIn();
   }
 }

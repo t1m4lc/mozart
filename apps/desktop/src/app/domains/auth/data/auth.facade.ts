@@ -39,6 +39,13 @@ export class AuthFacade {
 
   readonly welcomeState = signal<WelcomeState>('idle');
 
+  /** URL the user's default browser was last sent to. Exposed so the
+   *  welcome screen can offer a "Browser didn't open? Try again" link
+   *  that re-fires `shell.open` against the SAME URL — preserving the
+   *  state nonce so the deep-link round-trip stays valid. */
+  private readonly _signInUrl = signal<string | null>(null);
+  readonly signInUrl = computed(() => this._signInUrl());
+
   private pendingState: string | null = null;
   private deepLinkSub: Subscription | null = null;
   private signInTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
@@ -59,10 +66,11 @@ export class AuthFacade {
     if (this.welcomeState() === 'opening') return;
     const state = generateState();
     this.pendingState = state;
+    const url = buildSignInUrl(state);
+    this._signInUrl.set(url);
     this.welcomeState.set('opening');
     this.armTimeout();
     try {
-      const url = buildSignInUrl(state);
       await this.adapter.openSignIn({ url, state });
     } catch (err) {
       console.error('[auth] openSignIn failed:', err);
@@ -70,9 +78,24 @@ export class AuthFacade {
     }
   }
 
+  /** Re-fire `shell.open` with the SAME URL/state as the current flow.
+   *  Used by the "Browser didn't open? Try again" link on /welcome.
+   *  Safe to call repeatedly ; does nothing if no pending flow. */
+  async retryOpenSignIn(): Promise<void> {
+    const url = this._signInUrl();
+    const state = this.pendingState;
+    if (!url || !state) return;
+    try {
+      await this.adapter.openSignIn({ url, state });
+    } catch (err) {
+      console.error('[auth] retryOpenSignIn failed:', err);
+    }
+  }
+
   cancelSignIn(): void {
     this.clearTimeout();
     this.pendingState = null;
+    this._signInUrl.set(null);
     this.welcomeState.set('idle');
   }
 
@@ -128,6 +151,7 @@ export class AuthFacade {
     try {
       await this.adapter.saveSession(session);
       this._session.set(session);
+      this._signInUrl.set(null);
       this.welcomeState.set('idle');
       console.info('[auth] navigating to /');
       void this.router.navigate(['/']);
