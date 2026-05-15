@@ -40,7 +40,9 @@
       "@mozart/ui/dropdown-menu": ["./libs/ui/dropdown-menu/src/index.ts"],
       "@mozart/ui/empty": ["./libs/ui/empty/src/index.ts"],
       "@mozart/ui/field": ["./libs/ui/field/src/index.ts"],
-      "@mozart/ui/highlight-overlay": ["./libs/ui/highlight-overlay/src/index.ts"],
+      "@mozart/ui/highlight-overlay": [
+        "./libs/ui/highlight-overlay/src/index.ts"
+      ],
       "@mozart/ui/hover-card": ["./libs/ui/hover-card/src/index.ts"],
       "@mozart/ui/icon": ["./libs/ui/icon/src/index.ts"],
       "@mozart/ui/input": ["./libs/ui/input/src/index.ts"],
@@ -77,7 +79,8 @@
       "@mozart/ui/typography": ["./libs/ui/typography/src/index.ts"],
       "@mozart/ui/utils": ["./libs/ui/utils/src/index.ts"],
       "@mozart/shared-util-theme": ["./libs/shared-util-theme/src/index.ts"],
-      "@mozart/*": ["./apps/desktop/src/app/domains/*"]
+      "@mozart/*": ["./apps/desktop/src/app/domains/*"],
+      "@mozart/clerk": ["./libs/clerk/src/index.ts"]
     }
   }
 }

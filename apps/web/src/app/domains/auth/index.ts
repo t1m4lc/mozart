@@ -1,9 +1,9 @@
-// Public surface of the apps/web `auth` domain. The adapter
-// implementation + util helpers stay private to the domain ; only
-// types, facade, port token, and the smart-component feature are
-// re-exported.
+// Public surface of the apps/web `auth` domain. Pages import from
+// this barrel only — the Clerk-specific machinery stays private.
 
 export type { OAuthProvider, User } from './data/auth.model';
-export { AuthFacade } from './data/auth.facade';
-export { AUTH_ADAPTER, type AuthAdapter } from './data/auth.adapter';
+export {
+  AuthFacade,
+  type DesktopLaunchOutcome,
+} from './data/auth.facade';
 export { FeatureLaunchMozart } from './feature-launch-mozart';
