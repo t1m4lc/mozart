@@ -95,6 +95,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::get_onboarding_completed,
             commands::set_onboarding_completed,
             commands::git_version,
+            commands::spawn_claude_login,
         ])
         .events(tauri_specta::collect_events![
             AgentRunTerminated,

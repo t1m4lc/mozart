@@ -791,6 +791,33 @@ async gitVersion() : Promise<Result<string | null, AppError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Phase 6 / Atom 3 — spawn `claude login` in a PTY rooted at the user's
+ * HOME so the embedded xterm in the onboarding wizard can drive the
+ * CLI's URL-paste flow. Returns the synthetic terminal id the JS side
+ * uses for subsequent write/resize/close calls (the existing
+ * `write_terminal`/`resize_terminal`/`close_terminal` commands are
+ * key-by-string and work against this synthetic id).
+ * 
+ * We deliberately reuse `terminal::spawn_command` rather than introduce
+ * a parallel PTY path : Phase 4's terminal_registry is the canonical
+ * PTY infrastructure ; sharing it keeps lifecycle (Drop kills child,
+ * kills master on registry.cancel) consistent.
+ * 
+ * Exit-code semantics : the terminal reader emits `Exited { code: 0 }`
+ * unconditionally on EOF (see `terminal::spawn_inner`) — that's fine,
+ * the front-end re-probes `claude_cli::session::has_session()` (via
+ * the existing `check_claude_code_session` command) after the Exited
+ * event arrives, which is the authoritative success signal.
+ */
+async spawnClaudeLogin(cols: number, rows: number, onEvent: TAURI_CHANNEL<TerminalEvent>) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("spawn_claude_login", { cols, rows, onEvent }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

@@ -15,7 +15,14 @@ export {
   GIT_CHECK_ADAPTER,
   type GitCheckAdapter,
 } from './data/git-check.adapter';
+export {
+  PROVIDER_SETUP_ADAPTER,
+  type ProviderSetupAdapter,
+} from './data/provider-setup.adapter';
 export { onboardingGuard } from './onboarding.guard';
 export { UiOnboardingStepShell } from './ui-onboarding-step-shell';
+export { UiDisclosureCard } from './ui-disclosure-card';
 export { FeatureOnboardingStepWelcome } from './feature-onboarding-step-welcome';
 export { FeatureOnboardingStepGit } from './feature-onboarding-step-git';
+export { FeatureOnboardingStepProvider } from './feature-onboarding-step-provider';
+export { FeatureClaudeLoginPty } from './feature-claude-login-pty';

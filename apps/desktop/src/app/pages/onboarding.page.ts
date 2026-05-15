@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import {
   FeatureOnboardingStepGit,
+  FeatureOnboardingStepProvider,
   FeatureOnboardingStepWelcome,
   OnboardingFacade,
   UiOnboardingStepShell,
@@ -15,6 +16,7 @@ import {
     UiOnboardingStepShell,
     FeatureOnboardingStepWelcome,
     FeatureOnboardingStepGit,
+    FeatureOnboardingStepProvider,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-screen w-screen overflow-y-auto bg-background' },
@@ -31,10 +33,7 @@ import {
           <app-feature-onboarding-step-git />
         }
         @case ('provider') {
-          <div class="space-y-2 text-center">
-            <h2 class="text-lg font-medium">Step 3 — Connect an LLM provider</h2>
-            <p class="text-sm text-muted-foreground">Provider list wired in Atom 3.</p>
-          </div>
+          <app-feature-onboarding-step-provider />
         }
         @case ('github') {
           <div class="space-y-2 text-center">

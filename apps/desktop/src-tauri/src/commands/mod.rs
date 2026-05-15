@@ -1807,6 +1807,64 @@ pub async fn auth_clear_session() -> Result<(), AppError> {
 }
 
 // ---------------------------------------------------------------------------
+// spawn_claude_login (Phase 6 / Atom 3)
+// ---------------------------------------------------------------------------
+
+const ONBOARDING_PTY_ID: &str = "__onboarding_claude_login__";
+
+fn home_dir_or_cwd() -> std::path::PathBuf {
+    if let Ok(home) = std::env::var("HOME") {
+        if !home.is_empty() {
+            return std::path::PathBuf::from(home);
+        }
+    }
+    if let Ok(profile) = std::env::var("USERPROFILE") {
+        if !profile.is_empty() {
+            return std::path::PathBuf::from(profile);
+        }
+    }
+    std::path::PathBuf::from(".")
+}
+
+/// Phase 6 / Atom 3 — spawn `claude login` in a PTY rooted at the user's
+/// HOME so the embedded xterm in the onboarding wizard can drive the
+/// CLI's URL-paste flow. Returns the synthetic terminal id the JS side
+/// uses for subsequent write/resize/close calls (the existing
+/// `write_terminal`/`resize_terminal`/`close_terminal` commands are
+/// key-by-string and work against this synthetic id).
+///
+/// We deliberately reuse `terminal::spawn_command` rather than introduce
+/// a parallel PTY path : Phase 4's terminal_registry is the canonical
+/// PTY infrastructure ; sharing it keeps lifecycle (Drop kills child,
+/// kills master on registry.cancel) consistent.
+///
+/// Exit-code semantics : the terminal reader emits `Exited { code: 0 }`
+/// unconditionally on EOF (see `terminal::spawn_inner`) — that's fine,
+/// the front-end re-probes `claude_cli::session::has_session()` (via
+/// the existing `check_claude_code_session` command) after the Exited
+/// event arrives, which is the authoritative success signal.
+#[tauri::command]
+#[specta::specta]
+pub async fn spawn_claude_login(
+    registry: State<'_, TerminalRegistry>,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<TerminalEvent>,
+) -> Result<String, AppError> {
+    registry.cancel(ONBOARDING_PTY_ID);
+    let cwd = home_dir_or_cwd();
+    let handle = terminal::spawn_command(
+        &cwd,
+        cols.max(1),
+        rows.max(1),
+        "claude login".to_string(),
+        on_event,
+    )?;
+    registry.register(ONBOARDING_PTY_ID.to_string(), std::sync::Arc::new(handle));
+    Ok(ONBOARDING_PTY_ID.to_string())
+}
+
+// ---------------------------------------------------------------------------
 // git_version
 // ---------------------------------------------------------------------------
 
