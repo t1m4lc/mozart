@@ -57,16 +57,18 @@ function coerceTab(raw: string | null): AsideTab {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col bg-sidebar' },
   template: `
-    <app-workspace-aside-header
-      [branch]="branch()"
-      [tools]="availableTools()"
-      [lastUsedTool]="effectiveLastUsedTool()"
-      [workspaceName]="workspaceName()"
-      [githubConnected]="profile.githubConnected()"
-      (openIn)="onOpenIn($event)"
-      (commit)="onCommit()"
-      (createPr)="onCreatePr()"
-    />
+    <div data-tour="aside-header-buttons">
+      <app-workspace-aside-header
+        [branch]="branch()"
+        [tools]="availableTools()"
+        [lastUsedTool]="effectiveLastUsedTool()"
+        [workspaceName]="workspaceName()"
+        [githubConnected]="profile.githubConnected()"
+        (openIn)="onOpenIn($event)"
+        (commit)="onCommit()"
+        (createPr)="onCreatePr()"
+      />
+    </div>
 
     <hlm-tabs
       [tab]="activeTab()"
@@ -81,6 +83,7 @@ function coerceTab(raw: string | null): AsideTab {
           hlmTabsTrigger="files"
           type="button"
           class="text-xs font-normal"
+          data-tour="aside-files-tab"
         >
           Files
         </button>

@@ -32,3 +32,5 @@ export { FeatureOnboardingStepGit } from './feature-onboarding-step-git';
 export { FeatureOnboardingStepProvider } from './feature-onboarding-step-provider';
 export { FeatureOnboardingStepGithub } from './feature-onboarding-step-github';
 export { FeatureClaudeLoginPty } from './feature-claude-login-pty';
+export { FeatureTour } from './feature-tour';
+export { UiTourClosingCard } from './ui-tour-closing-card';

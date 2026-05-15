@@ -6,7 +6,9 @@ import {
   inject,
   viewChild,
 } from '@angular/core';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { ActivatedRoute, RouterLink, RouterOutlet } from '@angular/router';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs/operators';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { HlmIconImports } from '@mozart/ui/icon';
@@ -25,6 +27,7 @@ import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
 import { FeatureChatList } from '../domains/chat';
+import { FeatureTour } from '../domains/onboarding';
 import {
   FeatureAddProject,
   GroupByFilter,
@@ -56,6 +59,7 @@ import { ShellProjectList } from './shell-project-list';
     HlmTooltipImports,
     FeatureAddProject,
     FeatureChatList,
+    FeatureTour,
     GroupByFilter,
     ProjectsHeaderContextMenu,
     ShellAside,
@@ -216,6 +220,10 @@ import { ShellProjectList } from './shell-project-list';
       position="bottom-right"
       [style]="toasterStyle"
     />
+
+    @if (tourActive()) {
+      <app-feature-tour />
+    }
   `,
 })
 export class AppShell {
@@ -227,6 +235,14 @@ export class AppShell {
   protected readonly projects = inject(ProjectsFacade);
   protected readonly addProjectFlow = inject(AddProjectFlow);
   private readonly workspaces = inject(WorkspacesFacade);
+  private readonly route = inject(ActivatedRoute);
+
+  /** Tour overlay visibility — driven by the `?tour=on` query param
+   *  attached by `/tour` when it redirects to the workspace. */
+  protected readonly tourActive = toSignal(
+    this.route.queryParamMap.pipe(map((q) => q.get('tour') === 'on')),
+    { initialValue: false },
+  );
 
   // Right aside is only meaningful inside a workspace context. Hidden
   // on the dashboard and any non-workspace route. Combines with the

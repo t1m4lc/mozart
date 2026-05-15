@@ -63,6 +63,7 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
         hlmSidebarMenu
         cdkDropList
         cdkDropListLockAxis="y"
+        data-tour="sidebar-projects-group"
         (cdkDropListDropped)="onProjectDrop($event)"
       >
         @for (project of visibleProjects(); track project.id) {
@@ -99,6 +100,11 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
                 ) {
                   <li
                     hlmSidebarMenuItem
+                    [attr.data-tour]="
+                      workspaces.activeId() === workspace.id
+                        ? 'workspace-row-active'
+                        : null
+                    "
                     [hlmContextMenuTrigger]="workspaceCtxMenuTpl"
                     [hlmContextMenuTriggerData]="{ $implicit: workspace }"
                   >

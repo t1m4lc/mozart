@@ -1,24 +1,20 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
   inject,
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
-import {
-  GET_STARTED_PROJECT_ADAPTER,
-  type GetStartedResult,
-} from '../domains/onboarding/data/get-started-project.adapter';
+import { GET_STARTED_PROJECT_ADAPTER } from '../domains/onboarding/data/get-started-project.adapter';
 import { ProjectsFacade } from '../domains/projects';
 import { WorkspacesFacade } from '../domains/workspaces';
 
-// Phase 6 / Atom 6 — `/tour` route. Materializes the bundled
-// "Get started" project on mount, then mounts the highlight overlay
-// (wired in Atom 7) against the freshly-created workspace. For now
-// the page renders a status card while the bootstrap runs ; the
-// overlay slot is left empty until Atom 7 lands the tour content.
+// Phase 6 / Atoms 6-7 — `/tour` route. Bootstraps the bundled
+// "Get started" project, then redirects to
+// `/workspaces/<welcome-1.id>?tour=on`. The AppShell sees the
+// `?tour=on` query param and mounts `<app-feature-tour>` (the
+// highlight overlay) on top of the live workspace UI.
 @Component({
   selector: 'app-tour-page',
   imports: [HlmButtonImports],
@@ -47,18 +43,6 @@ import { WorkspacesFacade } from '../domains/workspaces';
           </button>
         </div>
       }
-      @case ('ready') {
-        <div class="space-y-4 text-center">
-          <h1 class="text-2xl font-semibold">You're all set 🎉</h1>
-          <p class="text-sm text-muted-foreground">
-            The Get started project is ready under
-            <code class="font-mono">~/Mozart/get-started/</code>.
-          </p>
-          <button hlmBtn type="button" (click)="onContinue()">
-            Open it
-          </button>
-        </div>
-      }
     }
   `,
 })
@@ -68,10 +52,8 @@ export class TourPage {
   private readonly projects = inject(ProjectsFacade);
   private readonly workspaces = inject(WorkspacesFacade);
 
-  protected readonly state = signal<'loading' | 'ready' | 'failed'>('loading');
+  protected readonly state = signal<'loading' | 'failed'>('loading');
   protected readonly error = signal<string>('');
-  private readonly _result = signal<GetStartedResult | null>(null);
-  protected readonly result = computed(() => this._result());
 
   constructor() {
     void this.bootstrap();
@@ -81,24 +63,17 @@ export class TourPage {
     void this.router.navigate(['/']);
   }
 
-  protected onContinue(): void {
-    const r = this._result();
-    if (!r) {
-      void this.router.navigate(['/']);
-      return;
-    }
-    void this.router.navigate(['/workspaces', r.workspace.id]);
-  }
-
   private async bootstrap(): Promise<void> {
     try {
       const result = await this.adapter.ensure();
-      // Refresh facades so the new project + workspace show in the
-      // sidebar when the user lands on /workspaces/:id.
       await this.projects.loadAll();
       await this.workspaces.loadAll();
-      this._result.set(result);
-      this.state.set('ready');
+      this.workspaces.setActive(result.workspace.id);
+      // Redirect into the workspace with the tour query param ; the
+      // AppShell mounts the overlay when it sees `?tour=on`.
+      void this.router.navigate(['/workspaces', result.workspace.id], {
+        queryParams: { tour: 'on' },
+      });
     } catch (err) {
       console.error('[tour] bootstrap failed:', err);
       this.error.set(err instanceof Error ? err.message : String(err));

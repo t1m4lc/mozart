@@ -55,7 +55,7 @@ const SCROLL_SETTLE_MS = 220;
     <div
       class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/90 to-transparent px-4 pb-4 pt-6 dark:from-background dark:via-background/90"
     >
-      <div class="pointer-events-auto">
+      <div class="pointer-events-auto" data-tour="composer-mode">
         <hlm-composer
           #composerEl
           [(value)]="value"

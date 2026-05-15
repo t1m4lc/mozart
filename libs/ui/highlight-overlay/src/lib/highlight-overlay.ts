@@ -158,7 +158,7 @@ export class HlmHighlightOverlay {
   }
 
   @HostListener('document:keydown.escape', ['$event'])
-  protected _onEscape(event: KeyboardEvent): void {
+  protected _onEscape(event: Event): void {
     event.preventDefault();
     this._onSkip();
   }
