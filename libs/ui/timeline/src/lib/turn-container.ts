@@ -7,6 +7,7 @@ import {
   output,
 } from '@angular/core';
 import { MessageBody } from './message-body';
+import { Timeline } from './timeline';
 import { TurnBody } from './turn-body';
 import { TurnHeader } from './turn-header';
 import type {
@@ -26,7 +27,7 @@ import type {
 
 @Component({
   selector: 'hlm-turn-container',
-  imports: [TurnHeader, TurnBody, MessageBody],
+  imports: [TurnHeader, TurnBody, MessageBody, Timeline],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -42,6 +43,14 @@ import type {
           [streaming]="state().isStreaming"
         />
       }
+      @if (_hasTimeline()) {
+        <hlm-timeline
+          class="mt-1"
+          [items]="state().items"
+          [outcome]="state().outcome"
+          [showDoneMarker]="state().showDoneMarker"
+        />
+      }
     </hlm-turn-body>
   `,
 })
@@ -55,4 +64,8 @@ export class TurnContainer {
   readonly fileChipClick = output<TurnFileChipEvent>();
 
   protected readonly _hasText = computed(() => this.state().text.length > 0);
+  protected readonly _hasTimeline = computed(() => {
+    const s = this.state();
+    return s.items.length > 0 || !!s.outcome;
+  });
 }

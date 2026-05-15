@@ -8,6 +8,7 @@ import {
 import { HlmIconImports } from '@mozart/ui/icon';
 import { provideIcons } from '@ng-icons/core';
 import { lucideChevronDown, lucideSparkles } from '@ng-icons/lucide';
+import { SHIMMER_TEXT_STYLES } from './_shimmer.styles';
 
 // Phase 3b — turn header. Renders the agent's status summary with a
 // shimmer effect while streaming, and a chevron toggle that collapses
@@ -39,11 +40,7 @@ const FALLBACK_SUMMARY = 'Working…';
         class="shrink-0 text-brand"
       />
       <span class="min-w-0 flex-1 truncate text-sm">
-        <span
-          class="shimmer-host"
-          [class.shimmer-text]="streaming()"
-          [class.is-static]="!streaming()"
-        >
+        <span [class.shimmer-text]="streaming()">
           @for (line of [_displayed()]; track line) {
             <span class="summary-line">{{ line }}</span>
           }
@@ -58,46 +55,22 @@ const FALLBACK_SUMMARY = 'Working…';
       />
     </button>
   `,
-  styles: `
-    @keyframes hlm-turn-header-shimmer {
-      0%   { background-position: 200% center; }
-      100% { background-position: -200% center; }
-    }
-    @keyframes hlm-turn-header-fade-up {
-      from { opacity: 0; transform: translateY(5px); }
-      to   { opacity: 1; transform: translateY(0); }
-    }
-    .shimmer-host.shimmer-text {
-      color: transparent;
-      background-image: linear-gradient(
-        to right,
-        var(--muted-foreground) 0%,
-        var(--muted-foreground) 30%,
-        color-mix(in srgb, var(--foreground) 90%, transparent) 50%,
-        var(--muted-foreground) 80%,
-        var(--muted-foreground) 100%
-      );
-      background-size: 400% 100%;
-      background-repeat: no-repeat;
-      -webkit-background-clip: text;
-      background-clip: text;
-      animation: hlm-turn-header-shimmer 2.25s linear infinite;
-    }
-    .summary-line {
-      display: inline-block;
-      animation: hlm-turn-header-fade-up 350ms ease both;
-    }
-    @media (prefers-reduced-motion: reduce) {
-      .shimmer-host.shimmer-text {
-        animation: none;
-        color: var(--muted-foreground);
-        background: none;
-        -webkit-background-clip: initial;
-        background-clip: initial;
+  styles: [
+    SHIMMER_TEXT_STYLES,
+    `
+      @keyframes hlm-turn-header-fade-up {
+        from { opacity: 0; transform: translateY(5px); }
+        to   { opacity: 1; transform: translateY(0); }
       }
-      .summary-line { animation: none; }
-    }
-  `,
+      .summary-line {
+        display: inline-block;
+        animation: hlm-turn-header-fade-up 350ms ease both;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .summary-line { animation: none; }
+      }
+    `,
+  ],
 })
 export class TurnHeader {
   readonly summary = input<string>('');
