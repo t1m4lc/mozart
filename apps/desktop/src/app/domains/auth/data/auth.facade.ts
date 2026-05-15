@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import type { Subscription } from 'rxjs';
 import { buildSignInUrl } from '../util-clerk-url';
+import { decodeJwt } from '../util-decode-jwt';
 import { AUTH_ADAPTER } from './auth.adapter';
 import type {
   AuthSession,
@@ -142,19 +143,30 @@ export class AuthFacade {
     this.pendingState = null;
     this.clearTimeout();
 
-    // Atom 6 decodes the JWT for expiresAt + onboarding ; Atom 1 sets
-    // a 7-day fallback so the model stays well-formed.
+    // Atom 6 (Phase 6) decodes the JWT for expiresAt + onboarding. The
+    // `onboarding` claim drives the post-sign-in routing decision : the
+    // user lands on /onboarding (the wizard) when the server says they
+    // haven't completed it, else on / (the dashboard). A missing
+    // `onboarding` claim defaults to `false` — fail-closed routes into
+    // the wizard. `expiresAt` falls back to 7 days when the claim is
+    // missing so the model stays well-formed against malformed tokens.
+    const claims = decodeJwt(payload.token);
+    const expiresAt = claims
+      ? new Date(claims.exp * 1000)
+      : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const onboardingDone = claims?.onboarding ?? false;
     const session: AuthSession = {
       token: payload.token,
-      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+      expiresAt,
     };
     try {
       await this.adapter.saveSession(session);
       this._session.set(session);
       this._signInUrl.set(null);
       this.welcomeState.set('idle');
-      console.info('[auth] navigating to /');
-      void this.router.navigate(['/']);
+      const target = onboardingDone ? '/' : '/onboarding';
+      console.info('[auth] navigating to', target);
+      void this.router.navigate([target]);
     } catch (err) {
       console.error('[auth] saveSession failed:', err);
       this.cancelSignIn();
