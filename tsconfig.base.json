@@ -40,6 +40,7 @@
       "@mozart/ui/dropdown-menu": ["./libs/ui/dropdown-menu/src/index.ts"],
       "@mozart/ui/empty": ["./libs/ui/empty/src/index.ts"],
       "@mozart/ui/field": ["./libs/ui/field/src/index.ts"],
+      "@mozart/ui/highlight-overlay": ["./libs/ui/highlight-overlay/src/index.ts"],
       "@mozart/ui/hover-card": ["./libs/ui/hover-card/src/index.ts"],
       "@mozart/ui/icon": ["./libs/ui/icon/src/index.ts"],
       "@mozart/ui/input": ["./libs/ui/input/src/index.ts"],
