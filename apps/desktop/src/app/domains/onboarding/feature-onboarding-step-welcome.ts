@@ -1,10 +1,14 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  HostListener,
+  inject,
+} from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { OnboardingFacade } from './data/onboarding.facade';
 
-// Step 1 of the onboarding wizard. Pure intro — sets expectations and
-// hands off to step 2 (Git check) on `Let's go`. The facade is wired
-// via the page; this feature only triggers the advance.
+// Step 1 of the onboarding wizard. Pure intro — Enter or click on the
+// CTA advances to the Git check.
 @Component({
   selector: 'app-feature-onboarding-step-welcome',
   imports: [HlmButtonImports],
@@ -12,12 +16,16 @@ import { OnboardingFacade } from './data/onboarding.facade';
   host: { class: 'block w-full' },
   template: `
     <div class="space-y-6 text-center">
-      <h1 class="text-2xl font-semibold">Welcome to Mozart</h1>
-      <p class="text-muted-foreground text-sm">
-        Let's set up your environment — takes about a minute.
-      </p>
+      <div class="mx-auto max-w-md space-y-2">
+        <h1 class="text-2xl font-semibold tracking-tight">
+          Welcome to Mozart
+        </h1>
+        <p class="text-muted-foreground text-sm">
+          Let's set up your environment — takes about a minute.
+        </p>
+      </div>
       <div class="flex justify-center pt-2">
-        <button hlmBtn type="button" (click)="facade.advance()">
+        <button hlmBtn type="button" (click)="onContinue()">
           Get started
         </button>
       </div>
@@ -26,4 +34,13 @@ import { OnboardingFacade } from './data/onboarding.facade';
 })
 export class FeatureOnboardingStepWelcome {
   protected readonly facade = inject(OnboardingFacade);
+
+  @HostListener('document:keyup.enter')
+  protected onEnterKey(): void {
+    this.onContinue();
+  }
+
+  protected onContinue(): void {
+    this.facade.advance();
+  }
 }

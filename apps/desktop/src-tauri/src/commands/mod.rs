@@ -2059,6 +2059,45 @@ pub async fn git_version() -> Result<Option<String>, AppError> {
     Ok(version)
 }
 
+/// Surface the user's global Git identity (`user.name` + `user.email`)
+/// for the onboarding wizard's Git step. Returns `None` when either
+/// value is missing — the UI then nudges the user to run
+/// `git config --global user.name "…"` themselves.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct GitIdentity {
+    pub name: String,
+    pub email: String,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn git_identity() -> Result<Option<GitIdentity>, AppError> {
+    use std::process::Command;
+
+    fn config_value(key: &str) -> Option<String> {
+        let out = Command::new("git")
+            .args(["config", "--global", "--get", key])
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        let trimmed = String::from_utf8_lossy(&out.stdout).trim().to_string();
+        if trimmed.is_empty() {
+            None
+        } else {
+            Some(trimmed)
+        }
+    }
+
+    let name = config_value("user.name");
+    let email = config_value("user.email");
+    match (name, email) {
+        (Some(name), Some(email)) => Ok(Some(GitIdentity { name, email })),
+        _ => Ok(None),
+    }
+}
+
 // ---------------------------------------------------------------------------
 // get_onboarding_completed / set_onboarding_completed
 // ---------------------------------------------------------------------------

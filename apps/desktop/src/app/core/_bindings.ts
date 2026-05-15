@@ -1195,6 +1195,14 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async gitIdentity(): Promise<Result<GitIdentity | null, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('git_identity') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   /**
    * Phase 6 / Atom 3 — spawn `claude login` in a PTY rooted at the user's
    * HOME so the embedded xterm in the onboarding wizard can drive the
@@ -1450,6 +1458,13 @@ export type FileTreeEvent = { kind: 'changed' };
  * workspace. The TS bindings expose this as `GetStartedProject`.
  */
 export type GetStartedProject = { repo: Repo; workspace: Workspace };
+/**
+ * Surface the user's global Git identity (`user.name` + `user.email`)
+ * for the onboarding wizard's Git step. Returns `None` when either
+ * value is missing — the UI then nudges the user to run
+ * `git config --global user.name "…"` themselves.
+ */
+export type GitIdentity = { name: string; email: string };
 /**
  * Result of a `GET /user` probe with the candidate token.
  */

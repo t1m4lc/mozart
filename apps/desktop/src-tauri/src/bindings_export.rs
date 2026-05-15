@@ -98,6 +98,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::get_onboarding_completed,
             commands::set_onboarding_completed,
             commands::git_version,
+            commands::git_identity,
             commands::spawn_claude_login,
             commands::create_get_started_project,
             commands::get_notification_preferences,
@@ -130,4 +131,5 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<AuthSessionDto>()
         .typ::<GetStartedProject>()
         .typ::<commands::NotificationPreferences>()
+        .typ::<commands::GitIdentity>()
 }

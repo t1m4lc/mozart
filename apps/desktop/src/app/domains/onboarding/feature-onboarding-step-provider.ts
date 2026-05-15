@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  HostListener,
   computed,
   effect,
   inject,
@@ -66,10 +67,12 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
       />
     } @else {
       <div class="space-y-6">
-        <div class="space-y-1 text-center">
-          <h2 class="text-xl font-semibold">Connect a provider</h2>
+        <div class="mx-auto max-w-md space-y-2 text-center">
+          <h2 class="text-xl font-semibold tracking-tight">
+            Connect LLM provider
+          </h2>
           <p class="text-muted-foreground text-sm">
-            Pick a provider to start — you can add more later.
+            Pick one to start — you can add more later.
           </p>
         </div>
 
@@ -134,17 +137,7 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
               }
             </div>
 
-            @if (statusKind() === 'ok') {
-              <button
-                hlmBtn
-                size="sm"
-                variant="ghost"
-                type="button"
-                (click)="onReconfigureClaude()"
-              >
-                Reconfigure
-              </button>
-            } @else if (statusKind() === 'fail') {
+            @if (statusKind() === 'fail') {
               <button
                 hlmBtn
                 size="sm"
@@ -155,21 +148,29 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
                 <ng-icon hlm name="lucideRefreshCw" size="xs" />
                 Retry
               </button>
-            } @else {
+            } @else if (statusKind() === 'idle') {
               <button
                 hlmBtn
                 size="sm"
                 type="button"
-                [disabled]="statusKind() === 'busy'"
                 (click)="onConfigureClaude()"
               >
                 Configure
               </button>
             }
+            <!-- 'ok' state shows the green dot only — Reconfigure
+                 lives in Settings post-onboarding. 'busy' shows the
+                 pulse dot + "Checking…" with no action. -->
           </div>
         }
 
-        <!-- Compact disclosure (replaces the previous full card) -->
+        @if (statusKind() === 'ok') {
+          <p class="text-muted-foreground text-center text-xs">
+            You can connect more providers later from Settings.
+          </p>
+        }
+
+        <!-- Compact key-storage disclosure -->
         <p
           class="text-muted-foreground flex items-start justify-center gap-2 text-xs"
         >
@@ -188,7 +189,7 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
             hlmBtn
             type="button"
             [disabled]="!providerReady()"
-            (click)="facade.advance()"
+            (click)="onContinue()"
           >
             Continue
           </button>
@@ -255,6 +256,15 @@ export class FeatureOnboardingStepProvider {
     });
   }
 
+  @HostListener('document:keyup.enter')
+  protected onEnterKey(): void {
+    if (!this.showPty() && this.providerReady()) this.onContinue();
+  }
+
+  protected onContinue(): void {
+    this.facade.advance();
+  }
+
   protected onProviderChange(value: ProviderId | null): void {
     if (value) this.selectedProvider.set(value);
   }
@@ -262,10 +272,6 @@ export class FeatureOnboardingStepProvider {
   protected async onConfigureClaude(): Promise<void> {
     const outcome = await this.profile.tryConnect();
     if (outcome === 'claude_code') return;
-    this.showPty.set(true);
-  }
-
-  protected onReconfigureClaude(): void {
     this.showPty.set(true);
   }
 

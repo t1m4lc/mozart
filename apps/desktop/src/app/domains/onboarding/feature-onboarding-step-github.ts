@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  HostListener,
   effect,
   inject,
 } from '@angular/core';
@@ -39,8 +40,8 @@ import { OnboardingFacade } from './data/onboarding.facade';
   host: { class: 'block w-full' },
   template: `
     <div class="space-y-6">
-      <div class="space-y-1 text-center">
-        <h2 class="text-xl font-semibold">Connect GitHub</h2>
+      <div class="mx-auto max-w-md space-y-2 text-center">
+        <h2 class="text-xl font-semibold tracking-tight">Connect GitHub</h2>
         <p class="text-muted-foreground text-sm">
           Optional. You can connect later from Settings.
         </p>
@@ -125,6 +126,11 @@ export class FeatureOnboardingStepGithub {
         this.profile.githubConnected() ? 'done' : 'pending',
       );
     });
+  }
+
+  @HostListener('document:keyup.enter')
+  protected onEnterKey(): void {
+    this.onFinish();
   }
 
   protected onConnect(): void {

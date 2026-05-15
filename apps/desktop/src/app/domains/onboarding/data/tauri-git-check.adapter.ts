@@ -10,13 +10,17 @@ function unwrap<T>(
   return r.data;
 }
 
-// Tauri-backed GitCheckAdapter. The Rust command spawns
-// `git --version` (argv, no shell) ; we surface the version string or
-// null to the feature component.
+// Tauri-backed GitCheckAdapter. The Rust commands spawn `git --version`
+// (argv, no shell) for `probe` and `git config --global --get` for
+// `identity`. Both gracefully degrade to `null` so the onboarding step
+// can render its own "missing" UI without thinking about exceptions.
 export function tauriGitCheckAdapter(): GitCheckAdapter {
   return {
-    async probe(): Promise<string | null> {
+    async probe() {
       return unwrap(await commands.gitVersion());
+    },
+    async identity() {
+      return unwrap(await commands.gitIdentity());
     },
   };
 }

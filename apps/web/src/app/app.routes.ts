@@ -1,4 +1,8 @@
 import { Route } from '@angular/router';
+import {
+  redirectIfAuthedGuard,
+  requireAuthGuard,
+} from './domains/auth/auth.guard';
 import { WebShell } from './shell/web-shell';
 
 export const appRoutes: Route[] = [
@@ -9,6 +13,7 @@ export const appRoutes: Route[] = [
       { path: '', pathMatch: 'full', redirectTo: 'login' },
       {
         path: 'login',
+        canActivate: [redirectIfAuthedGuard],
         loadComponent: () =>
           import('./pages/login.page').then((m) => m.LoginPage),
       },
@@ -19,6 +24,7 @@ export const appRoutes: Route[] = [
       },
       {
         path: 'dashboard',
+        canActivate: [requireAuthGuard],
         loadComponent: () =>
           import('./pages/dashboard.page').then((m) => m.DashboardPage),
       },
