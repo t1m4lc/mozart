@@ -35,6 +35,8 @@ use crate::error::AppError;
 use crate::file_diff;
 use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
 use crate::file_watcher_registry::FileWatcherRegistry;
+use crate::terminal::{self, TerminalEvent};
+use crate::terminal_registry::TerminalRegistry;
 use crate::git_query;
 use crate::run_registry::RunRegistry;
 use crate::sandbox;
@@ -581,8 +583,17 @@ pub(crate) async fn list_tasks_impl(
 #[specta::specta]
 pub async fn archive_workspace(
     db: State<'_, DbState>,
+    terminal_registry: State<'_, TerminalRegistry>,
+    file_watcher_registry: State<'_, FileWatcherRegistry>,
     workspace_id: String,
 ) -> Result<(), AppError> {
+    // Release per-workspace runtime resources before flipping the
+    // deletion intent. Cancelling the terminal registry drops the PTY
+    // handle (kills child + closes master), which lets the reader
+    // thread emit `Exited` and exit. Cancelling the file watcher stops
+    // the notify-debouncer.
+    terminal_registry.cancel(&workspace_id);
+    file_watcher_registry.cancel(&workspace_id);
     archive_workspace_impl(db.inner(), workspace_id).await
 }
 
@@ -1435,6 +1446,84 @@ pub(crate) async fn get_file_diff_impl(
         &path,
     )
     .await
+}
+
+// ---------------------------------------------------------------------------
+// Terminal commands (Phase 4d)
+// ---------------------------------------------------------------------------
+
+/// Open (or replace) the PTY for a workspace, rooted at its worktree.
+/// Streams `TerminalEvent` chunks through `on_event`. Replacement
+/// semantics: any prior PTY for the same workspace is killed before
+/// the new one spawns. The Angular `TerminalRegistry` guarantees one
+/// call per workspace per app session in normal flow; the replacement
+/// path is a safety net for hot-reload + error recovery.
+#[tauri::command]
+#[specta::specta]
+pub async fn open_terminal(
+    db: State<'_, DbState>,
+    registry: State<'_, TerminalRegistry>,
+    workspace_id: String,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<TerminalEvent>,
+) -> Result<(), AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    // Drop any prior PTY before spawning a new one (kills child).
+    registry.cancel(&workspace_id);
+    let handle = terminal::spawn(
+        std::path::Path::new(&ws.worktree_path),
+        cols.max(1),
+        rows.max(1),
+        on_event,
+    )?;
+    registry.register(workspace_id, Arc::new(handle));
+    Ok(())
+}
+
+/// Forward bytes (typed by the user via xterm.js) to the PTY's stdin.
+#[tauri::command]
+#[specta::specta]
+pub async fn write_terminal(
+    registry: State<'_, TerminalRegistry>,
+    workspace_id: String,
+    data: String,
+) -> Result<(), AppError> {
+    let handle = registry
+        .get(&workspace_id)
+        .ok_or_else(|| AppError::NotFound(format!("no terminal for workspace {workspace_id}")))?;
+    handle.write(data.as_bytes())
+}
+
+/// Resize the PTY to match xterm.js' viewport. Called on container
+/// resize (debounced front-end side).
+#[tauri::command]
+#[specta::specta]
+pub async fn resize_terminal(
+    registry: State<'_, TerminalRegistry>,
+    workspace_id: String,
+    cols: u16,
+    rows: u16,
+) -> Result<(), AppError> {
+    let handle = registry
+        .get(&workspace_id)
+        .ok_or_else(|| AppError::NotFound(format!("no terminal for workspace {workspace_id}")))?;
+    handle.resize(cols.max(1), rows.max(1))
+}
+
+/// Close the PTY (kill the child + drop the master). No-op if no PTY
+/// is registered for the workspace.
+#[tauri::command]
+#[specta::specta]
+pub async fn close_terminal(
+    registry: State<'_, TerminalRegistry>,
+    workspace_id: String,
+) -> Result<(), AppError> {
+    registry.cancel(&workspace_id);
+    Ok(())
 }
 
 // ===========================================================================

@@ -11,6 +11,8 @@ pub mod file_watcher_registry;
 pub mod git_query;
 pub mod run_registry;
 pub mod sandbox;
+pub mod terminal;
+pub mod terminal_registry;
 pub mod workspace_service;
 pub mod worktree;
 
@@ -133,6 +135,10 @@ pub fn run() {
             // by workspace_id (Phase 4b). Atom C registers the
             // skeleton; Atom E populates it from `watch_repository_tree`.
             app.manage(file_watcher_registry::FileWatcherRegistry::new());
+
+            // Terminal registry holds PTY handles keyed by workspace_id
+            // (Phase 4d). One PTY per workspace, killed on archive.
+            app.manage(terminal_registry::TerminalRegistry::new());
 
             // Typed event mounting: no-op for v0.0.1 (no events declared
             // yet) but forward-compatible — future Builder.events() calls

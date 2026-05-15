@@ -515,6 +515,57 @@ async getFileDiff(workspaceId: string, path: string) : Promise<Result<string, Ap
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Open (or replace) the PTY for a workspace, rooted at its worktree.
+ * Streams `TerminalEvent` chunks through `on_event`. Replacement
+ * semantics: any prior PTY for the same workspace is killed before
+ * the new one spawns. The Angular `TerminalRegistry` guarantees one
+ * call per workspace per app session in normal flow; the replacement
+ * path is a safety net for hot-reload + error recovery.
+ */
+async openTerminal(workspaceId: string, cols: number, rows: number, onEvent: TAURI_CHANNEL<TerminalEvent>) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("open_terminal", { workspaceId, cols, rows, onEvent }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Forward bytes (typed by the user via xterm.js) to the PTY's stdin.
+ */
+async writeTerminal(workspaceId: string, data: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("write_terminal", { workspaceId, data }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Resize the PTY to match xterm.js' viewport. Called on container
+ * resize (debounced front-end side).
+ */
+async resizeTerminal(workspaceId: string, cols: number, rows: number) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("resize_terminal", { workspaceId, cols, rows }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Close the PTY (kill the child + drop the master). No-op if no PTY
+ * is registered for the workspace.
+ */
+async closeTerminal(workspaceId: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("close_terminal", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -627,6 +678,18 @@ export type StreamEvent = { kind: "stream_token"; text: string } |
  */
 { kind: "status_update"; status: string } | { kind: "error"; message: string }
 export type Task = { task_id: string; repo_id: string; title: string; task_text: string; status: string; created_at: number }
+/**
+ * Wire event payload pushed by the reader thread to the front-end.
+ */
+export type TerminalEvent = 
+/**
+ * A chunk of UTF-8 stdout/stderr output.
+ */
+{ kind: "output"; data: string } | 
+/**
+ * The shell process exited (or the reader loop terminated).
+ */
+{ kind: "exited"; code: number }
 export type Thread = { thread_id: string; workspace_id: string; created_at: number }
 export type Workspace = { workspace_id: string; task_id: string; name: string; worktree_path: string; branch_name: string; base_branch: string; status: string; pinned: boolean; unread: boolean; created_at: number; deletion_intent: number; ui_status: string }
 export type WorkspaceChange = { change_id: number; workspace_id: string; run_id: string | null; diff_text: string; files_added: number; files_modified: number; files_deleted: number; captured_at: number }
