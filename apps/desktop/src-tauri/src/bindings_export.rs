@@ -74,6 +74,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::watch_repository_tree,
             commands::unwatch_repository_tree,
             commands::get_file_diff,
+            commands::read_workspace_file,
             commands::open_terminal,
             commands::write_terminal,
             commands::resize_terminal,

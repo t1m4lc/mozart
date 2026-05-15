@@ -1437,6 +1437,46 @@ pub async fn get_file_diff(
     get_file_diff_impl(db.inner(), workspace_id, path).await
 }
 
+/// Read a file's raw contents from a workspace's worktree. Used by the
+/// markdown preview in the file viewer (and any other component that
+/// needs file content rather than a diff). Reuses `file_diff`'s path
+/// validation so traversal escapes are rejected before any FS read.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_workspace_file(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    path: String,
+) -> Result<String, AppError> {
+    // Pull the workspace's root path before letting tokio touch the FS.
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+
+    // Defensive : same path rules as the diff endpoint — no empties,
+    // no absolutes, no `..` segments.
+    if path.is_empty() {
+        return Err(AppError::Validation("empty path".into()));
+    }
+    if path.starts_with('/') || path.contains('\0') {
+        return Err(AppError::Validation(format!("invalid path: {path}")));
+    }
+    for segment in path.split('/') {
+        if segment == ".." {
+            return Err(AppError::Validation(format!(
+                "path escapes workspace: {path}"
+            )));
+        }
+    }
+
+    let abs = std::path::Path::new(&ws.worktree_path).join(&path);
+    let body = tokio::fs::read_to_string(&abs)
+        .await
+        .map_err(|e| AppError::Io(format!("read {abs:?}: {e}")))?;
+    Ok(body)
+}
+
 pub(crate) async fn get_file_diff_impl(
     db: &DbState,
     workspace_id: String,

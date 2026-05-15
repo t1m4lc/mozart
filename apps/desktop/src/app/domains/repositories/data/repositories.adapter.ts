@@ -41,6 +41,14 @@ export interface RepositoriesAdapter {
    */
   getFileDiff(workspaceId: string, path: string): Promise<string>;
 
+  /**
+   * Read a file's raw contents from the workspace's worktree. Used by
+   * the markdown preview and any future "view file as text" surface.
+   * Path is validated the same way as `getFileDiff` — no absolutes,
+   * no `..` segments, no NUL bytes.
+   */
+  readFile(workspaceId: string, path: string): Promise<string>;
+
   /** Flat list of changed files in the workspace's worktree (uncommitted +
    *  untracked). Powers the commit dialog's checkbox list. */
   listChangedFiles(workspaceId: string): Promise<readonly ChangedFile[]>;

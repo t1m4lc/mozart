@@ -35,6 +35,11 @@ export class RepositoriesFacade {
     return this.adapter.getFileDiff(workspaceId, path);
   }
 
+  /** Read a file's raw contents from the workspace's worktree. */
+  async loadFile(workspaceId: string, path: string): Promise<string> {
+    return this.adapter.readFile(workspaceId, path);
+  }
+
   /** List uncommitted + untracked files (commit dialog input). */
   async listChangedFiles(
     workspaceId: string,

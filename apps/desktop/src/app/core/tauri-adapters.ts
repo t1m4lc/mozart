@@ -389,6 +389,9 @@ function provideRepositoriesAdapter(): Provider {
       async getFileDiff(workspaceId, path) {
         return unwrap(await commands.getFileDiff(workspaceId, path));
       },
+      async readFile(workspaceId, path) {
+        return unwrap(await commands.readWorkspaceFile(workspaceId, path));
+      },
       async listChangedFiles(workspaceId) {
         const list = unwrap(await commands.listChangedFiles(workspaceId));
         return list.map((f) => ({

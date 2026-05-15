@@ -772,6 +772,26 @@ export const commands = {
     }
   },
   /**
+   * Read a file's raw contents from a workspace's worktree. Used by the
+   * markdown preview in the file viewer (and any other component that
+   * needs file content rather than a diff). Reuses `file_diff`'s path
+   * validation so traversal escapes are rejected before any FS read.
+   */
+  async readWorkspaceFile(
+    workspaceId: string,
+    path: string,
+  ): Promise<Result<string, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('read_workspace_file', { workspaceId, path }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Open (or replace) the PTY for a workspace, rooted at its worktree.
    * Streams `TerminalEvent` chunks through `on_event`. Replacement
    * semantics: any prior PTY for the same workspace is killed before
