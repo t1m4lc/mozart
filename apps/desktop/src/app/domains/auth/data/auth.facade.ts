@@ -51,12 +51,24 @@ export class AuthFacade {
   private deepLinkSub: Subscription | null = null;
   private signInTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
+  /** Port of the localhost HTTP callback server. Cached at bootstrap
+   *  and embedded in the apps/web sign-in URL so the browser-side
+   *  `Launch Mozart desktop` button can fetch it directly. `0` means
+   *  the callback server failed to bind — apps/web surfaces that as
+   *  "Mozart isn't running". */
+  private callbackPort = 0;
+
   async bootstrap(): Promise<void> {
     try {
       const stored = await this.adapter.loadSession();
       if (stored) this._session.set(stored);
     } catch (err) {
       console.warn('[auth] bootstrap load failed:', err);
+    }
+    try {
+      this.callbackPort = await this.adapter.getCallbackPort();
+    } catch (err) {
+      console.warn('[auth] getCallbackPort failed:', err);
     }
     this.deepLinkSub ??= this.adapter.deepLink$.subscribe((payload) => {
       void this.onDeepLink(payload);
@@ -67,7 +79,7 @@ export class AuthFacade {
     if (this.welcomeState() === 'opening') return;
     const state = generateState();
     this.pendingState = state;
-    const url = buildSignInUrl(state);
+    const url = buildSignInUrl(state, this.callbackPort);
     this._signInUrl.set(url);
     this.welcomeState.set('opening');
     this.armTimeout();
@@ -129,17 +141,14 @@ export class AuthFacade {
   }
 
   private async onDeepLink(payload: DeepLinkPayload): Promise<void> {
-    console.info(
-      '[auth] onDeepLink — pendingState=',
-      this.pendingState,
-      'payloadState=',
-      payload.state,
-    );
+    // Anti-regression §10.6 : never log raw state or token. Only the
+    // result of the comparison is interesting for debugging.
     if (!this.pendingState || payload.state !== this.pendingState) {
       console.warn('[auth] deep-link state mismatch — ignoring');
       this.cancelSignIn();
       return;
     }
+    console.info('[auth] deep-link state validated');
     this.pendingState = null;
     this.clearTimeout();
 

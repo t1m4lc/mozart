@@ -9,6 +9,7 @@
 use serde::{Deserialize, Serialize};
 
 pub mod deep_link;
+pub mod http_callback;
 pub mod keyring_store;
 
 /// Typed event fired when the OS hands a `mozart://...` URL to the

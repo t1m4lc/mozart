@@ -4,24 +4,30 @@ import { AUTH_ADAPTER } from './auth.adapter';
 import type { OAuthProvider, User } from './auth.model';
 
 // Public surface of the apps/web `auth` domain. Pages inject this ;
-// the adapter stays private. Holds the signed-in user + the OAuth
-// state nonce the desktop forwarded in the /login URL.
+// the adapter stays private. Holds the signed-in user, the OAuth
+// state nonce, and the desktop callback port — both forwarded by the
+// desktop in the inbound /login URL (`?state=…&port=…`).
 //
 // Flow :
-//   /login captures `?state=…`           → ingestOauthState
-//   /login click button                  → signIn(provider) → /auth-callback
-//   /auth-callback waits for user signal → /dashboard
-//   /dashboard click Launch              → buildDesktopLaunchUrl + browser nav
+//   /login captures ?state= + ?port=        → ingestDesktopHandoff
+//   /login click provider button            → signIn(provider) → /auth-callback
+//   /auth-callback waits for user signal    → /dashboard
+//   /dashboard auto-fires triggerSignIn     → POST localhost:port/auth
+//   → desktop receives, navigates internally
 //
-// Persistence : the user JSON is mirrored to `localStorage` so the
-// session survives both hard navigations AND new tabs. The desktop
-// can re-open the browser with a fresh `state` nonce in a new tab and
-// /login auto-redirects to /dashboard without re-asking for OAuth.
-// Real Clerk handles this via its own cookies / session machinery
-// post-MVP ; localStorage is the mock equivalent.
+// Persistence : the user JSON, state nonce, and callback port are
+// mirrored to `localStorage` so the session survives both hard
+// navigations AND new tabs. When the desktop re-opens the browser
+// with a fresh nonce / port, /login auto-redirects to /dashboard
+// without re-asking for OAuth.
+//
+// Real Clerk handles user persistence via its own cookies / session
+// machinery — when the real Clerk adapter ships, we keep state +
+// port in localStorage but drop the user persistence (Clerk owns it).
 
 const USER_STORAGE_KEY = 'mozart.web.user';
 const OAUTH_STATE_STORAGE_KEY = 'mozart.web.oauthState';
+const CALLBACK_PORT_STORAGE_KEY = 'mozart.web.callbackPort';
 
 function loadStoredUser(): User | null {
   try {
@@ -40,6 +46,20 @@ function loadStoredState(): string | null {
   }
 }
 
+function loadStoredPort(): number | null {
+  try {
+    const raw = localStorage.getItem(CALLBACK_PORT_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = parseInt(raw, 10);
+    return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Result of attempting to hand the session back to the desktop. */
+export type DesktopLaunchOutcome = 'success' | 'unreachable' | 'invalid';
+
 @Injectable({ providedIn: 'root' })
 export class AuthFacade {
   private readonly adapter = inject(AUTH_ADAPTER);
@@ -50,15 +70,17 @@ export class AuthFacade {
   readonly isAuthenticated = computed(() => this._user() !== null);
 
   /** OAuth state nonce passed in by the desktop in the inbound URL.
-   *  Replayed verbatim into the `mozart://auth?...&state=…` callback
-   *  so the desktop facade can validate the round-trip. */
+   *  Replayed verbatim into the callback so the desktop facade can
+   *  validate the round-trip. */
   private readonly _oauthState = signal<string | null>(loadStoredState());
 
+  /** Port of the desktop's localhost HTTP callback server. Used by
+   *  `triggerDesktopSignIn` to `fetch(http://127.0.0.1:<port>/auth)`.
+   *  Null means the desktop hasn't told us yet (or telemetry rolled
+   *  over — user re-clicks Sign in on desktop to refresh). */
+  private readonly _callbackPort = signal<number | null>(loadStoredPort());
+
   constructor() {
-    // Mirror state into localStorage so /login auto-redirects in
-    // a brand-new tab when the user is already authed (desktop can
-    // re-launch the browser with a fresh state nonce — the existing
-    // session must be visible to that tab).
     effect(() => {
       const user = this._user();
       if (user) localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user));
@@ -69,10 +91,25 @@ export class AuthFacade {
       if (state) localStorage.setItem(OAUTH_STATE_STORAGE_KEY, state);
       else localStorage.removeItem(OAUTH_STATE_STORAGE_KEY);
     });
+    effect(() => {
+      const port = this._callbackPort();
+      if (port !== null)
+        localStorage.setItem(CALLBACK_PORT_STORAGE_KEY, port.toString());
+      else localStorage.removeItem(CALLBACK_PORT_STORAGE_KEY);
+    });
   }
 
-  ingestOauthState(state: string | null): void {
+  /** Capture the desktop handoff query params from /login. Both can
+   *  legitimately be null on direct URL hit (rare ; falls through to
+   *  the previously-stored values). Port is parsed defensively. */
+  ingestDesktopHandoff(state: string | null, port: string | null): void {
     if (state) this._oauthState.set(state);
+    if (port) {
+      const parsed = parseInt(port, 10);
+      if (Number.isInteger(parsed) && parsed > 0) {
+        this._callbackPort.set(parsed);
+      }
+    }
   }
 
   async signIn(provider: OAuthProvider): Promise<void> {
@@ -81,21 +118,39 @@ export class AuthFacade {
     void this.router.navigate(['/auth-callback']);
   }
 
-  /** Build the `mozart://auth?token=…&state=…` deep-link the desktop
-   *  consumes. Returns null if no signed-in user — caller (the launch
-   *  button) should bounce back to /login in that edge case.
+  /** Hand the JWT back to the running desktop via the localhost HTTP
+   *  callback. Replaces the legacy `<a href="mozart://…">` approach
+   *  which was unreliable from browsers on Linux.
    *
-   *  Hand-built string rather than `new URL()` : the URL constructor
-   *  normalizes custom schemes by inserting a trailing slash before
-   *  the query (e.g. `mozart://auth/?token=…`) which some OS / browser
-   *  handlers treat as a different scheme path. The desktop's
-   *  `parseDeepLink` accepts both forms, but Chrome on Linux has been
-   *  observed to silently block the slashed variant. */
-  buildDesktopLaunchUrl(): string | null {
+   *  Returns :
+   *    - `success`     : desktop received the token (HTTP 200)
+   *    - `unreachable` : fetch failed (desktop not running, port
+   *                      changed since last sign-in, firewall, etc.)
+   *    - `invalid`     : missing user, state, or port — callers must
+   *                      handle the edge of /dashboard hit directly
+   *                      with no preceding /login flow
+   */
+  async triggerDesktopSignIn(): Promise<DesktopLaunchOutcome> {
     const user = this._user();
     const state = this._oauthState();
-    if (!user || !state) return null;
-    const params = new URLSearchParams({ token: user.token, state });
-    return `mozart://auth?${params.toString()}`;
+    const port = this._callbackPort();
+    if (!user || !state || !port) return 'invalid';
+
+    const url = new URL(`http://127.0.0.1:${port}/auth`);
+    url.searchParams.set('token', user.token);
+    url.searchParams.set('state', state);
+
+    try {
+      const res = await fetch(url.toString(), {
+        method: 'GET',
+        mode: 'cors',
+        credentials: 'omit',
+      });
+      return res.ok ? 'success' : 'unreachable';
+    } catch {
+      // Network failure = desktop not listening on that port. Could
+      // be : desktop closed, restarted (new port), or never opened.
+      return 'unreachable';
+    }
   }
 }

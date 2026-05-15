@@ -1806,6 +1806,21 @@ pub async fn auth_clear_session() -> Result<(), AppError> {
     auth_store::clear_session()
 }
 
+/// Phase 5 follow-up — port of the localhost HTTP callback server
+/// started in `lib.rs::setup`. The TS adapter reads this once at
+/// bootstrap and embeds it in the apps/web sign-in URL so the
+/// browser-side `fetch(http://127.0.0.1:<port>/auth)` knows where to
+/// call. Returns `0` if the bind failed at boot (in which case the
+/// HTTP transport is non-functional and the apps/web UI surfaces a
+/// "Mozart isn't running" message — fail-closed, not fail-quiet).
+#[tauri::command]
+#[specta::specta]
+pub fn auth_get_callback_port(
+    state: tauri::State<'_, crate::auth::http_callback::CallbackPort>,
+) -> u16 {
+    state.0
+}
+
 // ---------------------------------------------------------------------------
 // Notification preferences + emit_message_end_notification (Phase 6 / Atom 10)
 // ---------------------------------------------------------------------------

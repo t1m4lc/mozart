@@ -41,14 +41,14 @@ export function tauriAuthAdapter(): AuthAdapter {
 
   void events.deepLinkReceived
     .listen((event) => {
-      const url = event.payload.url;
-      console.info('[auth] deepLinkReceived event arrived:', url);
-      const payload = parseDeepLink(url);
+      // Never log the raw URL : it carries the JWT and the state
+      // nonce. Anti-regression check §10.6 — keep this strict.
+      const payload = parseDeepLink(event.payload.url);
       if (payload) {
-        console.info('[auth] parsed deep-link, state=', payload.state);
+        console.info('[auth] deep-link received and parsed');
         deepLink$.next(payload);
       } else {
-        console.warn('[auth] received unparsable deep-link:', url);
+        console.warn('[auth] received unparsable deep-link');
       }
     })
     .then(() => console.info('[auth] deepLinkReceived listener registered'))
@@ -95,21 +95,35 @@ export function tauriAuthAdapter(): AuthAdapter {
         console.warn('[auth] clearSession failed:', err);
       }
     },
-    async openSignIn({ url, state }) {
-      // Atom 5 makes the apps/web /login route real ; until then this
-      // 404s in the browser but proves the shell-open round-trip
-      // works. The user can copy the state back into a manual
-      // `xdg-open "mozart://auth?token=demo&state=..."` to complete
-      // the test loop in Atom 4.
-      console.info('[auth] openSignIn — opening', url);
-      console.info(
-        `[auth] openSignIn — fire callback manually : mozart://auth?token=demo&state=${state}`,
-      );
+    async openSignIn({ url, state: _state }) {
+      // The browser lands on apps/web /login which captures state +
+      // port, walks the user through OAuth, then on /dashboard fires
+      // a `fetch(http://127.0.0.1:<port>/auth?token=…&state=…)`. The
+      // localhost callback server (Rust side) synthesizes a mozart://
+      // URL and emits the same DeepLinkReceived event the OS scheme
+      // handler emits — so this adapter and the facade are transport-
+      // agnostic.
+      //
+      // For dev-loop testing without the browser, fish the state nonce
+      // out of the facade signal (`AuthFacade.signInUrl()`) in
+      // devtools and `curl http://127.0.0.1:<port>/auth?token=demo&
+      // state=<the-state>` from a terminal.
+      console.info('[auth] openSignIn — handing URL to OS browser');
       try {
         await openExternal(url);
       } catch (err) {
         console.error('[auth] shell.open failed:', err);
         throw err;
+      }
+    },
+    async getCallbackPort() {
+      try {
+        const port = await commands.authGetCallbackPort();
+        console.info('[auth] callback server port =', port);
+        return port;
+      } catch (err) {
+        console.error('[auth] authGetCallbackPort failed:', err);
+        return 0;
       }
     },
     deepLink$: deepLink$.asObservable() as Observable<DeepLinkPayload>,

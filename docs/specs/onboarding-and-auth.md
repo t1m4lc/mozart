@@ -36,16 +36,19 @@
        │            DESKTOP : /welcome                  │  Phase 5
        │ logo + "Sign in to continue" button            │
        │ → opens browser → app.mozart.build             │
-       │ ← receives mozart://auth?token=...             │
+       │ ← receives token (HTTP callback or mozart://)  │
        └────────────────────────▲───────────────────────┘
                                 │
-                                │ deep-link
+                                │ (1) primary : fetch 127.0.0.1:<port>/auth
+                                │ (2) fallback : mozart://auth?token=…
                                 │
        ┌────────────────────────┴───────────────────────┐
        │ APPS/WEB : app.mozart.build                    │
        │ /login → Clerk (GitHub / Google) → /dashboard  │
-       │ → "Launch Mozart desktop" button               │
-       │   → mozart://auth?token=...                    │
+       │ → auto-fires fetch(http://127.0.0.1:<port>/    │
+       │     auth?token=…&state=…)                      │
+       │ (mozart:// scheme remains for cold-launch +    │
+       │  email Magic Links post-MVP)                   │
        └────────────────────────────────────────────────┘
 ```
 
@@ -240,34 +243,86 @@ Layout :
                   └──────────────────────────┘
 ```
 
-**`Launch Mozart desktop` button** :
+**`Launch Mozart desktop` flow** — auto-fired on `/dashboard` mount,
+not gated behind a manual click. The user signed in moments ago, the
+desktop is almost certainly running, the handoff feels instant :
 
-- On click : `window.location.href = 'mozart://auth?token=' + token`
-- Start a 3-second timer.
-- If after 3 s the page hasn't lost focus (no OS handover
-  happened), assume Mozart isn't installed → reveal an inline
-  fallback :
-  _"Hmm, looks like Mozart isn't installed on this computer.
-  Download it here →"_ (links to the landing page download).
-- If the page loses focus quickly → the deep-link succeeded.
+1. `/dashboard` mounts → spinner + "Connecting to Mozart…"
+2. `fetch('http://127.0.0.1:<port>/auth?token=<jwt>&state=<nonce>')`
+3. Outcome :
+   - **Success (HTTP 200)** : ✓ icon + _"You're signed in 🎉 — switch
+     back to Mozart on your computer to continue. You can close this
+     tab now."_
+   - **Unreachable** (network error, non-2xx, missing port) : ⚠ icon
+     + _"Mozart isn't responding. Open Mozart on your computer, then
+     try again."_ + a `Try again` button + a download link for users
+     who don't have Mozart installed yet.
+
+**Why HTTP loopback, not `mozart://` scheme launch :** browsers on
+Linux (Chrome native, Firefox via Mozilla PPA) silently drop the
+launch from a webpage click even though their own console logs
+"Launched external handler". `xdg-open` works from a terminal, but
+no browser path does — there is a quirk in the protocol-launcher
+stack that we cannot reach from page code. A loopback `fetch` from
+the same browser has none of that drama. `127.0.0.1` is "potentially
+trustworthy" per the W3C Secure Contexts spec, so the HTTPS apps/web
+origin is allowed to call the HTTP loopback without mixed-content
+warnings. Uniform on Linux, macOS, Windows.
+
+The `mozart://` scheme stays wired on the desktop side and is still
+the path used by `xdg-open` / cold launches from email Magic Links
+(post-MVP) — both transports feed the same `DeepLinkReceived` event,
+so the TS adapter is transport-agnostic.
 
 **User-Agent detect** :
 
 - If the UA suggests mobile (iOS / Android), show a different
   layout : _"Mozart is desktop-only. Sign in from your computer
   to launch the app."_ with a download link for the desktop.
-- The `Launch Mozart desktop` button is hidden on mobile.
+- The `Launch Mozart desktop` flow is hidden on mobile.
 
-### 4.4 Deep-link payload
+### 4.4 Desktop handoff transport
+
+Primary path — **localhost HTTP callback** :
+
+```
+GET http://127.0.0.1:{port}/auth?token={jwt}&state={state}
+→ 200 {"ok":true}  on success
+→ 400 {"ok":false,"error":"missing token or state"} on bad query
+```
+
+- `port` — the localhost port the desktop's HTTP callback server
+  bound to at boot. Random per process (OS-allocated). Passed by
+  the desktop to apps/web in the inbound `/login?state=…&port=…`
+  URL ; apps/web persists in `localStorage` so a new tab opened by
+  a second `shell.open` from the desktop still has it.
+- `token` — the JWT from §3.1.
+- `state` — the one-time OAuth nonce (256-bit / 64-char hex).
+  Validated on the desktop side after the synthesized
+  `DeepLinkReceived` event arrives in the TS facade.
+- CORS allow-list : `https://localhost:4201` (dev), `https://app.mozart.build` (prod).
+- Bind address : `127.0.0.1` strictly. Remote processes on the LAN
+  cannot reach the server.
+
+Secondary path — **`mozart://` URL scheme** :
 
 ```
 mozart://auth?token={jwt}&state={state}
 ```
 
-- `token` — the JWT from §3.1
-- `state` — a one-time random string passed through the OAuth
-  flow and validated on the desktop side. Prevents replay /
-  injection attacks.
+- Same `token` + `state` shape as the HTTP callback.
+- Used by `xdg-open` / `gio open` on Linux for terminal-driven
+  testing, by the OS scheme handler on macOS / Windows for cold
+  launches, and reserved for email-based Magic Links post-MVP.
+- The Rust side parses the URL identically in both transports —
+  the HTTP handler synthesizes a `mozart://auth?…` string and emits
+  the same `DeepLinkReceived` event.
+
+The state nonce is the authentication boundary in both transports.
+A 256-bit random value the desktop generates on Sign in click and
+never reveals to any other code path ; the apps/web side replays it
+verbatim. A local attacker without observation of the browser URL
+has no path to guess it within the 5-minute timeout.
 
 ### 4.5 Architectural placement (in `apps/web`)
 
@@ -297,26 +352,44 @@ apps/web/src/app/
 
 ## 5. Desktop : Tauri-side wiring
 
-### 5.1 Deep-link handler
+### 5.1 Two transports, one event
 
-The Tauri side registers the `mozart://` URL scheme at app
-install time, via `tauri-plugin-deep-link`. When the OS hands a
-`mozart://...` URL to the running (or freshly-launched) instance,
-Tauri emits an event.
+The Angular `AuthFacade` subscribes to a single
+`DeepLinkReceived` event stream — it does not care which OS path
+delivered the URL. On the Rust side, two transports both feed that
+event :
 
-The Angular `AuthFacade` listens to that event :
+1. **`tauri-plugin-deep-link`** : the OS-registered `mozart://` URL
+   scheme. Fires on `xdg-open` / `gio open` from a terminal, on the
+   macOS `open` command, and on cold launches when the user clicks
+   a `mozart://` link with the desktop not yet running.
+2. **`http_callback`** : a tiny `axum` server bound to
+   `127.0.0.1:<random>` at desktop boot. apps/web fetches the
+   endpoint directly ; the handler synthesizes a `mozart://auth?…`
+   URL string and emits the same event. This is the primary path for
+   browser-launched sign-ins from apps/web — see §4.4 for the
+   Linux-quirk rationale.
+
+The TS adapter listens to one event and parses one URL shape. New
+transports (e.g. an OS-specific IPC channel for sandboxed App Store
+builds) can be added later without touching the facade.
+
+When the URL arrives, the Angular `AuthFacade` :
 
 1. Parses the URL : extracts `token` and `state`.
 2. Validates `state` against the locally-stored OAuth state (set
    when the user clicked `Sign in` on `/welcome`).
-3. Stores the token in Stronghold.
+3. Decodes the JWT and persists the session via the keyring adapter.
 4. Updates the `AuthFacade.isAuthenticated` signal to `true`.
-5. Triggers the navigation away from `/welcome`.
+5. Triggers the navigation : `/onboarding` if the JWT claim
+   `onboarding=false`, else `/`.
 
 If the desktop is **not running** when the user clicks
-_"Launch Mozart desktop"_, the OS launches it with the URL.
-Tauri's deep-link plugin captures it on startup and emits the
-same event after the Angular app has bootstrapped.
+_"Launch Mozart desktop"_ on apps/web, the HTTP `fetch` fails
+(network error — no listener on `127.0.0.1:<port>`) and apps/web
+surfaces the "Mozart isn't responding" state with a Retry button.
+The user opens Mozart on their computer, clicks the same button
+again, and the second attempt succeeds (the port is now bound).
 
 ### 5.2 Route guard
 
@@ -345,10 +418,19 @@ apps/desktop/src/app/
     └── auth/
         ├── feature-welcome.ts
         ├── data/
-        │   ├── auth.facade.ts
+        │   ├── auth.facade.ts         # caches port + session + state
         │   ├── auth.adapter.ts        # interface + token
         │   └── tauri-auth.adapter.ts  # concrete impl
+        ├── util-clerk-url.ts          # builds /login URL w/ state + port
+        ├── util-parse-deep-link.ts    # parses mozart://auth?…
+        ├── util-decode-jwt.ts
         └── index.ts
+
+apps/desktop/src-tauri/src/auth/
+├── mod.rs                        # DeepLinkReceived event type
+├── deep_link.rs                  # mozart:// scheme handler (OS-level)
+├── http_callback.rs              # 127.0.0.1:<port> server (browser-level)
+└── keyring_store.rs              # OS keyring-backed session storage
 ```
 
 ---
@@ -723,18 +805,28 @@ MVP a single-page settings view with these sections is enough.
 1. **`/welcome` is the only unguarded route** : `grep -n
 "authGuard" apps/desktop/src/app` shows every route except
    `/welcome` listing it in `canActivate`.
-2. **Token in Stronghold, never in localStorage / sessionStorage
-   / IndexedDB / SQLite** : `grep -rn "localStorage\|sessionStorage\|indexedDB"
-apps/desktop/src/app/domains/auth` returns zero matches.
-3. **API keys via Stronghold** : same grep extended to the
-   provider-setup adapter.
-4. **Deep-link state validated** : every `mozart://auth`
-   callback verifies the `state` param against locally-stored
-   state. Test against an injection scenario.
-5. **No PII in logs** : tokens, API keys, emails, GitHub
-   usernames are never logged. Add a static-analysis pass or a
-   review checklist item.
-6. **Signal Forms in onboarding forms** : provider config,
+2. **Token in OS keyring, never in localStorage / sessionStorage
+   / IndexedDB / SQLite** (on the desktop side) :
+   `grep -rn "localStorage\|sessionStorage\|indexedDB"
+apps/desktop/src/app/domains/auth` returns zero matches. The
+   apps/web side persists the mock-Clerk user + state + port in
+   localStorage as a deliberate cross-tab share — see §3 + §4.
+3. **API keys via the same OS keyring backend** : same grep
+   extended to the provider-setup adapter.
+4. **State nonce validated on every callback** : both transports
+   (`mozart://` scheme and HTTP `127.0.0.1:<port>/auth`) route
+   through the same `DeepLinkReceived` event ; the TS facade
+   verifies the `state` query param against the pending nonce.
+   Test against an injection scenario from each transport.
+5. **HTTP callback server binds 127.0.0.1 only** : `grep -n
+"0.0.0.0" apps/desktop/src-tauri/src/auth` returns zero matches.
+   CORS allow-list locked to apps/web origins.
+6. **No PII in logs** : tokens, API keys, emails, GitHub
+   usernames are never logged. The HTTP callback logs only a
+   confirmation that a valid request arrived — never the token or
+   state itself. Add a static-analysis pass or a review checklist
+   item.
+7. **Signal Forms in onboarding forms** : provider config,
    GitHub connection inputs use Signal Forms.
 
 ---

@@ -29,8 +29,24 @@ export interface AuthAdapter {
   }): Promise<void>;
 
   /**
+   * Port of the localhost HTTP callback server. The facade embeds it
+   * in the apps/web sign-in URL (`?port=…`) so the browser-side
+   * `Launch Mozart desktop` button can `fetch()` directly into Mozart
+   * — bypasses the unreliable `mozart://` scheme handoff on Linux.
+   *
+   * Returns `0` if the server failed to bind at desktop boot. The
+   * apps/web UI uses that as "Mozart isn't running" — fail-closed.
+   */
+  getCallbackPort(): Promise<number>;
+
+  /**
    * Stream of `mozart://auth?...` deep-link callbacks. Hot observable
    * — subscribers receive emissions from subscription time forward.
+   *
+   * Both transports feed this stream : the OS-level `mozart://` scheme
+   * handler (`deep_link.rs`) and the localhost HTTP callback server
+   * (`http_callback.rs`). The adapter is transport-agnostic — it sees
+   * a single source of `DeepLinkPayload`s.
    */
   readonly deepLink$: Observable<DeepLinkPayload>;
 }

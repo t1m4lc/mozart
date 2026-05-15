@@ -177,6 +177,15 @@ pub fn run() {
             // event registry is mounted.
             auth::deep_link::register(app.handle());
 
+            // Phase 5 follow-up : start the localhost HTTP callback
+            // server. Browsers on Linux silently drop the mozart://
+            // launch from a webpage click ; the HTTP endpoint bypasses
+            // the scheme handler entirely. apps/web fetches
+            // 127.0.0.1:<port>/auth — the server synthesizes a
+            // mozart:// URL and emits the same DeepLinkReceived event.
+            let port = auth::http_callback::start_server(app.handle().clone());
+            app.manage(auth::http_callback::CallbackPort(port));
+
             Ok(())
         })
         .run(tauri::generate_context!())

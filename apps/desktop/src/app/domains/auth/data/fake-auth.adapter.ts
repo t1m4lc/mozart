@@ -31,6 +31,12 @@ export function fakeAuthAdapter(): AuthAdapter {
         });
       }, 1000);
     },
+    async getCallbackPort() {
+      // No real server in the fake adapter ; tests / sandbox don't
+      // exercise the HTTP path, the fake openSignIn synthesizes a
+      // deep-link directly. Returning 0 signals "no HTTP transport".
+      return 0;
+    },
     deepLink$: deepLink$.asObservable(),
   };
 }

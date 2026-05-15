@@ -6,88 +6,141 @@ import {
   signal,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { HlmTypographyImports } from '@mozart/ui/typography';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  lucideArrowRight,
+  lucideCheck,
+  lucideRefreshCw,
+  lucideTriangleAlert,
+} from '@ng-icons/lucide';
 import { AuthFacade } from './data/auth.facade';
-import { UiAuthCard } from './ui-auth-card';
 import { isMobileUserAgent } from './util-detect-mobile';
 
-// Smart component for /dashboard. Owns :
-//   - greeting copy ("Happy to see you again, {firstName}")
-//   - the `Launch Mozart desktop` button → builds `mozart://auth?...`
-//     and navigates the anchor (browser hands off to the OS protocol
-//     handler ; tauri-plugin-deep-link picks it up on the desktop side)
-//   - mobile UA gate : hide the launch button + show desktop-only copy
+// Smart component that owns the browser → desktop handoff. Reused by
+// both /login (when the user is already authed) and /dashboard
+// (right after the OAuth round-trip).
 //
-// The `state` nonce travels through `AuthFacade._oauthState` (set on
-// /login, mirrored to localStorage) and is replayed into the
-// deep-link via `buildDesktopLaunchUrl`.
+// UX states :
+//   - mobile UA       : desktop-only message + download link
+//   - idle            : "Launch Mozart desktop" button (initial)
+//   - connecting      : spinner + "Connecting to Mozart…"
+//   - success         : ✓ + "You're signed in 🎉" + close-tab hint
+//   - unreachable     : ⚠ + "Mozart isn't responding" + retry + download
 //
-// FIXME(phase-5-followup, linux-deeplink) : on Linux (Ubuntu, Chrome
-// native + Firefox via Mozilla PPA), the browser shows the OS
-// "open external application?" prompt for `mozart://` and Chrome's
-// own console logs `Launched external handler`, BUT Mozart never
-// receives the URL — silently dropped between the browser and the
-// OS handler. `xdg-open` and `gio open` from a terminal both reach
-// Mozart, so the deep-link transport itself is fine ; only the
-// browser-launched path breaks. Works correctly on macOS and Windows.
+// Why no auto-fire on mount : the explicit click gives the user a
+// clear mental model. If their desktop isn't running, they discover
+// that on their terms, not as a confusing flash.
 //
-// Recommended fix (deferred) : pivot to a localhost HTTP endpoint
-// served by Tauri (e.g. `127.0.0.1:<random-port>/auth?token=…&state=…`).
-// Browser → HTTP localhost has no scheme-handler quirks and is
-// uniform across OSes. Keep `mozart://` as the email/Magic-Link
-// fallback for post-MVP. Full diagnostic + alternatives :
-//   ~/.gstack/projects/t1m4lc-mozart/checkpoints/
-//     20260515-181132-phase-5-auth-atom-5-blocked-on-linux-deeplink.md
-//
-// Until the fix : Linux users see the prompt, click Open, nothing
-// visible happens. The passive "Didn't open? Download Mozart" link
-// below the button is the current workaround surface.
+// Why HTTP loopback instead of `<a href="mozart://…">` : browsers on
+// Linux (Chrome native, Firefox via Mozilla PPA) silently drop the
+// custom-scheme launch even though their own console logs "Launched
+// external handler". A loopback `fetch` from the same browser has
+// none of that drama and is uniform across OSes.
+
+type LaunchState = 'idle' | 'connecting' | 'success' | 'unreachable';
 
 @Component({
   selector: 'app-feature-launch-mozart',
-  imports: [HlmButtonImports, HlmTypographyImports, UiAuthCard],
+  imports: [
+    NgIcon,
+    HlmButtonImports,
+    HlmIconImports,
+    HlmSpinnerImports,
+    HlmTypographyImports,
+  ],
+  providers: [
+    provideIcons({
+      lucideArrowRight,
+      lucideCheck,
+      lucideRefreshCw,
+      lucideTriangleAlert,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <app-ui-auth-card>
-      <span card-title>Happy to see you again, {{ firstName() }} 👋</span>
-      <span card-subtitle>
-        @if (isMobile()) {
-          Mozart is desktop-only.
-        } @else {
-          Click to open Mozart on your computer.
-        }
-      </span>
-
-      @if (isMobile()) {
-        <p hlmMuted class="text-center text-sm">
-          Sign in from your computer to launch the app.
-        </p>
-        <a hlmBtn variant="outline" href="https://mozart.build/download">
-          Download Mozart
-        </a>
-      } @else {
-        <a
-          hlmBtn
-          [href]="launchUrl()"
-          class="w-full"
-          (click)="onLaunchClick($event)"
-        >
-          Launch Mozart desktop
-        </a>
-
-        <p hlmMuted class="text-center text-xs">
-          Didn't open?
-          <a
+    @if (isMobile()) {
+      <p hlmMuted class="text-center text-sm">
+        Mozart is desktop-only. Sign in from your computer to launch
+        the app.
+      </p>
+      <a hlmBtn variant="outline" href="https://mozart.build/download">
+        Download Mozart
+      </a>
+    } @else {
+      @switch (state()) {
+        @case ('idle') {
+          <button
             hlmBtn
-            variant="link"
-            href="https://mozart.build/download"
-            class="h-auto p-0 text-xs"
+            type="button"
+            class="w-full"
+            (click)="onLaunch()"
           >
-            Download Mozart
-          </a>
-        </p>
+            Launch Mozart desktop
+            <ng-icon hlm name="lucideArrowRight" size="sm" />
+          </button>
+        }
+        @case ('connecting') {
+          <button hlmBtn type="button" class="w-full" [disabled]="true">
+            <hlm-spinner class="size-4" />
+            Connecting to Mozart…
+          </button>
+        }
+        @case ('success') {
+          <div class="flex flex-col items-center gap-3">
+            <div
+              class="bg-brand-subtle text-brand ring-brand/30 flex size-14 items-center justify-center rounded-full ring-1"
+              aria-label="Success"
+            >
+              <ng-icon name="lucideCheck" size="lg" />
+            </div>
+            <p hlmP class="text-center text-sm">
+              You're signed in. Switch back to Mozart on your computer
+              to continue.
+            </p>
+            <p hlmMuted class="text-center text-xs">
+              You can close this tab now.
+            </p>
+          </div>
+        }
+        @case ('unreachable') {
+          <div class="flex flex-col items-center gap-3">
+            <div
+              class="bg-destructive/10 text-destructive ring-destructive/30 flex size-14 items-center justify-center rounded-full ring-1"
+              aria-label="Mozart isn't responding"
+            >
+              <ng-icon name="lucideTriangleAlert" size="lg" />
+            </div>
+            <p hlmP class="text-center text-sm">
+              Mozart desktop isn't responding. Open Mozart on your
+              computer, then try again.
+            </p>
+            <button
+              hlmBtn
+              type="button"
+              class="w-full"
+              (click)="onLaunch()"
+            >
+              <ng-icon hlm name="lucideRefreshCw" size="sm" />
+              Try again
+            </button>
+            <p hlmMuted class="text-center text-xs">
+              Don't have Mozart yet?
+              <a
+                hlmBtn
+                variant="link"
+                href="https://mozart.build/download"
+                class="h-auto p-0 text-xs"
+              >
+                Download
+              </a>
+            </p>
+          </div>
+        }
       }
-    </app-ui-auth-card>
+    }
   `,
 })
 export class FeatureLaunchMozart {
@@ -98,26 +151,21 @@ export class FeatureLaunchMozart {
       ? isMobileUserAgent(navigator.userAgent)
       : false,
   );
+
   protected readonly firstName = computed(() => {
     const fullName = this.auth.user()?.name ?? '';
     return fullName.split(' ')[0] || 'there';
   });
 
-  /** Resolved into the anchor's `href`. Falls back to `#` if we are
-   *  missing the user or the OAuth state — clicking does nothing in
-   *  that edge case (caught in `onLaunchClick`). */
-  protected readonly launchUrl = computed(
-    () => this.auth.buildDesktopLaunchUrl() ?? '#',
-  );
+  protected readonly state = signal<LaunchState>('idle');
 
-  protected onLaunchClick(event: MouseEvent): void {
-    const url = this.auth.buildDesktopLaunchUrl();
-    if (!url) {
-      event.preventDefault();
-      console.warn('[launch] missing user or state — cannot build deep-link');
-      return;
-    }
-    // Anchor navigation handles the rest. See the FIXME at the top
-    // of this file for the Linux-specific limitation.
+  protected async onLaunch(): Promise<void> {
+    if (this.state() === 'connecting') return;
+    this.state.set('connecting');
+    const outcome = await this.auth.triggerDesktopSignIn();
+    // 'invalid' (missing user/state/port) folds into 'unreachable' :
+    // the retry button + download link is the right surface either
+    // way. The desktop side detects the actual edge case.
+    this.state.set(outcome === 'success' ? 'success' : 'unreachable');
   }
 }
