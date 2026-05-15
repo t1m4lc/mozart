@@ -1,5 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { ProjectsFacade } from '../../projects';
+import { WorkspacesFacade } from '../../workspaces';
+import { GET_STARTED_PROJECT_ADAPTER } from './get-started-project.adapter';
 import { ONBOARDING_ADAPTER } from './onboarding.adapter';
 import {
   ONBOARDING_STEPS,
@@ -23,6 +26,9 @@ import {
 @Injectable({ providedIn: 'root' })
 export class OnboardingFacade {
   private readonly adapter = inject(ONBOARDING_ADAPTER);
+  private readonly getStartedAdapter = inject(GET_STARTED_PROJECT_ADAPTER);
+  private readonly projects = inject(ProjectsFacade);
+  private readonly workspaces = inject(WorkspacesFacade);
   private readonly router = inject(Router);
 
   private readonly _isCompleted = signal<boolean>(false);
@@ -88,18 +94,37 @@ export class OnboardingFacade {
     this._statuses.update((s) => ({ ...s, [step]: status }));
   }
 
-  /** Persist the completion flag + navigate to `/tour`. Called from the
-   *  GitHub step's Continue button (Atom 4). */
+  /** Persist the completion flag + drop the user into the bundled
+   *  "Get started" workspace. Called from the GitHub step's Finish /
+   *  Skip-and-finish button.
+   *
+   *  We do **not** auto-launch the tour : the user typically wants to
+   *  look around before being walked through it. The README rendered
+   *  in the workspace + the Settings → "Replay tour" button are the
+   *  two entry points to start it on demand.
+   */
   async complete(): Promise<void> {
     try {
       await this.adapter.set(true);
       this._isCompleted.set(true);
     } catch (err) {
       console.error('[onboarding] complete failed:', err);
-      // Soft-fail : still let the user reach the tour. The local mirror
-      // will be retried on next bootstrap.
+      // Soft-fail : continue to the workspace either way. The local
+      // mirror will be retried on next bootstrap.
     }
-    void this.router.navigate(['/tour']);
+
+    try {
+      const result = await this.getStartedAdapter.ensure();
+      await this.projects.loadAll();
+      await this.workspaces.loadAll();
+      this.workspaces.setActive(result.workspace.id);
+      void this.router.navigate(['/workspaces', result.workspace.id]);
+    } catch (err) {
+      console.error('[onboarding] get-started bootstrap failed:', err);
+      // Fall back to the dashboard rather than getting stuck —
+      // the user can still add their own project from there.
+      void this.router.navigate(['/']);
+    }
   }
 
   /** Used by settings' "Revisit tour" to reset the flag and re-arm the

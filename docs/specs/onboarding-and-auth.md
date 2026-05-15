@@ -628,7 +628,17 @@ After step 4 :
 
 - Set `user.onboarding = true` via the auth adapter (propagated
   to the back-end).
-- Navigate to `/tour`.
+- Create the bundled **"Get started"** project + its `welcome-1`
+  workspace (idempotent — reuses an existing one if present).
+- Navigate to `/workspaces/<welcome-1.id>` (no `?tour=on`).
+
+The tour is **not** triggered automatically. Most users prefer to
+look around the workspace and read the bundled README before being
+walked through the interface. The tour is reachable on demand via :
+
+- **Settings → Replay tour** — the canonical entry point.
+- The "Take the tour" reference at the top of the get-started
+  workspace's README.
 
 ---
 
@@ -636,20 +646,30 @@ After step 4 :
 
 ### 8.1 Mechanics
 
-Per user spec, the tour is **interactive on a real workspace,
-not a slide deck**.
+The tour is **interactive on a real workspace, not a slide deck**,
+and **on-demand** — onboarding does not auto-launch it.
 
-- The tour creates a **"Get started" project** silently during
-  the transition from onboarding to tour (a Mozart-managed
-  workspace cloned from a small `mozart-get-started` template
-  repo, or simply a fresh blank project initialized via the
-  Quick start flow).
-- The tour then steps the user through 5 highlights of the UI,
-  using a **highlight overlay** (background dim + punch-hole on
-  the target element + a tooltip card pointing to it).
+- **Entry points** :
+  - Settings → **Replay tour** (canonical).
+  - The "Take the tour" hint in the get-started workspace's README
+    (text-level for v0.0.1 ; a clickable button is a post-MVP
+    enhancement when Mozart's file viewer gains a markdown renderer).
+- The route **idempotently ensures** the **"Get started" project**
+  + `welcome-1` workspace exist, then redirects to
+  `/workspaces/<welcome-1.id>?tour=on`. `AppShell` mounts the
+  highlight overlay when it sees `?tour=on` and unmounts it when the
+  query param is stripped.
+- The overlay steps the user through 5 highlights of the UI, using a
+  **highlight overlay** (background dim + punch-hole on the target
+  element + a tooltip card pointing to it).
 - A persistent `Skip` button (top-right) and `Next` button
-  (bottom-right of each tooltip) are always visible. `Esc`
-  also skips.
+  (bottom-right of each tooltip) are always visible. `Esc` also skips.
+
+> **Participatory tour (post-MVP)** : the current overlay is
+> informational. The plan is to make each step wait for the user to
+> perform the action (create a workspace, type a prompt, observe the
+> diff, run the app, commit + PR) so the tour walks them through
+> Mozart's actual loop rather than narrating it. Tracked separately.
 
 ### 8.2 The 5 highlights
 

@@ -18,9 +18,12 @@ import { ProfileFacade, UiGithubConnectDialog } from '../profile';
 import { OnboardingFacade } from './data/onboarding.facade';
 
 // Step 4 of the onboarding wizard. Optional GitHub connection — reuses
-// the existing Phase 4f PAT flow via `UiGithubConnectDialog`. Skip is
-// always available. The `complete()` path writes the local mirror flag
-// + navigates to /tour.
+// the existing Phase 4f PAT flow via `UiGithubConnectDialog`. The
+// Finish button is always enabled : when the user hasn't connected
+// GitHub, it implicitly marks the step as skipped before completing.
+// `complete()` writes the local mirror flag, ensures the bundled
+// Get-started workspace exists, and drops the user into it (no
+// auto-tour — Settings → Replay tour is the explicit entry point).
 @Component({
   selector: 'app-feature-onboarding-step-github',
   imports: [HlmButtonImports, HlmIconImports, NgIcon],
