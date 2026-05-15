@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmEmptyImports } from '@mozart/ui/empty';
+import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { HlmTypographyImports } from '@mozart/ui/typography';
 import type { WelcomeState } from './data/auth.model';
 
@@ -14,7 +15,12 @@ import type { WelcomeState } from './data/auth.model';
 // primary button, optional sub-line + ghost Cancel during `opening`.
 @Component({
   selector: 'app-ui-welcome-card',
-  imports: [HlmButtonImports, HlmEmptyImports, HlmTypographyImports],
+  imports: [
+    HlmButtonImports,
+    HlmEmptyImports,
+    HlmSpinnerImports,
+    HlmTypographyImports,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <hlm-empty class="border-none p-0">
@@ -28,25 +34,32 @@ import type { WelcomeState } from './data/auth.model';
       </hlm-empty-header>
 
       <hlm-empty-content>
-        <button
-          hlmBtn
-          type="button"
-          [disabled]="state() === 'opening'"
-          (click)="signIn.emit()"
-        >
-          {{ state() === 'opening' ? 'Opening browser…' : 'Sign in' }}
-        </button>
-
-        @if (state() === 'opening') {
-          <p hlmMuted>Finish sign in in the browser window.</p>
+        @if (state() === 'authenticating') {
+          <div class="flex items-center gap-2 text-muted-foreground">
+            <hlm-spinner aria-label="Connecting" />
+            <span>Connecting…</span>
+          </div>
+        } @else {
           <button
             hlmBtn
-            variant="ghost"
             type="button"
-            (click)="cancelled.emit()"
+            [disabled]="state() === 'opening'"
+            (click)="signIn.emit()"
           >
-            Cancel
+            {{ state() === 'opening' ? 'Opening browser…' : 'Sign in' }}
           </button>
+
+          @if (state() === 'opening') {
+            <p hlmMuted>Finish sign in in the browser window.</p>
+            <button
+              hlmBtn
+              variant="ghost"
+              type="button"
+              (click)="cancelled.emit()"
+            >
+              Cancel
+            </button>
+          }
         }
       </hlm-empty-content>
     </hlm-empty>

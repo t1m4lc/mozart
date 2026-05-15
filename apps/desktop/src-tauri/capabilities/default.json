@@ -16,6 +16,7 @@
     "dialog:allow-open",
     "core:path:allow-resolve-directory",
     "notification:default",
-    "deep-link:default"
+    "deep-link:default",
+    "stronghold:default"
   ]
 }

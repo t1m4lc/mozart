@@ -78,6 +78,12 @@ export class AuthFacade {
   }
 
   private async onDeepLink(payload: DeepLinkPayload): Promise<void> {
+    console.info(
+      '[auth] onDeepLink — pendingState=',
+      this.pendingState,
+      'payloadState=',
+      payload.state,
+    );
     if (!this.pendingState || payload.state !== this.pendingState) {
       console.warn('[auth] deep-link state mismatch — ignoring');
       this.cancelSignIn();
@@ -85,16 +91,29 @@ export class AuthFacade {
     }
     this.pendingState = null;
 
+    // Flip the welcome screen to its "Connecting…" state so the user
+    // gets feedback during the Stronghold save (up to ~1.5 s with the
+    // timeout-guard) instead of staring at "Opening browser…" frozen.
+    this.welcomeState.set('authenticating');
+
     // Atom 6 decodes the JWT for expiresAt + onboarding ; Atom 1 sets
     // a 7-day fallback so the model stays well-formed.
     const session: AuthSession = {
       token: payload.token,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     };
+    // Minimum display time for the "Connecting…" state so a fast
+    // save doesn't blink past it. UX feels intentional rather than
+    // glitchy.
+    const minDisplay = new Promise<void>((resolve) =>
+      setTimeout(resolve, 400),
+    );
     try {
       await this.adapter.saveSession(session);
+      await minDisplay;
       this._session.set(session);
       this.welcomeState.set('idle');
+      console.info('[auth] navigating to /');
       void this.router.navigate(['/']);
     } catch (err) {
       console.error('[auth] saveSession failed:', err);
