@@ -14,3 +14,4 @@ export {
   REPOSITORIES_ADAPTER,
   type RepositoriesAdapter,
 } from './data/repositories.adapter';
+export { FeatureFileTree } from './feature-file-tree/feature-file-tree';

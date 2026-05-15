@@ -8,6 +8,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { map } from 'rxjs/operators';
+import { FeatureFileTree, type FileNode } from '../../repositories';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { WorkspaceDetailStore } from '../feature-detail/workspace-detail.store';
@@ -26,7 +27,7 @@ function coerceTab(raw: string | null): AsideTab {
 
 @Component({
   selector: 'app-feature-workspace-aside',
-  imports: [HlmTabsImports, WorkspaceAsideHeader],
+  imports: [HlmTabsImports, WorkspaceAsideHeader, FeatureFileTree],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col bg-sidebar' },
   template: `
@@ -70,10 +71,12 @@ function coerceTab(raw: string | null): AsideTab {
         </button>
       </hlm-tabs-list>
 
-      <div hlmTabsContent="files" class="min-h-0 flex-1 overflow-auto">
-        <div class="p-3 text-xs text-muted-foreground">
-          Files coming soon.
-        </div>
+      <div hlmTabsContent="files" class="min-h-0 flex-1">
+        <app-feature-file-tree
+          class="block h-full w-full"
+          [workspaceId]="workspaceId()"
+          (fileSelected)="onFileSelected($event)"
+        />
       </div>
 
       <div hlmTabsContent="terminal" class="min-h-0 flex-1 overflow-auto">
@@ -107,11 +110,19 @@ export class FeatureWorkspaceAside {
 
   protected readonly branch = computed(() => this.store.currentBranch());
 
+  protected readonly workspaceId = computed(() => this.workspaces.activeId());
+
   protected readonly workspaceName = computed(() => {
-    const id = this.workspaces.activeId();
+    const id = this.workspaceId();
     if (!id) return '';
     return this.workspaces.workspaceById(id)()?.name ?? '';
   });
+
+  protected onFileSelected(node: FileNode): void {
+    // Phase 4c will mount the diff view here. For now we surface the
+    // selection via console so the wiring is testable end-to-end.
+    console.debug('[aside] file selected:', node.path);
+  }
 
   protected onTabActivated(next: string): void {
     const tab = coerceTab(next);
