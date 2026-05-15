@@ -163,20 +163,44 @@ export class ClerkService {
         redirectUrlComplete: absoluteRedirectUrlComplete,
       });
 
-      // If we reach here, the SDK did NOT navigate the browser — that
-      // means the OAuth provider verification URL was missing from the
-      // /sign_ins response. The current sign-in attempt has the
-      // diagnostic detail ; surface it loudly so the user can copy
-      // the shape into a bug report.
+      // If we reach here, the SDK did NOT navigate the browser. There
+      // are two distinct failure modes :
+      //
+      //   1. The /sign_ins response is missing `externalVerificationRedirectURL`.
+      //      Provider misconfigured at the Clerk dashboard level.
+      //
+      //   2. The response DOES carry a valid OAuth URL, but the SDK
+      //      silently returned without calling `window.location.assign`.
+      //      We've reproduced this against `@clerk/clerk-js@6.11.0` on
+      //      Chromium-based browsers + Clerk's `clerk.shared.lcl.dev`
+      //      proxy. Treating it as a SDK bug — fall through to a
+      //      manual `window.location.assign` of the URL the SDK
+      //      already received.
+      const post = clerk.client?.signIn;
+      const verificationUrl =
+        post?.firstFactorVerification?.externalVerificationRedirectURL;
+
+      if (verificationUrl) {
+        const href =
+          typeof verificationUrl === 'string'
+            ? verificationUrl
+            : verificationUrl.toString();
+        console.warn(
+          '[clerk] SDK did not navigate after authenticateWithRedirect — applying manual fallback to:',
+          href,
+        );
+        window.location.assign(href);
+        return;
+      }
+
+      // Mode 1 : nothing to navigate to. Dump the state for triage.
       console.error(
-        '[clerk] authenticateWithRedirect resolved WITHOUT navigating — OAuth provider likely misconfigured. Sign-in state:',
+        '[clerk] authenticateWithRedirect resolved WITHOUT navigating and no verification URL was returned. Sign-in state:',
         JSON.stringify(
           {
-            status: clerk.client?.signIn?.status ?? null,
-            firstFactorVerification:
-              clerk.client?.signIn?.firstFactorVerification ?? null,
-            supportedFirstFactors:
-              clerk.client?.signIn?.supportedFirstFactors ?? null,
+            status: post?.status ?? null,
+            firstFactorVerification: post?.firstFactorVerification ?? null,
+            supportedFirstFactors: post?.supportedFirstFactors ?? null,
           },
           null,
           2,
