@@ -31,6 +31,7 @@ export { FeatureOnboardingStepWelcome } from './feature-onboarding-step-welcome'
 export { FeatureOnboardingStepGit } from './feature-onboarding-step-git';
 export { FeatureOnboardingStepProvider } from './feature-onboarding-step-provider';
 export { FeatureOnboardingStepGithub } from './feature-onboarding-step-github';
+export { FeatureGitStatus } from './feature-git-status';
 export { FeatureClaudeLoginPty } from './feature-claude-login-pty';
 export { FeatureTour } from './feature-tour';
 export { UiTourClosingCard } from './ui-tour-closing-card';
