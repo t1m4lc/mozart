@@ -203,7 +203,23 @@ export class ChatFacade {
       this._setActiveLocal(workspaceId, activeId);
 
       const msgs = await this.messages.listForChat(activeId);
-      this.store.setMessagesForChat(activeId, msgs);
+      // Phase 6 / Atom 9 — interrupted-message recovery. Any assistant
+      // message still in `streaming` here means the app was killed
+      // mid-turn (or the OS crashed) ; flip it to `error` so the user
+      // sees the failure surfaced. DB-backed via updateStatus so the
+      // flip survives a second restart.
+      const recovered = await Promise.all(
+        msgs.map(async (m) => {
+          if (m.status !== 'streaming') return m;
+          try {
+            await this.messages.updateStatus(m.id, 'error');
+          } catch (err) {
+            console.warn('[chat] interrupted-message flip failed:', err);
+          }
+          return { ...m, status: 'error' as const };
+        }),
+      );
+      this.store.setMessagesForChat(activeId, recovered);
     } catch (err) {
       // Hydration failure shouldn't block the UI — log and let the
       // user retry by typing (the next sendUserMessage will create

@@ -21,8 +21,10 @@ import {
   lucideCircleQuestionMark,
   lucidePanelLeft,
   lucideSettings,
+  lucideWifiOff,
 } from '@ng-icons/lucide';
 import { AddProjectFlow } from '../core/add-project.flow';
+import { ConnectivityService } from '../core/connectivity.service';
 import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
@@ -70,6 +72,7 @@ import { ShellProjectList } from './shell-project-list';
       lucideCircleQuestionMark,
       lucidePanelLeft,
       lucideSettings,
+      lucideWifiOff,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -221,6 +224,20 @@ import { ShellProjectList } from './shell-project-list';
       [style]="toasterStyle"
     />
 
+    @if (!connectivity.connected()) {
+      <div
+        role="status"
+        class="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center"
+      >
+        <div
+          class="pointer-events-auto flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-900 shadow dark:text-amber-200"
+        >
+          <ng-icon hlm name="lucideWifiOff" size="xs" />
+          <span>You're offline. Hosted features (sign-in, hosted LLMs) are paused.</span>
+        </div>
+      </div>
+    }
+
     @if (tourActive()) {
       <app-feature-tour />
     }
@@ -234,6 +251,7 @@ export class AppShell {
   protected readonly layout = inject(LayoutService);
   protected readonly projects = inject(ProjectsFacade);
   protected readonly addProjectFlow = inject(AddProjectFlow);
+  protected readonly connectivity = inject(ConnectivityService);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly route = inject(ActivatedRoute);
 
