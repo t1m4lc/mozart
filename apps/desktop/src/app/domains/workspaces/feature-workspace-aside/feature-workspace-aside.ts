@@ -1,7 +1,9 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
+  effect,
   inject,
   signal,
 } from '@angular/core';
@@ -13,6 +15,7 @@ import { map } from 'rxjs/operators';
 import {
   FeatureFileDiff,
   FeatureFileTree,
+  RepositoriesFacade,
   type FileNode,
 } from '../../repositories';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
@@ -93,6 +96,7 @@ function coerceTab(raw: string | null): AsideTab {
             <app-feature-file-tree
               class="block h-full w-full"
               [workspaceId]="workspaceId()"
+              [refreshTick]="watcherTick()"
               (fileSelected)="onFileSelected($event)"
             />
           </hlm-resizable-panel>
@@ -129,8 +133,10 @@ function coerceTab(raw: string | null): AsideTab {
 export class FeatureWorkspaceAside {
   protected readonly store = inject(WorkspaceDetailStore);
   private readonly workspaces = inject(WorkspacesFacade);
+  private readonly repos = inject(RepositoriesFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly tools = OPEN_IN_TOOLS;
 
@@ -152,14 +158,32 @@ export class FeatureWorkspaceAside {
   });
 
   // Path of the file whose diff is mounted in the bottom Files panel.
-  // Cleared whenever the active workspace changes (handled by an effect
-  // that watches workspaceId and resets selectedPath when it shifts).
+  // Cleared whenever the active workspace changes.
   protected readonly selectedPath = signal<string | null>(null);
 
-  // Bumped on FS-watcher pings (Atom 4c-3 lifts the subscription here);
-  // for atom 2 only, this stays at 0 so the diff component still has a
-  // stable input shape.
+  // Bumped on every FS-watcher ping. Both file-tree and file-diff
+  // children consume this as an input → effects re-run and re-fetch.
   protected readonly watcherTick = signal(0);
+
+  // Active watcher unsubscribe; replaced when workspaceId changes,
+  // called on destroy.
+  private currentUnwatch: (() => void) | null = null;
+
+  constructor() {
+    // One watcher per active workspace. When the workspace changes
+    // (or component is destroyed), tear down the previous subscription.
+    effect((onCleanup) => {
+      const id = this.workspaceId();
+      // Reset diff selection on workspace change so the bottom panel
+      // doesn't show a stale path from another worktree.
+      this.selectedPath.set(null);
+      this.detachWatcher();
+      if (!id) return;
+      void this.attachWatcher(id);
+      onCleanup(() => this.detachWatcher());
+    });
+    this.destroyRef.onDestroy(() => this.detachWatcher());
+  }
 
   protected onFileSelected(node: FileNode): void {
     if (node.kind === 'directory') return;
@@ -175,5 +199,41 @@ export class FeatureWorkspaceAside {
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  private async attachWatcher(workspaceId: string): Promise<void> {
+    try {
+      const unwatch = await this.repos.watch(workspaceId, () => {
+        // Each ping bumps the tick; both children re-fetch via their
+        // own effects. The aside owns the single subscription.
+        if (this.workspaceId() === workspaceId) {
+          this.watcherTick.update((n) => n + 1);
+        }
+      });
+      // If the workspace changed during the await, drop the late
+      // subscription immediately.
+      if (this.workspaceId() !== workspaceId) {
+        try {
+          unwatch();
+        } catch (e) {
+          console.warn('[aside] late unwatch failed:', e);
+        }
+        return;
+      }
+      this.currentUnwatch = unwatch;
+    } catch (err) {
+      console.warn('[aside] watch failed:', err);
+    }
+  }
+
+  private detachWatcher(): void {
+    const fn = this.currentUnwatch;
+    this.currentUnwatch = null;
+    if (!fn) return;
+    try {
+      fn();
+    } catch (e) {
+      console.warn('[aside] unwatch failed:', e);
+    }
   }
 }
