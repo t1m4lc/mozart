@@ -12,6 +12,7 @@ import {
 import { provideTheme } from '@mozart/shared-util-theme';
 import { appRoutes } from './app.routes';
 import { provideTauriAdapters } from './core/tauri-adapters';
+import { AuthFacade } from './domains/auth';
 import { ChatFacade } from './domains/chat';
 import { ProfileFacade } from './domains/profile';
 import { ProjectsFacade } from './domains/projects';
@@ -24,10 +25,18 @@ export const appConfig: ApplicationConfig = {
     provideTheme(),
     provideTauriAdapters(),
     provideAppInitializer(async () => {
+      // All inject() calls MUST happen synchronously before any await —
+      // Angular's injection context is lost across microtasks.
+      const auth = inject(AuthFacade);
       const projects = inject(ProjectsFacade);
       const workspaces = inject(WorkspacesFacade);
       const chat = inject(ChatFacade);
       const profile = inject(ProfileFacade);
+
+      // Boot auth first so the route guard sees the persisted session
+      // before the router resolves the initial URL.
+      await auth.bootstrap();
+
       try {
         await projects.loadAll();
         await workspaces.loadAll();

@@ -50,6 +50,10 @@
       "continuous": true,
       "executor": "@angular/build:dev-server",
       "syncGenerators": ["@juristr/nx-tailwind-sync:source-directives"],
+      "options": {
+        "port": 4201,
+        "ssl": true
+      },
       "configurations": {
         "production": {
           "buildTarget": "web:build:production"

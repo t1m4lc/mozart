@@ -1,11 +1,18 @@
 import { Route } from '@angular/router';
+import { authGuard } from './domains/auth';
 import { AppShell } from './shell/app-shell';
 import { SettingsShell } from './shell/settings-shell';
 
 export const appRoutes: Route[] = [
   {
+    path: 'welcome',
+    loadComponent: () =>
+      import('./pages/welcome.page').then((m) => m.WelcomePage),
+  },
+  {
     path: '',
     component: AppShell,
+    canActivate: [authGuard],
     children: [
       {
         path: '',
@@ -24,6 +31,7 @@ export const appRoutes: Route[] = [
   {
     path: 'settings',
     component: SettingsShell,
+    canActivate: [authGuard],
     children: [
       {
         path: '',
@@ -34,11 +42,13 @@ export const appRoutes: Route[] = [
   },
   {
     path: 'sandbox',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/sandbox/sandbox.page').then((m) => m.SandboxPage),
   },
   {
     path: 'sandbox/composer',
+    canActivate: [authGuard],
     loadComponent: () =>
       import('./pages/sandbox/composer.sandbox').then(
         (m) => m.ComposerSandbox,

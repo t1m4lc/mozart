@@ -1,13 +1,12 @@
-import { Component } from '@angular/core';
-import { RouterModule } from '@angular/router';
-import { NxWelcome } from './nx-welcome';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { RouterOutlet } from '@angular/router';
 
+// Root component — the router-outlet renders the `WebShell` (configured
+// as the layout component for every route in `app.routes.ts`).
 @Component({
-  imports: [NxWelcome, RouterModule],
   selector: 'app-root',
-  templateUrl: './app.html',
-  styleUrl: './app.css',
+  imports: [RouterOutlet],
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  template: `<router-outlet />`,
 })
-export class App {
-  protected title = 'web';
-}
+export class App {}

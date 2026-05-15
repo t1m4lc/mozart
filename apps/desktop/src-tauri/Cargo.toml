@@ -39,6 +39,40 @@ tauri-plugin-dialog = "2"
 # when the user isn't focused on the chat's workspace.
 tauri-plugin-notification = "2"
 
+# Custom URL scheme `mozart://auth?token=…&state=…` for the Phase 5
+# auth round-trip. The `apps/web` Clerk dashboard launches the URL ;
+# the OS hands it to the running desktop instance ; the plugin's
+# `on_open_url` callback (wired in `auth/deep_link.rs`) emits the
+# typed `DeepLinkReceived` event. Linux dev needs `register_all()` at
+# runtime (debug-only) because the .desktop file is only generated
+# during `tauri build`.
+tauri-plugin-deep-link = "2"
+
+# Single-instance enforcement. REQUIRED on Linux + Windows for the
+# deep-link plugin : without it, `xdg-open mozart://...` spawns a new
+# binary instead of routing the URL into the running instance. With
+# the `deep-link` feature flag enabled, this plugin forwards the
+# second-instance argv into the deep-link plugin's URL extractor, so
+# `on_open_url` fires on the existing window. macOS routes URLs
+# natively — single-instance is harmless there but keeps the
+# behavior uniform across OSes.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+
+# Phase 5 auth-session storage uses the `keyring` crate already
+# declared above (same pattern as the Anthropic + GitHub tokens in
+# `credentials/`). `tauri-plugin-stronghold` was tried first per
+# onboarding-and-auth.md §6 but its IPC bridge (v2.3.1) leaves the
+# snapshot's temp-file mid-write on Linux — see commit history. The
+# "all secrets in one vault" goal is deferred to a post-MVP hardening
+# task ; for now Mozart auth shares the OS keyring with the existing
+# credential pattern.
+
+# Shell plugin (Phase 5 / Atom 4) : `shell.open(url)` from the JS
+# adapter launches the user's default browser at the apps/web sign-in
+# URL. Scoped via `shell:allow-open` in capabilities/default.json so
+# we cannot be tricked into opening arbitrary URLs.
+tauri-plugin-shell = "2"
+
 # Step 1.2 spike deps — used by src/spikes/* and forward-looked by Steps 1.3-1.7
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "typescript"] }
@@ -47,7 +81,14 @@ specta-typescript = "0.0.9"
 portable-pty = "0.8"
 tokio = { version = "1", features = ["process", "rt-multi-thread", "macros", "io-util"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-keyring = "3"
+# keyring 3.x defaults to the kernel keyutils backend on Linux ; those
+# entries are bound to the process session and disappear when the
+# `target/debug/app` binary exits. `sync-secret-service` routes the
+# crate's sync API through DBus → Secret Service (GNOME Keyring /
+# KWallet / kwalletmanager), which persists across logouts and binary
+# restarts. macOS uses Keychain ; Windows uses Credential Manager —
+# both unchanged by this feature flag.
+keyring = { version = "3", features = ["sync-secret-service"] }
 # HTTP probe for `GET https://api.anthropic.com/v1/models` (Step 6 connection
 # card). `rustls-tls` avoids the system OpenSSL dep; we don't parse response
 # bodies, so no `json` feature is needed — status codes carry the result.
