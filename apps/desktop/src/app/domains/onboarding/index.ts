@@ -25,4 +25,5 @@ export { UiDisclosureCard } from './ui-disclosure-card';
 export { FeatureOnboardingStepWelcome } from './feature-onboarding-step-welcome';
 export { FeatureOnboardingStepGit } from './feature-onboarding-step-git';
 export { FeatureOnboardingStepProvider } from './feature-onboarding-step-provider';
+export { FeatureOnboardingStepGithub } from './feature-onboarding-step-github';
 export { FeatureClaudeLoginPty } from './feature-claude-login-pty';

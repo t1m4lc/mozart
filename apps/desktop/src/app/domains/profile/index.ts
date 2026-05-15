@@ -23,3 +23,5 @@ export {
 } from './ui-confirm-disconnect-dialog';
 export { UiConnectionCard } from './ui-connection-card';
 export { UiConnectionHelpDialog } from './ui-connection-help-dialog';
+export { UiGithubCard } from './ui-github-card';
+export { UiGithubConnectDialog } from './ui-github-connect-dialog';

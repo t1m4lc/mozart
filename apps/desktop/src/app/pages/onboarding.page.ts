@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import {
   FeatureOnboardingStepGit,
+  FeatureOnboardingStepGithub,
   FeatureOnboardingStepProvider,
   FeatureOnboardingStepWelcome,
   OnboardingFacade,
@@ -8,8 +9,9 @@ import {
 } from '../domains/onboarding';
 
 // Phase 6 / Atoms 1-4 — `/onboarding` route shell. Switches between
-// step features driven by `OnboardingFacade.currentStep()`. Atom 2
-// wires steps 1 + 2 ; Atoms 3-4 add steps 3-4.
+// step features driven by `OnboardingFacade.currentStep()`. Each
+// feature owns its own affordances (Continue/Back/Skip) — the shell
+// just frames the progress pill and handles the layout.
 @Component({
   selector: 'app-onboarding-page',
   imports: [
@@ -17,6 +19,7 @@ import {
     FeatureOnboardingStepWelcome,
     FeatureOnboardingStepGit,
     FeatureOnboardingStepProvider,
+    FeatureOnboardingStepGithub,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-screen w-screen overflow-y-auto bg-background' },
@@ -36,10 +39,7 @@ import {
           <app-feature-onboarding-step-provider />
         }
         @case ('github') {
-          <div class="space-y-2 text-center">
-            <h2 class="text-lg font-medium">Step 4 — Connect GitHub</h2>
-            <p class="text-sm text-muted-foreground">GitHub connect wired in Atom 4.</p>
-          </div>
+          <app-feature-onboarding-step-github />
         }
       }
     </app-ui-onboarding-step-shell>
