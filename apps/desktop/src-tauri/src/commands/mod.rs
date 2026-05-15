@@ -32,6 +32,7 @@ use crate::db::{
 };
 use crate::db::DbState;
 use crate::error::AppError;
+use crate::file_diff;
 use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
 use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::git_query;
@@ -1399,6 +1400,41 @@ pub async fn unwatch_repository_tree(
 ) -> Result<(), AppError> {
     registry.cancel(&workspace_id);
     Ok(())
+}
+
+// ---------------------------------------------------------------------------
+// get_file_diff (Phase 4c atom 1)
+// ---------------------------------------------------------------------------
+
+/// Resolve the unified diff text for one file in a workspace, against
+/// the workspace's `base_branch`. Working tree (incl. staged + unstaged)
+/// vs. base. Untracked files surface as a synthesized "all-added" diff;
+/// unchanged files return an empty string (caller renders "No changes.").
+#[tauri::command]
+#[specta::specta]
+pub async fn get_file_diff(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    path: String,
+) -> Result<String, AppError> {
+    get_file_diff_impl(db.inner(), workspace_id, path).await
+}
+
+pub(crate) async fn get_file_diff_impl(
+    db: &DbState,
+    workspace_id: String,
+    path: String,
+) -> Result<String, AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    file_diff::get_file_diff(
+        std::path::Path::new(&ws.worktree_path),
+        &ws.base_branch,
+        &path,
+    )
+    .await
 }
 
 // ===========================================================================

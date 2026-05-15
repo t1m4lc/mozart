@@ -501,6 +501,20 @@ async unwatchRepositoryTree(workspaceId: string) : Promise<Result<null, AppError
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Resolve the unified diff text for one file in a workspace, against
+ * the workspace's `base_branch`. Working tree (incl. staged + unstaged)
+ * vs. base. Untracked files surface as a synthesized "all-added" diff;
+ * unchanged files return an empty string (caller renders "No changes.").
+ */
+async getFileDiff(workspaceId: string, path: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_file_diff", { workspaceId, path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

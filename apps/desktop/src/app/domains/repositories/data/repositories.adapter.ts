@@ -32,6 +32,14 @@ export interface RepositoriesAdapter {
     workspaceId: string,
     onChange: () => void,
   ): Promise<() => void>;
+
+  /**
+   * Resolve the unified diff text for one file vs. the workspace's
+   * base branch. Working tree (incl. uncommitted edits) is the
+   * comparison source; untracked files surface as a synthesized
+   * "all-added" diff. An empty string means the file is unchanged.
+   */
+  getFileDiff(workspaceId: string, path: string): Promise<string>;
 }
 
 export const REPOSITORIES_ADAPTER = new InjectionToken<RepositoriesAdapter>(

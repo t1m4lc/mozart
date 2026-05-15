@@ -29,4 +29,9 @@ export class RepositoriesFacade {
   ): Promise<() => void> {
     return this.adapter.watchTree(workspaceId, onChange);
   }
+
+  /** Diff the file vs. the workspace's base branch (working tree). */
+  async loadFileDiff(workspaceId: string, path: string): Promise<string> {
+    return this.adapter.getFileDiff(workspaceId, path);
+  }
 }

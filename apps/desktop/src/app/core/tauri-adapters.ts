@@ -292,6 +292,9 @@ function provideRepositoriesAdapter(): Provider {
           unwrap(await commands.unwatchRepositoryTree(workspaceId));
         };
       },
+      async getFileDiff(workspaceId, path) {
+        return unwrap(await commands.getFileDiff(workspaceId, path));
+      },
     } satisfies RepositoriesAdapter,
   };
 }

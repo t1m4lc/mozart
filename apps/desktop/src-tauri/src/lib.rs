@@ -5,6 +5,7 @@ pub mod commands;
 pub mod credentials;
 pub mod db;
 pub mod error;
+pub mod file_diff;
 pub mod file_tree;
 pub mod file_watcher_registry;
 pub mod git_query;

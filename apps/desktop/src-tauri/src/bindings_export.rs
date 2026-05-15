@@ -66,6 +66,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::list_repository_tree,
             commands::watch_repository_tree,
             commands::unwatch_repository_tree,
+            commands::get_file_diff,
         ])
         .events(tauri_specta::collect_events![AgentRunTerminated])
         .typ::<AppError>()
