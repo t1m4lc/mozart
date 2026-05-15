@@ -33,10 +33,19 @@ import {
   type TasksAdapter,
 } from '../domains/tasks';
 import {
+  TERMINALS_ADAPTER,
+  type TerminalEvent as TerminalEventModel,
+  type TerminalsAdapter,
+} from '../domains/terminals';
+import {
   WORKSPACES_ADAPTER,
   type WorkspacesAdapter,
 } from '../domains/workspaces';
-import { commands, type FileTreeEvent } from './_bindings';
+import {
+  commands,
+  type FileTreeEvent,
+  type TerminalEvent as TerminalEventDto,
+} from './_bindings';
 
 function unwrap<T>(
   r:
@@ -299,6 +308,40 @@ function provideRepositoriesAdapter(): Provider {
   };
 }
 
+function provideTerminalsAdapter(): Provider {
+  return {
+    provide: TERMINALS_ADAPTER,
+    useValue: {
+      async open(workspaceId, cols, rows, onEvent) {
+        const channel = new Channel<TerminalEventDto>();
+        channel.onmessage = (ev) => onEvent(toTerminalEventModel(ev));
+        unwrap(
+          await commands.openTerminal(workspaceId, cols, rows, channel),
+        );
+        return async () => {
+          channel.onmessage = () => {
+            // no-op after unsubscribe
+          };
+          unwrap(await commands.closeTerminal(workspaceId));
+        };
+      },
+      async write(workspaceId, data) {
+        unwrap(await commands.writeTerminal(workspaceId, data));
+      },
+      async resize(workspaceId, cols, rows) {
+        unwrap(await commands.resizeTerminal(workspaceId, cols, rows));
+      },
+    } satisfies TerminalsAdapter,
+  };
+}
+
+function toTerminalEventModel(ev: TerminalEventDto): TerminalEventModel {
+  if (ev.kind === 'output') {
+    return { kind: 'output', data: ev.data };
+  }
+  return { kind: 'exited', code: ev.code };
+}
+
 export function provideTauriAdapters(): Provider[] {
   return [
     provideDialogAdapter(),
@@ -310,5 +353,6 @@ export function provideTauriAdapters(): Provider[] {
     provideCredentialsAdapter(),
     provideLlmAdapter(),
     provideRepositoriesAdapter(),
+    provideTerminalsAdapter(),
   ];
 }

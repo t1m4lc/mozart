@@ -1,6 +1,8 @@
 @import "tailwindcss" source("../src/app/");
 
 @import "../../../libs/shared-styles-theme/src/index.css";
+/* xterm.js renderer styles — required for the Terminal tab. */
+@import "@xterm/xterm/css/xterm.css";
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/shared-util-theme";
@@ -31,6 +33,7 @@
 @source "../../../libs/ui/skeleton";
 @source "../../../libs/ui/sonner";
 @source "../../../libs/ui/spinner";
+@source "../../../libs/ui/tabs";
 @source "../../../libs/ui/textarea";
 @source "../../../libs/ui/timeline";
 @source "../../../libs/ui/tooltip";

@@ -18,6 +18,7 @@ import {
   RepositoriesFacade,
   type FileNode,
 } from '../../repositories';
+import { FeatureWorkspaceTerminal } from '../../terminals';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { WorkspaceDetailStore } from '../feature-detail/workspace-detail.store';
@@ -42,6 +43,7 @@ function coerceTab(raw: string | null): AsideTab {
     WorkspaceAsideHeader,
     FeatureFileTree,
     FeatureFileDiff,
+    FeatureWorkspaceTerminal,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col bg-sidebar' },
@@ -116,10 +118,12 @@ function coerceTab(raw: string | null): AsideTab {
         </hlm-resizable-group>
       </div>
 
-      <div hlmTabsContent="terminal" class="min-h-0 flex-1 overflow-auto">
-        <div class="p-3 text-xs text-muted-foreground">
-          Terminal coming soon.
-        </div>
+      <div hlmTabsContent="terminal" class="min-h-0 flex-1 overflow-hidden">
+        <app-feature-workspace-terminal
+          class="block h-full w-full"
+          [workspaceId]="workspaceId()"
+          [active]="activeTab() === 'terminal'"
+        />
       </div>
 
       <div hlmTabsContent="run" class="min-h-0 flex-1 overflow-auto">
