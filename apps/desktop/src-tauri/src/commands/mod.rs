@@ -20,6 +20,7 @@ use std::sync::Arc;
 use tauri::ipc::Channel;
 use tauri::State;
 
+use crate::auth::keyring_store::{self as auth_store, AuthSessionDto};
 use crate::claude_cli::install::{self, ClaudeInstall};
 use crate::claude_cli::session;
 use crate::claude_cli::{spawn_run, AgentRunTerminated, StreamEvent};
@@ -1773,6 +1774,36 @@ pub async fn create_workspace_pr(
         draft,
     )
     .await
+}
+
+// ---------------------------------------------------------------------------
+// auth_load_session / auth_save_session / auth_clear_session
+// ---------------------------------------------------------------------------
+
+/// Phase 5 / Atom 3 — load the persisted Mozart auth session from the
+/// OS keyring. Returns `None` when no entry exists OR when the stored
+/// payload is malformed (defensive : the front-end falls back to the
+/// /welcome route and asks the user to re-authenticate).
+#[tauri::command]
+#[specta::specta]
+pub async fn auth_load_session() -> Result<Option<AuthSessionDto>, AppError> {
+    auth_store::load_session()
+}
+
+/// Phase 5 / Atom 3 — persist `session` to the OS keyring. Overwrites
+/// any prior entry.
+#[tauri::command]
+#[specta::specta]
+pub async fn auth_save_session(session: AuthSessionDto) -> Result<(), AppError> {
+    auth_store::save_session(&session)
+}
+
+/// Phase 5 / Atom 3 — idempotent removal of the stored session. Safe to
+/// call when no entry exists.
+#[tauri::command]
+#[specta::specta]
+pub async fn auth_clear_session() -> Result<(), AppError> {
+    auth_store::clear_session()
 }
 
 // ===========================================================================

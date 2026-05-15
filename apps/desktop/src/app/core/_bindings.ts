@@ -1066,6 +1066,49 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  /**
+   * Phase 5 / Atom 3 — load the persisted Mozart auth session from the
+   * OS keyring. Returns `None` when no entry exists OR when the stored
+   * payload is malformed (defensive : the front-end falls back to the
+   * /welcome route and asks the user to re-authenticate).
+   */
+  async authLoadSession(): Promise<Result<AuthSessionDto | null, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('auth_load_session') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Phase 5 / Atom 3 — persist `session` to the OS keyring. Overwrites
+   * any prior entry.
+   */
+  async authSaveSession(
+    session: AuthSessionDto,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('auth_save_session', { session }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Phase 5 / Atom 3 — idempotent removal of the stored session. Safe to
+   * call when no entry exists.
+   */
+  async authClearSession(): Promise<Result<null, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('auth_clear_session') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
 };
 
 /** user-defined events **/
@@ -1111,6 +1154,18 @@ export type AppError =
   | { kind: 'Validation'; message: string }
   | { kind: 'AgentSpawn'; message: string }
   | { kind: 'GitCmd'; message: string };
+/**
+ * Wire shape persisted in the OS keyring (JSON-encoded). The `Date`
+ * fields are normalized to epoch-ms numbers on the Angular side so the
+ * JSON stays stable.
+ */
+export type AuthSessionDto = {
+  token: string;
+  /**
+   * Epoch milliseconds when the underlying Clerk JWT expires.
+   */
+  expires_at: number;
+};
 export type ChangedFile = {
   path: string;
   /**

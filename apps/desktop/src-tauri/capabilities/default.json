@@ -17,6 +17,12 @@
     "core:path:allow-resolve-directory",
     "notification:default",
     "deep-link:default",
-    "stronghold:default"
+    {
+      "identifier": "shell:allow-open",
+      "allow": [
+        { "url": "http://localhost:4201/**" },
+        { "url": "https://app.mozart.build/**" }
+      ]
+    }
   ]
 }

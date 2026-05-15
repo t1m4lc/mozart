@@ -4,21 +4,27 @@ import {
   input,
   output,
 } from '@angular/core';
+import { HlmAlertImports } from '@mozart/ui/alert';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmEmptyImports } from '@mozart/ui/empty';
-import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { HlmTypographyImports } from '@mozart/ui/typography';
 import type { WelcomeState } from './data/auth.model';
 
 // Dumb presentational component for /welcome. Mirrors the layout in
 // docs/specs/onboarding-and-auth.md §2.2 : logo, heading, subtitle,
 // primary button, optional sub-line + ghost Cancel during `opening`.
+//
+// The 'authenticating' state from earlier iterations was removed once
+// the storage backend switched from Stronghold to OS keyring — the
+// keyring round-trip is fast enough that the page just routes to /
+// without a perceptible delay. Reintroduce a transitional state only
+// if some future storage path reintroduces a noticeable save lag.
 @Component({
   selector: 'app-ui-welcome-card',
   imports: [
+    HlmAlertImports,
     HlmButtonImports,
     HlmEmptyImports,
-    HlmSpinnerImports,
     HlmTypographyImports,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -30,36 +36,54 @@ import type { WelcomeState } from './data/auth.model';
 
       <hlm-empty-header>
         <h1 hlmH1 class="text-3xl">Start composing</h1>
-        <p hlmLead class="text-base">Sign in to continue</p>
+        <p hlmLead class="text-base">
+          @switch (state()) {
+            @case ('opening') {
+              Finish sign in in the browser window.
+            }
+            @case ('timed-out') {
+              Sign in is taking longer than expected.
+            }
+            @default {
+              Sign in to continue
+            }
+          }
+        </p>
       </hlm-empty-header>
 
       <hlm-empty-content>
-        @if (state() === 'authenticating') {
-          <div class="flex items-center gap-2 text-muted-foreground">
-            <hlm-spinner aria-label="Connecting" />
-            <span>Connecting…</span>
+        @if (state() === 'timed-out') {
+          <div hlmAlert class="mb-2 max-w-sm">
+            <p hlmAlertDescription>
+              Try again or check your browser window.
+            </p>
           </div>
-        } @else {
+        }
+
+        <button
+          hlmBtn
+          type="button"
+          [disabled]="state() === 'opening'"
+          (click)="signIn.emit()"
+        >
+          {{
+            state() === 'opening'
+              ? 'Opening browser…'
+              : state() === 'timed-out'
+                ? 'Try again'
+                : 'Sign in'
+          }}
+        </button>
+
+        @if (state() === 'opening' || state() === 'timed-out') {
           <button
             hlmBtn
+            variant="ghost"
             type="button"
-            [disabled]="state() === 'opening'"
-            (click)="signIn.emit()"
+            (click)="cancelled.emit()"
           >
-            {{ state() === 'opening' ? 'Opening browser…' : 'Sign in' }}
+            Cancel
           </button>
-
-          @if (state() === 'opening') {
-            <p hlmMuted>Finish sign in in the browser window.</p>
-            <button
-              hlmBtn
-              variant="ghost"
-              type="button"
-              (click)="cancelled.emit()"
-            >
-              Cancel
-            </button>
-          }
         }
       </hlm-empty-content>
     </hlm-empty>

@@ -22,6 +22,5 @@ export interface DeepLinkPayload {
 export type WelcomeState =
   | 'idle' // initial : Sign in button visible
   | 'opening' // browser-opening flow in progress
-  | 'authenticating' // deep-link received, finalizing session (Stronghold save)
-  | 'timed-out' // 5 min passed with no deep-link (Atom 4)
+  | 'timed-out' // 5 min passed with no deep-link
   | 'offline'; // bootstrap found an expired token + no network (Atom 6)

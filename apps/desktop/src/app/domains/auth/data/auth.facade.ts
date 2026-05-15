@@ -1,12 +1,19 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import type { Subscription } from 'rxjs';
+import { buildSignInUrl } from '../util-clerk-url';
 import { AUTH_ADAPTER } from './auth.adapter';
 import type {
   AuthSession,
   DeepLinkPayload,
   WelcomeState,
 } from './auth.model';
+
+// User-facing timeout : if the deep-link doesn't arrive within 5 min
+// after clicking Sign in, the welcome screen flips to a "timed-out"
+// banner inviting the user to try again. Five minutes mirrors the
+// upper bound in the spec (onboarding-and-auth.md §2.3).
+const SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
 
 // Public surface of the `auth` domain. Features inject this — the
 // adapter and the deep-link subscription stay private.
@@ -34,6 +41,7 @@ export class AuthFacade {
 
   private pendingState: string | null = null;
   private deepLinkSub: Subscription | null = null;
+  private signInTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
 
   async bootstrap(): Promise<void> {
     try {
@@ -52,10 +60,10 @@ export class AuthFacade {
     const state = generateState();
     this.pendingState = state;
     this.welcomeState.set('opening');
+    this.armTimeout();
     try {
-      // URL is a placeholder in Atom 1 ; the fake adapter ignores it.
-      // Atom 4 builds the real apps/web URL via util-clerk-url.
-      await this.adapter.openSignIn({ url: '', state });
+      const url = buildSignInUrl(state);
+      await this.adapter.openSignIn({ url, state });
     } catch (err) {
       console.error('[auth] openSignIn failed:', err);
       this.cancelSignIn();
@@ -63,8 +71,27 @@ export class AuthFacade {
   }
 
   cancelSignIn(): void {
+    this.clearTimeout();
     this.pendingState = null;
     this.welcomeState.set('idle');
+  }
+
+  private armTimeout(): void {
+    this.clearTimeout();
+    this.signInTimeoutHandle = setTimeout(() => {
+      // Only flip if we're still waiting — the deep-link might have
+      // arrived right before the timer fired.
+      if (this.welcomeState() === 'opening') {
+        this.welcomeState.set('timed-out');
+      }
+    }, SIGN_IN_TIMEOUT_MS);
+  }
+
+  private clearTimeout(): void {
+    if (this.signInTimeoutHandle) {
+      clearTimeout(this.signInTimeoutHandle);
+      this.signInTimeoutHandle = null;
+    }
   }
 
   async signOut(): Promise<void> {
@@ -90,11 +117,7 @@ export class AuthFacade {
       return;
     }
     this.pendingState = null;
-
-    // Flip the welcome screen to its "Connecting…" state so the user
-    // gets feedback during the Stronghold save (up to ~1.5 s with the
-    // timeout-guard) instead of staring at "Opening browser…" frozen.
-    this.welcomeState.set('authenticating');
+    this.clearTimeout();
 
     // Atom 6 decodes the JWT for expiresAt + onboarding ; Atom 1 sets
     // a 7-day fallback so the model stays well-formed.
@@ -102,15 +125,8 @@ export class AuthFacade {
       token: payload.token,
       expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
     };
-    // Minimum display time for the "Connecting…" state so a fast
-    // save doesn't blink past it. UX feels intentional rather than
-    // glitchy.
-    const minDisplay = new Promise<void>((resolve) =>
-      setTimeout(resolve, 400),
-    );
     try {
       await this.adapter.saveSession(session);
-      await minDisplay;
       this._session.set(session);
       this.welcomeState.set('idle');
       console.info('[auth] navigating to /');
@@ -123,6 +139,10 @@ export class AuthFacade {
 }
 
 function generateState(): string {
-  // Atom 4 swaps this for a crypto-random 32-byte hex string.
-  return `state.${crypto.randomUUID()}`;
+  // 32 cryptographically-random bytes → 64-char hex. Used as the
+  // OAuth `state` nonce embedded in the apps/web sign-in URL ; the
+  // deep-link callback's `state` query param must match exactly.
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 }

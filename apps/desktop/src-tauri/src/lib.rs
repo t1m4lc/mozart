@@ -122,23 +122,7 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
-        // Stronghold-backed encrypted vault for auth tokens (and,
-        // post-MVP, the Anthropic + GitHub credentials currently in
-        // the `keyring` crate). The hash function below derives a
-        // 32-byte vault key from the JS-supplied password via sha256.
-        // The JS side composes that password from `appLocalDataDir`
-        // + a baked salt (see `tauri-auth.adapter.ts`) so the key is
-        // per-install — same binary on a different machine cannot
-        // open the snapshot.
-        .plugin(
-            tauri_plugin_stronghold::Builder::new(|password| {
-                use sha2::{Digest, Sha256};
-                let mut hasher = Sha256::new();
-                hasher.update(password.as_bytes());
-                hasher.finalize().to_vec()
-            })
-            .build(),
-        )
+        .plugin(tauri_plugin_shell::init())
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             // Preserve the debug-only log plugin from the pre-1.7 lib.rs.

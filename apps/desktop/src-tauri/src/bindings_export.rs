@@ -5,6 +5,7 @@
 //! **`pub fn`, not `pub(crate)`** — integration tests under `tests/` link
 //! the crate as an external consumer and require crate-public visibility.
 
+use crate::auth::keyring_store::AuthSessionDto;
 use crate::auth::DeepLinkReceived;
 use crate::claude_cli::{install::ClaudeInstall, AgentRunTerminated, StreamEvent};
 use crate::commands;
@@ -88,6 +89,9 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::disconnect_github,
             commands::push_workspace_branch,
             commands::create_workspace_pr,
+            commands::auth_load_session,
+            commands::auth_save_session,
+            commands::auth_clear_session,
         ])
         .events(tauri_specta::collect_events![
             AgentRunTerminated,
@@ -112,4 +116,5 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<ChangedFile>()
         .typ::<GithubProbeResult>()
         .typ::<CreatedPr>()
+        .typ::<AuthSessionDto>()
 }
