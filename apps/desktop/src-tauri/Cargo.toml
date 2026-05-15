@@ -39,6 +39,25 @@ tauri-plugin-dialog = "2"
 # when the user isn't focused on the chat's workspace.
 tauri-plugin-notification = "2"
 
+# Custom URL scheme `mozart://auth?token=…&state=…` for the Phase 5
+# auth round-trip. The `apps/web` Clerk dashboard launches the URL ;
+# the OS hands it to the running desktop instance ; the plugin's
+# `on_open_url` callback (wired in `auth/deep_link.rs`) emits the
+# typed `DeepLinkReceived` event. Linux dev needs `register_all()` at
+# runtime (debug-only) because the .desktop file is only generated
+# during `tauri build`.
+tauri-plugin-deep-link = "2"
+
+# Single-instance enforcement. REQUIRED on Linux + Windows for the
+# deep-link plugin : without it, `xdg-open mozart://...` spawns a new
+# binary instead of routing the URL into the running instance. With
+# the `deep-link` feature flag enabled, this plugin forwards the
+# second-instance argv into the deep-link plugin's URL extractor, so
+# `on_open_url` fires on the existing window. macOS routes URLs
+# natively — single-instance is harmless there but keeps the
+# behavior uniform across OSes.
+tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
+
 # Step 1.2 spike deps — used by src/spikes/* and forward-looked by Steps 1.3-1.7
 tauri-plugin-sql = { version = "2", features = ["sqlite"] }
 tauri-specta = { version = "2.0.0-rc.21", features = ["derive", "typescript"] }

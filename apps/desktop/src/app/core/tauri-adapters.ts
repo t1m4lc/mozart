@@ -2,6 +2,8 @@ import { Provider } from '@angular/core';
 import { Channel } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { AUTH_ADAPTER } from '../domains/auth';
+import { tauriAuthAdapter } from '../domains/auth/data/tauri-auth.adapter';
 import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,
@@ -56,6 +58,13 @@ function unwrap<T>(
 ): T {
   if (r.status === 'error') throw new Error(r.error.message);
   return r.data;
+}
+
+function provideAuthAdapter(): Provider {
+  return {
+    provide: AUTH_ADAPTER,
+    useFactory: () => tauriAuthAdapter(),
+  };
 }
 
 function provideDialogAdapter(): Provider {
@@ -406,6 +415,7 @@ function toTerminalEventModel(ev: TerminalEventDto): TerminalEventModel {
 
 export function provideTauriAdapters(): Provider[] {
   return [
+    provideAuthAdapter(),
     provideDialogAdapter(),
     provideProjectsAdapter(),
     provideWorkspacesAdapter(),

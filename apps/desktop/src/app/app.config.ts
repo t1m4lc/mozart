@@ -12,8 +12,7 @@ import {
 import { provideTheme } from '@mozart/shared-util-theme';
 import { appRoutes } from './app.routes';
 import { provideTauriAdapters } from './core/tauri-adapters';
-import { AUTH_ADAPTER, AuthFacade } from './domains/auth';
-import { fakeAuthAdapter } from './domains/auth/data/fake-auth.adapter';
+import { AuthFacade } from './domains/auth';
 import { ChatFacade } from './domains/chat';
 import { ProfileFacade } from './domains/profile';
 import { ProjectsFacade } from './domains/projects';
@@ -25,9 +24,6 @@ export const appConfig: ApplicationConfig = {
     provideRouter(appRoutes, withHashLocation(), withComponentInputBinding()),
     provideTheme(),
     provideTauriAdapters(),
-    // Atom 1 binding : fully in-memory auth. Atom 2 moves this into
-    // `provideTauriAdapters()` once the Tauri-backed adapter exists.
-    { provide: AUTH_ADAPTER, useValue: fakeAuthAdapter() },
     provideAppInitializer(async () => {
       // All inject() calls MUST happen synchronously before any await —
       // Angular's injection context is lost across microtasks.

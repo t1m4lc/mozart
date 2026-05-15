@@ -1,3 +1,4 @@
+pub mod auth;
 pub mod bindings_export;
 pub mod branch_name;
 pub mod claude_cli;
@@ -105,8 +106,22 @@ pub fn run() {
     let setup_builder = bindings_export::build_specta_builder();
 
     tauri::Builder::default()
+        // Single-instance MUST be the first plugin so a second
+        // invocation (e.g. xdg-open of mozart://...) can be detected
+        // before the rest of the app initializes. The deep-link feature
+        // flag wires this to `tauri-plugin-deep-link`, so URLs forwarded
+        // from the second instance fire `on_open_url` on the running
+        // window. The callback brings the existing window to focus.
+        .plugin(tauri_plugin_single_instance::init(|app, _argv, _cwd| {
+            use tauri::Manager;
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.set_focus();
+            }
+        }))
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
+        .plugin(tauri_plugin_deep_link::init())
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             // Preserve the debug-only log plugin from the pre-1.7 lib.rs.
@@ -149,10 +164,16 @@ pub fn run() {
             // on archive.
             app.manage(workspace_run_registry::WorkspaceRunRegistry::new());
 
-            // Typed event mounting: no-op for v0.0.1 (no events declared
-            // yet) but forward-compatible — future Builder.events() calls
-            // register here.
+            // Typed event mounting : the specta builder owns the typed
+            // event registry on the Rust side. Must run before any
+            // `Event::emit` call (otherwise the listener machinery isn't
+            // wired and emissions are silently dropped).
             setup_builder.mount_events(app);
+
+            // Phase 5 / Atom 2 : register the mozart:// deep-link
+            // handler now that the plugin is initialized and the typed
+            // event registry is mounted.
+            auth::deep_link::register(app.handle());
 
             Ok(())
         })

@@ -1072,8 +1072,10 @@ export const commands = {
 
 export const events = __makeEvents__<{
   agentRunTerminated: AgentRunTerminated;
+  deepLinkReceived: DeepLinkReceived;
 }>({
   agentRunTerminated: 'agent-run-terminated',
+  deepLinkReceived: 'deep-link-received',
 });
 
 /** user-defined constants **/
@@ -1138,6 +1140,14 @@ export type ClaudeInstall =
  * Outcome of `POST /repos/{owner}/{repo}/pulls`.
  */
 export type CreatedPr = { number: number; html_url: string };
+/**
+ * Typed event fired when the OS hands a `mozart://...` URL to the
+ * running desktop app. The Angular `tauriAuthAdapter` listens via
+ * `events.deepLinkReceived.listen(...)`. Extracting `token` and
+ * `state` from the URL is the TS side's responsibility (pure
+ * `parseDeepLink` helper) — the Rust side stays vocabulary-thin.
+ */
+export type DeepLinkReceived = { url: string };
 export type DetectedIde = {
   /**
    * Stable identifier (e.g. `"vscode"`).
