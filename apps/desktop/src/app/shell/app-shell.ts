@@ -28,6 +28,7 @@ import { ConnectivityService } from '../core/connectivity.service';
 import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
+import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
 import { FeatureChatList } from '../domains/chat';
 import { FeatureTour } from '../domains/onboarding';
 import {
@@ -52,6 +53,7 @@ import { ShellProjectList } from './shell-project-list';
     RouterOutlet,
     NgIcon,
     MacWindowControls,
+    NonMacWindowControls,
     HlmButtonImports,
     HlmContextMenuImports,
     HlmIconImports,
@@ -93,7 +95,7 @@ import { ShellProjectList } from './shell-project-list';
             data-tauri-drag-region
             class="h-9 flex-row items-center gap-1 border-b border-sidebar-border px-2 py-1"
           >
-            @if (!isMac) {
+            @if (isMac) {
               <app-mac-window-controls />
             }
             <span class="flex-1" data-tauri-drag-region></span>
@@ -112,6 +114,9 @@ import { ShellProjectList } from './shell-project-list';
             >
               <ng-icon hlm name="lucidePanelLeft" size="xs" />
             </button>
+            @if (!isMac) {
+              <app-non-mac-window-controls />
+            }
           </div>
 
           <div hlmSidebarContent>

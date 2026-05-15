@@ -8,13 +8,20 @@ import {
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCheck, lucideCircleAlert, lucideRefreshCw } from '@ng-icons/lucide';
+import { lucideRefreshCw } from '@ng-icons/lucide';
 import { OsService } from '../../core/os.service';
 import { GIT_CHECK_ADAPTER } from './data/git-check.adapter';
 import { OnboardingFacade } from './data/onboarding.facade';
 import { GIT_INSTALL_INSTRUCTIONS } from './util-git-install-instructions';
 
 type ProbeState = 'idle' | 'probing' | 'found' | 'missing';
+
+const STATE_DOT_CLASS: Record<ProbeState, string> = {
+  idle: 'bg-muted',
+  probing: 'bg-brand/60 animate-pulse',
+  found: 'bg-brand',
+  missing: 'bg-destructive',
+};
 
 // Step 2 of the onboarding wizard. Probes `git --version` on mount,
 // renders ✅ X.Y.Z when found, or ❌ with OS-specific install copy
@@ -25,7 +32,7 @@ type ProbeState = 'idle' | 'probing' | 'found' | 'missing';
   selector: 'app-feature-onboarding-step-git',
   imports: [HlmButtonImports, HlmIconImports, NgIcon],
   providers: [
-    provideIcons({ lucideCheck, lucideCircleAlert, lucideRefreshCw }),
+    provideIcons({ lucideRefreshCw }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
@@ -33,66 +40,65 @@ type ProbeState = 'idle' | 'probing' | 'found' | 'missing';
     <div class="space-y-6">
       <div class="space-y-1 text-center">
         <h2 class="text-xl font-semibold">Install Git</h2>
-        <p class="text-sm text-muted-foreground">
+        <p class="text-muted-foreground text-sm">
           Mozart uses Git to create isolated workspaces for each task.
         </p>
       </div>
 
       <div
-        class="flex items-center justify-center gap-3 rounded-md border px-4 py-3"
-        [class.border-emerald-500/40]="state() === 'found'"
-        [class.bg-emerald-500/10]="state() === 'found'"
-        [class.border-red-500/40]="state() === 'missing'"
-        [class.bg-red-500/10]="state() === 'missing'"
+        class="bg-muted/30 flex items-center gap-3 rounded-md border border-border/60 px-4 py-3"
+        role="status"
       >
-        @switch (state()) {
-          @case ('probing') {
-            <span class="text-sm text-muted-foreground">Checking…</span>
+        <span
+          [class]="'inline-block size-2 shrink-0 rounded-full ' + stateDot()"
+          aria-hidden="true"
+        ></span>
+        <div class="flex-1 text-sm">
+          @switch (state()) {
+            @case ('probing') {
+              <span>Checking your installation…</span>
+            }
+            @case ('found') {
+              <span class="font-medium">Git {{ version() }} detected.</span>
+            }
+            @case ('missing') {
+              <span class="font-medium">Git isn't installed yet.</span>
+            }
+            @default {
+              <span>Checking your installation…</span>
+            }
           }
-          @case ('found') {
-            <ng-icon hlm name="lucideCheck" size="sm" class="text-emerald-600" />
-            <span class="text-sm">Git {{ version() }} detected</span>
-          }
-          @case ('missing') {
-            <ng-icon
-              hlm
-              name="lucideCircleAlert"
-              size="sm"
-              class="text-red-600"
-            />
-            <span class="text-sm">Git not found on this machine</span>
-          }
-          @default {
-            <span class="text-sm text-muted-foreground">Idle</span>
-          }
+        </div>
+        @if (state() === 'missing') {
+          <button
+            hlmBtn
+            size="sm"
+            variant="outline"
+            type="button"
+            (click)="onVerify()"
+          >
+            <ng-icon hlm name="lucideRefreshCw" size="xs" />
+            Retry
+          </button>
         }
       </div>
 
       @if (state() === 'missing') {
-        <div class="space-y-2 rounded-md border bg-muted/40 p-4 text-sm">
+        <div class="bg-muted/30 space-y-2 rounded-md border border-border/60 p-4 text-sm">
           <div class="font-medium">{{ instructions().label }}</div>
           @if (instructions().command) {
             <pre
-              class="overflow-x-auto rounded bg-background p-2 font-mono text-xs"
+              class="bg-background overflow-x-auto rounded p-2 font-mono text-xs"
             >{{ instructions().command }}</pre>
           }
           @if (instructions().note) {
-            <p class="text-xs text-muted-foreground">{{ instructions().note }}</p>
+            <p class="text-muted-foreground text-xs">{{ instructions().note }}</p>
           }
         </div>
       }
 
       <div class="flex items-center justify-between gap-3">
-        <button
-          hlmBtn
-          variant="ghost"
-          type="button"
-          [disabled]="state() === 'probing'"
-          (click)="onVerify()"
-        >
-          <ng-icon hlm name="lucideRefreshCw" size="xs" />
-          Verify
-        </button>
+        <span></span>
         <button
           hlmBtn
           type="button"
@@ -112,6 +118,7 @@ export class FeatureOnboardingStepGit {
 
   protected readonly state = signal<ProbeState>('idle');
   protected readonly version = signal<string | null>(null);
+  protected readonly stateDot = computed(() => STATE_DOT_CLASS[this.state()]);
   protected readonly instructions = computed(
     () => GIT_INSTALL_INSTRUCTIONS[this.os.detect()],
   );

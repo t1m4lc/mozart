@@ -13,18 +13,12 @@ import { OnboardingFacade } from './data/onboarding.facade';
   template: `
     <div class="space-y-6 text-center">
       <h1 class="text-2xl font-semibold">Welcome to Mozart</h1>
-      <div class="space-y-2 text-sm text-muted-foreground">
-        <p>Let's set up your environment in 4 quick steps.</p>
-        <p>
-          We'll check that you have Git installed, help you connect at
-          least one LLM provider, optionally link GitHub, and then give
-          you a quick tour.
-        </p>
-        <p class="text-xs">This takes ~2 minutes.</p>
-      </div>
-      <div class="flex justify-center pt-4">
+      <p class="text-muted-foreground text-sm">
+        Let's set up your environment — takes about a minute.
+      </p>
+      <div class="flex justify-center pt-2">
         <button hlmBtn type="button" (click)="facade.advance()">
-          Let's go
+          Get started
         </button>
       </div>
     </div>

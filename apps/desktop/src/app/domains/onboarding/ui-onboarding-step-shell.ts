@@ -9,7 +9,14 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   host: { class: 'flex h-full flex-col items-center justify-center' },
   template: `
     <div class="w-full max-w-xl space-y-8 px-6 py-12">
-      <div class="flex justify-center gap-2" role="presentation">
+      <div
+        class="flex justify-center gap-2"
+        role="progressbar"
+        [attr.aria-valuenow]="stepIndex()"
+        [attr.aria-valuemin]="1"
+        [attr.aria-valuemax]="totalSteps()"
+        [attr.aria-label]="'Onboarding step ' + stepIndex() + ' of ' + totalSteps()"
+      >
         @for (i of dots(); track i) {
           <span
             class="size-2 rounded-full transition-colors"
@@ -17,9 +24,6 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
             [class.bg-muted]="i > stepIndex()"
           ></span>
         }
-      </div>
-      <div class="text-center text-xs uppercase tracking-wide text-muted-foreground">
-        Step {{ stepIndex() }} / {{ totalSteps() }}
       </div>
       <div class="space-y-6">
         <ng-content />

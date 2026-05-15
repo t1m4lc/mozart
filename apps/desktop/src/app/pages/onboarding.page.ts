@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { TopBar } from '../core/window-controls/top-bar';
 import {
   FeatureOnboardingStepGit,
   FeatureOnboardingStepGithub,
@@ -10,11 +11,13 @@ import {
 
 // Phase 6 / Atoms 1-4 — `/onboarding` route shell. Switches between
 // step features driven by `OnboardingFacade.currentStep()`. Each
-// feature owns its own affordances (Continue/Back/Skip) — the shell
-// just frames the progress pill and handles the layout.
+// feature owns its own affordances (Continue/Back/Skip) — the page
+// frames the TopBar (Mozart logo + window controls) and the step
+// shell (progress dots + slotted footer).
 @Component({
   selector: 'app-onboarding-page',
   imports: [
+    TopBar,
     UiOnboardingStepShell,
     FeatureOnboardingStepWelcome,
     FeatureOnboardingStepGit,
@@ -22,27 +25,30 @@ import {
     FeatureOnboardingStepGithub,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block h-screen w-screen overflow-y-auto bg-background' },
+  host: { class: 'flex h-screen w-screen flex-col bg-background' },
   template: `
-    <app-ui-onboarding-step-shell
-      [stepIndex]="facade.stepIndex()"
-      [totalSteps]="facade.totalSteps"
-    >
-      @switch (facade.currentStep()) {
-        @case ('welcome') {
-          <app-feature-onboarding-step-welcome />
+    <app-top-bar />
+    <div class="flex-1 overflow-y-auto">
+      <app-ui-onboarding-step-shell
+        [stepIndex]="facade.stepIndex()"
+        [totalSteps]="facade.totalSteps"
+      >
+        @switch (facade.currentStep()) {
+          @case ('welcome') {
+            <app-feature-onboarding-step-welcome />
+          }
+          @case ('git') {
+            <app-feature-onboarding-step-git />
+          }
+          @case ('provider') {
+            <app-feature-onboarding-step-provider />
+          }
+          @case ('github') {
+            <app-feature-onboarding-step-github />
+          }
         }
-        @case ('git') {
-          <app-feature-onboarding-step-git />
-        }
-        @case ('provider') {
-          <app-feature-onboarding-step-provider />
-        }
-        @case ('github') {
-          <app-feature-onboarding-step-github />
-        }
-      }
-    </app-ui-onboarding-step-shell>
+      </app-ui-onboarding-step-shell>
+    </div>
   `,
 })
 export class OnboardingPage {
