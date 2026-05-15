@@ -55,6 +55,15 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 rusqlite = { version = "0.31", features = ["bundled"] }
 thiserror = "1"
 
+# Phase 4b — repository file tree:
+# `ignore` is the ripgrep walker; honors `.gitignore` natively. `notify` +
+# `notify-debouncer-mini` back the FS watcher used by `watch_repository_tree`
+# (Atom E). Watcher sends a single ping per debounce window; the front-end
+# refetches the tree.
+ignore = "0.4"
+notify = "6"
+notify-debouncer-mini = "0.4"
+
 [dev-dependencies]
 tempfile = "3"
 anyhow = "1"

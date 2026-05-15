@@ -1,4 +1,5 @@
 import { Provider } from '@angular/core';
+import { Channel } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
 import {
@@ -22,6 +23,11 @@ import {
   type ProjectsAdapter,
 } from '../domains/projects';
 import {
+  REPOSITORIES_ADAPTER,
+  fileNodeFromDto,
+  type RepositoriesAdapter,
+} from '../domains/repositories';
+import {
   TASKS_ADAPTER,
   taskFromDto,
   type TasksAdapter,
@@ -30,7 +36,7 @@ import {
   WORKSPACES_ADAPTER,
   type WorkspacesAdapter,
 } from '../domains/workspaces';
-import { commands } from './_bindings';
+import { commands, type FileTreeEvent } from './_bindings';
 
 function unwrap<T>(
   r:
@@ -266,6 +272,30 @@ function provideLlmAdapter(): Provider {
   return { provide: LLM_ADAPTER, useExisting: TauriClaudeAdapter };
 }
 
+function provideRepositoriesAdapter(): Provider {
+  return {
+    provide: REPOSITORIES_ADAPTER,
+    useValue: {
+      async listTree(workspaceId, showIgnored) {
+        return unwrap(
+          await commands.listRepositoryTree(workspaceId, showIgnored),
+        ).map(fileNodeFromDto);
+      },
+      async watchTree(workspaceId, onChange) {
+        const channel = new Channel<FileTreeEvent>();
+        channel.onmessage = () => onChange();
+        unwrap(await commands.watchRepositoryTree(workspaceId, channel));
+        return async () => {
+          channel.onmessage = () => {
+            // no-op after unsubscribe
+          };
+          unwrap(await commands.unwatchRepositoryTree(workspaceId));
+        };
+      },
+    } satisfies RepositoriesAdapter,
+  };
+}
+
 export function provideTauriAdapters(): Provider[] {
   return [
     provideDialogAdapter(),
@@ -276,5 +306,6 @@ export function provideTauriAdapters(): Provider[] {
     provideTasksAdapter(),
     provideCredentialsAdapter(),
     provideLlmAdapter(),
+    provideRepositoriesAdapter(),
   ];
 }

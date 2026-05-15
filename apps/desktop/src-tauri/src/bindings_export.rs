@@ -12,6 +12,7 @@ use crate::db::models::{
     AgentRun, Chat, Message, Repo, Task, Thread, Workspace, WorkspaceChange,
 };
 use crate::error::AppError;
+use crate::file_tree::{FileNodeDto, FileTreeEvent};
 
 pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     tauri_specta::Builder::<tauri::Wry>::new()
@@ -62,6 +63,9 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::connect_anthropic,
             commands::disconnect_anthropic,
             commands::refresh_anthropic_connection,
+            commands::list_repository_tree,
+            commands::watch_repository_tree,
+            commands::unwatch_repository_tree,
         ])
         .events(tauri_specta::collect_events![AgentRunTerminated])
         .typ::<AppError>()
@@ -76,4 +80,6 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<Chat>()
         .typ::<Message>()
         .typ::<ProbeResult>()
+        .typ::<FileNodeDto>()
+        .typ::<FileTreeEvent>()
 }

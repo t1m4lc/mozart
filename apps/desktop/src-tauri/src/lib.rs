@@ -5,6 +5,8 @@ pub mod commands;
 pub mod credentials;
 pub mod db;
 pub mod error;
+pub mod file_tree;
+pub mod file_watcher_registry;
 pub mod git_query;
 pub mod run_registry;
 pub mod sandbox;
@@ -125,6 +127,11 @@ pub fn run() {
 
             // Run registry holds live RunHandles for stop_agent_run lookup.
             app.manage(run_registry::RunRegistry::new());
+
+            // File-watcher registry holds notify-debouncer handles keyed
+            // by workspace_id (Phase 4b). Atom C registers the
+            // skeleton; Atom E populates it from `watch_repository_tree`.
+            app.manage(file_watcher_registry::FileWatcherRegistry::new());
 
             // Typed event mounting: no-op for v0.0.1 (no events declared
             // yet) but forward-compatible — future Builder.events() calls

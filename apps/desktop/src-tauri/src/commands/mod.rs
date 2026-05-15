@@ -32,6 +32,8 @@ use crate::db::{
 };
 use crate::db::DbState;
 use crate::error::AppError;
+use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
+use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::git_query;
 use crate::run_registry::RunRegistry;
 use crate::sandbox;
@@ -1316,6 +1318,87 @@ pub async fn refresh_anthropic_connection() -> Result<ProbeResult, AppError> {
         Some(k) => Ok(anthropic_probe::probe(&k).await),
         None => Err(AppError::Validation("no stored anthropic key".into())),
     }
+}
+
+// ---------------------------------------------------------------------------
+// list_repository_tree (Phase 4b atom C)
+// ---------------------------------------------------------------------------
+
+/// List the workspace's worktree contents as a nested file tree, with
+/// per-file change badges (`A` / `M` / `D`) computed against the
+/// workspace's `base_branch`.
+///
+/// `show_ignored=false` filters via `.gitignore` (ripgrep walker).
+/// `show_ignored=true` walks everything except `.git/` and tags entries
+/// with the `ignored` flag so the UI can mute them.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_repository_tree(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    show_ignored: bool,
+) -> Result<Vec<FileNodeDto>, AppError> {
+    list_repository_tree_impl(db.inner(), workspace_id, show_ignored).await
+}
+
+pub(crate) async fn list_repository_tree_impl(
+    db: &DbState,
+    workspace_id: String,
+    show_ignored: bool,
+) -> Result<Vec<FileNodeDto>, AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    file_tree::list_tree(
+        std::path::Path::new(&ws.worktree_path),
+        &ws.base_branch,
+        show_ignored,
+    )
+    .await
+}
+
+// ---------------------------------------------------------------------------
+// watch_repository_tree (Phase 4b atom C — placeholder; atom E activates)
+// ---------------------------------------------------------------------------
+
+/// Subscribe to FS-change events for the workspace's worktree. Atom C
+/// validates the workspace and registers a placeholder handle so the
+/// adapter contract is final; atom E swaps the placeholder for a real
+/// `notify-debouncer-mini` watcher that pushes `FileTreeEvent::Changed`
+/// pings through `on_event`.
+#[tauri::command]
+#[specta::specta]
+pub async fn watch_repository_tree(
+    db: State<'_, DbState>,
+    registry: State<'_, FileWatcherRegistry>,
+    workspace_id: String,
+    #[allow(unused_variables)] on_event: Channel<FileTreeEvent>,
+) -> Result<(), AppError> {
+    // Validate the workspace exists; surfaces NotFound if the caller
+    // passes a bogus id.
+    {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?;
+    }
+    file_tree::spawn_watcher_stub()?;
+    registry.register(
+        workspace_id,
+        crate::file_watcher_registry::WatcherHandle::placeholder(),
+    );
+    Ok(())
+}
+
+/// Cancel the active watcher for `workspace_id`, if any. No-op if the
+/// workspace has no active watcher.
+#[tauri::command]
+#[specta::specta]
+pub async fn unwatch_repository_tree(
+    registry: State<'_, FileWatcherRegistry>,
+    workspace_id: String,
+) -> Result<(), AppError> {
+    registry.cancel(&workspace_id);
+    Ok(())
 }
 
 // ===========================================================================
