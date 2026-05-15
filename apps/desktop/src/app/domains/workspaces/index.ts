@@ -19,3 +19,4 @@ export {
 
 export { WorkspaceDetailPage } from './feature-detail/workspace-detail.page';
 export { FeatureChatTabBar } from './feature-chat-tab-bar/feature-chat-tab-bar';
+export { FeatureWorkspaceAside } from './feature-workspace-aside/feature-workspace-aside';

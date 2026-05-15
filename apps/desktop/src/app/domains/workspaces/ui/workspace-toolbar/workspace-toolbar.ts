@@ -17,9 +17,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { CliLoader } from '../cli-loader/cli-loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucidePanelRight } from '@ng-icons/lucide';
-import type { OpenInTool } from '../../data/open-in-tools';
 import { BranchPicker } from '../branch-picker/branch-picker';
-import { OpenInMenu } from '../open-in-menu/open-in-menu';
 
 @Component({
   selector: 'app-workspace-toolbar',
@@ -27,7 +25,6 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
     NgIcon,
     NgTemplateOutlet,
     BranchPicker,
-    OpenInMenu,
     HlmBreadcrumbImports,
     HlmButtonImports,
     HlmIconImports,
@@ -115,13 +112,6 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         class="flex shrink-0 items-center gap-1"
         data-tauri-drag-region="false"
       >
-        <app-open-in-menu
-          [tools]="tools()"
-          [lastUsed]="lastUsedTool()"
-          [subtitle]="workspaceTitle()"
-          (openIn)="openIn.emit($event)"
-        />
-
         <button
           hlmBtn
           variant="ghost"
@@ -149,15 +139,12 @@ export class WorkspaceToolbar {
   readonly currentBranch = input.required<string>();
   readonly targetBranch = input.required<string>();
   readonly selectableBranches = input.required<readonly string[]>();
-  readonly tools = input.required<readonly OpenInTool[]>();
-  readonly lastUsedTool = input.required<OpenInTool>();
   readonly isStreaming = input<boolean>(false);
   // When set, rendered before the breadcrumb (used to inject window controls
   // + sidebar toggle when the left panel is collapsed).
   readonly leadingSlot = input<TemplateRef<unknown> | null>(null);
 
   readonly targetBranchChange = output<string>();
-  readonly openIn = output<OpenInTool>();
   readonly toggleRightPanel = output<void>();
   readonly workspaceTitleChange = output<string>();
 

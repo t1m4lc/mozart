@@ -18,7 +18,6 @@ import { OsService } from '../../../core/os.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
 import { ChatFacade, FeatureChatPanel } from '../../chat';
 import { ProjectsFacade } from '../../projects';
-import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { FeatureChatTabBar } from '../feature-chat-tab-bar/feature-chat-tab-bar';
 import { ChatEmptyState } from '../ui/chat-empty-state/chat-empty-state';
@@ -49,12 +48,9 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       [currentBranch]="store.currentBranch()"
       [targetBranch]="store.targetBranch()"
       [selectableBranches]="store.selectableBranches()"
-      [tools]="tools"
-      [lastUsedTool]="store.lastUsedTool()"
       [isStreaming]="isStreaming()"
       [leadingSlot]="layout.leftPanelOpen() ? null : sidebarHeader()"
       (targetBranchChange)="store.setTargetBranch($event)"
-      (openIn)="store.openIn($event)"
       (toggleRightPanel)="layout.toggleRightPanel()"
       (workspaceTitleChange)="onRename($event)"
     />
@@ -108,7 +104,6 @@ export class WorkspaceDetailPage {
   protected readonly store = inject(WorkspaceDetailStore);
   protected readonly layout = inject(LayoutService);
   protected readonly isMac = inject(OsService).isMac();
-  protected readonly tools = OPEN_IN_TOOLS;
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly projects = inject(ProjectsFacade);
 

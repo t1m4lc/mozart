@@ -2,10 +2,11 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { OsService } from '../core/os.service';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
+import { FeatureWorkspaceAside } from '../domains/workspaces/feature-workspace-aside/feature-workspace-aside';
 
 @Component({
   selector: 'app-shell-aside',
-  imports: [HlmSidebarImports, NonMacWindowControls],
+  imports: [HlmSidebarImports, NonMacWindowControls, FeatureWorkspaceAside],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <hlm-sidebar
@@ -23,8 +24,8 @@ import { NonMacWindowControls } from '../core/window-controls/non-mac-window-con
           <app-non-mac-window-controls />
         }
       </div>
-      <div hlmSidebarContent class="bg-transparent">
-        <!-- TODO: aside (Files / Terminal / Run in v0.0.2) -->
+      <div hlmSidebarContent class="min-h-0 flex-1 bg-transparent p-0">
+        <app-feature-workspace-aside class="h-full w-full" />
       </div>
     </hlm-sidebar>
   `,
