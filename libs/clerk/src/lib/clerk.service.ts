@@ -118,6 +118,23 @@ export class ClerkService {
         '[clerk] signInWithOAuth invoked before client.signIn was ready',
       );
     }
+
+    // If a prior sign-in left a stale session cookie, Clerk's
+    // `authenticateWithRedirect` shortcuts the OAuth dance — POSTs
+    // /sign_ins, sees a session, and skips straight to redirectUrl
+    // instead of going to the provider. Sign out first so the new
+    // attempt actually exercises the OAuth provider.
+    if (clerk.session) {
+      console.warn(
+        '[clerk] active session detected before OAuth start — signing out so the new attempt is clean',
+      );
+      try {
+        await clerk.signOut();
+      } catch (err) {
+        console.warn('[clerk] pre-OAuth signOut failed (continuing):', err);
+      }
+    }
+
     // Resolve relative paths against the current origin. Clerk's SDK
     // is happier with absolute URLs and surfaces missing-redirect
     // errors faster when the value is unambiguous.
@@ -126,6 +143,12 @@ export class ClerkService {
       path.startsWith('http://') || path.startsWith('https://')
         ? path
         : new URL(path, origin).toString();
+
+    const absoluteRedirectUrl = toAbsolute(redirect.redirectUrl);
+    const absoluteRedirectUrlComplete = toAbsolute(redirect.redirectUrlComplete);
+    console.info(
+      `[clerk] signInWithOAuth ${strategy} → redirectUrl=${absoluteRedirectUrl} redirectUrlComplete=${absoluteRedirectUrlComplete}`,
+    );
 
     try {
       // The SDK's `authenticateWithRedirect` types `strategy` as a
@@ -136,9 +159,29 @@ export class ClerkService {
         strategy: strategy as Parameters<
           typeof signIn.authenticateWithRedirect
         >[0]['strategy'],
-        redirectUrl: toAbsolute(redirect.redirectUrl),
-        redirectUrlComplete: toAbsolute(redirect.redirectUrlComplete),
+        redirectUrl: absoluteRedirectUrl,
+        redirectUrlComplete: absoluteRedirectUrlComplete,
       });
+
+      // If we reach here, the SDK did NOT navigate the browser — that
+      // means the OAuth provider verification URL was missing from the
+      // /sign_ins response. The current sign-in attempt has the
+      // diagnostic detail ; surface it loudly so the user can copy
+      // the shape into a bug report.
+      console.error(
+        '[clerk] authenticateWithRedirect resolved WITHOUT navigating — OAuth provider likely misconfigured. Sign-in state:',
+        JSON.stringify(
+          {
+            status: clerk.client?.signIn?.status ?? null,
+            firstFactorVerification:
+              clerk.client?.signIn?.firstFactorVerification ?? null,
+            supportedFirstFactors:
+              clerk.client?.signIn?.supportedFirstFactors ?? null,
+          },
+          null,
+          2,
+        ),
+      );
     } catch (err) {
       console.error('[clerk] OAuth sign-in failed:', err);
       throw err;
