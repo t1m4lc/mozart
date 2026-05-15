@@ -13,12 +13,15 @@ import { HlmResizableImports } from '@mozart/ui/resizable';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { map } from 'rxjs/operators';
 import { HlmDialogService } from '@mozart/ui/dialog';
+import { ProfileFacade } from '../../profile';
 import {
   FeatureCommitDialog,
+  FeatureCreatePrDialog,
   FeatureFileDiff,
   FeatureFileTree,
   RepositoriesFacade,
   type CommitDialogContext,
+  type CreatePrDialogContext,
   type FileNode,
 } from '../../repositories';
 import { FeatureWorkspaceRun } from '../../runs';
@@ -59,8 +62,10 @@ function coerceTab(raw: string | null): AsideTab {
       [tools]="availableTools()"
       [lastUsedTool]="effectiveLastUsedTool()"
       [workspaceName]="workspaceName()"
+      [githubConnected]="profile.githubConnected()"
       (openIn)="onOpenIn($event)"
       (commit)="onCommit()"
+      (createPr)="onCreatePr()"
     />
 
     <hlm-tabs
@@ -145,6 +150,7 @@ function coerceTab(raw: string | null): AsideTab {
 })
 export class FeatureWorkspaceAside {
   protected readonly store = inject(WorkspaceDetailStore);
+  protected readonly profile = inject(ProfileFacade);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly repos = inject(RepositoriesFacade);
   private readonly ides = inject(IdeDetectionService);
@@ -239,6 +245,17 @@ export class FeatureWorkspaceAside {
       },
     };
     this.dialog.open(FeatureCommitDialog, { context });
+  }
+
+  protected onCreatePr(): void {
+    const id = this.workspaceId();
+    if (!id) return;
+    const ws = this.workspaces.workspaceById(id)();
+    const context: CreatePrDialogContext = {
+      workspaceId: id,
+      defaultTitle: ws?.name ?? '',
+    };
+    this.dialog.open(FeatureCreatePrDialog, { context });
   }
 
   protected onTabActivated(next: string): void {

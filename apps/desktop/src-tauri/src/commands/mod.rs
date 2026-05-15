@@ -36,6 +36,7 @@ use crate::commit::{self, ChangedFile};
 use crate::file_diff;
 use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
 use crate::file_watcher_registry::FileWatcherRegistry;
+use crate::github::{self, CreatedPr, GithubProbeResult};
 use crate::ide_launch::{self, DetectedIde};
 use crate::terminal::{self, TerminalEvent};
 use crate::terminal_registry::TerminalRegistry;
@@ -1662,6 +1663,114 @@ pub async fn commit_workspace(
         std::path::Path::new(&ws.worktree_path),
         &paths,
         &message,
+    )
+    .await
+}
+
+// ---------------------------------------------------------------------------
+// GitHub credentials + Create PR (Phase 4f atoms 3 + 4)
+// ---------------------------------------------------------------------------
+
+#[tauri::command]
+#[specta::specta]
+pub async fn has_github_token() -> Result<bool, AppError> {
+    keyring_store::has_github_token()
+}
+
+/// Probe the token via `GET /user`; on success store it in the
+/// keyring and return the resolved login. Failure leaves the keyring
+/// untouched.
+#[tauri::command]
+#[specta::specta]
+pub async fn connect_github(token: String) -> Result<GithubProbeResult, AppError> {
+    let probe = github::probe_token(&token).await;
+    if matches!(probe, GithubProbeResult::Ok { .. }) {
+        keyring_store::set_github_token(&token)?;
+    }
+    Ok(probe)
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn disconnect_github() -> Result<(), AppError> {
+    keyring_store::clear_github_token()
+}
+
+/// Push the workspace's branch to `origin` (with `-u`) using the local
+/// git binary. Resolves the origin URL via `git remote get-url origin`.
+/// Surfaces `Validation` if no `origin` is set.
+#[tauri::command]
+#[specta::specta]
+pub async fn push_workspace_branch(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<(), AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    let worktree = std::path::Path::new(&ws.worktree_path);
+    // Validate `origin` exists; the actual push uses `-u origin <branch>`.
+    let _origin = sandbox::run_git(worktree, &["remote", "get-url", "origin"])
+        .await
+        .map_err(|e| match e {
+            AppError::GitCmd(_) => AppError::Validation(
+                "this project has no `origin` remote configured".into(),
+            ),
+            other => other,
+        })?;
+    sandbox::run_git(
+        worktree,
+        &["push", "-u", "origin", &ws.branch_name],
+    )
+    .await?;
+    Ok(())
+}
+
+/// Push the branch (idempotent) then create a PR via the GitHub REST
+/// API. Requires a stored GitHub token; the project's origin must
+/// resolve to `github.com/<owner>/<repo>`.
+#[tauri::command]
+#[specta::specta]
+pub async fn create_workspace_pr(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    title: String,
+    body: String,
+    draft: bool,
+) -> Result<CreatedPr, AppError> {
+    let token = keyring_store::get_github_token()?
+        .ok_or_else(|| AppError::Validation("no GitHub token stored".into()))?;
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    let worktree = std::path::Path::new(&ws.worktree_path);
+    let origin_raw = sandbox::run_git(worktree, &["remote", "get-url", "origin"])
+        .await
+        .map_err(|e| match e {
+            AppError::GitCmd(_) => AppError::Validation(
+                "this project has no `origin` remote configured".into(),
+            ),
+            other => other,
+        })?;
+    let (owner, repo) = github::parse_github_remote(origin_raw.trim()).ok_or_else(
+        || AppError::Validation("origin is not a github.com URL".into()),
+    )?;
+    sandbox::run_git(
+        worktree,
+        &["push", "-u", "origin", &ws.branch_name],
+    )
+    .await?;
+    github::create_pr(
+        &token,
+        &owner,
+        &repo,
+        &ws.branch_name,
+        &ws.base_branch,
+        &title,
+        &body,
+        draft,
     )
     .await
 }

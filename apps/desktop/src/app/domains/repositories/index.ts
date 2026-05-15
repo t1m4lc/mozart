@@ -22,6 +22,10 @@ export {
   type CommitDialogContext,
 } from './feature-commit-dialog/feature-commit-dialog';
 export {
+  FeatureCreatePrDialog,
+  type CreatePrDialogContext,
+} from './feature-create-pr-dialog/feature-create-pr-dialog';
+export {
   parseUnifiedDiff,
   type DiffLine,
   type DiffLineKind,

@@ -1,6 +1,6 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import type { Connection, ProbeResult } from './connection.model';
-import { CREDENTIALS_ADAPTER } from './credentials.adapter';
+import { CREDENTIALS_ADAPTER, type GithubProbe } from './credentials.adapter';
 import { ProfileStore } from './profile.store';
 
 // Public API of the `profile` domain. Features inject this — never the
@@ -80,5 +80,47 @@ export class ProfileFacade {
       return;
     }
     this.store.setStatus('not_connected');
+  }
+
+  // ---------- GitHub (Phase 4f) ----------
+  // Minimal state: 'unknown' before the boot probe resolves, 'none' if
+  // no token stored, 'connected' once a token is verified. The login
+  // is held alongside for display in the settings card.
+
+  private readonly _githubState = signal<'unknown' | 'none' | 'connected'>(
+    'unknown',
+  );
+  private readonly _githubLogin = signal<string | null>(null);
+  readonly githubState = computed(() => this._githubState());
+  readonly githubLogin = computed(() => this._githubLogin());
+  readonly githubConnected = computed(() => this._githubState() === 'connected');
+
+  /** Idempotent boot probe: if a token is stored, mark connected. We
+   *  don't re-validate against the GitHub API here — the user's first
+   *  push or PR creation will surface a stale-token error inline. */
+  async initializeGithub(): Promise<void> {
+    if (this._githubState() !== 'unknown') return;
+    try {
+      const present = await this.credentials.hasGithubToken();
+      this._githubState.set(present ? 'connected' : 'none');
+    } catch (err) {
+      console.warn('[profile] github init failed:', err);
+      this._githubState.set('none');
+    }
+  }
+
+  async connectGithub(token: string): Promise<GithubProbe> {
+    const result = await this.credentials.connectGithub(token);
+    if (result.kind === 'ok') {
+      this._githubLogin.set(result.login);
+      this._githubState.set('connected');
+    }
+    return result;
+  }
+
+  async disconnectGithub(): Promise<void> {
+    await this.credentials.disconnectGithub();
+    this._githubLogin.set(null);
+    this._githubState.set('none');
   }
 }

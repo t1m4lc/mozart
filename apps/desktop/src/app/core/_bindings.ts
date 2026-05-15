@@ -652,6 +652,61 @@ async commitWorkspace(workspaceId: string, paths: string[], message: string) : P
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+async hasGithubToken() : Promise<Result<boolean, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("has_github_token") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Probe the token via `GET /user`; on success store it in the
+ * keyring and return the resolved login. Failure leaves the keyring
+ * untouched.
+ */
+async connectGithub(token: string) : Promise<Result<GithubProbeResult, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("connect_github", { token }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+async disconnectGithub() : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("disconnect_github") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Push the workspace's branch to `origin` (with `-u`) using the local
+ * git binary. Resolves the origin URL via `git remote get-url origin`.
+ * Surfaces `Validation` if no `origin` is set.
+ */
+async pushWorkspaceBranch(workspaceId: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("push_workspace_branch", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Push the branch (idempotent) then create a PR via the GitHub REST
+ * API. Requires a stored GitHub token; the project's origin must
+ * resolve to `github.com/<owner>/<repo>`.
+ */
+async createWorkspacePr(workspaceId: string, title: string, body: string, draft: boolean) : Promise<Result<CreatedPr, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("create_workspace_pr", { workspaceId, title, body, draft }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 
@@ -694,6 +749,10 @@ export type Chat = { chat_id: string; workspace_id: string; title: string; llm_i
  * Outcome of probing for the `claude` CLI.
  */
 export type ClaudeInstall = { kind: "installed"; version: string } | { kind: "missing" }
+/**
+ * Outcome of `POST /repos/{owner}/{repo}/pulls`.
+ */
+export type CreatedPr = { number: number; html_url: string }
 export type DetectedIde = { 
 /**
  * Stable identifier (e.g. `"vscode"`).
@@ -738,6 +797,10 @@ children: FileNodeDto[] | null }
  * single variant — the front-end re-fetches on every ping.
  */
 export type FileTreeEvent = { kind: "changed" }
+/**
+ * Result of a `GET /user` probe with the candidate token.
+ */
+export type GithubProbeResult = { kind: "ok"; login: string } | { kind: "unauthorized" } | { kind: "network"; message: string }
 /**
  * Outcome of an attempt to install package-manager dependencies for a
  * workspace. `ran=false` means no `package.json` was found; the other

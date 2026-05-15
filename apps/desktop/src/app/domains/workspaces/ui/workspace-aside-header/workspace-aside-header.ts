@@ -9,7 +9,11 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideGitBranch, lucideGitCommitVertical } from '@ng-icons/lucide';
+import {
+  lucideGitBranch,
+  lucideGitCommitVertical,
+  lucideGitPullRequest,
+} from '@ng-icons/lucide';
 import type { OpenInTool } from '../../data/open-in-tools';
 import { OpenInMenu } from '../open-in-menu/open-in-menu';
 
@@ -23,7 +27,13 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
     HlmIconImports,
     HlmTooltipImports,
   ],
-  providers: [provideIcons({ lucideGitBranch, lucideGitCommitVertical })],
+  providers: [
+    provideIcons({
+      lucideGitBranch,
+      lucideGitCommitVertical,
+      lucideGitPullRequest,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -63,6 +73,22 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         <ng-icon hlm name="lucideGitCommitVertical" size="xs" />
         <span>Commit</span>
       </button>
+
+      @if (githubConnected()) {
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          type="button"
+          class="h-7 px-2 text-xs font-normal text-muted-foreground"
+          hlmTooltip="Open a pull request"
+          position="bottom"
+          (click)="createPr.emit()"
+        >
+          <ng-icon hlm name="lucideGitPullRequest" size="xs" />
+          <span>PR</span>
+        </button>
+      }
     </div>
   `,
 })
@@ -71,7 +97,9 @@ export class WorkspaceAsideHeader {
   readonly tools = input.required<readonly OpenInTool[]>();
   readonly lastUsedTool = input.required<OpenInTool>();
   readonly workspaceName = input<string>('');
+  readonly githubConnected = input<boolean>(false);
 
   readonly openIn = output<OpenInTool>();
   readonly commit = output<void>();
+  readonly createPr = output<void>();
 }

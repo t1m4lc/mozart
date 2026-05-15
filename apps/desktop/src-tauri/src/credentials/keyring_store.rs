@@ -11,9 +11,14 @@ use crate::error::AppError;
 
 const SERVICE: &str = "mozart";
 const ACCOUNT_ANTHROPIC: &str = "anthropic_api_key";
+const ACCOUNT_GITHUB: &str = "github_token";
 
 fn entry() -> Result<Entry, AppError> {
     Entry::new(SERVICE, ACCOUNT_ANTHROPIC).map_err(AppError::from)
+}
+
+fn github_entry() -> Result<Entry, AppError> {
+    Entry::new(SERVICE, ACCOUNT_GITHUB).map_err(AppError::from)
 }
 
 /// Returns `true` iff a key is currently stored. Never returns the value.
@@ -43,6 +48,35 @@ pub fn set_anthropic_key(key: &str) -> Result<(), AppError> {
 /// Idempotent removal — `NoEntry` is treated as success.
 pub fn clear_anthropic_key() -> Result<(), AppError> {
     match entry()?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(AppError::from(e)),
+    }
+}
+
+// ---------- GitHub Personal Access Token (Phase 4f) ----------
+
+pub fn has_github_token() -> Result<bool, AppError> {
+    match github_entry()?.get_password() {
+        Ok(_) => Ok(true),
+        Err(keyring::Error::NoEntry) => Ok(false),
+        Err(e) => Err(AppError::from(e)),
+    }
+}
+
+pub fn get_github_token() -> Result<Option<String>, AppError> {
+    match github_entry()?.get_password() {
+        Ok(t) => Ok(Some(t)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(AppError::from(e)),
+    }
+}
+
+pub fn set_github_token(token: &str) -> Result<(), AppError> {
+    github_entry()?.set_password(token).map_err(AppError::from)
+}
+
+pub fn clear_github_token() -> Result<(), AppError> {
+    match github_entry()?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(AppError::from(e)),
     }

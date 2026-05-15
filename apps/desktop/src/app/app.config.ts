@@ -39,6 +39,7 @@ export const appConfig: ApplicationConfig = {
       // user actually has on PATH.
       void workspaces.detectIdes();
       void profile.initialize();
+      void profile.initializeGithub();
     }),
   ],
 };

@@ -23,7 +23,22 @@ export interface CredentialsAdapter {
   // Re-probe the currently stored key. Caller must guarantee a key is
   // stored (use `hasStoredKey` to gate).
   refresh(): Promise<ProbeResult>;
+
+  // ---------- GitHub (Phase 4f) ----------
+  /** Cheap presence check on the OS keyring. Never returns the token. */
+  hasGithubToken(): Promise<boolean>;
+  /** Probe + store a personal-access token. On 'unauthorized' /
+   *  'network_error' the token is NOT persisted. Returns the resolved
+   *  login on success. */
+  connectGithub(token: string): Promise<GithubProbe>;
+  /** Idempotent removal of the stored token. */
+  disconnectGithub(): Promise<void>;
 }
+
+export type GithubProbe =
+  | { kind: 'ok'; login: string }
+  | { kind: 'unauthorized' }
+  | { kind: 'network_error'; message: string };
 
 export const CREDENTIALS_ADAPTER = new InjectionToken<CredentialsAdapter>(
   'CREDENTIALS_ADAPTER',

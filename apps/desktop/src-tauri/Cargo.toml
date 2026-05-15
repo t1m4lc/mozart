@@ -51,7 +51,7 @@ keyring = "3"
 # HTTP probe for `GET https://api.anthropic.com/v1/models` (Step 6 connection
 # card). `rustls-tls` avoids the system OpenSSL dep; we don't parse response
 # bodies, so no `json` feature is needed — status codes carry the result.
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 rusqlite = { version = "0.31", features = ["bundled"] }
 thiserror = "1"
 

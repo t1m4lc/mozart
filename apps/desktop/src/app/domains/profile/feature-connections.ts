@@ -5,7 +5,6 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideWifiOff } from '@ng-icons/lucide';
 import { ConnectivityService } from '../../core/connectivity.service';
 import { ProfileFacade } from './data/profile.facade';
-import { UiComingSoonCard } from './ui-coming-soon-card';
 import { UiConnectDialog } from './ui-connect-dialog';
 import {
   ConfirmDisconnectContext,
@@ -13,13 +12,15 @@ import {
 } from './ui-confirm-disconnect-dialog';
 import { UiConnectionCard } from './ui-connection-card';
 import { UiConnectionHelpDialog } from './ui-connection-help-dialog';
+import { UiGithubCard } from './ui-github-card';
+import { UiGithubConnectDialog } from './ui-github-connect-dialog';
 
 // Composes the `/settings` connection list. v0.0.1 ships one live card
 // (Anthropic) and a disabled placeholder (GitHub). v0.1.0 turns the
 // placeholder into a real integration.
 @Component({
   selector: 'app-feature-connections',
-  imports: [UiConnectionCard, UiComingSoonCard, NgIcon, HlmIconImports],
+  imports: [UiConnectionCard, UiGithubCard, NgIcon, HlmIconImports],
   providers: [provideIcons({ lucideWifiOff })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
@@ -52,10 +53,11 @@ import { UiConnectionHelpDialog } from './ui-connection-help-dialog';
           (useApiKey)="onUseApiKey()"
           (help)="onHelp()"
         />
-        <app-ui-coming-soon-card
-          name="GitHub"
-          description="Pull requests, code review"
-          icon="lucideGithub"
+        <app-ui-github-card
+          [connected]="facade.githubConnected()"
+          [login]="facade.githubLogin()"
+          (connect)="onConnectGithub()"
+          (disconnect)="onDisconnectGithub()"
         />
       </div>
     </section>
@@ -71,6 +73,15 @@ export class FeatureConnections {
     // (in app.config.ts) and this call cooperate via the facade's own
     // guard (`status === 'unknown'`).
     void this.facade.initialize();
+    void this.facade.initializeGithub();
+  }
+
+  protected onConnectGithub(): void {
+    this.dialogService.open(UiGithubConnectDialog, {});
+  }
+
+  protected onDisconnectGithub(): void {
+    void this.facade.disconnectGithub();
   }
 
   // Connect-button flow. The facade re-checks the claude /login session

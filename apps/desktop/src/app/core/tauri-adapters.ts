@@ -285,6 +285,23 @@ function provideCredentialsAdapter(): Provider {
         if (r.status === 'error') throw new Error(r.error.kind);
         return r.data.kind;
       },
+      async hasGithubToken() {
+        const r = await commands.hasGithubToken();
+        if (r.status === 'error') throw new Error(r.error.kind);
+        return r.data;
+      },
+      async connectGithub(token: string) {
+        const r = await commands.connectGithub(token);
+        if (r.status === 'error') throw new Error(r.error.kind);
+        const probe = r.data;
+        if (probe.kind === 'ok') return { kind: 'ok', login: probe.login };
+        if (probe.kind === 'unauthorized') return { kind: 'unauthorized' };
+        return { kind: 'network_error', message: probe.message };
+      },
+      async disconnectGithub() {
+        const r = await commands.disconnectGithub();
+        if (r.status === 'error') throw new Error(r.error.kind);
+      },
     }),
   };
 }

@@ -10,6 +10,7 @@ pub mod file_diff;
 pub mod file_tree;
 pub mod file_watcher_registry;
 pub mod git_query;
+pub mod github;
 pub mod ide_launch;
 pub mod run_registry;
 pub mod sandbox;
