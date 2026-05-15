@@ -2,10 +2,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  inject,
   input,
   model,
   output,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FileChipBus } from './file-chip-bus';
 import { MessageBody } from './message-body';
 import { Timeline } from './timeline';
 import { TurnBody } from './turn-body';
@@ -17,9 +20,10 @@ import type {
 
 // Phase 3b — public agent-turn container. Consumed by the chat
 // domain's AgentMessage smart wrapper. Owns the header (shimmer
-// summary + chevron) and the collapsible body (which currently hosts
-// the existing MessageBody for streamed prose). Future atoms add the
-// vertical timeline + done/error markers inside the body.
+// summary + chevron), the collapsible body (streamed prose +
+// vertical timeline of items + done/error markers), and routes
+// file-chip clicks from dynamically-mounted renderers up to the host
+// via a per-turn FileChipBus.
 //
 // The collapsed state is local UI state — never derived from stream
 // events. The host can two-way-bind it via `[(collapsed)]` if it
@@ -28,6 +32,7 @@ import type {
 @Component({
   selector: 'hlm-turn-container',
   imports: [TurnHeader, TurnBody, MessageBody, Timeline],
+  providers: [FileChipBus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -58,9 +63,6 @@ export class TurnContainer {
   readonly state = input.required<TurnState>();
   readonly collapsed = model<boolean>(false);
 
-  // Reserved for Atom 4 (file chip click → host routes to diff aside
-  // or copies path). Defined here so the public surface is stable
-  // before the wiring lands.
   readonly fileChipClick = output<TurnFileChipEvent>();
 
   protected readonly _hasText = computed(() => this.state().text.length > 0);
@@ -68,4 +70,10 @@ export class TurnContainer {
     const s = this.state();
     return s.items.length > 0 || !!s.outcome;
   });
+
+  constructor() {
+    inject(FileChipBus)
+      .clicked.pipe(takeUntilDestroyed())
+      .subscribe((path) => this.fileChipClick.emit({ path }));
+  }
 }
