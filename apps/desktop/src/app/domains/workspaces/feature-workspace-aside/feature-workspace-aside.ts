@@ -3,15 +3,26 @@ import {
   Component,
   computed,
   inject,
-  signal,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { ActivatedRoute, Router } from '@angular/router';
 import { HlmTabsImports } from '@mozart/ui/tabs';
+import { map } from 'rxjs/operators';
 import { OPEN_IN_TOOLS } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { WorkspaceDetailStore } from '../feature-detail/workspace-detail.store';
 import { WorkspaceAsideHeader } from '../ui/workspace-aside-header/workspace-aside-header';
 
 type AsideTab = 'files' | 'terminal' | 'run';
+
+const TAB_VALUES: readonly AsideTab[] = ['files', 'terminal', 'run'] as const;
+const DEFAULT_TAB: AsideTab = 'files';
+
+function coerceTab(raw: string | null): AsideTab {
+  return (TAB_VALUES as readonly string[]).includes(raw ?? '')
+    ? (raw as AsideTab)
+    : DEFAULT_TAB;
+}
 
 @Component({
   selector: 'app-feature-workspace-aside',
@@ -82,10 +93,17 @@ type AsideTab = 'files' | 'terminal' | 'run';
 export class FeatureWorkspaceAside {
   protected readonly store = inject(WorkspaceDetailStore);
   private readonly workspaces = inject(WorkspacesFacade);
+  private readonly route = inject(ActivatedRoute);
+  private readonly router = inject(Router);
 
   protected readonly tools = OPEN_IN_TOOLS;
 
-  protected readonly activeTab = signal<AsideTab>('files');
+  // Reflects `?tab=...` from the URL; default `files` so the param can
+  // stay absent in the canonical case.
+  protected readonly activeTab = toSignal(
+    this.route.queryParamMap.pipe(map((p) => coerceTab(p.get('tab')))),
+    { initialValue: DEFAULT_TAB },
+  );
 
   protected readonly branch = computed(() => this.store.currentBranch());
 
@@ -96,8 +114,13 @@ export class FeatureWorkspaceAside {
   });
 
   protected onTabActivated(next: string): void {
-    if (next === 'files' || next === 'terminal' || next === 'run') {
-      this.activeTab.set(next);
-    }
+    const tab = coerceTab(next);
+    if (tab === this.activeTab()) return;
+    this.router.navigate([], {
+      relativeTo: this.route,
+      queryParams: { tab: tab === DEFAULT_TAB ? null : tab },
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+    });
   }
 }
