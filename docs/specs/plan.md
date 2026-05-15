@@ -1637,6 +1637,44 @@ These three phases are NOT part of v0.0.1 MVP. They run after.
 They sit before any post-production feature work (skills
 shortcuts, chats group, metrics dashboard, telemetry, etc.).
 
+## Pre-Phase-7 gate — Post-MVP audit
+
+Before Phase 7 starts, run a **post-MVP audit** that does three
+things in a single Claude Code session :
+
+1. **Verify** that all 6 MVP phases shipped what they promised
+   (per-phase walkthrough against the demoable milestones).
+2. **Integrate user remarks** : the user pastes their list of
+   observations (UX glitches, performance hiccups, missing
+   details) into the prompt before running it ; the audit
+   treats them as first-class inputs alongside spec drift.
+3. **Extract functional test scenarios** into `docs/test/` —
+   one file per phase + a cross-phase file — using a Given /
+   When / Then format. These scenarios become the source of
+   truth that Phase 8 implements as automated e2e tests.
+
+Outputs land in :
+
+- `docs/audit/v0.0.1-post-mvp-audit.md` — findings +
+  consolidated improvement task list ranked by priority
+- `docs/test/README.md` + `docs/test/phase-N-*.md` +
+  `docs/test/cross-phase-flows.md` — functional test scenarios
+
+The improvement task list from this audit becomes the **concrete
+input for Phase 7**. Without it, Phase 7 is a generic refactor ;
+with it, Phase 7 has a numbered list of things to fix.
+
+Run via the prompt at `docs/prompts/post-mvp-audit-prompt.md`.
+Effort : High.
+
+> **Note on testing philosophy.** The audit extracts user-facing
+> behaviors, not implementation details. That's deliberate :
+> Phase 8 e2e tests should be robust against refactors. Unit
+> tests for pure logic (parsers, reducers, mappers) are added
+> alongside Phase 8 implementation but are NOT what the audit
+> generates — those are written by the implementer in Phase 8
+> based on the code, not the audit.
+
 ## Phase 7 — Refactor & UI state store cleanup
 
 ### Goal
@@ -1646,6 +1684,13 @@ shortcuts, chats group, metrics dashboard, telemetry, etc.).
 > dedicated pass to tidy up, normalize the store layer to one
 > consistent pattern, and make all app state visible in the
 > Redux DevTools browser extension."_
+
+### Input
+
+- `docs/audit/v0.0.1-post-mvp-audit.md` — the consolidated
+  improvement task list from the post-MVP audit gate (see
+  above). Phase 7 starts by walking through every blocker and
+  every major in that list before touching anything else.
 
 ### Scope
 
@@ -1711,6 +1756,14 @@ the app → time-travel through last 10 actions.
 > run in CI before any merge. Refactors can land without fear of
 > silently breaking the prompt-to-PR loop."_
 
+### Input
+
+- `docs/test/*.md` — functional test scenarios produced by the
+  post-MVP audit (one file per phase + `cross-phase-flows.md`).
+  These are the **source of truth** for what to test. Phase 8
+  starts by reading every scenario and prioritizing MUST-level
+  scenarios for the first batch.
+
 ### Testing philosophy
 
 Mozart follows a deliberate testing strategy :
@@ -1723,7 +1776,7 @@ Mozart follows a deliberate testing strategy :
     components or templates** — they add noise without value.
 - **E2e tests** : the main investment. Test what the user does,
   not how the code is structured. Run against the built desktop
-  binary.
+  binary. The scenarios in `docs/test/` define the contract.
 - **No integration tests** in between. The dichotomy unit-pure
   vs e2e-flow covers the spectrum.
 
@@ -1736,40 +1789,28 @@ Mozart follows a deliberate testing strategy :
     offs
 - **`apps/desktop-e2e` project setup** in the Nx monorepo,
   separate from `apps/desktop`
-- **Test scenarios** (the ~10 e2e tests of MVP) :
-  1. Onboarding happy path : sign-in → Git OK → Claude Code
-     login → GitHub connect → tour finish
-  2. Onboarding skip path : sign-in → Git OK → Claude Code via
-     API key → skip GitHub → skip tour
-  3. Add project flow (Open project card → existing git folder
-     → workspace auto-created → composer focused)
-  4. Add project flow (Quick start → folder created → GitHub
-     repo created → workspace ready)
-  5. Send message in Agent mode → assistant streams response →
-     a file is created on disk
-  6. Send message in Ask mode → assistant responds without file
-     edits (read-only enforced)
-  7. Send message in Plan mode → plan_proposal shows → user
-     approves → execution proceeds (Phase 3b dependency)
-  8. Open in IDE handoff → external command spawned
-  9. Commit dialog → commit lands → Create PR dialog → PR
-     submitted → URL displayed
-  10. Restart app while authenticated → straight to dashboard
-      without re-auth
+- **Test scenarios** : implement every MUST-priority scenario
+  from `docs/test/*.md`. SHOULD-priority scenarios in batch 2.
+  COULD-priority scenarios deferred to post-Phase-9 polish. The
+  exact scenario list lives in `docs/test/`, not duplicated
+  here.
 - **CI integration** : tests run on every PR, block merge on
   failure
-- **Per-phase coverage** : retroactively add an e2e test for
-  every demoable milestone from Phases 1-6 that isn't already
-  covered
+- **Unit tests batch** : ~30 unit tests added alongside the e2e
+  work, focused on `domains/llm-model/data/stream/` (parser +
+  reducer fixtures, edge cases) + a handful of adapter mappers
+  - critical store state transitions. Per the testing
+    philosophy above — pure logic only, no component tests.
 
 ### Deliverables
 
 1. `apps/desktop-e2e/` project bootstrapped
-2. ~10 e2e tests passing locally + in CI
+2. Every MUST-priority scenario from `docs/test/` passing
+   locally + in CI
 3. CI pipeline updated to run e2e on every PR
 4. README in `apps/desktop-e2e/` documenting how to run / debug
-5. A small `~30` unit tests landed in `domains/llm-model` + a
-   few critical mappers (per testing philosophy above)
+5. ~30 unit tests landed in `domains/llm-model` + a few
+   critical mappers / stores
 
 ### Demoable milestone
 
