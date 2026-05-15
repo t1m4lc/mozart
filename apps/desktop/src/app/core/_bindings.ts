@@ -776,6 +776,21 @@ async setOnboardingCompleted(value: boolean) : Promise<Result<null, AppError>> {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
 }
+},
+/**
+ * Phase 6 / Atom 2 — detection probe for the onboarding wizard's Git
+ * step. Spawns `git --version` (argv form, no shell) and parses the
+ * stdout line `git version X.Y.Z`. Returns `None` when the binary is
+ * not on PATH or the invocation fails. UI shows ✅ X.Y.Z or ❌ Not
+ * found with OS-specific install copy.
+ */
+async gitVersion() : Promise<Result<string | null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("git_version") };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
 }
 }
 

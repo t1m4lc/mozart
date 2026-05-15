@@ -14,7 +14,8 @@ import {
   type MessagesAdapter,
 } from '../domains/chat';
 import { LLM_ADAPTER, TauriClaudeAdapter } from '../domains/llm-model';
-import { ONBOARDING_ADAPTER } from '../domains/onboarding';
+import { GIT_CHECK_ADAPTER, ONBOARDING_ADAPTER } from '../domains/onboarding';
+import { tauriGitCheckAdapter } from '../domains/onboarding/data/tauri-git-check.adapter';
 import { tauriOnboardingAdapter } from '../domains/onboarding/data/tauri-onboarding.adapter';
 import {
   CREDENTIALS_ADAPTER,
@@ -73,6 +74,13 @@ function provideOnboardingAdapter(): Provider {
   return {
     provide: ONBOARDING_ADAPTER,
     useFactory: () => tauriOnboardingAdapter(),
+  };
+}
+
+function provideGitCheckAdapter(): Provider {
+  return {
+    provide: GIT_CHECK_ADAPTER,
+    useFactory: () => tauriGitCheckAdapter(),
   };
 }
 
@@ -426,6 +434,7 @@ export function provideTauriAdapters(): Provider[] {
   return [
     provideAuthAdapter(),
     provideOnboardingAdapter(),
+    provideGitCheckAdapter(),
     provideDialogAdapter(),
     provideProjectsAdapter(),
     provideWorkspacesAdapter(),

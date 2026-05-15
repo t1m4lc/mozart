@@ -1807,6 +1807,37 @@ pub async fn auth_clear_session() -> Result<(), AppError> {
 }
 
 // ---------------------------------------------------------------------------
+// git_version
+// ---------------------------------------------------------------------------
+
+/// Phase 6 / Atom 2 — detection probe for the onboarding wizard's Git
+/// step. Spawns `git --version` (argv form, no shell) and parses the
+/// stdout line `git version X.Y.Z`. Returns `None` when the binary is
+/// not on PATH or the invocation fails. UI shows ✅ X.Y.Z or ❌ Not
+/// found with OS-specific install copy.
+#[tauri::command]
+#[specta::specta]
+pub async fn git_version() -> Result<Option<String>, AppError> {
+    use std::process::Command;
+    let result = Command::new("git").arg("--version").output();
+    let output = match result {
+        Ok(o) => o,
+        Err(_) => return Ok(None),
+    };
+    if !output.status.success() {
+        return Ok(None);
+    }
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    // Format : "git version 2.42.0\n" (sometimes with trailing tag).
+    // We isolate the third whitespace-separated token.
+    let version = stdout
+        .split_whitespace()
+        .nth(2)
+        .map(|s| s.trim_end_matches('\n').to_string());
+    Ok(version)
+}
+
+// ---------------------------------------------------------------------------
 // get_onboarding_completed / set_onboarding_completed
 // ---------------------------------------------------------------------------
 

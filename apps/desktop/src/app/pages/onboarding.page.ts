@@ -1,17 +1,21 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
 import {
+  FeatureOnboardingStepGit,
+  FeatureOnboardingStepWelcome,
   OnboardingFacade,
   UiOnboardingStepShell,
 } from '../domains/onboarding';
 
-// Phase 6 / Atom 1 — `/onboarding` route shell. Renders the current
-// step's feature component based on `OnboardingFacade.currentStep()`.
-// Atoms 2-4 plug in the real step features ; Atom 1 ships placeholder
-// content so the route + guard can be exercised end-to-end.
+// Phase 6 / Atoms 1-4 — `/onboarding` route shell. Switches between
+// step features driven by `OnboardingFacade.currentStep()`. Atom 2
+// wires steps 1 + 2 ; Atoms 3-4 add steps 3-4.
 @Component({
   selector: 'app-onboarding-page',
-  imports: [HlmButtonImports, UiOnboardingStepShell],
+  imports: [
+    UiOnboardingStepShell,
+    FeatureOnboardingStepWelcome,
+    FeatureOnboardingStepGit,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-screen w-screen overflow-y-auto bg-background' },
   template: `
@@ -21,18 +25,10 @@ import {
     >
       @switch (facade.currentStep()) {
         @case ('welcome') {
-          <div class="space-y-3 text-center">
-            <h1 class="text-2xl font-semibold">Welcome to Mozart</h1>
-            <p class="text-sm text-muted-foreground">
-              Let's set up your environment in 4 quick steps.
-            </p>
-          </div>
+          <app-feature-onboarding-step-welcome />
         }
         @case ('git') {
-          <div class="space-y-2 text-center">
-            <h2 class="text-lg font-medium">Step 2 — Install Git</h2>
-            <p class="text-sm text-muted-foreground">Detection wired in Atom 2.</p>
-          </div>
+          <app-feature-onboarding-step-git />
         }
         @case ('provider') {
           <div class="space-y-2 text-center">
@@ -46,38 +42,6 @@ import {
             <p class="text-sm text-muted-foreground">GitHub connect wired in Atom 4.</p>
           </div>
         }
-      }
-
-      <button
-        footer-left
-        hlmBtn
-        variant="ghost"
-        type="button"
-        [disabled]="facade.currentStep() === 'welcome'"
-        (click)="facade.back()"
-      >
-        Back
-      </button>
-      @if (facade.currentStep() === 'github') {
-        <button
-          footer-right
-          hlmBtn
-          type="button"
-          (click)="facade.complete()"
-        >
-          Finish
-        </button>
-      } @else {
-        <button
-          footer-right
-          hlmBtn
-          type="button"
-          (click)="facade.advance()"
-        >
-          {{
-            facade.currentStep() === 'welcome' ? "Let's go" : 'Continue'
-          }}
-        </button>
       }
     </app-ui-onboarding-step-shell>
   `,

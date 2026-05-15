@@ -11,5 +11,11 @@ export {
   ONBOARDING_ADAPTER,
   type OnboardingAdapter,
 } from './data/onboarding.adapter';
+export {
+  GIT_CHECK_ADAPTER,
+  type GitCheckAdapter,
+} from './data/git-check.adapter';
 export { onboardingGuard } from './onboarding.guard';
 export { UiOnboardingStepShell } from './ui-onboarding-step-shell';
+export { FeatureOnboardingStepWelcome } from './feature-onboarding-step-welcome';
+export { FeatureOnboardingStepGit } from './feature-onboarding-step-git';
