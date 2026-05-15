@@ -112,19 +112,37 @@ export class ClerkService {
     redirect: ClerkRedirectOptions,
   ): Promise<void> {
     const clerk = this.requireClerk();
-    // The SDK's `authenticateWithRedirect` types `strategy` as a
-    // narrower union than our public `OAuthStrategy` (it adds
-    // 'enterprise_sso'). Cast at this single boundary — consumers see
-    // our wider type, the SDK still validates at runtime.
-    await clerk.client?.signIn?.authenticateWithRedirect({
-      strategy: strategy as Parameters<
-        NonNullable<
-          NonNullable<Clerk['client']>['signIn']
-        >['authenticateWithRedirect']
-      >[0]['strategy'],
-      redirectUrl: redirect.redirectUrl,
-      redirectUrlComplete: redirect.redirectUrlComplete,
-    });
+    const signIn = clerk.client?.signIn;
+    if (!signIn) {
+      throw new Error(
+        '[clerk] signInWithOAuth invoked before client.signIn was ready',
+      );
+    }
+    // Resolve relative paths against the current origin. Clerk's SDK
+    // is happier with absolute URLs and surfaces missing-redirect
+    // errors faster when the value is unambiguous.
+    const origin = window.location.origin;
+    const toAbsolute = (path: string) =>
+      path.startsWith('http://') || path.startsWith('https://')
+        ? path
+        : new URL(path, origin).toString();
+
+    try {
+      // The SDK's `authenticateWithRedirect` types `strategy` as a
+      // narrower union than our public `OAuthStrategy` (it adds
+      // 'enterprise_sso'). Cast at this single boundary — consumers
+      // see our wider type, the SDK still validates at runtime.
+      await signIn.authenticateWithRedirect({
+        strategy: strategy as Parameters<
+          typeof signIn.authenticateWithRedirect
+        >[0]['strategy'],
+        redirectUrl: toAbsolute(redirect.redirectUrl),
+        redirectUrlComplete: toAbsolute(redirect.redirectUrlComplete),
+      });
+    } catch (err) {
+      console.error('[clerk] OAuth sign-in failed:', err);
+      throw err;
+    }
   }
 
   /**

@@ -55,27 +55,91 @@ configure custom JWT templates that bake user metadata into the token.
 > fields and falls back to safe defaults (`onboarding ?? false`,
 > empty name, etc.).
 
-## 3. Allow apps/web's dev origin
+## 3. Configure Clerk's development host + paths
 
-By default Clerk only accepts traffic from the production-style URL
-you configure under your application's instance. For local dev :
+Clerk needs to know **where** your local app lives and **which paths**
+serve sign-in, sign-up, and post-auth landings. Without this the
+OAuth flow creates a sign-in attempt successfully but never redirects
+to GitHub / Google — Clerk falls back to its hosted Account Portal
+URL, the browser bounces back to your app's redirect target without
+a session, and the dashboard shows "Mozart isn't responding".
+
+### 3.1 Add apps/web's origin
 
 1. In the dashboard, open **Domains**.
 2. Under **Development**, add `https://localhost:4201`.
 3. Save.
 
-The Mozart dev server runs apps/web at `https://localhost:4201`
-(see `apps/web/project.json` — `ssl: true`). The first browser visit
-prompts you to accept the Angular self-signed cert — that's expected,
-accept it once and Clerk's redirects will work for the rest of the
-session.
+> The Mozart dev server runs apps/web at `https://localhost:4201`
+> (see `apps/web/project.json` — `ssl: true`). The first browser
+> visit prompts you to accept the Angular self-signed cert — that's
+> expected, accept it once and Clerk's redirects work for the rest
+> of the session.
+
+### 3.2 Set the Fallback Development Host
+
+1. In the dashboard, open **Customization → Paths** (sometimes nested
+   under **Configure → Paths**, depending on Clerk's UI version).
+2. Set **Fallback Development Host** to `https://localhost:4201`.
+3. Save.
+
+This tells Clerk : "when running in development mode, route all
+post-OAuth redirects through this origin." Without it Clerk uses
+its `clerk.accounts.dev` Account Portal hostname and never reaches
+apps/web.
+
+### 3.3 Set the path values
+
+In the same **Paths** screen, with the host set to
+`https://localhost:4201`, populate the path fields :
+
+| Field | Value |
+| --- | --- |
+| **Home URL** | `https://localhost:4201/dashboard` |
+| **Unauthorized sign-in URL** | `https://localhost:4201/login` |
+| **Sign-in page on development host** | `https://localhost:4201/login` |
+| **Sign-up page on development host** | `https://localhost:4201/login` |
+| **Signing out page on development host** | `https://localhost:4201/login` |
+
+`/login` is the unified hub Mozart's apps/web exposes — it captures
+the desktop's `?state=…&port=…` handoff query params and, when the
+user is already authed, also mounts the **Launch Mozart desktop**
+button. Routing all Clerk transitions through it preserves the
+desktop handoff state across the round-trip.
+
+The Clerk Account Portal URLs can remain available (Clerk auto-hosts
+them on `clerk.accounts.dev`), but Mozart's desktop handoff
+**must** start from `/login` so the `state` and `port` survive.
+
+### 3.4 Sanity check
+
+The Clerk dashboard's **Quickstart** tab usually shows a green tick
+next to each provider once everything is wired :
+
+- GitHub / Google enabled under **User & Authentication →
+  Social Connections**.
+- `https://localhost:4201` listed under **Domains**.
+- All five path fields populated as above.
+- The `mozart` JWT template exists with the claims from §2.
+
+If the dashboard surfaces a yellow warning instead, fix that first —
+the OAuth flow won't redirect until every quickstart item is green.
 
 ## 4. Wire the publishable key
 
-1. Copy the **Publishable key** from the Clerk dashboard's **API keys**
+`apps/web/src/env.ts` is **gitignored** so each developer keeps their
+own Clerk instance key locally. A committed `env.example.ts` sits
+next to it as a template.
+
+1. Copy the template to create your local copy :
+
+   ```bash
+   cp apps/web/src/env.example.ts apps/web/src/env.ts
+   ```
+
+2. Copy the **Publishable key** from the Clerk dashboard's **API keys**
    screen — it starts with `pk_test_…` for development instances.
-2. Open `apps/web/src/env.ts`.
-3. Replace the placeholder :
+3. Open `apps/web/src/env.ts` and replace the placeholder :
 
    ```ts
    export const env = {
@@ -91,10 +155,10 @@ session.
    };
    ```
 
-> The publishable key is **public** — it's safe to ship in client
-> code and check in to source control. Only the matching **secret
-> key** (which Mozart never uses, since it has no server-side auth
-> path) must be kept private.
+> The publishable key is **public** — Clerk's SDK ships it in client
+> code by design. Only the matching **secret key** (used on Clerk's
+> backend / a server you operate) must be kept private. Mozart has
+> no server-side auth path so the secret key is never needed here.
 
 ## 5. Run it
 
@@ -124,9 +188,11 @@ If something fails, the apps/web `/dashboard` surfaces a
 | Symptom | Likely cause | Fix |
 | --- | --- | --- |
 | "Clerk not loaded" | Publishable key still has the placeholder string | Paste the real key into `apps/web/src/env.ts` |
-| OAuth redirect lands on an error page | `https://localhost:4201` not added to Clerk's allowed domains | Step 3 above |
+| Click "Sign in with GitHub" → POST `/v1/client/sign_ins` → page nav straight to `/auth-callback` (no GitHub OAuth screen) | Clerk's **Fallback Development Host** or one of the path fields is empty | §3.2 + §3.3 above — populate every row, save, refresh the tab |
+| OAuth redirect lands on a Clerk error page | `https://localhost:4201` not added to **Domains** | §3.1 above |
 | Desktop console says "state mismatch" | The browser tab has a stale `port` in `localStorage` from a previous desktop boot | Click **Sign in** on the desktop again — a fresh URL replaces the stale values |
-| `getToken({ template: 'mozart' })` returns null | JWT template named `mozart` doesn't exist | Step 2 above ; confirm the name is exactly `mozart`, lowercase |
+| `getToken({ template: 'mozart' })` returns null | JWT template named `mozart` doesn't exist | §2 above ; confirm the name is exactly `mozart`, lowercase |
+| `/auth-callback` shows the spinner forever | Clerk's session never resolved — usually the Fallback Development Host trio not all set | §3.2 + §3.3 above |
 
 ## 6. Optional : link GitHub for repository operations
 

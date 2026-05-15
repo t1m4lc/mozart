@@ -45,6 +45,14 @@ testem.log
 .DS_Store
 Thumbs.db
 
+# Local environment config files
+**/env.ts
+**/env.*.ts
+
+# Safe templates
+!**/env.example.ts
+!**/env.*.example.ts
+
 .nx/cache
 .nx/workspace-data
 .claude/worktrees

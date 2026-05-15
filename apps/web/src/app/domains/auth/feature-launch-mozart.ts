@@ -13,6 +13,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowRight,
   lucideCheck,
+  lucideLogOut,
   lucideRefreshCw,
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
@@ -55,6 +56,7 @@ type LaunchState = 'idle' | 'connecting' | 'success' | 'unreachable';
     provideIcons({
       lucideArrowRight,
       lucideCheck,
+      lucideLogOut,
       lucideRefreshCw,
       lucideTriangleAlert,
     }),
@@ -140,6 +142,19 @@ type LaunchState = 'idle' | 'connecting' | 'success' | 'unreachable';
           </div>
         }
       }
+
+      <button
+        hlmBtn
+        variant="ghost"
+        size="sm"
+        type="button"
+        class="text-muted-foreground hover:text-foreground mt-2"
+        [disabled]="signingOut()"
+        (click)="onSignOut()"
+      >
+        <ng-icon hlm name="lucideLogOut" size="xs" />
+        {{ signingOut() ? 'Signing out…' : 'Sign out' }}
+      </button>
     }
   `,
 })
@@ -158,6 +173,7 @@ export class FeatureLaunchMozart {
   });
 
   protected readonly state = signal<LaunchState>('idle');
+  protected readonly signingOut = signal(false);
 
   protected async onLaunch(): Promise<void> {
     if (this.state() === 'connecting') return;
@@ -167,5 +183,15 @@ export class FeatureLaunchMozart {
     // the retry button + download link is the right surface either
     // way. The desktop side detects the actual edge case.
     this.state.set(outcome === 'success' ? 'success' : 'unreachable');
+  }
+
+  protected async onSignOut(): Promise<void> {
+    if (this.signingOut()) return;
+    this.signingOut.set(true);
+    try {
+      await this.auth.signOut();
+    } finally {
+      this.signingOut.set(false);
+    }
   }
 }
