@@ -99,11 +99,15 @@ pub fn start_server(app: AppHandle) -> u16 {
     // HTTPS dev variants and the prod hostname. Browsers from any
     // other origin's preflight will get a 403 — the GET handler is
     // never reached.
+    //
+    // `HeaderValue::from_static` is a `const fn` that checks the
+    // string is ASCII-visible at compile time — drops the runtime
+    // `.parse().unwrap()` (the only 3 prod unwraps in src-tauri/).
     let cors = CorsLayer::new()
         .allow_origin([
-            "https://localhost:4201".parse::<HeaderValue>().unwrap(),
-            "http://localhost:4201".parse::<HeaderValue>().unwrap(),
-            "https://app.mozart.build".parse::<HeaderValue>().unwrap(),
+            HeaderValue::from_static("https://localhost:4201"),
+            HeaderValue::from_static("http://localhost:4201"),
+            HeaderValue::from_static("https://app.mozart.build"),
         ])
         .allow_methods([Method::GET]);
 
