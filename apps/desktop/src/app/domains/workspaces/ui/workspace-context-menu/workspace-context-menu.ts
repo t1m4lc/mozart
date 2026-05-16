@@ -102,7 +102,7 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
     <ng-template #statusSubTpl>
       <app-workspace-status-menu
         [current]="workspace().status"
-        (select)="setStatus.emit($event)"
+        (statusSelect)="setStatus.emit($event)"
       />
     </ng-template>
   `,

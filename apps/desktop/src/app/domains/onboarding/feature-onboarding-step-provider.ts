@@ -77,7 +77,7 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
       <app-feature-claude-login-pty
         [active]="showPty()"
         (success)="onPtySuccess()"
-        (cancel)="onPtyCancel()"
+        (cancelled)="onPtyCancel()"
         (useApiKey)="onUseApiKey()"
       />
     } @else {

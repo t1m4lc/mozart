@@ -37,7 +37,7 @@ import {
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
-          (triggered)="select.emit(s.id)"
+          (triggered)="statusSelect.emit(s.id)"
         >
           <ng-icon hlm [name]="s.icon" size="xs" [class]="s.colorClass" />
           {{ s.label }}
@@ -51,7 +51,7 @@ import {
 })
 export class WorkspaceStatusMenu {
   readonly current = input.required<UiWorkspaceStatus>();
-  readonly select = output<UiWorkspaceStatus>();
+  readonly statusSelect = output<UiWorkspaceStatus>();
 
   protected readonly statuses = UI_WORKSPACE_STATUSES;
 }

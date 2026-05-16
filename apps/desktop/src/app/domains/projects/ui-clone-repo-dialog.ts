@@ -1,9 +1,12 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
+  ElementRef,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { HlmAlertImports } from '@mozart/ui/alert';
 import { HlmButtonImports } from '@mozart/ui/button';
@@ -83,12 +86,12 @@ const GITHUB_URL_RE =
           autocomplete="off"
           spellcheck="false"
           autocapitalize="off"
+          #focusInput
           [value]="url()"
           (input)="onUrlInput($event)"
           [disabled]="cloning()"
           [attr.aria-invalid]="urlError() ? true : null"
           aria-describedby="clone-url-error"
-          autofocus
         />
         @if (urlError()) {
           <p id="clone-url-error" class="text-xs text-destructive">
@@ -171,11 +174,17 @@ export class CloneRepoDialog {
   private readonly ctx = injectBrnDialogContext<CloneRepoContext>();
   private readonly ref = inject(BrnDialogRef);
   private readonly dialogAdapter = inject(DIALOG_ADAPTER);
+  private readonly focusInput =
+    viewChild<ElementRef<HTMLInputElement>>('focusInput');
 
   protected readonly url = signal('');
   protected readonly location = signal(this.ctx.defaultLocation);
   protected readonly cloning = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  constructor() {
+    afterNextRender(() => this.focusInput()?.nativeElement.focus());
+  }
 
   protected readonly urlError = computed(() => {
     const u = this.url().trim();

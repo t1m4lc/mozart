@@ -72,12 +72,17 @@ const LINE_CLASS: Record<DiffLineKind, string> = {
       } @else {
         <pre
           class="m-0 font-mono text-[11px] leading-snug whitespace-pre-wrap break-all"
-        >@for (line of lines(); track $index) {<span [class]="lineClass(line.kind)" class="block px-2">{{ line.text || ' ' }}</span>}</pre>
+        >@for (line of lines(); track $index) {<span [class]="lineClass(line.kind)" class="block px-2">{{ line.text || nbsp }}</span>}</pre>
       }
     </div>
   `,
 })
 export class DiffView {
+  // U+00A0 NBSP — preserves line height on empty diff lines. Lifted
+  // out of the template because angular-eslint flags NBSP literals
+  // in templates as "irregular whitespace".
+  protected readonly nbsp = ' ';
+
   readonly path = input<string | null>(null);
   readonly diffText = input<string>('');
   readonly loading = input<boolean>(false);

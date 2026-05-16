@@ -1,8 +1,11 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
+  ElementRef,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { HlmAlertImports } from '@mozart/ui/alert';
 import { HlmButtonImports } from '@mozart/ui/button';
@@ -55,10 +58,10 @@ import { ProfileFacade } from './data/profile.facade';
           autocomplete="off"
           spellcheck="false"
           autocapitalize="off"
+          #focusInput
           [value]="keyDraft()"
           (input)="onKeyInput($event)"
           [disabled]="checking()"
-          autofocus
         />
       </div>
       @if (error()) {
@@ -98,10 +101,16 @@ import { ProfileFacade } from './data/profile.facade';
 export class UiConnectDialog {
   private readonly facade = inject(ProfileFacade);
   private readonly ref = inject(BrnDialogRef);
+  private readonly focusInput =
+    viewChild<ElementRef<HTMLInputElement>>('focusInput');
 
   protected readonly keyDraft = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly checking = signal(false);
+
+  constructor() {
+    afterNextRender(() => this.focusInput()?.nativeElement.focus());
+  }
 
   protected onKeyInput(event: Event): void {
     this.keyDraft.set((event.target as HTMLInputElement).value);

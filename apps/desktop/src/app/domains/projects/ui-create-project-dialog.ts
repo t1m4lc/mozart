@@ -1,9 +1,12 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
+  ElementRef,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { HlmAlertImports } from '@mozart/ui/alert';
 import { HlmButtonImports } from '@mozart/ui/button';
@@ -77,10 +80,10 @@ type TemplateValue = 'empty' | 'gstack';
           autocomplete="off"
           spellcheck="false"
           autocapitalize="off"
+          #focusInput
           [value]="name()"
           (input)="onNameInput($event)"
           [disabled]="creating()"
-          autofocus
         />
       </div>
 
@@ -113,23 +116,23 @@ type TemplateValue = 'empty' | 'gstack';
         </div>
       </div>
 
-      <div class="space-y-1.5">
-        <label hlmLabel>Template</label>
+      <fieldset class="space-y-1.5">
+        <legend hlmLabel>Template</legend>
         <hlm-radio-group
           [value]="template()"
           (valueChange)="onTemplateChange($event)"
           class="grid grid-cols-2 gap-2"
         >
-          <label class="flex items-center gap-2 rounded-md border border-border p-3 text-sm cursor-pointer">
+          <span class="flex items-center gap-2 rounded-md border border-border p-3 text-sm cursor-pointer">
             <hlm-radio value="empty" [disabled]="creating()" />
             <span>Empty</span>
-          </label>
-          <label class="flex items-center gap-2 rounded-md border border-border p-3 text-sm opacity-50 cursor-not-allowed">
+          </span>
+          <span class="flex items-center gap-2 rounded-md border border-border p-3 text-sm opacity-50 cursor-not-allowed">
             <hlm-radio value="gstack" [disabled]="true" />
             <span>gstack <span class="text-xs text-muted-foreground">Soon</span></span>
-          </label>
+          </span>
         </hlm-radio-group>
-      </div>
+      </fieldset>
 
       @if (error()) {
         <div hlmAlert variant="destructive">
@@ -170,12 +173,18 @@ export class CreateProjectDialog {
   private readonly ctx = injectBrnDialogContext<CreateProjectContext>();
   private readonly ref = inject(BrnDialogRef);
   private readonly dialogAdapter = inject(DIALOG_ADAPTER);
+  private readonly focusInput =
+    viewChild<ElementRef<HTMLInputElement>>('focusInput');
 
   protected readonly name = signal('');
   protected readonly parent = signal(this.ctx.defaultParent);
   protected readonly template = signal<TemplateValue>('empty');
   protected readonly creating = signal(false);
   protected readonly error = signal<string | null>(null);
+
+  constructor() {
+    afterNextRender(() => this.focusInput()?.nativeElement.focus());
+  }
 
   protected readonly canSubmit = computed(
     () => this.name().trim().length > 0 && this.parent().trim().length > 0,

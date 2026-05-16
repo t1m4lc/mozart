@@ -70,7 +70,7 @@ import { PROVIDER_SETUP_ADAPTER } from './data/provider-setup.adapter';
 export class FeatureClaudeLoginPty {
   readonly active = input.required<boolean>();
   readonly success = output<void>();
-  readonly cancel = output<void>();
+  readonly cancelled = output<void>();
   readonly useApiKey = output<void>();
 
   private readonly adapter = inject(PROVIDER_SETUP_ADAPTER);
@@ -103,7 +103,7 @@ export class FeatureClaudeLoginPty {
 
   protected onCancel(): void {
     void this.teardown();
-    this.cancel.emit();
+    this.cancelled.emit();
   }
 
   protected onUseApiKey(): void {
