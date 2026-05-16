@@ -21,7 +21,7 @@ import {
 } from '@ng-icons/lucide';
 import type { Workspace } from '../../data/workspace.model';
 import { relativeTime } from '../../util-relative-time';
-import { CliLoader } from '../cli-loader/cli-loader';
+import { HlmLoaderImports } from '@mozart/ui/loader';
 
 // Maps a UI workspace status to the dot color in the hover popover.
 const STATUS_COLOR: Record<string, string> = {
@@ -58,7 +58,7 @@ function statusLabel(status: string): string {
     HlmHoverCardImports,
     HlmPopoverImports,
     HlmSidebarImports,
-    CliLoader,
+    ...HlmLoaderImports,
   ],
   providers: [
     provideIcons({ lucideArchive, lucideGitBranch, lucideLoader, lucidePin }),
@@ -124,7 +124,7 @@ function statusLabel(status: string): string {
           class="relative cursor-pointer rounded-sm gap-1.5 px-2"
         >
           @if (isStreaming()) {
-            <app-cli-loader class="text-brand" />
+            <hlm-loader size="xs" class="text-brand" />
           } @else {
             <ng-icon
               hlm
@@ -205,7 +205,7 @@ export class WorkspaceRow {
   readonly workspace = input.required<Workspace>();
   readonly editing = input<boolean>(false);
   // True while an agent run is streaming for this workspace. Drives
-  // the cli-loader-in-place-of-branch-icon affordance.
+  // the loader-in-place-of-branch-icon affordance.
   readonly isStreaming = input<boolean>(false);
   // Title of the first/active chat for this workspace. Empty string =
   // fall back to workspace name; non-empty + not 'Start' is shown

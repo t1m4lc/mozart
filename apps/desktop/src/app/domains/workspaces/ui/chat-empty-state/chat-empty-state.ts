@@ -8,7 +8,7 @@ import {
   lucideSparkles,
 } from '@ng-icons/lucide';
 import type { InstallState } from '../../data/workspace.facade';
-import { CliLoader } from '../cli-loader/cli-loader';
+import { HlmLoaderImports } from '@mozart/ui/loader';
 
 // Step 4 copy lookup. Manager suffix is appended in the template when
 // state is `success` or `failed` and a manager name is known.
@@ -30,7 +30,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
  */
 @Component({
   selector: 'app-chat-empty-state',
-  imports: [NgIcon, HlmIconImports, CliLoader],
+  imports: [NgIcon, HlmIconImports, ...HlmLoaderImports],
   providers: [
     provideIcons({
       lucideCheck,
@@ -94,7 +94,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
               <span
                 class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"
               >
-                <app-cli-loader />
+                <hlm-loader size="xs" />
               </span>
             }
             @case ('failed') {

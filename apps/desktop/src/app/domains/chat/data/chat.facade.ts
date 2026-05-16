@@ -96,7 +96,7 @@ export class ChatFacade {
 
   /** Set of chatIds that currently have a streaming assistant message.
    * Derived from the messages store — the WorkspaceTabBar feature uses
-   * it to swap the LLM icon for a cli-loader per tab. */
+   * it to swap the LLM icon for a loader per tab. */
   readonly streamingChatIds = computed<ReadonlySet<string>>(() => {
     const out = new Set<string>();
     for (const m of this.store.messages()) {

@@ -51,6 +51,7 @@
       "@mozart/ui/item": ["./libs/ui/item/src/index.ts"],
       "@mozart/ui/kbd": ["./libs/ui/kbd/src/index.ts"],
       "@mozart/ui/label": ["./libs/ui/label/src/index.ts"],
+      "@mozart/ui/loader": ["./libs/ui/loader/src/index.ts"],
       "@mozart/ui/menubar": ["./libs/ui/menubar/src/index.ts"],
       "@mozart/ui/native-select": ["./libs/ui/native-select/src/index.ts"],
       "@mozart/ui/navigation-menu": ["./libs/ui/navigation-menu/src/index.ts"],

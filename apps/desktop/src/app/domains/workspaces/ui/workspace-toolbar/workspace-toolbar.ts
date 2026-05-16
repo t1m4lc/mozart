@@ -14,7 +14,7 @@ import { HlmBreadcrumbImports } from '@mozart/ui/breadcrumb';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
-import { CliLoader } from '../cli-loader/cli-loader';
+import { HlmLoaderImports } from '@mozart/ui/loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideGitBranch,
@@ -37,7 +37,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
-    CliLoader,
+    ...HlmLoaderImports,
   ],
   providers: [
     provideIcons({
@@ -115,7 +115,8 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         />
 
         @if (isStreaming()) {
-          <app-cli-loader
+          <hlm-loader
+            size="xs"
             class="shrink-0 text-brand"
             hlmTooltip="Agent is running"
             position="bottom"
