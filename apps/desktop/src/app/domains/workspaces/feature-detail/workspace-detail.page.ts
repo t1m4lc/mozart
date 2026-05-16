@@ -60,9 +60,16 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       [selectableBranches]="store.selectableBranches()"
       [isStreaming]="isStreaming()"
       [leadingSlot]="layout.leftPanelOpen() ? null : sidebarHeader()"
+      [availableTools]="availableTools()"
+      [lastUsedTool]="effectiveLastUsedTool()"
+      [githubConnected]="profile.githubConnected()"
+      data-tour="aside-header-buttons"
       (targetBranchChange)="store.setTargetBranch($event)"
       (toggleRightPanel)="layout.toggleRightPanel()"
       (workspaceTitleChange)="onRename($event)"
+      (openIn)="onOpenIn($event)"
+      (commit)="onCommit()"
+      (createPr)="onCreatePr()"
     />
 
     <app-feature-chat-tab-bar
@@ -114,8 +121,24 @@ export class WorkspaceDetailPage {
   protected readonly store = inject(WorkspaceDetailStore);
   protected readonly layout = inject(LayoutService);
   protected readonly isMac = inject(OsService).isMac();
+  protected readonly profile = inject(ProfileFacade);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly projects = inject(ProjectsFacade);
+  private readonly ides = inject(IdeDetectionService);
+  private readonly dialog = inject(HlmDialogService);
+
+  // IMP-004 — the 3 action buttons (Open in IDE / Commit / Create PR)
+  // moved from the right-aside header to the workspace toolbar. The
+  // dialog-opening logic + IDE selection live on this page; the aside
+  // no longer needs to know.
+  protected readonly availableTools = this.ides.availableTools;
+
+  protected readonly effectiveLastUsedTool = computed<OpenInTool>(() => {
+    const tools = this.availableTools();
+    const last = this.store.lastUsedTool();
+    if (tools.find((t) => t.id === last.id)) return last;
+    return tools[0] ?? OPEN_IN_TOOLS[0];
+  });
 
   // Live workspace + project derived from the route id. The detail store
   // still owns local UI state (target branch, last-used tool, etc.); the
@@ -221,5 +244,36 @@ export class WorkspaceDetailPage {
     } catch (err) {
       console.warn('rename workspace failed', err);
     }
+  }
+
+  protected async onOpenIn(tool: OpenInTool): Promise<void> {
+    this.store.openIn(tool);
+    const id = this.id();
+    if (!id) return;
+    try {
+      await this.workspaces.openInIde(id, tool.id);
+    } catch (err) {
+      console.warn('[detail] open-in-ide failed:', err);
+    }
+  }
+
+  protected onCommit(): void {
+    const id = this.id();
+    if (!id) return;
+    const context: CommitDialogContext = {
+      workspaceId: id,
+    };
+    this.dialog.open(FeatureCommitDialog, { context });
+  }
+
+  protected onCreatePr(): void {
+    const id = this.id();
+    if (!id) return;
+    const ws = this.workspaces.workspaceById(id)();
+    const context: CreatePrDialogContext = {
+      workspaceId: id,
+      defaultTitle: ws?.name ?? '',
+    };
+    this.dialog.open(FeatureCreatePrDialog, { context });
   }
 }

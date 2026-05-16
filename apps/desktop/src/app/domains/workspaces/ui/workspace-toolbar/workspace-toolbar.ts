@@ -16,8 +16,15 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { CliLoader } from '../cli-loader/cli-loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideGitBranch, lucidePanelRight } from '@ng-icons/lucide';
+import {
+  lucideGitBranch,
+  lucideGitCommitVertical,
+  lucideGitPullRequest,
+  lucidePanelRight,
+} from '@ng-icons/lucide';
+import type { OpenInTool } from '../../data/open-in-tools';
 import { BranchPicker } from '../branch-picker/branch-picker';
+import { OpenInMenu } from '../open-in-menu/open-in-menu';
 
 @Component({
   selector: 'app-workspace-toolbar',
@@ -25,13 +32,21 @@ import { BranchPicker } from '../branch-picker/branch-picker';
     NgIcon,
     NgTemplateOutlet,
     BranchPicker,
+    OpenInMenu,
     HlmBreadcrumbImports,
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
     CliLoader,
   ],
-  providers: [provideIcons({ lucideGitBranch, lucidePanelRight })],
+  providers: [
+    provideIcons({
+      lucideGitBranch,
+      lucideGitCommitVertical,
+      lucideGitPullRequest,
+      lucidePanelRight,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -112,6 +127,45 @@ import { BranchPicker } from '../branch-picker/branch-picker';
         class="flex shrink-0 items-center gap-1"
         data-tauri-drag-region="false"
       >
+        @if (availableTools().length > 0 && lastUsedTool()) {
+          <app-open-in-menu
+            [tools]="availableTools()"
+            [lastUsed]="lastUsedTool()!"
+            [subtitle]="workspaceTitle()"
+            (openIn)="openIn.emit($event)"
+          />
+        }
+
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          type="button"
+          class="h-7 px-2 text-xs font-normal text-muted-foreground"
+          hlmTooltip="Commit changes"
+          position="bottom"
+          (click)="commit.emit()"
+        >
+          <ng-icon hlm name="lucideGitCommitVertical" size="xs" />
+          <span>Commit</span>
+        </button>
+
+        @if (githubConnected()) {
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            type="button"
+            class="h-7 px-2 text-xs font-normal text-muted-foreground"
+            hlmTooltip="Open a pull request"
+            position="bottom"
+            (click)="createPr.emit()"
+          >
+            <ng-icon hlm name="lucideGitPullRequest" size="xs" />
+            <span>PR</span>
+          </button>
+        }
+
         <button
           hlmBtn
           variant="ghost"
@@ -144,9 +198,19 @@ export class WorkspaceToolbar {
   // + sidebar toggle when the left panel is collapsed).
   readonly leadingSlot = input<TemplateRef<unknown> | null>(null);
 
+  // IMP-004 — Open in IDE / Commit / Create PR moved here from the
+  // right-aside header. Placeholder Lucide icons today; real IDE
+  // brand icons land via the OpenInTool catalog.
+  readonly availableTools = input<readonly OpenInTool[]>([]);
+  readonly lastUsedTool = input<OpenInTool | null>(null);
+  readonly githubConnected = input<boolean>(false);
+
   readonly targetBranchChange = output<string>();
   readonly toggleRightPanel = output<void>();
   readonly workspaceTitleChange = output<string>();
+  readonly openIn = output<OpenInTool>();
+  readonly commit = output<void>();
+  readonly createPr = output<void>();
 
   protected readonly renaming = signal(false);
   private readonly renameInput =

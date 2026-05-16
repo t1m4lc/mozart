@@ -2,7 +2,6 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
-  computed,
   effect,
   inject,
   signal,
@@ -12,25 +11,15 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HlmResizableImports } from '@mozart/ui/resizable';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { map } from 'rxjs/operators';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { ProfileFacade } from '../../profile';
 import {
-  FeatureCommitDialog,
-  FeatureCreatePrDialog,
   FeatureFileDiff,
   FeatureFileTree,
   RepositoriesFacade,
-  type CommitDialogContext,
-  type CreatePrDialogContext,
   type FileNode,
 } from '../../repositories';
 import { FeatureWorkspaceRun } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
-import { IdeDetectionService } from '../data/ide-detection.service';
-import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
-import { WorkspaceDetailStore } from '../feature-detail/workspace-detail.store';
-import { WorkspaceAsideHeader } from '../ui/workspace-aside-header/workspace-aside-header';
 
 type AsideTab = 'files' | 'terminal' | 'run';
 
@@ -43,12 +32,14 @@ function coerceTab(raw: string | null): AsideTab {
     : DEFAULT_TAB;
 }
 
+// IMP-004 — Open in IDE / Commit / Create PR moved to the central
+// workspace toolbar (WorkspaceDetailPage). This aside now hosts the
+// tab strip + content only.
 @Component({
   selector: 'app-feature-workspace-aside',
   imports: [
     HlmTabsImports,
     HlmResizableImports,
-    WorkspaceAsideHeader,
     FeatureFileTree,
     FeatureFileDiff,
     FeatureWorkspaceTerminal,
@@ -57,19 +48,6 @@ function coerceTab(raw: string | null): AsideTab {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col bg-sidebar' },
   template: `
-    <div data-tour="aside-header-buttons">
-      <app-workspace-aside-header
-        [branch]="branch()"
-        [tools]="availableTools()"
-        [lastUsedTool]="effectiveLastUsedTool()"
-        [workspaceName]="workspaceName()"
-        [githubConnected]="profile.githubConnected()"
-        (openIn)="onOpenIn($event)"
-        (commit)="onCommit()"
-        (createPr)="onCreatePr()"
-      />
-    </div>
-
     <hlm-tabs
       [tab]="activeTab()"
       class="flex min-h-0 flex-1 flex-col gap-0"
@@ -152,26 +130,11 @@ function coerceTab(raw: string | null): AsideTab {
   `,
 })
 export class FeatureWorkspaceAside {
-  protected readonly store = inject(WorkspaceDetailStore);
-  protected readonly profile = inject(ProfileFacade);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly repos = inject(RepositoriesFacade);
-  private readonly ides = inject(IdeDetectionService);
-  private readonly dialog = inject(HlmDialogService);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
-
-  protected readonly availableTools = this.ides.availableTools;
-
-  /** Falls back to the first available tool when the previously
-   *  remembered choice isn't installed (e.g. user removed VSCode). */
-  protected readonly effectiveLastUsedTool = computed<OpenInTool>(() => {
-    const tools = this.availableTools();
-    const last = this.store.lastUsedTool();
-    if (tools.find((t) => t.id === last.id)) return last;
-    return tools[0] ?? OPEN_IN_TOOLS[0];
-  });
 
   // Reflects `?tab=...` from the URL; default `files` so the param can
   // stay absent in the canonical case.
@@ -180,15 +143,7 @@ export class FeatureWorkspaceAside {
     { initialValue: DEFAULT_TAB },
   );
 
-  protected readonly branch = computed(() => this.store.currentBranch());
-
-  protected readonly workspaceId = computed(() => this.workspaces.activeId());
-
-  protected readonly workspaceName = computed(() => {
-    const id = this.workspaceId();
-    if (!id) return '';
-    return this.workspaces.workspaceById(id)()?.name ?? '';
-  });
+  protected readonly workspaceId = this.workspaces.activeId;
 
   // Path of the file whose diff is mounted in the bottom Files panel.
   // Cleared whenever the active workspace changes.
@@ -221,44 +176,6 @@ export class FeatureWorkspaceAside {
   protected onFileSelected(node: FileNode): void {
     if (node.kind === 'directory') return;
     this.selectedPath.set(node.path);
-  }
-
-  protected async onOpenIn(tool: OpenInTool): Promise<void> {
-    this.store.openIn(tool);
-    const id = this.workspaceId();
-    if (!id) return;
-    try {
-      await this.workspaces.openInIde(id, tool.id);
-    } catch (err) {
-      console.warn('[aside] open-in-ide failed:', err);
-    }
-  }
-
-  protected onCommit(): void {
-    const id = this.workspaceId();
-    if (!id) return;
-    const context: CommitDialogContext = {
-      workspaceId: id,
-      onCommitted: () => {
-        // Bump the watcher tick so the file tree + diff re-fetch and
-        // reflect the post-commit state immediately. The notify
-        // watcher would also catch the change, but a direct kick keeps
-        // the UI in sync without waiting for the debounce window.
-        this.watcherTick.update((n) => n + 1);
-      },
-    };
-    this.dialog.open(FeatureCommitDialog, { context });
-  }
-
-  protected onCreatePr(): void {
-    const id = this.workspaceId();
-    if (!id) return;
-    const ws = this.workspaces.workspaceById(id)();
-    const context: CreatePrDialogContext = {
-      workspaceId: id,
-      defaultTitle: ws?.name ?? '',
-    };
-    this.dialog.open(FeatureCreatePrDialog, { context });
   }
 
   protected onTabActivated(next: string): void {
