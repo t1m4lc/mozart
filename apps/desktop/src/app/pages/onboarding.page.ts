@@ -35,16 +35,24 @@ import {
       >
         @switch (facade.currentStep()) {
           @case ('welcome') {
-            <app-feature-onboarding-step-welcome />
+            @defer (on immediate) {
+              <app-feature-onboarding-step-welcome />
+            }
           }
           @case ('git') {
-            <app-feature-onboarding-step-git />
+            @defer (on immediate) {
+              <app-feature-onboarding-step-git />
+            }
           }
           @case ('provider') {
-            <app-feature-onboarding-step-provider />
+            @defer (on immediate) {
+              <app-feature-onboarding-step-provider />
+            }
           }
           @case ('github') {
-            <app-feature-onboarding-step-github />
+            @defer (on immediate) {
+              <app-feature-onboarding-step-github />
+            }
           }
         }
       </app-ui-onboarding-step-shell>

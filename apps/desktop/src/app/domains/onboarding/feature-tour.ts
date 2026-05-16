@@ -63,7 +63,9 @@ const TOUR_STEPS: readonly HighlightStep[] = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (_showClosingCard()) {
-      <app-ui-tour-closing-card (done)="onDone()" />
+      @defer (on immediate) {
+        <app-ui-tour-closing-card (done)="onDone()" />
+      }
     } @else {
       <hlm-highlight-overlay
         [steps]="_steps"
