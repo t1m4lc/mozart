@@ -54,7 +54,11 @@ import type { OpenInTool } from '../../data/open-in-tools';
         class="h-7 rounded-r-none rounded-l-md border-r-0 px-2 text-xs font-normal hover:bg-accent"
         (click)="openIn.emit(lastUsed())"
       >
-        <ng-icon hlm [name]="lastUsed().icon" size="xs" />
+        @if (lastUsed().iconPath; as path) {
+          <img [src]="path" alt="" aria-hidden="true" class="size-3.5 shrink-0" />
+        } @else {
+          <ng-icon hlm [name]="lastUsed().icon" size="xs" />
+        }
         @if (subtitle()) {
           <span
             class="ml-1 hidden max-w-28 truncate text-muted-foreground lg:inline"
@@ -87,7 +91,16 @@ import type { OpenInTool } from '../../data/open-in-tools';
             class="cursor-pointer"
             (triggered)="openIn.emit(tool)"
           >
-            <ng-icon hlm [name]="tool.icon" size="xs" />
+            @if (tool.iconPath; as path) {
+              <img
+                [src]="path"
+                alt=""
+                aria-hidden="true"
+                class="size-3.5 shrink-0"
+              />
+            } @else {
+              <ng-icon hlm [name]="tool.icon" size="xs" />
+            }
             <span class="flex-1">{{ tool.label }}</span>
             <span class="ml-4 text-xs text-muted-foreground/60">{{
               tool.shortcut

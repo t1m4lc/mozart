@@ -12,7 +12,12 @@ export type OpenInToolId =
 export interface OpenInTool {
   readonly id: OpenInToolId;
   readonly label: string;
+  /** Lucide icon name. Used as a fallback when `iconPath` is absent. */
   readonly icon: string;
+  /** Optional path to a brand icon under `apps/desktop/public/`.
+   *  When set, the OpenInMenu renders `<img>` instead of the Lucide
+   *  icon — keeps each IDE visually recognisable. */
+  readonly iconPath?: string;
   readonly shortcut: number;
   /** True for tools that don't need detection (always available). */
   readonly alwaysAvailable?: boolean;
@@ -24,7 +29,13 @@ export interface OpenInTool {
  * marked `alwaysAvailable` (Finder + Copy path) bypass the filter.
  */
 export const OPEN_IN_TOOLS: readonly OpenInTool[] = [
-  { id: 'vscode', label: 'VSCode', icon: 'lucideCode2', shortcut: 1 },
+  {
+    id: 'vscode',
+    label: 'VSCode',
+    icon: 'lucideCode2',
+    iconPath: '/vscode.png',
+    shortcut: 1,
+  },
   { id: 'cursor', label: 'Cursor', icon: 'lucideMousePointerClick', shortcut: 2 },
   { id: 'windsurf', label: 'Windsurf', icon: 'lucideWind', shortcut: 3 },
   { id: 'zed', label: 'Zed', icon: 'lucideZap', shortcut: 4 },
@@ -36,6 +47,7 @@ export const OPEN_IN_TOOLS: readonly OpenInTool[] = [
     id: 'finder',
     label: 'File Manager',
     icon: 'lucideFolderOpen',
+    iconPath: '/finder.png',
     shortcut: 9,
     alwaysAvailable: true,
   },
