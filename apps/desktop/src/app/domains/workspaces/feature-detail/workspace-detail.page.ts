@@ -80,13 +80,21 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
 
     @if (activeFileTabPath(); as path) {
       <!-- A file tab is active — diff view replaces the chat panel
-           in the central area. Switching back to any chat tab clears
-           the active file via FeatureChatTabBar.onActivate. -->
-      <app-feature-file-diff
-        class="flex-1 min-h-0"
-        [workspaceId]="id()!"
-        [path]="path"
-      />
+           in the central area. @defer on viewport so the diff +
+           markdown stack lands as its own chunk : the workspace
+           loads without it, and the chunk arrives only when the
+           user opens their first file. -->
+      @defer (on viewport) {
+        <app-feature-file-diff
+          class="flex-1 min-h-0"
+          [workspaceId]="id()!"
+          [path]="path"
+        />
+      } @placeholder {
+        <div class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted-foreground">
+          Loading diff…
+        </div>
+      }
     } @else {
       <app-feature-chat-panel
         #chatPanel
