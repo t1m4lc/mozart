@@ -36,46 +36,48 @@ const SCROLL_SETTLE_MS = 220;
   selector: 'app-feature-chat-panel',
   imports: [HlmComposer, MessageList],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'relative block h-full w-full' },
+  host: { class: 'flex flex-col h-full w-full' },
   template: `
     <div
       #scroller
-      class="absolute inset-0 overflow-y-auto"
+      class="flex-1 min-h-0 overflow-y-auto"
       (scroll)="onContainerScroll()"
     >
       @if (messages().length > 0) {
         <app-message-list [messages]="messages()" />
-        <div class="h-64" aria-hidden="true"></div>
         <div #anchor aria-hidden="true" class="h-px"></div>
       } @else {
         <ng-content select="[chat-empty-state]" />
       }
     </div>
 
-    <div
-      class="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-background via-background/90 to-transparent px-4 pb-4 pt-6 dark:from-background dark:via-background/90"
-    >
-      <div class="pointer-events-auto" data-tour="composer-mode">
-        <hlm-composer
-          #composerEl
-          [(value)]="value"
-          [mode]="currentMode()"
-          (modeChange)="onModeChange($event)"
-          [effort]="currentEffort()"
-          (effortChange)="onEffortChange($event)"
-          [models]="catalog"
-          [providers]="providers"
-          [selectedModelId]="currentModelId()"
-          (modelChange)="onModelChange($event)"
-          [isRunning]="isStreaming()"
-          [autoFollowChat]="autoFollowChat()"
-          [hasNextUnreadInProject]="hasNextUnreadInProject()"
-          (send)="onSend($event)"
-          (stop)="onStop()"
-          (scrollToBottom)="onScrollToBottom()"
-          (nextUnreadWorkspace)="onNextUnreadWorkspace()"
-        />
-      </div>
+    <div class="relative px-4 pb-4 pt-2" data-tour="composer-mode">
+      <!-- Fades the last few px of the scrolling content into the composer
+           area. One absolute layer; replaces the prior pointer-events
+           dance that wrapped the whole composer region. -->
+      <div
+        class="pointer-events-none absolute inset-x-0 -top-6 h-6 bg-gradient-to-t from-background to-transparent dark:from-background"
+        aria-hidden="true"
+      ></div>
+      <hlm-composer
+        #composerEl
+        [(value)]="value"
+        [mode]="currentMode()"
+        (modeChange)="onModeChange($event)"
+        [effort]="currentEffort()"
+        (effortChange)="onEffortChange($event)"
+        [models]="catalog"
+        [providers]="providers"
+        [selectedModelId]="currentModelId()"
+        (modelChange)="onModelChange($event)"
+        [isRunning]="isStreaming()"
+        [autoFollowChat]="autoFollowChat()"
+        [hasNextUnreadInProject]="hasNextUnreadInProject()"
+        (send)="onSend($event)"
+        (stop)="onStop()"
+        (scrollToBottom)="onScrollToBottom()"
+        (nextUnreadWorkspace)="onNextUnreadWorkspace()"
+      />
     </div>
   `,
 })

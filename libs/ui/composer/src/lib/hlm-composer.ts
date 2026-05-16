@@ -6,13 +6,12 @@ import {
   model,
   output,
 } from '@angular/core';
-import { FormsModule } from '@angular/forms';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTextareaImports } from '@mozart/ui/textarea';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowUp, lucideCircleStop } from '@ng-icons/lucide';
+import { lucideArrowUp, lucideCircleStop, lucidePlus } from '@ng-icons/lucide';
 import { ComposerEffortSelect } from './composer-effort-select';
 import { ComposerModeSelect } from './composer-mode-select';
 import {
@@ -50,7 +49,6 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
 @Component({
   selector: 'hlm-composer',
   imports: [
-    FormsModule,
     NgIcon,
     HlmButtonImports,
     HlmIconImports,
@@ -66,6 +64,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
     provideIcons({
       lucideArrowUp,
       lucideCircleStop,
+      lucidePlus,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -94,8 +93,8 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
         <textarea
           hlmTextarea
           class="hlm-composer-textarea block w-full border-0 outline-none shadow-none rounded-none resize-none bg-transparent dark:bg-transparent px-3 pt-4 pb-3 text-sm leading-6 min-h-28 max-h-72 overflow-y-auto scroll-pb-3 focus-visible:ring-0 focus-visible:border-0"
-          [ngModel]="value()"
-          (ngModelChange)="value.set($event)"
+          [value]="value()"
+          (input)="_onInput($event)"
           [disabled]="disabled()"
           name="prompt"
           [placeholder]="_effectivePlaceholder()"
@@ -127,42 +126,55 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
             />
           }
 
-          @if (isRunning() && value().trim().length === 0) {
-            <button
-              hlmBtn
-              variant="destructive"
-              size="icon-sm"
-              type="button"
-              hlmTooltip="Stop"
-              class="rounded-lg"
-              (click)="_emitStop()"
-              aria-label="Stop current run"
-            >
-              <ng-icon hlm name="lucideCircleStop" size="sm" />
-            </button>
-          } @else {
-            <button
-              hlmBtn
-              variant="default"
-              size="icon-sm"
-              type="submit"
-              class="rounded-lg"
-              [disabled]="!_canSubmit()"
-              [hlmTooltip]="
-                isRunning()
-                  ? 'Queue message — current run keeps going'
-                  : 'Send message'
-              "
-              [attr.aria-label]="
-                mode() === 'plan'
-                  ? 'Plan'
-                  : mode() === 'ask'
-                  ? 'Ask'
-                  : 'Send message'
-              "
-            >
-              <ng-icon hlm name="lucideArrowUp" size="sm" />
-            </button>
+          @switch (_submitState()) {
+            @case ('stop') {
+              <button
+                hlmBtn
+                variant="destructive"
+                size="icon-sm"
+                type="button"
+                hlmTooltip="Stop"
+                class="rounded-lg"
+                (click)="_emitStop()"
+                aria-label="Stop current run"
+              >
+                <ng-icon hlm name="lucideCircleStop" size="sm" />
+              </button>
+            }
+            @case ('queue') {
+              <button
+                hlmBtn
+                variant="default"
+                size="icon-sm"
+                type="submit"
+                class="rounded-lg"
+                [disabled]="!_canSubmit()"
+                hlmTooltip="Send to queue — current run keeps going"
+                aria-label="Queue message"
+              >
+                <ng-icon hlm name="lucidePlus" size="sm" />
+              </button>
+            }
+            @default {
+              <button
+                hlmBtn
+                variant="default"
+                size="icon-sm"
+                type="submit"
+                class="rounded-lg"
+                [disabled]="!_canSubmit()"
+                hlmTooltip="Send"
+                [attr.aria-label]="
+                  mode() === 'plan'
+                    ? 'Plan'
+                    : mode() === 'ask'
+                      ? 'Ask'
+                      : 'Send message'
+                "
+              >
+                <ng-icon hlm name="lucideArrowUp" size="sm" />
+              </button>
+            }
           }
         </div>
       </div>
@@ -229,9 +241,22 @@ export class HlmComposer {
     () => CONTAINER_CLASSES_BY_MODE[this.mode()],
   );
 
+  // Three submit states with visually-distinct affordances:
+  //  - stop : running, textarea empty (red Stop button)
+  //  - queue: running, textarea has text (plus icon; submit queues)
+  //  - send : not running (arrow-up Send)
+  protected readonly _submitState = computed<'stop' | 'queue' | 'send'>(() => {
+    if (!this.isRunning()) return 'send';
+    return this.value().trim().length === 0 ? 'stop' : 'queue';
+  });
+
   protected _onSubmit(event: Event): void {
     event.preventDefault();
     this._emitSubmit();
+  }
+
+  protected _onInput(event: Event): void {
+    this.value.set((event.target as HTMLTextAreaElement).value);
   }
 
   protected _onKeydown(event: KeyboardEvent): void {

@@ -54,7 +54,6 @@
       "Bash(curl:*)",
       "Bash(ssh:*)",
 
-      "Bash(git commit:*)",
       "Bash(git reset:*)",
       "Bash(git revert:*)",
       "Bash(git checkout:*)",
