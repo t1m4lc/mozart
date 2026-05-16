@@ -1,0 +1,55 @@
+{
+  "name": "landing",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "prefix": "app",
+  "sourceRoot": "apps/landing/src",
+  "tags": [],
+  "metadata": {
+    "budgets": [
+      { "type": "initial", "maximumWarning": "200kb", "maximumError": "400kb" },
+      { "type": "anyComponentStyle", "maximumWarning": "2kb", "maximumError": "4kb" }
+    ]
+  },
+  "targets": {
+    "build": {
+      "executor": "@nx/vite:build",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "outputPath": "dist/apps/landing",
+        "configFile": "apps/landing/vite.config.ts"
+      },
+      "configurations": {
+        "development": {
+          "mode": "development"
+        },
+        "production": {
+          "mode": "production"
+        }
+      }
+    },
+    "serve": {
+      "executor": "@nx/vite:dev-server",
+      "continuous": true,
+      "defaultConfiguration": "development",
+      "options": {
+        "buildTarget": "landing:build",
+        "port": 4202
+      },
+      "configurations": {
+        "development": {
+          "buildTarget": "landing:build:development",
+          "hmr": true
+        },
+        "production": {
+          "buildTarget": "landing:build:production",
+          "hmr": false
+        }
+      }
+    },
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}
