@@ -155,7 +155,13 @@ import { ShellProjectList } from './shell-project-list';
               </div>
             </div>
 
-            @if (flags.chat()) {
+            <!-- IMP-007 + perf : @defer + flag gate. When chat is
+                 OFF the FeatureChatList component never instantiates
+                 AND its JS chunk never loads (Angular auto-splits
+                 components used only inside @defer). When chat is
+                 turned back on, the chunk loads on the first true
+                 read of flags.chat(). -->
+            @defer (when flags.chat()) {
               <div hlmSidebarGroup class="px-2 py-1">
                 <app-feature-chat-list />
               </div>

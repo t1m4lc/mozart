@@ -17,7 +17,21 @@ import { Injectable, computed, signal } from '@angular/core';
 //   1. Add the field to FeatureFlags
 //   2. Add the default to FEATURE_FLAGS
 //   3. Add the per-flag computed accessor on FeatureFlagsService
-//   4. Gate the consumer(s) — template @if, facade guard, etc.
+//   4. Gate the consumer with `@defer (when flags.foo())`
+//
+// Gating pattern — both HIDE and CODE-SPLIT in one expression :
+//
+//   @defer (when flags.foo()) {
+//     <app-foo />
+//   } @placeholder {
+//     <!-- nothing — feature lives behind the flag -->
+//   }
+//
+// Angular auto-detects components used only inside @defer and emits
+// them in their own chunk. Flag = false → chunk never loads. Flag
+// flipped to true → chunk fetches on the first truthy read. Prefer
+// this over a bare @if when the gated feature is non-trivial JS — it
+// keeps the disabled code out of the main bundle entirely.
 
 export interface FeatureFlags {
   /** When false, every chat surface is hidden : the sidebar Chats
