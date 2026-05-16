@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import analog from '@analogjs/platform';
+import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
@@ -23,6 +24,7 @@ export default defineConfig(({ mode }) => ({
         discover: false,
       },
     }),
+    nxViteTsPaths(),
     tailwindcss(),
   ],
   define: {
