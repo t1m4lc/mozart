@@ -215,6 +215,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
             aria-label="Workspace processes"
           >
             <button
+              #setupTabBtn
               type="button"
               role="tab"
               [attr.aria-selected]="bottomOpen() && bottomTab() === 'setup'"
@@ -224,6 +225,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
               Setup
             </button>
             <button
+              #runTabBtn
               type="button"
               role="tab"
               [attr.aria-selected]="bottomOpen() && bottomTab() === 'run'"
@@ -233,6 +235,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
               Run
             </button>
             <button
+              #terminalTabBtn
               type="button"
               role="tab"
               [attr.aria-selected]="bottomOpen() && bottomTab() === 'terminal'"
@@ -261,47 +264,58 @@ function coerceBottomTab(raw: string | null): BottomTab {
             </button>
           </div>
 
-          <!-- Content area — gone when collapsed; the panel shrinks to
-               just the tab bar's height. -->
+          <!-- Content area — gone when collapsed; the panel shrinks
+               to just the tab bar's height. Each tab is rendered in
+               parallel inside [hidden] divs so state survives switches
+               (Terminal PTY in particular stays alive across visits).
+               Heavy tabs use @defer to keep their chunks out of the
+               main bundle. -->
           @if (bottomOpen()) {
             <div class="min-h-0 flex-1 overflow-hidden">
-              @switch (bottomTab()) {
-                @case ('setup') {
-                  <div class="p-4 text-sm text-muted-foreground">
-                    <p class="font-medium text-foreground">Setup</p>
-                    <p class="mt-1">
-                      Workspace setup steps — package install, run
-                      command, environment — land here.
-                    </p>
+              <!-- Setup : plain text, always rendered. -->
+              <div [hidden]="bottomTab() !== 'setup'" class="h-full overflow-auto">
+                <div class="p-4 text-sm text-muted-foreground">
+                  <p class="font-medium text-foreground">Setup</p>
+                  <p class="mt-1">
+                    Workspace setup steps — package install, run
+                    command, environment — land here.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Run : default tab, loads on immediate. Stays
+                   mounted afterwards so re-activation is instant. -->
+              <div [hidden]="bottomTab() !== 'run'" class="h-full overflow-hidden">
+                @defer (on immediate) {
+                  <app-feature-workspace-run
+                    class="block h-full w-full"
+                    [workspaceId]="workspaceId()"
+                    [active]="bottomTab() === 'run'"
+                  />
+                } @placeholder {
+                  <div class="p-4 text-xs text-muted-foreground">
+                    Loading run panel…
                   </div>
                 }
-                @case ('run') {
-                  @defer (on immediate) {
-                    <app-feature-workspace-run
-                      class="block h-full w-full"
-                      [workspaceId]="workspaceId()"
-                      [active]="bottomTab() === 'run'"
-                    />
-                  } @placeholder {
-                    <div class="p-4 text-xs text-muted-foreground">
-                      Loading run panel…
-                    </div>
-                  }
+              </div>
+
+              <!-- Terminal : @defer (on interaction) waits until the
+                   user clicks the Terminal tab button. Once loaded
+                   the PTY stays alive across tab switches — re-opening
+                   Terminal returns to the same scrollback. -->
+              <div [hidden]="bottomTab() !== 'terminal'" class="h-full overflow-hidden">
+                @defer (on interaction(terminalTabBtn)) {
+                  <app-feature-workspace-terminal
+                    class="block h-full w-full"
+                    [workspaceId]="workspaceId()"
+                    [active]="bottomTab() === 'terminal'"
+                  />
+                } @placeholder {
+                  <div class="p-4 text-xs text-muted-foreground">
+                    Loading terminal…
+                  </div>
                 }
-                @case ('terminal') {
-                  @defer (on immediate) {
-                    <app-feature-workspace-terminal
-                      class="block h-full w-full"
-                      [workspaceId]="workspaceId()"
-                      [active]="bottomTab() === 'terminal'"
-                    />
-                  } @placeholder {
-                    <div class="p-4 text-xs text-muted-foreground">
-                      Loading terminal…
-                    </div>
-                  }
-                }
-              }
+              </div>
             </div>
           }
         </div>
