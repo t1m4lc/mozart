@@ -95,9 +95,6 @@ import { ShellProjectList } from './shell-project-list';
             data-tauri-drag-region
             class="h-9 flex-row items-center gap-1 border-b border-sidebar-border px-2 py-1"
           >
-            @if (isMac) {
-              <app-mac-window-controls />
-            }
             <span class="flex-1" data-tauri-drag-region></span>
             <button
               hlmBtn
@@ -245,6 +242,19 @@ import { ShellProjectList } from './shell-project-list';
 
     @if (tourActive()) {
       <app-feature-tour />
+    }
+
+    <!-- IMP-003 — On macOS, when there's no right aside (dashboard,
+         settings, welcome), the traffic-light buttons float at the
+         top-right of the viewport. When a workspace is selected, the
+         buttons live in the right-aside header (see ShellAside). -->
+    @if (isMac && !showRightAside()) {
+      <div
+        class="fixed right-3 top-2 z-50"
+        data-tauri-drag-region="false"
+      >
+        <app-mac-window-controls />
+      </div>
     }
   `,
 })
