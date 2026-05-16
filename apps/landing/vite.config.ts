@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import analog from '@analogjs/platform';
+import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 export default defineConfig(({ mode }) => ({
@@ -22,6 +23,7 @@ export default defineConfig(({ mode }) => ({
         discover: false,
       },
     }),
+    tailwindcss(),
   ],
   define: {
     'import.meta.vitest': mode !== 'production',
