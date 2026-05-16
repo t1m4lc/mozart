@@ -1,10 +1,6 @@
 import { Injectable, signal } from '@angular/core';
-import {
-  isPermissionGranted,
-  requestPermission,
-  sendNotification,
-} from '@tauri-apps/plugin-notification';
 import { commands } from './_bindings';
+import type { NotificationImpl } from './notification-impl';
 
 const SOUND_URL = '/sounds/message-done.ogg';
 const SOUND_VOLUME = 0.4;
@@ -15,21 +11,40 @@ const SOUND_VOLUME = 0.4;
 // `config` table (notifications_desktop / notifications_sound). Both
 // default to true on a fresh install.
 //
-// This is the canonical notification path : both real `message_end`
-// events and the Settings "Send test notification" button go through
-// `notify()` so the permission prompt fires consistently on first use
-// (a Rust-side `emit_message_end_notification` command exists in the
-// bindings but is no longer wired — it skipped the permission flow,
-// which is what IMP-002 fixed).
+// Async-injection pattern : the `@tauri-apps/plugin-notification`
+// dependency lives in a sibling file (`notification-impl.ts`) and is
+// only fetched via `import()` on the first call to `notify()`. The
+// service surface stays sync-friendly — consumers still do
+// `inject(NotificationService)` exactly as before. This is the
+// closest pattern Angular 22 has to a hypothetical `injectAsync` :
+// the consumer keeps the sync DI ergonomics ; the heavy module
+// boundary moves into the service itself.
+//
+// This is the canonical notification path : real `message_end`
+// events AND the Settings "Send test notification" button both go
+// through `notify()` so the permission prompt fires consistently
+// on first use (a Rust-side `emit_message_end_notification` command
+// exists in the bindings but is no longer wired).
 
 interface CachedPrefs {
   readonly desktop: boolean;
   readonly sound: boolean;
 }
 
+// Cached impl loader. Lives at module scope so multiple service
+// instances (shouldn't happen with providedIn: 'root', but defensive)
+// share one chunk fetch.
+let _implPromise: Promise<NotificationImpl> | null = null;
+
+async function loadImpl(): Promise<NotificationImpl> {
+  if (!_implPromise) {
+    _implPromise = import('./notification-impl').then((m) => m.createImpl());
+  }
+  return _implPromise;
+}
+
 @Injectable({ providedIn: 'root' })
 export class NotificationService {
-  private _permissionGranted: boolean | null = null;
   private readonly _prefs = signal<CachedPrefs>({ desktop: true, sound: true });
   private _prefsHydrated = false;
 
@@ -37,7 +52,8 @@ export class NotificationService {
     await this._ensurePrefs();
     const prefs = this._prefs();
     if (prefs.desktop) {
-      void this._sendDesktopNotification(opts);
+      const impl = await loadImpl();
+      void impl.sendDesktopNotification(opts);
     }
     if (prefs.sound) {
       this._playSound();
@@ -68,27 +84,8 @@ export class NotificationService {
     }
   }
 
-  private async _sendDesktopNotification(opts: {
-    title: string;
-    body: string;
-  }): Promise<void> {
-    try {
-      if (this._permissionGranted === null) {
-        let granted = await isPermissionGranted();
-        if (!granted) {
-          const result = await requestPermission();
-          granted = result === 'granted';
-        }
-        this._permissionGranted = granted;
-      }
-      if (this._permissionGranted) {
-        sendNotification({ title: opts.title, body: opts.body });
-      }
-    } catch (err) {
-      console.warn('[notification] desktop notification failed', err);
-    }
-  }
-
+  // Audio API is browser-native — no heavy import — so this stays in
+  // the sync half of the service.
   private _playSound(): void {
     try {
       const audio = new Audio(SOUND_URL);
