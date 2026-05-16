@@ -12,7 +12,7 @@ import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmSelectImports } from '@mozart/ui/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideLock, lucideRefreshCw } from '@ng-icons/lucide';
+import { lucideInfo, lucideLock, lucideRefreshCw } from '@ng-icons/lucide';
 import { ProfileFacade, UiConnectDialog } from '../profile';
 import { OnboardingFacade } from './data/onboarding.facade';
 import { FeatureClaudeLoginPty } from './feature-claude-login-pty';
@@ -27,15 +27,30 @@ interface ProviderEntry {
 }
 
 const PROVIDERS: readonly ProviderEntry[] = [
-  { id: 'claude', name: 'Claude Code', hint: 'Sonnet 4.6 · Opus 4.7', enabled: true },
+  {
+    id: 'claude',
+    name: 'Claude Code',
+    hint: 'Sonnet 4.6 · Opus 4.7',
+    enabled: true,
+  },
   { id: 'openai', name: 'OpenAI', hint: 'gpt-4o · gpt-4.1', enabled: false },
-  { id: 'openrouter', name: 'OpenRouter', hint: 'Multi-model gateway', enabled: false },
-  { id: 'local', name: 'Local (Ollama)', hint: 'Run models on your machine', enabled: false },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    hint: 'Multi-model gateway',
+    enabled: false,
+  },
+  {
+    id: 'local',
+    name: 'Local (Ollama)',
+    hint: 'Run models on your machine',
+    enabled: false,
+  },
 ] as const;
 
 const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
   idle: 'bg-muted',
-  ok: 'bg-brand',
+  ok: 'bg-green-500',
   busy: 'bg-brand/60 animate-pulse',
   fail: 'bg-destructive',
 };
@@ -54,7 +69,7 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
     NgIcon,
     FeatureClaudeLoginPty,
   ],
-  providers: [provideIcons({ lucideLock, lucideRefreshCw })],
+  providers: [provideIcons({ lucideLock, lucideRefreshCw, lucideInfo })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
   template: `
@@ -77,7 +92,10 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
         </div>
 
         <div class="space-y-3">
-          <p class="text-muted-foreground text-xs font-medium" id="provider-label">
+          <p
+            class="text-muted-foreground text-xs font-medium"
+            id="provider-label"
+          >
             Provider
           </p>
           <hlm-select
@@ -114,7 +132,9 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
             role="status"
           >
             <span
-              [class]="'inline-block size-2 shrink-0 rounded-full ' + statusDot()"
+              [class]="
+                'inline-block size-2 shrink-0 rounded-full ' + statusDot()
+              "
               aria-hidden="true"
             ></span>
             <div class="flex-1 text-sm">
@@ -164,22 +184,25 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
           </div>
         }
 
-        @if (statusKind() === 'ok') {
-          <p class="text-muted-foreground text-center text-xs">
-            You can connect more providers later from Settings.
-          </p>
-        }
-
         <!-- Compact key-storage disclosure -->
         <p
           class="text-muted-foreground flex items-start justify-center gap-2 text-xs"
         >
           <ng-icon hlm name="lucideLock" size="xs" class="mt-0.5 shrink-0" />
           <span>
-            Keys are stored in your OS keychain — never synced to our
-            servers, never logged.
+            Keys are stored in your OS keychain — never synced to our servers,
+            never logged.
           </span>
         </p>
+
+        @if (statusKind() === 'ok') {
+          <p
+            class="text-muted-foreground flex items-center justify-start gap-2 text-xs"
+          >
+            <ng-icon hlm name="lucideInfo" size="xs" class="" />
+            <span>You can connect more providers later from Settings. </span>
+          </p>
+        }
 
         <div class="flex items-center justify-between gap-3">
           <button hlmBtn variant="ghost" type="button" (click)="facade.back()">
@@ -230,7 +253,9 @@ export class FeatureOnboardingStepProvider {
       }
     },
   );
-  protected readonly statusDot = computed(() => STATUS_DOT_CLASS[this.statusKind()]);
+  protected readonly statusDot = computed(
+    () => STATUS_DOT_CLASS[this.statusKind()],
+  );
   protected readonly statusDetail = computed(() => {
     switch (this.profile.connection().status) {
       case 'connected':

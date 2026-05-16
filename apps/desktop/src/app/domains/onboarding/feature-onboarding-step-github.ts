@@ -14,6 +14,7 @@ import {
   lucideGitPullRequest,
   lucideGithub,
   lucideKey,
+  lucideRefreshCw,
 } from '@ng-icons/lucide';
 import { ProfileFacade, UiGithubConnectDialog } from '../profile';
 import { OnboardingFacade } from './data/onboarding.facade';
@@ -34,6 +35,7 @@ import { OnboardingFacade } from './data/onboarding.facade';
       lucideGitPullRequest,
       lucideGithub,
       lucideKey,
+      lucideRefreshCw,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -46,21 +48,6 @@ import { OnboardingFacade } from './data/onboarding.facade';
           Optional. You can connect later from Settings.
         </p>
       </div>
-
-      <ul class="mx-auto max-w-sm space-y-2 text-sm">
-        <li class="flex items-center justify-center gap-2 text-center">
-          <ng-icon hlm name="lucideGithub" size="sm" class="text-muted-foreground" />
-          <span>Create private repositories for new projects</span>
-        </li>
-        <li class="flex items-center justify-center gap-2 text-center">
-          <ng-icon hlm name="lucideGitPullRequest" size="sm" class="text-muted-foreground" />
-          <span>Push branches and open Pull Requests</span>
-        </li>
-        <li class="flex items-center justify-center gap-2 text-center">
-          <ng-icon hlm name="lucideKey" size="sm" class="text-muted-foreground" />
-          <span>Detect repository ownership for auto-naming</span>
-        </li>
-      </ul>
 
       <div class="flex flex-col items-center gap-3">
         @if (profile.githubConnected()) {
@@ -81,29 +68,38 @@ import { OnboardingFacade } from './data/onboarding.facade';
           <button
             hlmBtn
             type="button"
+            variant="secondary"
             class="w-full max-w-xs"
             (click)="onConnect()"
           >
             <ng-icon hlm name="lucideGithub" size="sm" />
-            Connect GitHub
+            Connect Github
           </button>
         }
       </div>
 
+      <ul
+        class="mx-auto max-w-sm text-muted-foreground flex-col items-center justify-baseline gap-4 text-xs"
+      >
+        <li class="space-x-2">
+          <ng-icon hlm name="lucideRefreshCw" size="xs" class="mt-1" />
+          <span>Sync new projects directly to remote Git</span>
+        </li>
+        <li class="space-x-2">
+          <ng-icon hlm name="lucideGitPullRequest" size="xs" class="mt-1" />
+          <span>Push branches and open Pull Requests</span>
+        </li>
+        <li class="space-x-2">
+          <ng-icon hlm name="lucideKey" size="xs" class="mt-1" />
+          <span>Detect repository ownership for auto-naming</span>
+        </li>
+      </ul>
+
       <div class="flex items-center justify-between gap-3">
-        <button
-          hlmBtn
-          variant="ghost"
-          type="button"
-          (click)="facade.back()"
-        >
+        <button hlmBtn variant="ghost" type="button" (click)="facade.back()">
           Back
         </button>
-        <button
-          hlmBtn
-          type="button"
-          (click)="onFinish()"
-        >
+        <button hlmBtn type="button" (click)="onFinish()">
           {{ profile.githubConnected() ? 'Finish' : 'Skip and finish' }}
         </button>
       </div>

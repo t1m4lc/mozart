@@ -22,6 +22,8 @@ low > medium > high > xhigh > max
 
 # Idée en vrac
 
+Stratégy growth repos public skill classé par type de métier, et liste template repo gestion note privee...
+
 Stratégy growth obligé d'etre referencé par qqn lien d'invitation avec code si growth scale (rate limited le lieu ou le code est mis 3 par heure)
 avec stockage coté meta user clerk de l'id du user qui as reference si possible sans db autre que juste clerk de lier code parrainage à user ?
 

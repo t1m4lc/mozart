@@ -40,8 +40,7 @@ const TOOLTIP_FALLBACK_HEIGHT = 160;
   imports: [HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class:
-      'fixed inset-0 z-50 flex select-none items-stretch justify-stretch',
+    class: 'fixed inset-0 z-50 flex select-none items-stretch justify-stretch',
     role: 'dialog',
     'aria-modal': 'true',
   },
@@ -80,9 +79,9 @@ const TOOLTIP_FALLBACK_HEIGHT = 160;
         [style.left.px]="_tooltipLeft()"
         [style.top.px]="_tooltipTop()"
       >
-        <h3 class="text-sm font-semibold">{{ _step()?.title }}</h3>
+        <h3 class="text-sm font-semibold">{{ _step().title }}</h3>
         <p class="mt-1 text-sm text-muted-foreground">
-          {{ _step()?.description }}
+          {{ _step().description }}
         </p>
         <div class="mt-4 flex items-center justify-between gap-2">
           <button
@@ -219,9 +218,12 @@ export class HlmHighlightOverlay {
     this.positionTooltip();
   }
 
-  private resolveSide(
-    rect: { x: number; y: number; width: number; height: number },
-  ): Exclude<HighlightSide, 'auto'> {
+  private resolveSide(rect: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }): Exclude<HighlightSide, 'auto'> {
     const preferred = this._step()?.position ?? 'bottom';
     if (preferred !== 'auto') return preferred;
     const spaces: Record<Exclude<HighlightSide, 'auto'>, number> = {
@@ -230,9 +232,9 @@ export class HlmHighlightOverlay {
       left: rect.x,
       right: window.innerWidth - (rect.x + rect.width),
     };
-    return (Object.entries(spaces) as Array<
-      [Exclude<HighlightSide, 'auto'>, number]
-    >).sort((a, b) => b[1] - a[1])[0][0];
+    return (
+      Object.entries(spaces) as Array<[Exclude<HighlightSide, 'auto'>, number]>
+    ).sort((a, b) => b[1] - a[1])[0][0];
   }
 
   private positionTooltip(): void {

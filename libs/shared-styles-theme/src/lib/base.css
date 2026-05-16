@@ -71,7 +71,7 @@
     --brand-foreground: 229 64% 5%;
     --brand-subtle: 250 45% 68%;
   }
-
+  
   html,
   body {
     font-family: var(--font-mono);

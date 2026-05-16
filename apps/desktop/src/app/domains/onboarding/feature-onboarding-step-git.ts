@@ -12,10 +12,7 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideRefreshCw } from '@ng-icons/lucide';
 import { OsService } from '../../core/os.service';
-import {
-  GIT_CHECK_ADAPTER,
-  type GitIdentity,
-} from './data/git-check.adapter';
+import { GIT_CHECK_ADAPTER, type GitIdentity } from './data/git-check.adapter';
 import { OnboardingFacade } from './data/onboarding.facade';
 import { GIT_INSTALL_INSTRUCTIONS } from './util-git-install-instructions';
 
@@ -24,7 +21,7 @@ type ProbeState = 'idle' | 'probing' | 'found' | 'missing';
 const STATE_DOT_CLASS: Record<ProbeState, string> = {
   idle: 'bg-muted',
   probing: 'bg-brand/60 animate-pulse',
-  found: 'bg-brand',
+  found: 'bg-green-500',
   missing: 'bg-destructive',
 };
 
@@ -107,15 +104,20 @@ const STATE_DOT_CLASS: Record<ProbeState, string> = {
       </div>
 
       @if (state() === 'missing') {
-        <div class="bg-muted/30 space-y-2 rounded-md border border-border/60 p-4 text-sm">
+        <div
+          class="bg-muted/30 space-y-2 rounded-md border border-border/60 p-4 text-sm"
+        >
           <div class="font-medium">{{ instructions().label }}</div>
           @if (instructions().command) {
             <pre
               class="bg-background overflow-x-auto rounded p-2 font-mono text-xs"
-            >{{ instructions().command }}</pre>
+              >{{ instructions().command }}</pre
+            >
           }
           @if (instructions().note) {
-            <p class="text-muted-foreground text-xs">{{ instructions().note }}</p>
+            <p class="text-muted-foreground text-xs">
+              {{ instructions().note }}
+            </p>
           }
         </div>
       }
@@ -175,7 +177,9 @@ export class FeatureOnboardingStepGit {
     this.state.set('probing');
 
     if (this.simulateMissing) {
-      console.info('[onboarding] simulateGitMissing=true — forcing missing state');
+      console.info(
+        '[onboarding] simulateGitMissing=true — forcing missing state',
+      );
       this.version.set(null);
       this.identity.set(null);
       this.state.set('missing');

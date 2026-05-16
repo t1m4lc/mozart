@@ -2,9 +2,7 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "enables the default permissions",
-  "windows": [
-    "main"
-  ],
+  "windows": ["main"],
   "permissions": [
     "core:default",
     "core:window:allow-close",
@@ -18,11 +16,7 @@
     "notification:default",
     "deep-link:default",
     {
-      "identifier": "shell:allow-open",
-      "allow": [
-        { "url": "https://localhost:4201/**" },
-        { "url": "https://app.mozart.build/**" }
-      ]
+      "identifier": "shell:allow-open"
     }
   ]
 }

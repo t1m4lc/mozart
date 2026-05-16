@@ -15,7 +15,9 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
         [attr.aria-valuenow]="stepIndex()"
         [attr.aria-valuemin]="1"
         [attr.aria-valuemax]="totalSteps()"
-        [attr.aria-label]="'Onboarding step ' + stepIndex() + ' of ' + totalSteps()"
+        [attr.aria-label]="
+          'Onboarding step ' + stepIndex() + ' of ' + totalSteps()
+        "
       >
         @for (i of dots(); track i) {
           <span
