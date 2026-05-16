@@ -9,6 +9,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -18,6 +19,15 @@ import { OsService } from '../../../core/os.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
 import { ChatFacade, FeatureChatPanel } from '../../chat';
 import { ProjectsFacade } from '../../projects';
+import { ProfileFacade } from '../../profile';
+import {
+  FeatureCommitDialog,
+  FeatureCreatePrDialog,
+  type CommitDialogContext,
+  type CreatePrDialogContext,
+} from '../../repositories';
+import { IdeDetectionService } from '../data/ide-detection.service';
+import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { FeatureChatTabBar } from '../feature-chat-tab-bar/feature-chat-tab-bar';
 import { ChatEmptyState } from '../ui/chat-empty-state/chat-empty-state';
