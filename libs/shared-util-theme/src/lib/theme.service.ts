@@ -38,9 +38,9 @@ export class ThemeService implements OnDestroy {
   private _theme = signal<Theme>(this.loadTheme());
   private _options = signal<ThemeOptions>(this.config.options);
 
-  readonly activeMode = this._mode.asReadonly();
   readonly activeTheme = this._theme.asReadonly();
   readonly options = this._options.asReadonly();
+  readonly isDark = computed(() => this.resolvedMode() === 'dark');
 
   private readonly resolvedMode = computed<ThemeModeResolved>(() => {
     const m = this._mode();
@@ -60,6 +60,10 @@ export class ThemeService implements OnDestroy {
     this.applyClasses();
   }
 
+  toggle(): void {
+    this.setMode(this.isDark() ? 'light' : 'dark');
+  }
+
   init(): void {
     if (!this.isBrowser) return;
     this.applyClasses();
@@ -69,8 +73,6 @@ export class ThemeService implements OnDestroy {
   ngOnDestroy(): void {
     this.media?.removeEventListener('change', this.onSystemChange);
   }
-
-  private readonly isDark = computed(() => this.resolvedMode() === 'dark');
 
   private applyClasses(): void {
     if (!this.isBrowser) return;
