@@ -289,7 +289,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
                   }
                 }
                 @case ('terminal') {
-                  @defer (on idle) {
+                  @defer (on immediate) {
                     <app-feature-workspace-terminal
                       class="block h-full w-full"
                       [workspaceId]="workspaceId()"

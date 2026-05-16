@@ -74,12 +74,22 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
   host: { class: 'block w-full' },
   template: `
     @if (showPty()) {
-      <app-feature-claude-login-pty
-        [active]="showPty()"
-        (success)="onPtySuccess()"
-        (cancelled)="onPtyCancel()"
-        (useApiKey)="onUseApiKey()"
-      />
+      <!-- Defer the xterm-based PTY component until the user opens
+           Configure. The component pulls in @xterm/xterm + addon-fit
+           (~heavy bundle) which would otherwise live in the main
+           chunk and slow first paint of /onboarding. -->
+      @defer (on viewport) {
+        <app-feature-claude-login-pty
+          [active]="showPty()"
+          (success)="onPtySuccess()"
+          (cancelled)="onPtyCancel()"
+          (useApiKey)="onUseApiKey()"
+        />
+      } @placeholder {
+        <div class="p-4 text-xs text-muted-foreground">
+          Preparing login terminal…
+        </div>
+      }
     } @else {
       <div class="space-y-6">
         <div class="mx-auto max-w-md space-y-2 text-center">

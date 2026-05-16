@@ -85,7 +85,16 @@ function isMarkdownPath(path: string | null): boolean {
             Failed to read file: {{ err }}
           </p>
         } @else {
-          <app-ui-markdown-view [source]="previewText()" />
+          <!-- Defer the markdown renderer : the marked dependency is
+               only needed for .md / .mdx previews. With @defer it
+               lands in its own chunk, loaded on first preview. -->
+          @defer (on viewport) {
+            <app-ui-markdown-view [source]="previewText()" />
+          } @placeholder {
+            <p class="text-muted-foreground px-3 py-3 text-xs">
+              Loading preview…
+            </p>
+          }
         }
       } @else {
         <app-diff-view

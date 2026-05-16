@@ -242,7 +242,13 @@ import { ShellProjectList } from './shell-project-list';
     }
 
     @if (tourActive()) {
-      <app-feature-tour />
+      <!-- Defer the tour overlay : it's only used by users replaying
+           the welcome tour, the highlight-overlay primitive ships
+           with its own ResizeObserver setup. Idle is enough — the
+           tour starts via a navigation, not a real-time signal. -->
+      @defer (on idle) {
+        <app-feature-tour />
+      }
     }
   `,
 })
