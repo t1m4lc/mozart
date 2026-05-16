@@ -16,7 +16,7 @@ import {
   lucideKey,
   lucideRefreshCw,
 } from '@ng-icons/lucide';
-import { ProfileFacade, UiGithubConnectDialog } from '../profile';
+import { ProfileFacade } from '../profile';
 import { OnboardingFacade } from './data/onboarding.facade';
 
 // Step 4 of the onboarding wizard. Optional GitHub connection — reuses
@@ -129,7 +129,10 @@ export class FeatureOnboardingStepGithub {
     this.onFinish();
   }
 
-  protected onConnect(): void {
+  protected async onConnect(): Promise<void> {
+    const { UiGithubConnectDialog } = await import(
+      '../profile/ui-github-connect-dialog'
+    );
     this.dialog.open(UiGithubConnectDialog, {});
   }
 

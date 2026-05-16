@@ -13,7 +13,7 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmSelectImports } from '@mozart/ui/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideInfo, lucideLock, lucideRefreshCw } from '@ng-icons/lucide';
-import { ProfileFacade, UiConnectDialog } from '../profile';
+import { ProfileFacade } from '../profile';
 import { OnboardingFacade } from './data/onboarding.facade';
 import { FeatureClaudeLoginPty } from './feature-claude-login-pty';
 
@@ -318,8 +318,9 @@ export class FeatureOnboardingStepProvider {
     this.showPty.set(false);
   }
 
-  protected onUseApiKey(): void {
+  protected async onUseApiKey(): Promise<void> {
     this.showPty.set(false);
+    const { UiConnectDialog } = await import('../profile/ui-connect-dialog');
     this.dialog.open(UiConnectDialog, {});
   }
 }

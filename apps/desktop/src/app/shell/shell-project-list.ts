@@ -26,7 +26,6 @@ import {
 } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import {
-  ConfirmDeleteProjectDialog,
   type ConfirmDeleteProjectContext,
   ProjectContextMenu,
   ProjectRow,
@@ -401,7 +400,7 @@ export class ShellProjectList {
     }
   }
 
-  protected openDeleteDialog(project: Project): void {
+  protected async openDeleteDialog(project: Project): Promise<void> {
     const context: ConfirmDeleteProjectContext = {
       project,
       onConfirm: async () => {
@@ -415,6 +414,9 @@ export class ShellProjectList {
         }
       },
     };
+    const { ConfirmDeleteProjectDialog } = await import(
+      '../domains/projects/ui-confirm-delete-project-dialog'
+    );
     this._dialogService.open(ConfirmDeleteProjectDialog, { context });
   }
 

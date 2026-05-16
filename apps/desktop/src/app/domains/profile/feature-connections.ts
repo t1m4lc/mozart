@@ -5,15 +5,9 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideWifiOff } from '@ng-icons/lucide';
 import { ConnectivityService } from '../../core/connectivity.service';
 import { ProfileFacade } from './data/profile.facade';
-import { UiConnectDialog } from './ui-connect-dialog';
-import {
-  ConfirmDisconnectContext,
-  UiConfirmDisconnectDialog,
-} from './ui-confirm-disconnect-dialog';
+import type { ConfirmDisconnectContext } from './ui-confirm-disconnect-dialog';
 import { UiConnectionCard } from './ui-connection-card';
-import { UiConnectionHelpDialog } from './ui-connection-help-dialog';
 import { UiGithubCard } from './ui-github-card';
-import { UiGithubConnectDialog } from './ui-github-connect-dialog';
 
 // Composes the `/settings` connection list. v0.0.1 ships one live card
 // (Anthropic) and a disabled placeholder (GitHub). v0.1.0 turns the
@@ -73,7 +67,8 @@ export class FeatureConnections {
     void this.facade.initializeGithub();
   }
 
-  protected onConnectGithub(): void {
+  protected async onConnectGithub(): Promise<void> {
+    const { UiGithubConnectDialog } = await import('./ui-github-connect-dialog');
     this.dialogService.open(UiGithubConnectDialog, {});
   }
 
@@ -87,22 +82,25 @@ export class FeatureConnections {
   protected async onConnect(): Promise<void> {
     const outcome = await this.facade.tryConnect();
     if (outcome === 'needs_api_key') {
-      this.openApiKeyDialog();
+      await this.openApiKeyDialog();
     }
   }
 
   // From the "Using Claude Code" state, the user can switch to an API
   // key directly — same dialog as the not_connected → Connect path.
-  protected onUseApiKey(): void {
-    this.openApiKeyDialog();
+  protected async onUseApiKey(): Promise<void> {
+    await this.openApiKeyDialog();
   }
 
-  protected onDisconnect(): void {
+  protected async onDisconnect(): Promise<void> {
     const context: ConfirmDisconnectContext = {
       onConfirm: () => {
         void this.facade.disconnect();
       },
     };
+    const { UiConfirmDisconnectDialog } = await import(
+      './ui-confirm-disconnect-dialog'
+    );
     this.dialogService.open(UiConfirmDisconnectDialog, { context });
   }
 
@@ -110,11 +108,13 @@ export class FeatureConnections {
     void this.facade.testConnection();
   }
 
-  protected onHelp(): void {
+  protected async onHelp(): Promise<void> {
+    const { UiConnectionHelpDialog } = await import('./ui-connection-help-dialog');
     this.dialogService.open(UiConnectionHelpDialog, {});
   }
 
-  private openApiKeyDialog(): void {
+  private async openApiKeyDialog(): Promise<void> {
+    const { UiConnectDialog } = await import('./ui-connect-dialog');
     this.dialogService.open(UiConnectDialog, {});
   }
 }

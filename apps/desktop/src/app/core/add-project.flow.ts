@@ -3,12 +3,9 @@ import { Router } from '@angular/router';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { ChatFacade } from '../domains/chat';
 import {
-  CloneRepoDialog,
   type CloneRepoContext,
-  CreateProjectDialog,
   type CreateProjectContext,
   DIALOG_ADAPTER,
-  InitProjectDialog,
   type InitProjectContext,
   ProjectsFacade,
 } from '../domains/projects';
@@ -50,6 +47,9 @@ export class AddProjectFlow {
         await this.addAndOpen(path);
       },
     };
+    const { CloneRepoDialog } = await import(
+      '../domains/projects/ui-clone-repo-dialog'
+    );
     this.dialogService.open(CloneRepoDialog, { context });
   }
 
@@ -66,6 +66,9 @@ export class AddProjectFlow {
         await this._initAndContinue(path);
       },
     };
+    const { CreateProjectDialog } = await import(
+      '../domains/projects/ui-create-project-dialog'
+    );
     this.dialogService.open(CreateProjectDialog, { context });
   }
 
@@ -74,7 +77,7 @@ export class AddProjectFlow {
       await this._addAndContinue(path);
     } catch (err) {
       if (this._isNotARepo(err)) {
-        this._openInitDialog(path);
+        void this._openInitDialog(path);
         return;
       }
       console.error('add project flow failed', err);
@@ -114,13 +117,16 @@ export class AddProjectFlow {
     return err.message === 'NotARepo';
   }
 
-  private _openInitDialog(path: string): void {
+  private async _openInitDialog(path: string): Promise<void> {
     const context: InitProjectContext = {
       path,
       onConfirm: async () => {
         await this._initAndContinue(path);
       },
     };
+    const { InitProjectDialog } = await import(
+      '../domains/projects/ui-init-project-dialog'
+    );
     this.dialogService.open(InitProjectDialog, { context });
   }
 

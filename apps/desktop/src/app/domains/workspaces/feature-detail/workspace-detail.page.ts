@@ -21,8 +21,6 @@ import { ChatFacade, FeatureChatPanel } from '../../chat';
 import { ProjectsFacade } from '../../projects';
 import { ProfileFacade } from '../../profile';
 import {
-  FeatureCommitDialog,
-  FeatureCreatePrDialog,
   FeatureFileDiff,
   type CommitDialogContext,
   type CreatePrDialogContext,
@@ -281,16 +279,19 @@ export class WorkspaceDetailPage {
     }
   }
 
-  protected onCommit(): void {
+  protected async onCommit(): Promise<void> {
     const id = this.id();
     if (!id) return;
     const context: CommitDialogContext = {
       workspaceId: id,
     };
+    const { FeatureCommitDialog } = await import(
+      '../../repositories/feature-commit-dialog/feature-commit-dialog'
+    );
     this.dialog.open(FeatureCommitDialog, { context });
   }
 
-  protected onCreatePr(): void {
+  protected async onCreatePr(): Promise<void> {
     const id = this.id();
     if (!id) return;
     const ws = this.workspaces.workspaceById(id)();
@@ -298,6 +299,9 @@ export class WorkspaceDetailPage {
       workspaceId: id,
       defaultTitle: ws?.name ?? '',
     };
+    const { FeatureCreatePrDialog } = await import(
+      '../../repositories/feature-create-pr-dialog/feature-create-pr-dialog'
+    );
     this.dialog.open(FeatureCreatePrDialog, { context });
   }
 }
