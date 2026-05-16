@@ -1,4 +1,85 @@
 {
+  "permissions": {
+    "allow": [
+      "Read",
+      "Edit",
+      "Write",
+
+      "Bash(pwd)",
+      "Bash(ls:*)",
+      "Bash(find:*)",
+      "Bash(cat:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(sed:*)",
+      "Bash(awk:*)",
+      "Bash(head:*)",
+      "Bash(tail:*)",
+      "Bash(tree:*)",
+
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(git worktree list:*)",
+      "Bash(git remote:*)",
+
+      "Bash(git add:*)",
+      "Bash(git restore --staged:*)"
+    ],
+    "deny": [
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+
+      "Read(env.ts)",
+      "Read(env.*.ts)",
+      "Read(**/env.ts)",
+      "Read(**/env.*.ts)",
+      "Read(**/environment.ts)",
+      "Read(**/environment.*.ts)",
+
+      "Read(secrets/**)",
+      "Read(**/secrets/**)",
+      "Read(.ssh/**)",
+      "Read(**/.ssh/**)",
+
+      "Bash(sudo:*)",
+      "Bash(rm -rf:*)",
+      "Bash(chmod:*)",
+      "Bash(chown:*)",
+      "Bash(wget:*)",
+      "Bash(curl:*)",
+      "Bash(ssh:*)",
+
+      "Bash(git commit:*)",
+      "Bash(git reset:*)",
+      "Bash(git revert:*)",
+      "Bash(git checkout:*)",
+      "Bash(git switch:*)",
+      "Bash(git merge:*)",
+      "Bash(git rebase:*)",
+      "Bash(git cherry-pick:*)",
+      "Bash(git push:*)",
+      "Bash(git pull:*)",
+      "Bash(git fetch:*)",
+      "Bash(git clean:*)",
+      "Bash(git stash:*)",
+      "Bash(git tag:*)",
+      "Bash(git worktree add:*)",
+      "Bash(git worktree remove:*)",
+      "Bash(git worktree prune:*)",
+
+      "Read(docs/archived/**)",
+      "Edit(docs/archived/**)",
+      "Write(docs/archived/**)",
+      "Read(docs/specs/legacy/**)",
+      "Edit(docs/specs/legacy/**)",
+      "Write(docs/specs/legacy/**)"
+    ]
+  },
   "$schema": "https://json.schemastore.org/claude-code-settings.json",
   "includeCoAuthoredBy": false,
   "hooks": {
@@ -23,6 +104,8 @@
     }
   },
   "enabledPlugins": {
-    "nx@nx-claude-plugins": true
+    "nx@nx-claude-plugins": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
   }
 }
