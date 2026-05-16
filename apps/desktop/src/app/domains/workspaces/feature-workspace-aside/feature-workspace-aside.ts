@@ -5,11 +5,19 @@ import {
   effect,
   inject,
   signal,
+  viewChild,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HlmResizableImports } from '@mozart/ui/resizable';
-import { HlmTabsImports } from '@mozart/ui/tabs';
+import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmIconImports } from '@mozart/ui/icon';
+import {
+  HlmResizableImports,
+  HlmResizablePanel,
+} from '@mozart/ui/resizable';
+import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideChevronDown, lucideChevronUp } from '@ng-icons/lucide';
 import { map } from 'rxjs/operators';
 import {
   FeatureFileDiff,
@@ -21,68 +29,64 @@ import { FeatureWorkspaceRun } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
 import { WorkspacesFacade } from '../data/workspace.facade';
 
-type AsideTab = 'files' | 'terminal' | 'run';
+// IMP-021 — the right aside is a vertical split:
+//   - Top : Files (inner tree-over-diff split)
+//   - Bottom : 3 tabs (Setup / Run / Terminal) — Run is default
+// The tab bar is pinned at the bottom edge and stays visible even when
+// the bottom slot is collapsed. Collapsing drops the bottom panel size
+// to 0 (the tab bar handles the toggle); expanding restores a 50/50
+// split. Run + Terminal are lazy-loaded via `@defer` so xterm and the
+// run-command machinery don't bloat the main bundle.
+type BottomTab = 'setup' | 'run' | 'terminal';
 
-const TAB_VALUES: readonly AsideTab[] = ['files', 'terminal', 'run'] as const;
-const DEFAULT_TAB: AsideTab = 'files';
+const BOTTOM_TAB_VALUES: readonly BottomTab[] = [
+  'setup',
+  'run',
+  'terminal',
+] as const;
+const DEFAULT_BOTTOM_TAB: BottomTab = 'run';
 
-function coerceTab(raw: string | null): AsideTab {
-  return (TAB_VALUES as readonly string[]).includes(raw ?? '')
-    ? (raw as AsideTab)
-    : DEFAULT_TAB;
+const BOTTOM_OPEN_PERCENT = 50;
+// Small non-zero percent leaves enough room for the tab bar (~36 px)
+// at typical aside heights. The tab bar lives at the top of the
+// bottom panel so it stays visible when the slot is collapsed.
+const BOTTOM_COLLAPSED_PERCENT = 6;
+
+function coerceBottomTab(raw: string | null): BottomTab {
+  return (BOTTOM_TAB_VALUES as readonly string[]).includes(raw ?? '')
+    ? (raw as BottomTab)
+    : DEFAULT_BOTTOM_TAB;
 }
 
-// IMP-004 — Open in IDE / Commit / Create PR moved to the central
-// workspace toolbar (WorkspaceDetailPage). This aside now hosts the
-// tab strip + content only.
 @Component({
   selector: 'app-feature-workspace-aside',
   imports: [
-    HlmTabsImports,
+    HlmButtonImports,
+    HlmIconImports,
     HlmResizableImports,
+    HlmTooltipImports,
+    NgIcon,
     FeatureFileTree,
     FeatureFileDiff,
-    FeatureWorkspaceTerminal,
     FeatureWorkspaceRun,
+    FeatureWorkspaceTerminal,
   ],
+  providers: [provideIcons({ lucideChevronDown, lucideChevronUp })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col bg-sidebar' },
   template: `
-    <hlm-tabs
-      [tab]="activeTab()"
-      class="flex min-h-0 flex-1 flex-col gap-0"
-      (tabActivated)="onTabActivated($event)"
-    >
-      <hlm-tabs-list
-        variant="line"
-        class="h-9 shrink-0 justify-start gap-0 border-b border-sidebar-border bg-sidebar px-2"
+    <hlm-resizable-group direction="vertical" class="min-h-0 flex-1">
+      <!-- Top slot : Files (inner tree-over-diff split) -->
+      <hlm-resizable-panel
+        [defaultSize]="50"
+        [minSize]="20"
+        class="overflow-hidden"
       >
-        <button
-          hlmTabsTrigger="files"
-          type="button"
-          class="text-xs font-normal"
+        <hlm-resizable-group
+          direction="vertical"
+          class="h-full w-full"
           data-tour="aside-files-tab"
         >
-          Files
-        </button>
-        <button
-          hlmTabsTrigger="terminal"
-          type="button"
-          class="text-xs font-normal"
-        >
-          Terminal
-        </button>
-        <button
-          hlmTabsTrigger="run"
-          type="button"
-          class="text-xs font-normal"
-        >
-          Run
-        </button>
-      </hlm-tabs-list>
-
-      <div hlmTabsContent="files" class="min-h-0 flex-1">
-        <hlm-resizable-group direction="vertical" class="h-full w-full">
           <hlm-resizable-panel
             [defaultSize]="35"
             [minSize]="20"
@@ -109,24 +113,121 @@ function coerceTab(raw: string | null): AsideTab {
             />
           </hlm-resizable-panel>
         </hlm-resizable-group>
-      </div>
+      </hlm-resizable-panel>
 
-      <div hlmTabsContent="terminal" class="min-h-0 flex-1 overflow-hidden">
-        <app-feature-workspace-terminal
-          class="block h-full w-full"
-          [workspaceId]="workspaceId()"
-          [active]="activeTab() === 'terminal'"
-        />
-      </div>
+      <hlm-resizable-handle [class.hidden]="!bottomOpen()" />
 
-      <div hlmTabsContent="run" class="min-h-0 flex-1 overflow-hidden">
-        <app-feature-workspace-run
-          class="block h-full w-full"
-          [workspaceId]="workspaceId()"
-          [active]="activeTab() === 'run'"
-        />
-      </div>
-    </hlm-tabs>
+      <!-- Bottom slot — has its own top toolbar (tabs + expand) and
+           a content area below that. When collapsed, the panel
+           shrinks to just the toolbar height. -->
+      <hlm-resizable-panel
+        #bottomPanel="hlmResizablePanel"
+        [defaultSize]="50"
+        [minSize]="6"
+        [collapsible]="true"
+        class="overflow-hidden"
+      >
+        <div class="flex h-full w-full flex-col">
+          <!-- Top toolbar of the bottom slot. Always visible; the
+               expand button toggles the content area below. -->
+          <div
+            class="flex h-9 shrink-0 items-center gap-1 border-b border-sidebar-border bg-sidebar px-2"
+            role="tablist"
+            aria-label="Workspace processes"
+          >
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="bottomOpen() && bottomTab() === 'setup'"
+              (click)="onTabClick('setup')"
+              class="h-7 rounded-md px-2 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
+            >
+              Setup
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="bottomOpen() && bottomTab() === 'run'"
+              (click)="onTabClick('run')"
+              class="h-7 rounded-md px-2 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
+            >
+              Run
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="bottomOpen() && bottomTab() === 'terminal'"
+              (click)="onTabClick('terminal')"
+              class="h-7 rounded-md px-2 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
+            >
+              Terminal
+            </button>
+            <span class="flex-1"></span>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="icon-xs"
+              type="button"
+              [hlmTooltip]="bottomOpen() ? 'Collapse panel' : 'Expand panel'"
+              position="top"
+              class="size-7 rounded-md text-muted-foreground"
+              [attr.aria-expanded]="bottomOpen()"
+              (click)="toggleBottomSlot()"
+            >
+              <ng-icon
+                hlm
+                [name]="bottomOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
+                size="xs"
+              />
+            </button>
+          </div>
+
+          <!-- Content area — gone when collapsed; the panel shrinks to
+               just the tab bar's height. -->
+          @if (bottomOpen()) {
+            <div class="min-h-0 flex-1 overflow-hidden">
+              @switch (bottomTab()) {
+                @case ('setup') {
+                  <div class="p-4 text-sm text-muted-foreground">
+                    <p class="font-medium text-foreground">Setup</p>
+                    <p class="mt-1">
+                      Workspace setup steps — package install, run
+                      command, environment — land here.
+                    </p>
+                  </div>
+                }
+                @case ('run') {
+                  @defer (on immediate) {
+                    <app-feature-workspace-run
+                      class="block h-full w-full"
+                      [workspaceId]="workspaceId()"
+                      [active]="bottomTab() === 'run'"
+                    />
+                  } @placeholder {
+                    <div class="p-4 text-xs text-muted-foreground">
+                      Loading run panel…
+                    </div>
+                  }
+                }
+                @case ('terminal') {
+                  @defer (on idle) {
+                    <app-feature-workspace-terminal
+                      class="block h-full w-full"
+                      [workspaceId]="workspaceId()"
+                      [active]="bottomTab() === 'terminal'"
+                    />
+                  } @placeholder {
+                    <div class="p-4 text-xs text-muted-foreground">
+                      Loading terminal…
+                    </div>
+                  }
+                }
+              }
+            </div>
+          }
+        </div>
+      </hlm-resizable-panel>
+    </hlm-resizable-group>
   `,
 })
 export class FeatureWorkspaceAside {
@@ -136,12 +237,18 @@ export class FeatureWorkspaceAside {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
 
-  // Reflects `?tab=...` from the URL; default `files` so the param can
+  // Reflects `?tab=...` from the URL; default `run` so the param can
   // stay absent in the canonical case.
-  protected readonly activeTab = toSignal(
-    this.route.queryParamMap.pipe(map((p) => coerceTab(p.get('tab')))),
-    { initialValue: DEFAULT_TAB },
+  protected readonly bottomTab = toSignal(
+    this.route.queryParamMap.pipe(
+      map((p) => coerceBottomTab(p.get('tab'))),
+    ),
+    { initialValue: DEFAULT_BOTTOM_TAB },
   );
+
+  // Whether the bottom slot's content area is expanded. The tab bar
+  // is always visible regardless. Session-scoped — not persisted.
+  protected readonly bottomOpen = signal(true);
 
   protected readonly workspaceId = this.workspaces.activeId;
 
@@ -152,6 +259,9 @@ export class FeatureWorkspaceAside {
   // Bumped on every FS-watcher ping. Both file-tree and file-diff
   // children consume this as an input → effects re-run and re-fetch.
   protected readonly watcherTick = signal(0);
+
+  private readonly _bottomPanelRef =
+    viewChild<HlmResizablePanel>('bottomPanel');
 
   // Active watcher unsubscribe; replaced when workspaceId changes,
   // called on destroy.
@@ -171,6 +281,17 @@ export class FeatureWorkspaceAside {
       onCleanup(() => this.detachWatcher());
     });
     this.destroyRef.onDestroy(() => this.detachWatcher());
+
+    // Drive the bottom-slot panel size from the open/closed signal.
+    // `collapsible: true` on the panel lets us call setSize(0) to
+    // fully hide it without losing the resizable group structure.
+    effect(() => {
+      const open = this.bottomOpen();
+      const panel = this._bottomPanelRef();
+      if (panel) {
+        panel.setSize(open ? BOTTOM_OPEN_PERCENT : BOTTOM_COLLAPSED_PERCENT);
+      }
+    });
   }
 
   protected onFileSelected(node: FileNode): void {
@@ -178,15 +299,24 @@ export class FeatureWorkspaceAside {
     this.selectedPath.set(node.path);
   }
 
-  protected onTabActivated(next: string): void {
-    const tab = coerceTab(next);
-    if (tab === this.activeTab()) return;
+  // Clicking a tab :
+  //   - opens the bottom slot if it's collapsed
+  //   - sets the URL `?tab=` to the new tab (or clears it for Run)
+  protected onTabClick(tab: BottomTab): void {
+    if (!this.bottomOpen()) {
+      this.bottomOpen.set(true);
+    }
+    if (tab === this.bottomTab()) return;
     this.router.navigate([], {
       relativeTo: this.route,
-      queryParams: { tab: tab === DEFAULT_TAB ? null : tab },
+      queryParams: { tab: tab === DEFAULT_BOTTOM_TAB ? null : tab },
       queryParamsHandling: 'merge',
       replaceUrl: true,
     });
+  }
+
+  protected toggleBottomSlot(): void {
+    this.bottomOpen.update((v) => !v);
   }
 
   private async attachWatcher(workspaceId: string): Promise<void> {
