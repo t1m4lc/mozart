@@ -25,9 +25,13 @@ export type WorkspaceTab = ChatTab | FileTab;
  *  at this count. File tabs do not consume this budget. */
 export const CHAT_TAB_CAP = 4;
 
-/** Maximum file tabs per workspace. Opening past the cap evicts the
- *  oldest file tab (FIFO). */
-export const FILE_TAB_CAP = 10;
+/** Maximum file tabs per workspace. v0.0.1 ships with cap = 1 :
+ *  opening a file replaces the previous file tab. Less DOM, less
+ *  memory, and a clearer mental model — the workspace shows ONE
+ *  diff at a time alongside the chats. Raise the cap when a future
+ *  iteration warrants multi-file tabs ; FileTabsService.openFor
+ *  already does FIFO eviction over the cap. */
+export const FILE_TAB_CAP = 1;
 
 /** @deprecated kept for back-compat callers; chats cap is the
  *  effective `+` button gate. Prefer CHAT_TAB_CAP. */
