@@ -137,21 +137,63 @@ export class AuthFacade {
    *    - `success`     : desktop received the token (HTTP 200)
    *    - `unreachable` : fetch failed (desktop not running, port
    *                      changed since last sign-in, firewall, etc.)
-   *    - `invalid`     : missing user, state, or port — typically a
-   *                      direct /dashboard hit with no preceding
-   *                      desktop handoff (or a token fetch failure) */
+   *    - `invalid`     : no Mozart-handoff context for this tab
+   *                      (state nonce or callback port missing). Usually
+   *                      means the user landed here without going through
+   *                      Mozart desktop's Sign-in click — they need to
+   *                      open Mozart and click Sign in to seed
+   *                      localStorage with a fresh state + port. */
   async triggerDesktopSignIn(): Promise<DesktopLaunchOutcome> {
     const user = this.user();
     const state = this._oauthState();
     const port = this._callbackPort();
-    if (!user || !state || !port) return 'invalid';
+    console.info(
+      '[launch] triggerDesktopSignIn — user:',
+      !!user,
+      'state:',
+      state ? `${state.slice(0, 8)}…` : null,
+      'port:',
+      port,
+    );
+    if (!user) {
+      console.warn('[launch] no Clerk user');
+      return 'invalid';
+    }
+    if (!state || !port) {
+      console.warn(
+        '[launch] missing state/port — user must click Sign in on Mozart desktop first',
+      );
+      return 'invalid';
+    }
 
-    const token = await this.clerk.getToken({ template: MOZART_JWT_TEMPLATE });
-    if (!token) return 'invalid';
+    // Try the custom `mozart` JWT template first (per docs/setup-clerk.md
+    // §2). Fall back to the default session token if the template isn't
+    // configured — Mozart's desktop JWT decoder is tolerant of missing
+    // custom claims (defaults `onboarding` to `false`).
+    let token: string | null = null;
+    try {
+      token = await this.clerk.getToken({ template: MOZART_JWT_TEMPLATE });
+    } catch (err) {
+      console.warn(
+        '[launch] JWT template "mozart" unavailable — falling back to default token (configure the template per docs/setup-clerk.md §2 if you want onboarding routing). Error :',
+        err,
+      );
+      try {
+        token = await this.clerk.getToken();
+      } catch (fallbackErr) {
+        console.error('[launch] default getToken also failed:', fallbackErr);
+        return 'invalid';
+      }
+    }
+    if (!token) {
+      console.warn('[launch] Clerk returned a null session token');
+      return 'invalid';
+    }
 
     const url = new URL(`http://127.0.0.1:${port}/auth`);
     url.searchParams.set('token', token);
     url.searchParams.set('state', state);
+    console.info('[launch] fetching http://127.0.0.1:', port, '/auth …');
 
     try {
       const res = await fetch(url.toString(), {
@@ -159,8 +201,21 @@ export class AuthFacade {
         mode: 'cors',
         credentials: 'omit',
       });
-      return res.ok ? 'success' : 'unreachable';
-    } catch {
+      if (res.ok) {
+        console.info('[launch] desktop accepted the token');
+        return 'success';
+      }
+      console.warn(
+        '[launch] desktop returned non-2xx:',
+        res.status,
+        res.statusText,
+      );
+      return 'unreachable';
+    } catch (err) {
+      console.error(
+        '[launch] fetch failed (desktop not running, port stale, or fetch blocked):',
+        err,
+      );
       return 'unreachable';
     }
   }

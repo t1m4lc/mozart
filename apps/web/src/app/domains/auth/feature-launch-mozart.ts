@@ -41,7 +41,12 @@ import { isMobileUserAgent } from './util-detect-mobile';
 // external handler". A loopback `fetch` from the same browser has
 // none of that drama and is uniform across OSes.
 
-type LaunchState = 'idle' | 'connecting' | 'success' | 'unreachable';
+type LaunchState =
+  | 'idle'
+  | 'connecting'
+  | 'success'
+  | 'unreachable'
+  | 'no-handoff';
 
 @Component({
   selector: 'app-feature-launch-mozart',
@@ -116,8 +121,10 @@ type LaunchState = 'idle' | 'connecting' | 'success' | 'unreachable';
               <ng-icon name="lucideTriangleAlert" size="lg" />
             </div>
             <p hlmP class="text-center text-sm">
-              Mozart desktop isn't responding. Open Mozart on your
-              computer, then try again.
+              Mozart desktop isn't responding. If you restarted it
+              recently, open Mozart and click <strong>Sign in</strong>
+              again to refresh the handoff URL — the localhost port
+              changes on every boot.
             </p>
             <button
               hlmBtn
@@ -139,6 +146,34 @@ type LaunchState = 'idle' | 'connecting' | 'success' | 'unreachable';
                 Download
               </a>
             </p>
+          </div>
+        }
+        @case ('no-handoff') {
+          <div class="flex flex-col items-center gap-3">
+            <div
+              class="bg-muted/40 text-muted-foreground ring-border flex size-14 items-center justify-center rounded-full ring-1"
+              aria-label="Open Mozart desktop first"
+            >
+              <ng-icon name="lucideTriangleAlert" size="lg" />
+            </div>
+            <p hlmP class="text-center text-sm">
+              No Mozart handoff for this tab.
+            </p>
+            <p hlmMuted class="text-center text-xs">
+              Open Mozart desktop and click <strong>Sign in</strong>
+              on the welcome screen. The browser will reopen this
+              page with a fresh handoff URL.
+            </p>
+            <button
+              hlmBtn
+              variant="outline"
+              type="button"
+              class="w-full"
+              (click)="onLaunch()"
+            >
+              <ng-icon hlm name="lucideRefreshCw" size="sm" />
+              Check again
+            </button>
           </div>
         }
       }
@@ -178,11 +213,34 @@ export class FeatureLaunchMozart {
   protected async onLaunch(): Promise<void> {
     if (this.state() === 'connecting') return;
     this.state.set('connecting');
-    const outcome = await this.auth.triggerDesktopSignIn();
-    // 'invalid' (missing user/state/port) folds into 'unreachable' :
-    // the retry button + download link is the right surface either
-    // way. The desktop side detects the actual edge case.
-    this.state.set(outcome === 'success' ? 'success' : 'unreachable');
+    try {
+      const outcome = await this.auth.triggerDesktopSignIn();
+      // Distinct UI for each outcome :
+      //   'success'     → green check, "you can close this tab"
+      //   'unreachable' → red triangle, "Mozart not running OR stale
+      //                   port — restart and click Sign in again"
+      //   'invalid'     → muted triangle, "No handoff yet — open
+      //                   Mozart and click Sign in to seed the URL"
+      //                   (mapped to 'no-handoff' for the template)
+      switch (outcome) {
+        case 'success':
+          this.state.set('success');
+          break;
+        case 'unreachable':
+          this.state.set('unreachable');
+          break;
+        case 'invalid':
+          this.state.set('no-handoff');
+          break;
+      }
+    } catch (err) {
+      // triggerDesktopSignIn handles its own errors, but a Clerk SDK
+      // crash or signal-reader exception could bubble through.
+      // Default to 'unreachable' rather than getting stuck on the
+      // spinner forever.
+      console.error('[launch] unexpected error from triggerDesktopSignIn:', err);
+      this.state.set('unreachable');
+    }
   }
 
   protected async onSignOut(): Promise<void> {
