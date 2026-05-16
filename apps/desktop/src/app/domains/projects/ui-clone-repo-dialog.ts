@@ -38,6 +38,12 @@ export interface CloneRepoContext {
 //
 // Plain signal-based form state — matches the existing dialog pattern
 // in the project (UiConnectDialog). Signal Forms migration deferred.
+
+// Match `https://github.com/owner/repo` with an optional `.git` suffix.
+// Trailing slash tolerated. Owner / repo allow word chars, dots, and
+// hyphens — matching GitHub's own naming rules.
+const GITHUB_URL_RE =
+  /^https?:\/\/github\.com\/[\w.-]+\/[\w.-]+?(?:\.git)?\/?$/;
 @Component({
   selector: 'app-clone-repo-dialog',
   imports: [
@@ -80,8 +86,15 @@ export interface CloneRepoContext {
           [value]="url()"
           (input)="onUrlInput($event)"
           [disabled]="cloning()"
+          [attr.aria-invalid]="urlError() ? true : null"
+          aria-describedby="clone-url-error"
           autofocus
         />
+        @if (urlError()) {
+          <p id="clone-url-error" class="text-xs text-destructive">
+            {{ urlError() }}
+          </p>
+        }
       </div>
 
       <div class="space-y-1.5">
@@ -111,6 +124,11 @@ export interface CloneRepoContext {
             Browse
           </button>
         </div>
+        @if (clonePreview()) {
+          <p class="text-xs text-muted-foreground">
+            Will clone to <span class="font-mono">{{ clonePreview() }}</span>
+          </p>
+        }
       </div>
 
       @if (error()) {
@@ -159,8 +177,33 @@ export class CloneRepoDialog {
   protected readonly cloning = signal(false);
   protected readonly error = signal<string | null>(null);
 
+  protected readonly urlError = computed(() => {
+    const u = this.url().trim();
+    if (u.length === 0) return null;
+    return GITHUB_URL_RE.test(u)
+      ? null
+      : 'Enter a GitHub URL like https://github.com/owner/repo';
+  });
+
+  protected readonly clonedFolderName = computed(() => {
+    const u = this.url().trim();
+    if (!GITHUB_URL_RE.test(u)) return null;
+    const last = u.replace(/\/$/, '').split('/').pop() ?? '';
+    return last.replace(/\.git$/, '');
+  });
+
+  protected readonly clonePreview = computed(() => {
+    const name = this.clonedFolderName();
+    const loc = this.location().trim();
+    if (!name || loc.length === 0) return null;
+    return `${loc}/${name}`;
+  });
+
   protected readonly canSubmit = computed(
-    () => this.url().trim().length > 0 && this.location().trim().length > 0,
+    () =>
+      this.url().trim().length > 0 &&
+      this.location().trim().length > 0 &&
+      this.urlError() === null,
   );
 
   protected onUrlInput(event: Event): void {

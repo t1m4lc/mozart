@@ -171,6 +171,35 @@ most-realistic regression test.
 
 ---
 
+### Scenario : Offline banner appears when network drops
+
+**Priority** : MUST
+
+**Preconditions** :
+- Authenticated, on any route (`/`, `/workspaces/:id`, `/settings`).
+- Network reachable at start.
+
+**Steps** :
+1. Disable network (wifi or ethernet).
+2. Wait up to ~30 s.
+3. Re-enable network.
+
+**Expected** :
+- Step 2 : a top-of-screen banner appears : "You're offline. Hosted
+  features (sign-in, hosted LLMs) are paused.".
+- The banner does NOT block clicks on the underlying UI.
+- Step 3 : the banner disappears after the next connectivity probe.
+
+**Edge cases** :
+- Connectivity flapping (on / off / on) → the banner debounces ;
+  brief outages under the probe interval do not flash the banner.
+- On `/settings` Connections section : an additional amber-tinted
+  inline banner notes hosted LLMs are unreachable (cross-link :
+  Phase 6 "Empty state on /settings → Connections shows offline
+  banner", COULD priority).
+
+---
+
 ### Scenario : Sign-out + sign-in-again preserves the local data
 
 **Priority** : SHOULD

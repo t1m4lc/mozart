@@ -13,8 +13,17 @@ import {
 import { Router } from '@angular/router';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
+import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  lucideCircleCheck,
+  lucideCircleDashed,
+  lucideCircleX,
+  lucideEye,
+  lucideTimer,
+} from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import {
   ConfirmDeleteProjectDialog,
@@ -32,7 +41,11 @@ import { WorkspaceEmptyState } from '../domains/workspaces/ui/workspace-empty-st
 import { WorkspaceRow } from '../domains/workspaces/ui/workspace-row/workspace-row';
 import { WorkspacesFacade } from '../domains/workspaces/data/workspace.facade';
 import type { Workspace } from '../domains/workspaces/data/workspace.model';
-import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-status';
+import {
+  UI_WORKSPACE_STATUSES,
+  type UiWorkspaceStatus,
+  type UiWorkspaceStatusMeta,
+} from '../domains/workspaces/data/workspace-status';
 
 // Cross-domain composer for the left sidebar. This is the only place
 // where the projects and workspaces facades meet — per Convention #2
@@ -44,7 +57,9 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
     CdkDrag,
     HlmContextMenuImports,
     HlmDropdownMenuImports,
+    HlmIconImports,
     HlmSidebarImports,
+    NgIcon,
     ProjectRow,
     WorkspaceRow,
     ProjectContextMenu,
@@ -52,12 +67,69 @@ import type { UiWorkspaceStatus } from '../domains/workspaces/data/workspace-sta
     WorkspaceEmptyState,
     ProjectsEmptyState,
   ],
+  providers: [
+    provideIcons({
+      lucideCircleCheck,
+      lucideCircleDashed,
+      lucideCircleX,
+      lucideEye,
+      lucideTimer,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (visibleProjects().length === 0) {
       <app-projects-empty-state
         [hlmContextMenuTrigger]="emptyProjectsCtxMenuTpl"
       />
+    } @else if (projects.groupBy() === 'status') {
+      <ul hlmSidebarMenu data-tour="sidebar-projects-group">
+        @for (group of statusGroups(); track group.status.id) {
+          <li hlmSidebarMenuItem>
+            <div
+              class="flex items-center gap-2 px-2 py-1 text-xs font-medium text-muted-foreground"
+            >
+              <ng-icon
+                hlm
+                [name]="group.status.icon"
+                size="xs"
+                [class]="group.status.colorClass"
+              />
+              <span>{{ group.status.label }}</span>
+              <span class="text-[10px] font-normal opacity-60">
+                {{ group.workspaces.length }}
+              </span>
+            </div>
+            <ul
+              class="ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
+            >
+              @for (workspace of group.workspaces; track workspace.id) {
+                <li
+                  hlmSidebarMenuItem
+                  [attr.data-tour]="
+                    workspaces.activeId() === workspace.id
+                      ? 'workspace-row-active'
+                      : null
+                  "
+                  [hlmContextMenuTrigger]="workspaceCtxMenuTpl"
+                  [hlmContextMenuTriggerData]="{ $implicit: workspace }"
+                >
+                  <app-workspace-row
+                    [workspace]="workspace"
+                    [editing]="editingWorkspaceId() === workspace.id"
+                    [isStreaming]="streamingIds().has(workspace.id)"
+                    [chatTitle]="chatTitleFor(workspace.id)"
+                    [lastActivity]="lastActivityFor(workspace.id)"
+                    (archive)="archiveWorkspace(workspace.id)"
+                    (renameCommit)="onRenameCommit(workspace.id, $event)"
+                    (renameCancel)="editingWorkspaceId.set(null)"
+                  />
+                </li>
+              }
+            </ul>
+          </li>
+        }
+      </ul>
     } @else {
       <ul
         hlmSidebarMenu
@@ -235,6 +307,32 @@ export class ShellProjectList {
     }
     return (projectId: string): readonly Workspace[] =>
       byId.get(projectId) ?? [];
+  });
+
+  // Group-by-Status render: one section per non-empty status, ordered
+  // by the canonical UI_WORKSPACE_STATUSES list. Only workspaces whose
+  // project is visible (i.e. not filtered out by the popover) are
+  // included — keeps the popover filter consistent across group modes.
+  protected readonly statusGroups = computed<
+    readonly {
+      readonly status: UiWorkspaceStatusMeta;
+      readonly workspaces: readonly Workspace[];
+    }[]
+  >(() => {
+    const visibleIds = new Set(this.visibleProjects().map((p) => p.id));
+    const byStatus = new Map<UiWorkspaceStatus, Workspace[]>();
+    for (const w of this.workspaces.all()) {
+      if (!visibleIds.has(w.projectId)) continue;
+      const bucket = byStatus.get(w.status);
+      if (bucket) bucket.push(w);
+      else byStatus.set(w.status, [w]);
+    }
+    return UI_WORKSPACE_STATUSES.flatMap((status) => {
+      const bucket = byStatus.get(status.id);
+      return bucket && bucket.length > 0
+        ? [{ status, workspaces: this.sortPinned(bucket) }]
+        : [];
+    });
   });
 
   // Pinned workspaces float to the top while keeping relative order.

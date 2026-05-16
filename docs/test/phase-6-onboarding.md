@@ -209,3 +209,95 @@ project bootstrap, the on-demand `/tour`, and the polish items
 
 **Edge cases** :
 - Coming back online → banner disappears within the next probe.
+
+---
+
+### Scenario : Onboarding step 1 — Welcome card progresses to step 2
+
+**Priority** : SHOULD
+
+**Preconditions** :
+- On `/onboarding`, step 1 (Welcome) just mounted.
+
+**Steps** :
+1. Observe the progress pill.
+2. Try clicking Back.
+3. Click `Let's go`.
+
+**Expected** :
+- Step 1 : progress pill shows `1 / 4`.
+- Step 2 : Back is disabled on step 1.
+- Card reads "Welcome to Mozart" + intro copy + "This takes ~2 minutes."
+- Step 3 : step 2 (Git check) mounts ; pill advances to `2 / 4`.
+
+**Edge cases** :
+- Pressing Enter while focused on `Let's go` advances the same way.
+- The progress pill format may show a 4-dot strip instead of `1 / 4` —
+  both are acceptable as long as step 1 is visually distinguished.
+
+---
+
+### Scenario : Onboarding ends — Get-started bundled project materializes
+
+**Priority** : MUST
+
+**Preconditions** :
+- Step 4 complete. About to click Finish.
+
+**Steps** :
+1. Click Finish on step 4.
+2. Observe the transient "Preparing your tour…" state on `/tour`.
+3. Wait for the redirect to the workspace.
+
+**Expected** :
+- `set_onboarding_completed(true)` runs.
+- `create_get_started_project` materializes `~/Mozart/get-started/`
+  containing `README.md` + `hello.js` + a git repo (`main` branch
+  with two commits : "Initial commit" then "Add Mozart get-started
+  starter files").
+- Sidebar refreshes : "Get started" project + `welcome-1` workspace
+  appear under it.
+- The route advances to `/workspaces/<welcome-1.id>?tour=on` (the
+  tour overlay launches — see Scenario : Replay tour from Settings).
+- Composer is focused.
+
+**Edge cases** :
+- Re-running the flow is idempotent : `~/Mozart/get-started/` is not
+  re-created, the existing `welcome-1` workspace is reused.
+- If `set_onboarding_completed` fails for any reason, the user is
+  still routed to the workspace ; the flag retries at next bootstrap.
+- The user deleting `~/Mozart/get-started/` between runs triggers a
+  silent re-creation on the next Replay tour.
+
+---
+
+### Scenario : Settings page renders 5 sections with the correct ordering
+
+**Priority** : SHOULD
+
+**Preconditions** :
+- Authenticated, onboarding complete.
+
+**Steps** :
+1. Open `/settings` from the AppShell footer gear.
+2. Scroll through the page.
+3. Trigger each section in turn (toggle a notification, click Replay
+   tour, click Sign out).
+
+**Expected** :
+- Sections render in this order : Connections / Git / Notifications /
+  Onboarding / Account.
+- Connections : the existing FeatureConnections card (LLM provider +
+  GitHub).
+- Git : `git_version` re-runs on mount ; shows the detected version
+  or the missing state.
+- Notifications : two switches (Desktop, Sound) + Send test button.
+  Toggling persists immediately (restart and re-open → values stick).
+- Onboarding : `Replay tour` button → navigates to `/tour` (idempotent ;
+  reuses the existing `welcome-1` workspace).
+- Account : `Sign out` clears the keyring and routes to `/welcome`.
+
+**Edge cases** :
+- Sign out also clears `AuthFacade.isAuthenticated` ; the next launch
+  lands on `/welcome` (no auto re-sign-in).
+- Replay tour mid-tour is a no-op (the overlay is already mounted).

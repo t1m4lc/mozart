@@ -79,7 +79,11 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
           class="cursor-pointer"
           (triggered)="markUnread.emit()"
         >
-          <ng-icon hlm name="lucideBell" size="xs" /> Mark as unread
+          @if (workspace().unread) {
+            <ng-icon hlm name="lucideBell" size="xs" /> Mark as read
+          } @else {
+            <ng-icon hlm name="lucideBell" size="xs" /> Mark as unread
+          }
         </button>
       </hlm-dropdown-menu-group>
       <hlm-dropdown-menu-separator />

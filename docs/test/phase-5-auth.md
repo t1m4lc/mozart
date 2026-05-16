@@ -165,6 +165,58 @@ loopback fallback), and the token / API-key storage rules.
 
 ---
 
+### Scenario : Unauthenticated routes redirect to /welcome
+
+**Priority** : MUST
+
+**Preconditions** :
+- No active session (keyring empty, no in-memory token).
+
+**Steps** :
+1. Launch the app.
+2. Attempt to navigate to `/`, `/workspaces/<any-id>`, `/onboarding`,
+   `/tour`, `/settings` via direct URL manipulation (e.g. devtools
+   or relaunch with a saved URL).
+
+**Expected** :
+- All non-`/welcome` routes redirect back to `/welcome`.
+- `/welcome` remains reachable.
+- No flash of protected UI before the redirect.
+
+**Edge cases** :
+- Token in keyring but expired → routed to `/welcome` with a
+  "session expired" hint (if implemented).
+- Token valid but `onboarding_completed === false` → see Scenario :
+  Auth and onboarding guards redirect mid-onboarding users.
+
+---
+
+### Scenario : Auth and onboarding guards redirect mid-onboarding users
+
+**Priority** : MUST
+
+**Preconditions** :
+- Signed in. `onboarding_completed === false`.
+
+**Steps** :
+1. Manually navigate to `/`, `/workspaces/<any-id>`, `/settings` via
+   direct URL.
+2. Manually navigate to `/welcome`.
+3. Manually navigate to `/onboarding`, `/tour`.
+
+**Expected** :
+- Step 1 : all redirect to `/onboarding`.
+- Step 2 : remains on `/welcome` (no auto-redirect to `/onboarding`).
+- Step 3 : reachable.
+
+**Edge cases** :
+- Sign out via `/settings` → land on `/welcome` ; keyring entry
+  removed (`auth_load_session` returns null on next boot).
+- `db/config.onboarding_completed === true` and JWT carries
+  `onboarding: false` → local mirror wins, user routes to `/`.
+
+---
+
 ### Scenario : Token + API keys never hit localStorage on desktop
 
 **Priority** : MUST

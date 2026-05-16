@@ -15,9 +15,10 @@ import { LayoutService } from '../core/layout.service';
 import { WorkspacesFacade } from '../domains/workspaces';
 
 // Phase 1 dashboard. Renders when no workspace is selected (`/`).
-// Three large cards in a horizontal row; clicking one runs the unified
-// AddProjectFlow. Cards 2 + 3 are stubs until Atoms 5 + 6 land the
-// Clone GitHub repo / Create project dialogs.
+// Welcome hero above a 3-card grid : Open project / Open GitHub
+// project / Quick start. Quick start is gated behind a "Coming soon"
+// badge for v0.0.1 (IMP-006) — the underlying dialog flow is still
+// reachable from sidebar entry points until that path is also gated.
 @Component({
   selector: 'app-dashboard-page',
   imports: [
@@ -48,51 +49,79 @@ import { WorkspacesFacade } from '../domains/workspaces';
       </button>
     }
 
-    <div class="grid w-full max-w-4xl grid-cols-1 gap-6 md:grid-cols-3">
-      <button
-        type="button"
+    <div class="flex w-full max-w-4xl flex-col gap-6">
+      <section
         hlmCard
-        class="cursor-pointer p-6 text-left transition hover:bg-accent"
-        (click)="onOpenProject()"
+        class="flex items-center gap-4 bg-muted/30 p-6"
+        aria-labelledby="dashboard-hero-title"
       >
-        <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
-          <ng-icon hlm name="lucideFolderOpen" size="base" />
+        <img
+          src="/mozart.svg"
+          alt=""
+          aria-hidden="true"
+          class="size-10 shrink-0"
+        />
+        <div class="min-w-0">
+          <h1 id="dashboard-hero-title" class="text-lg font-medium">
+            Welcome to Mozart
+          </h1>
+          <p class="text-sm text-muted-foreground">
+            Pick a starting point below — open a project or clone a repo
+            from GitHub.
+          </p>
         </div>
-        <h2 class="text-base font-medium">Open project</h2>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Add an existing folder as a Mozart project.
-        </p>
-      </button>
+      </section>
 
-      <button
-        type="button"
-        hlmCard
-        class="cursor-pointer p-6 text-left transition hover:bg-accent"
-        (click)="onOpenGithubProject()"
-      >
-        <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
-          <ng-icon hlm name="lucideGithub" size="base" />
-        </div>
-        <h2 class="text-base font-medium">Open GitHub project</h2>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Clone a repo from GitHub and start working.
-        </p>
-      </button>
+      <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <button
+          type="button"
+          hlmCard
+          class="cursor-pointer p-6 text-left transition hover:bg-accent"
+          (click)="onOpenProject()"
+        >
+          <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
+            <ng-icon hlm name="lucideFolderOpen" size="base" />
+          </div>
+          <h2 class="text-base font-medium">Open project</h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            Add an existing folder as a Mozart project.
+          </p>
+        </button>
 
-      <button
-        type="button"
-        hlmCard
-        class="cursor-pointer p-6 text-left transition hover:bg-accent"
-        (click)="onQuickStart()"
-      >
-        <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
-          <ng-icon hlm name="lucideZap" size="base" />
+        <button
+          type="button"
+          hlmCard
+          class="cursor-pointer p-6 text-left transition hover:bg-accent"
+          (click)="onOpenGithubProject()"
+        >
+          <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
+            <ng-icon hlm name="lucideGithub" size="base" />
+          </div>
+          <h2 class="text-base font-medium">Open GitHub project</h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            Clone a repo from GitHub and start working.
+          </p>
+        </button>
+
+        <div
+          hlmCard
+          class="relative p-6 opacity-60"
+          aria-disabled="true"
+        >
+          <span
+            class="absolute right-3 top-3 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
+          >
+            Coming soon
+          </span>
+          <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
+            <ng-icon hlm name="lucideZap" size="base" />
+          </div>
+          <h2 class="text-base font-medium">Quick start</h2>
+          <p class="mt-1 text-sm text-muted-foreground">
+            Create a local folder and an empty project.
+          </p>
         </div>
-        <h2 class="text-base font-medium">Quick start</h2>
-        <p class="mt-1 text-sm text-muted-foreground">
-          Create a local folder and an empty project.
-        </p>
-      </button>
+      </div>
     </div>
   `,
 })
@@ -119,14 +148,6 @@ export class DashboardPage {
       await this.addProjectFlow.openCloneDialog();
     } catch (err) {
       console.error('clone repo flow failed', err);
-    }
-  }
-
-  protected async onQuickStart(): Promise<void> {
-    try {
-      await this.addProjectFlow.openCreateDialog();
-    } catch (err) {
-      console.error('quick start flow failed', err);
     }
   }
 }

@@ -155,16 +155,18 @@ export class GroupByFilter {
 
   protected readonly groupByItems: GroupByItem[] = [
     { label: 'Project', value: 'project' },
-    { label: 'Status', value: 'status', disabled: true },
+    { label: 'Status', value: 'status' },
   ];
 
-  // "All projects" sentinel + one item per visible project. Hidden
-  // projects are excluded — the dropdown should match what the
-  // sidebar shows, not what's in the DB.
+  // "All projects" sentinel + one item per project in the DB.
+  // The dropdown must list every project so the user can re-add a
+  // project they previously filtered out — reading `visible()` here
+  // would collapse the available choices to the currently-shown
+  // subset and trap the user.
   protected readonly projectItems = computed<ProjectFilterItem[]>(() => [
     { id: ALL_PROJECTS_ID, label: 'All', icon: null },
     ...this.facade
-      .visible()
+      .all()
       .map((p) => ({ id: p.id, label: p.name, icon: p.icon })),
   ]);
 

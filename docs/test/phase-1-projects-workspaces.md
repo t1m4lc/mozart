@@ -282,3 +282,122 @@ workspace context menu / hover popover.
 **Edge cases** :
 - One status has zero workspaces → the group section does not render.
 - Switching back to "Project" returns to the original tree.
+
+---
+
+### Scenario : First launch — empty database renders dashboard + empty sidebar groups
+
+**Priority** : MUST
+
+**Preconditions** :
+- Fresh install. DB empty (no projects, no chats).
+- Authenticated, onboarding complete.
+
+**Steps** :
+1. Launch the desktop app.
+
+**Expected** :
+- Route is `/` (Dashboard).
+- Central column shows 3 large cards in a single row : "Open project",
+  "Open GitHub project", "Quick start".
+- Left sidebar shows the Projects group with the empty state
+  "No projects yet." and the Chats group with "No chats yet.".
+- No right aside, no breadcrumb, no tab bar, no composer.
+- Help icon (footer-left) is rendered but disabled.
+- Settings gear (footer-left) routes to `/settings`.
+
+**Edge cases** :
+- Sidebar collapsed (header toggle) → a top-right toggle button
+  appears on the Dashboard to bring it back. Same for the Welcome
+  state.
+
+---
+
+### Scenario : Workspace row affordances — icon, unread bold, streaming dots
+
+**Priority** : SHOULD
+
+**Preconditions** :
+- A project with one workspace. The workspace has an active chat.
+
+**Steps** :
+1. Observe the workspace row in the sidebar at rest.
+2. Mark the chat unread (right-click → Mark as unread).
+3. Send a message in the chat to start an assistant turn.
+4. Wait for the turn to end.
+
+**Expected** :
+- Step 1 : row shows the workspace name (or its generated chat title
+  if one exists) prefixed with `lucideGitBranch`.
+- Step 2 : the row text becomes bold.
+- Step 3 : while streaming, the branch icon is replaced by a centered
+  animated-dots CLI loader.
+- Step 4 : loader returns to the branch icon ; row may stay bold if
+  still unread.
+
+**Edge cases** :
+- Chat without a generated title → row uses the workspace's musician
+  name (`coltrane`, `bjork`, …).
+- Multiple chats streaming in the same project → each row shows its
+  own loader independently.
+
+---
+
+### Scenario : Branch picker — keyboard nav skips current target + workspace branch
+
+**Priority** : SHOULD
+
+**Preconditions** :
+- A workspace open. The project has at least 3 local branches
+  (e.g. `main`, `feature-a`, `feature-b`) plus the workspace's own
+  branch.
+
+**Steps** :
+1. Click the branch-picker icon in the workspace toolbar.
+2. Use arrow keys to navigate the Combobox.
+
+**Expected** :
+- Combobox opens with the current target branch (default `main`) as
+  the first item, highlighted.
+- The workspace's own branch is pinned last, disabled, labelled with
+  `current` + a `Tab` keyboard-shortcut hint.
+- Arrow keys skip both the current target and the workspace's own
+  branch — only "other" branches are focusable.
+
+**Edge cases** :
+- Worktree has no other branches → list shows the empty state
+  "No other branches available." (target + own branch still rendered).
+- Pressing `Tab` while the picker is open jumps focus to the
+  workspace's own branch row (read-only).
+
+---
+
+### Scenario : Restart safety — sidebar rehydrates and existing branch names grandfather
+
+**Priority** : MUST
+
+**Preconditions** :
+- At least 2 projects with ≥1 workspace each. Some workspaces were
+  created BEFORE the Phase 1 branch-prefix migration (DB rows with
+  `agent/<slug>` branch names); some AFTER (workspace-name slug).
+
+**Steps** :
+1. Quit the app via OS window controls (or `pnpm dev` reboot).
+2. Re-launch.
+
+**Expected** :
+- Sidebar Projects group repopulates with the previously added
+  projects and their workspaces.
+- Sidebar Chats group repopulates from the DB (same bucketing).
+- Workspaces created before the migration KEEP their original branch
+  names — no row is rewritten.
+- Newly created workspaces (post-restart) still use the new branch
+  policy.
+- Pinned / archived / unread state persists.
+
+**Edge cases** :
+- SQLite file deleted while app was closed → next launch shows the
+  empty-DB state (Scenario : First launch — empty database…).
+- Workspace's worktree path no longer exists on disk → row still
+  loads in the sidebar; opening it surfaces an inline error in the
+  Files tab.

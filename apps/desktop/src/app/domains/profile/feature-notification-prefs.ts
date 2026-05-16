@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmSwitchImports } from '@mozart/ui/switch';
+import { toast } from '@spartan-ng/brain/sonner';
 import { NotificationService } from '../../core/notification.service';
 import {
   NOTIFICATION_PREFS_ADAPTER,
@@ -94,8 +95,20 @@ export class FeatureNotificationPrefs {
   }
 
   protected onTest(): void {
-    void this.adapter.emitMessageEnd('Test notification').catch((err) => {
-      console.warn('[notifications] test emit failed:', err);
+    const prefs = this._prefs();
+    if (!prefs.desktop && !prefs.sound) {
+      toast('Notifications are off', {
+        description:
+          'Turn on Desktop notifications or Notification sound to hear a test.',
+      });
+      return;
+    }
+    // Route the test through the same path real notifications take so
+    // the permission prompt fires on first use and the user hears /
+    // sees exactly what they would at runtime.
+    void this.notifications.notify({
+      title: 'Mozart',
+      body: 'Test notification',
     });
   }
 

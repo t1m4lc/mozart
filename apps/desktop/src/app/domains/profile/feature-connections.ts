@@ -25,10 +25,7 @@ import { UiGithubConnectDialog } from './ui-github-connect-dialog';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <section class="space-y-3">
-      <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-        Connections
-      </h2>
+    <div class="space-y-3">
       @if (!connectivity.connected()) {
         <div
           role="status"
@@ -60,7 +57,7 @@ import { UiGithubConnectDialog } from './ui-github-connect-dialog';
           (disconnect)="onDisconnectGithub()"
         />
       </div>
-    </section>
+    </div>
   `,
 })
 export class FeatureConnections {

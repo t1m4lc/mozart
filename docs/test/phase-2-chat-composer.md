@@ -258,3 +258,66 @@ model + effort selectors, send/stop button), the chat tab bar
 
 **Edge cases** :
 - No unread sibling → button hidden.
+
+---
+
+### Scenario : Sidebar Chats group buckets activity by date
+
+**Priority** : SHOULD
+
+**Preconditions** :
+- At least one workspace exists with chats spanning multiple time
+  windows (today, yesterday, this week, older).
+
+**Steps** :
+1. Observe the Chats group in the sidebar (below Projects).
+
+**Expected** :
+- Heading reads "Chats".
+- A disabled `+ New ask chat` button is rendered with tooltip
+  "Coming in Phase 2".
+- Chats are bucketed by relative recency : Today / Yesterday /
+  This week / Older.
+- Each entry shows the chat title (initially the workspace's musician
+  name, replaced by any generated title once available).
+- The chat row matching the currently-viewed workspace is highlighted
+  as active.
+
+**Edge cases** :
+- Clicking a chat row navigates to its workspace.
+- Empty Chats group → "No chats yet." empty state.
+
+---
+
+### Scenario : Workspace tab bar — Start tab vs Untitled* tabs, MAX_TABS = 4
+
+**Priority** : MUST
+
+**Preconditions** :
+- A workspace just opened. Tab bar has a single `Start` tab.
+
+**Steps** :
+1. Observe the Start tab's empty state.
+2. Click `+` to add a tab. Observe its title and empty state.
+3. Click `+` two more times.
+4. Click `+` a fifth time.
+5. Switch back to the Start tab.
+
+**Expected** :
+- Step 1 : Start's empty-state shows the workspace-init checklist
+  (info / branched from / files ready / setup / sparkles).
+- Step 2 : a new tab titled `Untitled` becomes active. Empty-state
+  shows the light copy "Ready when you are — what should we do next?".
+- Step 3 : the next two tabs are `Untitled2`, `Untitled3` (numbering
+  is local to the workspace).
+- Step 4 : tab cap (MAX_TABS = 4) hit. The `+` button is hidden or
+  disabled and clicking does nothing.
+- After any tab create or switch, the composer textarea is
+  auto-focused.
+- Step 5 : the Start tab re-renders its init checklist (not the light
+  empty-state).
+
+**Edge cases** :
+- Closing a tab below the cap re-enables the `+` button.
+- Tab bar reorder for one workspace does not affect any other
+  workspace's tab order.

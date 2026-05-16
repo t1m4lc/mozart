@@ -103,3 +103,34 @@ When a new feature ships :
 Where the audit could not infer the intended behavior from code reading
 alone, scenarios carry an inline `> TODO clarify` line. Resolve those
 with the product owner before turning them into automated tests.
+
+## Legacy files
+
+`docs/test/legacy/` contains pre-audit scenario files in a narrative
+format (`## S1 — …`, etc.). Their unique scenarios were merged into
+the standardized files above during the Phase 7 reconciliation pass.
+The legacy files are retained for historical reference but should NOT
+receive new content. New scenarios go into the conforming files only.
+
+The legacy phase-6-e2e.md also carries an atom ↔ scenario coverage
+map (atom 0 → scenarios S6.2 + S6.3, etc.) — consult that file when
+mapping Phase 6 atoms back to behavior.
+
+## Playwright wiring notes (for Phase 8)
+
+When implementing the e2e harness, keep these realities in mind :
+
+- **Mock Clerk in apps/web** lets tests drive `/login` → `/dashboard`
+  without external auth. The desktop side needs a Tauri-aware
+  harness (WebdriverIO + `tauri-driver` is the official path).
+- **`~/Mozart/get-started/` cleanup** : the create command is
+  idempotent, but tests should reset this folder between runs to
+  avoid drift from prior agent edits.
+- **PTY testing (`claude login`)** is the trickiest case : the CLI
+  is interactive. Recommend stubbing `spawn_claude_login` in test
+  mode to emit a canned token-paste then exit 0, or skipping the
+  PTY flow and only running the API-key fallback in CI.
+- **Notifications** : CI test runners typically don't surface OS
+  notifications. Asserting the call reached
+  `commands.emitMessageEndNotification` is enough for the spec ;
+  visual verification is manual.

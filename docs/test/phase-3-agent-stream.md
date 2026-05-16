@@ -171,6 +171,34 @@ becomes load-bearing.)
 
 ---
 
+### Scenario : Interrupted assistant message flips to error on restart
+
+**Priority** : MUST
+
+**Preconditions** :
+- A workspace with at least one chat. The user has just sent a prompt
+  and the assistant is mid-stream (DB row `status = 'streaming'`).
+
+**Steps** :
+1. Force-quit the app (Cmd-Q, Alt-F4, or `kill -9` — anything that
+   skips the graceful shutdown path).
+2. Re-launch the app.
+3. Navigate back to the same workspace + chat.
+
+**Expected** :
+- The last assistant message is rendered with `status = 'error'`.
+- The DB row reflects `status = 'error'` (verify via SQLite query).
+- The flip persists across a second restart — the recovery is
+  idempotent.
+
+**Edge cases** :
+- Graceful shutdown (window close) finishes the in-flight write and
+  may leave the message in `done` or `stopped` — out of scope here.
+- The user can re-send the prompt from the composer ; no special
+  "retry" UI is provided in v0.0.1.
+
+---
+
 ### Scenario : Parser is pure (regression test)
 
 **Priority** : MUST

@@ -15,11 +15,12 @@ const SOUND_VOLUME = 0.4;
 // `config` table (notifications_desktop / notifications_sound). Both
 // default to true on a fresh install.
 //
-// The desktop notification path is intentionally JS-side rather than
-// going through `commands.emitMessageEndNotification` — keeping
-// `sendNotification` on the Tauri plugin avoids a round-trip and a
-// permission-prompt re-issue while still respecting the user's
-// preference cached below.
+// This is the canonical notification path : both real `message_end`
+// events and the Settings "Send test notification" button go through
+// `notify()` so the permission prompt fires consistently on first use
+// (a Rust-side `emit_message_end_notification` command exists in the
+// bindings but is no longer wired — it skipped the permission flow,
+// which is what IMP-002 fixed).
 
 interface CachedPrefs {
   readonly desktop: boolean;
