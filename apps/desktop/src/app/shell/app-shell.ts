@@ -25,6 +25,7 @@ import {
 } from '@ng-icons/lucide';
 import { AddProjectFlow } from '../core/add-project.flow';
 import { ConnectivityService } from '../core/connectivity.service';
+import { FeatureFlagsService } from '../core/feature-flags';
 import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
@@ -154,9 +155,11 @@ import { ShellProjectList } from './shell-project-list';
               </div>
             </div>
 
-            <div hlmSidebarGroup class="px-2 py-1">
-              <app-feature-chat-list />
-            </div>
+            @if (flags.chat()) {
+              <div hlmSidebarGroup class="px-2 py-1">
+                <app-feature-chat-list />
+              </div>
+            }
           </div>
 
           <div
@@ -252,6 +255,7 @@ export class AppShell {
   protected readonly projects = inject(ProjectsFacade);
   protected readonly addProjectFlow = inject(AddProjectFlow);
   protected readonly connectivity = inject(ConnectivityService);
+  protected readonly flags = inject(FeatureFlagsService);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly route = inject(ActivatedRoute);
 
