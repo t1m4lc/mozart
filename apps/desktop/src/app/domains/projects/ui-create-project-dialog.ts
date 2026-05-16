@@ -14,12 +14,12 @@ import { HlmDialogImports } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmInputImports } from '@mozart/ui/input';
 import { HlmLabelImports } from '@mozart/ui/label';
-import { HlmRadioGroupImports } from '@mozart/ui/radio-group';
 import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideFolderOpen } from '@ng-icons/lucide';
+import { lucideFile, lucideFolderOpen, lucideLayers } from '@ng-icons/lucide';
 import { DIALOG_ADAPTER } from './data/dialog.adapter';
+import { UiRadioCard } from './ui-radio-card';
 
 export interface CreateProjectContext {
   // Pre-resolved default parent location (e.g. `<home>/mozart/repos`).
@@ -49,11 +49,11 @@ type TemplateValue = 'empty' | 'gstack';
     HlmIconImports,
     HlmInputImports,
     HlmLabelImports,
-    HlmRadioGroupImports,
     HlmSpinnerImports,
     NgIcon,
+    UiRadioCard,
   ],
-  providers: [provideIcons({ lucideFolderOpen })],
+  providers: [provideIcons({ lucideFile, lucideFolderOpen, lucideLayers })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div hlmDialogHeader class="px-6 py-4">
@@ -118,20 +118,25 @@ type TemplateValue = 'empty' | 'gstack';
 
       <fieldset class="space-y-1.5">
         <legend hlmLabel>Template</legend>
-        <hlm-radio-group
-          [value]="template()"
-          (valueChange)="onTemplateChange($event)"
-          class="grid grid-cols-2 gap-2"
-        >
-          <span class="flex items-center gap-2 rounded-md border border-border p-3 text-sm cursor-pointer">
-            <hlm-radio value="empty" [disabled]="creating()" />
-            <span>Empty</span>
-          </span>
-          <span class="flex items-center gap-2 rounded-md border border-border p-3 text-sm opacity-50 cursor-not-allowed">
-            <hlm-radio value="gstack" [disabled]="true" />
-            <span>gstack <span class="text-xs text-muted-foreground">Soon</span></span>
-          </span>
-        </hlm-radio-group>
+        <div role="radiogroup" class="grid grid-cols-2 gap-2">
+          <app-ui-radio-card
+            [selected]="template() === 'empty'"
+            label="Empty"
+            subtitle="Just a folder + git init"
+            icon="lucideFile"
+            [disabled]="creating()"
+            (pick)="onTemplateChange('empty')"
+          />
+          <app-ui-radio-card
+            [selected]="template() === 'gstack'"
+            label="gstack"
+            subtitle="Opinionated starter stack"
+            icon="lucideLayers"
+            badge="Soon"
+            [disabled]="true"
+            (pick)="onTemplateChange('gstack')"
+          />
+        </div>
       </fieldset>
 
       @if (error()) {
