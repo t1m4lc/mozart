@@ -1,4 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
+import { FILE_TAB_CAP } from '../ui/workspace-tab-bar/workspace-tab.model';
 
 // Per-workspace file tabs in the central shell. Each workspace owns a
 // list of open file paths and one active path (or null = no file
@@ -39,14 +40,19 @@ export class FileTabsService {
 
   /** Open `path` as a tab in `workspaceId`'s central tab bar and make
    *  it active. Idempotent — if the path is already open, just
-   *  activates it. */
+   *  activates it. Caps the list at FILE_TAB_CAP : opening past the
+   *  cap evicts the oldest tab (FIFO). */
   openFor(workspaceId: string, path: string): void {
     this._openByWorkspace.update((current) => {
       const next = new Map(current);
       const list = next.get(workspaceId) ?? [];
-      if (!list.includes(path)) {
-        next.set(workspaceId, [...list, path]);
-      }
+      if (list.includes(path)) return current;
+      const appended = [...list, path];
+      const trimmed =
+        appended.length > FILE_TAB_CAP
+          ? appended.slice(appended.length - FILE_TAB_CAP)
+          : appended;
+      next.set(workspaceId, trimmed);
       return next;
     });
     this.setActiveFor(workspaceId, path);

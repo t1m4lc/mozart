@@ -11,7 +11,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus } from '@ng-icons/lucide';
 import { TabItem } from './tab-item';
-import { MAX_TABS, type WorkspaceTab } from './workspace-tab.model';
+import { CHAT_TAB_CAP, type WorkspaceTab } from './workspace-tab.model';
 
 export interface TabRenameEvent {
   readonly tabId: string;
@@ -39,8 +39,13 @@ export interface TabRenameEvent {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block border-b border-sidebar-border bg-sidebar' },
   template: `
-    <div role="tablist" class="flex items-stretch overflow-hidden">
-      <div class="flex items-stretch">
+    <div role="tablist" class="flex items-stretch">
+      <!-- Tabs strip scrolls horizontally when it overflows. Scrollbar
+           is hidden so the strip blends with the toolbar; the user
+           scrolls via trackpad / shift-wheel / drag. -->
+      <div
+        class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         @for (tab of tabs(); track tab.id) {
           <app-tab-item
             [tab]="tab"
@@ -63,7 +68,7 @@ export interface TabRenameEvent {
           position="bottom"
           aria-label="New chat, same workspace"
           class="size-7 rounded-md text-muted-foreground"
-          [disabled]="atMaxTabs()"
+          [disabled]="atChatCap()"
           (click)="tabCreate.emit(); $any($event.currentTarget).blur()"
         >
           <ng-icon hlm name="lucidePlus" size="xs" />
@@ -92,7 +97,10 @@ export class WorkspaceTabBar {
     () => this.tabs().filter((t) => t.kind === 'chat').length,
   );
 
-  protected readonly atMaxTabs = computed(
-    () => this.tabs().length >= MAX_TABS,
+  // The `+` button creates chats only — gate on chat count, not the
+  // total. File tabs (capped separately by FileTabsService) don't
+  // consume this budget.
+  protected readonly atChatCap = computed(
+    () => this.chatTabCount() >= CHAT_TAB_CAP,
   );
 }
