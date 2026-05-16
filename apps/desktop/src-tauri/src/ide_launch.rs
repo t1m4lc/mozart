@@ -52,10 +52,14 @@ pub fn detect_installed_ides() -> Vec<DetectedIde> {
 }
 
 /// Launch `id` against `path`. Most IDs map to a binary spawn;
-/// `finder` opens the platform file manager.
+/// `finder` opens the platform file manager ; `terminal` opens the
+/// platform's default terminal emulator with `cwd` set to `path`.
 pub fn open_in_ide(id: &str, path: &Path) -> Result<(), AppError> {
     if id == "finder" {
         return open_in_file_manager(path);
+    }
+    if id == "terminal" {
+        return open_in_terminal(path);
     }
     let binary = match KNOWN_IDES.iter().find(|(known, _)| *known == id) {
         Some((_, bin)) => *bin,
@@ -72,6 +76,74 @@ fn open_in_file_manager(path: &Path) -> Result<(), AppError> {
     #[cfg(all(unix, not(target_os = "macos")))]
     let bin = "xdg-open";
     spawn_detached(bin, &[path.as_os_str()])
+}
+
+/// Open the platform's default terminal at `path`.
+///   - macOS  : `open -a Terminal <path>` (Terminal.app)
+///   - Windows: Windows Terminal (`wt.exe -d <path>`), falls back to
+///     `cmd /K cd /D <path>` when `wt` isn't on PATH.
+///   - Linux  : tries common terminal emulators in order, using each
+///     one's working-directory flag. Returns the first that spawns.
+fn open_in_terminal(path: &Path) -> Result<(), AppError> {
+    #[cfg(target_os = "macos")]
+    {
+        return spawn_detached("open", &["-a".as_ref(), "Terminal".as_ref(), path.as_os_str()]);
+    }
+    #[cfg(target_os = "windows")]
+    {
+        if which("wt.exe").is_some() {
+            return spawn_detached("wt.exe", &["-d".as_ref(), path.as_os_str()]);
+        }
+        let cd_cmd = format!("cd /D \"{}\"", path.display());
+        return spawn_detached(
+            "cmd.exe",
+            &[
+                "/C".as_ref(),
+                "start".as_ref(),
+                "cmd".as_ref(),
+                "/K".as_ref(),
+                cd_cmd.as_ref(),
+            ],
+        );
+    }
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        // (binary, working-directory flag style)
+        //   "=" → emitted as a single arg `--flag=PATH`
+        //   " " → emitted as two args `--flag PATH`
+        #[allow(clippy::type_complexity)]
+        let candidates: &[(&str, &str, &str)] = &[
+            ("gnome-terminal", "--working-directory", "="),
+            ("konsole", "--workdir", " "),
+            ("xfce4-terminal", "--working-directory", "="),
+            ("kitty", "--directory", " "),
+            ("alacritty", "--working-directory", " "),
+            ("tilix", "--working-directory", "="),
+            ("terminator", "--working-directory", "="),
+            ("x-terminal-emulator", "", ""),
+            ("xterm", "", ""),
+        ];
+        for (bin, flag, sep) in candidates {
+            if which(bin).is_none() {
+                continue;
+            }
+            return if flag.is_empty() {
+                Command::new(bin)
+                    .current_dir(path)
+                    .spawn()
+                    .map_err(|e| AppError::Io(format!("spawn {bin}: {e}")))
+                    .map(|_| ())
+            } else if *sep == "=" {
+                let arg = format!("{flag}={}", path.display());
+                spawn_detached(bin, &[arg.as_ref()])
+            } else {
+                spawn_detached(bin, &[flag.as_ref(), path.as_os_str()])
+            };
+        }
+        Err(AppError::Io(
+            "no terminal emulator found on PATH (gnome-terminal, konsole, kitty, alacritty, xterm, …)".to_string(),
+        ))
+    }
 }
 
 fn spawn_detached(binary: &str, args: &[&std::ffi::OsStr]) -> Result<(), AppError> {

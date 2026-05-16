@@ -7,7 +7,8 @@ export type OpenInToolId =
   | 'intellij'
   | 'webstorm'
   | 'pycharm'
-  | 'finder';
+  | 'finder'
+  | 'terminal';
 
 export interface OpenInTool {
   readonly id: OpenInToolId;
@@ -49,6 +50,14 @@ export const OPEN_IN_TOOLS: readonly OpenInTool[] = [
     icon: 'lucideFolderOpen',
     iconPath: '/finder.png',
     shortcut: 9,
+    alwaysAvailable: true,
+  },
+  {
+    id: 'terminal',
+    label: 'Terminal',
+    icon: 'lucideTerminal',
+    iconPath: '/terminal.png',
+    shortcut: 0,
     alwaysAvailable: true,
   },
 ] as const;
