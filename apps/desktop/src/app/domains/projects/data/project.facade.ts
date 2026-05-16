@@ -1,4 +1,5 @@
 import { Injectable, computed, inject } from '@angular/core';
+import { UiStateFacade } from '../../ui-state';
 import { DIALOG_ADAPTER } from './dialog.adapter';
 import type { Project } from './project.model';
 import type { GroupBy, ProjectFilter } from './project.store';
@@ -13,6 +14,7 @@ export class ProjectsFacade {
   private readonly store = inject(ProjectStore);
   private readonly dialog = inject(DIALOG_ADAPTER);
   private readonly adapter = inject(PROJECTS_ADAPTER);
+  private readonly uiState = inject(UiStateFacade);
 
   // Buffered drag-reorder: a drop fires a 250ms timer; subsequent
   // drops during the timer reset it. Only the final ordering hits
@@ -31,12 +33,19 @@ export class ProjectsFacade {
     computed(() => this.store.projects().find((p) => p.id === id) ?? null);
 
   isExpanded(id: string): boolean {
-    return this.store.isExpanded(id);
+    return this.uiState.isProjectExpanded(id);
   }
 
   async loadAll(): Promise<void> {
     const projects = await this.adapter.list();
     this.store.setAll(projects);
+    // Reconcile sidebar expand state against the new id set — stale
+    // expansions for removed projects get dropped.
+    const validIds = new Set(projects.map((p) => p.id));
+    const kept = [...this.uiState.expandedProjectIds()].filter((id) =>
+      validIds.has(id),
+    );
+    this.uiState.setExpandedProjects(kept);
   }
 
   async openPickerAndAdd(): Promise<Project | null> {
@@ -48,6 +57,9 @@ export class ProjectsFacade {
   async add(path: string): Promise<Project> {
     const project = await this.adapter.add(path);
     this.store.upsertProject(project);
+    // Auto-expand the freshly added project so the "no workspaces
+    // yet" empty state surfaces immediately.
+    this.uiState.expandProjects([project.id]);
     return project;
   }
 
@@ -73,16 +85,16 @@ export class ProjectsFacade {
   }
 
   toggleExpanded(id: string): void {
-    this.store.toggleExpanded(id);
+    this.uiState.toggleProjectExpanded(id);
   }
   setHovered(id: string | null): void {
     this.store.setHovered(id);
   }
   expandAll(): void {
-    this.store.expandAll();
+    this.uiState.setExpandedProjects(this.store.projects().map((p) => p.id));
   }
   collapseAll(): void {
-    this.store.collapseAll();
+    this.uiState.collapseAllProjects();
   }
   setGroupBy(group: GroupBy): void {
     this.store.setGroupBy(group);

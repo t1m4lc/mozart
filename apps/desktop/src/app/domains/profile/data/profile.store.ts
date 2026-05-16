@@ -1,3 +1,4 @@
+import { withDevtools } from '@angular-architects/ngrx-toolkit';
 import {
   patchState,
   signalStore,
@@ -21,6 +22,7 @@ const initialState: State = {
 export const ProfileStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
+  withDevtools('profile'),
   withMethods((store) => ({
     setStatus(status: ConnectionStatus, lastCheckedAt?: Date): void {
       patchState(store, {

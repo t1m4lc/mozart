@@ -1,6 +1,7 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { ProjectsFacade } from '../../projects';
 import { TasksFacade } from '../../tasks';
+import { UiStateFacade } from '../../ui-state';
 import { generateWorkspaceName } from '../util-workspace-name';
 import { IdeDetectionService } from './ide-detection.service';
 import type { OpenInToolId } from './open-in-tools';
@@ -40,9 +41,12 @@ export class WorkspacesFacade {
   private readonly projects = inject(ProjectsFacade);
   private readonly tasks = inject(TasksFacade);
   private readonly ideDetection = inject(IdeDetectionService);
+  private readonly uiState = inject(UiStateFacade);
 
   readonly all = this.store.workspaces;
-  readonly activeId = this.store.activeWorkspaceId;
+  // Active workspace id is owned by domains/ui-state/. The facade
+  // re-exposes it so historical consumers continue to work.
+  readonly activeId = this.uiState.activeWorkspaceId;
   readonly pending = this.store.pending;
 
   byProject(projectId: string) {
@@ -84,7 +88,7 @@ export class WorkspacesFacade {
   }
 
   setActive(id: string | null): void {
-    this.store.setActive(id);
+    this.uiState.setActiveWorkspace(id);
   }
 
   // ---- v0.0.1 wiring -------------------------------------------------
@@ -175,7 +179,7 @@ export class WorkspacesFacade {
 
       this.store.removeById(pendingId);
       this.store.upsertOne(workspaceFromDto(dto, input.projectId));
-      this.store.setActive(dto.workspace_id);
+      this.uiState.setActiveWorkspace(dto.workspace_id);
       return dto.workspace_id;
     } catch (err) {
       this.store.removeById(pendingId);
@@ -242,8 +246,8 @@ export class WorkspacesFacade {
   async archive(id: string): Promise<void> {
     await this.adapter.archive(id);
     this.store.removeById(id);
-    if (this.store.activeWorkspaceId() === id) {
-      this.store.setActive(null);
+    if (this.uiState.activeWorkspaceId() === id) {
+      this.uiState.setActiveWorkspace(null);
     }
   }
 

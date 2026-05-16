@@ -1,5 +1,6 @@
 import { moveItemInArray } from '@angular/cdk/drag-drop';
 import { computed } from '@angular/core';
+import { withDevtools } from '@angular-architects/ngrx-toolkit';
 import {
   patchState,
   signalStore,
@@ -16,7 +17,6 @@ export type ProjectFilter = 'all' | ReadonlySet<string>;
 
 interface State {
   projects: Project[];
-  expandedIds: ReadonlySet<string>;
   hoveredProjectId: string | null;
   groupBy: GroupBy;
   projectFilter: ProjectFilter;
@@ -25,9 +25,11 @@ interface State {
 // v0.0.1: hydrated from Tauri at boot via ProjectsFacade.loadAll(). The
 // mock seed in projects.mock.ts is kept for component tests / Storybook
 // but is no longer the initial state.
+//
+// Sidebar expand state (`expandedProjectIds`) lives in
+// `domains/ui-state/` per Phase 7 conventions §1.3.
 const initialState: State = {
   projects: [],
-  expandedIds: new Set<string>(),
   hoveredProjectId: null,
   groupBy: 'project',
   projectFilter: 'all',
@@ -36,6 +38,7 @@ const initialState: State = {
 export const ProjectStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
+  withDevtools('projects'),
   withComputed(({ projects, projectFilter }) => ({
     visibleProjects: computed(() => {
       const filter = projectFilter();
@@ -63,23 +66,6 @@ export const ProjectStore = signalStore(
       setHovered(projectId: string | null): void {
         patchState(store, { hoveredProjectId: projectId });
       },
-      toggleExpanded(projectId: string): void {
-        const next = new Set(store.expandedIds());
-        if (next.has(projectId)) next.delete(projectId);
-        else next.add(projectId);
-        patchState(store, { expandedIds: next });
-      },
-      isExpanded(projectId: string): boolean {
-        return store.expandedIds().has(projectId);
-      },
-      expandAll(): void {
-        patchState(store, {
-          expandedIds: new Set(store.projects().map((p) => p.id)),
-        });
-      },
-      collapseAll(): void {
-        patchState(store, { expandedIds: new Set<string>() });
-      },
       setGroupBy(group: GroupBy): void {
         patchState(store, { groupBy: group });
       },
@@ -104,21 +90,17 @@ export const ProjectStore = signalStore(
           projectFilter: next.size === 0 ? 'all' : next,
         });
       },
-      // Replaces the entire collection. Used by hydration. Expanded
-      // state is intersected with the new id set so a stale expansion
-      // for a removed project gets dropped.
+      // Replaces the entire collection. Used by hydration. Expand
+      // state lives in domains/ui-state/ — the facade reconciles it
+      // against the new id set so a stale expansion for a removed
+      // project gets dropped.
       setAll(projects: readonly Project[]): void {
-        const validIds = new Set(projects.map((p) => p.id));
-        const expanded = new Set<string>();
-        for (const id of store.expandedIds()) {
-          if (validIds.has(id)) expanded.add(id);
-        }
-        patchState(store, { projects: [...projects], expandedIds: expanded });
+        patchState(store, { projects: [...projects] });
       },
 
       // Adds or replaces a single project, preserving order. New rows
-      // land at the head (newest first) and are auto-expanded so the
-      // user sees the "no workspaces yet" empty state immediately.
+      // land at the head (newest first). Auto-expanding the new row
+      // happens in the facade (so the expand state stays in ui-state).
       upsertProject(project: Project): void {
         const existingIdx = store
           .projects()
@@ -126,7 +108,6 @@ export const ProjectStore = signalStore(
         if (existingIdx === -1) {
           patchState(store, {
             projects: [project, ...store.projects()],
-            expandedIds: new Set([project.id, ...store.expandedIds()]),
           });
         } else {
           patchState(store, {

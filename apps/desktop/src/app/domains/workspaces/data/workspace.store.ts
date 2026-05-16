@@ -1,4 +1,5 @@
 import { computed } from '@angular/core';
+import { withDevtools } from '@angular-architects/ngrx-toolkit';
 import {
   patchState,
   signalStore,
@@ -11,20 +12,24 @@ import type { Workspace } from './workspace.model';
 
 interface State {
   workspaces: Workspace[];
-  activeWorkspaceId: string | null;
 }
 
 // v0.0.1: hydrated from Tauri at boot via WorkspacesFacade.loadAll().
 // The mock seed in workspaces.mock.ts is kept for component tests / Storybook
 // but is no longer the initial state.
+//
+// `activeWorkspaceId` lives in `domains/ui-state/` — this store owns
+// the entity collection only (per Phase 7 conventions §1.3 :
+// "Store IDs in ui-state, derive entities from the relevant domain
+// store").
 const initialState: State = {
   workspaces: [],
-  activeWorkspaceId: null,
 };
 
 export const WorkspaceStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
+  withDevtools('workspaces'),
   withComputed(({ workspaces }) => ({
     byProject: computed(() => {
       const map = new Map<string, Workspace[]>();
@@ -79,10 +84,6 @@ export const WorkspaceStore = signalStore(
         patchState(store, {
           workspaces: store.workspaces().filter((w) => w.id !== workspaceId),
         });
-      },
-
-      setActive(workspaceId: string | null): void {
-        patchState(store, { activeWorkspaceId: workspaceId });
       },
 
       forProject(projectId: string): readonly Workspace[] {

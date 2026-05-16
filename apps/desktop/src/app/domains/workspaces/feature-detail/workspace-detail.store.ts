@@ -1,4 +1,5 @@
 import { computed } from '@angular/core';
+import { withDevtools } from '@angular-architects/ngrx-toolkit';
 import {
   patchState,
   signalStore,
@@ -43,6 +44,7 @@ const initialState: State = {
 export const WorkspaceDetailStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
+  withDevtools('workspaceDetail'),
   withComputed(({ branches, currentBranch }) => ({
     // Target-branch options exclude the workspace's own branch (you
     // can't target your own work). When this set is empty the picker

@@ -1,4 +1,5 @@
 import { computed } from '@angular/core';
+import { withDevtools } from '@angular-architects/ngrx-toolkit';
 import {
   patchState,
   signalStore,
@@ -19,6 +20,7 @@ const initialState: State = {
 export const TaskStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
+  withDevtools('tasks'),
   withComputed(({ tasks }) => ({
     byProject: computed(() => {
       const map = new Map<string, Task[]>();
