@@ -11,25 +11,25 @@ export interface NavColumn {
 }
 
 export const PRIMARY_NAV: readonly NavLink[] = [
-  { label: 'Docs', href: '/docs' },
-  { label: 'Blog', href: '/blog' },
   { label: 'Changelog', href: '/changelog' },
+  { label: 'Docs', href: '/docs' },
 ] as const;
 
 export const FOOTER_NAV: readonly NavColumn[] = [
+  {
+    title: 'Product',
+    links: [
+      { label: 'Docs', href: '/docs' },
+      { label: 'Changelog', href: '/changelog' },
+      { label: 'Download', href: '/download' },
+    ],
+  },
   {
     title: 'Company',
     links: [
       { label: 'Blog', href: '/blog' },
       { label: 'Enterprise', href: '#', disabled: true },
       { label: 'Join us', href: '#', disabled: true },
-    ],
-  },
-  {
-    title: 'Resources',
-    links: [
-      { label: 'Docs', href: '/docs' },
-      { label: 'Changelog', href: '/changelog' },
     ],
   },
   {

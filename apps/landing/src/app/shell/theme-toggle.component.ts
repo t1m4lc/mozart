@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from '@angular/core';
 import { ThemeService } from '@mozart/shared-util-theme';
 import { HlmButton } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
@@ -17,20 +22,15 @@ import { lucideMoon, lucideSun } from '@ng-icons/lucide';
       size="icon-sm"
       type="button"
       aria-label="Toggle theme"
-      (click)="toggle()"
+      (click)="theme.toggle()"
     >
-      <ng-icon hlm size="sm" [name]="iconName()" />
+      <ng-icon hlm size="sm" [name]="icon()" />
     </button>
   `,
 })
 export class ThemeToggleComponent {
-  private readonly theme = inject(ThemeService);
-
-  protected readonly iconName = computed(() =>
-    this.theme.activeMode() === 'dark' ? 'lucideSun' : 'lucideMoon',
+  protected readonly theme = inject(ThemeService);
+  protected readonly icon = computed(() =>
+    this.theme.isDark() ? 'lucideSun' : 'lucideMoon',
   );
-
-  toggle(): void {
-    this.theme.setMode(this.theme.activeMode() === 'dark' ? 'light' : 'dark');
-  }
 }

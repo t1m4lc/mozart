@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: white;
+      }
+
+      .mozart-logo path {
+        opacity: 0;
+        transform-box: fill-box;
+        transform-origin: center;
+        animation: pixel-in 500ms ease-out forwards;
+        animation-delay: calc(var(--i) * 18ms);
+      }
+
+      @keyframes pixel-in {
+        0% {
+          opacity: 0;
+          transform: scale(0.2) translateY(6px);
+        }
+
+        70% {
+          opacity: 1;
+          transform: scale(1.15) translateY(0);
+        }
+
+        100% {
+          opacity: 1;
+          transform: scale(1);
+        }
+      }
+
+      .mozart-logo:hover path {
+        animation: pixel-wave 500ms ease-out both;
+        animation-delay: calc(var(--i) * 8ms);
+      }
+
+      @keyframes pixel-wave {
+        0% {
+          transform: translateY(0) scale(1);
+        }
+
+        50% {
+          transform: translateY(-4px) scale(1.1);
+        }
+
+        100% {
+          transform: translateY(0) scale(1);
+        }
+      }
+    </style>
+  </head>
+
+  <body>
+    <svg
+      class="mozart-logo"
+      width="255"
+      height="53"
+      viewBox="0 0 255 53"
+      fill="none"
+      xmlns="http://www.w3.org/2000/svg"
+    >
+      <path d="M11 0H0V11H11V0Z" fill="black"/>
+      <path d="M39 0H28V11H39V0Z" fill="black"/>
+      <path d="M11 14H0V25H11V14Z" fill="black"/>
+      <path d="M25 14H14V25H25V14Z" fill="black"/>
+      <path d="M39 14H28V25H39V14Z" fill="black"/>
+      <path d="M11 28H0V39H11V28Z" fill="black"/>
+      <path d="M39 28H28V39H39V28Z" fill="black"/>
+      <path d="M11 42H0V53H11V42Z" fill="black"/>
+      <path d="M39 42H28V53H39V42Z" fill="black"/>
+      <path d="M56 0H45V11H56V0Z" fill="black"/>
+      <path d="M70 0H59V11H70V0Z" fill="black"/>
+      <path d="M84 0H73V11H84V0Z" fill="black"/>
+      <path d="M56 14H45V25H56V14Z" fill="black"/>
+      <path d="M84 14H73V25H84V14Z" fill="black"/>
+      <path d="M56 28H45V39H56V28Z" fill="black"/>
+      <path d="M84 28H73V39H84V28Z" fill="black"/>
+      <path d="M56 42H45V53H56V42Z" fill="black"/>
+      <path d="M84 42H73V53H84V42Z" fill="black"/>
+      <path d="M101 0H90V11H101V0Z" fill="black"/>
+      <path d="M115 0H104V11H115V0Z" fill="black"/>
+      <path d="M129 0H118V11H129V0Z" fill="black"/>
+      <path d="M129 14H118V25H129V14Z" fill="black"/>
+      <path d="M115 21H104V32H115V21Z" fill="black"/>
+      <path d="M101 28H90V39H101V28Z" fill="black"/>
+      <path d="M115 42H104V53H115V42Z" fill="black"/>
+      <path d="M129 42H118V53H129V42Z" fill="black"/>
+      <path d="M101 42H90V53H101V42Z" fill="black"/>
+      <path d="M70 42H59V53H70V42Z" fill="black"/>
+      <path d="M160 0H149V11H160V0Z" fill="black"/>
+      <path d="M146 14H135V25H146V14Z" fill="black"/>
+      <path d="M145 0H134V11H145V0Z" fill="black"/>
+      <path d="M174 14H163V25H174V14Z" fill="black"/>
+      <path d="M174 0H163V11H174V0Z" fill="black"/>
+      <path d="M146 28H135V39H146V28Z" fill="black"/>
+      <path d="M160 21H149V32H160V21Z" fill="black"/>
+      <path d="M174 28H163V39H174V28Z" fill="black"/>
+      <path d="M146 42H135V53H146V42Z" fill="black"/>
+      <path d="M174 42H163V53H174V42Z" fill="black"/>
+      <path d="M191 0H180V11H191V0Z" fill="black"/>
+      <path d="M205 0H194V11H205V0Z" fill="black"/>
+      <path d="M191 14H180V25H191V14Z" fill="black"/>
+      <path d="M213 14H202V25H213V14Z" fill="black"/>
+      <path d="M191 28H180V39H191V28Z" fill="black"/>
+      <path d="M205 28H194V39H205V28Z" fill="black"/>
+      <path d="M191 42H180V53H191V42Z" fill="black"/>
+      <path d="M219 42H208V53H219V42Z" fill="black"/>
+      <path d="M227 0H216V11H227V0Z" fill="black"/>
+      <path d="M241 0H230V11H241V0Z" fill="black"/>
+      <path d="M255 0H244V11H255V0Z" fill="black"/>
+      <path d="M241 14H230V25H241V14Z" fill="black"/>
+      <path d="M241 28H230V39H241V28Z" fill="black"/>
+      <path d="M241 42H230V53H241V42Z" fill="black"/>
+    </svg>
+
+    <script>
+      document.querySelectorAll('.mozart-logo path').forEach((path, index) => {
+        path.style.setProperty('--i', index);
+      });
+    </script>
+  </body>
+</html>

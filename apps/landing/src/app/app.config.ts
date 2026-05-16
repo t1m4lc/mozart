@@ -9,6 +9,6 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideFileRouter(),
-    provideTheme({ theme: 'stone', mode: 'system' }),
+    provideTheme({ theme: 'stone', mode: 'light' }),
   ],
 };

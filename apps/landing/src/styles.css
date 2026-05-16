@@ -6,3 +6,11 @@
 @source "../../../libs/{shared-util-theme,ui}/**/*.{html,ts}";
 @import "../../../libs/shared-styles-theme/src/index.css";
 @import "./styles/prose.css";
+
+@utility scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

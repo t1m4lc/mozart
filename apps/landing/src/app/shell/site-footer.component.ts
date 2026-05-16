@@ -1,73 +1,73 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ContainerComponent } from './container.component';
 import { FOOTER_NAV } from './nav-model';
+import { SITE_CONFIG } from './site-config';
 
 @Component({
   selector: 'app-site-footer',
-  imports: [ContainerComponent, RouterLink],
+  imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    class: 'border-t border-border bg-background mt-16',
-  },
+  host: { class: 'block' },
   template: `
-    <app-container>
-      <div
-        class="grid grid-cols-1 gap-8 py-12 md:grid-cols-2 lg:grid-cols-4"
-      >
-        @for (column of columns; track column.title) {
-          <div>
-            <h2
-              class="text-foreground text-xs font-semibold tracking-wider uppercase"
-            >
-              {{ column.title }}
-            </h2>
-            <ul class="mt-3 space-y-2">
-              @for (link of column.links; track link.label + link.href) {
-                <li>
-                  @if (link.external) {
-                    <a
-                      [href]="link.href"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      class="text-muted-foreground hover:text-foreground text-sm transition-colors"
-                    >
-                      {{ link.label }}
-                    </a>
-                  } @else if (link.disabled) {
-                    <a
-                      href="#"
-                      aria-disabled="true"
-                      tabindex="-1"
-                      class="text-muted-foreground/60 pointer-events-none cursor-not-allowed text-sm"
-                    >
-                      {{ link.label }}
-                    </a>
-                    <!-- TODO Phase 12: real targets -->
-                  } @else {
-                    <a
-                      [routerLink]="link.href"
-                      class="text-muted-foreground hover:text-foreground text-sm transition-colors"
-                    >
-                      {{ link.label }}
-                    </a>
-                  }
-                </li>
-              }
-            </ul>
-          </div>
-        }
-      </div>
+    <footer
+      class="bg-muted border-border relative mt-16 overflow-hidden border-t px-6 pt-16 pb-12 font-mono sm:px-8"
+    >
+      <div class="relative mx-auto max-w-5xl">
+        <div
+          class="grid w-full grid-cols-2 gap-x-12 gap-y-10 sm:grid-cols-4 sm:gap-x-16"
+        >
+          @for (column of columns; track column.title) {
+            <div class="flex min-w-0 flex-col items-start gap-4 text-left">
+              <span class="text-muted-foreground text-sm">
+                [{{ column.title }}]
+              </span>
+              <ul class="flex flex-col gap-2">
+                @for (link of column.links; track link.label + link.href) {
+                  <li>
+                    @if (link.external) {
+                      <a
+                        [href]="link.href"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="text-foreground hover:text-foreground/70 text-sm transition-colors"
+                      >
+                        {{ link.label }}
+                      </a>
+                    } @else if (link.disabled) {
+                      <a
+                        href="#"
+                        aria-disabled="true"
+                        tabindex="-1"
+                        class="text-muted-foreground/60 pointer-events-none cursor-not-allowed text-sm"
+                      >
+                        {{ link.label }}
+                      </a>
+                    } @else {
+                      <a
+                        [routerLink]="link.href"
+                        class="text-foreground hover:text-foreground/70 text-sm transition-colors"
+                      >
+                        {{ link.label }}
+                      </a>
+                    }
+                  </li>
+                }
+              </ul>
+            </div>
+          }
+        </div>
 
-      <div
-        class="border-border text-muted-foreground border-t py-6 text-xs"
-      >
-        © {{ year }} Mozart
+        <div class="mt-16">
+          <span class="text-muted-foreground text-sm">
+            © {{ year }} {{ company }}
+          </span>
+        </div>
       </div>
-    </app-container>
+    </footer>
   `,
 })
 export class SiteFooterComponent {
   protected readonly columns = FOOTER_NAV;
-  protected readonly year = new Date().getFullYear();
+  protected readonly company = SITE_CONFIG.company;
+  protected readonly year = SITE_CONFIG.copyrightYear;
 }
