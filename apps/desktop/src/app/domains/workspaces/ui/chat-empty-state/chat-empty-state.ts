@@ -4,11 +4,8 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
   lucideCircleAlert,
-  lucideFolder,
   lucideGitBranch,
-  lucideInfo,
   lucideSparkles,
-  lucideTerminal,
 } from '@ng-icons/lucide';
 import type { InstallState } from '../../data/workspace.facade';
 import { CliLoader } from '../cli-loader/cli-loader';
@@ -38,10 +35,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
     provideIcons({
       lucideCheck,
       lucideCircleAlert,
-      lucideInfo,
       lucideGitBranch,
-      lucideFolder,
-      lucideTerminal,
       lucideSparkles,
     }),
   ],
@@ -60,10 +54,10 @@ const SETUP_LABEL: Record<InstallState, string> = {
         </p>
       </div>
     } @else {
-    <div class="w-full p-6">
+    <div class="w-full pl-12 pr-6 py-4">
       <ol class="flex w-full flex-col">
-        <!-- Step 1 — context info -->
-        <li class="relative flex w-full items-center gap-3 pb-5">
+        <!-- 1 — branched into project -->
+        <li class="relative flex w-full items-center gap-3 pb-4">
           <span
             class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
             aria-hidden="true"
@@ -71,27 +65,9 @@ const SETUP_LABEL: Record<InstallState, string> = {
           <span
             class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
           >
-            <ng-icon hlm name="lucideInfo" size="10px" />
-          </span>
-          <p class="text-sm font-light leading-none text-foreground">
-            You are starting a fresh Mozart chat in
-            <span class="font-medium">{{ projectName() }}</span
-            >.
-          </p>
-        </li>
-
-        <!-- Step 2 — branch -->
-        <li class="relative flex w-full items-center gap-3 pb-5">
-          <span
-            class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
-            aria-hidden="true"
-          ></span>
-          <span
-            class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground [--ng-icon__stroke-width:1.5]"
-          >
             <ng-icon hlm name="lucideGitBranch" size="10px" />
           </span>
-          <p class="text-sm font-light leading-none text-muted-foreground">
+          <p class="text-sm font-light leading-none text-foreground">
             Branched
             <code
               class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
@@ -101,37 +77,14 @@ const SETUP_LABEL: Record<InstallState, string> = {
             <code
               class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
               >{{ targetBranch() }}</code
+            >
+            in <span class="font-medium">{{ projectName() }}</span
             >.
           </p>
         </li>
 
-        <!-- Step 3 — files -->
-        <li class="relative flex w-full items-center gap-3 pb-5">
-          <span
-            class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
-            aria-hidden="true"
-          ></span>
-          <span
-            class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground [--ng-icon__stroke-width:1.5]"
-          >
-            <ng-icon hlm name="lucideFolder" size="10px" />
-          </span>
-          <p class="text-sm font-light leading-none text-muted-foreground">
-            The workspace
-            <code
-              class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
-              >{{ workspaceName() }}</code
-            >
-            is ready with
-            <span class="font-medium text-foreground">{{
-              numberOfFiles()
-            }}</span>
-            files.
-          </p>
-        </li>
-
-        <!-- Step 4 — setup / package install lifecycle -->
-        <li class="relative flex w-full items-center gap-3 pb-5">
+        <!-- 2 — ready (workspace + files + install lifecycle) -->
+        <li class="relative flex w-full items-center gap-3 pb-4">
           <span
             class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
             aria-hidden="true"
@@ -144,13 +97,6 @@ const SETUP_LABEL: Record<InstallState, string> = {
                 <app-cli-loader />
               </span>
             }
-            @case ('success') {
-              <span
-                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 [--ng-icon__stroke-width:1.5]"
-              >
-                <ng-icon hlm name="lucideCheck" size="10px" />
-              </span>
-            }
             @case ('failed') {
               <span
                 class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive [--ng-icon__stroke-width:1.5]"
@@ -160,28 +106,33 @@ const SETUP_LABEL: Record<InstallState, string> = {
             }
             @default {
               <span
-                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-accent text-muted-foreground [--ng-icon__stroke-width:1.5]"
+                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 [--ng-icon__stroke-width:1.5]"
               >
-                <ng-icon hlm name="lucideTerminal" size="10px" />
+                <ng-icon hlm name="lucideCheck" size="10px" />
               </span>
             }
           }
           <p class="text-sm font-light leading-none text-muted-foreground">
-            {{ setupLabel() }}
-            @if (
-              installManager() &&
-              (installState() === 'success' || installState() === 'failed')
-            ) {
-              with
-              <span class="font-medium text-foreground">{{ installManager() }}</span>
-            }
-            @if (installState() === 'success' || installState() === 'failed') {
-              .
+            <code
+              class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
+              >{{ workspaceName() }}</code
+            >
+            ready with
+            <span class="font-medium text-foreground">{{ numberOfFiles() }}</span>
+            files.
+            @if (installState() !== 'idle' && installState() !== 'no_package') {
+              {{ setupLabel() }}@if (
+                installManager() &&
+                (installState() === 'success' || installState() === 'failed')
+              ) {
+                with
+                <span class="font-medium text-foreground">{{ installManager() }}</span>
+              }.
             }
           </p>
         </li>
 
-        <!-- Final beat — call to action -->
+        <!-- 3 — CTA -->
         <li class="relative flex w-full items-center gap-3">
           <span
             class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"

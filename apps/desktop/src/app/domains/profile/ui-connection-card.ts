@@ -7,12 +7,11 @@ import {
 } from '@angular/core';
 import { HlmBadgeImports } from '@mozart/ui/badge';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmCardImports } from '@mozart/ui/card';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCheck, lucideCircleHelp } from '@ng-icons/lucide';
+import { lucideCheck, lucideCircleHelp, lucideSparkles } from '@ng-icons/lucide';
 import type {
   Connection,
   ConnectionStatus,
@@ -94,7 +93,6 @@ const STATUS_VIEW: Record<ConnectionStatus, StatusView> = {
 @Component({
   selector: 'app-ui-connection-card',
   imports: [
-    HlmCardImports,
     HlmButtonImports,
     HlmBadgeImports,
     HlmSpinnerImports,
@@ -102,112 +100,130 @@ const STATUS_VIEW: Record<ConnectionStatus, StatusView> = {
     HlmTooltipImports,
     NgIcon,
   ],
-  providers: [provideIcons({ lucideCheck, lucideCircleHelp })],
+  providers: [provideIcons({ lucideCheck, lucideCircleHelp, lucideSparkles })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div hlmCard class="max-w-2xl">
-      <div hlmCardHeader>
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <div class="flex items-center gap-1.5">
-              <h3 hlmCardTitle>Anthropic</h3>
-              <button
-                hlmBtn
-                variant="ghost"
-                size="icon-xs"
-                type="button"
-                hlmTooltip="How Mozart connects to Anthropic"
-                position="top"
-                class="size-6 rounded-md text-muted-foreground"
-                (click)="help.emit()"
-                aria-label="How Mozart connects to Anthropic"
-              >
-                <ng-icon hlm name="lucideCircleHelp" size="xs" />
-              </button>
-            </div>
-            <p hlmCardDescription>API key or Claude Code login</p>
+    <div class="rounded-md border p-4 space-y-3">
+      <div class="flex items-start gap-3">
+        <ng-icon
+          hlm
+          name="lucideSparkles"
+          size="lg"
+          class="mt-0.5 shrink-0 text-foreground/80"
+        />
+        <div class="min-w-0 flex-1 space-y-1">
+          <div class="flex items-center gap-1.5">
+            <h3 class="text-sm font-medium">Anthropic</h3>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="icon-xs"
+              type="button"
+              hlmTooltip="How Mozart connects to Anthropic"
+              position="top"
+              class="size-6 rounded-md text-muted-foreground"
+              (click)="help.emit()"
+              aria-label="How Mozart connects to Anthropic"
+            >
+              <ng-icon hlm name="lucideCircleHelp" size="xs" />
+            </button>
           </div>
-          @if (view().pillLabel) {
-            <span
-              hlmBadge
-              [variant]="view().pillVariant"
-              [class]="view().pillClass"
-            >
-              @if (view().showSpinner) {
-                <hlm-spinner aria-label="Checking" />
-              }
-              @if (view().showCheck) {
-                <ng-icon hlm name="lucideCheck" size="xs" />
-              }
-              {{ view().pillLabel }}
-            </span>
-          }
+          <p class="text-xs text-muted-foreground">
+            API key or Claude Code login
+          </p>
         </div>
-      </div>
-      <div hlmCardFooter class="flex justify-end gap-2">
-        @switch (connection().status) {
-          @case ('not_connected') {
-            <button hlmBtn type="button" (click)="connect.emit()">
-              Connect
-            </button>
-          }
-          @case ('connected') {
-            <button
-              hlmBtn
-              variant="outline"
-              type="button"
-              (click)="testConnection.emit()"
-            >
-              Test connection
-            </button>
-            <button
-              hlmBtn
-              variant="outline"
-              type="button"
-              (click)="disconnect.emit()"
-            >
-              Disconnect
-            </button>
-          }
-          @case ('connected_via_claude_code') {
-            <button
-              hlmBtn
-              variant="outline"
-              type="button"
-              (click)="useApiKey.emit()"
-            >
-              Use API key instead
-            </button>
-          }
-          @case ('invalid') {
-            <button hlmBtn type="button" (click)="connect.emit()">
-              Reconnect
-            </button>
-            <button
-              hlmBtn
-              variant="outline"
-              type="button"
-              (click)="disconnect.emit()"
-            >
-              Disconnect
-            </button>
-          }
-          @case ('network_error') {
-            <button hlmBtn type="button" (click)="testConnection.emit()">
-              Retry
-            </button>
-            <button
-              hlmBtn
-              variant="outline"
-              type="button"
-              (click)="disconnect.emit()"
-            >
-              Disconnect
-            </button>
-          }
+        @if (view().pillLabel) {
+          <span
+            hlmBadge
+            [variant]="view().pillVariant"
+            [class]="view().pillClass"
+          >
+            @if (view().showSpinner) {
+              <hlm-spinner aria-label="Checking" />
+            }
+            @if (view().showCheck) {
+              <ng-icon hlm name="lucideCheck" size="xs" />
+            }
+            {{ view().pillLabel }}
+          </span>
         }
       </div>
+      @if (showActions()) {
+        <div class="flex justify-end gap-2">
+          @switch (connection().status) {
+            @case ('not_connected') {
+              <button hlmBtn size="sm" type="button" (click)="connect.emit()">
+                Connect
+              </button>
+            }
+            @case ('connected') {
+              <button
+                hlmBtn
+                variant="outline"
+                size="sm"
+                type="button"
+                (click)="testConnection.emit()"
+              >
+                Test connection
+              </button>
+              <button
+                hlmBtn
+                variant="outline"
+                size="sm"
+                type="button"
+                (click)="disconnect.emit()"
+              >
+                Disconnect
+              </button>
+            }
+            @case ('connected_via_claude_code') {
+              <button
+                hlmBtn
+                variant="outline"
+                size="sm"
+                type="button"
+                (click)="useApiKey.emit()"
+              >
+                Use API key instead
+              </button>
+            }
+            @case ('invalid') {
+              <button hlmBtn size="sm" type="button" (click)="connect.emit()">
+                Reconnect
+              </button>
+              <button
+                hlmBtn
+                variant="outline"
+                size="sm"
+                type="button"
+                (click)="disconnect.emit()"
+              >
+                Disconnect
+              </button>
+            }
+            @case ('network_error') {
+              <button
+                hlmBtn
+                size="sm"
+                type="button"
+                (click)="testConnection.emit()"
+              >
+                Retry
+              </button>
+              <button
+                hlmBtn
+                variant="outline"
+                size="sm"
+                type="button"
+                (click)="disconnect.emit()"
+              >
+                Disconnect
+              </button>
+            }
+          }
+        </div>
+      }
     </div>
   `,
 })
@@ -223,4 +239,11 @@ export class UiConnectionCard {
   protected readonly view = computed<StatusView>(
     () => STATUS_VIEW[this.connection().status],
   );
+
+  // Actions row hides when there are no buttons to render — keeps the
+  // card compact while connection state hasn't resolved yet.
+  protected readonly showActions = computed(() => {
+    const status = this.connection().status;
+    return status !== 'unknown' && status !== 'checking';
+  });
 }

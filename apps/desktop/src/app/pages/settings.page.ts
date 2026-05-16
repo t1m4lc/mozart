@@ -16,36 +16,36 @@ import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full overflow-y-auto p-6' },
   template: `
-    <div class="mx-auto max-w-3xl space-y-10">
+    <div class="mx-auto max-w-3xl space-y-8">
       <h1 class="text-2xl font-semibold">Settings</h1>
 
-      <section class="space-y-3">
+      <section class="space-y-4">
         <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Connections
         </h2>
         <app-feature-connections />
       </section>
 
-      <section class="space-y-3">
+      <section class="space-y-4">
         <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Git
         </h2>
         <app-feature-git-status />
       </section>
 
-      <section class="space-y-3">
+      <section class="space-y-4">
         <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Notifications
         </h2>
         <app-feature-notification-prefs />
       </section>
 
-      <section class="space-y-3">
+      <section class="space-y-4">
         <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Onboarding
         </h2>
         <div
-          class="flex items-center justify-between gap-4 rounded-md border px-4 py-3"
+          class="flex items-center justify-between gap-4 rounded-md border p-4"
         >
           <div class="space-y-1">
             <p class="text-sm font-medium">Revisit the tour</p>
@@ -59,12 +59,12 @@ import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile
         </div>
       </section>
 
-      <section class="space-y-3">
+      <section class="space-y-4">
         <h2 class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Account
         </h2>
         <div
-          class="flex items-center justify-between gap-4 rounded-md border px-4 py-3"
+          class="flex items-center justify-between gap-4 rounded-md border p-4"
         >
           <div class="space-y-1">
             <p class="text-sm font-medium">Sign out</p>

@@ -38,14 +38,15 @@ type LoadState =
   providers: [provideIcons({ lucideGitCommitVertical })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle class="flex items-center gap-2">
         <ng-icon hlm name="lucideGitCommitVertical" size="sm" />
         Commit changes
       </h3>
     </div>
 
-    <div class="px-6 pb-2">
+    <div class="px-6 py-4 space-y-4">
+      <div>
       @switch (state().kind) {
         @case ('loading') {
           <p class="text-sm text-muted-foreground">Loading changes…</p>
@@ -104,30 +105,31 @@ type LoadState =
           }
         }
       }
+      </div>
+
+      <div>
+        <label
+          for="commit-message"
+          class="mb-1 block text-xs font-medium text-muted-foreground"
+          >Commit message</label
+        >
+        <textarea
+          id="commit-message"
+          hlmInput
+          rows="3"
+          class="w-full resize-y font-mono text-sm"
+          placeholder="Describe the change…"
+          [value]="message()"
+          (input)="onMessageInput($event)"
+        ></textarea>
+      </div>
+
+      @if (commitError(); as err) {
+        <p class="text-xs text-destructive">{{ err }}</p>
+      }
     </div>
 
-    <div class="px-6 pb-2">
-      <label
-        for="commit-message"
-        class="mb-1 block text-xs font-medium text-muted-foreground"
-        >Commit message</label
-      >
-      <textarea
-        id="commit-message"
-        hlmInput
-        rows="3"
-        class="w-full resize-y font-mono text-sm"
-        placeholder="Describe the change…"
-        [value]="message()"
-        (input)="onMessageInput($event)"
-      ></textarea>
-    </div>
-
-    @if (commitError(); as err) {
-      <p class="px-6 pb-2 text-xs text-destructive">{{ err }}</p>
-    }
-
-    <div hlmDialogFooter class="mt-2">
+    <div hlmDialogFooter class="px-6 py-4">
       <button hlmDialogClose hlmBtn variant="outline" type="button">
         Cancel
       </button>

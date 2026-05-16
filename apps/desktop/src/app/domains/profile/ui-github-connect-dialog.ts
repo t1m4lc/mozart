@@ -6,43 +6,100 @@ import {
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogImports } from '@mozart/ui/dialog';
+import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmInputImports } from '@mozart/ui/input';
+import { HlmSeparatorImports } from '@mozart/ui/separator';
 import { BrnDialogRef } from '@spartan-ng/brain/dialog';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideExternalLink, lucideGithub } from '@ng-icons/lucide';
+import { ShellService } from '../../core/shell.service';
 import { ProfileFacade } from './data/profile.facade';
 
+// PAT-creation URL prefilled with the scopes Mozart needs.
+// `repo` covers all classic-PAT repo operations + private push/PR;
+// `workflow` is included so users can also push to repos with GitHub
+// Actions configs.
+const GITHUB_TOKEN_NEW_URL =
+  'https://github.com/settings/tokens/new?scopes=repo,workflow&description=Mozart';
+
+// IMP-008 — two paths to a GitHub credential:
+//   1. Sign in with GitHub : opens the browser to the PAT-creation
+//      page with the right scopes prefilled (the "guided" path). User
+//      pastes the resulting token back here.
+//   2. Use an existing token : same paste-and-verify flow as before.
+// Both end up storing a PAT in the OS keyring via the credentials
+// adapter — Mozart never sees the GitHub OAuth secret.
 @Component({
   selector: 'app-ui-github-connect-dialog',
-  imports: [HlmButtonImports, HlmDialogImports, HlmInputImports],
+  imports: [
+    HlmButtonImports,
+    HlmDialogImports,
+    HlmIconImports,
+    HlmInputImports,
+    HlmSeparatorImports,
+    NgIcon,
+  ],
+  providers: [provideIcons({ lucideExternalLink, lucideGithub })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle>Connect GitHub</h3>
-    </div>
-    <p hlmDialogDescription class="text-sm text-muted-foreground px-6">
-      Paste a personal access token (classic, with
-      <code class="font-mono text-xs bg-muted px-1 py-0.5 rounded">repo</code>
-      scope, or fine-grained with Pull-requests + Contents write).
-      Mozart stores the token in your OS keychain.
-    </p>
-
-    <div class="px-6 pb-2">
-      <input
-        type="password"
-        hlmInput
-        class="w-full font-mono text-sm"
-        placeholder="ghp_…"
-        autocomplete="off"
-        spellcheck="false"
-        [value]="token()"
-        (input)="onTokenInput($event)"
-        (keydown.enter)="onConnect()"
-      />
-      @if (error(); as err) {
-        <p class="mt-2 text-xs text-destructive">{{ err }}</p>
-      }
+      <p hlmDialogDescription>
+        Two ways — both store a personal access token in your OS
+        keychain. Mozart never sees your GitHub password.
+      </p>
     </div>
 
-    <div hlmDialogFooter class="mt-2">
+    <div class="px-6 py-4 space-y-4">
+      <div class="space-y-2">
+        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Sign in with GitHub
+        </p>
+        <button
+          hlmBtn
+          variant="default"
+          type="button"
+          class="w-full justify-center gap-2"
+          (click)="onOpenGithub()"
+          [disabled]="busy()"
+        >
+          <ng-icon hlm name="lucideGithub" size="sm" />
+          Generate a token on GitHub
+          <ng-icon hlm name="lucideExternalLink" size="xs" />
+        </button>
+        <p class="text-xs text-muted-foreground">
+          Opens GitHub in your browser with
+          <code class="font-mono text-[10px] bg-muted px-1 py-0.5 rounded">repo</code>
+          + <code class="font-mono text-[10px] bg-muted px-1 py-0.5 rounded">workflow</code>
+          scopes prefilled. Click "Generate token" on GitHub, then paste
+          it below.
+        </p>
+      </div>
+
+      <hlm-separator />
+
+      <div class="space-y-2">
+        <p class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+          Or paste an existing token
+        </p>
+        <input
+          type="password"
+          hlmInput
+          class="w-full font-mono text-sm"
+          placeholder="ghp_…"
+          autocomplete="off"
+          spellcheck="false"
+          [value]="token()"
+          (input)="onTokenInput($event)"
+          (keydown.enter)="onConnect()"
+        />
+        @if (error(); as err) {
+          <p class="text-xs text-destructive">{{ err }}</p>
+        }
+      </div>
+    </div>
+
+    <div hlmDialogFooter class="px-6 py-4">
       <button hlmDialogClose hlmBtn variant="outline" type="button">
         Cancel
       </button>
@@ -64,6 +121,7 @@ import { ProfileFacade } from './data/profile.facade';
 export class UiGithubConnectDialog {
   private readonly ref = inject(BrnDialogRef);
   private readonly facade = inject(ProfileFacade);
+  private readonly shell = inject(ShellService);
 
   protected readonly token = signal('');
   protected readonly busy = signal(false);
@@ -76,6 +134,10 @@ export class UiGithubConnectDialog {
 
   protected canConnect(): boolean {
     return !this.busy() && this.token().trim().length > 0;
+  }
+
+  protected onOpenGithub(): void {
+    void this.shell.openExternal(GITHUB_TOKEN_NEW_URL);
   }
 
   protected async onConnect(): Promise<void> {

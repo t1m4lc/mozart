@@ -10,10 +10,10 @@ import { HlmDialogImports } from '@mozart/ui/dialog';
   imports: [HlmDialogImports, HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle>How Mozart connects to Anthropic</h3>
     </div>
-    <div class="space-y-4 px-6 text-sm text-muted-foreground">
+    <div class="px-6 py-4 space-y-4 text-sm text-muted-foreground">
       <div class="space-y-1">
         <p class="font-medium text-foreground">
           Already signed in with
@@ -43,7 +43,7 @@ import { HlmDialogImports } from '@mozart/ui/dialog';
         </p>
       </div>
     </div>
-    <div hlmDialogFooter class="mt-2">
+    <div hlmDialogFooter class="px-6 py-4">
       <button hlmDialogClose hlmBtn variant="outline" type="button">
         Got it
       </button>

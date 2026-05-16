@@ -20,20 +20,22 @@ export interface InitProjectContext {
   imports: [HlmButtonImports, HlmDialogImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle>This folder isn't a git repository. Initialize it?</h3>
     </div>
-    <p hlmDialogDescription class="text-sm text-muted-foreground px-6">
-      Mozart will run
-      <code class="font-mono text-xs bg-muted px-1 py-0.5 rounded">git init</code>
-      in
-      <code class="font-mono text-xs bg-muted px-1 py-0.5 rounded">{{
-        ctx.path
-      }}</code>
-      and create an initial commit so the workspace has a branch to
-      spawn from. No remote will be configured.
-    </p>
-    <div hlmDialogFooter class="mt-2">
+    <div class="px-6 py-4">
+      <p hlmDialogDescription class="text-sm text-muted-foreground">
+        Mozart will run
+        <code class="font-mono text-xs bg-muted px-1 py-0.5 rounded">git init</code>
+        in
+        <code class="font-mono text-xs bg-muted px-1 py-0.5 rounded">{{
+          ctx.path
+        }}</code>
+        and create an initial commit so the workspace has a branch to
+        spawn from. No remote will be configured.
+      </p>
+    </div>
+    <div hlmDialogFooter class="px-6 py-4">
       <button hlmDialogClose hlmBtn variant="outline" type="button">
         Cancel
       </button>

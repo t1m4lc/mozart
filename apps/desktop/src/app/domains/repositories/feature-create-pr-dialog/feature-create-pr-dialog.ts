@@ -33,14 +33,14 @@ export interface CreatePrDialogContext {
   providers: [provideIcons({ lucideExternalLink, lucideGithub })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle class="flex items-center gap-2">
         <ng-icon hlm name="lucideGithub" size="sm" />
         Create pull request
       </h3>
     </div>
     @if (createdUrl(); as url) {
-      <div class="px-6 pb-2">
+      <div class="px-6 py-4 space-y-2">
         <p class="text-sm text-muted-foreground">
           Pull request opened.
         </p>
@@ -48,19 +48,19 @@ export interface CreatePrDialogContext {
           [href]="url"
           target="_blank"
           rel="noopener"
-          class="mt-2 inline-flex items-center gap-1 text-sm text-primary underline"
+          class="inline-flex items-center gap-1 text-sm text-primary underline"
         >
           <ng-icon hlm name="lucideExternalLink" size="xs" />
           {{ url }}
         </a>
       </div>
-      <div hlmDialogFooter class="mt-2">
+      <div hlmDialogFooter class="px-6 py-4">
         <button hlmDialogClose hlmBtn variant="default" type="button">
           Close
         </button>
       </div>
     } @else {
-      <div class="px-6 pb-2 space-y-2">
+      <div class="px-6 py-4 space-y-4">
         <div>
           <label
             for="pr-title"
@@ -109,7 +109,7 @@ export interface CreatePrDialogContext {
           and opens the PR against the workspace's base branch.
         </p>
       </div>
-      <div hlmDialogFooter class="mt-2">
+      <div hlmDialogFooter class="px-6 py-4">
         <button hlmDialogClose hlmBtn variant="outline" type="button">
           Cancel
         </button>

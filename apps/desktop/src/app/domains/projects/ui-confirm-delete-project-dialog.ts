@@ -14,17 +14,19 @@ export interface ConfirmDeleteProjectContext {
   imports: [HlmButtonImports, HlmDialogImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle>Remove "{{ ctx.project.name }}"?</h3>
     </div>
-    <p hlmDialogDescription class="text-sm text-muted-foreground px-6">
-      The source repository at
-      <code class="font-mono text-xs bg-muted px-1 py-0.5 rounded">{{
-        ctx.project.path
-      }}</code>
-      will not be deleted. Only this project will be removed from Mozart.
-    </p>
-    <div hlmDialogFooter class="mt-2">
+    <div class="px-6 py-4">
+      <p hlmDialogDescription class="text-sm text-muted-foreground">
+        The source repository at
+        <code class="font-mono text-xs bg-muted px-1 py-0.5 rounded">{{
+          ctx.project.path
+        }}</code>
+        will not be deleted. Only this project will be removed from Mozart.
+      </p>
+    </div>
+    <div hlmDialogFooter class="px-6 py-4">
       <button hlmDialogClose hlmBtn variant="outline" type="button">
         Cancel
       </button>

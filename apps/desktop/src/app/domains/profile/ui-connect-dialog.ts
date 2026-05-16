@@ -39,12 +39,12 @@ import { ProfileFacade } from './data/profile.facade';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle>Connect to Claude</h3>
       <p hlmDialogDescription>Paste your Anthropic API key.</p>
     </div>
     <form
-      class="space-y-3 px-6"
+      class="px-6 py-4 space-y-4"
       (submit)="onFormSubmit($event)"
       autocomplete="off"
     >
@@ -73,7 +73,7 @@ import { ProfileFacade } from './data/profile.facade';
            Visible action lives in the dialog footer. -->
       <button type="submit" class="hidden" aria-hidden="true"></button>
     </form>
-    <div hlmDialogFooter class="mt-2">
+    <div hlmDialogFooter class="px-6 py-4">
       <button
         hlmDialogClose
         hlmBtn

@@ -62,7 +62,7 @@ const GITHUB_URL_RE =
   providers: [provideIcons({ lucideFolderOpen })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle>Clone GitHub repo</h3>
       <p hlmDialogDescription>
         Paste a repository URL and pick a location. Mozart will clone it
@@ -71,7 +71,7 @@ const GITHUB_URL_RE =
     </div>
 
     <form
-      class="space-y-3 px-6"
+      class="px-6 py-4 space-y-4"
       (submit)="onFormSubmit($event)"
       autocomplete="off"
     >
@@ -145,7 +145,7 @@ const GITHUB_URL_RE =
       <button type="submit" class="hidden" aria-hidden="true"></button>
     </form>
 
-    <div hlmDialogFooter class="mt-2">
+    <div hlmDialogFooter class="px-6 py-4">
       <button
         hlmDialogClose
         hlmBtn

@@ -56,7 +56,7 @@ type TemplateValue = 'empty' | 'gstack';
   providers: [provideIcons({ lucideFolderOpen })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div hlmDialogHeader>
+    <div hlmDialogHeader class="px-6 py-4">
       <h3 hlmDialogTitle>Create a project</h3>
       <p hlmDialogDescription>
         Create a local folder and an empty project. The first workspace
@@ -65,7 +65,7 @@ type TemplateValue = 'empty' | 'gstack';
     </div>
 
     <form
-      class="space-y-3 px-6"
+      class="px-6 py-4 space-y-4"
       (submit)="onFormSubmit($event)"
       autocomplete="off"
     >
@@ -144,7 +144,7 @@ type TemplateValue = 'empty' | 'gstack';
       <button type="submit" class="hidden" aria-hidden="true"></button>
     </form>
 
-    <div hlmDialogFooter class="mt-2">
+    <div hlmDialogFooter class="px-6 py-4">
       <button
         hlmDialogClose
         hlmBtn

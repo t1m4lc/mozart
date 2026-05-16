@@ -18,7 +18,7 @@ import { GIT_CHECK_ADAPTER } from './data/git-check.adapter';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="flex items-center gap-3 rounded-md border px-4 py-3">
+    <div class="flex items-center gap-3 rounded-md border p-4">
       @switch (_state()) {
         @case ('probing') {
           <span class="text-sm text-muted-foreground">Checking…</span>

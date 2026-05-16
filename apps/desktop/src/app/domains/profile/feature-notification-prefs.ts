@@ -22,7 +22,7 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="space-y-3 rounded-md border p-4">
+    <div class="space-y-4 rounded-md border p-4">
       <div class="flex items-center justify-between gap-3">
         <div class="space-y-0.5">
           <p class="text-sm font-medium">Desktop notifications</p>
