@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   DestroyRef,
+  computed,
   effect,
   inject,
   signal,
@@ -9,6 +10,7 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
+import { HlmBadgeImports } from '@mozart/ui/badge';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import {
@@ -23,10 +25,12 @@ import {
   FeatureFileDiff,
   FeatureFileTree,
   RepositoriesFacade,
+  type ChangedFile,
   type FileNode,
 } from '../../repositories';
 import { FeatureWorkspaceRun } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
+import { FileTabsService } from '../data/file-tabs.service';
 import { WorkspacesFacade } from '../data/workspace.facade';
 
 // IMP-021 — the right aside is a vertical split:
@@ -61,6 +65,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
 @Component({
   selector: 'app-feature-workspace-aside',
   imports: [
+    HlmBadgeImports,
     HlmButtonImports,
     HlmIconImports,
     HlmResizableImports,
@@ -76,43 +81,117 @@ function coerceBottomTab(raw: string | null): BottomTab {
   host: { class: 'flex h-full w-full flex-col bg-sidebar' },
   template: `
     <hlm-resizable-group direction="vertical" class="min-h-0 flex-1">
-      <!-- Top slot : Files (inner tree-over-diff split) -->
+      <!-- Top slot : Files. Top toolbar has 2 sub-tabs (All files /
+           Changes [N]). All files = tree-over-diff split; Changes =
+           flat list that opens a file tab in the central shell. -->
       <hlm-resizable-panel
         [defaultSize]="50"
         [minSize]="20"
         class="overflow-hidden"
       >
-        <hlm-resizable-group
-          direction="vertical"
-          class="h-full w-full"
-          data-tour="aside-files-tab"
-        >
-          <hlm-resizable-panel
-            [defaultSize]="35"
-            [minSize]="20"
-            class="overflow-hidden"
+        <div class="flex h-full w-full flex-col" data-tour="aside-files-tab">
+          <div
+            class="flex h-9 shrink-0 items-center gap-1 border-b border-sidebar-border bg-sidebar px-2"
+            role="tablist"
+            aria-label="Files view"
           >
-            <app-feature-file-tree
-              class="block h-full w-full"
-              [workspaceId]="workspaceId()"
-              [refreshTick]="watcherTick()"
-              (fileSelected)="onFileSelected($event)"
-            />
-          </hlm-resizable-panel>
-          <hlm-resizable-handle />
-          <hlm-resizable-panel
-            [defaultSize]="65"
-            [minSize]="20"
-            class="overflow-hidden"
-          >
-            <app-feature-file-diff
-              class="block h-full w-full"
-              [workspaceId]="workspaceId()"
-              [path]="selectedPath()"
-              [refreshTick]="watcherTick()"
-            />
-          </hlm-resizable-panel>
-        </hlm-resizable-group>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="filesView() === 'all'"
+              (click)="setFilesView('all')"
+              class="h-7 rounded-md px-2 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
+            >
+              All files
+            </button>
+            <button
+              type="button"
+              role="tab"
+              [attr.aria-selected]="filesView() === 'changes'"
+              (click)="setFilesView('changes')"
+              class="flex h-7 items-center gap-1.5 rounded-md px-2 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
+            >
+              Changes
+              @if (changedFiles().length > 0) {
+                <span
+                  hlmBadge
+                  variant="secondary"
+                  class="h-4 min-w-4 justify-center rounded-full px-1 text-[10px]"
+                >
+                  {{ changedFiles().length }}
+                </span>
+              }
+            </button>
+          </div>
+
+          @if (filesView() === 'all') {
+            <hlm-resizable-group
+              direction="vertical"
+              class="min-h-0 w-full flex-1"
+            >
+              <hlm-resizable-panel
+                [defaultSize]="35"
+                [minSize]="20"
+                class="overflow-hidden"
+              >
+                <app-feature-file-tree
+                  class="block h-full w-full"
+                  [workspaceId]="workspaceId()"
+                  [refreshTick]="watcherTick()"
+                  (fileSelected)="onFileSelected($event)"
+                />
+              </hlm-resizable-panel>
+              <hlm-resizable-handle />
+              <hlm-resizable-panel
+                [defaultSize]="65"
+                [minSize]="20"
+                class="overflow-hidden"
+              >
+                <app-feature-file-diff
+                  class="block h-full w-full"
+                  [workspaceId]="workspaceId()"
+                  [path]="selectedPath()"
+                  [refreshTick]="watcherTick()"
+                />
+              </hlm-resizable-panel>
+            </hlm-resizable-group>
+          } @else {
+            <!-- Changes : flat path list. Click opens the file as a
+                 tab in the central shell tab bar (the diff renders in
+                 the central content area, replacing the chat panel). -->
+            <div class="min-h-0 flex-1 overflow-y-auto">
+              @if (changedFiles().length === 0) {
+                <p class="p-4 text-xs text-muted-foreground">
+                  No changes since the base branch.
+                </p>
+              } @else {
+                <ul class="flex flex-col py-1">
+                  @for (file of changedFiles(); track file.path) {
+                    <li>
+                      <button
+                        type="button"
+                        class="flex w-full items-center gap-2 px-3 py-1.5 text-left text-xs hover:bg-accent hover:text-accent-foreground"
+                        (click)="onChangedFileClick(file)"
+                      >
+                        <span
+                          class="inline-block w-4 shrink-0 text-center font-mono text-[10px]"
+                          [class.text-green-600]="file.status === 'added'"
+                          [class.text-yellow-600]="file.status === 'modified'"
+                          [class.text-red-600]="file.status === 'deleted'"
+                        >
+                          {{ statusLetter(file.status) }}
+                        </span>
+                        <span class="min-w-0 flex-1 truncate font-mono">{{
+                          file.path
+                        }}</span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
+        </div>
       </hlm-resizable-panel>
 
       <hlm-resizable-handle [class.hidden]="!bottomOpen()" />
@@ -236,6 +315,14 @@ export class FeatureWorkspaceAside {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly fileTabs = inject(FileTabsService);
+
+  // Files-slot sub-tab selection : tree view vs flat changes list.
+  protected readonly filesView = signal<'all' | 'changes'>('all');
+
+  // Changed-files snapshot, refreshed on workspace change and on each
+  // FS watcher tick. Empty when no workspace is active.
+  protected readonly changedFiles = signal<readonly ChangedFile[]>([]);
 
   // Reflects `?tab=...` from the URL; default `run` so the param can
   // stay absent in the canonical case.
@@ -282,6 +369,31 @@ export class FeatureWorkspaceAside {
     });
     this.destroyRef.onDestroy(() => this.detachWatcher());
 
+    // Reload the changed-files snapshot on workspace change and on
+    // every FS watcher tick. The Changes tab reads from this signal.
+    effect(() => {
+      const id = this.workspaceId();
+      // Subscribe to the watcher tick so post-write refreshes happen.
+      this.watcherTick();
+      if (!id) {
+        this.changedFiles.set([]);
+        return;
+      }
+      void this.repos
+        .listChangedFiles(id)
+        .then((files) => {
+          if (this.workspaceId() === id) {
+            this.changedFiles.set(files);
+          }
+        })
+        .catch((err) => {
+          console.warn('[aside] list changed files failed:', err);
+          if (this.workspaceId() === id) {
+            this.changedFiles.set([]);
+          }
+        });
+    });
+
     // Drive the bottom-slot panel size from the open/closed signal.
     // `collapsible: true` on the panel lets us call setSize(0) to
     // fully hide it without losing the resizable group structure.
@@ -292,6 +404,30 @@ export class FeatureWorkspaceAside {
         panel.setSize(open ? BOTTOM_OPEN_PERCENT : BOTTOM_COLLAPSED_PERCENT);
       }
     });
+  }
+
+  protected setFilesView(view: 'all' | 'changes'): void {
+    this.filesView.set(view);
+  }
+
+  protected onChangedFileClick(file: ChangedFile): void {
+    const id = this.workspaceId();
+    if (!id) return;
+    // Opens a file tab in the central shell tab bar AND makes it
+    // active — the workspace detail page then swaps the chat panel
+    // for the diff view.
+    this.fileTabs.openFor(id, file.path);
+  }
+
+  protected statusLetter(status: ChangedFile['status']): string {
+    switch (status) {
+      case 'added':
+        return 'A';
+      case 'modified':
+        return 'M';
+      case 'deleted':
+        return 'D';
+    }
   }
 
   protected onFileSelected(node: FileNode): void {

@@ -23,9 +23,11 @@ import { ProfileFacade } from '../../profile';
 import {
   FeatureCommitDialog,
   FeatureCreatePrDialog,
+  FeatureFileDiff,
   type CommitDialogContext,
   type CreatePrDialogContext,
 } from '../../repositories';
+import { FileTabsService } from '../data/file-tabs.service';
 import { IdeDetectionService } from '../data/ide-detection.service';
 import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
@@ -43,6 +45,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     FeatureChatTabBar,
     ChatEmptyState,
     FeatureChatPanel,
+    FeatureFileDiff,
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
@@ -77,23 +80,34 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       [workspaceId]="store.workspaceId()"
     />
 
-    <app-feature-chat-panel
-      #chatPanel
-      class="flex-1 min-h-0"
-      [workspaceId]="store.workspaceId()"
-    >
-      <app-chat-empty-state
-        chat-empty-state
-        [variant]="activeTabIsFirst() ? 'start' : 'untitled'"
-        [projectName]="store.projectName()"
-        [workspaceName]="store.workspaceTitle()"
-        [sourceBranch]="store.workspaceTitle()"
-        [targetBranch]="store.targetBranch()"
-        [numberOfFiles]="0"
-        [installState]="install().state"
-        [installManager]="install().manager"
+    @if (activeFileTabPath(); as path) {
+      <!-- A file tab is active — diff view replaces the chat panel
+           in the central area. Switching back to any chat tab clears
+           the active file via FeatureChatTabBar.onActivate. -->
+      <app-feature-file-diff
+        class="flex-1 min-h-0"
+        [workspaceId]="id()!"
+        [path]="path"
       />
-    </app-feature-chat-panel>
+    } @else {
+      <app-feature-chat-panel
+        #chatPanel
+        class="flex-1 min-h-0"
+        [workspaceId]="store.workspaceId()"
+      >
+        <app-chat-empty-state
+          chat-empty-state
+          [variant]="activeTabIsFirst() ? 'start' : 'untitled'"
+          [projectName]="store.projectName()"
+          [workspaceName]="store.workspaceTitle()"
+          [sourceBranch]="store.workspaceTitle()"
+          [targetBranch]="store.targetBranch()"
+          [numberOfFiles]="0"
+          [installState]="install().state"
+          [installManager]="install().manager"
+        />
+      </app-feature-chat-panel>
+    }
 
     <ng-template #sidebarHeaderTpl>
       @if (isMac) {
@@ -126,6 +140,16 @@ export class WorkspaceDetailPage {
   private readonly projects = inject(ProjectsFacade);
   private readonly ides = inject(IdeDetectionService);
   private readonly dialog = inject(HlmDialogService);
+  private readonly fileTabs = inject(FileTabsService);
+
+  // Null when the active workspace tab is a chat (the chat panel
+  // renders). A path when the active tab is a file tab opened from
+  // the Files slot's Changes list (the diff view renders instead).
+  protected readonly activeFileTabPath = computed(() => {
+    const id = this.id();
+    if (!id) return null;
+    return this.fileTabs.activeByWorkspace().get(id) ?? null;
+  });
 
   // IMP-004 — the 3 action buttons (Open in IDE / Commit / Create PR)
   // moved from the right-aside header to the workspace toolbar. The
