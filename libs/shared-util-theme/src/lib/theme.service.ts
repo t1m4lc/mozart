@@ -1,5 +1,12 @@
-import { DOCUMENT } from '@angular/common';
-import { Injectable, OnDestroy, computed, inject, signal } from '@angular/core';
+import { DOCUMENT, isPlatformBrowser } from '@angular/common';
+import {
+  Injectable,
+  OnDestroy,
+  PLATFORM_ID,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { THEME_CONFIG } from './provide-theme';
 import type {
   Theme,
@@ -15,13 +22,15 @@ const KEY_THEME = 'app:theme';
 export class ThemeService implements OnDestroy {
   private readonly document = inject(DOCUMENT);
   private readonly config = inject(THEME_CONFIG);
+  private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
+
   private readonly html = this.document.documentElement;
-  private readonly media = this.document.defaultView!.matchMedia(
-    '(prefers-color-scheme: dark)',
-  );
+  private readonly media: MediaQueryList | null =
+    this.isBrowser && this.document.defaultView
+      ? this.document.defaultView.matchMedia('(prefers-color-scheme: dark)')
+      : null;
   private readonly onSystemChange = () => this.applyClasses();
 
-  // config fallbacks → then hardcoded defaults
   private readonly defaultTheme = this.config.theme;
   private readonly defaultMode = this.config.mode;
 
@@ -36,35 +45,35 @@ export class ThemeService implements OnDestroy {
   private readonly resolvedMode = computed<ThemeModeResolved>(() => {
     const m = this._mode();
     if (m === 'light' || m === 'dark') return m;
-    return this.media.matches ? 'dark' : 'light';
+    return this.media?.matches ? 'dark' : 'light';
   });
 
   setMode(mode: ThemeMode): void {
     this._mode.set(mode);
-    localStorage.setItem(KEY_MODE, mode);
+    if (this.isBrowser) localStorage.setItem(KEY_MODE, mode);
     this.applyClasses();
   }
 
   setTheme(theme: Theme): void {
     this._theme.set(theme);
-    localStorage.setItem(KEY_THEME, theme);
+    if (this.isBrowser) localStorage.setItem(KEY_THEME, theme);
     this.applyClasses();
   }
 
-  // ── internal ──────────────────────────────────────────────────────────────
-
   init(): void {
+    if (!this.isBrowser) return;
     this.applyClasses();
-    this.media.addEventListener('change', this.onSystemChange);
+    this.media?.addEventListener('change', this.onSystemChange);
   }
 
   ngOnDestroy(): void {
-    this.media.removeEventListener('change', this.onSystemChange);
+    this.media?.removeEventListener('change', this.onSystemChange);
   }
 
   private readonly isDark = computed(() => this.resolvedMode() === 'dark');
 
   private applyClasses(): void {
+    if (!this.isBrowser) return;
     this.html.classList.toggle('dark', this.isDark());
 
     const body = this.document.body;
@@ -75,10 +84,12 @@ export class ThemeService implements OnDestroy {
   }
 
   private loadMode(): ThemeMode {
+    if (!this.isBrowser) return this.defaultMode;
     return (localStorage.getItem(KEY_MODE) as ThemeMode) ?? this.defaultMode;
   }
 
   private loadTheme(): Theme {
+    if (!this.isBrowser) return this.defaultTheme;
     return (localStorage.getItem(KEY_THEME) as Theme) ?? this.defaultTheme;
   }
 }
