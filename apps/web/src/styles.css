@@ -4,11 +4,16 @@
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/clerk";
+@source "../../../libs/mozart-ui/theme-toggle";
 @source "../../../libs/shared-util-theme";
+@source "../../../libs/ui/avatar";
+@source "../../../libs/ui/badge";
 @source "../../../libs/ui/button";
+@source "../../../libs/ui/card";
 @source "../../../libs/ui/empty";
 @source "../../../libs/ui/icon";
 @source "../../../libs/ui/spinner";
+@source "../../../libs/ui/tooltip";
 @source "../../../libs/ui/typography";
 @source "../../../libs/ui/utils";
 /* nx-tailwind-sources:end */

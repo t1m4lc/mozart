@@ -28,6 +28,12 @@ export const appRoutes: Route[] = [
         loadComponent: () =>
           import('./pages/dashboard.page').then((m) => m.DashboardPage),
       },
+      {
+        path: 'account',
+        canActivate: [requireAuthGuard],
+        loadComponent: () =>
+          import('./pages/account.page').then((m) => m.AccountPage),
+      },
     ],
   },
 ];
