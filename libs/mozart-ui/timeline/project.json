@@ -1,7 +1,7 @@
 {
   "name": "timeline",
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "libs/ui/timeline/src",
+  "sourceRoot": "libs/mozart-ui/timeline/src",
   "prefix": "hlm",
   "projectType": "library",
   "tags": [],

@@ -4,8 +4,8 @@ import {
   computed,
   input,
 } from '@angular/core';
-import { MessageBody, TurnContainer } from '@mozart/ui/timeline';
-import type { TurnFileChipEvent } from '@mozart/ui/timeline';
+import { MessageBody, TurnContainer } from '@mozart-ui/timeline';
+import type { TurnFileChipEvent } from '@mozart-ui/timeline';
 import { toast } from '@spartan-ng/brain/sonner';
 import { HlmLoaderImports } from '@mozart/ui/loader';
 import type { Message } from '../../data/message.model';

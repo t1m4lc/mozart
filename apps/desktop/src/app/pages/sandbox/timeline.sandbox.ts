@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
-import { TurnContainer, type TurnState } from '@mozart/ui/timeline';
+import { TurnContainer, type TurnState } from '@mozart-ui/timeline';
 import errorMidStream from '../../domains/llm-model/data/stream/__fixtures__/error-mid-stream.json';
 import multiTool from '../../domains/llm-model/data/stream/__fixtures__/multi-tool-with-thinking.json';
 import textOnly from '../../domains/llm-model/data/stream/__fixtures__/text-only.json';

@@ -15,7 +15,7 @@ import {
   type ChatMode,
   type ComposerSendEvent,
   type EffortLevel,
-} from '@mozart/ui/composer';
+} from '@mozart-ui/composer';
 import {
   DEFAULT_MODEL_ID,
   LLM_MODEL_CATALOG,

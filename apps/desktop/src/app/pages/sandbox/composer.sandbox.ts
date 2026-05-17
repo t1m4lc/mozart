@@ -5,7 +5,7 @@ import {
   HlmComposerImports,
   type ChatMode,
   type ComposerSendEvent,
-} from '@mozart/ui/composer';
+} from '@mozart-ui/composer';
 
 interface SandboxLogEntry {
   readonly t: number;

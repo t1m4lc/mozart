@@ -1,7 +1,7 @@
 {
   "name": "highlight-overlay",
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "libs/ui/highlight-overlay/src",
+  "sourceRoot": "libs/mozart-ui/highlight-overlay/src",
   "prefix": "hlm",
   "projectType": "library",
   "tags": [],

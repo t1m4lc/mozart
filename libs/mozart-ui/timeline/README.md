@@ -13,7 +13,7 @@ broken; they will be reintroduced in Phase 3b against reference
 snippets captured from Claude.ai.
 
 ```ts
-import { MessageBody } from '@mozart/ui/timeline';
+import { MessageBody } from '@mozart-ui/timeline';
 ```
 
 The reducer + types that drive the turn state (`TurnState`,

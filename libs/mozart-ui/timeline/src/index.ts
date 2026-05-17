@@ -1,4 +1,4 @@
-// Public API of @mozart/ui/timeline.
+// Public API of @mozart-ui/timeline.
 //
 // MessageBody renders the agent's streamed prose as a clean paragraph
 // (used both standalone for legacy messages and inside TurnContainer's

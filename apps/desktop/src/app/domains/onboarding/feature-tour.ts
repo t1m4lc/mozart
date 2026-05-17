@@ -9,7 +9,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import {
   HlmHighlightOverlay,
   type HighlightStep,
-} from '@mozart/ui/highlight-overlay';
+} from '@mozart-ui/highlight-overlay';
 import { UiTourClosingCard } from './ui-tour-closing-card';
 
 const TOUR_STEPS: readonly HighlightStep[] = [

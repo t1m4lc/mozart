@@ -1,7 +1,7 @@
 {
   "name": "composer",
   "$schema": "../../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "libs/ui/composer/src",
+  "sourceRoot": "libs/mozart-ui/composer/src",
   "prefix": "hlm",
   "projectType": "library",
   "tags": [],

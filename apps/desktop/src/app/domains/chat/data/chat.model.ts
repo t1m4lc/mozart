@@ -1,4 +1,4 @@
-import type { ChatMode, EffortLevel } from '@mozart/ui/composer';
+import type { ChatMode, EffortLevel } from '@mozart-ui/composer';
 
 // One or more chats per workspace. The tab bar shows up to MAX_TABS;
 // the sidebar Chats group lists every open chat across every workspace
