@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmButton } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowDown,
@@ -13,7 +14,14 @@ import { PRIMARY_NAV } from './nav-model';
 
 @Component({
   selector: 'app-site-header',
-  imports: [HlmButton, HlmIconImports, NgIcon, RouterLink, RouterLinkActive],
+  imports: [
+    HlmButton,
+    HlmIconImports,
+    NgIcon,
+    RouterLink,
+    RouterLinkActive,
+    HlmTooltipImports,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     provideIcons({ lucideArrowDown, lucideDownload, lucideMenu, lucideX }),
@@ -24,11 +32,13 @@ import { PRIMARY_NAV } from './nav-model';
   },
   template: `
     <div
-      class="mx-auto flex h-16 w-full max-w-screen-xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
+      class="mx-auto flex h-16 w-full max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8"
     >
       <a
         routerLink="/"
         aria-label="Mozart home"
+        hlmTooltip="Mozart home"
+        position="right"
         class="flex h-10 w-10 shrink-0 items-center justify-center"
       >
         <img

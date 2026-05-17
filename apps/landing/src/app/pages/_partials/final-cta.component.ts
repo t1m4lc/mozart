@@ -25,7 +25,7 @@ import { lucideArrowDown, lucideDownload } from '@ng-icons/lucide';
           variant="default"
           size="lg"
           routerLink="/download"
-          class="group mt-2 max-w-3xs justify-between"
+          class="group mt-2 max-w-3xs justify-between border-primary shadow-brand transition-shadow duration-300 hover:shadow-brand-strong"
         >
           Download now
           <span class="relative h-4 w-4">

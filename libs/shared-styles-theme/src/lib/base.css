@@ -63,6 +63,16 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Violet brand glow — discreet bottom-only halo for primary CTAs.
+   * Blur radius must outpace the Y offset so the halo diffuses into a soft
+   * bleed instead of stacking into a visible band under the element edge. */
+  --shadow-brand:
+    0 10px 28px -12px rgba(139, 92, 246, 0.4);
+  --shadow-brand-strong:
+    0 14px 36px -10px rgba(139, 92, 246, 0.5);
+  --shadow-brand-subtle:
+    0 8px 24px -14px rgba(139, 92, 246, 0.28);
 }
 
 @layer base {

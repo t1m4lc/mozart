@@ -50,7 +50,7 @@ import {
           variant="default"
           size="lg"
           routerLink="/download"
-          class="group justify-between"
+          class="border-primary group justify-between shadow-brand transition-shadow duration-300 hover:shadow-brand-strong"
         >
           Download Mozart
           <span class="relative h-4 w-4">
