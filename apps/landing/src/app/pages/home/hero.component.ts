@@ -64,20 +64,6 @@ const roadmapFeatures: Feature[] = [
   host: { class: 'block' },
   template: `
     <section class="mx-auto max-w-xl px-4 pt-12 pb-4 sm:pb-8 sm:pt-20 sm:px-8">
-      <!-- <a
-        routerLink="/changelog"
-        class="group hover:text-foreground mb-6 inline-flex items-center gap-2 text-sm transition-colors"
-      >
-        <span class="text-muted-foreground">See what's new in</span>
-        <span class="text-foreground font-medium">v0.0.1</span>
-        <ng-icon
-          hlm
-          size="sm"
-          name="lucideArrowRight"
-          class="transition-transform duration-200 group-hover:translate-x-1"
-        />
-      </a> -->
-
       <h1
         class="text-foreground max-w-xl text-2xl font-semibold tracking-tight md:text-3xl mb-3"
       >
