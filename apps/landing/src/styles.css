@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
 /* nx-tailwind-sources:start */
+@source "../../../libs/mozart-ui/theme-toggle";
 @source "../../../libs/shared-util-os";
 @source "../../../libs/shared-util-theme";
 @source "../../../libs/ui/button";
