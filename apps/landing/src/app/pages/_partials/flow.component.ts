@@ -16,7 +16,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
           class="border-border bg-muted/40 flex aspect-video w-full items-center justify-center rounded-2xl border border-dashed"
         >
           <span class="text-muted-foreground font-mono text-sm">
-            [ Flow animation — paste your code here ]
+            [ Soon available ]
           </span>
         </div>
       </div>

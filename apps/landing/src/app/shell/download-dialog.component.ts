@@ -5,6 +5,7 @@ import {
   computed,
   inject,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { HlmButton } from '@mozart/ui/button';
 import { HlmDialogImports } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
@@ -107,10 +108,15 @@ export class DownloadDialogComponent {
   protected readonly os = inject(OsService);
   private readonly ref = inject(BrnDialogRef);
   private readonly betaBase = SITE_CONFIG.downloads.beta;
+  // Captured at dialog-open time so analytics see the page that triggered the modal,
+  // not whatever the router lands on after a click.
+  private readonly fromPath =
+    inject(Router).url.split('?')[0].split('#')[0] || '/';
 
   protected buildHref(os: string): string {
     const url = new URL(this.betaBase);
     url.searchParams.set('os', os);
+    url.searchParams.set('from', this.fromPath);
     return url.toString();
   }
 

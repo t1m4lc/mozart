@@ -10,6 +10,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
         class="border-border bg-card flex aspect-video items-center justify-center overflow-hidden rounded-2xl border shadow-2xl"
       >
         <span class="text-muted-foreground font-mono text-sm">
+          <!-- TODO -->
           [ Mozart desktop — screenshot placeholder ]
         </span>
       </div>
