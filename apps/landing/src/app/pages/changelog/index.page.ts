@@ -13,7 +13,7 @@ import {
   sortChangelogEntriesNewestFirst,
   stripFrontMatter,
   toChangelogEntry,
-} from './_layout/changelog-content';
+} from '../../content/changelog';
 import { ChangelogEntryShellComponent } from './_layout/changelog-entry-shell.component';
 
 @Component({

@@ -18,7 +18,7 @@ import {
   groupDocsEntries,
   isDocsFile,
   toDocsEntry,
-} from './docs/_layout/docs-content';
+} from '../content/docs';
 import { DocsPrevNextComponent } from './docs/_layout/docs-prev-next.component';
 import { DocsShellComponent } from './docs/_layout/docs-shell.component';
 

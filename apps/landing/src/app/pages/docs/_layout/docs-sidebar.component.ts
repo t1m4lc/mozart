@@ -6,7 +6,7 @@ import {
   groupDocsEntries,
   isDocsFile,
   toDocsEntry,
-} from './docs-content';
+} from '../../../content/docs';
 
 @Component({
   selector: 'app-docs-sidebar',

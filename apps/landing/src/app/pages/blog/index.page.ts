@@ -7,7 +7,7 @@ import {
   isBlogFile,
   sortBlogEntriesNewestFirst,
   toBlogEntry,
-} from './_layout/blog-content';
+} from '../../content/blog';
 
 @Component({
   selector: 'app-blog-index',

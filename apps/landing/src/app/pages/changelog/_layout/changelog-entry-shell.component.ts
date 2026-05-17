@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { ChangelogEntry } from './changelog-content';
+import { ChangelogEntry } from '../../../content/changelog';
 
 @Component({
   selector: 'app-changelog-entry-shell',

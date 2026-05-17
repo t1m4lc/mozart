@@ -14,7 +14,7 @@ import {
   BlogAttributes,
   isBlogFile,
   toBlogEntry,
-} from './blog/_layout/blog-content';
+} from '../content/blog';
 import { BlogAuthorsComponent } from './blog/_layout/blog-authors.component';
 
 @Component({

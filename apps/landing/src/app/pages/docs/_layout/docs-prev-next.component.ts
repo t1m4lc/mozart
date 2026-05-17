@@ -3,7 +3,7 @@ import { RouterLink } from '@angular/router';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronLeft, lucideChevronRight } from '@ng-icons/lucide';
-import type { DocsEntry } from './docs-content';
+import type { DocsEntry } from '../../../content/docs';
 
 @Component({
   selector: 'app-docs-prev-next',

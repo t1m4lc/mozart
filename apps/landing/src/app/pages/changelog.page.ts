@@ -14,7 +14,7 @@ import {
   ChangelogAttributes,
   isChangelogFile,
   toChangelogEntry,
-} from './changelog/_layout/changelog-content';
+} from '../content/changelog';
 import { ChangelogEntryShellComponent } from './changelog/_layout/changelog-entry-shell.component';
 
 @Component({

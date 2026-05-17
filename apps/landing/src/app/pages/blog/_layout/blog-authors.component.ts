@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import type { BlogAuthor } from './blog-content';
+import type { BlogAuthor } from '../../../content/blog';
 
 @Component({
   selector: 'app-blog-authors',
