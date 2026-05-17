@@ -18,24 +18,33 @@ import {
       @for (group of groups; track group.slug) {
         <div class="flex flex-col">
           <p
-            class="text-foreground/55 mb-1 px-2 text-[11px] font-medium tracking-wide uppercase"
+            class="text-foreground/55 mb-1 inline-flex items-center gap-2 px-2 text-[11px] font-medium tracking-wide uppercase"
           >
-            {{ group.title }}
-          </p>
-          <ul class="flex flex-col gap-1">
-            @for (entry of group.entries; track entry.slug) {
-              <li>
-                <a
-                  [routerLink]="['/docs', entry.slug]"
-                  routerLinkActive="bg-primary/10 text-primary"
-                  [routerLinkActiveOptions]="{ exact: true }"
-                  class="text-foreground/70 hover:bg-muted hover:text-foreground/90 block rounded-md px-2 py-1.5 text-sm transition-colors"
-                >
-                  {{ entry.title }}
-                </a>
-              </li>
+            <span>{{ group.title }}</span>
+            @if (group.isComingSoon) {
+              <span
+                class="bg-muted border-border text-muted-foreground inline-flex items-center rounded-sm border px-1 py-px font-mono text-[10px] tracking-wider normal-case"
+              >
+                Soon
+              </span>
             }
-          </ul>
+          </p>
+          @if (group.entries.length > 0) {
+            <ul class="flex flex-col gap-1">
+              @for (entry of group.entries; track entry.slug) {
+                <li>
+                  <a
+                    [routerLink]="['/docs', entry.slug]"
+                    routerLinkActive="bg-primary/10 text-primary"
+                    [routerLinkActiveOptions]="{ exact: true }"
+                    class="text-foreground/70 hover:bg-muted hover:text-foreground/90 block rounded-md px-2 py-1.5 text-sm transition-colors"
+                  >
+                    {{ entry.title }}
+                  </a>
+                </li>
+              }
+            </ul>
+          }
         </div>
       }
     </nav>

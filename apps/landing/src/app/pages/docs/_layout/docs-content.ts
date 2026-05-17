@@ -17,7 +17,13 @@ export interface DocsGroup {
   readonly slug: string;
   readonly title: string;
   readonly entries: readonly DocsEntry[];
+  readonly isComingSoon?: boolean;
 }
+
+const COMING_SOON_GROUPS: readonly DocsGroup[] = [
+  { slug: 'how-to', title: 'How-to Guides', entries: [], isComingSoon: true },
+  { slug: 'reference', title: 'Reference', entries: [], isComingSoon: true },
+];
 
 const DOCS_PATH_MARKER = '/src/content/docs/';
 const UNGROUPED_GROUP_SLUG = 'getting-started';
@@ -77,7 +83,7 @@ export function groupDocsEntries(entries: readonly DocsEntry[]): DocsGroup[] {
       return a.title.localeCompare(b.title);
     });
   }
-  return [...byGroup.entries()]
+  const realGroups: DocsGroup[] = [...byGroup.entries()]
     .sort(([slugA, entriesA], [slugB, entriesB]) => {
       if (slugA === UNGROUPED_GROUP_SLUG && slugB !== UNGROUPED_GROUP_SLUG) {
         return -1;
@@ -92,4 +98,5 @@ export function groupDocsEntries(entries: readonly DocsEntry[]): DocsGroup[] {
       title: groupEntries[0].groupTitle,
       entries: groupEntries,
     }));
+  return [...realGroups, ...COMING_SOON_GROUPS];
 }
