@@ -11,7 +11,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMoon, lucideSun } from '@ng-icons/lucide';
 
 @Component({
-  selector: 'app-theme-toggle',
+  selector: 'mz-theme-toggle',
   imports: [NgIcon, HlmIconImports, HlmButton],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideIcons({ lucideSun, lucideMoon })],
@@ -22,15 +22,15 @@ import { lucideMoon, lucideSun } from '@ng-icons/lucide';
       size="icon-sm"
       type="button"
       aria-label="Toggle theme"
-      (click)="theme.toggle()"
+      (click)="_theme.toggle()"
     >
-      <ng-icon hlm size="sm" [name]="icon()" />
+      <ng-icon hlm size="sm" [name]="_icon()" />
     </button>
   `,
 })
-export class ThemeToggleComponent {
-  protected readonly theme = inject(ThemeService);
-  protected readonly icon = computed(() =>
-    this.theme.isDark() ? 'lucideSun' : 'lucideMoon',
+export class HlmThemeToggle {
+  protected readonly _theme = inject(ThemeService);
+  protected readonly _icon = computed(() =>
+    this._theme.isDark() ? 'lucideSun' : 'lucideMoon',
   );
 }

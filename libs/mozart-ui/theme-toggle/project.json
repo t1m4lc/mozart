@@ -1,0 +1,15 @@
+{
+  "name": "theme-toggle",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-ui/theme-toggle/src",
+  "prefix": "mz",
+  "projectType": "library",
+  "tags": [
+    "scope:mozart-ui"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { HlmThemeToggle } from '@mozart-ui/theme-toggle';
 import { HlmButton } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
@@ -13,7 +14,6 @@ import {
 } from '@ng-icons/lucide';
 import { DownloadDialogComponent } from './download-dialog.component';
 import { PRIMARY_NAV } from './nav-model';
-import { ThemeToggleComponent } from './theme-toggle.component';
 
 @Component({
   selector: 'app-site-header',
@@ -24,7 +24,7 @@ import { ThemeToggleComponent } from './theme-toggle.component';
     RouterLink,
     RouterLinkActive,
     HlmTooltipImports,
-    ThemeToggleComponent,
+    HlmThemeToggle,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [

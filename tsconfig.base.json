@@ -211,6 +211,9 @@
       "@mozart-ui/highlight-overlay": [
         "./libs/mozart-ui/highlight-overlay/src/index.ts"
       ],
+      "@mozart-ui/theme-toggle": [
+        "./libs/mozart-ui/theme-toggle/src/index.ts"
+      ],
       "@mozart-ui/timeline": [
         "./libs/mozart-ui/timeline/src/index.ts"
       ]
