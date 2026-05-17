@@ -1,5 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  isDevMode,
+} from '@angular/core';
 import { AuthFacade } from '../data/auth.facade';
+import { enableDevAuthBypassAndReload, isRunningInTauri } from '../dev-bypass';
 import { UiWelcomeCard } from '../ui-welcome-card';
 
 // Smart component for /welcome. Wires the AuthFacade to the dumb
@@ -28,6 +34,22 @@ export class FeatureWelcome {
   protected readonly signInUrl = this.auth.signInUrl;
 
   protected onSignIn(): void {
+    // Plain-browser dev mode: the Clerk deep-link round-trip needs the
+    // Tauri shell.open + localhost callback server, neither of which
+    // exist outside the wrapper. Calling auth.signIn() here throws
+    // "Cannot read properties of undefined (reading 'invoke')" from
+    // tauri-auth.adapter.ts. Offer to flip on dev-auth bypass instead.
+    if (isDevMode() && !isRunningInTauri()) {
+      const proceed = window.confirm(
+        'Sign-in needs the Tauri wrapper (shell.open + native deep-link).\n\n' +
+          "You're running in a plain browser (pnpm nx serve desktop).\n\n" +
+          'Use dev-auth bypass instead? This skips auth + onboarding for ' +
+          'local UI testing only. The flag is dev-only — production builds ' +
+          'ignore it.',
+      );
+      if (proceed) enableDevAuthBypassAndReload('/');
+      return;
+    }
     void this.auth.signIn();
   }
 

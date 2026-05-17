@@ -29,7 +29,7 @@ import type { WelcomeState } from './data/auth.model';
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <hlm-empty class="border-none p-0">
+    <hlm-empty class="border-none p-0 pb-40">
       <hlm-empty-media>
         <img src="/docs/logo.svg" alt="Mozart" class="size-16" />
       </hlm-empty-media>
@@ -54,9 +54,7 @@ import type { WelcomeState } from './data/auth.model';
       <hlm-empty-content>
         @if (state() === 'timed-out') {
           <div hlmAlert class="mb-2 max-w-sm">
-            <p hlmAlertDescription>
-              Try again or check your browser window.
-            </p>
+            <p hlmAlertDescription>Try again or check your browser window.</p>
           </div>
         }
 

@@ -27,3 +27,23 @@ export function isDevAuthBypassActive(): boolean {
   }
   return window.localStorage.getItem(STORAGE_KEY) === '1';
 }
+
+// True when the page is loaded inside the Tauri webview (vs. a plain
+// browser running `pnpm nx serve desktop`). Tauri v2 sets
+// `window.__TAURI_INTERNALS__` on bootstrap; we also accept the older
+// `__TAURI__` global as a defensive fallback.
+export function isRunningInTauri(): boolean {
+  if (typeof window === 'undefined') return false;
+  const w = window as unknown as Record<string, unknown>;
+  return '__TAURI_INTERNALS__' in w || '__TAURI__' in w;
+}
+
+// Flip on dev-auth bypass programmatically and reload so the guards
+// re-evaluate against the new localStorage state. Dev-mode only —
+// no-op in production builds.
+export function enableDevAuthBypassAndReload(target = '/'): void {
+  if (!isDevMode()) return;
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(STORAGE_KEY, '1');
+  window.location.href = `${window.location.origin}${target}`;
+}

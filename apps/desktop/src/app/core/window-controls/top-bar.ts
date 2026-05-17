@@ -26,7 +26,7 @@ import { NonMacWindowControls } from './non-mac-window-controls';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class:
-      'relative z-10 flex h-9 w-full shrink-0 items-center justify-center border-b border-border bg-background/80 px-3 backdrop-blur',
+      'relative  z-10 flex h-9 w-full shrink-0 items-center justify-center border-b border-border bg-background/80 px-3 backdrop-blur',
     'data-tauri-drag-region': '',
   },
   template: `
@@ -34,17 +34,22 @@ import { NonMacWindowControls } from './non-mac-window-controls';
       <app-mac-window-controls
         class="absolute left-3 top-1/2 -translate-y-1/2"
       />
+    } @else {
+      <img
+        src="/docs/logo.svg"
+        alt=""
+        class="size-4 absolute left-3 top-1/2 -translate-y-1/2"
+      />
     }
     <span
-      class="text-muted-foreground flex items-center gap-2 text-xs font-medium"
+      class="text-muted-foreground  w-full h-full flex items-center justify-center gap-2 text-xs font-medium"
       data-tauri-drag-region
     >
-      <img src="/docs/logo.svg" alt="" class="size-4" />
-      <span>Mozart desktop</span>
+      Mozart desktop
     </span>
     @if (!isMac) {
       <app-non-mac-window-controls
-        class="absolute right-3 top-1/2 -translate-y-1/2"
+        class="absolute right-1 top-1/2 -translate-y-1/2"
       />
     }
   `,

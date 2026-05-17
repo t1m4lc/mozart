@@ -27,17 +27,19 @@ export interface SiteConfig {
   readonly social: SocialConfig;
 }
 
+const tally = 'https://tally.so/r/eq07lQ';
+
 export const SITE_CONFIG: SiteConfig = {
   version: 'v0.0.1',
   company: 'Mozart',
   copyrightYear: new Date().getFullYear(),
   promoStrip: {
     enabled: true,
-    label: 'Join the Mozart community on Discord →',
-    href: 'https://x.com',
+    label: 'Join the Mozart beta club →',
+    href: tally,
   },
   downloads: {
-    beta: 'https://tally.so/r/eq07lQ',
+    beta: tally,
   },
   // configure link in apps/landing/public/_redirects
   social: {
