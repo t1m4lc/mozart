@@ -46,7 +46,7 @@ import { ThemeToggleComponent } from './theme-toggle.component';
         class="flex h-10 w-10 shrink-0 items-center justify-center"
       >
         <img
-          src="docs/logo.svg"
+          src="/assets/shared/logos/mozart-logo.svg"
           alt="Mozart"
           width="40"
           height="40"

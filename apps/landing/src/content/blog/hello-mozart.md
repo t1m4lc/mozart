@@ -5,7 +5,7 @@ date: 2026-05-16
 authors:
   - name: Timothy Alcaide
     role: Founder
-    avatar: /authors/timothy.webp
+    avatar: /assets/landing/authors/timothy.webp
 ---
 
 Mozart is a new desktop app for working with AI coding agents. The team has been building it quietly for a few months and today we are starting to share what we have in mind.

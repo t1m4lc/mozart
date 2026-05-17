@@ -31,7 +31,7 @@ import type { WelcomeState } from './data/auth.model';
   template: `
     <hlm-empty class="border-none p-0 pb-40">
       <hlm-empty-media>
-        <img src="/docs/logo.svg" alt="Mozart" class="size-16" />
+        <img src="/assets/shared/logos/mozart-logo.svg" alt="Mozart" class="size-16" />
       </hlm-empty-media>
 
       <hlm-empty-header>

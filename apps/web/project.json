@@ -24,6 +24,11 @@
           {
             "glob": "**/*",
             "input": "apps/web/public"
+          },
+          {
+            "glob": "**/!(*.md)",
+            "input": "libs/mozart-assets/src/shared",
+            "output": "assets/shared"
           }
         ],
         "styles": [

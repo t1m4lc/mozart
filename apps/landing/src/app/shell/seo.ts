@@ -2,7 +2,7 @@ import { DOCUMENT, inject } from '@angular/core';
 import { Meta, Title } from '@angular/platform-browser';
 
 export const SITE_ORIGIN = 'https://mozart.build';
-export const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/og-default.png`;
+export const DEFAULT_OG_IMAGE = `${SITE_ORIGIN}/assets/landing/social/og-default.png`;
 
 export interface SeoMeta {
   readonly title: string;

@@ -56,7 +56,7 @@ import { WorkspacesFacade } from '../domains/workspaces';
         aria-labelledby="dashboard-hero-title"
       >
         <img
-          src="/docs/logo.svg"
+          src="/assets/shared/logos/mozart-logo.svg"
           alt=""
           aria-hidden="true"
           class="size-10 shrink-0"

@@ -1,0 +1,9 @@
+{
+  "name": "mozart-assets",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-assets/src",
+  "projectType": "library",
+  "tags": ["scope:shared"],
+  "// targets": "to see all targets run: nx show project mozart-assets --web",
+  "targets": {}
+}

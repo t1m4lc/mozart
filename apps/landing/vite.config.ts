@@ -2,8 +2,8 @@
 import analog from '@analogjs/platform';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import tailwindcss from '@tailwindcss/vite';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { cpSync, createReadStream, readFileSync, readdirSync, statSync } from 'node:fs';
+import { extname, join, resolve } from 'node:path';
 import { defineConfig, type Plugin } from 'vite';
 
 const contentSlugs = (subdir: string): string[] => {
@@ -74,6 +74,54 @@ function devRedirectsFromCloudflareFile(): Plugin {
   };
 }
 
+// Exposes libs/mozart-assets/src/{shared,landing}/** at `/assets/...` —
+// dev via middleware, build via copy into outDir/assets.
+function mozartAssetsPlugin(): Plugin {
+  const libRoot = resolve(__dirname, '../../libs/mozart-assets/src');
+  const mime: Record<string, string> = {
+    '.svg': 'image/svg+xml',
+    '.png': 'image/png',
+    '.jpg': 'image/jpeg',
+    '.jpeg': 'image/jpeg',
+    '.webp': 'image/webp',
+    '.gif': 'image/gif',
+    '.ico': 'image/x-icon',
+    '.woff2': 'font/woff2',
+    '.woff': 'font/woff',
+    '.ogg': 'audio/ogg',
+  };
+  let outDir: string | undefined;
+  return {
+    name: 'mozart-assets',
+    configResolved(cfg) {
+      outDir = cfg.build.outDir;
+    },
+    configureServer(server) {
+      server.middlewares.use('/assets', (req, res, next) => {
+        try {
+          const url = decodeURIComponent((req.url ?? '').split('?')[0]);
+          if (!url || url.includes('..')) return next();
+          const fp = join(libRoot, url);
+          if (!fp.startsWith(libRoot)) return next();
+          const stat = statSync(fp);
+          if (!stat.isFile()) return next();
+          res.setHeader('Content-Type', mime[extname(fp).toLowerCase()] ?? 'application/octet-stream');
+          createReadStream(fp).pipe(res);
+        } catch {
+          next();
+        }
+      });
+    },
+    closeBundle() {
+      if (!outDir) return;
+      cpSync(libRoot, resolve(__dirname, outDir, 'assets'), {
+        recursive: true,
+        filter: (src) => !src.endsWith('.md'),
+      });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => ({
   root: __dirname,
   cacheDir: '../../node_modules/.vite/apps/landing',
@@ -112,6 +160,7 @@ export default defineConfig(({ mode }) => ({
     nxViteTsPaths(),
     tailwindcss(),
     devRedirectsFromCloudflareFile(),
+    mozartAssetsPlugin(),
   ],
   define: {
     'import.meta.vitest': mode !== 'production',

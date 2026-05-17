@@ -36,7 +36,7 @@ import { NonMacWindowControls } from './non-mac-window-controls';
       />
     } @else {
       <img
-        src="/docs/logo.svg"
+        src="/assets/shared/logos/mozart-logo.svg"
         alt=""
         class="size-4 absolute left-3 top-1/2 -translate-y-1/2"
       />
