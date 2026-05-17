@@ -5,6 +5,7 @@ export interface DocsAttributes {
 
 export interface DocsEntry {
   readonly slug: string;
+  readonly routerLink: readonly string[];
   readonly groupSlug: string;
   readonly groupTitle: string;
   readonly title: string;
@@ -68,6 +69,7 @@ export function toDocsEntry<T extends DocsAttributes>(file: {
   const fileSlug = segments[segments.length - 1];
   return {
     slug: rel,
+    routerLink: ['/docs', ...segments],
     groupSlug: folderSlug,
     groupTitle: humanizeTitleCase(folderSlug),
     title: humanizeSentenceCase(fileSlug),

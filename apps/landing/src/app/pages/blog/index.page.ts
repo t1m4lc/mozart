@@ -7,11 +7,10 @@ import {
   sortBlogEntriesNewestFirst,
   toBlogEntry,
 } from './_layout/blog-content';
-import { BlogAuthorsComponent } from './_layout/blog-authors.component';
 
 @Component({
   selector: 'app-blog-index',
-  imports: [BlogAuthorsComponent, RouterLink],
+  imports: [RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="mb-12">
@@ -44,12 +43,9 @@ import { BlogAuthorsComponent } from './_layout/blog-authors.component';
                 {{ post.title }}
               </h2>
               @if (post.description) {
-                <p class="text-foreground/70 mb-4 text-base">
+                <p class="text-foreground/70 text-base">
                   {{ post.description }}
                 </p>
-              }
-              @if (post.authors.length > 0) {
-                <app-blog-authors [authors]="post.authors" />
               }
             </a>
           </li>

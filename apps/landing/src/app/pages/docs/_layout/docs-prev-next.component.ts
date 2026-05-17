@@ -19,7 +19,7 @@ import type { DocsEntry } from './docs-content';
       >
         @if (prev(); as p) {
           <a
-            [routerLink]="['/docs', p.slug]"
+            [routerLink]="p.routerLink"
             class="border-border hover:bg-muted flex flex-col gap-2 rounded-lg border p-4 text-sm transition-colors @max-lg:col-span-full"
           >
             <span
@@ -46,7 +46,7 @@ import type { DocsEntry } from './docs-content';
 
         @if (next(); as n) {
           <a
-            [routerLink]="['/docs', n.slug]"
+            [routerLink]="n.routerLink"
             class="border-border hover:bg-muted flex flex-col gap-2 rounded-lg border p-4 text-end text-sm transition-colors @max-lg:col-span-full"
           >
             <span

@@ -35,12 +35,9 @@ import { BlogAuthorsComponent } from './blog/_layout/blog-authors.component';
             {{ post.title }}
           </h1>
           @if (post.description) {
-            <p class="text-foreground/70 mb-6 text-lg leading-relaxed">
+            <p class="text-foreground/70 mb-8 text-lg leading-relaxed">
               {{ post.description }}
             </p>
-          }
-          @if (post.authors.length > 0) {
-            <app-blog-authors [authors]="post.authors" class="mb-8 block" />
           }
           @if (post.heroImage) {
             <img
@@ -53,6 +50,14 @@ import { BlogAuthorsComponent } from './blog/_layout/blog-authors.component';
             />
           }
           <router-outlet />
+          @if (post.authors.length > 0) {
+            <footer class="border-border mt-12 border-t pt-8">
+              <p class="text-muted-foreground mb-3 text-xs font-medium tracking-wider uppercase">
+                Written by
+              </p>
+              <app-blog-authors [authors]="post.authors" />
+            </footer>
+          }
         </article>
       } @else {
         <router-outlet />

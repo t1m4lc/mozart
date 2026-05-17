@@ -34,7 +34,7 @@ import {
               @for (entry of group.entries; track entry.slug) {
                 <li>
                   <a
-                    [routerLink]="['/docs', entry.slug]"
+                    [routerLink]="entry.routerLink"
                     routerLinkActive="bg-primary/10 text-primary"
                     [routerLinkActiveOptions]="{ exact: true }"
                     class="text-foreground/70 hover:bg-muted hover:text-foreground/90 block rounded-md px-2 py-1.5 text-sm transition-colors"
