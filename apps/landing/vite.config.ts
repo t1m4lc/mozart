@@ -28,6 +28,7 @@ const contentSlugs = (subdir: string): string[] => {
 };
 
 const docsRoutes = contentSlugs('docs').map((slug) => `/docs/${slug}`);
+const blogRoutes = contentSlugs('blog').map((slug) => `/blog/${slug}`);
 
 export default defineConfig(({ mode }) => ({
   root: __dirname,
@@ -49,7 +50,7 @@ export default defineConfig(({ mode }) => ({
       static: true,
       content: { highlighter: 'prism' },
       prerender: {
-        routes: ['/', '/docs', ...docsRoutes],
+        routes: ['/', '/docs', ...docsRoutes, '/blog', ...blogRoutes],
         discover: false,
       },
     }),

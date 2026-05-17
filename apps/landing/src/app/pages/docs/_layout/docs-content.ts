@@ -28,6 +28,14 @@ const COMING_SOON_GROUPS: readonly DocsGroup[] = [
 const DOCS_PATH_MARKER = '/src/content/docs/';
 const UNGROUPED_GROUP_SLUG = 'getting-started';
 
+const GROUP_ORDER: readonly string[] = [
+  'getting-started',
+  'concepts',
+  'how-to',
+  'reference',
+  'community',
+];
+
 export function isDocsFile(filename: string): boolean {
   return filename.includes(DOCS_PATH_MARKER);
 }
@@ -83,20 +91,19 @@ export function groupDocsEntries(entries: readonly DocsEntry[]): DocsGroup[] {
       return a.title.localeCompare(b.title);
     });
   }
-  const realGroups: DocsGroup[] = [...byGroup.entries()]
-    .sort(([slugA, entriesA], [slugB, entriesB]) => {
-      if (slugA === UNGROUPED_GROUP_SLUG && slugB !== UNGROUPED_GROUP_SLUG) {
-        return -1;
-      }
-      if (slugB === UNGROUPED_GROUP_SLUG && slugA !== UNGROUPED_GROUP_SLUG) {
-        return 1;
-      }
-      return entriesA[0].groupTitle.localeCompare(entriesB[0].groupTitle);
-    })
-    .map(([slug, groupEntries]) => ({
+  const realGroups: DocsGroup[] = [...byGroup.entries()].map(
+    ([slug, groupEntries]) => ({
       slug,
       title: groupEntries[0].groupTitle,
       entries: groupEntries,
-    }));
-  return [...realGroups, ...COMING_SOON_GROUPS];
+    }),
+  );
+  return [...realGroups, ...COMING_SOON_GROUPS].sort(
+    (a, b) => groupRank(a.slug) - groupRank(b.slug),
+  );
+}
+
+function groupRank(slug: string): number {
+  const idx = GROUP_ORDER.indexOf(slug);
+  return idx === -1 ? Number.POSITIVE_INFINITY : idx;
 }

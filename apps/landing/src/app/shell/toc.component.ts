@@ -50,15 +50,14 @@ import type { TocHeading } from './toc';
           ></div>
           @if (activeMetrics(); as m) {
             <div
-              class="bg-primary pointer-events-none absolute left-2 w-px transition-all duration-200"
-              [style.top.px]="m.top"
-              [style.height.px]="m.height"
+              class="bg-primary pointer-events-none absolute left-[7px] w-[3px] rounded-full transition-all duration-200"
+              [style.top.px]="m.segmentTop"
+              [style.height.px]="m.segmentHeight"
               aria-hidden="true"
             ></div>
             <div
-              class="bg-primary pointer-events-none absolute size-1 -translate-x-px rounded-full transition-all duration-200"
+              class="bg-primary pointer-events-none absolute left-[5px] size-[6px] rounded-full transition-all duration-200"
               [style.top.px]="m.dotTop"
-              [style.left.px]="8"
               aria-hidden="true"
             ></div>
           }
@@ -119,7 +118,12 @@ export class TocComponent implements AfterViewInit {
     const el = anchor.nativeElement;
     const top = el.offsetTop;
     const height = el.offsetHeight;
-    return { top, height, dotTop: top + height / 2 - 2 };
+    const padding = 4;
+    return {
+      segmentTop: top + padding,
+      segmentHeight: Math.max(height - padding * 2, 4),
+      dotTop: top + height / 2 - 3,
+    };
   });
 
   constructor() {
