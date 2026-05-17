@@ -4,7 +4,9 @@
   "sourceRoot": "libs/ui/avatar/src",
   "prefix": "hlm",
   "projectType": "library",
-  "tags": [],
+  "tags": [
+    "scope:spartan"
+  ],
   "targets": {
     "lint": {
       "executor": "@nx/eslint:lint"

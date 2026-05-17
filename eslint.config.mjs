@@ -17,8 +17,29 @@ export default [
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
             {
-              sourceTag: '*',
-              onlyDependOnLibsWithTags: ['*'],
+              sourceTag: 'scope:app',
+              onlyDependOnLibsWithTags: [
+                'scope:app',
+                'scope:mozart-ui',
+                'scope:spartan',
+                'scope:shared',
+              ],
+            },
+            {
+              sourceTag: 'scope:mozart-ui',
+              onlyDependOnLibsWithTags: [
+                'scope:mozart-ui',
+                'scope:spartan',
+                'scope:shared',
+              ],
+            },
+            {
+              sourceTag: 'scope:spartan',
+              onlyDependOnLibsWithTags: ['scope:spartan', 'scope:shared'],
+            },
+            {
+              sourceTag: 'scope:shared',
+              onlyDependOnLibsWithTags: ['scope:shared'],
             },
           ],
         },

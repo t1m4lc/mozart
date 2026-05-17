@@ -4,7 +4,9 @@
   "sourceRoot": "libs/mozart-ui/timeline/src",
   "prefix": "hlm",
   "projectType": "library",
-  "tags": [],
+  "tags": [
+    "scope:mozart-ui"
+  ],
   "targets": {
     "lint": {
       "executor": "@nx/eslint:lint"

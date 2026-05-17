@@ -4,17 +4,29 @@
   "projectType": "application",
   "prefix": "app",
   "sourceRoot": "apps/landing/src",
-  "tags": [],
+  "tags": [
+    "scope:app"
+  ],
   "metadata": {
     "budgets": [
-      { "type": "initial", "maximumWarning": "200kb", "maximumError": "400kb" },
-      { "type": "anyComponentStyle", "maximumWarning": "2kb", "maximumError": "4kb" }
+      {
+        "type": "initial",
+        "maximumWarning": "200kb",
+        "maximumError": "400kb"
+      },
+      {
+        "type": "anyComponentStyle",
+        "maximumWarning": "2kb",
+        "maximumError": "4kb"
+      }
     ]
   },
   "targets": {
     "build": {
       "executor": "@nx/vite:build",
-      "outputs": ["{options.outputPath}"],
+      "outputs": [
+        "{options.outputPath}"
+      ],
       "defaultConfiguration": "production",
       "options": {
         "outputPath": "dist/apps/landing",
@@ -53,7 +65,9 @@
     },
     "post-build-seo": {
       "executor": "nx:run-commands",
-      "dependsOn": ["build"],
+      "dependsOn": [
+        "build"
+      ],
       "options": {
         "cwd": "{projectRoot}",
         "command": "node scripts/post-build-seo.mjs"
@@ -61,7 +75,9 @@
     },
     "seo-check": {
       "executor": "nx:run-commands",
-      "dependsOn": ["post-build-seo"],
+      "dependsOn": [
+        "post-build-seo"
+      ],
       "options": {
         "cwd": "{projectRoot}",
         "command": "node scripts/check-seo.mjs"

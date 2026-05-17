@@ -4,12 +4,18 @@
   "projectType": "application",
   "prefix": "app",
   "sourceRoot": "apps/web/src",
-  "tags": [],
+  "tags": [
+    "scope:app"
+  ],
   "targets": {
     "build": {
       "executor": "@angular/build:application",
-      "syncGenerators": ["@juristr/nx-tailwind-sync:source-directives"],
-      "outputs": ["{options.outputPath}"],
+      "syncGenerators": [
+        "@juristr/nx-tailwind-sync:source-directives"
+      ],
+      "outputs": [
+        "{options.outputPath}"
+      ],
       "options": {
         "outputPath": "dist/apps/web",
         "browser": "apps/web/src/main.ts",
@@ -20,7 +26,9 @@
             "input": "apps/web/public"
           }
         ],
-        "styles": ["apps/web/src/styles.css"]
+        "styles": [
+          "apps/web/src/styles.css"
+        ]
       },
       "configurations": {
         "production": {
@@ -49,7 +57,9 @@
     "serve": {
       "continuous": true,
       "executor": "@angular/build:dev-server",
-      "syncGenerators": ["@juristr/nx-tailwind-sync:source-directives"],
+      "syncGenerators": [
+        "@juristr/nx-tailwind-sync:source-directives"
+      ],
       "options": {
         "port": 4201,
         "ssl": true
