@@ -12,6 +12,9 @@ import { HlmTypographyImports } from '@mozart/ui/typography';
   selector: 'app-ui-auth-card',
   imports: [HlmEmptyImports, HlmTypographyImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    class: 'flex min-h-screen w-full items-center justify-center',
+  },
   template: `
     <hlm-empty class="border-none p-0">
       <hlm-empty-media>
