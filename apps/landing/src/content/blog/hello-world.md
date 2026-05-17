@@ -1,6 +1,6 @@
 ---
 title: 'Hello, World'
-description: 'How an exhausted freelance dev ended up building a manager for AI coding agents.'
+description: 'Why I am building Mozart, a conductor for AI coding agents.'
 date: 2026-05-17
 authors:
   - name: Timothy Alcaide

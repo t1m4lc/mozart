@@ -4,7 +4,6 @@
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/clerk";
-@source "../../../libs/mozart-ui/theme-toggle";
 @source "../../../libs/shared-util-theme";
 @source "../../../libs/ui/avatar";
 @source "../../../libs/ui/badge";

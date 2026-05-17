@@ -32,7 +32,6 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
     <a
       hlmBtn
       variant="secondary"
-      size="sm"
       routerLink="/account"
       class="fixed top-4 right-4 z-10"
     >

@@ -5,7 +5,6 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { HlmThemeToggle } from '@mozart-ui/theme-toggle';
 import { HlmButton } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
@@ -20,14 +19,7 @@ import { AuthFacade } from '../domains/auth';
 // leave the button stuck in the disabled "Signing out…" state.
 @Component({
   selector: 'app-web-top-bar',
-  imports: [
-    RouterLink,
-    HlmThemeToggle,
-    HlmButton,
-    HlmIconImports,
-    HlmTooltipImports,
-    NgIcon,
-  ],
+  imports: [RouterLink, HlmButton, HlmIconImports, HlmTooltipImports, NgIcon],
   providers: [provideIcons({ lucideLogOut })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -55,11 +47,17 @@ import { AuthFacade } from '../domains/auth';
       </a>
 
       <div class="flex items-center gap-2">
-        <mz-theme-toggle />
         <button
           hlmBtn
-          variant="ghost"
-          size="sm"
+          variant="secondary"
+          type="button"
+          routerLink="/dashboard"
+        >
+          Dashboard
+        </button>
+        <button
+          hlmBtn
+          variant="secondary"
           type="button"
           [disabled]="signingOut()"
           (click)="onSignOut()"
