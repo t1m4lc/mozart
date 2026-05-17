@@ -20,6 +20,7 @@ previous one left off.
 | 2026-05-16 | `449a4fc` | All 10 dialogs → dynamic `import()` at click time. |
 | 2026-05-16 | `c033ffc` | Defer central-area `FeatureFileDiff` (diff + markdown stack as its own chunk). |
 | 2026-05-16 | `cd40a73` | Bottom slot tabs : `[hidden]` + `@defer (on interaction(terminalTabBtn))` — Terminal PTY survives tab switches. |
+| 2026-05-17 | UI polish | `@defer` placeholders aligned with `existing-ui-polish-plan.md` item 17 — file-diff, terminal, run, and onboarding PTY get `@loading` skeletons + non-empty `@placeholder` (no more white voids). |
 
 ---
 

@@ -296,6 +296,20 @@ export class WorkspacesFacade {
     }
   }
 
+  /** Clear the workspace's unread flag if set. Fired when the user
+   *  views one of its chats; idempotent (no-op when already read). */
+  async markRead(id: string): Promise<void> {
+    const current = this.workspaceById(id)();
+    if (!current || !current.unread) return;
+    this.store.setUnread(id, false);
+    try {
+      await this.adapter.setUnread(id, false);
+    } catch (err) {
+      this.store.setUnread(id, true);
+      throw err;
+    }
+  }
+
   // Optimistic rename: patch the store immediately so the new title
   // shows mid-keystroke, persist via Tauri, revert on failure.
   async rename(id: string, name: string): Promise<void> {

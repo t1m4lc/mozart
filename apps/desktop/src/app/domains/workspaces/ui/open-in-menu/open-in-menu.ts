@@ -51,7 +51,7 @@ import type { OpenInTool } from '../../data/open-in-tools';
         type="button"
         [hlmTooltip]="'Open with ' + lastUsed().label"
         position="bottom"
-        class="h-7 rounded-r-none rounded-l-md border-r-0 px-2 text-xs font-normal hover:bg-accent"
+        class="h-7 rounded-r-none rounded-l-md border-r-0 px-3 text-xs font-normal hover:bg-accent"
         (click)="openIn.emit(lastUsed())"
       >
         @if (lastUsed().iconPath; as path) {

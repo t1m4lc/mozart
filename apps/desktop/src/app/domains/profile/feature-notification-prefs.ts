@@ -7,7 +7,9 @@ import {
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmSwitchImports } from '@mozart/ui/switch';
-import { toast } from '@spartan-ng/brain/sonner';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { HlmIconImports } from '@mozart/ui/icon';
+import { lucideVolume2 } from '@ng-icons/lucide';
 import { NotificationService } from '../../core/notification.service';
 import {
   NOTIFICATION_PREFS_ADAPTER,
@@ -18,11 +20,12 @@ import {
 // button that fires the same emit path as a real message-end event.
 @Component({
   selector: 'app-feature-notification-prefs',
-  imports: [HlmButtonImports, HlmSwitchImports],
+  imports: [HlmButtonImports, HlmIconImports, HlmSwitchImports, NgIcon],
+  providers: [provideIcons({ lucideVolume2 })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="space-y-4 rounded-md border p-4">
+    <div class="space-y-4 rounded-md border border-border/60 bg-muted/30 p-4">
       <div class="flex items-center justify-between gap-3">
         <div class="space-y-0.5">
           <p class="text-sm font-medium">Desktop notifications</p>
@@ -44,21 +47,23 @@ import {
             silent.
           </p>
         </div>
-        <hlm-switch
-          [checked]="_prefs().sound"
-          (checkedChange)="onSoundToggle($event)"
-        />
-      </div>
-      <div class="flex justify-end">
-        <button
-          hlmBtn
-          variant="ghost"
-          size="sm"
-          type="button"
-          (click)="onTest()"
-        >
-          Send test notification
-        </button>
+        <div class="flex items-center gap-2">
+          <button
+            hlmBtn
+            variant="ghost"
+            size="icon-sm"
+            type="button"
+            aria-label="Play test sound"
+            [disabled]="!_prefs().sound"
+            (click)="onTestSound()"
+          >
+            <ng-icon hlm name="lucideVolume2" size="sm" />
+          </button>
+          <hlm-switch
+            [checked]="_prefs().sound"
+            (checkedChange)="onSoundToggle($event)"
+          />
+        </div>
       </div>
     </div>
   `,
@@ -94,22 +99,12 @@ export class FeatureNotificationPrefs {
     this._prefs.update((p) => ({ ...p, sound: value }));
   }
 
-  protected onTest(): void {
-    const prefs = this._prefs();
-    if (!prefs.desktop && !prefs.sound) {
-      toast('Notifications are off', {
-        description:
-          'Turn on Desktop notifications or Notification sound to hear a test.',
-      });
-      return;
-    }
-    // Route the test through the same path real notifications take so
-    // the permission prompt fires on first use and the user hears /
-    // sees exactly what they would at runtime.
-    void this.notifications.notify({
-      title: 'Mozart',
-      body: 'Test notification',
-    });
+  /** Play only the chime — doesn't fire a desktop notification. Lets
+   *  the user verify the sound bytes without triggering OS-level
+   *  permission prompts (which the broken Send-test-notification
+   *  path exposed). */
+  protected onTestSound(): void {
+    this.notifications.playSound();
   }
 
   private async hydrate(): Promise<void> {

@@ -1,4 +1,4 @@
-import { CdkTreeModule, NestedTreeControl } from '@angular/cdk/tree';
+import { CdkTreeModule } from '@angular/cdk/tree';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -8,82 +8,42 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideEye, lucideEyeOff, lucideRefreshCw } from '@ng-icons/lucide';
+import { HlmSkeletonImports } from '@mozart/ui/skeleton';
 import type { FileNode } from '../data/file-node.model';
 import { RepositoriesFacade } from '../data/repositories.facade';
 import { FileTreeRow } from '../ui-file-tree-row/ui-file-tree-row';
 
+// CdkTree migration note (perf-backlog): we use `childrenAccessor` +
+// internal expansion state rather than the deprecated `treeControl`.
+// `childrenAccessor` is the new public API as of Angular CDK 17+; the
+// component owns expansion state via a Set<path> so the template can
+// query / toggle without instantiating a TreeControl.
 @Component({
   selector: 'app-feature-file-tree',
-  imports: [
-    NgIcon,
-    CdkTreeModule,
-    FileTreeRow,
-    HlmButtonImports,
-    HlmIconImports,
-    HlmTooltipImports,
-  ],
-  providers: [provideIcons({ lucideEye, lucideEyeOff, lucideRefreshCw })],
+  imports: [CdkTreeModule, FileTreeRow, ...HlmSkeletonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex h-full w-full flex-col bg-sidebar' },
+  host: { class: 'flex h-full w-full flex-col' },
   template: `
-    <div
-      class="flex h-8 shrink-0 items-center gap-1 border-b border-sidebar-border px-2"
-    >
-      <span class="text-[11px] font-medium text-muted-foreground">Files</span>
-      <span class="flex-1"></span>
-      <button
-        hlmBtn
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        class="size-6 text-muted-foreground"
-        [hlmTooltip]="
-          showIgnored() ? 'Hide ignored files' : 'Show ignored files'
-        "
-        position="left"
-        (click)="toggleIgnored()"
-      >
-        <ng-icon
-          hlm
-          [name]="showIgnored() ? 'lucideEye' : 'lucideEyeOff'"
-          size="xs"
-        />
-      </button>
-      <button
-        hlmBtn
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        class="size-6 text-muted-foreground"
-        hlmTooltip="Refresh"
-        position="left"
-        (click)="reload()"
-        [disabled]="loading()"
-      >
-        <ng-icon hlm name="lucideRefreshCw" size="xs" />
-      </button>
-    </div>
-
-    <div class="min-h-0 flex-1 overflow-auto px-1 py-1">
+    <div class="min-h-0 flex-1 overflow-auto px-0 py-1">
       @if (loading() && nodes().length === 0) {
-        <p class="px-2 py-3 text-xs text-muted-foreground">Loading…</p>
+        <div class="flex flex-col gap-1 px-1 py-1.5" aria-busy="true">
+          @for (i of [0, 1, 2, 3, 4, 5]; track i) {
+            <hlm-skeleton class="h-4 w-full" />
+          }
+        </div>
       } @else if (error(); as err) {
-        <p class="px-2 py-3 text-xs text-destructive">Failed to load: {{ err }}</p>
-      } @else if (nodes().length === 0) {
-        <p class="px-2 py-3 text-xs text-muted-foreground">
-          No files yet.
+        <p class="px-2 py-3 text-xs text-destructive">
+          Failed to load: {{ err }}
         </p>
+      } @else if (nodes().length === 0) {
+        <p class="px-2 py-3 text-xs text-muted-foreground">No files yet.</p>
       } @else {
-        <cdk-tree [dataSource]="nodes()" [treeControl]="treeControl">
+        <cdk-tree [dataSource]="nodes()" [childrenAccessor]="childrenAccessor">
           <cdk-tree-node *cdkTreeNodeDef="let node">
             <app-file-tree-row
               [node]="node"
               [isFolder]="false"
+              [active]="activePath() === node.path"
               (fileClick)="onFileClick($event)"
             />
           </cdk-tree-node>
@@ -92,12 +52,12 @@ import { FileTreeRow } from '../ui-file-tree-row/ui-file-tree-row';
             <app-file-tree-row
               [node]="node"
               [isFolder]="true"
-              [expanded]="treeControl.isExpanded(node)"
-              (folderToggle)="treeControl.toggle($event)"
+              [expanded]="isExpanded(node)"
+              (folderToggle)="toggle(node)"
             />
             <div
               class="ml-3 border-l border-border/50 pl-1"
-              [class.hidden]="!treeControl.isExpanded(node)"
+              [class.hidden]="!isExpanded(node)"
             >
               <ng-container cdkTreeNodeOutlet />
             </div>
@@ -113,6 +73,9 @@ export class FeatureFileTree {
    *  even when workspaceId / showIgnored stay the same. The aside owns
    *  the single watcher subscription per workspace. */
   readonly refreshTick = input<number>(0);
+  /** Path of the file currently active in the central shell — rows
+   *  matching this path render with brand tint. */
+  readonly activePath = input<string | null>(null);
   readonly fileSelected = output<FileNode>();
 
   private readonly repos = inject(RepositoriesFacade);
@@ -120,58 +83,76 @@ export class FeatureFileTree {
   protected readonly nodes = signal<FileNode[]>([]);
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
-  protected readonly showIgnored = signal(false);
+  // Ignored files (gitignored, etc.) stay hidden in the polished UI.
+  // The toggle was dropped with the file-tree toolbar in item 20.
+  private readonly showIgnored = false;
 
-  // CdkTree's NestedTreeControl wants `T[]`, not `readonly T[]`. The
-  // model exposes `children` as readonly to discourage mutation, so we
-  // copy on access.
-  protected readonly treeControl = new NestedTreeControl<FileNode>((n) =>
-    n.children ? [...n.children] : [],
-  );
+  // Expansion state keyed by node.path. CdkTree's new childrenAccessor
+  // API leaves expansion to the consumer ; we re-implement the same
+  // toggle semantics here with a signal so OnPush re-renders kick in.
+  private readonly expanded = signal<ReadonlySet<string>>(new Set());
+
+  /** Children accessor for CdkTree. Copies because the model exposes
+   *  `children` as readonly and CdkTree expects `T[]`. */
+  protected readonly childrenAccessor = (node: FileNode): FileNode[] =>
+    node.children ? [...node.children] : [];
 
   /** CdkTree predicate: true when the node renders as a folder. */
   protected readonly isDirectory = (_index: number, node: FileNode): boolean =>
     node.kind === 'directory';
 
+  protected isExpanded(node: FileNode): boolean {
+    return this.expanded().has(node.path);
+  }
+
+  protected toggle(node: FileNode): void {
+    this.expanded.update((set) => {
+      const next = new Set(set);
+      if (next.has(node.path)) next.delete(node.path);
+      else next.add(node.path);
+      return next;
+    });
+  }
+
   constructor() {
     effect(() => {
       const id = this.workspaceId();
-      const showIgn = this.showIgnored();
       // Subscribe to the tick so each watcher ping forces a re-fetch.
       this.refreshTick();
       if (!id) {
         this.nodes.set([]);
+        this.expanded.set(new Set());
         return;
       }
-      void this.fetch(id, showIgn);
+      void this.fetch(id, this.showIgnored);
     });
-  }
-
-  protected toggleIgnored(): void {
-    this.showIgnored.update((v) => !v);
-  }
-
-  protected reload(): void {
-    const id = this.workspaceId();
-    if (!id) return;
-    void this.fetch(id, this.showIgnored());
   }
 
   protected onFileClick(node: FileNode): void {
     this.fileSelected.emit(node);
   }
 
-  private async fetch(workspaceId: string, showIgnored: boolean): Promise<void> {
+  private async fetch(
+    workspaceId: string,
+    showIgnored: boolean,
+  ): Promise<void> {
     this.loading.set(true);
     this.error.set(null);
     try {
       const tree = await this.repos.loadTree(workspaceId, showIgnored);
+      // Rapid workspace clicks fire multiple in-flight fetches; only
+      // apply the response if it matches the currently-active id.
+      // Without this guard the tree could flash older workspaces.
+      if (this.workspaceId() !== workspaceId) return;
       this.nodes.set([...tree]);
     } catch (err) {
+      if (this.workspaceId() !== workspaceId) return;
       this.error.set(err instanceof Error ? err.message : String(err));
       this.nodes.set([]);
     } finally {
-      this.loading.set(false);
+      if (this.workspaceId() === workspaceId) {
+        this.loading.set(false);
+      }
     }
   }
 }

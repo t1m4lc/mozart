@@ -92,7 +92,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
 
         <textarea
           hlmTextarea
-          class="hlm-composer-textarea block w-full border-0 outline-none shadow-none rounded-none resize-none bg-transparent dark:bg-transparent px-3 pt-4 pb-3 text-sm leading-6 min-h-28 max-h-72 overflow-y-auto scroll-pb-3 focus-visible:ring-0 focus-visible:border-0"
+          class="hlm-composer-textarea block w-full border-0 outline-none shadow-none rounded-none resize-none bg-transparent dark:bg-transparent p-3 text-sm leading-6 min-h-24 max-h-72 overflow-y-auto focus-visible:ring-0 focus-visible:border-0"
           [value]="value()"
           (input)="_onInput($event)"
           [disabled]="disabled()"
@@ -101,7 +101,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
           (keydown)="_onKeydown($event)"
         ></textarea>
 
-        <div class="flex items-center gap-1 px-2 pt-1 pb-1.5">
+        <div class="flex items-center gap-1 p-2 max-h-10">
           <hlm-composer-plus-menu />
 
           <composer-effort-select
@@ -131,37 +131,37 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
               <button
                 hlmBtn
                 variant="destructive"
-                size="icon-sm"
+                size="icon-xs"
                 type="button"
                 hlmTooltip="Stop"
-                class="rounded-lg"
+                class="size-7 rounded-md"
                 (click)="_emitStop()"
                 aria-label="Stop current run"
               >
-                <ng-icon hlm name="lucideCircleStop" size="sm" />
+                <ng-icon hlm name="lucideCircleStop" size="xs" />
               </button>
             }
             @case ('queue') {
               <button
                 hlmBtn
                 variant="default"
-                size="icon-sm"
+                size="icon-xs"
                 type="submit"
-                class="rounded-lg"
+                class="size-7 rounded-md"
                 [disabled]="!_canSubmit()"
                 hlmTooltip="Send to queue — current run keeps going"
                 aria-label="Queue message"
               >
-                <ng-icon hlm name="lucidePlus" size="sm" />
+                <ng-icon hlm name="lucidePlus" size="xs" />
               </button>
             }
             @default {
               <button
                 hlmBtn
                 variant="default"
-                size="icon-sm"
+                size="icon-xs"
                 type="submit"
-                class="rounded-lg"
+                class="size-7 rounded-md"
                 [disabled]="!_canSubmit()"
                 hlmTooltip="Send"
                 [attr.aria-label]="
@@ -172,7 +172,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
                       : 'Send message'
                 "
               >
-                <ng-icon hlm name="lucideArrowUp" size="sm" />
+                <ng-icon hlm name="lucideArrowUp" size="xs" />
               </button>
             }
           }

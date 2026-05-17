@@ -14,8 +14,8 @@ import { TerminalRegistry } from '../data/terminal-registry.service';
   selector: 'app-feature-workspace-terminal',
   imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block h-full w-full bg-sidebar' },
-  template: `<div #host class="h-full w-full"></div>`,
+  host: { class: 'block h-full w-full' },
+  template: `<div #host class="h-full w-full p-2"></div>`,
 })
 export class FeatureWorkspaceTerminal {
   readonly workspaceId = input<string | null>(null);

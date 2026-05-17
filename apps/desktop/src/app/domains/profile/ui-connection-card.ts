@@ -104,7 +104,7 @@ const STATUS_VIEW: Record<ConnectionStatus, StatusView> = {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="rounded-md border p-4 space-y-3">
+    <div class="rounded-md border border-border/60 bg-muted/30 p-4 space-y-3">
       <div class="flex items-start gap-3">
         <ng-icon
           hlm

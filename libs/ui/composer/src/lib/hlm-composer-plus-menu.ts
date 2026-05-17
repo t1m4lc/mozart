@@ -25,14 +25,14 @@ import {
   template: `
     <button
       hlmBtn
-      variant="outline"
-      size="icon-sm"
+      variant="ghost"
+      size="icon-xs"
       type="button"
       aria-label="Add to message"
-      class="ml-1 rounded-lg"
+      class="size-6 rounded-md text-muted-foreground"
       [hlmDropdownMenuTrigger]="addMenu"
     >
-      <ng-icon hlm name="lucidePlus" size="sm" />
+      <ng-icon hlm name="lucidePlus" size="xs" />
     </button>
     <ng-template #addMenu>
       <hlm-dropdown-menu class="w-56">

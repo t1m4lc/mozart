@@ -1819,84 +1819,37 @@ merge confident.
 
 ---
 
-## Phase 9 — Production readiness
+## Phase 9 — Production readiness (incremental)
 
-### Goal
+Phase 9 ships as **8 independent sub-phases (9.1 → 9.8)**
+ordered by _"required for beta testers"_ vs _"required for
+scale."_ Not all sub-phases are needed at once — some are
+deferred until real-world signal justifies their cost (paid
+code signing certificates, multi-channel releases, etc.).
 
-> _"Mozart ships to real users. Code is signed, updates are
-> delivered automatically, crashes surface centrally, and the
-> distribution funnel is in place."_
+See `docs/prompts/phase-9-prompt.md` for the full
+breakdown. Quick overview :
 
-### Scope
+| #       | Goal                                                                    | Required ?                           | Cost              |
+| ------- | ----------------------------------------------------------------------- | ------------------------------------ | ----------------- |
+| **9.1** | Distribute unsigned beta builds (CrabNebula Cloud or R2) + landing page | Yes — Day 1                          | ~€10/mo or 0 USD  |
+| **9.2** | Crash reporting via Sentry                                              | Yes — early beta                     | 0 USD             |
+| **9.3** | Auto-update for unsigned builds                                         | Recommended — week 2-4               | 0 USD             |
+| **9.4** | Telemetry + product analytics via PostHog                               | When user count > 10                 | 0 USD             |
+| **9.5** | macOS code signing + notarization                                       | When users complain about Gatekeeper | ~99 USD/year      |
+| **9.6** | Windows Authenticode signing                                            | When non-dev Windows users join      | ~200-400 USD/year |
+| **9.7** | Multi-channel releases (beta vs stable)                                 | When you have paying customers       | 0 USD             |
+| **9.8** | Privacy / ToS hardening + GDPR                                          | Before public launch                 | 0 USD (templated) |
 
-- **Code signing** :
-  - macOS : Apple Developer ID + notarization (`tauri-cli`'s
-    macOS signing config)
-  - Windows : Authenticode certificate
-  - Linux : not strictly required ; consider AppImage signing
-- **Auto-update** :
-  - `tauri-plugin-updater` with an update manifest endpoint
-    served from `mozart.build/updates/` (or a CDN)
-  - Update flow : check on launch + every 24 h, download in
-    background, prompt user to relaunch
-  - Beta / stable channels (post-MVP can stay on a single
-    channel for first releases)
-- **Crash reporting** :
-  - Sentry SDK on both Rust (Tauri side) and Angular (front
-    side)
-  - Crash reports include : version, OS, anonymized user ID
-    (post-MVP : opt-in via telemetry settings)
-  - PII scrubbing : prompts, file contents, API keys never in
-    error reports
-- **Telemetry initial wiring** :
-  - The `telemetry` domain (post-MVP feature, per Out of scope
-    section) lands here with the minimum events :
-    `app_launched`, `onboarding_completed`, `project_added`,
-    `prompt_sent`, `pr_created`
-  - PostHog or equivalent provider
-  - **Opt-in mandatory** at the end of onboarding ; disclosure
-    of what's collected ; zero PII
-- **Distribution** :
-  - Download links on `mozart.build` (DMG / MSI / AppImage)
-  - SHA256 checksums published alongside each binary
-  - Versioning : semver, starting at `0.1.0` (v0.0.1 MVP =
-    `0.1.0-beta.1` or similar, Phase B decides)
-- **Release notes infrastructure** :
-  - `CHANGELOG.md` in the repo, conventional commits drive it
-  - Release notes shown in-app after auto-update (post-
-    production polish)
-- **Logs in production** :
-  - Strip `console.log` from production builds (Angular build
-    config)
-  - Tauri-side logs go to OS-standard locations
-    (`~/Library/Logs/Mozart/` on macOS, etc.)
-  - Log level configurable in Settings (post-production polish)
-- **Privacy + ToS** :
-  - Privacy policy + ToS pages on `mozart.build`
-  - Linked from onboarding step 1 (welcome) and Settings
+Sub-phases 9.1, 9.2, 9.3 are the immediate scope — they
+unblock real beta testing at zero cost. Everything from 9.4
+onward is gated by real user signal or specific
+distribution pressure (non-dev users, paying customers, EU
+audience, public launch).
 
-### Deliverables
-
-1. Signed + notarized macOS build
-2. Signed Windows build
-3. Auto-update working end-to-end against a staging endpoint
-4. Sentry capturing both Rust panics and Angular errors
-5. Telemetry domain shipped with 5 base events, opt-in flow in
-   onboarding
-6. Public download page on `mozart.build` with checksums
-7. `CHANGELOG.md` + versioning convention documented
-8. Privacy + ToS published
-
-### Demoable milestone
-
-Real user on a fresh machine : downloads from `mozart.build`,
-installs, opens Mozart, signs in, completes onboarding, sends a
-prompt, commits a PR, restarts the app a week later, gets an
-auto-update prompt, applies it, continues working. Zero
-Mozart-side crashes ; one anonymized session shows up in
-PostHog.
-
-End of Phase 9 = **Mozart is in production for real users**.
+End of sub-phase 9.1 = **Mozart is distributable to beta
+testers**.
+End of sub-phase 9.8 = **Mozart is in real production**.
 
 ---
 

@@ -79,22 +79,16 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     />
 
     @if (activeFileTabPath(); as path) {
-      <!-- A file tab is active — diff view replaces the chat panel
-           in the central area. @defer on viewport so the diff +
-           markdown stack lands as its own chunk : the workspace
-           loads without it, and the chunk arrives only when the
-           user opens their first file. -->
-      @defer (on viewport) {
-        <app-feature-file-diff
-          class="flex-1 min-h-0"
-          [workspaceId]="id()!"
-          [path]="path"
-        />
-      } @placeholder {
-        <div class="flex-1 min-h-0 flex items-center justify-center text-xs text-muted-foreground">
-          Loading diff…
-        </div>
-      }
+      <!-- File tab active — diff view replaces the chat panel.
+           @defer was removed because on-viewport sometimes didn't
+           re-trigger when the user came back to a file tab after a
+           chat detour. The diff chunk is light; markdown.js is still
+           deferred inside ui-markdown-view. -->
+      <app-feature-file-diff
+        class="flex-1 min-h-0"
+        [workspaceId]="id()!"
+        [path]="path"
+      />
     } @else {
       <app-feature-chat-panel
         #chatPanel
@@ -104,10 +98,10 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
         <app-chat-empty-state
           chat-empty-state
           [variant]="activeTabIsFirst() ? 'start' : 'untitled'"
-          [projectName]="store.projectName()"
-          [workspaceName]="store.workspaceTitle()"
-          [sourceBranch]="store.workspaceTitle()"
-          [targetBranch]="store.targetBranch()"
+          [projectName]="projectName()"
+          [workspaceName]="workspaceName()"
+          [sourceBranch]="store.currentBranch()"
+          [targetBranch]="store.targetBranch() || 'main'"
           [numberOfFiles]="0"
           [installState]="install().state"
           [installManager]="install().manager"
@@ -218,7 +212,10 @@ export class WorkspaceDetailPage {
 
   protected readonly sidebarHeader =
     viewChild.required<TemplateRef<unknown>>('sidebarHeaderTpl');
-  private readonly chatPanel = viewChild.required(FeatureChatPanel);
+  // Optional because the chat panel only mounts in the `@else` branch
+  // (when no file tab is active). `viewChild.required` would throw
+  // NG0951 every time a file diff replaced the chat panel.
+  private readonly chatPanel = viewChild(FeatureChatPanel);
 
   constructor() {
     // Active chat changed -> refocus the composer. Mirrors the previous
@@ -230,7 +227,7 @@ export class WorkspaceDetailPage {
         // touch to subscribe; value not used
         this.chatFacade.activeChatIdFor(ws);
       }
-      this.chatPanel().focusComposer();
+      this.chatPanel()?.focusComposer();
     });
 
     effect(() => {
@@ -238,6 +235,9 @@ export class WorkspaceDetailPage {
       if (id) {
         this.store.loadWorkspace(id);
         this.workspaces.setActive(id);
+        // Navigating to a workspace counts as "viewing" — clear its
+        // unread flag so the sidebar row drops the bold style.
+        void this.workspaces.markRead(id).catch(() => undefined);
       }
     });
 

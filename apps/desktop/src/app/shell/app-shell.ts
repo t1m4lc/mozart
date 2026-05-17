@@ -28,6 +28,7 @@ import { ConnectivityService } from '../core/connectivity.service';
 import { FeatureFlagsService } from '../core/feature-flags';
 import { LayoutService } from '../core/layout.service';
 import { OsService } from '../core/os.service';
+import { ReturnRouteService } from '../core/return-route.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
 import { FeatureChatList } from '../domains/chat';
 import { FeatureTour } from '../domains/onboarding';
@@ -79,16 +80,17 @@ import { ShellProjectList } from './shell-project-list';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-screen w-screen bg-background text-foreground' },
   template: `
-    <div hlmResizableGroup direction="horizontal" class="h-full">
-      <div
-        hlmResizablePanel
-        #leftPanel="hlmResizablePanel"
-        [defaultSize]="leftPanel_.default"
-        [minSize]="layout.leftPanelOpen() ? leftPanel_.min : 0"
-        [maxSize]="leftPanel_.max"
-        class="transition-[flex] duration-200 ease-out"
+    <div class="flex h-full">
+      <aside
+        class="shrink-0 overflow-hidden border-r border-sidebar-border transition-[width] duration-200 ease-out"
+        [style.width.px]="layout.leftPanelOpen() ? leftPanelPx : 0"
       >
-        <hlm-sidebar side="left" collapsible="none" class="h-full w-full">
+        <hlm-sidebar
+          side="left"
+          collapsible="none"
+          class="h-full"
+          [style.width.px]="leftPanelPx"
+        >
           <div
             hlmSidebarHeader
             data-tauri-drag-region
@@ -155,13 +157,10 @@ import { ShellProjectList } from './shell-project-list';
               </div>
             </div>
 
-            <!-- IMP-007 + perf : @defer + flag gate. When chat is
-                 OFF the FeatureChatList component never instantiates
-                 AND its JS chunk never loads (Angular auto-splits
-                 components used only inside @defer). When chat is
-                 turned back on, the chunk loads on the first true
-                 read of flags.chat(). -->
-            @defer (when flags.chat()) {
+            <!-- IMP-007 flag gate. @defer was removed to keep the
+                 sidebar render synchronous — the chat-list chunk was
+                 forcing a re-render the moment the flag flipped. -->
+            @if (flags.chat()) {
               <div hlmSidebarGroup class="px-2 py-1">
                 <app-feature-chat-list />
               </div>
@@ -200,31 +199,28 @@ import { ShellProjectList } from './shell-project-list';
             </button>
           </div>
         </hlm-sidebar>
-      </div>
+      </aside>
 
-      <hlm-resizable-handle
-        [hidden]="!layout.leftPanelOpen()"
-        (dblclick)="resetLeftPanel()"
-      />
+      <div hlmResizableGroup direction="horizontal" class="min-w-0 flex-1">
+        <main hlmResizablePanel class="min-w-0 overflow-auto">
+          <router-outlet />
+        </main>
 
-      <main hlmResizablePanel class="min-w-0 overflow-auto">
-        <router-outlet />
-      </main>
+        <hlm-resizable-handle
+          [class.hidden]="!showRightAside()"
+          (dblclick)="resetRightPanel()"
+        />
 
-      <hlm-resizable-handle
-        [class.hidden]="!showRightAside()"
-        (dblclick)="resetRightPanel()"
-      />
-
-      <div
-        hlmResizablePanel
-        #rightPanel="hlmResizablePanel"
-        [defaultSize]="rightPanelDefault()"
-        [minSize]="showRightAside() ? rightPanel_.min : 0"
-        [maxSize]="rightPanel_.max"
-        class="transition-[flex] duration-200 ease-out"
-      >
-        <app-shell-aside class="h-full w-full" />
+        <div
+          hlmResizablePanel
+          #rightPanel="hlmResizablePanel"
+          [defaultSize]="rightPanelDefault()"
+          [minSize]="showRightAside() ? rightPanel_.min : 0"
+          [maxSize]="rightPanel_.max"
+          class="transition-[flex] duration-200 ease-out"
+        >
+          <app-shell-aside class="h-full w-full" />
+        </div>
       </div>
     </div>
 
@@ -248,18 +244,14 @@ import { ShellProjectList } from './shell-project-list';
     }
 
     @if (tourActive()) {
-      <!-- Defer the tour overlay : it's only used by users replaying
-           the welcome tour, the highlight-overlay primitive ships
-           with its own ResizeObserver setup. Idle is enough — the
-           tour starts via a navigation, not a real-time signal. -->
-      @defer (on idle) {
-        <app-feature-tour />
-      }
+      <!-- Tour overlay renders synchronously when the ?tour=on query
+           param is present. Previously @defer (on idle) but that
+           added a perceptible blank moment between nav + overlay. -->
+      <app-feature-tour />
     }
   `,
 })
 export class AppShell {
-  private readonly _leftPanelRef = viewChild<HlmResizablePanel>('leftPanel');
   private readonly _rightPanelRef = viewChild<HlmResizablePanel>('rightPanel');
 
   protected readonly isMac = inject(OsService).isMac();
@@ -270,6 +262,9 @@ export class AppShell {
   protected readonly flags = inject(FeatureFlagsService);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly route = inject(ActivatedRoute);
+  // Eagerly construct so it subscribes to NavigationEnd from the
+  // first paint — Settings reads its `previous()` to power Back-to-app.
+  private readonly _returnRoute = inject(ReturnRouteService);
 
   /** Tour overlay visibility — driven by the `?tour=on` query param
    *  attached by `/tour` when it redirects to the workspace. */
@@ -295,11 +290,7 @@ export class AppShell {
       : 0,
   );
 
-  protected readonly leftPanel_ = {
-    default: pxToPercent(SHELL_LEFT_PANEL_PX.default),
-    min: pxToPercent(SHELL_LEFT_PANEL_PX.min),
-    max: pxToPercent(SHELL_LEFT_PANEL_PX.max),
-  };
+  protected readonly leftPanelPx = SHELL_LEFT_PANEL_PX;
 
   // HlmToaster's default userStyle feeds the sonner CSS variables raw
   // HSL components (e.g. `var(--popover)` -> `0 0% 100%`), which is not
@@ -322,24 +313,12 @@ export class AppShell {
 
   constructor() {
     effect(() => {
-      const open = this.layout.leftPanelOpen();
-      const panel = this._leftPanelRef();
-      if (panel) {
-        panel.setSize(open ? pxToPercent(SHELL_LEFT_PANEL_PX.default) : 0);
-      }
-    });
-
-    effect(() => {
       const open = this.showRightAside();
       const panel = this._rightPanelRef();
       if (panel) {
         panel.setSize(open ? pxToPercent(SHELL_RIGHT_PANEL_PX.default) : 0);
       }
     });
-  }
-
-  protected resetLeftPanel(): void {
-    this._leftPanelRef()?.setSize(pxToPercent(SHELL_LEFT_PANEL_PX.default));
   }
 
   protected resetRightPanel(): void {

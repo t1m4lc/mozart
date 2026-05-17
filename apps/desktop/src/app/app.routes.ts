@@ -1,6 +1,6 @@
 import { Route } from '@angular/router';
 import { authGuard } from './domains/auth';
-import { onboardingGuard } from './domains/onboarding';
+import { notOnboardedGuard, onboardingGuard } from './domains/onboarding';
 import { AppShell } from './shell/app-shell';
 import { SettingsShell } from './shell/settings-shell';
 
@@ -12,7 +12,7 @@ export const appRoutes: Route[] = [
   },
   {
     path: 'onboarding',
-    canActivate: [authGuard],
+    canActivate: [authGuard, notOnboardedGuard],
     loadComponent: () =>
       import('./pages/onboarding.page').then((m) => m.OnboardingPage),
   },

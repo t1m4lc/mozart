@@ -25,6 +25,7 @@ export {
   type GetStartedResult,
 } from './data/get-started-project.adapter';
 export { onboardingGuard } from './onboarding.guard';
+export { notOnboardedGuard } from './not-onboarded.guard';
 export { UiOnboardingStepShell } from './ui-onboarding-step-shell';
 export { UiDisclosureCard } from './ui-disclosure-card';
 export { FeatureOnboardingStepWelcome } from './feature-onboarding-step-welcome';

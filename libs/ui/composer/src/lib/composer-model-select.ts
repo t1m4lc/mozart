@@ -70,7 +70,7 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
       <hlm-select-trigger
         size="sm"
         hlmTooltip="Change model"
-        class="h-8 rounded-lg border-transparent shadow-none px-2 gap-1.5"
+        class="h-6 rounded-md border-transparent shadow-none px-1.5 gap-1"
       >
         <ng-icon hlm [name]="_triggerIcon()" size="xs" />
         <span class="text-xs">{{ _triggerLabel() }}</span>

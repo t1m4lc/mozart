@@ -17,7 +17,7 @@ import { lucideGithub } from '@ng-icons/lucide';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="flex items-start gap-3 rounded-md border p-4">
+    <div class="flex items-start gap-3 rounded-md border border-border/60 bg-muted/30 p-4">
       <ng-icon
         hlm
         name="lucideGithub"

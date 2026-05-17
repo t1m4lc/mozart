@@ -11,9 +11,9 @@ import {
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmLoaderImports } from '@mozart/ui/loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFileCode, lucidePencil, lucideX } from '@ng-icons/lucide';
-import { HlmLoaderImports } from '@mozart/ui/loader';
 import { LlmIcon } from './llm-icon';
 import type { WorkspaceTab } from './workspace-tab.model';
 
@@ -21,12 +21,18 @@ import type { WorkspaceTab } from './workspace-tab.model';
 // pen icon) and close (✕); file variant is read-only.
 @Component({
   selector: 'app-tab-item',
-  imports: [NgIcon, LlmIcon, ...HlmLoaderImports, HlmButtonImports, HlmIconImports],
+  imports: [
+    NgIcon,
+    LlmIcon,
+    ...HlmLoaderImports,
+    HlmButtonImports,
+    HlmIconImports,
+  ],
   providers: [provideIcons({ lucideFileCode, lucidePencil, lucideX })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class:
-      'group/tab relative flex h-7 shrink-0 cursor-pointer items-center gap-1.5 px-2 transition-[width,background-color] duration-150 text-muted-foreground hover:bg-accent/60 aria-selected:bg-brand/15 aria-selected:text-foreground',
+      'group/tab relative flex h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 first:pl-1 transition-[width,background-color] duration-150 text-muted-foreground hover:bg-accent/60 aria-selected:bg-brand/15 aria-selected:text-foreground',
     '[class.w-36]': '!renaming()',
     '[class.w-56]': 'renaming()',
     '[class.pr-2]': "renaming() || (tab().kind !== 'chat')",

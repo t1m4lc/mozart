@@ -63,10 +63,12 @@ export interface RepositoriesAdapter {
 }
 
 /** UI-facing changed-file entry. Wire status normalised to one of
- *  `'added' | 'modified' | 'deleted'`. */
+ *  `'added' | 'modified' | 'deleted'`. `staged` mirrors the X byte
+ *  of `git status --porcelain=v1`; the Changes aside splits on it. */
 export interface ChangedFile {
   readonly path: string;
   readonly status: 'added' | 'modified' | 'deleted';
+  readonly staged: boolean;
 }
 
 export const REPOSITORIES_ADAPTER = new InjectionToken<RepositoriesAdapter>(

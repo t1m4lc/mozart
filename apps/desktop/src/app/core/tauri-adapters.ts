@@ -400,6 +400,10 @@ function provideRepositoriesAdapter(): Provider {
             f.status === 'added' || f.status === 'deleted'
               ? f.status
               : 'modified',
+          // `staged` was added to the Rust struct alongside the
+          // staged/unstaged split in the Changes pane. Older Tauri
+          // builds (or stale bindings) may omit it → default to false.
+          staged: f.staged ?? false,
         }));
       },
       async commitWorkspace(workspaceId, paths, message) {

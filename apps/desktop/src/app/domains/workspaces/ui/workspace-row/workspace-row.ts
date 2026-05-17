@@ -116,11 +116,7 @@ function statusLabel(status: string): string {
           [showDelay]="800"
           align="right"
           [routerLink]="['/workspaces', workspace().id]"
-          routerLinkActive="bg-brand/15 text-foreground
-                            before:absolute before:left-0 before:top-0.5 before:bottom-0.5
-                            before:w-1 before:rounded-r-full before:bg-brand
-                            before:shadow-[0_0_10px_hsl(var(--brand)/0.7)]
-                            [&_ng-icon]:text-brand!"
+          routerLinkActive="bg-brand/15 text-foreground before:absolute before:left-0 before:top-0.5 before:bottom-0.5 before:w-1 before:rounded-r-full before:bg-brand before:shadow-[0_0_10px_hsl(var(--brand)/0.7)] [&_ng-icon]:text-brand!"
           class="relative cursor-pointer rounded-sm gap-1.5 px-2"
         >
           @if (isStreaming()) {

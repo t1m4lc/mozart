@@ -44,7 +44,7 @@ export interface TabRenameEvent {
            is hidden so the strip blends with the toolbar; the user
            scrolls via trackpad / shift-wheel / drag. -->
       <div
-        class="flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        class=" flex min-w-0 flex-1 items-stretch overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         @for (tab of tabs(); track tab.id) {
           <app-tab-item

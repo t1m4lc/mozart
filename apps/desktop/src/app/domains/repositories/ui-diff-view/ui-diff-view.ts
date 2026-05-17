@@ -29,12 +29,14 @@ const LINE_CLASS: Record<DiffLineKind, string> = {
   imports: [NgIcon, HlmButtonImports, HlmIconImports, HlmTooltipImports],
   providers: [provideIcons({ lucideRefreshCw })],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex h-full w-full flex-col bg-sidebar' },
+  host: { class: 'flex h-full w-full flex-col ' },
   template: `
     <div
       class="flex h-8 shrink-0 items-center gap-1 border-b border-sidebar-border px-2"
     >
-      <span class="min-w-0 flex-1 truncate text-[11px] font-medium text-muted-foreground">
+      <span
+        class="min-w-0 flex-1 truncate text-[11px] font-medium text-muted-foreground"
+      >
         @if (path()) {
           {{ path() }}
         } @else {

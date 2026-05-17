@@ -1,9 +1,14 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { ShellService } from '../core/shell.service';
 import { AuthFacade } from '../domains/auth';
 import { FeatureGitStatus, OnboardingFacade } from '../domains/onboarding';
 import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile';
+
+// Web account URL. Mirrors `buildSignInUrl` — same dev origin, just a
+// different path. Production deploy will swap this to app.mozart.build.
+const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
 
 @Component({
   selector: 'app-settings-page',
@@ -45,7 +50,7 @@ import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile
           Onboarding
         </h2>
         <div
-          class="flex items-center justify-between gap-4 rounded-md border p-4"
+          class="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-4"
         >
           <div class="space-y-1">
             <p class="text-sm font-medium">Revisit the tour</p>
@@ -64,7 +69,20 @@ import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile
           Account
         </h2>
         <div
-          class="flex items-center justify-between gap-4 rounded-md border p-4"
+          class="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-4"
+        >
+          <div class="space-y-1">
+            <p class="text-sm font-medium">Web account</p>
+            <p class="text-xs text-muted-foreground">
+              Manage billing, team, and profile on the Mozart web app.
+            </p>
+          </div>
+          <button hlmBtn variant="outline" type="button" (click)="onOpenAccount()">
+            Account
+          </button>
+        </div>
+        <div
+          class="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-4"
         >
           <div class="space-y-1">
             <p class="text-sm font-medium">Sign out</p>
@@ -84,6 +102,7 @@ export class SettingsPage {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthFacade);
   private readonly onboarding = inject(OnboardingFacade);
+  private readonly shell = inject(ShellService);
 
   protected onRevisitTour(): void {
     // Reset doesn't actually re-arm the wizard here ; we just navigate
@@ -98,5 +117,9 @@ export class SettingsPage {
 
   protected onSignOut(): void {
     void this.auth.signOut();
+  }
+
+  protected onOpenAccount(): void {
+    void this.shell.openExternal(WEB_ACCOUNT_URL);
   }
 }

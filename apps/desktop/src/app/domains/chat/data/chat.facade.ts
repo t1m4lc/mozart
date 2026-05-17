@@ -289,6 +289,13 @@ export class ChatFacade {
   }
 
   async setActiveChat(workspaceId: string, chatId: string): Promise<void> {
+    // Viewing any chat in a workspace clears that workspace's unread
+    // flag. Fire-and-forget — covers the case where the user is
+    // already on the workspace route and just clicks a different chat
+    // tab, which wouldn't trigger workspace navigation.
+    void this.workspaces.markRead(workspaceId).catch((err) => {
+      console.warn('[chat] markRead failed', err);
+    });
     if (this.activeChatIdFor(workspaceId) === chatId) return;
     this._setActiveLocal(workspaceId, chatId);
     // Lazy-hydrate this chat's messages if we don't have them yet.

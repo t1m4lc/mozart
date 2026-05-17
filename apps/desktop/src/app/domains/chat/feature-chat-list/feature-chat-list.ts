@@ -115,12 +115,7 @@ function bucketFor(createdAt: number, now: number): Bucket {
                 size="sm"
                 class="relative h-7 w-full justify-start gap-2 truncate px-2 text-sm font-normal text-foreground"
                 [routerLink]="['/workspaces', chat.workspaceId]"
-                routerLinkActive="bg-brand/15 text-foreground
-                                  before:absolute before:left-0 before:top-1
-                                  before:bottom-1 before:w-1 before:rounded-r-full
-                                  before:bg-brand
-                                  before:shadow-[0_0_10px_hsl(var(--brand)/0.7)]
-                                  [&_ng-icon]:text-brand!"
+                routerLinkActive="bg-brand/15 text-foreground before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-r-full before:bg-brand before:shadow-[0_0_10px_hsl(var(--brand)/0.7)] [&_ng-icon]:text-brand!"
               >
                 <ng-icon
                   hlm

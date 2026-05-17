@@ -5,9 +5,10 @@ import {
   output,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowDown, lucideBell } from '@ng-icons/lucide';
+import { lucideArrowDown, lucideArrowRight } from '@ng-icons/lucide';
 
 /**
  * Private to `HlmComposer`. Two absolute-positioned pill buttons that
@@ -17,8 +18,8 @@ import { lucideArrowDown, lucideBell } from '@ng-icons/lucide';
  */
 @Component({
   selector: 'composer-scroll-overlay',
-  imports: [NgIcon, HlmButtonImports, HlmTooltipImports],
-  providers: [provideIcons({ lucideArrowDown, lucideBell })],
+  imports: [NgIcon, HlmButtonImports, HlmIconImports, HlmTooltipImports],
+  providers: [provideIcons({ lucideArrowDown, lucideArrowRight })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'pointer-events-none absolute inset-x-0 -top-12 z-10' },
   template: `
@@ -41,14 +42,14 @@ import { lucideArrowDown, lucideBell } from '@ng-icons/lucide';
         <button
           hlmBtn
           variant="outline"
-          size="icon-sm"
+          size="sm"
           type="button"
-          hlmTooltip="Next unread workspace in this project"
-          aria-label="Next unread workspace in this project"
+          hlmTooltip="Next unread workspace"
+          aria-label="Next unread workspace"
           (click)="nextUnreadWorkspace.emit()"
-          class="pointer-events-auto absolute right-2 top-0 rounded-full motion-safe:transition-opacity"
+          class="pointer-events-auto absolute right-2 top-0 h-8 px-2 motion-safe:transition-opacity"
         >
-          <ng-icon hlm name="lucideBell" size="sm" />
+          <ng-icon hlm name="lucideArrowRight" size="sm" />
         </button>
       }
     </div>

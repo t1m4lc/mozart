@@ -128,43 +128,34 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         class="flex shrink-0 items-center gap-1"
         data-tauri-drag-region="false"
       >
-        @if (availableTools().length > 0 && lastUsedTool()) {
-          <app-open-in-menu
-            [tools]="availableTools()"
-            [lastUsed]="lastUsedTool()!"
-            [subtitle]="workspaceTitle()"
-            (openIn)="openIn.emit($event)"
-          />
-        }
-
-        <button
-          hlmBtn
-          variant="ghost"
-          size="sm"
-          type="button"
-          class="h-7 px-2 text-xs font-normal text-muted-foreground"
-          hlmTooltip="Commit changes"
-          position="bottom"
-          (click)="commit.emit()"
-        >
-          <ng-icon hlm name="lucideGitCommitVertical" size="xs" />
-          <span>Commit</span>
-        </button>
-
-        @if (githubConnected()) {
+        <!-- Action buttons (Commit / Open in IDE) only render once
+             the workspace identity has resolved. Empty title is the
+             proxy for "data not ready yet". Create PR + Run live on
+             the right-aside header now, so they're not duplicated
+             here. -->
+        @if (workspaceTitle()) {
           <button
             hlmBtn
             variant="ghost"
             size="sm"
             type="button"
             class="h-7 px-2 text-xs font-normal text-muted-foreground"
-            hlmTooltip="Open a pull request"
+            hlmTooltip="Commit changes"
             position="bottom"
-            (click)="createPr.emit()"
+            (click)="commit.emit()"
           >
-            <ng-icon hlm name="lucideGitPullRequest" size="xs" />
-            <span>PR</span>
+            <ng-icon hlm name="lucideGitCommitVertical" size="xs" />
+            <span>Commit</span>
           </button>
+
+          @if (availableTools().length > 0 && lastUsedTool()) {
+            <app-open-in-menu
+              [tools]="availableTools()"
+              [lastUsed]="lastUsedTool()!"
+              [subtitle]="workspaceTitle()"
+              (openIn)="openIn.emit($event)"
+            />
+          }
         }
 
         <button

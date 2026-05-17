@@ -22,6 +22,11 @@ pub struct ChangedFile {
     /// `"added" | "modified" | "deleted"`. Untracked files surface as
     /// "added" so the dialog presents them uniformly.
     pub status: String,
+    /// `true` when the file has changes in git's index — derived from
+    /// the X byte of `git status --porcelain=v1`. The Changes pane in
+    /// the right aside splits on this: staged files surface in a
+    /// separate group from unstaged worktree changes.
+    pub staged: bool,
 }
 
 pub async fn list_changed_files(worktree: &Path) -> Result<Vec<ChangedFile>, AppError> {
@@ -91,6 +96,7 @@ fn parse_porcelain(stdout: &str) -> Vec<ChangedFile> {
         let xy = &record[..2];
         let path = record[3..].to_string();
         let status = classify(xy);
+        let staged = is_staged(xy);
         // Renames also emit the old path; consume + drop.
         if xy.starts_with('R') || xy.starts_with('C') {
             let _ = iter.next();
@@ -99,11 +105,20 @@ fn parse_porcelain(stdout: &str) -> Vec<ChangedFile> {
             out.push(ChangedFile {
                 path: path.replace('\\', "/"),
                 status: s.into(),
+                staged,
             });
         }
     }
     out.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
     out
+}
+
+/// X byte of the porcelain pair represents the staged state. Any
+/// non-space, non-`?` value means the file has changes in the index.
+/// `??` (untracked) is unstaged by definition.
+fn is_staged(xy: &str) -> bool {
+    let x = xy.as_bytes().first().copied().unwrap_or(b' ');
+    x != b' ' && x != b'?'
 }
 
 fn classify(xy: &str) -> Option<&'static str> {

@@ -1,5 +1,4 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMinus, lucideSquare, lucideX } from '@ng-icons/lucide';
@@ -7,52 +6,45 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
 
 @Component({
   selector: 'app-non-mac-window-controls',
-  imports: [NgIcon, HlmButtonImports, HlmIconImports],
+  imports: [NgIcon, HlmIconImports],
   providers: [provideIcons({ lucideSquare, lucideMinus, lucideX })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'inline-flex items-center' },
   template: `
-    <!-- Windows / Linux: Chrome-style ghost buttons. -->
+    <!-- Windows / Linux: VS Code-style compact controls. Smaller hit
+         targets than Chrome, sharp (not rounded), close goes red on
+         hover. -->
     <span
-      class="inline-flex items-center gap-0.5"
+      class="inline-flex items-center"
       data-tauri-drag-region="false"
       aria-label="Window controls"
     >
       <button
-        hlmBtn
-        variant="ghost"
-        size="icon-xs"
         type="button"
-        class="text-muted-foreground hover:text-foreground rounded-full"
+        class="inline-flex h-7 w-10 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Minimize"
         data-tauri-drag-region="false"
         (click)="minimize()"
       >
-        <ng-icon hlm name="lucideMinus" size="sm" class="translate-y-0.5" />
+        <ng-icon hlm name="lucideMinus" size="xs" />
       </button>
       <button
-        hlmBtn
-        variant="ghost"
-        size="icon-xs"
         type="button"
-        class="text-muted-foreground hover:text-foreground rounded-full"
+        class="inline-flex h-7 w-10 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Maximize"
         data-tauri-drag-region="false"
         (click)="toggleMaximize()"
       >
-        <ng-icon hlm name="lucideSquare" size="sm" />
+        <ng-icon hlm name="lucideSquare" size="xs" />
       </button>
       <button
-        hlmBtn
-        variant="ghost"
-        size="icon-xs"
         type="button"
-        class="text-muted-foreground hover:text-foreground rounded-full"
+        class="inline-flex h-7 w-10 items-center justify-center text-muted-foreground hover:bg-red-600 hover:text-white"
         aria-label="Close"
         data-tauri-drag-region="false"
         (click)="close()"
       >
-        <ng-icon hlm name="lucideX" size="sm" />
+        <ng-icon hlm name="lucideX" size="xs" />
       </button>
     </span>
   `,

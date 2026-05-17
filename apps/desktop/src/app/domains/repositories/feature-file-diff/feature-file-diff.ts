@@ -42,7 +42,7 @@ function isMarkdownPath(path: string | null): boolean {
   template: `
     @if (showTabs()) {
       <div
-        class="border-sidebar-border bg-sidebar flex h-8 shrink-0 items-center gap-1 border-b px-2"
+        class="border-sidebar-border  flex h-8 shrink-0 items-center gap-1 border-b px-2"
       >
         <span
           class="text-muted-foreground min-w-0 flex-1 truncate text-[11px] font-medium"
@@ -202,10 +202,7 @@ export class FeatureFileDiff {
     }
   }
 
-  private async fetchPreview(
-    workspaceId: string,
-    path: string,
-  ): Promise<void> {
+  private async fetchPreview(workspaceId: string, path: string): Promise<void> {
     const myId = ++this.previewFetchId;
     this.previewLoading.set(true);
     this.previewError.set(null);

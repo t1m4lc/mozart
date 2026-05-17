@@ -1376,6 +1376,13 @@ export type ChangedFile = {
    * "added" so the dialog presents them uniformly.
    */
   status: string;
+  /**
+   * `true` when the file has changes in git's index — derived from
+   * the X byte of `git status --porcelain=v1`. The Changes pane in
+   * the right aside splits on this: staged files surface in a
+   * separate group from unstaged worktree changes.
+   */
+  staged: boolean;
 };
 export type Chat = {
   chat_id: string;

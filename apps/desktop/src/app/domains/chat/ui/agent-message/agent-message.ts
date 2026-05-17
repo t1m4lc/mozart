@@ -16,7 +16,7 @@ import type { Message } from '../../data/message.model';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <article class="flex max-w-[85%] flex-col gap-2">
+    <article class="flex w-full flex-col gap-2">
       @if (message().turnState; as ts) {
         <hlm-turn-container
           [state]="ts"

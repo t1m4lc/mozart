@@ -43,11 +43,13 @@ import { MessageList } from '../ui/message-list/message-list';
       }
     </div>
 
-    <div class="relative px-4 pb-4 pt-2" data-tour="composer-mode">
+    <div class="relative px-4 pb-3 pt-0" data-tour="composer-mode">
       <!-- Soft fade where the scrolling content meets the composer.
-           One absolute layer, pointer-events-none. -->
+           One absolute layer, pointer-events-none. Tight: 4px gradient
+           so content disappears behind the composer's top edge instead
+           of leaving a visible gap. -->
       <div
-        class="pointer-events-none absolute inset-x-0 -top-6 h-6 bg-gradient-to-t from-background to-transparent dark:from-background"
+        class="pointer-events-none absolute inset-x-0 -top-4 h-4 bg-gradient-to-t from-background to-transparent dark:from-background"
         aria-hidden="true"
       ></div>
       <hlm-composer

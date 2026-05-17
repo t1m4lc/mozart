@@ -84,6 +84,13 @@ export class NotificationService {
     }
   }
 
+  /** Play the chime only — no desktop notification, no permission
+   *  prompt. Used by the Settings "test sound" button so the user can
+   *  audit volume without firing a fake message-end. */
+  playSound(): void {
+    this._playSound();
+  }
+
   // Audio API is browser-native — no heavy import — so this stays in
   // the sync half of the service.
   private _playSound(): void {
