@@ -25,7 +25,7 @@ export type WorkspaceTab = ChatTab | FileTab;
  *  at this count. File tabs do not consume this budget. */
 export const CHAT_TAB_CAP = 4;
 
-/** Maximum file tabs per workspace. v0.0.1 ships with cap = 1 :
+/** Maximum file tabs per workspace. v0.1.0-beta.1 ships with cap = 1 :
  *  opening a file replaces the previous file tab. Less DOM, less
  *  memory, and a clearer mental model — the workspace shows ONE
  *  diff at a time alongside the chats. Raise the cap when a future

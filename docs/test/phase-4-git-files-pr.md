@@ -330,13 +330,13 @@ just-in-time GitHub connect flow.
 
 ---
 
-### Scenario : Terminal and Run tabs render placeholder copy in v0.0.1
+### Scenario : Terminal and Run tabs render placeholder copy in v0.1.0-beta.1
 
 **Priority** : COULD
 
 **Preconditions** :
 - A workspace open. Phase 4d (Terminal) and Phase 4e (Run) have NOT
-  shipped (current v0.0.1 state).
+  shipped (current v0.1.0-beta.1 state).
 
 **Steps** :
 1. Click the Terminal tab.
@@ -434,7 +434,7 @@ just-in-time GitHub connect flow.
   entries appear with muted opacity (~50 %).
 - Step 4 : the toggle returns to eye-off ; gitignored entries hide.
 - Step 5 : after returning, the toggle has reset to the default
-  (eye-off) — no DB persistence in v0.0.1.
+  (eye-off) — no DB persistence in v0.1.0-beta.1.
 
 **Edge cases** :
 - No `.gitignore` in the project → all files visible regardless of

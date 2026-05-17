@@ -25,7 +25,7 @@ export interface RepositoriesAdapter {
    * twice for the same workspace replaces the previous subscription on
    * the Rust side.
    *
-   * v0.0.1 emits a single "changed" ping per debounced window; the
+   * v0.1.0-beta.1 emits a single "changed" ping per debounced window; the
    * caller re-fetches the tree via `listTree` on each ping.
    */
   watchTree(

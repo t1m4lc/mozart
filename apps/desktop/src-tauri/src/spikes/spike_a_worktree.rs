@@ -1,6 +1,6 @@
 //! Spike A — `git worktree add` cross-platform.
 //!
-//! Validates: PLAN-v0.0.1.md L406 — "Works on Win/Mac/Linux from `Command::new("git")`".
+//! Validates: plan-v0.1.0-beta.1.md L406 — "Works on Win/Mac/Linux from `Command::new("git")`".
 //!
 //! Run with:
 //!   cargo test --tests --ignored -- spike_a --nocapture

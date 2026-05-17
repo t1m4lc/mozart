@@ -315,6 +315,6 @@ Domain placement (Mozart architecture): a new `domains/project-specs/` with the 
 - Should `archived` specs be hidden by default in any future UI?
 - Should the parser support nested folders inside `epics/`, `stories/`, etc., for organization, or stay flat?
 
-## Recommended v0.0.1 scope
+## Recommended v0.1.0-beta.1 scope
 
 Slices 1–6: convention, parser, scanner, index, graph builder, validation. No backlog UI, no orchestration, no drag-to-Start, no spec-to-task. The deliverable is: "Mozart parses `.mozart/specs/` and builds a usable index."

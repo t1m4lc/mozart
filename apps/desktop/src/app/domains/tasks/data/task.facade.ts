@@ -3,7 +3,7 @@ import type { Task } from './task.model';
 import { TaskStore } from './task.store';
 import { TASKS_ADAPTER } from './tasks.adapter';
 
-// Public API of the `tasks` domain. Data-only in v0.0.1 — no UI feature
+// Public API of the `tasks` domain. Data-only in v0.1.0-beta.1 — no UI feature
 // imports this directly. WorkspacesFacade injects it during hydration
 // to resolve `workspace.task_id -> task.repo_id -> workspace.projectId`.
 @Injectable({ providedIn: 'root' })

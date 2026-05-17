@@ -8,7 +8,7 @@
 -- `chats.last_read_message_id` = drives sidebar bold-on-unread.
 --
 -- Also backfills `messages.mode` `'normal'` → `'agent'` so the new vocabulary
--- holds end-to-end. New rows under v0.0.1 onward write only the new values.
+-- holds end-to-end. New rows under v0.1.0-beta.1 onward write only the new values.
 
 ALTER TABLE chats ADD COLUMN mode   TEXT NOT NULL DEFAULT 'agent';
 ALTER TABLE chats ADD COLUMN effort TEXT NOT NULL DEFAULT 'medium';

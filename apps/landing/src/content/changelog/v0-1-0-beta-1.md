@@ -1,10 +1,10 @@
 ---
-version: '0.0.1'
+version: '0.1.0-beta.1'
 date: 2026-05-16
-title: First public preview
+title: First private beta
 ---
 
-This is the first public preview of Mozart. Expect rough edges; we are sharing early so we can shape the product with the developers who will actually use it.
+This is the first non-public beta release of Mozart (`v0.1.0-beta.1`). The first public release is reserved for `v0.1.0`. Expect rough edges; we are sharing early so we can shape the product with the developers who will actually use it.
 
 ### Added
 

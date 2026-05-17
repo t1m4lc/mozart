@@ -116,7 +116,7 @@ export class WorkspacesFacade {
     this.uiState.setActiveWorkspace(id);
   }
 
-  // ---- v0.0.1 wiring -------------------------------------------------
+  // ---- v0.1.0-beta.1 wiring -------------------------------------------------
 
   // Hydrate from Tauri. Loads tasks-for-each-project first so the
   // workspace -> project join is resolvable client-side, then loads
@@ -163,7 +163,7 @@ export class WorkspacesFacade {
   //      an immediate skeleton.
   //   3. Resolve a base branch (prefer 'main', else first available).
   //   4. Call Tauri create_workspace. taskText defaults to 'none' in
-  //      v0.0.1 — Step 4 will let the user set a real prompt via the
+  //      v0.1.0-beta.1 — Step 4 will let the user set a real prompt via the
   //      chat composer.
   //   5. Swap the ghost for the real workspace DTO.
   //   6. On any failure: drop the ghost and rethrow for the caller to

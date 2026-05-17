@@ -5,7 +5,7 @@
 //! GitHub tokens). The session is serialized as a single JSON string —
 //! one keyring entry per (service, account) pair.
 //!
-//! Pivot context (v0.0.1) : Phase 5 originally targeted `tauri-plugin-
+//! Pivot context (v0.1.0-beta.1) : Phase 5 originally targeted `tauri-plugin-
 //! stronghold` but the plugin's IPC bridge on Linux leaves snapshot
 //! writes uncommitted (temp file never renamed to final). Using the
 //! `keyring` crate matches `plan.md`'s "system keyring" decision and

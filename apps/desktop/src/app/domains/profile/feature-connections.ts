@@ -9,7 +9,7 @@ import type { ConfirmDisconnectContext } from './ui-confirm-disconnect-dialog';
 import { UiConnectionCard } from './ui-connection-card';
 import { UiGithubCard } from './ui-github-card';
 
-// Composes the `/settings` connection list. v0.0.1 ships one live card
+// Composes the `/settings` connection list. v0.1.0-beta.1 ships one live card
 // (Anthropic) and a disabled placeholder (GitHub). v0.1.0 turns the
 // placeholder into a real integration.
 @Component({

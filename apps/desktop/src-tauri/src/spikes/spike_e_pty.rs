@@ -1,11 +1,11 @@
 //! Spike E — `portable-pty` + `claude --version`.
 //!
-//! Validates: PLAN-v0.0.1.md L410 — "Spawn claude auth in PTY, capture
+//! Validates: plan-v0.1.0-beta.1.md L410 — "Spawn claude auth in PTY, capture
 //! OAuth URL output, open in browser, detect successful auth on completion".
 //!
 //! We do NOT actually run `claude auth login` (would prompt browser/OAuth).
 //! Proving PTY can spawn `claude` and capture its output is enough for
-//! v0.0.1 viability — the OAuth flow detection lives in Step 1.4's
+//! v0.1.0-beta.1 viability — the OAuth flow detection lives in Step 1.4's
 //! claude_cli.rs/auth.rs.
 //!
 //! Run with:

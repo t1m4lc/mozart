@@ -1,5 +1,5 @@
 -- tests/fixtures/seed-shell.sql
--- Smoke fixture for the v0.0.1 shell (plan 08, atom S1.8a.5).
+-- Smoke fixture for the v0.1.0-beta.1 shell (plan 08, atom S1.8a.5).
 -- Inherited by plans 09–11. Apply AFTER migrations/001_init.sql.
 --
 -- **Idempotent (since S1.8b.4 dev-loop fix):** the DELETE block below wipes
@@ -12,7 +12,7 @@
 --
 -- Shape: 1 project · 3 tasks (2 active + 1 archived) · 4 workspaces
 -- (statuses: ready, running, error, done). Each workspace gets a paired
--- threads row (1:1 in v0.0.1) so `start_agent_run` can resolve the thread.
+-- threads row (1:1 in v0.1.0-beta.1) so `start_agent_run` can resolve the thread.
 --
 -- ⚠ Caveat for end-to-end streaming smoke tests: the seeded `worktree_path`
 -- values do NOT exist on disk; `start_agent_run` will fail when it tries to
@@ -104,7 +104,7 @@ VALUES ('ws-archived-1', 'task-archived-1',
         'agent/wip-arch1', 'main', 'done', 1714000100000, 0);
 
 -- ---------------------------------------------------------------------------
--- threads (1:1 with workspaces in v0.0.1, required by start_agent_run)
+-- threads (1:1 with workspaces in v0.1.0-beta.1, required by start_agent_run)
 -- ---------------------------------------------------------------------------
 INSERT INTO threads (thread_id, workspace_id, created_at)
 VALUES ('thread-ready-1',    'ws-ready-1',    1715000111000);

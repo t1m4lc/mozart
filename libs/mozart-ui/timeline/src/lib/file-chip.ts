@@ -16,7 +16,7 @@ export type FileChipVariant = 'read' | 'edit' | 'create' | 'delete';
 // `delete` strikes through the path name.
 //
 // Click emits the raw path string. Host (AgentMessage) decides where
-// it goes — copy to clipboard in v0.0.1, route to a diff aside once
+// it goes — copy to clipboard in v0.1.0-beta.1, route to a diff aside once
 // that lands.
 
 @Component({

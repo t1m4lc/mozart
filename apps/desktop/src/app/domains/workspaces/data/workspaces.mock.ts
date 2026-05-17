@@ -1,6 +1,6 @@
 import type { Workspace } from './workspace.model';
 
-// Test/Storybook seed. v0.0.1 hydrates from Tauri at boot, so this
+// Test/Storybook seed. v0.1.0-beta.1 hydrates from Tauri at boot, so this
 // fixture is no longer wired into the store's initial state — it stays
 // around so component tests can opt in without a Tauri runtime.
 export const WORKSPACES_MOCK: Workspace[] = [

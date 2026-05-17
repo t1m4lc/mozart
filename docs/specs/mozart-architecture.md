@@ -3,14 +3,14 @@
 This document specifies the architecture of the Mozart desktop app across three
 milestones:
 
-- **v0.0.1** — Minimal viable loop (ship in days)
+- **v0.1.0-beta.1** — Minimal viable loop (ship in days)
 - **v0.1.0** — Guided coding flow (ship in weeks)
 - **v1.0.0** — Multi-agent coordination cockpit (ship in months)
 
 The architecture is DDD-style (vertical domain slicing + horizontal layers),
 inspired by `angular-architects/flights42`. Each version adds domains and
 features on top of the previous one **without restructuring the foundation**.
-The v1.0.0 vision drives every v0.0.1 and v0.1.0 decision — early choices are
+The v1.0.0 vision drives every v0.1.0-beta.1 and v0.1.0 decision — early choices are
 made so that the future is purely additive.
 
 ---
@@ -35,7 +35,7 @@ The central object is not a chat — it's a **task** that may spawn one or more
 Plan → Split → Run → Observe → Compare → Review → Merge
 ```
 
-In v0.0.1 we ship the bottom of the chain (1 workspace, 1 chat, 1 run).
+In v0.1.0-beta.1 we ship the bottom of the chain (1 workspace, 1 chat, 1 run).
 In v0.1.0 we add the guided flow (Mozart Core, skills, context).
 In v1.0.0 we ship the full chain (N parallel workspaces per task, review, merge).
 
@@ -89,13 +89,13 @@ doesn't descend from this prefix.
 
 # Anticipating future versions
 
-The architecture intentionally over-prepares v0.0.1 in five places to make
+The architecture intentionally over-prepares v0.1.0-beta.1 in five places to make
 v0.1.0 and v1.0.0 purely additive migrations. These are the decisions that
 prevent breaking changes later.
 
-## 1. Task entity exists from v0.0.1 (invisible)
+## 1. Task entity exists from v0.1.0-beta.1 (invisible)
 
-In v0.0.1 the relationship is `1 Task = 1 Workspace = 1 Chat = N Runs`.
+In v0.1.0-beta.1 the relationship is `1 Task = 1 Workspace = 1 Chat = N Runs`.
 
 The user only sees Workspaces. But the `tasks` table and a minimal `tasks/`
 domain (data layer only) are in place. This unlocks:
@@ -109,8 +109,8 @@ domain (data layer only) are in place. This unlocks:
 
 | Route               | Since      | Purpose                                 |
 | ------------------- | ---------- | --------------------------------------- |
-| `/workspaces/:id`   | v0.0.1     | Workspace view (chat + diff + terminal) |
-| `/settings/*`       | v0.0.1     | Settings shell                          |
+| `/workspaces/:id`   | v0.1.0-beta.1     | Workspace view (chat + diff + terminal) |
+| `/settings/*`       | v0.1.0-beta.1     | Settings shell                          |
 | `/tasks`            | **v1.0.0** | Task list                               |
 | `/tasks/:id`        | **v1.0.0** | Task detail with N workspaces           |
 | `/tasks/:id/review` | **v1.0.0** | Compare candidates                      |
@@ -118,9 +118,9 @@ domain (data layer only) are in place. This unlocks:
 The `/workspaces/:id` URL stays stable forever. Adding `/tasks/:id` later is
 purely additive.
 
-## 3. Chat 1:1 with Workspace in v0.0.1, relaxes to 1:N in v0.1.0
+## 3. Chat 1:1 with Workspace in v0.1.0-beta.1, relaxes to 1:N in v0.1.0
 
-In v0.0.1, the `threads` table has an implicit unicity per workspace (1 chat
+In v0.1.0-beta.1, the `threads` table has an implicit unicity per workspace (1 chat
 per workspace). The frontend reflects this with
 `chat.facade.loadForWorkspace(id)`.
 
@@ -221,7 +221,7 @@ Imports across domains use `import { … } from '@mozart/<domain>';`.
 ### Why navigate by workspaces, not tasks?
 
 Tasks are the **user's intention**. Workspaces are **where execution
-happens**. In v0.0.1 and v0.1.0 the relationship is 1:1 so navigation by
+happens**. In v0.1.0-beta.1 and v0.1.0 the relationship is 1:1 so navigation by
 workspaces feels natural. In v1.0.0 a task may spawn N workspaces, so tasks
 get their own URL space — without disturbing the workspace URLs.
 
@@ -231,7 +231,7 @@ get their own URL space — without disturbing the workspace URLs.
 | **Task**      | Work intention (may spawn N workspaces in v1.0.0)         | **v1.0.0 only**                    | `/tasks/:id` in v1.0.0  |
 | **Workspace** | Execution sandbox (git worktree + branch + chat)          | Always                             | `/workspaces/:id`       |
 | **Candidate** | A workspace's solution viewed from the task's perspective | **v1.0.0 only**                    | derived view            |
-| **Chat**      | Conversation inside a workspace                           | Always (1 in v0.0.1, N in v0.1.0+) | tab inside workspace    |
+| **Chat**      | Conversation inside a workspace                           | Always (1 in v0.1.0-beta.1, N in v0.1.0+) | tab inside workspace    |
 
 ---
 
@@ -320,7 +320,7 @@ apps/desktop/src/app/
 │   ├── app-shell.ts
 │   ├── shell-sidebar.ts
 │   ├── shell-content.ts
-│   └── shell-aside.ts                  ← empty structure for v0.0.1
+│   └── shell-aside.ts                  ← empty structure for v0.1.0-beta.1
 │
 ├── pages/
 │   ├── workspace.page.ts
@@ -486,7 +486,7 @@ export class WorkspaceFacade {
   private readonly worktree = inject(WORKTREE_ADAPTER);
 
   /**
-   * Creates a Task + Workspace pair. In v0.0.1 this is 1:1.
+   * Creates a Task + Workspace pair. In v0.1.0-beta.1 this is 1:1.
    * In v1.0.0, a Task can spawn N Workspaces via the same flow.
    */
   async createForPrompt(input: { projectId: string; prompt: string }) {
@@ -503,7 +503,7 @@ export class WorkspaceFacade {
 }
 ```
 
-The facade creates Task + Workspace atomically. In v0.0.1 every Task has
+The facade creates Task + Workspace atomically. In v0.1.0-beta.1 every Task has
 exactly one Workspace. The pattern doesn't change in v1.0.0 — the facade just
 gets a `createSecondCandidate(taskId)` method that adds another Workspace to
 an existing Task.
@@ -545,12 +545,12 @@ export const WORKTREE_ADAPTER = new InjectionToken<WorktreeAdapter>('WORKTREE_AD
 
 No other file in the app references `worktree_path` or git plumbing.
 
-## Scaffolding prompt for v0.0.1
+## Scaffolding prompt for v0.1.0-beta.1
 
 Paste this into Claude Code at the repo root to generate the empty scaffold:
 
 ````
-Scaffold Mozart v0.0.1 as an Angular 20 standalone components project
+Scaffold Mozart v0.1.0-beta.1 as an Angular 20 standalone components project
 inside `apps/desktop/src/app/`.
 
 Conventions for every component file:
@@ -678,7 +678,7 @@ CRITICAL constraints to bake in from day one:
 - UI labels and templates NEVER use the word "worktree". Use "workspace",
   "branch", "run", "candidate", "review", "merge" instead.
 - The `WorkspaceFacade.createForPrompt(...)` creates a Task AND a Workspace
-  together. Tasks are 1:1 with workspaces in v0.0.1 but the schema is ready
+  together. Tasks are 1:1 with workspaces in v0.1.0-beta.1 but the schema is ready
   for 1:N in v1.0.0.
 
 For the `llm.adapter.ts`, analyze the existing Tauri code in the codebase
@@ -697,7 +697,7 @@ plus the working LLM adapter.
 
 ## Scope additions
 
-Everything from v0.0.1, plus:
+Everything from v0.1.0-beta.1, plus:
 
 - **Mozart Core Plugin** — auto-workspace flow, task detection, next-step
   suggestions, hash reference resolver
@@ -843,9 +843,9 @@ export const sheriffConfig: SheriffConfig = {
 No cross-domain exceptions. Every cross-domain composition goes through
 `shell/` or `pages/`.
 
-## Migration v0.0.1 → v0.1.0
+## Migration v0.1.0-beta.1 → v0.1.0
 
-The v0.0.1 structure is **forward compatible**. Migration is purely additive:
+The v0.1.0-beta.1 structure is **forward compatible**. Migration is purely additive:
 
 1. **Promote single-file folders back to folders** when adding sub-components
 2. **Add new domains** as siblings under `domains/`
@@ -856,7 +856,7 @@ The v0.0.1 structure is **forward compatible**. Migration is purely additive:
    pages from multiple domains
 7. **Relax `threads` table unicity** to allow N chats per workspace
 
-No file from v0.0.1 needs to move or be renamed.
+No file from v0.1.0-beta.1 needs to move or be renamed.
 
 ---
 
@@ -1034,7 +1034,7 @@ domains/
 ```
 pages/
 ├── home.page.ts                  (from v0.1.0)
-├── workspace.page.ts             (unchanged since v0.0.1)
+├── workspace.page.ts             (unchanged since v0.1.0-beta.1)
 ├── task.page.ts                  ← NEW : /tasks/:id
 ├── task-review.page.ts           ← NEW : /tasks/:id/review
 ├── task-merge.page.ts            ← NEW : /tasks/:id/merge
@@ -1048,7 +1048,7 @@ pages/
 ```
 /                      → redirect to /workspaces
 /workspaces            → workspace list
-/workspaces/:id        → workspace page (unchanged since v0.0.1)
+/workspaces/:id        → workspace page (unchanged since v0.1.0-beta.1)
 /tasks                 → NEW: task list
 /tasks/:id             → NEW: task detail with N workspace cards
 /tasks/:id/review      → NEW: cross-candidate review
@@ -1057,7 +1057,7 @@ pages/
 /plugins               → NEW: plugin marketplace
 ```
 
-The `/workspaces/:id` URL has been stable since v0.0.1. Tasks get their own
+The `/workspaces/:id` URL has been stable since v0.1.0-beta.1. Tasks get their own
 URL space only when they become user-facing.
 
 ## Migration v0.1.0 → v1.0.0
@@ -1125,15 +1125,15 @@ new concept and earns a new name.
 ## Why workspaces drive navigation, not tasks (until v1.0.0)
 
 Workspaces are where execution happens. Tasks are work intentions, useful
-for the orchestrator but transparent to the user in v0.0.1 and v0.1.0. URL
+for the orchestrator but transparent to the user in v0.1.0-beta.1 and v0.1.0. URL
 navigation follows the user's mental model: "I'm working in this workspace."
 When tasks become first-class in v1.0.0 (1 task → N workspaces), they get
 their own URL space — but the workspace URL stays stable.
 
-## Why a tiny `tasks/` domain in v0.0.1 instead of folding into `workspaces/`
+## Why a tiny `tasks/` domain in v0.1.0-beta.1 instead of folding into `workspaces/`
 
 The SQL schema already has a `tasks` table. The table is the integration
-contract between v0.0.1 SQL and v1.0.0 features. Having a thin `tasks/`
+contract between v0.1.0-beta.1 SQL and v1.0.0 features. Having a thin `tasks/`
 domain with `data/` only:
 
 - Mirrors the SQL → less mental gymnastics
@@ -1166,7 +1166,7 @@ worktrees, snapshot-based candidates, etc.).
 API keys are an implementation detail. Users think in terms of "I'm
 connected to Claude" and "I'm connected to GitHub." The Connections pattern
 surfaces this mental model and is extensible — each new integration adds a
-card. In v0.0.1 the Connect button opens a paste-key dialog; later it can
+card. In v0.1.0-beta.1 the Connect button opens a paste-key dialog; later it can
 become OAuth.
 
 ## Why `pages/` and not `views/` or `routes/`
@@ -1221,7 +1221,7 @@ Folding them into `tasks/` would create a megadomain. Folding them into
 
 # Appendix C — Strategic summary
 
-**Mozart v0.0.1**:
+**Mozart v0.1.0-beta.1**:
 Minimal loop — ship the core hypothesis (project + workspace + chat + stream).
 Anticipate the future by keeping Task in the schema, worktree paths
 centralized, and UI vocabulary clean.
@@ -1238,7 +1238,7 @@ agents, business templates. This is the strategic destination.
 
 Across all three versions, the URL structure, vocabulary, and filesystem
 conventions are stable. Migrations are additive. The Tauri layer and SQL
-schema set up in v0.0.1 carry the product all the way to v1.0.0.
+schema set up in v0.1.0-beta.1 carry the product all the way to v1.0.0.
 
 ---
 

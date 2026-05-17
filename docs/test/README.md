@@ -1,7 +1,7 @@
 # Mozart — Functional test scenarios
 
 This directory holds **user-facing behavior contracts** extracted
-from Phases 1-6 of the v0.0.1 MVP. They are the source of truth for
+from Phases 1-6 of the v0.1.0-beta.1 MVP. They are the source of truth for
 Phase 8 (end-to-end test automation).
 
 ## Format

@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.0.1"
+version = "0.1.0-beta.1"
 description = "Mozart desktop"
 authors = ["Timothy Alcaide"]
 license = "MIT"
@@ -32,7 +32,7 @@ tauri-plugin-log = "2"
 # and exposed to the JS layer via `dialog:allow-open` in
 # `capabilities/default.json`. We deliberately do NOT pull
 # `dialog:default` (it would also enable save / save-as which we don't
-# need in v0.0.1).
+# need in v0.1.0-beta.1).
 tauri-plugin-dialog = "2"
 
 # Desktop notifications — Phase 3a wires a "message_end" notification

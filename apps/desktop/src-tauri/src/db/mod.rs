@@ -77,10 +77,10 @@ fn apply_pragmas(conn: &Connection) -> Result<(), AppError> {
     Ok(())
 }
 
-/// v0.0.1 migration runner: if `schema_version` table doesn't exist, run 001.
-/// v0.0.2+ will iterate over numbered files and track applied versions.
+/// v0.1.0-beta.1 migration runner: if `schema_version` table doesn't exist, run 001.
+/// v0.1.0+ will iterate over numbered files and track applied versions.
 ///
-/// In v0.0.1 the schema is still settling (Step 3 added `name`, `pinned`,
+/// In v0.1.0-beta.1 the schema is still settling (Step 3 added `name`, `pinned`,
 /// `unread` to `workspaces` after early dev DBs were already created).
 /// We patch missing columns idempotently on every boot so existing dev
 /// installs self-heal without a manual `rm ~/.mozart`. The patch is a
@@ -107,8 +107,8 @@ fn apply_migrations(conn: &Connection) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Idempotently add v0.0.1 columns to `workspaces` if a pre-existing
-/// dev DB is missing them. Once v0.0.1 ships, this lives forever as a
+/// Idempotently add v0.1.0-beta.1 columns to `workspaces` if a pre-existing
+/// dev DB is missing them. Once v0.1.0-beta.1 ships, this lives forever as a
 /// safety net for upgraders from any 0.0.1-* dev snapshot.
 fn patch_workspaces_columns(conn: &Connection) -> Result<(), AppError> {
     let mut stmt = conn.prepare("PRAGMA table_info(workspaces)")?;

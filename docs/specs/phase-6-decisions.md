@@ -1,6 +1,6 @@
 # Phase 6 — Decisions, Q&A log, and next steps
 
-> Phase 6 (Polish + Onboarding tour) closes v0.0.1 MVP. This doc
+> Phase 6 (Polish + Onboarding tour) closes v0.1.0-beta.1 MVP. This doc
 > captures the Q&A locked at planning time, the implementation
 > outcome per atom, and the work explicitly deferred. Companion
 > documents :
@@ -105,7 +105,7 @@ desktop release.
 
 ### 1.4 Secret storage
 
-**Question** : keep keyring or migrate to Stronghold for v0.0.1 ?
+**Question** : keep keyring or migrate to Stronghold for v0.1.0-beta.1 ?
 
 **Decision** : **keep the existing OS keyring** (`keyring` crate).
 
@@ -118,7 +118,7 @@ desktop release.
 
 **Why** : working & shipped is better than re-engineering a known
 fragile boundary in MVP polish. Stronghold migration deferred ; not
-on the v0.0.1 path.
+on the v0.1.0-beta.1 path.
 
 ---
 
@@ -172,7 +172,7 @@ get lost.
 
 The audit listed nine empty/error-state items. Two shipped
 (interrupted-message recovery + offline banner). The rest are
-defensible deferrals for v0.0.1 :
+defensible deferrals for v0.1.0-beta.1 :
 
 - **Retry button on errored assistant messages** — needs a path to
   re-invoke `_runAssistantTurn` with the prior user prompt + cleanup

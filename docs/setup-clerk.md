@@ -198,7 +198,7 @@ If something fails, the apps/web `/dashboard` surfaces a
 
 Step 4 of the onboarding wizard offers to connect a GitHub account so
 Mozart can push branches and open Pull Requests on your behalf. For
-v0.0.1 this still uses a **Personal Access Token** flow under the
+v0.1.0-beta.1 this still uses a **Personal Access Token** flow under the
 hood ; the Clerk OAuth identity from sign-in is read-only and does
 not include the `repo` scope.
 

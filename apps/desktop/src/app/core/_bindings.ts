@@ -368,7 +368,7 @@ export const commands = {
    * latest run's diff is reverted; earlier-run diffs that were never
    * committed upstream stay in the worktree. With no prior run that
    * captured a checkpoint, returns `AppError::Validation` (UI shows a
-   * friendly "nothing to discard" toast). For the v0.0.1 single-decision
+   * friendly "nothing to discard" toast). For the v0.1.0-beta.1 single-decision
    * flow (one run per archive/discard cycle) this matches the user's
    * mental model.
    */
@@ -1358,7 +1358,7 @@ export type AgentRun = {
  * consumers filter by `run_id` to learn when the channel stream is
  * safe to complete (Q2 — no polling).
  *
- * This is the **only** tauri-specta event in v0.0.1. The Rust crate
+ * This is the **only** tauri-specta event in v0.1.0-beta.1. The Rust crate
  * emits via `tauri_specta::Event::emit` on the `AppHandle`; the
  * Angular `_bindings.ts` surfaces it as `events.agentRunTerminated`.
  */
@@ -1489,7 +1489,7 @@ export type FileNodeDto = {
   removed?: number | null;
 };
 /**
- * Wire event payload pushed by `watch_repository_tree`. v0.0.1 emits a
+ * Wire event payload pushed by `watch_repository_tree`. v0.1.0-beta.1 emits a
  * single variant — the front-end re-fetches on every ping.
  */
 export type FileTreeEvent = { kind: 'changed' };

@@ -23,7 +23,7 @@ export interface TabRenameEvent {
  *
  * Pure presentational: the host owns the canonical tab list + active id,
  * passes them in, and listens for user intent via outputs. No internal
- * tab state. Drag-and-drop reordering is intentionally left out of v0.0.1
+ * tab state. Drag-and-drop reordering is intentionally left out of v0.1.0-beta.1
  * (no persistence layer for tab order yet).
  */
 @Component({

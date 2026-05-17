@@ -23,7 +23,7 @@ export class ProjectsFacade {
 
   // Buffered drag-reorder: a drop fires a 250ms timer; subsequent
   // drops during the timer reset it. Only the final ordering hits
-  // Tauri. v0.0.1 has no UX for a "save indicator" yet — drops feel
+  // Tauri. v0.1.0-beta.1 has no UX for a "save indicator" yet — drops feel
   // instant.
   private reorderTimer: ReturnType<typeof setTimeout> | null = null;
 

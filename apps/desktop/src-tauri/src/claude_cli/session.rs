@@ -5,7 +5,7 @@
 //! The file's *presence* is treated as the heuristic — verifying that the
 //! session is still valid would require either parsing the (undocumented)
 //! credential schema or actually invoking `claude` to introspect, both of
-//! which are heavier than this affordance warrants in v0.0.1.
+//! which are heavier than this affordance warrants in v0.1.0-beta.1.
 //!
 //! macOS limitation: Claude Code may also keep credentials in the macOS
 //! Keychain rather than the JSON file. Mozart's heuristic returns false

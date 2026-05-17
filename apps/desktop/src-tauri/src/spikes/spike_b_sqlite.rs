@@ -1,6 +1,6 @@
 //! Spike B — SQLite WAL + small schema round-trip via rusqlite.
 //!
-//! Validates: PLAN-v0.0.1.md L407 — "D16 schema viability; migration runs;
+//! Validates: plan-v0.1.0-beta.1.md L407 — "D16 schema viability; migration runs;
 //! concurrent reads + serialized writes survive".
 //!
 //! We use rusqlite directly here (not tauri-plugin-sql) because the spike

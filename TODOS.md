@@ -12,7 +12,7 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 
 **How to apply:** When the desktop release pipeline ships (GitHub Releases or similar), edit `apps/landing/src/content/docs/getting-started.md` `### Install` section. Replace "Coming soon" with the actual install command(s). Consider also updating the homepage CTA copy if "Read the docs" becomes "Download Mozart".
 
-**Depends on:** Desktop binary distribution pipeline (not in this repo today). Not blocking for landing v0.0.1 launch.
+**Depends on:** Desktop binary distribution pipeline (not in this repo today). Not blocking for landing v0.1.0-beta.1 launch.
 
 ---
 
@@ -33,11 +33,11 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 
 ## Landing — consider a conversion path before public launch
 
-**What:** Plan §6 lists "payments, accounts, dashboards" as out of scope. Codex's outside-voice review flagged that the v0.0.1 landing has zero conversion CTAs — no waitlist, no contact form, no download CTA (the binary doesn't exist), no email capture. Strategically thin for a marketing site.
+**What:** Plan §6 lists "payments, accounts, dashboards" as out of scope. Codex's outside-voice review flagged that the v0.1.0-beta.1 landing has zero conversion CTAs — no waitlist, no contact form, no download CTA (the binary doesn't exist), no email capture. Strategically thin for a marketing site.
 
 **Why:** A marketing site without a conversion path is a brochure. If Mozart's pre-launch goal includes building an interested-user list, a waitlist or "notify me when downloads open" CTA is the cheapest way to capture intent.
 
-**How to apply:** Run `/plan-ceo-review` on the question "Should v0.0.1 landing include a conversion CTA (waitlist / contact / pre-signup)?" before the public launch decision. Eng work is small (form → email service like Loops/ConvertKit, or a Cloudflare Worker → KV store) IF the product decision says yes. **Do not build first; decide first.**
+**How to apply:** Run `/plan-ceo-review` on the question "Should v0.1.0-beta.1 landing include a conversion CTA (waitlist / contact / pre-signup)?" before the public launch decision. Eng work is small (form → email service like Loops/ConvertKit, or a Cloudflare Worker → KV store) IF the product decision says yes. **Do not build first; decide first.**
 
 **Depends on:** Product/strategy decision. Not an eng decision.
 

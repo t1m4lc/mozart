@@ -1,4 +1,4 @@
-// Public surface of the `tasks` domain. Data-only in v0.0.1 — no UI
+// Public surface of the `tasks` domain. Data-only in v0.1.0-beta.1 — no UI
 // features yet. The store is intentionally NOT re-exported.
 
 export type { Task, TaskStatus } from './data/task.model';

@@ -17,7 +17,7 @@ import { WorkspacesFacade } from '../domains/workspaces';
 // Phase 1 dashboard. Renders when no workspace is selected (`/`).
 // Welcome hero above a 3-card grid : Open project / Open GitHub
 // project / Quick start. Quick start is gated behind a "Coming soon"
-// badge for v0.0.1 (IMP-006) — the underlying dialog flow is still
+// badge for v0.1.0-beta.1 (IMP-006) — the underlying dialog flow is still
 // reachable from sidebar entry points until that path is also gated.
 @Component({
   selector: 'app-dashboard-page',

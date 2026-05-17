@@ -1,5 +1,5 @@
 //! Step 1.2 spikes — proofs-of-concept gated to test builds (not in prod binary).
-//! Each spike validates one risky assumption from PLAN-v0.0.1.md L402-410.
+//! Each spike validates one risky assumption from plan-v0.1.0-beta.1.md L402-410.
 //! Run with: `cargo test --tests --ignored -- spike_<x> --nocapture`
 
 pub mod spike_a_worktree;

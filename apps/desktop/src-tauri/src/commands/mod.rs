@@ -1,6 +1,6 @@
 //! Tauri command surface for Mozart's desktop app. Each command is
 //! `#[tauri::command] #[specta::specta]` so `bindings_export.rs` can
-//! collect them into a typed TS surface. v0.0.1 = 12 commands per the
+//! collect them into a typed TS surface. v0.1.0-beta.1 = 12 commands per the
 //! atomized plan (S1.7.1b — stubs; S1.7.3 — bodies).
 //!
 //! Field-naming contract (plan §4, D17 vocabulary): argument identifiers
@@ -942,7 +942,7 @@ async fn compute_aggregate_diff_stats(worktree_path: &str, base_branch: &str) ->
 /// latest run's diff is reverted; earlier-run diffs that were never
 /// committed upstream stay in the worktree. With no prior run that
 /// captured a checkpoint, returns `AppError::Validation` (UI shows a
-/// friendly "nothing to discard" toast). For the v0.0.1 single-decision
+/// friendly "nothing to discard" toast). For the v0.1.0-beta.1 single-decision
 /// flow (one run per archive/discard cycle) this matches the user's
 /// mental model.
 #[tauri::command]

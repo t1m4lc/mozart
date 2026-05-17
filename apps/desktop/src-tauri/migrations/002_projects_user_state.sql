@@ -1,6 +1,6 @@
 -- migrations/002_projects_user_state.sql
 -- Schema v2: persist user-state on `repos` so hide / icon / reorder
--- survive an app restart. Pre-v0.0.1 these lived only in the Angular
+-- survive an app restart. Pre-v0.1.0-beta.1 these lived only in the Angular
 -- store. Feedback policy: DB-backed state over ephemeral.
 
 ALTER TABLE repos ADD COLUMN icon TEXT;

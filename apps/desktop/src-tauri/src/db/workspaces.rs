@@ -1,4 +1,4 @@
-//! CRUD for the `workspaces` table — the busiest model in v0.0.1.
+//! CRUD for the `workspaces` table — the busiest model in v0.1.0-beta.1.
 
 use rusqlite::{params, Connection};
 

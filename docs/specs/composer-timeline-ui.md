@@ -1,6 +1,6 @@
 # Mozart — Composer & Timeline UI Specification (v2)
 
-> **Scope** : v0.0.1 MVP — companion `libs/ui` task for Phase 2
+> **Scope** : v0.1.0-beta.1 MVP — companion `libs/ui` task for Phase 2
 > (Composer surface) and Phase 3 (Timeline + scroll plumbing).
 > **Purpose** : specify the chat **Composer** (textarea + mode
 > segmented control + model + effort + send + scroll-to-bottom +

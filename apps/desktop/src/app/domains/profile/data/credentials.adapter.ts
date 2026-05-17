@@ -12,7 +12,7 @@ export interface CredentialsAdapter {
   // Heuristic probe for a `claude /login` session on this machine.
   // Returns true if Claude Code's credential file is present in the
   // user's home dir; false otherwise (including the macOS Keychain-only
-  // case, a known v0.0.1 limitation).
+  // case, a known v0.1.0-beta.1 limitation).
   hasClaudeCodeSession(): Promise<boolean>;
   // Probe `key` against Anthropic; on `connected` the backend persists it
   // to the OS keyring before resolving. On `invalid` / `network_error` the

@@ -107,7 +107,7 @@ A repository declares its Mozart-facing intent via a single folder at its root:
     decisions/
 ```
 
-For v0.0.1, only `settings.json` and `specs/` are in scope. Other artifacts (`instructions.md`, `skills/`, `templates/`, `scripts/`, `mcp.json`, `context/`) are deferred.
+For v0.1.0-beta.1, only `settings.json` and `specs/` are in scope. Other artifacts (`instructions.md`, `skills/`, `templates/`, `scripts/`, `mcp.json`, `context/`) are deferred.
 
 The folder is intentionally `.mozart/` (dotted) to keep it visually grouped with other tool config (`.vscode/`, `.github/`) and to signal "tooling-owned."
 
@@ -224,7 +224,7 @@ A simple heuristic:
 - **Kanban view** — columns such as Backlog → Ready for planning → Ready for agent → Running → Review → Merged.
 - **Drag-to-Start** — a user drags an Epic or Story onto a Start zone; Mozart kicks off a guided flow: read spec, ask clarifying questions, generate plan, split into tasks, create workspaces, assign agents, coordinate review, coordinate merge.
 
-These surfaces are deferred. v0.0.1 establishes file conventions only.
+These surfaces are deferred. v0.1.0-beta.1 establishes file conventions only.
 
 ## Future: spec-to-task and task graphs
 
@@ -249,7 +249,7 @@ A user discusses an idea with Mozart. At a moment of clarity, Mozart proposes a 
 
 This is how Mozart reduces friction between thinking and building.
 
-## Recommended v0.0.1 scope
+## Recommended v0.1.0-beta.1 scope
 
 For the first slice:
 

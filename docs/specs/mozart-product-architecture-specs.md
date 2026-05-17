@@ -791,7 +791,7 @@ Examples:
 ```text
 @apps/desktop/src/app/settings/settings.page.ts
 @libs/ui
-@docs/specs/plan-v0.0.1.md
+@docs/specs/plan-v0.1.0-beta.1.md
 @current-diff
 @terminal
 ```

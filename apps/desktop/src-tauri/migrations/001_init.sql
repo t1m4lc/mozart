@@ -1,6 +1,6 @@
 -- migrations/001_init.sql
--- Schema v1 for Mozart v0.0.1.
--- Source of truth: docs/PLAN-v0.0.1.md § Data Model (D16, lines 174-278).
+-- Schema v1 for Mozart v0.1.0-beta.1.
+-- Source of truth: docs/plan-v0.1.0-beta.1.md § Data Model (D16, lines 174-278).
 -- PRAGMAs are applied separately by db::apply_pragmas() at connection open.
 
 CREATE TABLE schema_version (version INTEGER NOT NULL);
@@ -39,7 +39,7 @@ CREATE TABLE workspaces (
 
 CREATE TABLE threads (
   thread_id    TEXT PRIMARY KEY,
-  workspace_id TEXT NOT NULL UNIQUE REFERENCES workspaces(workspace_id),  -- 1:1 in v0.0.1
+  workspace_id TEXT NOT NULL UNIQUE REFERENCES workspaces(workspace_id),  -- 1:1 in v0.1.0-beta.1
   created_at   INTEGER NOT NULL
 );
 

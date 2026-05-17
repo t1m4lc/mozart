@@ -1,6 +1,6 @@
 # Mozart — Sidebar, Dashboard & State Coherence Specification
 
-> **Scope** : v0.0.1 MVP — Phase 1 (the visible left + center
+> **Scope** : v0.1.0-beta.1 MVP — Phase 1 (the visible left + center
 > chrome of the app), with hooks for Phases 2-6.
 > **Purpose** : specify the left sidebar's structure and
 > behavior, the dashboard's three-card landing screen, the state
@@ -137,7 +137,7 @@ first workspace"_
 - **Template** : radio cards (custom dumb component, see §1.7) :
   - `Empty` (selectable) — creates a new folder with a styled
     `README.md` (project title + brief blurb) and a sensible
-    `.gitignore` (Node-default for v0.0.1).
+    `.gitignore` (Node-default for v0.1.0-beta.1).
   - `gstack (SOON)` — disabled, with the _"Coming soon"_ badge.
     When eventually enabled, will clone
     https://github.com/garrytan/gstack as the starter.
@@ -598,7 +598,7 @@ apps/desktop/src/app/shell` returns zero matches (the group
 
 1. **Active workspace at boot** : restore last-active from
    session, or always start at `/` ? Recommend : start at `/`
-   for v0.0.1 MVP (simpler), session-restore in a later phase.
+   for v0.1.0-beta.1 MVP (simpler), session-restore in a later phase.
 2. **`[+ Add a project]` button behavior** : route to `/` vs
    open dialog ? Recommend routing to `/` (preserves a single
    canonical entry point for project creation).

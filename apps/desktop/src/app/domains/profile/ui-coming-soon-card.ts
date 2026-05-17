@@ -9,7 +9,7 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGithub } from '@ng-icons/lucide';
 
-// Placeholder card for integrations that are surfaced in v0.0.1 but not
+// Placeholder card for integrations that are surfaced in v0.1.0-beta.1 but not
 // yet implemented. Visually de-emphasized (opacity-60) and labeled with
 // a "Soon" badge. No buttons, no interactive elements.
 //

@@ -230,6 +230,6 @@ Each slice is a candidate atomic task.
 - File watcher for hot-reload, or refresh-on-focus?
 - Publish a public JSON Schema URL at `mozart.build/schemas/settings.v1.json`?
 
-## Recommended v0.0.1 scope
+## Recommended v0.1.0-beta.1 scope
 
 Slices 1–5 (discovery, parsing, validation, resolution, persistence) + slice 9 (workspace snapshot). UI surface is minimal: a Config health card and source badges on settings already visible. Export action and rich editor come later.

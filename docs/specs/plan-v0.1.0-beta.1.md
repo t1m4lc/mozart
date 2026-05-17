@@ -1,9 +1,12 @@
-# Mozart — v0.0.1 MVP delivery plan
+# Mozart — v0.1.0-beta.1 MVP delivery plan
 
-This document organizes v0.0.1 (the MVP being shipped to production)
-into six prioritized **phases**. Everything described here is in
-scope for v0.0.1. Items deferred beyond v0.0.1 are listed under
-"Out of scope (post-MVP)" at the bottom.
+`v0.1.0-beta.1` is the **first non-public beta release**. `v0.1.0`
+is reserved for the first public release.
+
+This document organizes v0.1.0-beta.1 (the MVP being shipped as the
+first private beta) into six prioritized **phases**. Everything
+described here is in scope for v0.1.0-beta.1. Items deferred beyond
+v0.1.0-beta.1 are listed under "Out of scope (post-MVP)" at the bottom.
 
 Each phase is :
 
@@ -133,7 +136,7 @@ the step's UX surface :
 6. Exit plan mode, implement
 7. Run the step's Definition-of-done checks
 
-This applies to **every step** in v0.0.1 and v0.0.2 — and to every
+This applies to **every step** in v0.1.0-beta.1 and v0.1.0 — and to every
 sub-step (4a, 4b, …) when the sub-step touches a new boundary
 (adapter, DTO, primitive). The small steps are where assumptions
 silently diverge.
@@ -682,7 +685,7 @@ absolute.
 
 ---
 
-# v0.0.1 MVP — Six phases
+# v0.1.0-beta.1 MVP — Six phases
 
 The phases below are the actual delivery plan. They share a common
 methodology (Phase A code reconnaissance → Phase B plan → implement,
@@ -738,7 +741,7 @@ hidden.
    - Template (radio cards) :
      - `Empty` — creates a new folder with a styled `README.md`
        (project title + brief blurb) and a sensible `.gitignore`
-       (Node-default for v0.0.1 — detection of stack post-MVP)
+       (Node-default for v0.1.0-beta.1 — detection of stack post-MVP)
      - `gstack` (SOON, disabled in MVP) — clones
        https://github.com/garrytan/gstack as the starter, which
        includes a curated set of skills. Full integration with
@@ -895,7 +898,7 @@ CREATE TABLE projects (
   added_at INTEGER NOT NULL
 );
 
--- Tasks (already exists per plan, verify) — 1:1 with Workspace in v0.0.1
+-- Tasks (already exists per plan, verify) — 1:1 with Workspace in v0.1.0-beta.1
 CREATE TABLE tasks (
   id TEXT PRIMARY KEY,
   project_id TEXT NOT NULL REFERENCES projects(id),
@@ -988,7 +991,7 @@ max`. Tooltip _"Adjust effort"_.
 
 > **Out of MVP scope** : `/` skills and `@` context shortcuts
 > (with their chip-based attachment surface). These are deferred
-> post-MVP. The Composer in v0.0.1 is just textarea + mode +
+> post-MVP. The Composer in v0.1.0-beta.1 is just textarea + mode +
 > model + effort + send. See "Out of scope (post-MVP)" at the
 > bottom of this doc for the full deferred spec.
 
@@ -1018,7 +1021,7 @@ max`. Tooltip _"Adjust effort"_.
 
 - `chats.mode: 'agent' | 'plan' | 'ask'` (NEW column, **migration
   required**).
-- All v0.0.1 MVP chats are bound to a workspace (no standalone
+- All v0.1.0-beta.1 MVP chats are bound to a workspace (no standalone
   chats — see post-MVP scope below). Default mode = `agent`.
 - The user may switch any chat to `plan` or `ask` at any time
   via the segmented control, including between messages — mode
@@ -1054,7 +1057,7 @@ config that could be tampered with.
 ### Database migrations summary
 
 ```sql
--- v0.0.1 Phase 2 migration script
+-- v0.1.0-beta.1 Phase 2 migration script
 
 ALTER TABLE chats ADD COLUMN mode TEXT NOT NULL DEFAULT 'agent';
 ALTER TABLE chats ADD COLUMN title TEXT;                     -- generated
@@ -1062,7 +1065,7 @@ ALTER TABLE chats ADD COLUMN last_read_message_id TEXT;      -- for unread
 ```
 
 > No system workspace, no `skills` table, no `attached_skills` /
-> `attached_contexts` columns in v0.0.1 MVP. Those land post-MVP
+> `attached_contexts` columns in v0.1.0-beta.1 MVP. Those land post-MVP
 > with the chats group + shortcuts features.
 
 ### Foundational invariants
@@ -1286,8 +1289,8 @@ What's **not** in Phase 3 : file tree / diff / terminal (Phase
 
 ### Scope
 
-This phase folds the work previously documented as "v0.0.2" into
-the v0.0.1 MVP. Six sub-deliverables :
+This phase folds the work previously documented as "v0.1.0" into
+the v0.1.0-beta.1 MVP. Six sub-deliverables :
 
 **4a — Right aside tabs structure** :
 
@@ -1297,7 +1300,7 @@ the v0.0.1 MVP. Six sub-deliverables :
   `Commit` button (placeholder text, opens commit dialog in 4f)
 - Aside visible **only when a workspace is selected** (Phase 1
   rule still applies)
-- Width : fixed 320px for v0.0.1 MVP. Resizable post-MVP.
+- Width : fixed 320px for v0.1.0-beta.1 MVP. Resizable post-MVP.
 
 **4b — Files tree (Files tab)** :
 
@@ -1458,7 +1461,7 @@ verifies) :
 - `/dashboard` — visible after auth. Greeting _"Happy to see you
   again, {name}"_ + a primary button _"Launch Mozart desktop"_
   that triggers `mozart://auth?token=...` in the user's browser.
-- All other routes irrelevant for v0.0.1 MVP — keep `apps/web`
+- All other routes irrelevant for v0.1.0-beta.1 MVP — keep `apps/web`
   minimal.
 
 **Architectural placement** :
@@ -1530,7 +1533,7 @@ install git` on Debian, MSI installer link on Windows).
 3. **LLM provider setup (required, at least one)** :
    - List of supported providers (from the config, not DB) with
      status pills (`Not configured` / `Configured` / `Connected`).
-   - Claude Code is the only fully implemented one for v0.0.1
+   - Claude Code is the only fully implemented one for v0.1.0-beta.1
      MVP : the user runs `claude login` or pastes an API key as
      a fallback.
    - Other providers (OpenAI, OpenRouter, local) listed as
@@ -1622,7 +1625,7 @@ End of Phase 6, a brand-new user :
 6. Gets a desktop notification + sound when the agent finishes
    a turn on a workspace they're not currently viewing
 
-End of Phase 6 = **end of v0.0.1 MVP**.
+End of Phase 6 = **end of v0.1.0-beta.1 MVP**.
 
 ---
 
@@ -1633,7 +1636,7 @@ Mozart for production : a clean refactor + dev-tools-visible store
 (Phase 7), an e2e regression suite (Phase 8), and the production
 readiness work (Phase 9).
 
-These three phases are NOT part of v0.0.1 MVP. They run after.
+These three phases are NOT part of v0.1.0-beta.1 MVP. They run after.
 They sit before any post-production feature work (skills
 shortcuts, chats group, metrics dashboard, telemetry, etc.).
 
@@ -1911,7 +1914,7 @@ Run these greps + assertions at the end of every phase :
 
 ## Out of scope (post-MVP)
 
-The ideas below are explicitly deferred beyond v0.0.1 MVP.
+The ideas below are explicitly deferred beyond v0.1.0-beta.1 MVP.
 Captured here so we remember them when planning post-MVP work.
 
 ### Composer shortcuts (`/` skills + `@` context)
@@ -2096,4 +2099,4 @@ To explore in a dedicated design doc before any implementation.
 
 ---
 
-_End of v0.0.1 MVP plan._
+_End of v0.1.0-beta.1 MVP plan._

@@ -1,6 +1,6 @@
 //! Spike D — tauri-specta bindings round-trip.
 //!
-//! Validates: PLAN-v0.0.1.md L409 — "Rust enum + AppError → typed TS,
+//! Validates: plan-v0.1.0-beta.1.md L409 — "Rust enum + AppError → typed TS,
 //! Angular `commands.x()` returns typed `Result<T, E>`".
 //!
 //! NOTE on scope: this spike does the generation in a TEST, not in build.rs.

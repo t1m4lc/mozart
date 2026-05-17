@@ -61,7 +61,7 @@ mod tests {
     fn enqueue_and_drain_in_order() {
         let db = init_db_memory().unwrap();
         let conn = db.lock();
-        enqueue(&conn, "app_launched", r#"{"v":"0.0.1"}"#, 100).unwrap();
+        enqueue(&conn, "app_launched", r#"{"v":"0.1.0-beta.1"}"#, 100).unwrap();
         enqueue(&conn, "workspace_created", "{}", 200).unwrap();
         enqueue(&conn, "agent_run_started", "{}", 150).unwrap();
         let pending = drain_pending(&conn, 10).unwrap();

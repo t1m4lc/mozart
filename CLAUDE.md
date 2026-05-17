@@ -8,9 +8,8 @@ Read this file as behavioral rules, not project documentation.
 
 Open only the relevant section when needed:
 
-- Product plan: `docs/PLAN-v0.0.1.md`
+- Product plan: `docs/specs/plan-v0.1.0-beta.1.md` (first non-public beta; `v0.1.0` is reserved for the first public release)
 - Design: `docs/DESIGN.md`
-- Canonical model: `docs/specs/plan-v0.0.1-2.md` §3
 - Product architecture vision: `docs/specs/mozart-product-architecture-specs.md`
 
 ## Stack

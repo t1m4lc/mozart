@@ -22,7 +22,7 @@ interface State {
   projectFilter: ProjectFilter;
 }
 
-// v0.0.1: hydrated from Tauri at boot via ProjectsFacade.loadAll(). The
+// v0.1.0-beta.1: hydrated from Tauri at boot via ProjectsFacade.loadAll(). The
 // mock seed in projects.mock.ts is kept for component tests / Storybook
 // but is no longer the initial state.
 //

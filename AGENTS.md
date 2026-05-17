@@ -7,13 +7,12 @@ Read this first. Use `CLAUDE.md` for coding rules and constraints.
 
 Mozart (`mozart.build`) is a desktop manager for Claude Code CLI.
 
-Current target: v0.0.1.
+Current target: v0.1.0-beta.1 (first non-public beta release; `v0.1.0` is reserved for the first public release).
 
 ## Sources
 
-- Product plan: `docs/PLAN-v0.0.1.md`
+- Product plan: `docs/specs/plan-v0.1.0-beta.1.md`
 - Design: `docs/DESIGN.md`
-- Step plan / canonical model: `docs/specs/plan-v0.0.1-2.md`
 - Product architecture vision: `docs/specs/mozart-product-architecture-specs.md`
 - TODO: `docs/TODO.md`
 - Agent rules: `CLAUDE.md`

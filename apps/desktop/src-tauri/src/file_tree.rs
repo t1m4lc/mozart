@@ -2,7 +2,7 @@
 //! status against `base_branch`, return a nested `FileNodeDto` tree
 //! consumed by `domains/repositories/` on the Angular side.
 //!
-//! v0.0.1 scope (Phase 4b atoms C+E):
+//! v0.1.0-beta.1 scope (Phase 4b atoms C+E):
 //! - `list_tree(worktree, base_branch, show_ignored)` — async, single-shot.
 //!   Walks via the `ignore` crate (honors `.gitignore` when
 //!   `show_ignored=false`). Status overlay merges
@@ -84,7 +84,7 @@ pub struct FileNodeDto {
     pub removed: Option<i64>,
 }
 
-/// Wire event payload pushed by `watch_repository_tree`. v0.0.1 emits a
+/// Wire event payload pushed by `watch_repository_tree`. v0.1.0-beta.1 emits a
 /// single variant — the front-end re-fetches on every ping.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -333,7 +333,7 @@ fn parse_diff_name_status(stdout: &str) -> Vec<(String, Status)> {
             }
             'R' | 'C' => {
                 // Renames and copies emit two paths; treat the new path
-                // as Modified (v0.0.1 simplification).
+                // as Modified (v0.1.0-beta.1 simplification).
                 let _old = iter.next();
                 if let Some(new) = iter.next() {
                     out.push((normalize(new), Status::Modified));

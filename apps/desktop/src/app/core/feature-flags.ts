@@ -6,7 +6,7 @@ import { Injectable, computed, signal } from '@angular/core';
 // toggles, remote-config kill switches) can drop in without touching
 // any consumer.
 //
-// v0.0.1 contract :
+// v0.1.0-beta.1 contract :
 //   - Flags are compile-time constants
 //   - The service exposes them as signals so templates / computeds /
 //     effects can react to them just like any other state

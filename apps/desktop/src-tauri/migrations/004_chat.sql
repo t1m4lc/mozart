@@ -1,7 +1,7 @@
 -- migrations/004_chat.sql
 -- Schema v4: persistent chats / messages / active-chat-per-workspace.
 -- Per docs/specs/plan.md §1192-1221 the workspace_id UNIQUE constraint
--- from v0.0.1 `threads` is intentionally dropped here — the tab bar
+-- from v0.1.0-beta.1 `threads` is intentionally dropped here — the tab bar
 -- already supports up to 4 chats per workspace. `threads` remains for
 -- the agent_runs.thread_id linkage; in v0.1.0 we'll either collapse
 -- them or migrate runs onto chats directly. messages.run_id is the

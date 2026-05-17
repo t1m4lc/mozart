@@ -30,7 +30,7 @@ export interface SiteConfig {
 const tally = 'https://tally.so/r/eq07lQ';
 
 export const SITE_CONFIG: SiteConfig = {
-  version: 'v0.0.1',
+  version: 'v0.1.0-beta.1',
   company: 'Mozart',
   copyrightYear: new Date().getFullYear(),
   promoStrip: {

@@ -1,6 +1,6 @@
 # Mozart — LLM Stream Parser & UI Specification (v2)
 
-> **Scope :** v0.0.1 MVP — Phase 3 (agentic streaming chat) and
+> **Scope :** v0.1.0-beta.1 MVP — Phase 3 (agentic streaming chat) and
 > its supporting parser.
 > **Purpose :** specify how the raw LLM stream is parsed into
 > structured events, and how those events are rendered into the
@@ -90,7 +90,7 @@ The UI must reflect both flows :
 
 - **Left flow** (chat panel) : a live, collapsible timeline of what
   the agent is _doing_ and _thinking_.
-- **Right flow** (file tree + diff, scheduled for v0.0.2) : the
+- **Right flow** (file tree + diff, scheduled for v0.1.0) : the
   materialization of those tool calls as actual file changes.
 
 This spec covers the **left flow** only — parser + UI rendering of
@@ -105,7 +105,7 @@ The target UX is the one Claude.ai uses in agentic conversations
 
 - A **single status header** that summarizes the turn in one
   sentence (e.g. _"Restructured documentation corrections et
-  planification v0.0.2"_).
+  planification v0.1.0"_).
 - The header summary **rotates** through 3–6 short phrases as the
   agent progresses (e.g. _"Reading parser…"_ → _"Fetching docs…"_
   → _"Editing types…"_), each line replacing the previous one in
@@ -264,7 +264,7 @@ Transition rules :
   - **File-edit items** : title + file chip with diff stats visible
     by default ; the diff body itself is collapsed behind a _"View
     diff"_ affordance. Clicking the file chip opens the full diff
-    in a side panel (placeholder in v0.0.1, full panel in v0.0.2).
+    in a side panel (placeholder in v0.1.0-beta.1, full panel in v0.1.0).
   - **File-read items** : collapsed by default ; no expand needed
     unless inspecting raw input.
   - **Shell items** : expand to show stdout / stderr.
@@ -424,9 +424,9 @@ Variants :
   line-through`.
 - **Read** : just the filename block, no stats segment.
 
-Click target : in v0.0.1 emits `(fileChipClick)` with the absolute
+Click target : in v0.1.0-beta.1 emits `(fileChipClick)` with the absolute
 path. The chat domain wires it to a placeholder (toast _"Diff
-viewer ships in v0.0.2"_ + path copied to clipboard). In v0.0.2
+viewer ships in v0.1.0"_ + path copied to clipboard). In v0.1.0
 it routes to the side diff panel.
 
 Truncate the middle of long paths if needed (e.g. `apps/desktop/
@@ -671,7 +671,7 @@ Rules :
    than any heuristic could.
 
 2. **How fine-grained should `text_delta` rendering be ?**
-   The reference UI streams character-by-character. For v0.0.1,
+   The reference UI streams character-by-character. For v0.1.0-beta.1,
    render every chunk as it arrives ; if jank appears with long
    messages, throttle to ~30 fps. Do not buffer across multiple
    events.
@@ -1342,14 +1342,14 @@ Layout : single-line, no expand, the row IS the result.
 </div>
 ```
 
-Favicon source : Google's S2 service for v0.0.1 :
+Favicon source : Google's S2 service for v0.1.0-beta.1 :
 
 ```ts
 faviconUrl = (url: string) =>
   `https://www.google.com/s2/favicons?domain=${new URL(url).hostname}&sz=32`;
 ```
 
-For v0.0.2, cache favicons via the Tauri side to avoid the
+For v0.1.0, cache favicons via the Tauri side to avoid the
 Google call. If the favicon fails to load, fall back to a 14×14
 colored square with the domain's first letter — same pattern as
 Claude.ai uses.

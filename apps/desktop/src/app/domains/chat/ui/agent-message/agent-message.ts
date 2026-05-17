@@ -46,7 +46,7 @@ export class AgentMessage {
     return msg.status === 'streaming' && !msg.content && !msg.turnState;
   });
 
-  // v0.0.1 fallback: copy the path to the clipboard. The Phase 4 diff
+  // v0.1.0-beta.1 fallback: copy the path to the clipboard. The Phase 4 diff
   // aside lands separately; once it does, this routes there instead.
   protected async onFileChipClick(event: TurnFileChipEvent): Promise<void> {
     try {

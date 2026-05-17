@@ -4,7 +4,7 @@
 
 Ce document ne sert **pas** à prioriser les features du MVP.
 
-Le scope produit de Mozart v0.0.1 est déjà décidé. L’objectif ici est différent : identifier les lieux où trouver les premiers prospects et futurs utilisateurs une fois la première release disponible.
+Le scope produit de Mozart v0.1.0-beta.1 est déjà décidé. L’objectif ici est différent : identifier les lieux où trouver les premiers prospects et futurs utilisateurs une fois la première release disponible.
 
 Le but n’est pas de vendre immédiatement Mozart, mais de préparer l’acquisition en comprenant où se trouvent les développeurs qui ont déjà le problème que Mozart adresse : gérer plusieurs agents de code, travailler avec Claude Code / Codex / autres agents, utiliser des worktrees, éviter les conflits, organiser les tâches, et travailler sur Windows, Linux ou macOS.
 
@@ -46,7 +46,7 @@ Les meilleurs prospects sont les développeurs qui ont déjà expérimenté au m
 - ils sont curieux des workflows multi-agent mais trouvent les outils actuels trop bricolés ;
 - ils aiment tester des outils développeurs en early stage.
 
-Le prospect idéal pour Mozart v0.0.1 est donc un développeur déjà avancé dans ses usages IA, pas un débutant qui découvre les agents de code.
+Le prospect idéal pour Mozart v0.1.0-beta.1 est donc un développeur déjà avancé dans ses usages IA, pas un débutant qui découvre les agents de code.
 
 ---
 
@@ -121,7 +121,7 @@ Ce lancement doit pointer vers :
 - une démo courte ;
 - des instructions d’installation ;
 - une explication simple du problème ;
-- une liste honnête des limites de la v0.0.1.
+- une liste honnête des limites de la v0.1.0-beta.1.
 
 ---
 
@@ -166,7 +166,7 @@ Priorité : moyenne maintenant, plus haute plus tard.
 
 Ce canal est très intéressant pour la vision long terme : modèles locaux, multi-provider, réduction des coûts, routing de modèles, mémoire locale.
 
-Pour Mozart v0.0.1, ce n’est pas forcément le meilleur premier canal, car le MVP est davantage centré sur l’orchestration de workflows agents que sur les modèles locaux.
+Pour Mozart v0.1.0-beta.1, ce n’est pas forcément le meilleur premier canal, car le MVP est davantage centré sur l’orchestration de workflows agents que sur les modèles locaux.
 
 À utiliser plus tard quand Mozart commencera à parler de :
 

@@ -1,6 +1,6 @@
 # Mozart — Onboarding & Authentication Specification
 
-> **Scope** : v0.0.1 MVP — Phase 5 (Auth + Foundations) and
+> **Scope** : v0.1.0-beta.1 MVP — Phase 5 (Auth + Foundations) and
 > Phase 6 (Polish + Onboarding tour). Covers the desktop app, the
 > companion `apps/web` (Clerk-hosted auth surface), the deep-link
 > handshake, the post-auth onboarding flow, and the `/tour`.
@@ -652,7 +652,7 @@ and **on-demand** — onboarding does not auto-launch it.
 - **Entry points** :
   - Settings → **Replay tour** (canonical).
   - The "Take the tour" hint in the get-started workspace's README
-    (text-level for v0.0.1 ; a clickable button is a post-MVP
+    (text-level for v0.1.0-beta.1 ; a clickable button is a post-MVP
     enhancement when Mozart's file viewer gains a markdown renderer).
 - The route **idempotently ensures** the **"Get started" project**
   + `welcome-1` workspace exist, then redirects to
@@ -815,7 +815,7 @@ time via Settings :
 - **Sign out** — clears the token, navigates to `/welcome`
 
 The Settings page itself is part of `plan.md`'s Phase 6 polish.
-Detailed spec in a future companion doc if needed ; for v0.0.1
+Detailed spec in a future companion doc if needed ; for v0.1.0-beta.1
 MVP a single-page settings view with these sections is enough.
 
 ---
@@ -860,7 +860,7 @@ apps/desktop/src/app/domains/auth` returns zero matches. The
    memory (lost if app restarts mid-flow), in Stronghold, or in
    a temp file ? Recommend Stronghold for security ; lost on
    restart is acceptable (the user re-clicks `Sign in`).
-3. **Multi-account support** in v0.0.1 — sign in with multiple
+3. **Multi-account support** in v0.1.0-beta.1 — sign in with multiple
    accounts and switch ? Recommend single account in MVP ;
    multi-account is post-MVP.
 4. **Provider `claude login` PTY UI** : embedded xterm.js or a

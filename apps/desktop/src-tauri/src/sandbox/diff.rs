@@ -5,7 +5,7 @@
 //!
 //! Locked decisions (plan §4):
 //! - **D1.5-D** — `DiffSummary` lives here, re-exported from `sandbox/mod.rs`.
-//!   No `serde`/`specta` derives in v0.0.1 (no IPC consumer yet).
+//!   No `serde`/`specta` derives in v0.1.0-beta.1 (no IPC consumer yet).
 //! - **D1.5-F** — numstat decision rule: `(_, 0)` with added > 0 → added;
 //!   `(0, _)` with deleted > 0 → deleted; both > 0 → modified; binary
 //!   `-\t-\t…` → modified; pure-rename `0\t0\t…` → modified; rows with
@@ -28,7 +28,7 @@ use crate::error::AppError;
 /// The three counts are derived from `git diff <base> HEAD --numstat` per
 /// D1.5-F. Renames default to `files_modified` (single numstat row); if
 /// `diff.renames=false` is set globally, renames degrade to one added +
-/// one deleted, accepted for v0.0.1 (plan §3).
+/// one deleted, accepted for v0.1.0-beta.1 (plan §3).
 #[derive(Debug, Clone)]
 pub struct DiffSummary {
     pub diff_text: String,
@@ -62,7 +62,7 @@ pub async fn capture_diff(
 /// counts. Renames render as one row with `{old => new}` in the path
 /// segment; we keep that path string verbatim since callers (file tree,
 /// changed-files list) work with workspace-relative paths and the
-/// rename arrow is unambiguous enough for v0.0.1 UI.
+/// rename arrow is unambiguous enough for v0.1.0-beta.1 UI.
 pub fn parse_numstat_per_file(stdout: &str) -> HashMap<String, (i64, i64)> {
     let mut out: HashMap<String, (i64, i64)> = HashMap::new();
     for line in stdout.lines() {

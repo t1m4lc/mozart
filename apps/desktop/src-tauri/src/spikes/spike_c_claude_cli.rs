@@ -1,6 +1,6 @@
 //! Spike C — Claude CLI subprocess streaming.
 //!
-//! Validates: PLAN-v0.0.1.md L408 — "Spawn `claude` with prompt, parse
+//! Validates: plan-v0.1.0-beta.1.md L408 — "Spawn `claude` with prompt, parse
 //! stdout in real time, surface tokens in Tauri Channel within 200ms of
 //! CLI emitting them".
 //!

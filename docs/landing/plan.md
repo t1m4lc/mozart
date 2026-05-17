@@ -976,7 +976,7 @@ Create one probe file: apps/landing/src/content/changelog/phase9-probe.md with v
 "0.0.0", date 2026-05-16, title "Layout probe — Phase 9". Phase 10 will replace.
 
 Do NOT:
-- author the real v0.0.1 changelog — that's Phase 10
+- author the real v0.1.0-beta.1 changelog — that's Phase 10
 - touch docs or blog
 - add a per-entry comment/reaction system
 - modify libs/ui/**
@@ -1038,7 +1038,7 @@ Body (markdown):
 - Under "Added": bullet a handful of capabilities derived ONLY from what's actually
   in the repo today (Tasks, Workspaces, Agent Runs, Plans, Reviews, Changes). Do
   not invent features.
-- Under "Changed": empty for v0.0.1 (or omit entirely if empty looks awkward).
+- Under "Changed": empty for v0.1.0-beta.1 (or omit entirely if empty looks awkward).
 - Under "Known limitations": be honest — preview release, no public download yet,
   cloud companion not available.
 - No "Removed" section.
@@ -1058,7 +1058,7 @@ Do NOT:
 At the end, report:
 - files changed
 - commands run
-- validation result (build + /changelog renders v0.0.1)
+- validation result (build + /changelog renders v0.1.0-beta.1)
 - next phase to run
 ```
 
@@ -1066,7 +1066,7 @@ At the end, report:
 
 - [ ] `v0-0-1.md` exists with valid frontmatter.
 - [ ] `phaseN-probe.md` deleted.
-- [ ] `/changelog` renders v0.0.1 with the three (or two) section headings.
+- [ ] `/changelog` renders v0.1.0-beta.1 with the three (or two) section headings.
 - [ ] No invented capabilities.
 
 #### Validation command

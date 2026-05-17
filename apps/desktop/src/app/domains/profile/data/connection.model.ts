@@ -1,4 +1,4 @@
-// Connection models for the Anthropic (Claude) provider. v0.0.1 has a
+// Connection models for the Anthropic (Claude) provider. v0.1.0-beta.1 has a
 // single provider; v0.1.0 will fan out to OpenAI / OpenRouter / Local.
 
 export type ConnectionProvider = 'claude';

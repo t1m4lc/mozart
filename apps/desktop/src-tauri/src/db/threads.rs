@@ -1,4 +1,4 @@
-//! CRUD for the `threads` table — 1:1 with workspaces in v0.0.1.
+//! CRUD for the `threads` table — 1:1 with workspaces in v0.1.0-beta.1.
 
 use rusqlite::{params, Connection};
 

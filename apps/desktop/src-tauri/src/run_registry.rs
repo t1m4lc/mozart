@@ -1,7 +1,7 @@
 //! In-memory map of live `RunHandle`s keyed by `run_id`. Used by the
 //! `stop_agent_run` command to find the supervisor for a running agent
 //! and call `.cancel()`. Stale entries are harmless (cancel on a finished
-//! handle is a no-op); v0.0.1 deliberately does not evict on supervisor
+//! handle is a no-op); v0.1.0-beta.1 deliberately does not evict on supervisor
 //! completion (plan §3 non-goal).
 
 use std::collections::HashMap;

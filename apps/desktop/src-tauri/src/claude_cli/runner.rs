@@ -18,7 +18,7 @@
 //!   `cargo test --tests` belt-and-brace this.
 //! - **D1.4-E** — cancel uses `Child::start_kill` (SIGKILL on Unix per
 //!   tokio) plus `kill_on_drop(true)`. Final status is `stopped`.
-//! - **D1.4-F** — one INSERT per parsed event; no batching in v0.0.1.
+//! - **D1.4-F** — one INSERT per parsed event; no batching in v0.1.0-beta.1.
 //! - **D1.4-G** — each stderr line round-trips as `StreamEvent::Error`
 //!   plus an `agent_events` row (`event_type='error'`); the **last**
 //!   non-empty stderr line is buffered for `agent_runs.error_message`

@@ -111,7 +111,7 @@ plumbing already exercised in Phase 2.
 
 ---
 
-### Scenario : File-chip click copies path to clipboard (v0.0.1)
+### Scenario : File-chip click copies path to clipboard (v0.1.0-beta.1)
 
 **Priority** : COULD
 
@@ -128,7 +128,7 @@ plumbing already exercised in Phase 2.
 
 **Edge cases** :
 - Clipboard write fails (permissions) → toast "Could not copy path".
-- v0.0.2 wires the same click to route the right-aside diff panel
+- v0.1.0 wires the same click to route the right-aside diff panel
   ; the toast goes away.
 
 ---
@@ -195,7 +195,7 @@ becomes load-bearing.)
 - Graceful shutdown (window close) finishes the in-flight write and
   may leave the message in `done` or `stopped` — out of scope here.
 - The user can re-send the prompt from the composer ; no special
-  "retry" UI is provided in v0.0.1.
+  "retry" UI is provided in v0.1.0-beta.1.
 
 ---
 
