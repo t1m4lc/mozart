@@ -11,8 +11,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
 import { injectSeo } from '../shell/seo';
-import { TocHeading, extractHeadings } from '../shell/toc';
-import { TocComponent } from '../shell/toc.component';
+import { TocHeading, extractHeadings } from './docs/_layout/toc';
+import { TocComponent } from './docs/_layout/toc.component';
 import {
   DocsAttributes,
   groupDocsEntries,
