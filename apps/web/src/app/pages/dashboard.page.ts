@@ -17,9 +17,6 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
   template: `
     <app-ui-auth-card>
       <span card-title>Welcome back, {{ firstName() }}</span>
-      <span card-subtitle>
-        Launch Mozart on your computer to continue.
-      </span>
       <app-feature-launch-mozart />
     </app-ui-auth-card>
   `,

@@ -113,12 +113,6 @@ type LaunchState =
         }
         @case ('unreachable') {
           <div class="flex flex-col items-center gap-3">
-            <div
-              class="bg-destructive/10 text-destructive ring-destructive/30 flex size-14 items-center justify-center rounded-full ring-1"
-              aria-label="Mozart isn't responding"
-            >
-              <ng-icon name="lucideTriangleAlert" size="lg" />
-            </div>
             <p hlmP class="text-center text-sm">
               Mozart desktop isn't responding. If you restarted it
               recently, open Mozart and click <strong>Sign in</strong>
