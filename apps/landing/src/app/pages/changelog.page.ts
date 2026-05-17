@@ -3,12 +3,10 @@ import {
   Component,
   computed,
   effect,
-  inject,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { injectContentFiles } from '@analogjs/content';
-import { filter, map } from 'rxjs/operators';
+import { injectCurrentPath } from '../shell/current-path';
 import { injectSeo } from '../shell/seo';
 import {
   ChangelogAttributes,
@@ -43,25 +41,14 @@ import { ChangelogEntryShellComponent } from './changelog/_layout/changelog-entr
   `,
 })
 export default class ChangelogLayoutPage {
-  private readonly router = inject(Router);
+  private readonly path = injectCurrentPath();
   private readonly seo = injectSeo();
   private readonly entries = injectContentFiles<ChangelogAttributes>((f) =>
     isChangelogFile(f.filename),
   ).map(toChangelogEntry);
 
-  private readonly url = toSignal(
-    this.router.events.pipe(
-      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-      map((e) => e.urlAfterRedirects),
-    ),
-    { initialValue: this.router.url },
-  );
-
   protected readonly currentDetail = computed(() => {
-    const url = (this.url() ?? '')
-      .split('?')[0]
-      .split('#')[0]
-      .replace(/\/$/, '');
+    const url = this.path();
     if (!url.startsWith('/changelog/')) return null;
     const slug = url.slice('/changelog/'.length);
     if (!slug) return null;

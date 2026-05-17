@@ -4,12 +4,10 @@ import {
   Component,
   computed,
   effect,
-  inject,
   signal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { filter, map } from 'rxjs/operators';
+import { RouterOutlet } from '@angular/router';
+import { injectCurrentPath } from '../shell/current-path';
 import { injectSeo } from '../shell/seo';
 import { TocHeading, extractHeadings } from './docs/_layout/toc';
 import { TocComponent } from './docs/_layout/toc.component';
@@ -62,7 +60,7 @@ import { DocsShellComponent } from './docs/_layout/docs-shell.component';
   `,
 })
 export default class DocsLayoutPage {
-  private readonly router = inject(Router);
+  private readonly path = injectCurrentPath();
   private readonly seo = injectSeo();
   private readonly filesMap = injectContentFilesMap();
   private readonly entries = injectContentFiles<DocsAttributes>((f) =>
@@ -73,19 +71,8 @@ export default class DocsLayoutPage {
     (g) => g.entries,
   );
 
-  private readonly url = toSignal(
-    this.router.events.pipe(
-      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
-      map((e) => e.urlAfterRedirects),
-    ),
-    { initialValue: this.router.url },
-  );
-
   protected readonly currentDetail = computed(() => {
-    const url = (this.url() ?? '')
-      .split('?')[0]
-      .split('#')[0]
-      .replace(/\/$/, '');
+    const url = this.path();
     if (!url.startsWith('/docs/')) return null;
     const slug = url.slice('/docs/'.length);
     if (!slug) return null;
