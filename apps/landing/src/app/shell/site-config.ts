@@ -35,7 +35,7 @@ export const SITE_CONFIG: SiteConfig = {
   promoStrip: {
     enabled: true,
     label: 'Join the Mozart community on Discord →',
-    href: '/community',
+    href: 'https://x.com',
   },
   downloads: {
     mac: '/download/mac',

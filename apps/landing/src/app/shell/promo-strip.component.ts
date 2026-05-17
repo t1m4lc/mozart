@@ -9,6 +9,7 @@ import { SITE_CONFIG } from './site-config';
     @if (config.enabled && !!config.href) {
       <a
         [href]="config.href"
+        target="_blank"
         class="bg-foreground text-background hover:bg-foreground/90 block px-4 py-2 text-center text-sm transition-colors"
       >
         {{ config.label }}
