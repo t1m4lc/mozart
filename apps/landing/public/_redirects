@@ -1,9 +1,15 @@
+# Canonical host — www always redirects to apex.
+# The ! forces the redirect even when a matching file exists in the deploy.
+https://www.mozart.build/* https://mozart.build/:splat 301!
+
 # Vanity short URLs for social profiles.
-
 # Keep destinations in sync with apps/landing/src/app/shell/site-config.ts (SITE_CONFIG.social).
-
 # 302 keeps the door open to rotate destinations (e.g. Discord invite refresh) without 301 caching.
-
 /discord https://discord.gg/BpTAyFf7qk 302
 /github https://github.com/t1m4lc 302
 /linkedin https://www.linkedin.com/in/timothyalcaide/ 302
+
+# Reserve /download/* for future desktop binaries.
+# Rewrites to the placeholder page (200 = serve /download without changing the URL).
+# Remove this rule when real per-platform routes exist.
+/download/*  /download  200

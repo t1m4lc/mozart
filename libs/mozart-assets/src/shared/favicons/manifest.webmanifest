@@ -1,0 +1,22 @@
+{
+  "name": "Mozart",
+  "short_name": "Mozart",
+  "description": "Conduct your AI coding agents",
+  "start_url": "/",
+  "display": "minimal-ui",
+  "background_color": "#0c0c0e",
+  "theme_color": "#0c0c0e",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "16x16 32x32 48x48",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

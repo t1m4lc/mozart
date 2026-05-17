@@ -10,6 +10,7 @@ export interface SeoMeta {
   readonly path: string;
   readonly type?: 'website' | 'article';
   readonly image?: string;
+  readonly noindex?: boolean;
 }
 
 export function injectSeo(): (meta: SeoMeta) => void {
@@ -34,6 +35,9 @@ export function injectSeo(): (meta: SeoMeta) => void {
     upsertMeta(meta, { name: 'twitter:image', content: image });
     upsertMeta(meta, { name: 'twitter:card', content: 'summary_large_image' });
     setCanonical(document, url);
+    if (entry.noindex) {
+      upsertMeta(meta, { name: 'robots', content: 'noindex,nofollow' });
+    }
   };
 }
 
