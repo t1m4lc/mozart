@@ -10,22 +10,21 @@ import { HlmButtonImports } from '@mozart/ui/button';
   template: `
     <section class="flex flex-col gap-6 p-8 max-w-2xl">
       <header class="flex flex-col gap-1">
-        <h1 class="text-xl font-semibold">libs/ui sandbox</h1>
+        <h1 class="text-xl font-semibold">Mozart UI sandbox</h1>
         <p class="text-sm text-muted-foreground">
-          Dev-only routes to dogfood the design-system components in
+          Dogfooding surface for the design-system components in
           isolation. Pick a component below.
+        </p>
+        <p class="text-xs text-muted-foreground">
+          Timeline sandbox still lives in apps/desktop at /sandbox/timeline
+          until llm-model is promoted to a lib.
         </p>
       </header>
 
       <ul class="flex flex-col gap-2">
         <li>
-          <a hlmBtn variant="outline" routerLink="/sandbox/composer">
+          <a hlmBtn variant="outline" routerLink="/composer">
             HlmComposer →
-          </a>
-        </li>
-        <li>
-          <a hlmBtn variant="outline" routerLink="/sandbox/timeline">
-            TurnContainer (timeline) →
           </a>
         </li>
       </ul>

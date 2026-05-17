@@ -19,6 +19,7 @@ Monorepo Nx + pnpm.
 
 - `apps/desktop/`: Angular 21 + Tauri v2 desktop app
 - `apps/web/`: Angular 21 future cloud UI
+- `apps/sandbox/`: Angular 21 dev-only dogfooding app for libs/mozart-ui components
 - `libs/ui/`: vendored Spartan NG / Hlm primitives (read-only — see Design system)
 - `libs/mozart-ui/`: Mozart-specific reusable UI components (composer, timeline, highlight-overlay)
 - `libs/shared-util-theme/`: ThemeService + provideTheme()

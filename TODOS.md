@@ -43,26 +43,14 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 
 ---
 
-## libs/mozart-ui — rename `hlm-*` selectors to `mz-*`
+## apps/sandbox — finish migrating timeline.sandbox (blocked on llm-model lib)
 
-**What:** Components moved into `libs/mozart-ui` (composer, highlight-overlay, timeline) inherit Spartan's `hlm-` Angular selector prefix and `prefix: "hlm"` in their `project.json`. Rename selectors to `mz-*` (e.g. `<hlm-composer>` → `<mz-composer>`) and update `prefix: "mz"`.
+**What:** `apps/sandbox` now hosts the composer + index pages. `timeline.sandbox.ts` still lives in `apps/desktop/src/app/pages/sandbox/` because it depends on the `llm-model` domain (3 JSON fixtures + `applyAgentEvent` reducer + `AgentEvent` type), and apps can't import from apps under the module-boundary rule.
 
-**Why:** `hlm` is Spartan NG's brand prefix. Once a component is Mozart-owned, the `hlm-` selector in templates lies about ownership and makes future cleanup harder. The composer lib also has pre-existing inconsistency (`hlm-composer` next to `composer-scroll-overlay`).
+**Why:** One sandbox host is cleaner than two. Today `pnpm nx serve sandbox` shows composer-only; you have to `pnpm nx serve desktop` and navigate to `/sandbox/timeline` to dogfood the agent timeline.
 
-**How to apply:** After the mozart-ui refactor (PR 1) is merged and soaked. Sequence: update `prefix` in each moved `project.json`, rename `selector` in every component decorator under `libs/mozart-ui/*/src/lib/`, sweep all template usages across `apps/desktop` (~71 files), `apps/landing`, `apps/web`, run `nx affected -t lint build`, manual smoke composer/timeline/onboarding tour.
+**How to apply:** Promote the relevant slice of `apps/desktop/src/app/domains/llm-model/data/stream/` (event.types, reducer, fixtures) into a new lib — e.g. `libs/llm-model-stream` tagged `scope:shared` (pure functions + types, no UI). Then move `timeline.sandbox.ts` into `apps/sandbox/src/app/`, add it to `apps/sandbox/src/app/app.routes.ts`, delete `apps/desktop/src/app/pages/sandbox/`, delete `apps/desktop/src/app/sandbox.routes.{ts,prod.ts}`, and drop the `fileReplacements` entry for sandbox from `apps/desktop/project.json`.
 
-**Depends on:** PR 1 (libs/mozart-ui extraction) merged.
-
----
-
-## apps/sandbox — extract dev-only sandbox into a dedicated Nx app
-
-**What:** Today the sandbox lives at `apps/desktop/src/app/pages/sandbox/` (3 routes: `/sandbox`, `/sandbox/composer`, `/sandbox/timeline`). After PR 1 these routes are wrapped in `isDevMode()` and dropped from prod chunks. The follow-up is to extract them into a dedicated `apps/sandbox` Nx app with its own routes and Tauri/web build target.
-
-**Why:** Physical separation removes any risk of sandbox code leaking into production. Gives a place to grow component dogfooding (Storybook-style) without contaminating the product app's bundle or route surface.
-
-**How to apply:** `nx g @nx/angular:app sandbox`. Move the 3 files in. Decide deployment target (web-only via `apps/web`-style config, or Tauri). Update CLAUDE.md to point readers at it for component dogfooding. Remove the env-guarded routes from `apps/desktop/src/app/app.routes.ts`.
-
-**Depends on:** PR 1 (libs/mozart-ui extraction) merged, since composer/timeline live there.
+**Depends on:** llm-model stream slice extracted to a lib. Real domain work — likely a half-day on its own.
 
 ---

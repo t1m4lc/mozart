@@ -5,19 +5,12 @@ import { Route } from '@angular/router';
 // never reach the production bundle. No auth guard — sandbox is a
 // dogfooding surface that must be reachable from a plain browser
 // without going through the Tauri wrapper.
+//
+// composer + sandbox index moved to apps/sandbox. Only the timeline
+// sandbox stays here because it depends on the llm-model domain
+// (reducer + JSON fixtures) which is not yet a lib. Once llm-model
+// is promoted, timeline.sandbox moves to apps/sandbox too.
 export const sandboxRoutes: Route[] = [
-  {
-    path: 'sandbox',
-    loadComponent: () =>
-      import('./pages/sandbox/sandbox.page').then((m) => m.SandboxPage),
-  },
-  {
-    path: 'sandbox/composer',
-    loadComponent: () =>
-      import('./pages/sandbox/composer.sandbox').then(
-        (m) => m.ComposerSandbox,
-      ),
-  },
   {
     path: 'sandbox/timeline',
     loadComponent: () =>

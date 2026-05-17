@@ -23,7 +23,7 @@ interface SandboxLogEntry {
     <section class="flex flex-col gap-4 max-w-3xl mx-auto p-6 h-full">
       <header class="flex items-center justify-between">
         <h1 class="text-lg font-semibold">HlmComposer sandbox</h1>
-        <a hlmBtn variant="ghost" size="sm" routerLink="/sandbox"> ← Back </a>
+        <a hlmBtn variant="ghost" size="sm" routerLink="/"> ← Back </a>
       </header>
 
       <div class="flex items-center gap-2 text-sm">

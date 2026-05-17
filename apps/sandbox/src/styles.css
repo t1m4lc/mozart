@@ -1,0 +1,15 @@
+@import "tailwindcss" source("../src/app/");
+
+@import "../../../libs/shared-styles-theme/src/index.css";
+
+/* nx-tailwind-sources:start */
+@source "../../../libs/mozart-ui/composer";
+@source "../../../libs/ui/badge";
+@source "../../../libs/ui/button";
+@source "../../../libs/ui/dropdown-menu";
+@source "../../../libs/ui/icon";
+@source "../../../libs/ui/select";
+@source "../../../libs/ui/textarea";
+@source "../../../libs/ui/tooltip";
+@source "../../../libs/ui/utils";
+/* nx-tailwind-sources:end */
