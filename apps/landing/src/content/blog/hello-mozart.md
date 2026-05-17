@@ -1,11 +1,11 @@
 ---
-title: "Hello, Mozart"
-description: "Why we are building a manager for AI coding agents."
+title: 'Hello, Mozart'
+description: 'Why we are building a manager for AI coding agents.'
 date: 2026-05-16
 authors:
   - name: Timothy Alcaide
-    role: Co-founder
-    avatar: /authors/timothy.svg
+    role: Founder
+    avatar: /authors/timothy.webp
 ---
 
 Mozart is a new desktop app for working with AI coding agents. The team has been building it quietly for a few months and today we are starting to share what we have in mind.
