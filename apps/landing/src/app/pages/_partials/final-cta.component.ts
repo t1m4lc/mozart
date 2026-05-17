@@ -19,21 +19,15 @@ import { lucideArrowDown, lucideDownload } from '@ng-icons/lucide';
         >
           Local-first. Free forever.
         </p>
-        <p class="text-muted-foreground mt-8 max-w-md text-sm leading-relaxed">
-          <span class="text-foreground font-semibold italic">Agents</span> play
-          the notes.
-          <span class="text-foreground font-semibold italic">Mozart</span> helps
-          you conduct the masterpiece.
-        </p>
 
         <a
           hlmBtn
           variant="default"
           size="lg"
           routerLink="/download"
-          class="group mt-2 max-w-xs justify-between"
+          class="group mt-2 max-w-3xs justify-between"
         >
-          Download Mozart
+          Download now
           <span class="relative h-4 w-4">
             <ng-icon
               hlm
@@ -49,8 +43,8 @@ import { lucideArrowDown, lucideDownload } from '@ng-icons/lucide';
             />
           </span>
         </a>
-        <p class="text-muted-foreground/80 mt-2 max-w-md text-sm">
-          The Mozart team uses Mozart desktop to build Mozart.
+        <p class="text-muted-foreground/80  max-w-md text-xs">
+          We build Mozart with Mozart.
         </p>
       </div>
     </section>

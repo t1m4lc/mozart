@@ -13,13 +13,7 @@ import { PRIMARY_NAV } from './nav-model';
 
 @Component({
   selector: 'app-site-header',
-  imports: [
-    HlmButton,
-    HlmIconImports,
-    NgIcon,
-    RouterLink,
-    RouterLinkActive,
-  ],
+  imports: [HlmButton, HlmIconImports, NgIcon, RouterLink, RouterLinkActive],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
     provideIcons({ lucideArrowDown, lucideDownload, lucideMenu, lucideX }),
@@ -35,16 +29,19 @@ import { PRIMARY_NAV } from './nav-model';
       <a
         routerLink="/"
         aria-label="Mozart home"
-        class="bg-foreground text-background flex h-10 w-10 shrink-0 items-center justify-center rounded-lg font-mono text-lg font-bold tracking-tight"
+        class="flex h-10 w-10 shrink-0 items-center justify-center"
       >
-        M
+        <img
+          src="docs/logo.svg"
+          alt="Mozart"
+          width="40"
+          height="40"
+          class="h-10 w-10"
+        />
       </a>
 
       <div class="flex min-w-0 items-center gap-3 md:gap-6">
-        <nav
-          aria-label="Primary"
-          class="hidden items-center gap-6 md:flex"
-        >
+        <nav aria-label="Primary" class="hidden items-center gap-6 md:flex">
           @for (link of nav; track link.href) {
             <a
               [routerLink]="link.href"
@@ -60,23 +57,9 @@ import { PRIMARY_NAV } from './nav-model';
             variant="default"
             size="default"
             routerLink="/download"
-            class="group justify-between"
+            class="justify-between"
           >
             Download
-            <span class="relative h-4 w-4">
-              <ng-icon
-                hlm
-                size="sm"
-                name="lucideDownload"
-                class="absolute inset-0 transition-all duration-200 group-hover:-translate-y-2 group-hover:opacity-0"
-              />
-              <ng-icon
-                hlm
-                size="sm"
-                name="lucideArrowDown"
-                class="absolute inset-0 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
-              />
-            </span>
           </a>
         </nav>
 

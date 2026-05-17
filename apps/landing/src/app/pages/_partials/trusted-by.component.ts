@@ -16,7 +16,7 @@ const PLACEHOLDER_BRANDS = [
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <section class="mx-auto max-w-6xl px-4 py-16 md:px-8">
+    <section class="mx-auto max-w-6xl px-4 pt-16 pb-10 md:px-8">
       <p class="text-muted-foreground mb-6 w-full text-center text-sm">
         Trusted by builders at
       </p>

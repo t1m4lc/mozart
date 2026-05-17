@@ -12,17 +12,17 @@ Inspected on 2026-05-16 at `/home/timothy/accelerate_growth_with/mozart-landing/
 
 ### Tooling
 
-| Concern | Observation |
-| --- | --- |
-| Package manager | **pnpm 11.0.8** (declared in `package.json#packageManager`; lockfile at `pnpm-lock.yaml`) |
-| Workspace | `pnpm-workspace.yaml` includes `apps/*` and `packages/*` (no `libs/*` glob — `libs/**` are pulled in via `tsconfig.base.json#paths`) |
-| Nx | **22.7.1** (root `nx` + `@nx/angular`, `@nx/eslint`, `@nx/js`, `@nx/playwright`, `@nx/web`) |
-| Angular | **~21.2.0** (`@angular/*`, `@angular/build`, `@angular/cli`) |
-| AnalogJS | **Not installed.** No `@analogjs/*` packages in `package.json` or `pnpm-lock.yaml`. Will need to be added. **Pin exact versions** (no caret) — Nx 22 + Angular 21 + Analog combo isn't in Analog's own compat matrix (Nx 22 row lists Angular ^20). A stray `pnpm update` could pull a breaking minor. |
-| TypeScript | `~5.9.2` |
-| Tailwind | **v4** via `@tailwindcss/postcss` (Tailwind v4 inline-config CSS, no `tailwind.config.js`); paired with `@juristr/nx-tailwind-sync` to keep `@source` directives in each app's `styles.css` |
-| Component library | Spartan NG / Hlm under `libs/ui/<component>` (read-only per CLAUDE.md) |
-| Lint | flat-config ESLint (`eslint.config.mjs` per app) via `@nx/eslint/plugin` |
+| Concern           | Observation                                                                                                                                                                                                                                                                                            |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Package manager   | **pnpm 11.0.8** (declared in `package.json#packageManager`; lockfile at `pnpm-lock.yaml`)                                                                                                                                                                                                              |
+| Workspace         | `pnpm-workspace.yaml` includes `apps/*` and `packages/*` (no `libs/*` glob — `libs/**` are pulled in via `tsconfig.base.json#paths`)                                                                                                                                                                   |
+| Nx                | **22.7.1** (root `nx` + `@nx/angular`, `@nx/eslint`, `@nx/js`, `@nx/playwright`, `@nx/web`)                                                                                                                                                                                                            |
+| Angular           | **~21.2.0** (`@angular/*`, `@angular/build`, `@angular/cli`)                                                                                                                                                                                                                                           |
+| AnalogJS          | **Not installed.** No `@analogjs/*` packages in `package.json` or `pnpm-lock.yaml`. Will need to be added. **Pin exact versions** (no caret) — Nx 22 + Angular 21 + Analog combo isn't in Analog's own compat matrix (Nx 22 row lists Angular ^20). A stray `pnpm update` could pull a breaking minor. |
+| TypeScript        | `~5.9.2`                                                                                                                                                                                                                                                                                               |
+| Tailwind          | **v4** via `@tailwindcss/postcss` (Tailwind v4 inline-config CSS, no `tailwind.config.js`); paired with `@juristr/nx-tailwind-sync` to keep `@source` directives in each app's `styles.css`                                                                                                            |
+| Component library | Spartan NG / Hlm under `libs/ui/<component>` (read-only per CLAUDE.md)                                                                                                                                                                                                                                 |
+| Lint              | flat-config ESLint (`eslint.config.mjs` per app) via `@nx/eslint/plugin`                                                                                                                                                                                                                               |
 
 ### Apps present
 
@@ -124,7 +124,6 @@ title: Getting started
 description: Install Mozart and run your first Workspace.
 order: 1
 ---
-
 # blog/*.md
 ---
 title: Hello, Mozart
@@ -132,7 +131,6 @@ description: A short note from the team.
 date: 2026-05-16
 author: Mozart team
 ---
-
 # changelog/*.md
 ---
 version: 0.0.1
@@ -700,16 +698,21 @@ Author the five initial docs markdown files.
 
 #### Files likely to be created/modified
 
-- `apps/landing/src/content/docs/getting-started.md`
-- `apps/landing/src/content/docs/concepts.md`
-- `apps/landing/src/content/docs/workflow.md`
-- `apps/landing/src/content/docs/local-first.md`
-- `apps/landing/src/content/docs/settings.md`
+- `apps/landing/src/content/docs/introduction.md`
+- `apps/landing/src/content/docs/install.md`
+- `apps/landing/src/content/docs/first-workspace.md`
+- `apps/landing/src/content/docs/concepts/local-first.md`
+- `apps/landing/src/content/docs/concepts/workspaces-and-worktree.md`
+- `apps/landing/src/content/docs/community/we-are-mozart.md` (add discord, github with repo marketplace, repo get started...)
+
 - Delete: `apps/landing/src/content/docs/phase5-probe.md` (probe file from Phase 5)
+- add some group with soon badge
+  -- How to guide group  
+  -- Reference group
 
 #### Agent prompt
 
-```txt
+````txt
 Read docs/landing/plan.md.
 
 Execute Phase 6 only.
@@ -767,7 +770,7 @@ At the end, report:
 - commands run
 - validation result (build + the five pages render at their /docs/<slug> URLs)
 - next phase to run
-```
+````
 
 #### Acceptance criteria
 
@@ -1261,6 +1264,7 @@ grep -RIn "worktree\|branch_name\|HEAD~1\|10x\|magic engineer\|autonomous engine
 #### Objective
 
 Validate the full build pipeline AND add the test layer the plan now requires:
+
 1. ThemeService SSR regression unit test (in `libs/shared-util-theme`).
 2. E2E smoke (new `apps/landing-e2e` Playwright project).
 3. Build-time SEO assertion script (parses prerendered HTML, asserts title / description / OG / canonical / single-h1 / sitemap presence per route).
@@ -1270,7 +1274,7 @@ Validate the full build pipeline AND add the test layer the plan now requires:
 
 - `libs/shared-util-theme/src/lib/theme.service.spec.ts` (new or extended) — assert `init()` is no-op on server platform.
 - `apps/landing-e2e/` (new) — Playwright project with 1 spec covering: route smokes (all 9 routes return 200 with correct H1), theme toggle persists across reload, docs sidebar ordering 1..5.
-- `apps/landing/scripts/check-seo.mjs` (new) — small post-build script. Walks `dist/apps/landing/browser/`, asserts every prerendered HTML has unique `<title>`, `<meta description>`, og:*, canonical link, exactly one `<h1>`. Asserts `sitemap.xml` lists all known routes. Asserts `robots.txt` references sitemap. Wired as a `landing:seo-check` Nx target depending on `landing:build`.
+- `apps/landing/scripts/check-seo.mjs` (new) — small post-build script. Walks `dist/apps/landing/browser/`, asserts every prerendered HTML has unique `<title>`, `<meta description>`, og:\*, canonical link, exactly one `<h1>`. Asserts `sitemap.xml` lists all known routes. Asserts `robots.txt` references sitemap. Wired as a `landing:seo-check` Nx target depending on `landing:build`.
 - `apps/landing/project.json` — add `seo-check` target and `e2e` target (or rely on Nx Playwright auto-discovery from `apps/landing-e2e/`).
 - Small fixes to whatever the build/lint/test/seo-check surfaces.
 
@@ -1600,13 +1604,13 @@ At the end, report:
 
 ## GSTACK REVIEW REPORT
 
-| Review | Trigger | Why | Runs | Status | Findings |
-|--------|---------|-----|------|--------|----------|
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | not run (conversion-path TODO suggests offering it before launch) |
-| Codex Review | `/codex review` | Independent 2nd opinion | 1 | issues_found | 14 challenges raised; major plan rewrites applied (CI broken, Phase 2/3 swap, ThemeService refactor relocation, probes, indexing, sitemap) |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR | 13 issues found, 13 resolved into plan; 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | not run (recommended next — plan has heavy UI scope: hero, header, footer, docs sidebar, prose, theme toggle) |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | not run (n/a — this is a marketing site, not a developer-facing API/CLI) |
+| Review        | Trigger               | Why                             | Runs | Status       | Findings                                                                                                                                   |
+| ------------- | --------------------- | ------------------------------- | ---- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0    | —            | not run (conversion-path TODO suggests offering it before launch)                                                                          |
+| Codex Review  | `/codex review`       | Independent 2nd opinion         | 1    | issues_found | 14 challenges raised; major plan rewrites applied (CI broken, Phase 2/3 swap, ThemeService refactor relocation, probes, indexing, sitemap) |
+| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | CLEAR        | 13 issues found, 13 resolved into plan; 0 critical gaps                                                                                    |
+| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | not run (recommended next — plan has heavy UI scope: hero, header, footer, docs sidebar, prose, theme toggle)                              |
+| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | not run (n/a — this is a marketing site, not a developer-facing API/CLI)                                                                   |
 
 **CODEX:** Found 14 problems including the broken-CI gate (verified true at `.github/workflows/ci.yml:32-34` — `npm ci` against a pnpm-only repo) and the contradiction between Phase 3's "do not touch shared-util-theme" and its risks-section call to "guard `init()`". Cross-model agreement on all 9 prior eng-review decisions, plus 5 new findings the eng review missed.
 

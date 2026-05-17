@@ -39,7 +39,7 @@ import { NonMacWindowControls } from './non-mac-window-controls';
       class="text-muted-foreground flex items-center gap-2 text-xs font-medium"
       data-tauri-drag-region
     >
-      <img src="/mozart.svg" alt="" class="size-4" />
+      <img src="/docs/logo.svg" alt="" class="size-4" />
       <span>Mozart desktop</span>
     </span>
     @if (!isMac) {

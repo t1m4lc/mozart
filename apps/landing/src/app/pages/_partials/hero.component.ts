@@ -19,7 +19,7 @@ import {
   host: { class: 'block' },
   template: `
     <section class="mx-auto max-w-xl px-4 pt-12 sm:px-8">
-      <a
+      <!-- <a
         routerLink="/changelog"
         class="group hover:text-foreground mb-6 inline-flex items-center gap-2 text-sm transition-colors"
       >
@@ -31,30 +31,17 @@ import {
           name="lucideArrowRight"
           class="transition-transform duration-200 group-hover:translate-x-1"
         />
-      </a>
+      </a> -->
 
-      <div class="mb-6">
-        <svg
-          role="img"
-          aria-label="Mozart"
-          viewBox="0 0 255 53"
-          fill="currentColor"
-          xmlns="http://www.w3.org/2000/svg"
-          class="text-foreground block h-12 w-auto sm:h-14"
-        >
-          <path
-            d="M11 0H0v11h11zM39 0H28v11h11zM11 14H0v11h11zM25 14H14v11h11zM39 14H28v11h11zM11 28H0v11h11zM39 28H28v11h11zM11 42H0v11h11zM39 42H28v11h11zM56 0H45v11h11zM70 0H59v11h11zM84 0H73v11h11zM56 14H45v11h11zM84 14H73v11h11zM56 28H45v11h11zM84 28H73v11h11zM56 42H45v11h11zM84 42H73v11h11zM101 0H90v11h11zM115 0h-11v11h11zM129 0h-11v11h11zM129 14h-11v11h11zM115 21h-11v11h11zM101 28H90v11h11zM115 42h-11v11h11zM129 42h-11v11h11zM101 42H90v11h11zM70 42H59v11h11zM160 0h-11v11h11zM146 14h-11v11h11zM145 0h-11v11h11zM174 14h-11v11h11zM174 0h-11v11h11zM146 28h-11v11h11zM160 21h-11v11h11zM174 28h-11v11h11zM146 42h-11v11h11zM174 42h-11v11h11zM191 0h-11v11h11zM205 0h-11v11h11zM191 14h-11v11h11zM213 14h-11v11h11zM191 28h-11v11h11zM205 28h-11v11h11zM191 42h-11v11h11zM219 42h-11v11h11zM227 0h-11v11h11zM241 0h-11v11h11zM255 0h-11v11h11zM241 14h-11v11h11zM241 28h-11v11h11zM241 42h-11v11h11z"
-          />
-        </svg>
-      </div>
-
-      <h1 class="text-foreground mb-3 text-xl font-bold tracking-tight">
-        Run a team of AI coding agents on your machine.
+      <h1
+        class="text-foreground max-w-xl text-2xl font-semibold tracking-tight md:text-3xl mb-3"
+      >
+        AI Agents move fast. Mozart gives direction.
       </h1>
 
       <p class="text-muted-foreground mb-6 max-w-2xl text-sm">
-        Spin up parallel Agent Runs in isolated Workspaces. Review each diff
-        before it lands. Local-first, free forever, you stay in control.
+        Run parallel Agent Runs in isolated Workspaces. Review every diff. Ship
+        faster without losing control.
       </p>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -88,7 +88,9 @@ const TESTIMONIALS: readonly Testimonial[] = [
                   />
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1">
-                      <span class="text-foreground truncate text-sm font-medium">
+                      <span
+                        class="text-foreground truncate text-sm font-medium"
+                      >
                         {{ item.name }}
                       </span>
                       <ng-icon

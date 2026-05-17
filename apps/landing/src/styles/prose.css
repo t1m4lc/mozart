@@ -1,50 +1,52 @@
-.prose {
+.prose,
+.analog-markdown-route {
   color: hsl(var(--foreground));
   font-family: var(--font-sans);
   line-height: 1.7;
   max-width: 70ch;
 }
 
-.prose h1,
-.prose h2,
-.prose h3,
-.prose h4 {
+:where(.prose, .analog-markdown-route) h1,
+:where(.prose, .analog-markdown-route) h2,
+:where(.prose, .analog-markdown-route) h3,
+:where(.prose, .analog-markdown-route) h4 {
   color: hsl(var(--foreground));
   font-weight: 600;
   letter-spacing: -0.01em;
   line-height: 1.2;
+  scroll-margin-top: 5rem;
 }
 
-.prose h1 {
+:where(.prose, .analog-markdown-route) h1 {
   font-size: 2.25rem;
   margin-top: 0;
   margin-bottom: 1rem;
 }
 
-.prose h2 {
+:where(.prose, .analog-markdown-route) h2 {
   font-size: 1.625rem;
   margin-top: 2.5rem;
   margin-bottom: 0.75rem;
 }
 
-.prose h3 {
+:where(.prose, .analog-markdown-route) h3 {
   font-size: 1.25rem;
   margin-top: 2rem;
   margin-bottom: 0.5rem;
 }
 
-.prose h4 {
+:where(.prose, .analog-markdown-route) h4 {
   font-size: 1.05rem;
   margin-top: 1.5rem;
   margin-bottom: 0.5rem;
 }
 
-.prose p {
+:where(.prose, .analog-markdown-route) p {
   margin-top: 0;
   margin-bottom: 1rem;
 }
 
-.prose a {
+:where(.prose, .analog-markdown-route) a {
   color: hsl(var(--primary));
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -52,34 +54,34 @@
   transition: text-decoration-color 0.15s ease;
 }
 
-.prose a:hover {
+:where(.prose, .analog-markdown-route) a:hover {
   text-decoration-color: hsl(var(--primary));
 }
 
-.prose ul,
-.prose ol {
+:where(.prose, .analog-markdown-route) ul,
+:where(.prose, .analog-markdown-route) ol {
   margin-top: 0;
   margin-bottom: 1rem;
   padding-left: 1.5rem;
 }
 
-.prose ul {
+:where(.prose, .analog-markdown-route) ul {
   list-style-type: disc;
 }
 
-.prose ol {
+:where(.prose, .analog-markdown-route) ol {
   list-style-type: decimal;
 }
 
-.prose li {
+:where(.prose, .analog-markdown-route) li {
   margin-bottom: 0.375rem;
 }
 
-.prose li::marker {
+:where(.prose, .analog-markdown-route) li::marker {
   color: hsl(var(--muted-foreground));
 }
 
-.prose blockquote {
+:where(.prose, .analog-markdown-route) blockquote {
   border-left: 2px solid hsl(var(--border));
   color: hsl(var(--muted-foreground));
   font-style: italic;
@@ -87,7 +89,7 @@
   padding-left: 1rem;
 }
 
-.prose code {
+:where(.prose, .analog-markdown-route) code {
   background-color: hsl(var(--muted));
   border-radius: 0.25rem;
   color: hsl(var(--foreground));
@@ -96,7 +98,7 @@
   padding: 0.15em 0.35em;
 }
 
-.prose pre {
+:where(.prose, .analog-markdown-route) pre {
   background-color: hsl(var(--muted));
   border: 1px solid hsl(var(--border));
   border-radius: 0.5rem;
@@ -109,7 +111,7 @@
   padding: 0.9rem 1rem;
 }
 
-.prose pre code {
+:where(.prose, .analog-markdown-route) pre code {
   background-color: transparent;
   border-radius: 0;
   color: inherit;
@@ -117,13 +119,13 @@
   padding: 0;
 }
 
-.prose hr {
+:where(.prose, .analog-markdown-route) hr {
   border: 0;
   border-top: 1px solid hsl(var(--border));
   margin: 2rem 0;
 }
 
-.prose strong {
+:where(.prose, .analog-markdown-route) strong {
   color: hsl(var(--foreground));
   font-weight: 600;
 }

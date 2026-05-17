@@ -15,7 +15,7 @@ import { HlmTypographyImports } from '@mozart/ui/typography';
   template: `
     <hlm-empty class="border-none p-0">
       <hlm-empty-media>
-        <img src="/mozart.svg" alt="Mozart" class="size-16" />
+        <img src="/docs/logo.svg" alt="Mozart" class="size-16" />
       </hlm-empty-media>
 
       <hlm-empty-header>
