@@ -2,7 +2,7 @@
 import analog from '@analogjs/platform';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import tailwindcss from '@tailwindcss/vite';
-import { readdirSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { defineConfig } from 'vite';
 
@@ -27,8 +27,23 @@ const contentSlugs = (subdir: string): string[] => {
   return walk(root, '');
 };
 
+const changelogDetailSlugs = (): string[] => {
+  const root = join(__dirname, 'src/content/changelog');
+  return contentSlugs('changelog').filter((slug) => {
+    try {
+      const raw = readFileSync(join(root, `${slug}.md`), 'utf8');
+      return /^\s*detail\s*:\s*true\s*$/m.test(raw);
+    } catch {
+      return false;
+    }
+  });
+};
+
 const docsRoutes = contentSlugs('docs').map((slug) => `/docs/${slug}`);
 const blogRoutes = contentSlugs('blog').map((slug) => `/blog/${slug}`);
+const changelogRoutes = changelogDetailSlugs().map(
+  (slug) => `/changelog/${slug}`,
+);
 
 export default defineConfig(({ mode }) => ({
   root: __dirname,
@@ -50,7 +65,15 @@ export default defineConfig(({ mode }) => ({
       static: true,
       content: { highlighter: 'prism' },
       prerender: {
-        routes: ['/', '/docs', ...docsRoutes, '/blog', ...blogRoutes],
+        routes: [
+          '/',
+          '/docs',
+          ...docsRoutes,
+          '/blog',
+          ...blogRoutes,
+          '/changelog',
+          ...changelogRoutes,
+        ],
         discover: false,
       },
     }),
