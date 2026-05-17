@@ -10,7 +10,7 @@ import { FeatureWelcome } from '../domains/auth';
   selector: 'app-welcome-page',
   imports: [TopBar, FeatureWelcome],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'relative block min-h-screen w-screen bg-background' },
+  host: { class: 'relative block min-h-screen w-full bg-background' },
   template: `
     <app-top-bar class="absolute inset-x-0 top-0" />
     <app-feature-welcome />
