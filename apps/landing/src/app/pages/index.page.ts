@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { injectSeo } from '../shell/seo';
-import { FaqComponent } from './_partials/faq.component';
-import { FinalCtaComponent } from './_partials/final-cta.component';
-import { FlowComponent } from './_partials/flow.component';
-import { HeroComponent } from './_partials/hero.component';
-import { HowItWorksComponent } from './_partials/how-it-works.component';
-import { ScreenshotComponent } from './_partials/screenshot.component';
-import { TestimonialsComponent } from './_partials/testimonials.component';
-import { TrustedByComponent } from './_partials/trusted-by.component';
+import { FaqComponent } from './home/faq.component';
+import { FinalCtaComponent } from './home/final-cta.component';
+import { FlowComponent } from './home/flow.component';
+import { HeroComponent } from './home/hero.component';
+import { HowItWorksComponent } from './home/how-it-works.component';
+import { ScreenshotComponent } from './home/screenshot.component';
+import { TestimonialsComponent } from './home/testimonials.component';
+import { TrustedByComponent } from './home/trusted-by.component';
 
 @Component({
   selector: 'app-home',
