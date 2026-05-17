@@ -12,7 +12,7 @@ const STEPS: readonly Step[] = [
   },
   {
     title: 'Spin up Agent Runs.',
-    body: 'Each Agent Run gets its own isolated Workspace.',
+    body: 'Each Agent Run gets its own isolated Workspace, powered by your chosen LLM provider.',
   },
   {
     title: 'Conduct.',

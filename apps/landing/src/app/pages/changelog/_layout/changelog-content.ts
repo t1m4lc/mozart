@@ -2,7 +2,6 @@ export interface ChangelogAttributes {
   readonly version: string;
   readonly date: string;
   readonly title: string;
-  readonly detail?: boolean;
 }
 
 export interface ChangelogEntry {
@@ -11,7 +10,6 @@ export interface ChangelogEntry {
   readonly title: string;
   readonly date: string;
   readonly formattedDate: string;
-  readonly detail: boolean;
   readonly content: string;
 }
 
@@ -27,7 +25,7 @@ function formatDate(iso: string): string {
   if (Number.isNaN(date.getTime())) return iso;
   return new Intl.DateTimeFormat('en-US', {
     year: 'numeric',
-    month: 'long',
+    month: 'short',
     day: 'numeric',
   }).format(date);
 }
@@ -47,9 +45,14 @@ export function toChangelogEntry<T extends ChangelogAttributes>(file: {
     title: file.attributes.title,
     date: file.attributes.date,
     formattedDate: formatDate(file.attributes.date),
-    detail: file.attributes.detail === true,
     content: typeof file.content === 'string' ? file.content : '',
   };
+}
+
+const FRONT_MATTER_RE = /^---[\r\n]+[\s\S]*?[\r\n]+---[\r\n]*/;
+
+export function stripFrontMatter(source: string): string {
+  return source.replace(FRONT_MATTER_RE, '');
 }
 
 export function sortChangelogEntriesNewestFirst(

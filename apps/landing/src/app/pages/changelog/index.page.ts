@@ -1,17 +1,24 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { MarkdownComponent, injectContentFiles } from '@analogjs/content';
+import {
+  MarkdownComponent,
+  injectContentFiles,
+  injectContentFilesMap,
+} from '@analogjs/content';
 import { injectSeo } from '../../shell/seo';
 import {
   ChangelogAttributes,
+  ChangelogEntry,
   isChangelogFile,
   sortChangelogEntriesNewestFirst,
+  stripFrontMatter,
   toChangelogEntry,
 } from './_layout/changelog-content';
+import { ChangelogEntryShellComponent } from './_layout/changelog-entry-shell.component';
 
 @Component({
   selector: 'app-changelog-index',
-  imports: [MarkdownComponent, RouterLink],
+  imports: [ChangelogEntryShellComponent, MarkdownComponent, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="mb-16">
@@ -25,54 +32,48 @@ import {
       </p>
     </header>
 
-    @if (entries.length === 0) {
+    @if (entries().length === 0) {
       <p class="text-foreground/60">No releases yet.</p>
     } @else {
-      <ol class="border-border divide-border flex flex-col divide-y border-t border-b">
-        @for (entry of entries; track entry.slug) {
+      <ol
+        class="border-border divide-border flex flex-col divide-y border-t border-b"
+      >
+        @for (entry of entries(); track entry.slug) {
           <li class="py-12 first:pt-8 last:pb-8">
-            <header class="mb-6 flex flex-wrap items-baseline gap-x-4 gap-y-2">
+            <app-changelog-entry-shell [entry]="entry">
               <h2
+                slot="heading"
                 id="v{{ entry.version }}"
-                class="text-foreground inline-flex items-baseline gap-3 text-2xl font-semibold tracking-tight"
+                class="mb-6 text-2xl font-semibold tracking-tight sm:text-3xl"
               >
-                <span
-                  class="bg-muted border-border text-foreground rounded-sm border px-2 py-0.5 font-mono text-base tracking-wider"
-                >
-                  v{{ entry.version }}
-                </span>
-                <span>{{ entry.title }}</span>
-              </h2>
-              <time
-                [attr.datetime]="entry.date"
-                class="text-muted-foreground text-sm"
-              >
-                {{ entry.formattedDate }}
-              </time>
-              @if (entry.detail) {
                 <a
                   [routerLink]="['/changelog', entry.slug]"
-                  class="text-primary hover:underline ml-auto text-sm"
+                  class="text-foreground hover:text-primary transition-colors"
                 >
-                  Permalink →
+                  {{ entry.title }}
                 </a>
+              </h2>
+              @if (entry.content) {
+                <analog-markdown [content]="entry.content" />
               }
-            </header>
-            <analog-markdown classes="prose" [content]="entry.content" />
+            </app-changelog-entry-shell>
           </li>
         }
       </ol>
     }
   `,
 })
-export default class ChangelogIndexPage {
-  protected readonly entries = sortChangelogEntriesNewestFirst(
-    injectContentFiles<ChangelogAttributes>((f) =>
-      isChangelogFile(f.filename),
-    ).map(toChangelogEntry),
-  );
-
+export default class ChangelogIndexPage implements OnInit {
+  private readonly filesMap = injectContentFilesMap();
   private readonly seo = injectSeo();
+
+  protected readonly entries = signal<readonly ChangelogEntry[]>(
+    sortChangelogEntriesNewestFirst(
+      injectContentFiles<ChangelogAttributes>((f) =>
+        isChangelogFile(f.filename),
+      ).map(toChangelogEntry),
+    ),
+  );
 
   constructor() {
     this.seo({
@@ -81,5 +82,23 @@ export default class ChangelogIndexPage {
       path: '/changelog',
       type: 'website',
     });
+  }
+
+  async ngOnInit(): Promise<void> {
+    const loaded = await Promise.all(
+      this.entries().map(async (entry) => {
+        const key = Object.keys(this.filesMap).find((k) =>
+          k.endsWith(`/changelog/${entry.slug}.md`),
+        );
+        if (!key) return entry;
+        try {
+          const raw = await this.filesMap[key]();
+          return { ...entry, content: stripFrontMatter(raw) };
+        } catch {
+          return entry;
+        }
+      }),
+    );
+    this.entries.set(loaded);
   }
 }

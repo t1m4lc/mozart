@@ -75,8 +75,6 @@ import { ThemeToggleComponent } from './theme-toggle.component';
           </a>
         </nav>
 
-        <app-theme-toggle />
-
         <button
           type="button"
           [attr.aria-label]="menuOpen() ? 'Close menu' : 'Open menu'"

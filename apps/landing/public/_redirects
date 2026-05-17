@@ -1,0 +1,9 @@
+# Vanity short URLs for social profiles.
+
+# Keep destinations in sync with apps/landing/src/app/shell/site-config.ts (SITE_CONFIG.social).
+
+# 302 keeps the door open to rotate destinations (e.g. Discord invite refresh) without 301 caching.
+
+/discord https://discord.gg/BpTAyFf7qk 302
+/github https://github.com/t1m4lc 302
+/linkedin https://www.linkedin.com/in/timothyalcaide/ 302

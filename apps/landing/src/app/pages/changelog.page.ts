@@ -15,33 +15,27 @@ import {
   isChangelogFile,
   toChangelogEntry,
 } from './changelog/_layout/changelog-content';
+import { ChangelogEntryShellComponent } from './changelog/_layout/changelog-entry-shell.component';
 
 @Component({
   selector: 'app-changelog-layout',
-  imports: [RouterOutlet],
+  imports: [ChangelogEntryShellComponent, RouterOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col' },
   template: `
     <section
-      class="font-sans mx-auto w-full max-w-3xl px-4 py-16 sm:px-8 sm:py-24"
+      class="font-sans mx-auto w-full max-w-5xl px-4 py-16 sm:px-8 sm:py-24"
     >
       @if (currentDetail(); as entry) {
-        <article>
-          <div class="text-muted-foreground mb-3 flex items-center gap-3 text-sm">
-            <span
-              class="bg-muted border-border text-foreground inline-flex items-center rounded-sm border px-1.5 py-0.5 font-mono text-xs tracking-wider"
-            >
-              v{{ entry.version }}
-            </span>
-            <time [attr.datetime]="entry.date">{{ entry.formattedDate }}</time>
-          </div>
+        <app-changelog-entry-shell [entry]="entry">
           <h1
-            class="text-foreground mb-8 text-3xl font-semibold tracking-tight sm:text-4xl"
+            slot="heading"
+            class="text-foreground mb-6 text-3xl font-semibold tracking-tight sm:text-4xl"
           >
             {{ entry.title }}
           </h1>
           <router-outlet />
-        </article>
+        </app-changelog-entry-shell>
       } @else {
         <router-outlet />
       }

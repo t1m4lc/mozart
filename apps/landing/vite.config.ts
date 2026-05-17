@@ -4,7 +4,7 @@ import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import tailwindcss from '@tailwindcss/vite';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 const contentSlugs = (subdir: string): string[] => {
   const root = join(__dirname, 'src/content', subdir);
@@ -27,23 +27,52 @@ const contentSlugs = (subdir: string): string[] => {
   return walk(root, '');
 };
 
-const changelogDetailSlugs = (): string[] => {
-  const root = join(__dirname, 'src/content/changelog');
-  return contentSlugs('changelog').filter((slug) => {
-    try {
-      const raw = readFileSync(join(root, `${slug}.md`), 'utf8');
-      return /^\s*detail\s*:\s*true\s*$/m.test(raw);
-    } catch {
-      return false;
-    }
-  });
-};
-
 const docsRoutes = contentSlugs('docs').map((slug) => `/docs/${slug}`);
 const blogRoutes = contentSlugs('blog').map((slug) => `/blog/${slug}`);
-const changelogRoutes = changelogDetailSlugs().map(
+const changelogRoutes = contentSlugs('changelog').map(
   (slug) => `/changelog/${slug}`,
 );
+
+// Mirrors public/_redirects (Cloudflare Pages) in `vite dev` so vanity
+// URLs like /discord work at localhost too. Production is unaffected —
+// CF serves _redirects at the edge before any file is fetched.
+function devRedirectsFromCloudflareFile(): Plugin {
+  const file = join(__dirname, 'public/_redirects');
+  type Rule = { from: string; to: string; status: number };
+  const parse = (): Rule[] => {
+    let raw: string;
+    try {
+      raw = readFileSync(file, 'utf8');
+    } catch {
+      return [];
+    }
+    return raw
+      .split('\n')
+      .map((line) => line.replace(/#.*$/, '').trim())
+      .filter(Boolean)
+      .flatMap((line) => {
+        const [from, to, statusRaw] = line.split(/\s+/);
+        if (!from || !to) return [];
+        const status = Number(statusRaw) || 302;
+        return [{ from, to, status }];
+      });
+  };
+  return {
+    name: 'mozart-dev-redirects',
+    apply: 'serve',
+    configureServer(server) {
+      const rules = parse();
+      if (rules.length === 0) return;
+      server.middlewares.use((req, res, next) => {
+        const path = (req.url ?? '').split('?')[0];
+        const hit = rules.find((r) => r.from === path);
+        if (!hit) return next();
+        res.writeHead(hit.status, { Location: hit.to });
+        res.end();
+      });
+    },
+  };
+}
 
 export default defineConfig(({ mode }) => ({
   root: __dirname,
@@ -82,6 +111,7 @@ export default defineConfig(({ mode }) => ({
     }),
     nxViteTsPaths(),
     tailwindcss(),
+    devRedirectsFromCloudflareFile(),
   ],
   define: {
     'import.meta.vitest': mode !== 'production',

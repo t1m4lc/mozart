@@ -29,7 +29,7 @@ import { SITE_CONFIG } from './site-config';
                         [href]="link.href"
                         target="_blank"
                         rel="noopener noreferrer"
-                        class="text-foreground hover:text-foreground/70 text-sm transition-colors"
+                        class="capitalize text-foreground hover:text-foreground/70 text-sm transition-colors"
                       >
                         {{ link.label }}
                       </a>
@@ -38,14 +38,14 @@ import { SITE_CONFIG } from './site-config';
                         href="#"
                         aria-disabled="true"
                         tabindex="-1"
-                        class="text-muted-foreground/60 pointer-events-none cursor-not-allowed text-sm"
+                        class="capitalize text-muted-foreground/60 pointer-events-none cursor-not-allowed text-sm"
                       >
                         {{ link.label }}
                       </a>
                     } @else {
                       <a
                         [routerLink]="link.href"
-                        class="text-foreground hover:text-foreground/70 text-sm transition-colors"
+                        class="capitalize text-foreground hover:text-foreground/70 text-sm transition-colors"
                       >
                         {{ link.label }}
                       </a>

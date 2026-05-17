@@ -5,10 +5,9 @@ export interface PromoStripConfig {
 }
 
 export interface SocialConfig {
-  readonly x: string;
-  readonly youtube: string;
+  // readonly youtube: string;
+  // readonly reddit: string;
   readonly linkedin: string;
-  readonly reddit: string;
   readonly discord: string;
   readonly github: string;
 }
@@ -42,12 +41,12 @@ export const SITE_CONFIG: SiteConfig = {
     windows: '/download/windows',
     linux: '/download/linux',
   },
+  // configure link in apps/landing/public/_redirects
   social: {
-    x: 'https://x.com/mozartbuild',
-    youtube: 'https://youtube.com/@mozartbuild',
-    linkedin: 'https://linkedin.com/company/mozartbuild',
-    reddit: 'https://reddit.com/r/mozartbuild',
-    discord: 'https://discord.gg/mozart',
-    github: 'https://github.com/mozart-build/mozart',
+    // youtube: 'https://youtube.com/@mozartbuild',
+    // reddit: 'https://reddit.com/r/mozartbuild',
+    linkedin: '/linkedin',
+    discord: '/discord', // Mozart Club
+    github: '/github',
   },
 } as const;

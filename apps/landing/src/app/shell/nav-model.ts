@@ -1,3 +1,5 @@
+import { SITE_CONFIG } from './site-config';
+
 export interface NavLink {
   readonly label: string;
   readonly href: string;
@@ -39,25 +41,13 @@ export const FOOTER_NAV: readonly NavColumn[] = [
       { label: 'Terms', href: '/terms' },
     ],
   },
+
   {
     title: 'Connect',
-    links: [
-      { label: 'X', href: 'https://x.com/mozartbuild', external: true },
-      {
-        label: 'YouTube',
-        href: 'https://youtube.com/@mozartbuild',
-        external: true,
-      },
-      {
-        label: 'LinkedIn',
-        href: 'https://linkedin.com/company/mozartbuild',
-        external: true,
-      },
-      {
-        label: 'Reddit',
-        href: 'https://reddit.com/r/mozartbuild',
-        external: true,
-      },
-    ],
+    links: Object.entries(SITE_CONFIG.social).map(([label, href]) => ({
+      label,
+      href,
+      external: true,
+    })),
   },
 ] as const;
