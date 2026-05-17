@@ -25,7 +25,7 @@ import {
     FeatureOnboardingStepGithub,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex h-screen w-screen flex-col bg-background' },
+  host: { class: 'flex h-screen w-full flex-col overflow-hidden bg-background' },
   template: `
     <app-top-bar />
     <div class="flex-1 overflow-y-auto">

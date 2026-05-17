@@ -10,8 +10,7 @@ import { UiWelcomeCard } from '../ui-welcome-card';
   imports: [UiWelcomeCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class:
-      'flex min-h-screen w-full items-center justify-center bg-background',
+    class: 'flex h-full w-full items-center justify-center bg-background',
   },
   template: `
     <app-ui-welcome-card
