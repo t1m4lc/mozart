@@ -13,11 +13,9 @@ export interface SocialConfig {
 }
 
 export interface DownloadsConfig {
-  readonly mac: string;
-  readonly macIntel: string;
-  readonly windows: string;
-  readonly linux: string;
-  readonly waitlist: string;
+  /** Tally beta signup form. The dialog appends `?os=<os>` to tag the
+   *  detected platform (mac, mac-intel, windows, linux, other). */
+  readonly beta: string;
 }
 
 export interface SiteConfig {
@@ -39,12 +37,7 @@ export const SITE_CONFIG: SiteConfig = {
     href: 'https://x.com',
   },
   downloads: {
-    mac: '/download/mac',
-    macIntel: '/download/mac-intel',
-    windows: '/download/windows',
-    linux: '/download/linux',
-    waitlist:
-      'https://docs.google.com/forms/d/1jPQsC8oLNIyjHW3WOsUxK2XNm0Z-BAzdooZuMs9cbFM/edit',
+    beta: 'https://tally.so/r/eq07lQ',
   },
   // configure link in apps/landing/public/_redirects
   social: {

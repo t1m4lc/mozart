@@ -16,9 +16,7 @@ import { SITE_CONFIG } from './site-config';
 
 type Primary = {
   readonly label: string;
-  readonly hint?: string;
   readonly href: string;
-  readonly target?: '_blank';
   readonly icon: 'apple' | 'windows' | 'linux';
 };
 
@@ -29,17 +27,10 @@ type Primary = {
   providers: [provideIcons({ lucideArrowRight })],
   template: `
     <div hlmDialogHeader>
-      <h3 hlmDialogTitle>Get Mozart</h3>
+      <h3 hlmDialogTitle>Join the Mozart beta</h3>
       <p hlmDialogDescription>
-        @if (os.isMac()) {
-          Mac build is ready. Windows and Linux are next.
-        } @else if (os.isWindows()) {
-          Windows build isn't ready yet. Join the waitlist and we'll ping you.
-        } @else if (os.isLinux()) {
-          Linux build isn't ready yet. Join the waitlist and we'll ping you.
-        } @else {
-          Mac build is ready. Windows and Linux are coming soon.
-        }
+        Mozart is in early access. Tell us your platform and we'll ship you
+        the build when it's ready.
       </p>
     </div>
 
@@ -47,9 +38,9 @@ type Primary = {
       <a
         hlmBtn
         size="lg"
-        [attr.href]="primary().href"
-        [attr.target]="primary().target ?? null"
-        [attr.rel]="primary().target ? 'noopener noreferrer' : null"
+        [href]="primary().href"
+        target="_blank"
+        rel="noopener noreferrer"
         class="group w-full justify-between py-6"
       >
         <span class="flex items-center gap-2">
@@ -75,11 +66,6 @@ type Primary = {
             }
           }
           <span class="text-base">{{ primary().label }}</span>
-          @if (primary().hint) {
-            <span class="text-xs uppercase tracking-wider opacity-70">
-              {{ primary().hint }}
-            </span>
-          }
         </span>
         <kbd
           class="bg-background/20 border-foreground/20 inline-flex h-6 w-6 items-center justify-center rounded-md border font-mono text-xs font-medium"
@@ -92,12 +78,12 @@ type Primary = {
         hlmBtn
         variant="outline"
         size="lg"
-        [href]="waitlistHref"
+        [href]="secondary().href"
         target="_blank"
         rel="noopener noreferrer"
         class="group w-full justify-between py-6"
       >
-        <span class="text-base">{{ secondaryLabel() }}</span>
+        <span class="text-base">{{ secondary().label }}</span>
         <ng-icon hlm size="sm" name="lucideArrowRight" class="h-4 w-4" />
       </a>
 
@@ -105,10 +91,12 @@ type Primary = {
         <p class="text-muted-foreground text-sm">
           Mac older than November 2020?
           <a
-            [href]="downloads.macIntel"
+            [href]="buildHref('mac-intel')"
+            target="_blank"
+            rel="noopener noreferrer"
             class="text-foreground hover:underline"
           >
-            Download for Intel-based Macs
+            Join the Intel-Mac beta team
           </a>
         </p>
       }
@@ -118,59 +106,74 @@ type Primary = {
 export class DownloadDialogComponent {
   protected readonly os = inject(OsService);
   private readonly ref = inject(BrnDialogRef);
-  protected readonly downloads = SITE_CONFIG.downloads;
-  protected readonly waitlistHref = SITE_CONFIG.downloads.waitlist;
+  private readonly betaBase = SITE_CONFIG.downloads.beta;
+
+  protected buildHref(os: string): string {
+    const url = new URL(this.betaBase);
+    url.searchParams.set('os', os);
+    return url.toString();
+  }
 
   protected readonly primary = computed<Primary>(() => {
     if (this.os.isMac()) {
       return {
-        label: 'Download for Mac',
-        hint: this.os.macArch() === 'apple-silicon' ? 'Apple Silicon' : 'Mac',
-        href: this.downloads.mac,
+        label: 'Join Mac betatesteur team',
+        href: this.buildHref('mac'),
         icon: 'apple',
       };
     }
     if (this.os.isWindows()) {
       return {
-        label: 'Join Windows waitlist',
-        href: this.waitlistHref,
-        target: '_blank',
+        label: 'Join Windows betatesteur team',
+        href: this.buildHref('windows'),
         icon: 'windows',
       };
     }
     if (this.os.isLinux()) {
       return {
-        label: 'Join Linux waitlist',
-        href: this.waitlistHref,
-        target: '_blank',
+        label: 'Join Linux betatesteur team',
+        href: this.buildHref('linux'),
         icon: 'linux',
       };
     }
-    // Unknown OS — default to Mac CTA (still our only ready build).
     return {
-      label: 'Download for Mac',
-      hint: 'Apple Silicon',
-      href: this.downloads.mac,
+      label: 'Join the Mozart betatesteur team',
+      href: this.buildHref('other'),
       icon: 'apple',
     };
   });
 
-  protected readonly secondaryLabel = computed(() => {
-    if (this.os.isMac()) return 'Join Windows/Linux waitlist';
-    if (this.os.isWindows()) return 'Join Mac/Linux waitlist';
-    if (this.os.isLinux()) return 'Join Mac/Windows waitlist';
-    return 'Join Windows/Linux waitlist';
-  });
+  protected readonly secondary = computed<{ label: string; href: string }>(
+    () => {
+      if (this.os.isMac()) {
+        return {
+          label: 'Join Windows/Linux betatesteur team',
+          href: this.buildHref('windows-linux'),
+        };
+      }
+      if (this.os.isWindows()) {
+        return {
+          label: 'Join Mac/Linux betatesteur team',
+          href: this.buildHref('mac-linux'),
+        };
+      }
+      if (this.os.isLinux()) {
+        return {
+          label: 'Join Mac/Windows betatesteur team',
+          href: this.buildHref('mac-windows'),
+        };
+      }
+      return {
+        label: 'Join the Mozart betatesteur team',
+        href: this.buildHref('other'),
+      };
+    },
+  );
 
   @HostListener('document:keydown.enter')
   protected onEnter(): void {
-    const p = this.primary();
     if (typeof window === 'undefined') return;
-    if (p.target === '_blank') {
-      window.open(p.href, '_blank', 'noopener,noreferrer');
-    } else {
-      window.location.href = p.href;
-    }
+    window.open(this.primary().href, '_blank', 'noopener,noreferrer');
     this.ref.close();
   }
 }
