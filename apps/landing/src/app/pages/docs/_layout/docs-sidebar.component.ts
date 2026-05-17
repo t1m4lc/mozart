@@ -35,9 +35,9 @@ import {
                 <li>
                   <a
                     [routerLink]="entry.routerLink"
-                    routerLinkActive="bg-primary/10 text-primary"
+                    routerLinkActive="bg-muted text-primary"
                     [routerLinkActiveOptions]="{ exact: true }"
-                    class="text-foreground/70 hover:bg-muted hover:text-foreground/90 block rounded-md px-2 py-1.5 text-sm transition-colors"
+                    class="text-foreground/70 hover:bg-primary/10 hover:text-foreground/90 block rounded-md px-2 py-1.5 text-sm transition-colors"
                   >
                     {{ entry.title }}
                   </a>
