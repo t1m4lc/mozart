@@ -1,7 +1,13 @@
 @import "tailwindcss";
 
 /* nx-tailwind-sources:start */
+@source "../../../libs/shared-util-os";
 @source "../../../libs/shared-util-theme";
+@source "../../../libs/ui/button";
+@source "../../../libs/ui/dialog";
+@source "../../../libs/ui/icon";
+@source "../../../libs/ui/tooltip";
+@source "../../../libs/ui/utils";
 /* nx-tailwind-sources:end */
 @source "../../../libs/{shared-util-theme,ui}/**/*.{html,ts}";
 @import "../../../libs/shared-styles-theme/src/index.css";

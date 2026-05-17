@@ -5,6 +5,9 @@
 @import "@xterm/xterm/css/xterm.css";
 
 /* nx-tailwind-sources:start */
+@source "../../../libs/mozart-ui/composer";
+@source "../../../libs/mozart-ui/highlight-overlay";
+@source "../../../libs/mozart-ui/timeline";
 @source "../../../libs/shared-util-theme";
 @source "../../../libs/ui/alert";
 @source "../../../libs/ui/badge";
@@ -12,12 +15,10 @@
 @source "../../../libs/ui/button";
 @source "../../../libs/ui/card";
 @source "../../../libs/ui/combobox";
-@source "../../../libs/ui/composer";
 @source "../../../libs/ui/context-menu";
 @source "../../../libs/ui/dialog";
 @source "../../../libs/ui/dropdown-menu";
 @source "../../../libs/ui/empty";
-@source "../../../libs/ui/highlight-overlay";
 @source "../../../libs/ui/hover-card";
 @source "../../../libs/ui/icon";
 @source "../../../libs/ui/input";
@@ -36,7 +37,6 @@
 @source "../../../libs/ui/spinner";
 @source "../../../libs/ui/switch";
 @source "../../../libs/ui/textarea";
-@source "../../../libs/ui/timeline";
 @source "../../../libs/ui/tooltip";
 @source "../../../libs/ui/typography";
 @source "../../../libs/ui/utils";
