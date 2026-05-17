@@ -26,8 +26,7 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
 })
 export class DashboardPage {
   private readonly auth = inject(AuthFacade);
-  protected readonly firstName = computed(() => {
-    const fullName = this.auth.user()?.name ?? '';
-    return fullName.split(' ')[0] || 'there';
-  });
+  protected readonly firstName = computed(
+    () => this.auth.user()?.firstName || 'there',
+  );
 }

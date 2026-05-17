@@ -66,6 +66,13 @@ export class AuthFacade {
       id: clerkUser.id,
       email: clerkUser.primaryEmailAddress?.emailAddress ?? '',
       name: clerkUser.fullName ?? clerkUser.firstName ?? '',
+      firstName: clerkUser.firstName ?? '',
+      lastName: clerkUser.lastName ?? '',
+      imageUrl: clerkUser.imageUrl,
+      publicMetadata: (clerkUser.publicMetadata ?? {}) as Record<
+        string,
+        unknown
+      >,
       onboarding:
         (clerkUser.unsafeMetadata?.['onboarding'] as boolean | undefined) ??
         false,

@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
   inject,
   signal,
 } from '@angular/core';
@@ -201,11 +200,6 @@ export class FeatureLaunchMozart {
       ? isMobileUserAgent(navigator.userAgent)
       : false,
   );
-
-  protected readonly firstName = computed(() => {
-    const fullName = this.auth.user()?.name ?? '';
-    return fullName.split(' ')[0] || 'there';
-  });
 
   protected readonly state = signal<LaunchState>('idle');
   protected readonly signingOut = signal(false);

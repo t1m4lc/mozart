@@ -10,7 +10,15 @@
 export interface User {
   readonly id: string;
   readonly email: string;
+  /** Full display name. Falls back to firstName, then '' if Clerk has neither. */
   readonly name: string;
+  readonly firstName: string;
+  readonly lastName: string;
+  /** Clerk-hosted avatar URL. Always present — Clerk falls back to a
+   *  generated identicon when the user has not uploaded one. */
+  readonly imageUrl: string;
+  /** Read-only metadata managed server-side via Clerk's backend API. */
+  readonly publicMetadata: Record<string, unknown>;
   /** Whether the user has completed Mozart's onboarding flow. Atom 6
    *  on the desktop reads this to route to `/onboarding` (false) or
    *  `/` (true). Mirrors `user.unsafeMetadata.onboarding` in Clerk. */
