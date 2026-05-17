@@ -15,11 +15,7 @@ import type { Message } from '../../data/message.model';
   template: `
     <div class="flex justify-end">
       <div
-        class="inline-flex max-w-[80%] items-center gap-2 whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm transition-colors"
-        [class.bg-primary]="_isDone()"
-        [class.text-primary-foreground]="_isDone()"
-        [class.bg-muted]="!_isDone()"
-        [class.text-muted-foreground]="!_isDone()"
+        class="inline-flex text-foreground bg-muted max-w-[80%] items-center gap-2 whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm transition-colors"
         [class.italic]="_isQueued() || _isStopped()"
         [class.opacity-70]="_isQueued()"
         [class.opacity-50]="_isStopped()"
@@ -44,7 +40,5 @@ export class UserMessage {
   protected readonly _isStopped = computed(
     () => this.message().status === 'stopped',
   );
-  protected readonly _isDone = computed(
-    () => this.message().status === 'done',
-  );
+  // protected readonly _isDone = computed(() => this.message().status === 'done');
 }

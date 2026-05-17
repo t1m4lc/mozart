@@ -33,13 +33,13 @@ export class TauriClaudeAdapter implements LlmAdapter {
     const queue = new AsyncQueue<AgentEvent | typeof TERMINATE>();
     const channel = new Channel<ClaudeStreamEvent>();
     let runId: string | null = null;
-    let toolCallCounter = 0;
     let unlistenTerminated: (() => void) | null = null as
       | (() => void)
       | null;
 
     channel.onmessage = (ev) => {
-      queue.push(translate(ev, () => `tool-${++toolCallCounter}`));
+      const mapped = translate(ev);
+      if (mapped !== null) queue.push(mapped);
     };
 
     const lastPrompt = lastUserPrompt(input.history) ?? '';

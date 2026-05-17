@@ -1539,15 +1539,10 @@ export type Repo = {
 };
 export type StreamEvent =
   | { kind: 'stream_token'; text: string }
-  /**
-   * Declared for `agent_events.event_type` round-trip + Angular binding stability;
-   * **not** emitted by `parse_line` in v0.0.1 (D1.4-A).
-   */
-  | { kind: 'tool_call'; name: string; args_json: string }
+  | { kind: 'tool_call'; id: string; name: string; args_json: string }
+  | { kind: 'tool_result'; id: string; ok: boolean; summary?: string | null }
+  | { kind: 'thinking'; id: string; text: string }
   | { kind: 'cli_output'; line: string }
-  /**
-   * Declared but **not** emitted by `parse_line` in v0.0.1 (D1.4-A).
-   */
   | { kind: 'status_update'; status: string }
   | { kind: 'error'; message: string };
 export type Task = {

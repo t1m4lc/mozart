@@ -16,24 +16,44 @@ pub use runner::{spawn_run, RunHandle};
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum StreamEvent {
-    StreamToken { text: String },
-    /// Declared for `agent_events.event_type` round-trip + Angular binding stability;
-    /// **not** emitted by `parse_line` in v0.0.1 (D1.4-A).
-    ToolCall { name: String, args_json: String },
-    CliOutput { line: String },
-    /// Declared but **not** emitted by `parse_line` in v0.0.1 (D1.4-A).
-    StatusUpdate { status: String },
-    Error { message: String },
+    StreamToken {
+        text: String,
+    },
+    ToolCall {
+        id: String,
+        name: String,
+        args_json: String,
+    },
+    ToolResult {
+        id: String,
+        ok: bool,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        summary: Option<String>,
+    },
+    Thinking {
+        id: String,
+        text: String,
+    },
+    CliOutput {
+        line: String,
+    },
+    StatusUpdate {
+        status: String,
+    },
+    Error {
+        message: String,
+    },
 }
 
 impl StreamEvent {
     /// Returns the canonical `agent_events.event_type` string for this variant.
-    /// Must agree with `migrations/001_init.sql` (the cross-boundary grep in the
-    /// validation gate enforces this).
+    /// Persisted into `agent_events.event_type` (TEXT column, no FK).
     pub fn event_type(&self) -> &'static str {
         match self {
             Self::StreamToken { .. } => "stream_token",
             Self::ToolCall { .. } => "tool_call",
+            Self::ToolResult { .. } => "tool_result",
+            Self::Thinking { .. } => "thinking",
             Self::CliOutput { .. } => "cli_output",
             Self::StatusUpdate { .. } => "status_update",
             Self::Error { .. } => "error",

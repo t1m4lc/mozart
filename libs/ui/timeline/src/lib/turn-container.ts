@@ -8,6 +8,8 @@ import {
   output,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { DoneMarker } from './done-marker';
+import { ErrorMarker } from './error-marker';
 import { FileChipBus } from './file-chip-bus';
 import { MessageBody } from './message-body';
 import { Timeline } from './timeline';
@@ -31,7 +33,7 @@ import type {
 
 @Component({
   selector: 'hlm-turn-container',
-  imports: [TurnHeader, TurnBody, MessageBody, Timeline],
+  imports: [TurnHeader, TurnBody, MessageBody, Timeline, DoneMarker, ErrorMarker],
   providers: [FileChipBus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
@@ -42,19 +44,20 @@ import type {
       [(collapsed)]="collapsed"
     />
     <hlm-turn-body [collapsed]="collapsed()">
+      @if (_hasItems()) {
+        <hlm-timeline [items]="state().items" />
+      }
       @if (_hasText()) {
         <hlm-message-body
+          [class.mt-1]="_hasItems()"
           [text]="state().text"
           [streaming]="state().isStreaming"
         />
       }
-      @if (_hasTimeline()) {
-        <hlm-timeline
-          class="mt-1"
-          [items]="state().items"
-          [outcome]="state().outcome"
-          [showDoneMarker]="state().showDoneMarker"
-        />
+      @if (_showDone()) {
+        <hlm-done-marker class="mt-1" />
+      } @else if (_showError()) {
+        <hlm-error-marker class="mt-1" [label]="_errorLabel()" />
       }
     </hlm-turn-body>
   `,
@@ -66,10 +69,20 @@ export class TurnContainer {
   readonly fileChipClick = output<TurnFileChipEvent>();
 
   protected readonly _hasText = computed(() => this.state().text.length > 0);
-  protected readonly _hasTimeline = computed(() => {
-    const s = this.state();
-    return s.items.length > 0 || !!s.outcome;
+  protected readonly _hasItems = computed(() => this.state().items.length > 0);
+
+  protected readonly _showDone = computed(
+    () => this.state().showDoneMarker && this.state().outcome === 'done',
+  );
+
+  protected readonly _showError = computed(() => {
+    const o = this.state().outcome;
+    return o === 'error' || o === 'stopped';
   });
+
+  protected readonly _errorLabel = computed(() =>
+    this.state().outcome === 'stopped' ? 'Stopped' : 'Error',
+  );
 
   constructor() {
     inject(FileChipBus)

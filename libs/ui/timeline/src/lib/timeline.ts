@@ -6,16 +6,20 @@ import {
   input,
   type Type,
 } from '@angular/core';
-import { DoneMarker } from './done-marker';
-import { ErrorMarker } from './error-marker';
 import { TOOL_RENDERERS } from './renderers/tool-renderers.registry';
-import type { TurnItem, TurnOutcome } from './turn-state.types';
+import type { TurnItem } from './turn-state.types';
 
 // Phase 3b — vertical timeline of agent activity. Renders each item
 // via the renderer registry (kind → component, dispatched through
-// NgComponentOutlet) and appends a Done/Error marker when the turn
-// has a terminal outcome. Items are append-only and keyed by `id`
+// NgComponentOutlet). Items are append-only and keyed by `id`
 // (spec §9.1 — re-rendering must produce identical output).
+//
+// The Done/Error terminal marker is rendered by the parent
+// TurnContainer (not here), so the marker can sit at the absolute
+// bottom of the turn body — i.e. *after* the assistant's text
+// response, which itself is rendered between the timeline and the
+// marker. Putting the marker inside this component would lock it to
+// the end of the items list, above the text.
 
 interface TimelineRow {
   readonly item: TurnItem;
@@ -26,33 +30,26 @@ interface TimelineRow {
 
 @Component({
   selector: 'hlm-timeline',
-  imports: [NgComponentOutlet, DoneMarker, ErrorMarker],
+  imports: [NgComponentOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col' },
   template: `
-    @for (row of _rows(); track row.item.id) {
+    @for (row of _rows(); track row.item.id; let last = $last) {
       <ng-container
         *ngComponentOutlet="
           row.component;
           inputs: {
             item: row.item,
             showSpacer: row.showSpacer,
-            showConnector: row.showConnector
+            showConnector: !last
           }
         "
       />
-    }
-    @if (_showDone()) {
-      <hlm-done-marker />
-    } @else if (_showError()) {
-      <hlm-error-marker [label]="_errorLabel()" />
     }
   `,
 })
 export class Timeline {
   readonly items = input.required<readonly TurnItem[]>();
-  readonly outcome = input<TurnOutcome | undefined>(undefined);
-  readonly showDoneMarker = input<boolean>(false);
 
   protected readonly _rows = computed<readonly TimelineRow[]>(() => {
     const items = this.items();
@@ -62,22 +59,9 @@ export class Timeline {
       // First row joins the message body above without a spacer; the
       // rest get the 8px connector spacer (per spec §A.3 / §A.7.4).
       showSpacer: index > 0,
-      // Every item connects down to the next row OR to a terminal
-      // marker. Only the marker itself omits the connector.
+      // showConnector is overridden per row in the template using $last
+      // so the visually-last item stops its trailing line cleanly.
       showConnector: true,
     }));
   });
-
-  protected readonly _showDone = computed(
-    () => this.showDoneMarker() && this.outcome() === 'done',
-  );
-
-  protected readonly _showError = computed(() => {
-    const o = this.outcome();
-    return o === 'error' || o === 'stopped';
-  });
-
-  protected readonly _errorLabel = computed(() =>
-    this.outcome() === 'stopped' ? 'Stopped' : 'Error',
-  );
 }

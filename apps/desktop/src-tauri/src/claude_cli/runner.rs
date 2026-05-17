@@ -47,7 +47,7 @@ use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio::process::Command;
 use tokio::task::JoinHandle;
 
-use crate::claude_cli::parser::parse_line;
+use crate::claude_cli::parser::{parse_line, ParserState};
 use crate::claude_cli::{AgentRunTerminated, StreamEvent};
 use crate::credentials::keyring_store;
 use crate::db::models::{AgentRun, Workspace, WorkspaceChange};
@@ -232,10 +232,13 @@ where
         let run_id = run_id.clone();
         tokio::spawn(async move {
             let mut lines = BufReader::new(stdout).lines();
+            // Per-run parser state. tool_use blocks need cross-line
+            // accumulation; the state lives here, never crosses runs.
+            let mut parser_state = ParserState::default();
             loop {
                 match lines.next_line().await {
                     Ok(Some(line)) => {
-                        if let Some(ev) = parse_line(&line) {
+                        for ev in parse_line(&line, &mut parser_state) {
                             // Best-effort channel emit (UI may have dropped).
                             let _ = channel.send(ev.clone());
                             // Best-effort DB persistence.
@@ -772,9 +775,9 @@ mod tests {
         }
 
         #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-        async fn integration_tool_use_falls_back_to_cli_output() {
+        async fn integration_tool_use_emits_tool_call_and_result() {
             if !sandbox::git_available() {
-                eprintln!("SKIP integration_tool_use_falls_back_to_cli_output: `git` binary not on PATH");
+                eprintln!("SKIP integration_tool_use_emits_tool_call_and_result: `git` binary not on PATH");
                 return;
             }
             let _g = sandbox::test_env_gate()
@@ -794,26 +797,58 @@ mod tests {
             let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
-            // Per Option-B (D1.4-A): tool_use lines surface as cli_output
-            // events; the F5 corpus contract asserts the payload still
-            // carries the original tool_use shape.
+            // The fixture exercises the full tool round-trip: an
+            // assistant `tool_use` content block (start + 2 partials +
+            // stop) collapses into ONE `tool_call` row carrying the
+            // assembled args JSON and the toolu_ id; the echoed user
+            // `tool_result` becomes ONE `tool_result` row.
             let conn = db.lock();
             let events = agent_events::list_by_run(&conn, &run.run_id).unwrap();
             drop(conn);
-            let cli_outputs: Vec<&_> = events
+
+            let tool_calls: Vec<&_> = events
                 .iter()
-                .filter(|e| e.event_type == "cli_output")
+                .filter(|e| e.event_type == "tool_call")
                 .collect();
-            assert!(
-                !cli_outputs.is_empty(),
-                "expected ≥1 cli_output agent_events row for tool_use line"
+            assert_eq!(
+                tool_calls.len(),
+                1,
+                "expected exactly 1 tool_call row, got {}",
+                tool_calls.len()
             );
-            let any_has_tool_use = cli_outputs
-                .iter()
-                .any(|e| e.payload_json.contains("tool_use"));
+            let payload = &tool_calls[0].payload_json;
             assert!(
-                any_has_tool_use,
-                "expected at least one cli_output payload to round-trip the 'tool_use' substring"
+                payload.contains("\"id\":\"toolu_1\""),
+                "tool_call payload must carry the assistant's toolu_ id: {payload}"
+            );
+            assert!(
+                payload.contains("\"name\":\"Bash\""),
+                "tool_call payload must carry the tool name: {payload}"
+            );
+            assert!(
+                payload.contains("\\\"command\\\": \\\"ls\\\""),
+                "tool_call args_json must reassemble both input_json_delta chunks: {payload}"
+            );
+
+            let tool_results: Vec<&_> = events
+                .iter()
+                .filter(|e| e.event_type == "tool_result")
+                .collect();
+            assert_eq!(
+                tool_results.len(),
+                1,
+                "expected exactly 1 tool_result row, got {}",
+                tool_results.len()
+            );
+            assert!(
+                tool_results[0].payload_json.contains("\"id\":\"toolu_1\""),
+                "tool_result must correlate to the tool_call by toolu_ id"
+            );
+
+            // The assistant text_delta before the tool_use also survives.
+            assert!(
+                count_events(&db, &run.run_id, "stream_token") >= 1,
+                "expected ≥1 stream_token row from the leading text_delta"
             );
 
             std::env::remove_var("MOZART_CLAUDE_BIN");

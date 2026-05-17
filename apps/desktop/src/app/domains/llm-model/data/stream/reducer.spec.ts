@@ -108,6 +108,56 @@ describe('applyAgentEvent — error-mid-stream fixture', () => {
   });
 });
 
+describe('applyAgentEvent — summary derivation from tool kind', () => {
+  it('derives summary from tool_call kind when no status_delta arrived', () => {
+    let s = EMPTY_TURN_STATE(0);
+    s = applyAgentEvent(s, {
+      kind: 'tool_call',
+      id: 't',
+      toolName: 'read_file',
+    });
+    expect(s.summary).toBe('Reading files…');
+  });
+
+  it('derives summary from thinking events', () => {
+    let s = EMPTY_TURN_STATE(0);
+    s = applyAgentEvent(s, {
+      kind: 'thinking',
+      id: 'th',
+      delta: 'considering',
+    });
+    expect(s.summary).toBe('Thinking…');
+  });
+
+  it('later tool_call overrides earlier explicit status (latest-activity wins)', () => {
+    let s = EMPTY_TURN_STATE(0);
+    s = applyAgentEvent(s, { kind: 'status', text: 'Custom phase' });
+    expect(s.summary).toBe('Custom phase');
+    s = applyAgentEvent(s, {
+      kind: 'tool_call',
+      id: 't',
+      toolName: 'Bash',
+    });
+    expect(s.summary).toBe('Running command…');
+  });
+
+  it('maps each TurnItemKind to its own phrase', () => {
+    const pairs: Array<[string, string]> = [
+      ['read_file', 'Reading files…'],
+      ['edit_file', 'Editing files…'],
+      ['write_file', 'Creating files…'],
+      ['Bash', 'Running command…'],
+      ['glob', 'Searching…'],
+      ['some_other_tool', 'Using tool…'],
+    ];
+    for (const [toolName, expected] of pairs) {
+      let s = EMPTY_TURN_STATE(0);
+      s = applyAgentEvent(s, { kind: 'tool_call', id: 't', toolName });
+      expect(s.summary).toBe(expected);
+    }
+  });
+});
+
 describe('applyAgentEvent — invariants', () => {
   it('is referentially transparent for the same inputs (pure)', () => {
     const seed = EMPTY_TURN_STATE(0);

@@ -19,6 +19,21 @@ const TOOL_KIND_RULES: ReadonlyArray<
   [(n) => n.includes('grep') || n.includes('glob') || n.includes('search'), 'search'],
 ];
 
+// User-facing summary phrases the header shimmers through while the
+// agent works. Claude CLI doesn't emit explicit `status_delta` events,
+// so the reducer derives the summary from the latest tool/thinking
+// activity. Spec §5.1 priority: explicit status_delta > tool title >
+// generic fallback.
+const SUMMARY_BY_KIND: Record<TurnItemKind, string> = {
+  thinking: 'Thinking…',
+  'file-read': 'Reading files…',
+  'file-edit': 'Editing files…',
+  'file-create': 'Creating files…',
+  shell: 'Running command…',
+  search: 'Searching…',
+  generic: 'Using tool…',
+};
+
 export function EMPTY_TURN_STATE(startedAt: number): TurnState {
   return {
     text: '',
@@ -56,19 +71,20 @@ export function applyAgentEvent(
         title: 'Thinking',
         body: event.delta,
       });
-      return { ...state, items };
+      return { ...state, items, summary: SUMMARY_BY_KIND.thinking };
     }
 
     case 'tool_call': {
       const items = demoteActiveItems(state.items);
+      const kind = mapToolNameToKind(event.toolName);
       items.push({
         id: event.id,
-        kind: mapToolNameToKind(event.toolName),
+        kind,
         state: 'active',
         title: event.title ?? event.toolName,
         fileChip: event.fileChip,
       });
-      return { ...state, items };
+      return { ...state, items, summary: SUMMARY_BY_KIND[kind] };
     }
 
     case 'tool_result': {
