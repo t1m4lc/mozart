@@ -37,6 +37,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Bootstrap gitignored env files from their checked-in *.example.ts
+      # counterparts so CI can build apps that import them (e.g. apps/web).
+      # Real secrets are injected at deploy time, not in CI.
+      - name: Bootstrap env files
+        run: |
+          find apps -name 'env.example.ts' -print0 | while IFS= read -r -d '' example; do
+            target="${example%.example.ts}.ts"
+            [ -f "$target" ] || cp "$example" "$target"
+          done
+
       # Prepend any command with "nx record --" to record its logs to Nx Cloud
       # - run: npx nx record -- echo Hello World
       - run: npx nx run-many -t lint test build typecheck
