@@ -19,7 +19,8 @@ Monorepo Nx + pnpm.
 
 - `apps/desktop/`: Angular 21 + Tauri v2 desktop app
 - `apps/web/`: Angular 21 future cloud UI
-- `libs/ui/`: internal Spartan NG / Hlm design-system
+- `libs/ui/`: vendored Spartan NG / Hlm primitives (read-only — see Design system)
+- `libs/mozart-ui/`: Mozart-specific reusable UI components (composer, timeline, highlight-overlay)
 - `libs/shared-util-theme/`: ThemeService + provideTheme()
 - `libs/shared-styles-theme/`: global CSS + theme tokens
 
@@ -54,15 +55,30 @@ These are allowed only in logs or dev-only diagnostics.
 
 ## Design system
 
-`libs/ui/**` is read-only during desktop feature work.
+`libs/ui/**` is read-only during desktop feature work — these are vendored Spartan NG / Hlm primitives.
 
 Do not modify, add, delete, or refactor anything under `libs/ui/**` unless the user explicitly approves it.
+
+Mozart-owned reusable components live in `libs/mozart-ui/**` and ARE editable.
 
 Use existing components from:
 
 ```ts
-@mozart/ui/<component>
+import { ... } from '@mozart/ui/<spartan-component>';   // primitives
+import { ... } from '@mozart-ui/<mozart-component>';    // mozart-owned (composer, timeline, highlight-overlay)
 ```
+
+## Module boundaries
+
+Every project is tagged with exactly one `scope:*` tag in its `project.json`.
+The `@nx/enforce-module-boundaries` ESLint rule enforces:
+
+- `scope:app` → `scope:app | scope:mozart-ui | scope:spartan | scope:shared`
+- `scope:mozart-ui` → `scope:mozart-ui | scope:spartan | scope:shared`
+- `scope:spartan` → `scope:spartan | scope:shared`
+- `scope:shared` → `scope:shared` (only)
+
+Run `bash tools/verify-scope-tags.sh` after adding a new project — a missing tag silently exempts the project from the boundary rule.
 
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->

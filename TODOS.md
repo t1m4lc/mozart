@@ -42,3 +42,27 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 **Depends on:** Product/strategy decision. Not an eng decision.
 
 ---
+
+## libs/mozart-ui — rename `hlm-*` selectors to `mz-*`
+
+**What:** Components moved into `libs/mozart-ui` (composer, highlight-overlay, timeline) inherit Spartan's `hlm-` Angular selector prefix and `prefix: "hlm"` in their `project.json`. Rename selectors to `mz-*` (e.g. `<hlm-composer>` → `<mz-composer>`) and update `prefix: "mz"`.
+
+**Why:** `hlm` is Spartan NG's brand prefix. Once a component is Mozart-owned, the `hlm-` selector in templates lies about ownership and makes future cleanup harder. The composer lib also has pre-existing inconsistency (`hlm-composer` next to `composer-scroll-overlay`).
+
+**How to apply:** After the mozart-ui refactor (PR 1) is merged and soaked. Sequence: update `prefix` in each moved `project.json`, rename `selector` in every component decorator under `libs/mozart-ui/*/src/lib/`, sweep all template usages across `apps/desktop` (~71 files), `apps/landing`, `apps/web`, run `nx affected -t lint build`, manual smoke composer/timeline/onboarding tour.
+
+**Depends on:** PR 1 (libs/mozart-ui extraction) merged.
+
+---
+
+## apps/sandbox — extract dev-only sandbox into a dedicated Nx app
+
+**What:** Today the sandbox lives at `apps/desktop/src/app/pages/sandbox/` (3 routes: `/sandbox`, `/sandbox/composer`, `/sandbox/timeline`). After PR 1 these routes are wrapped in `isDevMode()` and dropped from prod chunks. The follow-up is to extract them into a dedicated `apps/sandbox` Nx app with its own routes and Tauri/web build target.
+
+**Why:** Physical separation removes any risk of sandbox code leaking into production. Gives a place to grow component dogfooding (Storybook-style) without contaminating the product app's bundle or route surface.
+
+**How to apply:** `nx g @nx/angular:app sandbox`. Move the 3 files in. Decide deployment target (web-only via `apps/web`-style config, or Tauri). Update CLAUDE.md to point readers at it for component dogfooding. Remove the env-guarded routes from `apps/desktop/src/app/app.routes.ts`.
+
+**Depends on:** PR 1 (libs/mozart-ui extraction) merged, since composer/timeline live there.
+
+---
