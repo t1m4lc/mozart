@@ -18,7 +18,7 @@ import {
   ],
   host: { class: 'block' },
   template: `
-    <section class="mx-auto max-w-xl px-4 pt-12 sm:px-8">
+    <section class="mx-auto max-w-xl px-4 pt-12 pb-4 sm:pb-8 sm:pt-20 sm:px-8">
       <!-- <a
         routerLink="/changelog"
         class="group hover:text-foreground mb-6 inline-flex items-center gap-2 text-sm transition-colors"
@@ -40,7 +40,7 @@ import {
       </h1>
 
       <p class="text-muted-foreground mb-6 max-w-2xl text-sm">
-        Run parallel Agent Runs in isolated Workspaces. Review every diff. Ship
+        Run parallel Agent in isolated Workspaces. Review every diff. Ship
         faster without losing control.
       </p>
 

@@ -12,7 +12,7 @@ import { lucideArrowDown, lucideDownload } from '@ng-icons/lucide';
   providers: [provideIcons({ lucideArrowDown, lucideDownload })],
   host: { class: 'block' },
   template: `
-    <section class="px-8 py-16">
+    <section class="px-8 pt-16 pb-24">
       <div class="mx-auto flex max-w-xl flex-col gap-4">
         <p
           class="text-foreground text-2xl font-semibold tracking-tight md:text-3xl"

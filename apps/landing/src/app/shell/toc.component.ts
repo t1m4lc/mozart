@@ -18,8 +18,12 @@ import { NavigationEnd, Router } from '@angular/router';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideTextAlignStart } from '@ng-icons/lucide';
-import { filter } from 'rxjs/operators';
+import { Subject } from 'rxjs';
+import { debounceTime, filter } from 'rxjs/operators';
 import type { TocHeading } from './toc';
+
+const SCROLL_SPY_DEBOUNCE_MS = 80;
+const CLICK_LOCK_MS = 900;
 
 @Component({
   selector: 'app-toc',
@@ -98,6 +102,8 @@ export class TocComponent implements AfterViewInit {
 
   protected readonly activeId = signal<string>('');
   private readonly layoutTick = signal(0);
+  private readonly visibleId$ = new Subject<string>();
+  private clickLockUntil = 0;
   private observer: IntersectionObserver | null = null;
   private resizeObserver: ResizeObserver | null = null;
 
@@ -127,6 +133,16 @@ export class TocComponent implements AfterViewInit {
   });
 
   constructor() {
+    this.visibleId$
+      .pipe(
+        debounceTime(SCROLL_SPY_DEBOUNCE_MS),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe((id) => {
+        if (Date.now() < this.clickLockUntil) return;
+        this.activeId.set(id);
+      });
+
     effect(() => {
       const list = this.headings();
       this.activeId.set(list[0]?.id ?? '');
@@ -166,6 +182,7 @@ export class TocComponent implements AfterViewInit {
     const el = document.getElementById(id);
     if (!el) return;
     event.preventDefault();
+    this.clickLockUntil = Date.now() + CLICK_LOCK_MS;
     this.activeId.set(id);
     el.scrollIntoView({ behavior: 'smooth', block: 'start' });
     history.replaceState(null, '', `#${id}`);
@@ -191,7 +208,7 @@ export class TocComponent implements AfterViewInit {
               a.target.getBoundingClientRect().top -
               b.target.getBoundingClientRect().top,
           )[0];
-        if (visible) this.activeId.set(visible.target.id);
+        if (visible) this.visibleId$.next(visible.target.id);
       },
       { rootMargin: '0px 0px -70% 0px', threshold: [0, 1] },
     );
