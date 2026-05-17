@@ -11,6 +11,7 @@ import {
   lucideX,
 } from '@ng-icons/lucide';
 import { PRIMARY_NAV } from './nav-model';
+import { ThemeToggleComponent } from './theme-toggle.component';
 
 @Component({
   selector: 'app-site-header',
@@ -21,6 +22,7 @@ import { PRIMARY_NAV } from './nav-model';
     RouterLink,
     RouterLinkActive,
     HlmTooltipImports,
+    ThemeToggleComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [
@@ -72,6 +74,8 @@ import { PRIMARY_NAV } from './nav-model';
             Download
           </a>
         </nav>
+
+        <app-theme-toggle />
 
         <button
           type="button"

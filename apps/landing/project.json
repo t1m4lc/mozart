@@ -58,6 +58,14 @@
         "cwd": "{projectRoot}",
         "command": "node scripts/post-build-seo.mjs"
       }
+    },
+    "seo-check": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["post-build-seo"],
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "node scripts/check-seo.mjs"
+      }
     }
   }
 }
