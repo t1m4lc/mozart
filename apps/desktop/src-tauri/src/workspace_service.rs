@@ -18,10 +18,10 @@
 //! No use of the `tracing` crate by design: Mozart routes app logs
 //! through the `log` facade so the tauri logger plugin captures them.
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use crate::db::models::{Task, Thread, Workspace};
-use crate::db::{new_id, now_ms, tasks, threads, workspaces, DbState};
+use crate::db::{new_id, now_ms, repos, tasks, threads, workspaces, DbState};
 use crate::error::AppError;
 use crate::git_query::validate_repo;
 use crate::worktree;
@@ -48,6 +48,13 @@ pub async fn create_workspace(
     validate_repo(repo_path)
         .await
         .map_err(|issue| AppError::Validation(format!("repo not usable: {issue:?}")))?;
+
+    // Resolve the project's friendly display_name; powers the
+    // `<project-slug>/<workspace-slug>` path layout (atom 5).
+    let project_name = {
+        let conn = db.lock();
+        repos::get(&conn, repo_id)?.display_name
+    };
 
     let task_id = new_id();
     let workspace_id = new_id();
@@ -98,7 +105,16 @@ pub async fn create_workspace(
     }
 
     // Step 4 — git worktree on disk.
-    let handle = match worktree::create(repo_path, base_branch, &workspace_id, workspace_name).await {
+    let handle = match worktree::create(
+        db,
+        repo_path,
+        base_branch,
+        &workspace_id,
+        workspace_name,
+        &project_name,
+    )
+    .await
+    {
         Ok(h) => h,
         Err(e) => {
             let conn = db.lock();
@@ -108,6 +124,9 @@ pub async fn create_workspace(
     };
     ws.worktree_path = handle.worktree_path.to_string_lossy().into_owned();
     ws.branch_name = handle.branch_name.clone();
+    // Cached for rollback paths below — `worktree::remove` now takes
+    // an actual path instead of deriving one from `workspace_id`.
+    let created_path: PathBuf = handle.worktree_path.clone();
 
     // Step 5 — persist real path + branch name.
     if let Err(e) = (|| -> Result<(), AppError> {
@@ -116,7 +135,7 @@ pub async fn create_workspace(
         workspaces::update_worktree_path(&conn, &workspace_id, &ws.worktree_path)?;
         Ok(())
     })() {
-        let _ = worktree::remove(repo_path, &workspace_id).await;
+        let _ = worktree::remove(repo_path, &created_path).await;
         let conn = db.lock();
         let _ = workspaces::set_deletion_intent(&conn, &workspace_id, true);
         return Err(e);
@@ -132,7 +151,7 @@ pub async fn create_workspace(
         let conn = db.lock();
         threads::create(&conn, &thread)
     } {
-        let _ = worktree::remove(repo_path, &workspace_id).await;
+        let _ = worktree::remove(repo_path, &created_path).await;
         let conn = db.lock();
         let _ = workspaces::set_deletion_intent(&conn, &workspace_id, true);
         return Err(e);
@@ -144,7 +163,7 @@ pub async fn create_workspace(
         workspaces::update_status(&conn, &workspace_id, "ready")
     };
     if let Err(e) = status_res {
-        let _ = worktree::remove(repo_path, &workspace_id).await;
+        let _ = worktree::remove(repo_path, &created_path).await;
         let conn = db.lock();
         let _ = workspaces::set_deletion_intent(&conn, &workspace_id, true);
         return Err(e);

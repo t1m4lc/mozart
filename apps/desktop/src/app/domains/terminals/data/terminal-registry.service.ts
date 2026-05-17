@@ -26,8 +26,15 @@ export class TerminalRegistry {
   private readonly entries = new Map<string, TerminalEntry>();
 
   /** Idempotent: returns the existing entry for `workspaceId`, or
-   *  creates one (instantiates xterm.js + opens the PTY). */
-  async getOrCreate(workspaceId: string): Promise<TerminalEntry> {
+   *  creates one (instantiates xterm.js + opens the PTY). The
+   *  `displayLabel` is embedded literally in PS1/PROMPT so the prompt
+   *  always shows the friendly workspace name even when the on-disk
+   *  dir was suffixed for collision (e.g. `dylan-2/` but label
+   *  `dylan`). Single quotes in the label are escaped defensively. */
+  async getOrCreate(
+    workspaceId: string,
+    displayLabel: string,
+  ): Promise<TerminalEntry> {
     const existing = this.entries.get(workspaceId);
     if (existing) return existing;
 
@@ -81,14 +88,20 @@ export class TerminalRegistry {
       },
     );
 
-    // Tame the prompt: worktree cwds look like ~/.mozart/wips/<uuid>
-    // which makes the default `\w` PS1 dominate every line. We override
-    // PS1 (bash/sh) and PROMPT (zsh) to a minimal `$ ` so the long UUID
-    // path doesn't show in every prompt. Users who customize their rc
-    // file can re-export PS1/PROMPT to whatever they want — this is
-    // just the default. Leading space keeps the line out of HISTCONTROL.
+    // Surface the workspace's friendly name literally in PS1/PROMPT
+    // (atom 8). The on-disk dir basename can diverge from the
+    // user-visible name when collision suffixing kicks in
+    // (e.g. workspace named `dylan` lives under `dylan-2/` because
+    // another `dylan` was archived first), so we don't trust `\W`
+    // anymore. Users who customize their rc file can re-export
+    // PS1/PROMPT to whatever they want. Leading space keeps the line
+    // out of HISTCONTROL.
+    const safeLabel = displayLabel.replace(/'/g, `'\\''`);
     void this.facade
-      .write(workspaceId, " clear; export PS1='$ '; export PROMPT='$ '\n")
+      .write(
+        workspaceId,
+        ` clear; export PS1='${safeLabel} $ '; export PROMPT='${safeLabel} $ '\n`,
+      )
       .catch(() => undefined);
 
     const entry: TerminalEntry = { term, fit, close };

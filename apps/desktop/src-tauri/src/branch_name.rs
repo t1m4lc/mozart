@@ -60,7 +60,13 @@ pub async fn make_task_branch(title: &str, short_id: &str) -> String {
 }
 
 /// D1.6-A slug rules. Pure / deterministic / no I/O.
-fn slugify(title: &str) -> String {
+///
+/// Reused by `worktree.rs` to derive the on-disk path segments
+/// `<project-slug>/<workspace-slug>` for each new worktree (atom 5 —
+/// friendly nested paths). Same lowercase / alphanumeric / hyphen
+/// rules work for both filesystem segments and git refs on every
+/// platform Mozart targets.
+pub(crate) fn slugify(title: &str) -> String {
     let mut out = String::with_capacity(title.len());
     let mut prev_dash = false;
     for c in title.chars() {
@@ -94,6 +100,24 @@ pub(crate) async fn validate_branch_via_git(name: &str) -> bool {
     crate::sandbox::run_git(&cwd, &["check-ref-format", &format!("refs/heads/{name}")])
         .await
         .is_ok()
+}
+
+/// `true` iff the local branch `name` already exists in `repo_path`.
+/// Powers atom 6 — workspace creation suffixes both the dir and the
+/// branch with `-N` so a lingering branch from a previously-archived
+/// workspace doesn't block `git worktree add -b`.
+pub(crate) async fn branch_exists(repo_path: &Path, name: &str) -> bool {
+    crate::sandbox::run_git(
+        repo_path,
+        &[
+            "show-ref",
+            "--verify",
+            "--quiet",
+            &format!("refs/heads/{name}"),
+        ],
+    )
+    .await
+    .is_ok()
 }
 
 #[cfg(test)]
