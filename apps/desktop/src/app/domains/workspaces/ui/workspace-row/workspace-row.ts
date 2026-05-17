@@ -2,6 +2,7 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  computed,
   effect,
   input,
   output,
@@ -135,6 +136,16 @@ function statusLabel(status: string): string {
           <span [class.font-semibold]="workspace().unread">{{
             displayTitle()
           }}</span>
+          @if (_hasDiff()) {
+            <span class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums">
+              @if ((diffStats()?.added ?? 0) > 0) {
+                <span class="text-emerald-600 dark:text-emerald-500">+{{ diffStats()?.added }}</span>
+              }
+              @if ((diffStats()?.removed ?? 0) > 0) {
+                <span class="text-red-600 dark:text-red-500">−{{ diffStats()?.removed }}</span>
+              }
+            </span>
+          }
         </a>
         <ng-template hlmHoverCardPortal>
           <div hlmHoverCardContent class="w-64">
@@ -212,9 +223,18 @@ export class WorkspaceRow {
   // back to workspace.createdAt. Driven from ChatFacade's
   // lastActivityByWorkspace signal via the smart parent.
   readonly lastActivity = input<number>(0);
+  // Aggregate diff stats vs base branch for this workspace. `null`
+  // when stats haven't been fetched yet or this workspace has no
+  // changes — either way, the chip stays hidden.
+  readonly diffStats = input<{ added: number; removed: number } | null>(null);
   readonly archive = output<void>();
   readonly renameCommit = output<string>();
   readonly renameCancel = output<void>();
+
+  protected readonly _hasDiff = computed(() => {
+    const s = this.diffStats();
+    return !!s && (s.added > 0 || s.removed > 0);
+  });
 
   // Last meaningful activity timestamp for the hover popover. Falls
   // back to workspace.createdAt when no later activity is tracked.

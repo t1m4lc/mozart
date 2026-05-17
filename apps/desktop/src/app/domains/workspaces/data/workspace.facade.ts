@@ -49,6 +49,31 @@ export class WorkspacesFacade {
   readonly activeId = this.uiState.activeWorkspaceId;
   readonly pending = this.store.pending;
 
+  // Per-workspace aggregate diff stats. Sidebar workspace rows read
+  // their `+N` / `−N` from this map. Refreshed on hydrate + whenever a
+  // workspace's FS watcher pings (driven from the aside).
+  private readonly _diffStats = signal<ReadonlyMap<string, { added: number; removed: number }>>(
+    new Map(),
+  );
+  readonly diffStats = this._diffStats.asReadonly();
+
+  diffStatsFor(workspaceId: string) {
+    return computed(() => this._diffStats().get(workspaceId) ?? null);
+  }
+
+  async refreshDiffStats(): Promise<void> {
+    try {
+      const list = await this.adapter.listDiffStats();
+      const next = new Map<string, { added: number; removed: number }>();
+      for (const s of list) {
+        next.set(s.workspaceId, { added: s.added, removed: s.removed });
+      }
+      this._diffStats.set(next);
+    } catch (e) {
+      console.warn('[workspaces] refreshDiffStats failed:', e);
+    }
+  }
+
   byProject(projectId: string) {
     return computed(() => this.store.byProject().get(projectId) ?? []);
   }
@@ -110,6 +135,9 @@ export class WorkspacesFacade {
       })
       .filter((w) => w.projectId !== ''); // defensive: drop orphans
     this.store.setAll(workspaces);
+    // Best-effort: kick off the diff-stats fetch without blocking the
+    // hydrate. Sidebar rows render the chip once this resolves.
+    void this.refreshDiffStats();
   }
 
   /** Probe `$PATH` for known IDEs and update the IdeDetectionService.

@@ -47,6 +47,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
             commands::stop_agent_run,
             commands::list_runs,
             commands::get_workspace_diff,
+            commands::list_workspace_diff_stats,
             commands::discard_workspace_changes,
             commands::list_chats,
             commands::list_all_chats,
@@ -118,6 +119,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<Thread>()
         .typ::<AgentRun>()
         .typ::<WorkspaceChange>()
+        .typ::<commands::WorkspaceDiffStats>()
         .typ::<Chat>()
         .typ::<Message>()
         .typ::<ProbeResult>()

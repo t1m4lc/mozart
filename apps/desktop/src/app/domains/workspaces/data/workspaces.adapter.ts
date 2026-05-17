@@ -48,6 +48,20 @@ export interface WorkspacesAdapter {
   /** Launch `ideId` against the workspace's worktree. The path is
    *  resolved Rust-side; the UI never sees it. */
   openInIde(workspaceId: string, ideId: OpenInToolId): Promise<void>;
+
+  /** Aggregate per-workspace diff stats vs. each workspace's base
+   *  branch. Sidebar workspace rows render the green `+N` / red `−N`
+   *  chip from this map. Batched on the Rust side — one IPC call
+   *  returns counts for all workspaces. */
+  listDiffStats(): Promise<readonly WorkspaceDiffStatsEntry[]>;
+}
+
+/** Per-workspace aggregate line counts. Sums of `git diff --numstat`
+ *  output across committed-vs-base and working-tree-vs-HEAD. */
+export interface WorkspaceDiffStatsEntry {
+  readonly workspaceId: string;
+  readonly added: number;
+  readonly removed: number;
 }
 
 export const WORKSPACES_ADAPTER = new InjectionToken<WorkspacesAdapter>(

@@ -64,11 +64,16 @@ export interface RepositoriesAdapter {
 
 /** UI-facing changed-file entry. Wire status normalised to one of
  *  `'added' | 'modified' | 'deleted'`. `staged` mirrors the X byte
- *  of `git status --porcelain=v1`; the Changes aside splits on it. */
+ *  of `git status --porcelain=v1`; the Changes aside splits on it.
+ *  `added` / `removed` are the per-file line counts that drive the
+ *  green `+N` / red `−N` chip in the Changes pane. Zero for pure
+ *  deletions and binary diffs. */
 export interface ChangedFile {
   readonly path: string;
   readonly status: 'added' | 'modified' | 'deleted';
   readonly staged: boolean;
+  readonly added: number;
+  readonly removed: number;
 }
 
 export const REPOSITORIES_ADAPTER = new InjectionToken<RepositoriesAdapter>(

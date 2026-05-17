@@ -63,7 +63,16 @@ import { statusBadge } from '../util-status-badge/util-status-badge';
         />
       }
       <span class="min-w-0 flex-1 truncate">{{ node().name }}</span>
-      @if (badge(); as b) {
+      @if (_hasDiff()) {
+        <span class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums">
+          @if ((node().added ?? 0) > 0) {
+            <span class="text-emerald-600 dark:text-emerald-500">+{{ node().added }}</span>
+          }
+          @if ((node().removed ?? 0) > 0) {
+            <span class="text-red-600 dark:text-red-500">−{{ node().removed }}</span>
+          }
+        </span>
+      } @else if (badge(); as b) {
         <span
           hlmBadge
           [variant]="b.variant"
@@ -88,6 +97,12 @@ export class FileTreeRow {
   readonly folderToggle = output<FileNode>();
 
   protected readonly badge = computed(() => statusBadge(this.node().status));
+  // Render the +N/−N chip in place of the A/M/D badge for any file
+  // that actually has line-level changes against the base branch.
+  protected readonly _hasDiff = computed(() => {
+    const n = this.node();
+    return (n.added ?? 0) > 0 || (n.removed ?? 0) > 0;
+  });
 
   protected onClick(): void {
     if (this.isFolder()) {

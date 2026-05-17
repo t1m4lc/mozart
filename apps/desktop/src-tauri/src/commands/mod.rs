@@ -848,6 +848,92 @@ pub(crate) async fn get_workspace_diff_impl(
 }
 
 // ---------------------------------------------------------------------------
+// list_workspace_diff_stats — per-workspace aggregate {added, removed}
+// ---------------------------------------------------------------------------
+//
+// Powers the +N/-N chip on every workspace row in the sidebar. Sums
+// line counts from the same two numstat passes the file tree uses
+// (committed range vs. base + working tree). Per-workspace git
+// invocations are run concurrently via `tokio::spawn`. Best-effort —
+// a failing workspace yields zeros instead of erroring the whole call.
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct WorkspaceDiffStats {
+    pub workspace_id: String,
+    pub added: i64,
+    pub removed: i64,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn list_workspace_diff_stats(
+    db: State<'_, DbState>,
+) -> Result<Vec<WorkspaceDiffStats>, AppError> {
+    list_workspace_diff_stats_impl(db.inner()).await
+}
+
+pub(crate) async fn list_workspace_diff_stats_impl(
+    db: &DbState,
+) -> Result<Vec<WorkspaceDiffStats>, AppError> {
+    let workspaces = {
+        let conn = db.lock();
+        workspaces::list_all(&conn)?
+    };
+    let mut joins = Vec::with_capacity(workspaces.len());
+    for ws in workspaces {
+        joins.push(tokio::spawn(async move {
+            let (added, removed) =
+                compute_aggregate_diff_stats(&ws.worktree_path, &ws.base_branch).await;
+            WorkspaceDiffStats {
+                workspace_id: ws.workspace_id,
+                added,
+                removed,
+            }
+        }));
+    }
+    let mut out = Vec::with_capacity(joins.len());
+    for j in joins {
+        match j.await {
+            Ok(stats) => out.push(stats),
+            Err(e) => log::warn!("list_workspace_diff_stats: join failed: {e}"),
+        }
+    }
+    Ok(out)
+}
+
+async fn compute_aggregate_diff_stats(worktree_path: &str, base_branch: &str) -> (i64, i64) {
+    use crate::sandbox::diff::parse_numstat_per_file;
+    let worktree = std::path::Path::new(worktree_path);
+    let mut added = 0i64;
+    let mut removed = 0i64;
+
+    let range = format!("{base_branch}...HEAD");
+    if let Ok(out) =
+        crate::sandbox::run_git_capture(worktree, &["diff", &range, "--numstat"]).await
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            for (_, (a, d)) in parse_numstat_per_file(&s) {
+                added += a;
+                removed += d;
+            }
+        }
+    }
+    if let Ok(out) =
+        crate::sandbox::run_git_capture(worktree, &["diff", "HEAD", "--numstat"]).await
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            for (_, (a, d)) in parse_numstat_per_file(&s) {
+                added += a;
+                removed += d;
+            }
+        }
+    }
+    (added, removed)
+}
+
+// ---------------------------------------------------------------------------
 // discard_workspace_changes
 // ---------------------------------------------------------------------------
 

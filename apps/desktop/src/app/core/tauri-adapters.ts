@@ -216,6 +216,14 @@ function provideWorkspacesAdapter(): Provider {
       async openInIde(workspaceId, ideId) {
         unwrap(await commands.openInIde(workspaceId, ideId));
       },
+      async listDiffStats() {
+        const list = unwrap(await commands.listWorkspaceDiffStats());
+        return list.map((s) => ({
+          workspaceId: s.workspace_id,
+          added: s.added,
+          removed: s.removed,
+        }));
+      },
     } satisfies WorkspacesAdapter,
   };
 }
@@ -404,6 +412,8 @@ function provideRepositoriesAdapter(): Provider {
           // staged/unstaged split in the Changes pane. Older Tauri
           // builds (or stale bindings) may omit it → default to false.
           staged: f.staged ?? false,
+          added: f.added ?? 0,
+          removed: f.removed ?? 0,
         }));
       },
       async commitWorkspace(workspaceId, paths, message) {

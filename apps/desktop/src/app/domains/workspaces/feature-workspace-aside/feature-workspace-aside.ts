@@ -241,6 +241,16 @@ function coerceBottomTab(raw: string | null): BottomTab {
               <span class="min-w-0 flex-1 truncate font-mono">{{
                 file.path
               }}</span>
+              @if (file.added > 0 || file.removed > 0) {
+                <span class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums">
+                  @if (file.added > 0) {
+                    <span class="text-emerald-600 dark:text-emerald-500">+{{ file.added }}</span>
+                  }
+                  @if (file.removed > 0) {
+                    <span class="text-red-600 dark:text-red-500">−{{ file.removed }}</span>
+                  }
+                </span>
+              }
             </button>
           </ng-template>
         }
@@ -545,6 +555,9 @@ export class FeatureWorkspaceAside {
             this.changedFiles.set([]);
           }
         });
+      // Refresh sidebar aggregate chips alongside the file list — same
+      // tick that picks up new files also picks up new line counts.
+      void this.workspaces.refreshDiffStats();
     });
   }
 

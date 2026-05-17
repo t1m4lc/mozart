@@ -29,6 +29,7 @@ use tauri::ipc::Channel;
 
 use crate::error::AppError;
 use crate::sandbox;
+use crate::sandbox::diff::parse_numstat_per_file;
 
 /// Debounce window for FS events (D4b — single ping per window).
 const WATCHER_DEBOUNCE: Duration = Duration::from_millis(200);
@@ -73,6 +74,14 @@ pub struct FileNodeDto {
     pub ignored: bool,
     /// `Some(children)` for directories (possibly empty). `None` for files.
     pub children: Option<Vec<FileNodeDto>>,
+    /// Added lines vs. the workspace's base branch (staged + working
+    /// tree combined). `None` for unchanged files and directories. UI
+    /// surfaces as a green `+N` chip when present.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub added: Option<i64>,
+    /// Removed lines vs. base. `None` for unchanged / directories.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub removed: Option<i64>,
 }
 
 /// Wire event payload pushed by `watch_repository_tree`. v0.0.1 emits a
@@ -102,7 +111,53 @@ pub async fn list_tree(
 ) -> Result<Vec<FileNodeDto>, AppError> {
     let entries = walk_entries(worktree, show_ignored)?;
     let status_map = compute_status_map(worktree, base_branch).await?;
-    Ok(build_tree(entries, &status_map))
+    let numstat_map = compute_numstat_map(worktree, base_branch).await;
+    Ok(build_tree(entries, &status_map, &numstat_map))
+}
+
+/// Per-file `(added, removed)` line counts vs. base branch + working
+/// tree. Best-effort — failures degrade silently to no counts (file
+/// rows render without the +N/-N chip). Sources merge in this order:
+/// 1. `git diff <base>...HEAD --numstat` — committed changes vs merge base
+/// 2. `git diff HEAD --numstat`         — working tree + staged
+/// Working-tree pass wins on overlap because the user cares about the
+/// *current* picture, not the previously-committed delta.
+async fn compute_numstat_map(
+    worktree: &Path,
+    base_branch: &str,
+) -> HashMap<String, (i64, i64)> {
+    let mut map: HashMap<String, (i64, i64)> = HashMap::new();
+
+    let range = format!("{base_branch}...HEAD");
+    if let Ok(out) = sandbox::run_git_capture(
+        worktree,
+        &["diff", &range, "--numstat"],
+    )
+    .await
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            for (path, counts) in parse_numstat_per_file(&s) {
+                map.insert(path, counts);
+            }
+        }
+    }
+
+    if let Ok(out) = sandbox::run_git_capture(
+        worktree,
+        &["diff", "HEAD", "--numstat"],
+    )
+    .await
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            for (path, counts) in parse_numstat_per_file(&s) {
+                map.insert(path, counts);
+            }
+        }
+    }
+
+    map
 }
 
 /// Spawn a debounced FS watcher rooted at `worktree`. The returned
@@ -357,26 +412,31 @@ fn parent_path(path: &str) -> &str {
     }
 }
 
-fn build_tree(entries: Vec<EntryFlat>, status_map: &HashMap<String, Status>) -> Vec<FileNodeDto> {
+fn build_tree(
+    entries: Vec<EntryFlat>,
+    status_map: &HashMap<String, Status>,
+    numstat_map: &HashMap<String, (i64, i64)>,
+) -> Vec<FileNodeDto> {
     let mut by_parent: HashMap<String, Vec<EntryFlat>> = HashMap::new();
     for e in entries {
         let parent = parent_path(&e.path).to_string();
         by_parent.entry(parent).or_default().push(e);
     }
-    build_subtree("", &mut by_parent, status_map)
+    build_subtree("", &mut by_parent, status_map, numstat_map)
 }
 
 fn build_subtree(
     parent: &str,
     by_parent: &mut HashMap<String, Vec<EntryFlat>>,
     status_map: &HashMap<String, Status>,
+    numstat_map: &HashMap<String, (i64, i64)>,
 ) -> Vec<FileNodeDto> {
     let kids = by_parent.remove(parent).unwrap_or_default();
     let mut nodes: Vec<FileNodeDto> = kids
         .into_iter()
         .map(|e| {
             let children = if e.is_dir {
-                Some(build_subtree(&e.path, by_parent, status_map))
+                Some(build_subtree(&e.path, by_parent, status_map, numstat_map))
             } else {
                 None
             };
@@ -384,6 +444,14 @@ fn build_subtree(
                 .get(&e.path)
                 .copied()
                 .unwrap_or(Status::Unchanged);
+            let (added, removed) = if e.is_dir {
+                (None, None)
+            } else {
+                match numstat_map.get(&e.path) {
+                    Some(&(a, d)) => (Some(a), Some(d)),
+                    None => (None, None),
+                }
+            };
             FileNodeDto {
                 path: e.path,
                 name: e.name,
@@ -395,6 +463,8 @@ fn build_subtree(
                 status: status.as_wire().into(),
                 ignored: e.ignored,
                 children,
+                added,
+                removed,
             }
         })
         .collect();
@@ -511,7 +581,8 @@ mod tests {
             },
         ];
         let status_map: HashMap<String, Status> = HashMap::new();
-        let tree = build_tree(entries, &status_map);
+        let numstat_map: HashMap<String, (i64, i64)> = HashMap::new();
+        let tree = build_tree(entries, &status_map, &numstat_map);
         // Root: src/ first (directory), then Cargo.toml (file)
         assert_eq!(tree.len(), 2);
         assert_eq!(tree[0].name, "src");

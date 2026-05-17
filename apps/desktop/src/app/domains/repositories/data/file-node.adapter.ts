@@ -38,5 +38,7 @@ export function fileNodeFromDto(dto: FileNodeDto): FileNode {
       kind === 'directory'
         ? (dto.children ?? []).map(fileNodeFromDto)
         : undefined,
+    added: dto.added ?? undefined,
+    removed: dto.removed ?? undefined,
   };
 }

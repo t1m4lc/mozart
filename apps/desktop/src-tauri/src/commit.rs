@@ -15,6 +15,7 @@ use specta::Type;
 
 use crate::error::AppError;
 use crate::sandbox;
+use crate::sandbox::diff::parse_numstat_per_file;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ChangedFile {
@@ -27,6 +28,14 @@ pub struct ChangedFile {
     /// the right aside splits on this: staged files surface in a
     /// separate group from unstaged worktree changes.
     pub staged: bool,
+    /// Added lines vs. `HEAD` (working tree + staged combined). For
+    /// untracked files this is the file's own line count. `0` for
+    /// pure deletions and binary diffs.
+    #[serde(default)]
+    pub added: i64,
+    /// Removed lines vs. `HEAD`. `0` for untracked / binary diffs.
+    #[serde(default)]
+    pub removed: i64,
 }
 
 pub async fn list_changed_files(worktree: &Path) -> Result<Vec<ChangedFile>, AppError> {
@@ -36,7 +45,52 @@ pub async fn list_changed_files(worktree: &Path) -> Result<Vec<ChangedFile>, App
         return Err(AppError::GitCmd(format!("git status failed: {stderr}")));
     }
     let stdout = String::from_utf8_lossy(&out.stdout);
-    Ok(parse_porcelain(&stdout))
+    let mut files = parse_porcelain(&stdout);
+
+    // Numstat for line counts. `git diff HEAD` covers staged + unstaged
+    // tracked changes in a single pass — git resolves the comparison
+    // base internally. Untracked files don't appear in `git diff` so
+    // we count their own line count as "added" below.
+    let mut numstat_map: std::collections::HashMap<String, (i64, i64)> =
+        std::collections::HashMap::new();
+    if let Ok(out) =
+        sandbox::run_git_capture(worktree, &["diff", "HEAD", "--numstat"]).await
+    {
+        if out.status.success() {
+            let s = String::from_utf8_lossy(&out.stdout);
+            numstat_map = parse_numstat_per_file(&s);
+        }
+    }
+
+    for f in &mut files {
+        if let Some(&(a, d)) = numstat_map.get(&f.path) {
+            f.added = a;
+            f.removed = d;
+        } else if f.status == "added" {
+            // Untracked: count the file's own lines so the UI shows
+            // a meaningful "+N". Best-effort — IO failures yield 0.
+            if let Ok(bytes) = tokio::fs::read(worktree.join(&f.path)).await {
+                f.added = bytecount_newlines(&bytes);
+            }
+        }
+    }
+
+    Ok(files)
+}
+
+/// Count newline-terminated lines in `bytes`. Mirrors `wc -l` but also
+/// counts the trailing (unterminated) line so a single-line file with
+/// no final newline still reports 1. Binary content is treated as a
+/// line count too — fine since UI surfaces this as a coarse "+N".
+fn bytecount_newlines(bytes: &[u8]) -> i64 {
+    if bytes.is_empty() {
+        return 0;
+    }
+    let mut n = bytes.iter().filter(|b| **b == b'\n').count() as i64;
+    if *bytes.last().unwrap() != b'\n' {
+        n += 1;
+    }
+    n
 }
 
 pub async fn commit(
@@ -106,6 +160,8 @@ fn parse_porcelain(stdout: &str) -> Vec<ChangedFile> {
                 path: path.replace('\\', "/"),
                 status: s.into(),
                 staged,
+                added: 0,
+                removed: 0,
             });
         }
     }

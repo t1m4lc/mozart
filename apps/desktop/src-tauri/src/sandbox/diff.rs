@@ -16,6 +16,7 @@
 //!   spawn failures map to `AppError::Io` and non-zero exits map to
 //!   `AppError::GitCmd` with stderr passthrough.
 
+use std::collections::HashMap;
 use std::path::Path;
 
 use super::run_git;
@@ -53,6 +54,36 @@ pub async fn capture_diff(
         files_modified,
         files_deleted,
     })
+}
+
+/// Parse `git diff --numstat` stdout into a per-file map of
+/// `(added_lines, removed_lines)`. Binary diffs (`-\t-\t…`) yield
+/// `(0, 0)` so callers can still surface the file without misleading
+/// counts. Renames render as one row with `{old => new}` in the path
+/// segment; we keep that path string verbatim since callers (file tree,
+/// changed-files list) work with workspace-relative paths and the
+/// rename arrow is unambiguous enough for v0.0.1 UI.
+pub fn parse_numstat_per_file(stdout: &str) -> HashMap<String, (i64, i64)> {
+    let mut out: HashMap<String, (i64, i64)> = HashMap::new();
+    for line in stdout.lines() {
+        let mut parts = line.splitn(3, '\t');
+        let a = parts.next().unwrap_or("");
+        let d = parts.next().unwrap_or("");
+        let Some(path) = parts.next() else {
+            continue;
+        };
+        if path.is_empty() {
+            continue;
+        }
+        let normalized = path.replace('\\', "/");
+        let (added, removed) = if a == "-" && d == "-" {
+            (0, 0)
+        } else {
+            (a.parse().unwrap_or(0), d.parse().unwrap_or(0))
+        };
+        out.insert(normalized, (added, removed));
+    }
+    out
 }
 
 /// Parse `git diff --numstat` stdout into `(added, modified, deleted)`
@@ -178,6 +209,40 @@ mod tests {
                      0\t0\t{old => new}\n";
         // 1 added, 1 deleted, 3 modified (both, binary, rename).
         assert_eq!(parse_numstat(input), (1, 3, 1));
+    }
+
+    #[test]
+    fn parse_numstat_per_file_empty_returns_empty_map() {
+        assert!(parse_numstat_per_file("").is_empty());
+    }
+
+    #[test]
+    fn parse_numstat_per_file_extracts_pairs() {
+        let map = parse_numstat_per_file("3\t0\tadded.txt\n0\t5\tdeleted.txt\n4\t2\tmodified.txt\n");
+        assert_eq!(map.get("added.txt"), Some(&(3, 0)));
+        assert_eq!(map.get("deleted.txt"), Some(&(0, 5)));
+        assert_eq!(map.get("modified.txt"), Some(&(4, 2)));
+        assert_eq!(map.len(), 3);
+    }
+
+    #[test]
+    fn parse_numstat_per_file_binary_is_zero_zero() {
+        let map = parse_numstat_per_file("-\t-\timg.png\n");
+        assert_eq!(map.get("img.png"), Some(&(0, 0)));
+    }
+
+    #[test]
+    fn parse_numstat_per_file_skips_malformed() {
+        // Two-field rows have no path → must skip without error.
+        let map = parse_numstat_per_file("3\t0\nonly-one-field\n4\t2\tok.txt\n");
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get("ok.txt"), Some(&(4, 2)));
+    }
+
+    #[test]
+    fn parse_numstat_per_file_normalizes_path_separators() {
+        let map = parse_numstat_per_file("1\t1\tsub\\dir\\file.txt\n");
+        assert_eq!(map.get("sub/dir/file.txt"), Some(&(1, 1)));
     }
 
     #[test]

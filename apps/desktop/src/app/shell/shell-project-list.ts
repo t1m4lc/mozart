@@ -144,6 +144,7 @@ import {
                       [isStreaming]="streamingIds().has(workspace.id)"
                       [chatTitle]="chatTitleFor(workspace.id)"
                       [lastActivity]="lastActivityFor(workspace.id)"
+                      [diffStats]="diffStatsFor(workspace.id)"
                       (archive)="archiveWorkspace(workspace.id)"
                       (renameCommit)="onRenameCommit(workspace.id, $event)"
                       (renameCancel)="editingWorkspaceId.set(null)"
@@ -211,6 +212,7 @@ import {
                       [isStreaming]="streamingIds().has(workspace.id)"
                       [chatTitle]="chatTitleFor(workspace.id)"
                       [lastActivity]="lastActivityFor(workspace.id)"
+                      [diffStats]="diffStatsFor(workspace.id)"
                       (archive)="archiveWorkspace(workspace.id)"
                       (renameCommit)="onRenameCommit(workspace.id, $event)"
                       (renameCancel)="editingWorkspaceId.set(null)"
@@ -314,6 +316,15 @@ export class ShellProjectList {
   // been tracked yet (the row falls back to workspace.createdAt).
   protected lastActivityFor(workspaceId: string): number {
     return this._chat.lastActivityByWorkspace().get(workspaceId) ?? 0;
+  }
+
+  // Aggregate diff stats from the workspaces facade. `null` when stats
+  // haven't been fetched yet or this workspace has no changes — the
+  // row hides the chip in both cases.
+  protected diffStatsFor(
+    workspaceId: string,
+  ): { added: number; removed: number } | null {
+    return this.workspaces.diffStats().get(workspaceId) ?? null;
   }
 
   protected readonly editingWorkspaceId = signal<string | null>(null);
