@@ -77,6 +77,7 @@ export default defineConfig(({ mode }) => ({
           '/terms',
         ],
         discover: false,
+        sitemap: { host: 'https://mozart.build' },
       },
     }),
     nxViteTsPaths(),

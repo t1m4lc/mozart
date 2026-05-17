@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { MarkdownComponent, injectContentFiles } from '@analogjs/content';
+import { injectSeo } from '../../shell/seo';
 import {
   ChangelogAttributes,
   isChangelogFile,
@@ -70,4 +71,15 @@ export default class ChangelogIndexPage {
       isChangelogFile(f.filename),
     ).map(toChangelogEntry),
   );
+
+  private readonly seo = injectSeo();
+
+  constructor() {
+    this.seo({
+      title: 'Changelog — Mozart',
+      description: 'Every Mozart release, newest first.',
+      path: '/changelog',
+      type: 'website',
+    });
+  }
 }

@@ -2,12 +2,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { injectContentFiles } from '@analogjs/content';
 import { filter, map } from 'rxjs/operators';
+import { injectSeo } from '../shell/seo';
 import {
   BlogAttributes,
   isBlogFile,
@@ -67,6 +69,7 @@ import { BlogAuthorsComponent } from './blog/_layout/blog-authors.component';
 })
 export default class BlogLayoutPage {
   private readonly router = inject(Router);
+  private readonly seo = injectSeo();
   private readonly entries = injectContentFiles<BlogAttributes>((f) =>
     isBlogFile(f.filename),
   ).map(toBlogEntry);
@@ -89,4 +92,18 @@ export default class BlogLayoutPage {
     if (!slug) return null;
     return this.entries.find((e) => e.slug === slug) ?? null;
   });
+
+  constructor() {
+    effect(() => {
+      const post = this.currentPost();
+      if (!post) return;
+      this.seo({
+        title: `${post.title} — Mozart`,
+        description: post.description || 'A note from the Mozart team.',
+        path: `/blog/${post.slug}`,
+        type: 'article',
+        image: post.heroImage,
+      });
+    });
+  }
 }

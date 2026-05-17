@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { injectSeo } from '../shell/seo';
 import { FaqComponent } from './_partials/faq.component';
 import { FinalCtaComponent } from './_partials/final-cta.component';
 import { FlowComponent } from './_partials/flow.component';
@@ -32,4 +33,16 @@ import { TrustedByComponent } from './_partials/trusted-by.component';
     <app-final-cta />
   `,
 })
-export default class HomePage {}
+export default class HomePage {
+  private readonly seo = injectSeo();
+
+  constructor() {
+    this.seo({
+      title: 'Mozart — Conduct your AI coding agents',
+      description:
+        'Agents play the notes. Mozart helps you conduct the masterpiece.',
+      path: '/',
+      type: 'website',
+    });
+  }
+}

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { injectContentFiles } from '@analogjs/content';
+import { injectSeo } from '../../shell/seo';
 import {
   BlogAttributes,
   isBlogFile,
@@ -60,4 +61,15 @@ export default class BlogIndexPage {
       toBlogEntry,
     ),
   );
+
+  private readonly seo = injectSeo();
+
+  constructor() {
+    this.seo({
+      title: 'Blog — Mozart',
+      description: 'Notes, updates, and stories from the Mozart team.',
+      path: '/blog',
+      type: 'website',
+    });
+  }
 }

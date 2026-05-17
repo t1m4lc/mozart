@@ -2,12 +2,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
+  effect,
   inject,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { injectContentFiles } from '@analogjs/content';
 import { filter, map } from 'rxjs/operators';
+import { injectSeo } from '../shell/seo';
 import {
   ChangelogAttributes,
   isChangelogFile,
@@ -48,6 +50,7 @@ import {
 })
 export default class ChangelogLayoutPage {
   private readonly router = inject(Router);
+  private readonly seo = injectSeo();
   private readonly entries = injectContentFiles<ChangelogAttributes>((f) =>
     isChangelogFile(f.filename),
   ).map(toChangelogEntry);
@@ -70,4 +73,17 @@ export default class ChangelogLayoutPage {
     if (!slug) return null;
     return this.entries.find((e) => e.slug === slug) ?? null;
   });
+
+  constructor() {
+    effect(() => {
+      const entry = this.currentDetail();
+      if (!entry) return;
+      this.seo({
+        title: `v${entry.version} ${entry.title} — Mozart`,
+        description: `Mozart v${entry.version} (${entry.formattedDate}): ${entry.title}.`,
+        path: `/changelog/${entry.slug}`,
+        type: 'article',
+      });
+    });
+  }
 }

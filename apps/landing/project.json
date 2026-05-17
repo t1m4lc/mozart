@@ -50,6 +50,14 @@
     },
     "lint": {
       "executor": "@nx/eslint:lint"
+    },
+    "post-build-seo": {
+      "executor": "nx:run-commands",
+      "dependsOn": ["build"],
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "node scripts/post-build-seo.mjs"
+      }
     }
   }
 }

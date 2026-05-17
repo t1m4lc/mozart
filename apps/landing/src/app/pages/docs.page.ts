@@ -10,6 +10,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
 import { filter, map } from 'rxjs/operators';
+import { injectSeo } from '../shell/seo';
 import { TocHeading, extractHeadings } from '../shell/toc';
 import { TocComponent } from '../shell/toc.component';
 import {
@@ -62,6 +63,7 @@ import { DocsShellComponent } from './docs/_layout/docs-shell.component';
 })
 export default class DocsLayoutPage {
   private readonly router = inject(Router);
+  private readonly seo = injectSeo();
   private readonly filesMap = injectContentFilesMap();
   private readonly entries = injectContentFiles<DocsAttributes>((f) =>
     isDocsFile(f.filename),
@@ -117,6 +119,14 @@ export default class DocsLayoutPage {
         return;
       }
       void this.loadHeadings(detail.slug);
+      this.seo({
+        title: `${detail.title} — Mozart docs`,
+        description:
+          detail.description ||
+          `${detail.title}: ${detail.groupTitle} documentation for Mozart.`,
+        path: `/docs/${detail.slug}`,
+        type: 'article',
+      });
     });
   }
 
