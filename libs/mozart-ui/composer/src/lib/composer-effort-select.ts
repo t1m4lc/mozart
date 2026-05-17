@@ -16,7 +16,7 @@ import {
   lucideSignalMedium,
   lucideSignalZero,
 } from '@ng-icons/lucide';
-import type { EffortLevel } from './hlm-composer';
+import type { EffortLevel } from './mz-composer';
 
 interface EffortRow {
   readonly value: EffortLevel;
@@ -46,7 +46,7 @@ const ROW_BY_LEVEL: Record<EffortLevel, EffortRow> = EFFORT_ROWS.reduce(
  * label.
  */
 @Component({
-  selector: 'composer-effort-select',
+  selector: 'mz-composer-effort-select',
   imports: [NgIcon, HlmSelectImports, HlmTooltipImports],
   providers: [
     provideIcons({

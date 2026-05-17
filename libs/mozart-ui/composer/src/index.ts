@@ -1,5 +1,5 @@
-import { HlmComposer } from './lib/hlm-composer';
+import { HlmComposer } from './lib/mz-composer';
 
-export * from './lib/hlm-composer';
+export * from './lib/mz-composer';
 
 export const HlmComposerImports = [HlmComposer] as const;

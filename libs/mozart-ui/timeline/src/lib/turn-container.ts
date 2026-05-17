@@ -32,34 +32,34 @@ import type {
 // wants to persist the choice across re-mounts.
 
 @Component({
-  selector: 'hlm-turn-container',
+  selector: 'mz-turn-container',
   imports: [TurnHeader, TurnBody, MessageBody, Timeline, DoneMarker, ErrorMarker],
   providers: [FileChipBus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <hlm-turn-header
+    <mz-turn-header
       [summary]="state().summary"
       [streaming]="state().isStreaming"
       [(collapsed)]="collapsed"
     />
-    <hlm-turn-body [collapsed]="collapsed()">
+    <mz-turn-body [collapsed]="collapsed()">
       @if (_hasItems()) {
-        <hlm-timeline [items]="state().items" />
+        <mz-timeline [items]="state().items" />
       }
       @if (_hasText()) {
-        <hlm-message-body
+        <mz-message-body
           [class.mt-1]="_hasItems()"
           [text]="state().text"
           [streaming]="state().isStreaming"
         />
       }
       @if (_showDone()) {
-        <hlm-done-marker class="mt-1" />
+        <mz-done-marker class="mt-1" />
       } @else if (_showError()) {
-        <hlm-error-marker class="mt-1" [label]="_errorLabel()" />
+        <mz-error-marker class="mt-1" [label]="_errorLabel()" />
       }
-    </hlm-turn-body>
+    </mz-turn-body>
   `,
 })
 export class TurnContainer {

@@ -95,7 +95,7 @@ const FILE_SHOWCASE_FIXTURE: FixtureModule = {
             <h2 class="text-sm font-medium">{{ demo.name }}</h2>
             <p class="text-xs text-muted-foreground">{{ demo.description }}</p>
           </div>
-          <hlm-turn-container
+          <mz-turn-container
             [state]="demo.state"
             (fileChipClick)="_logChip($event.path)"
           />

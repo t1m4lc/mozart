@@ -9,13 +9,13 @@ import { TimelineItem } from './timeline-item';
 // (the timeline visually terminates here). Default green tint.
 
 @Component({
-  selector: 'hlm-done-marker',
+  selector: 'mz-done-marker',
   imports: [HlmIconImports, TimelineItem],
   providers: [provideIcons({ lucideCircleCheck })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <hlm-timeline-item [showConnector]="false">
+    <mz-timeline-item [showConnector]="false">
       <ng-icon
         hlmRowIcon
         hlm
@@ -24,7 +24,7 @@ import { TimelineItem } from './timeline-item';
         class="text-emerald-600 dark:text-emerald-500"
       />
       <p class="text-sm text-muted-foreground">Done</p>
-    </hlm-timeline-item>
+    </mz-timeline-item>
   `,
 })
 export class DoneMarker {}

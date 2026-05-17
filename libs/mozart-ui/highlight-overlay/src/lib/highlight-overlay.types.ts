@@ -1,4 +1,4 @@
-// Public types for `<hlm-highlight-overlay>`. Consumers pass an array
+// Public types for `<mz-highlight-overlay>`. Consumers pass an array
 // of HighlightStep — the primitive owns the punch-hole geometry +
 // positioning ; the consumer drives the cursor via `currentIndex`.
 

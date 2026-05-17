@@ -5,7 +5,7 @@
 // collisions with global CSS.
 
 export const SHIMMER_TEXT_STYLES = `
-  @keyframes hlm-timeline-shimmer {
+  @keyframes mz-timeline-shimmer {
     0%   { background-position: 200% center; }
     100% { background-position: -200% center; }
   }
@@ -23,7 +23,7 @@ export const SHIMMER_TEXT_STYLES = `
     background-repeat: no-repeat;
     -webkit-background-clip: text;
     background-clip: text;
-    animation: hlm-timeline-shimmer 2.25s linear infinite;
+    animation: mz-timeline-shimmer 2.25s linear infinite;
   }
   @media (prefers-reduced-motion: reduce) {
     .shimmer-text {

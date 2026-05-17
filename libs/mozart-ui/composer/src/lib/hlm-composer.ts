@@ -12,16 +12,16 @@ import { HlmTextareaImports } from '@mozart/ui/textarea';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowUp, lucideCircleStop, lucidePlus } from '@ng-icons/lucide';
-import { ComposerEffortSelect } from './composer-effort-select';
-import { ComposerModeSelect } from './composer-mode-select';
+import { ComposerEffortSelect } from './mz-composer-effort-select';
+import { ComposerModeSelect } from './mz-composer-mode-select';
 import {
   ComposerModelSelect,
   type ModelOption,
   type ProviderId,
   type ProviderInfo,
-} from './composer-model-select';
-import { ComposerScrollOverlay } from './composer-scroll-overlay';
-import { HlmComposerPlusMenu } from './hlm-composer-plus-menu';
+} from './mz-composer-model-select';
+import { ComposerScrollOverlay } from './mz-composer-scroll-overlay';
+import { HlmComposerPlusMenu } from './mz-composer-plus-menu';
 
 export type ChatMode = 'agent' | 'plan' | 'ask';
 /** @deprecated Use `ChatMode`. Kept as an alias during Phase 2 rename. */
@@ -47,7 +47,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
 };
 
 @Component({
-  selector: 'hlm-composer',
+  selector: 'mz-composer',
   imports: [
     NgIcon,
     HlmButtonImports,
@@ -71,7 +71,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
   host: { class: 'block' },
   template: `
     <form class="relative block" (submit)="_onSubmit($event)">
-      <composer-scroll-overlay
+      <mz-composer-scroll-overlay
         [autoFollowChat]="autoFollowChat()"
         [hasNextUnreadInProject]="hasNextUnreadInProject()"
         (scrollToBottom)="scrollToBottom.emit()"
@@ -92,7 +92,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
 
         <textarea
           hlmTextarea
-          class="hlm-composer-textarea block w-full border-0 outline-none shadow-none rounded-none resize-none bg-transparent dark:bg-transparent p-3 text-sm leading-6 min-h-24 max-h-72 overflow-y-auto focus-visible:ring-0 focus-visible:border-0"
+          class="mz-composer-textarea block w-full border-0 outline-none shadow-none rounded-none resize-none bg-transparent dark:bg-transparent p-3 text-sm leading-6 min-h-24 max-h-72 overflow-y-auto focus-visible:ring-0 focus-visible:border-0"
           [value]="value()"
           (input)="_onInput($event)"
           [disabled]="disabled()"
@@ -102,14 +102,14 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
         ></textarea>
 
         <div class="flex items-center gap-1 p-2 max-h-10">
-          <hlm-composer-plus-menu />
+          <mz-composer-plus-menu />
 
-          <composer-effort-select
+          <mz-composer-effort-select
             [effort]="effort()"
             (effortChange)="effort.set($event)"
           />
 
-          <composer-mode-select
+          <mz-composer-mode-select
             [mode]="mode()"
             [disabled]="isRunning() || disabled()"
             (modeChange)="mode.set($event)"
@@ -118,7 +118,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
           <span class="flex-auto"></span>
 
           @if (models().length > 0) {
-            <composer-model-select
+            <mz-composer-model-select
               [models]="models()"
               [providers]="providers()"
               [selectedModelId]="selectedModelId()"
@@ -181,21 +181,21 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
     </form>
   `,
   styles: `
-    .hlm-composer-textarea {
+    .mz-composer-textarea {
       scrollbar-width: thin;
       scrollbar-color: hsl(var(--primary)) transparent;
     }
-    .hlm-composer-textarea::-webkit-scrollbar {
+    .mz-composer-textarea::-webkit-scrollbar {
       width: 6px;
     }
-    .hlm-composer-textarea::-webkit-scrollbar-track {
+    .mz-composer-textarea::-webkit-scrollbar-track {
       background-color: transparent;
     }
-    .hlm-composer-textarea::-webkit-scrollbar-thumb {
+    .mz-composer-textarea::-webkit-scrollbar-thumb {
       background-color: hsl(var(--primary));
       border-radius: 1px;
     }
-    .hlm-composer-textarea::-webkit-scrollbar-thumb:hover {
+    .mz-composer-textarea::-webkit-scrollbar-thumb:hover {
       background-color: hsl(var(--primary) / 0.85);
     }
   `,

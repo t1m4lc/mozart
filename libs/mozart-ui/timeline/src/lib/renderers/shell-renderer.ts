@@ -19,13 +19,13 @@ import type { TurnItem } from '../turn-state.types';
 // an extra click); collapsible via the title row.
 
 @Component({
-  selector: 'hlm-shell-renderer',
+  selector: 'mz-shell-renderer',
   imports: [HlmIconImports, TimelineItem],
   providers: [provideIcons({ lucideTerminal })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <hlm-timeline-item
+    <mz-timeline-item
       [showSpacer]="showSpacer()"
       [showConnector]="showConnector()"
     >
@@ -62,7 +62,7 @@ import type { TurnItem } from '../turn-state.types';
           </div>
         }
       </div>
-    </hlm-timeline-item>
+    </mz-timeline-item>
   `,
   styles: [
     SHIMMER_TEXT_STYLES,

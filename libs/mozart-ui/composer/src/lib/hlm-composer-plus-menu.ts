@@ -15,7 +15,7 @@ import {
 // hover-pinned popover for a more deliberate interaction model and so
 // the menu doesn't fight with the user's hover when reading the chat.
 @Component({
-  selector: 'hlm-composer-plus-menu',
+  selector: 'mz-composer-plus-menu',
   imports: [NgIcon, HlmButtonImports, HlmDropdownMenuImports, HlmIconImports],
   providers: [
     provideIcons({ lucideHash, lucideLink, lucidePaperclip, lucidePlus }),

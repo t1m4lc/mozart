@@ -5,7 +5,7 @@ import {
 } from '@angular/core';
 
 // Phase 3b — visual chrome for a single timeline row. Renderers
-// compose <hlm-timeline-item> internally and project their gutter
+// compose <mz-timeline-item> internally and project their gutter
 // icon + body content into the named slots. Geometry follows the
 // Claude.ai reference (spec §A.3, §A.7.4):
 //
@@ -19,7 +19,7 @@ import {
 // so the visual rhythm stays correct when items expand/collapse.
 
 @Component({
-  selector: 'hlm-timeline-item',
+  selector: 'mz-timeline-item',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `

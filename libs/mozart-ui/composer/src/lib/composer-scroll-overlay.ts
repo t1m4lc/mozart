@@ -17,7 +17,7 @@ import { lucideArrowDown, lucideArrowRight } from '@ng-icons/lucide';
  * these flags.
  */
 @Component({
-  selector: 'composer-scroll-overlay',
+  selector: 'mz-composer-scroll-overlay',
   imports: [NgIcon, HlmButtonImports, HlmIconImports, HlmTooltipImports],
   providers: [provideIcons({ lucideArrowDown, lucideArrowRight })],
   changeDetection: ChangeDetectionStrategy.OnPush,

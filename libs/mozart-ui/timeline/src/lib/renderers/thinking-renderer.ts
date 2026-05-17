@@ -26,13 +26,13 @@ const COLLAPSED_PX = 200;
 const EXPANDED_PX = 600;
 
 @Component({
-  selector: 'hlm-thinking-renderer',
+  selector: 'mz-thinking-renderer',
   imports: [HlmIconImports, TimelineItem],
   providers: [provideIcons({ lucideClock })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <hlm-timeline-item
+    <mz-timeline-item
       [showSpacer]="showSpacer()"
       [showConnector]="showConnector()"
     >
@@ -76,7 +76,7 @@ const EXPANDED_PX = 600;
           }
         }
       </div>
-    </hlm-timeline-item>
+    </mz-timeline-item>
   `,
   styles: [
     SHIMMER_TEXT_STYLES,

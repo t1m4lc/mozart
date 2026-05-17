@@ -14,7 +14,7 @@ export default [
                 "error",
                 {
                     type: "attribute",
-                    prefix: "hlm",
+                    prefix: "mz",
                     style: "camelCase"
                 }
             ],
@@ -22,7 +22,7 @@ export default [
                 "error",
                 {
                     type: "element",
-                    prefix: "hlm",
+                    prefix: "mz",
                     style: "kebab-case"
                 }
             ],

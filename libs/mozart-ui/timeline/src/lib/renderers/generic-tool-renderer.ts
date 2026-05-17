@@ -18,13 +18,13 @@ import type { TurnItem } from '../turn-state.types';
 // remains the catch-all for `kind === 'generic'`.
 
 @Component({
-  selector: 'hlm-generic-tool-renderer',
+  selector: 'mz-generic-tool-renderer',
   imports: [HlmIconImports, TimelineItem],
   providers: [provideIcons({ lucideWrench })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <hlm-timeline-item
+    <mz-timeline-item
       [showSpacer]="showSpacer()"
       [showConnector]="showConnector()"
     >
@@ -43,7 +43,7 @@ import type { TurnItem } from '../turn-state.types';
       >
         {{ item().title }}
       </p>
-    </hlm-timeline-item>
+    </mz-timeline-item>
   `,
   styles: [SHIMMER_TEXT_STYLES],
 })

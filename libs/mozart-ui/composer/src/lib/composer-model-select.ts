@@ -50,7 +50,7 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
  * soon" badge.
  */
 @Component({
-  selector: 'composer-model-select',
+  selector: 'mz-composer-model-select',
   imports: [NgIcon, HlmBadgeImports, HlmSelectImports, HlmTooltipImports],
   providers: [
     provideIcons({

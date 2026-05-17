@@ -21,13 +21,13 @@ import type { TurnItem } from '../turn-state.types';
 // activity; the chip is the body.
 
 @Component({
-  selector: 'hlm-file-edit-renderer',
+  selector: 'mz-file-edit-renderer',
   imports: [HlmIconImports, TimelineItem, FileChip],
   providers: [provideIcons({ lucideFilePen })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <hlm-timeline-item
+    <mz-timeline-item
       [showSpacer]="showSpacer()"
       [showConnector]="showConnector()"
     >
@@ -48,14 +48,14 @@ import type { TurnItem } from '../turn-state.types';
           {{ item().title || 'Edit' }}
         </span>
         @if (item().fileChip; as chip) {
-          <hlm-file-chip
+          <mz-file-chip
             [chip]="chip"
             variant="edit"
             (chipClick)="_onChipClick($event)"
           />
         }
       </div>
-    </hlm-timeline-item>
+    </mz-timeline-item>
   `,
   styles: [SHIMMER_TEXT_STYLES],
 })

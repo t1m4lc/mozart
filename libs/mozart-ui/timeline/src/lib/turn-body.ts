@@ -10,7 +10,7 @@ import {
 // removes the transition but the toggle still works.
 
 @Component({
-  selector: 'hlm-turn-body',
+  selector: 'mz-turn-body',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `

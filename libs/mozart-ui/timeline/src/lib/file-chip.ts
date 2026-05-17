@@ -20,7 +20,7 @@ export type FileChipVariant = 'read' | 'edit' | 'create' | 'delete';
 // that lands.
 
 @Component({
-  selector: 'hlm-file-chip',
+  selector: 'mz-file-chip',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'inline-block' },
   template: `

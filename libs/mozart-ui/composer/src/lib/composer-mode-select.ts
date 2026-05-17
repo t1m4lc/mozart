@@ -14,7 +14,7 @@ import {
   lucideMap,
   lucideMessageCircleQuestion,
 } from '@ng-icons/lucide';
-import type { ChatMode } from './hlm-composer';
+import type { ChatMode } from './mz-composer';
 
 interface ModeRow {
   readonly value: ChatMode;
@@ -57,7 +57,7 @@ const ROW_BY_MODE: Record<ChatMode, ModeRow> = MODE_ROWS.reduce(
  * pattern of effort/model selects). Single-select, non-nullable.
  */
 @Component({
-  selector: 'composer-mode-select',
+  selector: 'mz-composer-mode-select',
   imports: [NgIcon, HlmSelectImports, HlmTooltipImports],
   providers: [
     provideIcons({

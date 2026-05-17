@@ -21,7 +21,7 @@ import { SHIMMER_TEXT_STYLES } from './_shimmer.styles';
 const FALLBACK_SUMMARY = 'Working…';
 
 @Component({
-  selector: 'hlm-turn-header',
+  selector: 'mz-turn-header',
   imports: [HlmIconImports],
   providers: [provideIcons({ lucideChevronDown, lucideSparkles })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -58,13 +58,13 @@ const FALLBACK_SUMMARY = 'Working…';
   styles: [
     SHIMMER_TEXT_STYLES,
     `
-      @keyframes hlm-turn-header-fade-up {
+      @keyframes mz-turn-header-fade-up {
         from { opacity: 0; transform: translateY(5px); }
         to   { opacity: 1; transform: translateY(0); }
       }
       .summary-line {
         display: inline-block;
-        animation: hlm-turn-header-fade-up 350ms ease both;
+        animation: mz-turn-header-fade-up 350ms ease both;
       }
       @media (prefers-reduced-motion: reduce) {
         .summary-line { animation: none; }

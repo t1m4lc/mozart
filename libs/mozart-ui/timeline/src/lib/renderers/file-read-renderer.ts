@@ -20,13 +20,13 @@ import type { TurnItem } from '../turn-state.types';
 // reads don't have a meaningful expandable detail.
 
 @Component({
-  selector: 'hlm-file-read-renderer',
+  selector: 'mz-file-read-renderer',
   imports: [HlmIconImports, TimelineItem, FileChip],
   providers: [provideIcons({ lucideFileText })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <hlm-timeline-item
+    <mz-timeline-item
       [showSpacer]="showSpacer()"
       [showConnector]="showConnector()"
     >
@@ -47,14 +47,14 @@ import type { TurnItem } from '../turn-state.types';
           {{ item().title || 'Read' }}
         </span>
         @if (item().fileChip; as chip) {
-          <hlm-file-chip
+          <mz-file-chip
             [chip]="chip"
             variant="read"
             (chipClick)="_onChipClick($event)"
           />
         }
       </div>
-    </hlm-timeline-item>
+    </mz-timeline-item>
   `,
   styles: [SHIMMER_TEXT_STYLES],
 })

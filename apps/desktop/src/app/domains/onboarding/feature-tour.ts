@@ -67,7 +67,7 @@ const TOUR_STEPS: readonly HighlightStep[] = [
         <app-ui-tour-closing-card (done)="onDone()" />
       }
     } @else {
-      <hlm-highlight-overlay
+      <mz-highlight-overlay
         [steps]="_steps"
         [currentIndex]="_currentIndex()"
         (advance)="onAdvance()"

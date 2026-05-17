@@ -11,7 +11,7 @@ import {
 // Claude-style timeline (header + items + done marker).
 
 @Component({
-  selector: 'hlm-message-body',
+  selector: 'mz-message-body',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `

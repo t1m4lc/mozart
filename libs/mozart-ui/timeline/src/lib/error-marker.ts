@@ -10,13 +10,13 @@ import { TimelineItem } from './timeline-item';
 // override (e.g. "Stopped" for user-cancellation).
 
 @Component({
-  selector: 'hlm-error-marker',
+  selector: 'mz-error-marker',
   imports: [HlmIconImports, TimelineItem],
   providers: [provideIcons({ lucideCircleX })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <hlm-timeline-item [showConnector]="false">
+    <mz-timeline-item [showConnector]="false">
       <ng-icon
         hlmRowIcon
         hlm
@@ -25,7 +25,7 @@ import { TimelineItem } from './timeline-item';
         class="text-destructive"
       />
       <p class="text-sm text-destructive">{{ label() }}</p>
-    </hlm-timeline-item>
+    </mz-timeline-item>
   `,
 })
 export class ErrorMarker {

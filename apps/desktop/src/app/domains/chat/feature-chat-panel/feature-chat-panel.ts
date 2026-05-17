@@ -52,7 +52,7 @@ import { MessageList } from '../ui/message-list/message-list';
         class="pointer-events-none absolute inset-x-0 -top-4 h-4 bg-gradient-to-t from-background to-transparent dark:from-background"
         aria-hidden="true"
       ></div>
-      <hlm-composer
+      <mz-composer
         #composerEl
         [(value)]="value"
         [mode]="currentMode()"

@@ -18,14 +18,14 @@ import type { Message } from '../../data/message.model';
   template: `
     <article class="flex w-full flex-col gap-2">
       @if (message().turnState; as ts) {
-        <hlm-turn-container
+        <mz-turn-container
           [state]="ts"
           (fileChipClick)="onFileChipClick($event)"
         />
       } @else if (_isLoading()) {
         <hlm-loader size="sm" class="text-brand" />
       } @else {
-        <hlm-message-body
+        <mz-message-body
           [text]="message().content"
           [streaming]="_isStreaming()"
         />

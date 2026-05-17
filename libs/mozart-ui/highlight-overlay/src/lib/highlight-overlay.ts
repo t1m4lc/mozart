@@ -36,7 +36,7 @@ const TOOLTIP_FALLBACK_HEIGHT = 160;
 // `getBoundingClientRect()` + a ResizeObserver so the hole follows
 // layout changes.
 @Component({
-  selector: 'hlm-highlight-overlay',
+  selector: 'mz-highlight-overlay',
   imports: [HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {

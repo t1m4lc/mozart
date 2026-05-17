@@ -29,7 +29,7 @@ interface TimelineRow {
 }
 
 @Component({
-  selector: 'hlm-timeline',
+  selector: 'mz-timeline',
   imports: [NgComponentOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col' },

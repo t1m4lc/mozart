@@ -54,7 +54,7 @@ interface SandboxLogEntry {
       </div>
 
       <div class="border border-border rounded-md overflow-hidden">
-        <hlm-composer
+        <mz-composer
           [(value)]="value"
           [(mode)]="mode"
           [isRunning]="isRunning()"
