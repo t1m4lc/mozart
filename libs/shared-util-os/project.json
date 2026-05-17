@@ -1,0 +1,20 @@
+{
+  "name": "shared-util-os",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared-util-os/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": [],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/shared-util-os/tsconfig.spec.json"
+      }
+    }
+  }
+}

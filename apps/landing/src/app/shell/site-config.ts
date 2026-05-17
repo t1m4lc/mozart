@@ -14,8 +14,10 @@ export interface SocialConfig {
 
 export interface DownloadsConfig {
   readonly mac: string;
+  readonly macIntel: string;
   readonly windows: string;
   readonly linux: string;
+  readonly waitlist: string;
 }
 
 export interface SiteConfig {
@@ -38,8 +40,11 @@ export const SITE_CONFIG: SiteConfig = {
   },
   downloads: {
     mac: '/download/mac',
+    macIntel: '/download/mac-intel',
     windows: '/download/windows',
     linux: '/download/linux',
+    waitlist:
+      'https://docs.google.com/forms/d/1jPQsC8oLNIyjHW3WOsUxK2XNm0Z-BAzdooZuMs9cbFM/edit',
   },
   // configure link in apps/landing/public/_redirects
   social: {

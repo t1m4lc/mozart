@@ -1,8 +1,8 @@
 import { NgClass } from '@angular/common';
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { HlmButton } from '@mozart/ui/button';
-import { HlmDialogImports } from '@mozart/ui/dialog';
+import { HlmDialogImports, HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -10,6 +10,7 @@ import {
   lucideArrowRight,
   lucideDownload,
 } from '@ng-icons/lucide';
+import { DownloadDialogComponent } from '../../shell/download-dialog.component';
 
 type FeatureStatus = 'Now' | 'Next' | 'Vision';
 type Feature = {
@@ -80,7 +81,8 @@ const roadmapFeatures: Feature[] = [
       <h1
         class="text-foreground max-w-xl text-2xl font-semibold tracking-tight md:text-3xl mb-3"
       >
-        Agents move fast. Mozart gives direction.
+        Agents move <i>fast</i>. <br />
+        <b>Mozart</b> gives <i>direction</i>.
       </h1>
 
       <p class="text-muted-foreground mb-8 max-w-2xl text-sm">
@@ -167,11 +169,12 @@ const roadmapFeatures: Feature[] = [
       </p>
 
       <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <a
+        <button
           hlmBtn
+          type="button"
           variant="default"
           size="lg"
-          routerLink="/download"
+          (click)="openDownload()"
           class="border-primary group justify-between shadow-brand transition-shadow duration-300 hover:shadow-brand-strong"
         >
           Download Mozart
@@ -189,7 +192,7 @@ const roadmapFeatures: Feature[] = [
               class="absolute inset-0 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
             />
           </span>
-        </a>
+        </button>
         <a
           hlmBtn
           variant="outline"
@@ -211,4 +214,9 @@ const roadmapFeatures: Feature[] = [
 })
 export class HeroComponent {
   protected readonly roadmapFeatures = roadmapFeatures;
+  private readonly dialog = inject(HlmDialogService);
+
+  protected openDownload(): void {
+    this.dialog.open(DownloadDialogComponent, {});
+  }
 }

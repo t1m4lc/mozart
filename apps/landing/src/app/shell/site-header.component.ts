@@ -1,6 +1,7 @@
-import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmButton } from '@mozart/ui/button';
+import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -10,6 +11,7 @@ import {
   lucideMenu,
   lucideX,
 } from '@ng-icons/lucide';
+import { DownloadDialogComponent } from './download-dialog.component';
 import { PRIMARY_NAV } from './nav-model';
 import { ThemeToggleComponent } from './theme-toggle.component';
 
@@ -64,15 +66,16 @@ import { ThemeToggleComponent } from './theme-toggle.component';
               {{ link.label }}
             </a>
           }
-          <a
+          <button
             hlmBtn
+            type="button"
             variant="default"
             size="default"
-            routerLink="/download"
+            (click)="openDownload()"
             class="justify-between"
           >
             Download
-          </a>
+          </button>
         </nav>
 
         <button
@@ -106,12 +109,12 @@ import { ThemeToggleComponent } from './theme-toggle.component';
               {{ link.label }}
             </a>
           }
-          <a
+          <button
             hlmBtn
+            type="button"
             variant="default"
             size="default"
-            routerLink="/download"
-            (click)="closeMenu()"
+            (click)="closeMenu(); openDownload()"
             class="group mt-2 justify-between"
           >
             Download
@@ -129,7 +132,7 @@ import { ThemeToggleComponent } from './theme-toggle.component';
                 class="absolute inset-0 translate-y-2 opacity-0 transition-all duration-200 group-hover:translate-y-0 group-hover:opacity-100"
               />
             </span>
-          </a>
+          </button>
         </nav>
       </div>
     }
@@ -138,6 +141,7 @@ import { ThemeToggleComponent } from './theme-toggle.component';
 export class SiteHeaderComponent {
   protected readonly nav = PRIMARY_NAV;
   protected readonly menuOpen = signal(false);
+  private readonly dialog = inject(HlmDialogService);
 
   protected toggleMenu(): void {
     this.menuOpen.update((open) => !open);
@@ -145,5 +149,9 @@ export class SiteHeaderComponent {
 
   protected closeMenu(): void {
     this.menuOpen.set(false);
+  }
+
+  protected openDownload(): void {
+    this.dialog.open(DownloadDialogComponent, {});
   }
 }
