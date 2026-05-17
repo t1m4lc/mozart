@@ -73,6 +73,8 @@ export default defineConfig(({ mode }) => ({
           ...blogRoutes,
           '/changelog',
           ...changelogRoutes,
+          '/privacy',
+          '/terms',
         ],
         discover: false,
       },
