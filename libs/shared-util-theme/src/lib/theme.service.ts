@@ -39,6 +39,7 @@ export class ThemeService implements OnDestroy {
   private _options = signal<ThemeOptions>(this.config.options);
 
   readonly activeTheme = this._theme.asReadonly();
+  readonly mode = this._mode.asReadonly();
   readonly options = this._options.asReadonly();
   readonly isDark = computed(() => this.resolvedMode() === 'dark');
 

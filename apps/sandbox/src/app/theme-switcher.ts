@@ -7,9 +7,8 @@ import {
 import { ThemeService } from '@mozart/shared-util-theme';
 
 // Dev-only theme switcher for the sandbox shell. Two native <select>
-// elements: one for color mode (light / dark / system), one for the
-// design-token theme (zinc / stone). Selections persist via
-// ThemeService's localStorage layer.
+// elements wired straight to ThemeService — no localStorage access
+// here, the service owns persistence.
 @Component({
   selector: 'app-theme-switcher',
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -52,21 +51,12 @@ import { ThemeService } from '@mozart/shared-util-theme';
 export class ThemeSwitcher {
   private readonly themeService = inject(ThemeService);
 
+  protected readonly mode = this.themeService.mode;
   protected readonly theme = this.themeService.activeTheme;
   protected readonly themeOptions = this.themeService.options;
   protected readonly resolved = computed(() =>
     this.themeService.isDark() ? 'dark' : 'light',
   );
-
-  // ThemeService has no public mode signal — read from localStorage on
-  // first paint for the select's initial value. After that the user's
-  // selection is the source of truth.
-  protected readonly mode = (() => {
-    if (typeof window === 'undefined') return () => 'system' as const;
-    const stored = window.localStorage.getItem('app:color-mode');
-    const initial = (stored as 'light' | 'dark' | 'system' | null) ?? 'system';
-    return () => initial;
-  })();
 
   protected onModeChange(event: Event): void {
     const value = (event.target as HTMLSelectElement).value as
