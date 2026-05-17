@@ -23,11 +23,17 @@ interface State {
   // Which project rows are expanded in the left sidebar. Persists for
   // the session (not yet DB-backed — that lives behind IMP-024).
   expandedProjectIds: ReadonlySet<string>;
+
+  // Status group ids the user has collapsed when sidebar groupBy is
+  // 'status'. Default = expanded, so we track the inverse (collapsed)
+  // and an empty set means everything is open.
+  collapsedStatusIds: ReadonlySet<string>;
 }
 
 const initialState: State = {
   activeWorkspaceId: null,
   expandedProjectIds: new Set<string>(),
+  collapsedStatusIds: new Set<string>(),
 };
 
 export const UiStateStore = signalStore(
@@ -61,6 +67,21 @@ export const UiStateStore = signalStore(
 
     collapseAllProjects(): void {
       patchState(store, { expandedProjectIds: new Set<string>() });
+    },
+
+    toggleStatusCollapsed(statusId: string): void {
+      const next = new Set(store.collapsedStatusIds());
+      if (next.has(statusId)) next.delete(statusId);
+      else next.add(statusId);
+      patchState(store, { collapsedStatusIds: next });
+    },
+
+    setCollapsedStatuses(statusIds: readonly string[]): void {
+      patchState(store, { collapsedStatusIds: new Set(statusIds) });
+    },
+
+    expandAllStatuses(): void {
+      patchState(store, { collapsedStatusIds: new Set<string>() });
     },
   })),
 );

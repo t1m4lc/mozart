@@ -1,5 +1,10 @@
 import { Injectable, computed, inject } from '@angular/core';
 import { UiStateFacade } from '../../ui-state';
+// Deep import: workspaces -> projects already exists (WorkspacesFacade
+// depends on ProjectsFacade). Going through workspaces/index.ts would
+// close that loop on a value import. workspace-status.ts is leaf
+// (no imports) so reaching into it is safe.
+import { UI_WORKSPACE_STATUSES } from '../../workspaces/data/workspace-status';
 import { DIALOG_ADAPTER } from './dialog.adapter';
 import type { Project } from './project.model';
 import type { GroupBy, ProjectFilter } from './project.store';
@@ -34,6 +39,10 @@ export class ProjectsFacade {
 
   isExpanded(id: string): boolean {
     return this.uiState.isProjectExpanded(id);
+  }
+
+  isStatusCollapsed(statusId: string): boolean {
+    return this.uiState.isStatusCollapsed(statusId);
   }
 
   async loadAll(): Promise<void> {
@@ -87,14 +96,29 @@ export class ProjectsFacade {
   toggleExpanded(id: string): void {
     this.uiState.toggleProjectExpanded(id);
   }
+  toggleStatusCollapsed(statusId: string): void {
+    this.uiState.toggleStatusCollapsed(statusId);
+  }
   setHovered(id: string | null): void {
     this.store.setHovered(id);
   }
+  // Group-mode aware: expand/collapse target the visible grouping
+  // (status sections when groupBy === 'status', otherwise project rows).
   expandAll(): void {
-    this.uiState.setExpandedProjects(this.store.projects().map((p) => p.id));
+    if (this.store.groupBy() === 'status') {
+      this.uiState.expandAllStatuses();
+    } else {
+      this.uiState.setExpandedProjects(this.store.projects().map((p) => p.id));
+    }
   }
   collapseAll(): void {
-    this.uiState.collapseAllProjects();
+    if (this.store.groupBy() === 'status') {
+      this.uiState.setCollapsedStatuses(
+        UI_WORKSPACE_STATUSES.map((s) => s.id),
+      );
+    } else {
+      this.uiState.collapseAllProjects();
+    }
   }
   setGroupBy(group: GroupBy): void {
     this.store.setGroupBy(group);

@@ -12,6 +12,7 @@ export class UiStateFacade {
 
   readonly activeWorkspaceId = this.store.activeWorkspaceId;
   readonly expandedProjectIds = this.store.expandedProjectIds;
+  readonly collapsedStatusIds = this.store.collapsedStatusIds;
 
   setActiveWorkspace(id: string | null): void {
     this.store.setActiveWorkspace(id);
@@ -35,5 +36,21 @@ export class UiStateFacade {
 
   collapseAllProjects(): void {
     this.store.collapseAllProjects();
+  }
+
+  isStatusCollapsed(statusId: string): boolean {
+    return this.store.collapsedStatusIds().has(statusId);
+  }
+
+  toggleStatusCollapsed(statusId: string): void {
+    this.store.toggleStatusCollapsed(statusId);
+  }
+
+  setCollapsedStatuses(statusIds: readonly string[]): void {
+    this.store.setCollapsedStatuses(statusIds);
+  }
+
+  expandAllStatuses(): void {
+    this.store.expandAllStatuses();
   }
 }

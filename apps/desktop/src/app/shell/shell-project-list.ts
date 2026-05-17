@@ -18,6 +18,7 @@ import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideChevronRight,
   lucideCircleCheck,
   lucideCircleDashed,
   lucideCircleX,
@@ -68,6 +69,7 @@ import {
   ],
   providers: [
     provideIcons({
+      lucideChevronRight,
       lucideCircleCheck,
       lucideCircleDashed,
       lucideCircleX,
@@ -84,48 +86,72 @@ import {
     } @else if (projects.groupBy() === 'status') {
       <ul hlmSidebarMenu data-tour="sidebar-projects-group">
         @for (group of statusGroups(); track group.status.id) {
-          <li hlmSidebarMenuItem>
-            <div
-              class="flex items-center gap-2 px-2 py-1 text-xs font-medium text-muted-foreground"
+          @let collapsed = projects.isStatusCollapsed(group.status.id);
+          <li hlmSidebarMenuItem class="group/status">
+            <button
+              type="button"
+              tabindex="-1"
+              (click)="projects.toggleStatusCollapsed(group.status.id)"
+              [attr.aria-expanded]="!collapsed"
+              class="flex h-7 w-full items-center gap-2 rounded-md px-2 text-xs font-medium text-muted-foreground outline-none
+                     hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
             >
-              <ng-icon
-                hlm
-                [name]="group.status.icon"
-                size="xs"
-                [class]="group.status.colorClass"
-              />
-              <span>{{ group.status.label }}</span>
-              <span class="text-[10px] font-normal opacity-60">
-                {{ group.workspaces.length }}
-              </span>
-            </div>
-            <ul
-              class="ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
-            >
-              @for (workspace of group.workspaces; track workspace.id) {
-                <li
-                  hlmSidebarMenuItem
-                  [attr.data-tour]="
-                    workspaces.activeId() === workspace.id
-                      ? 'workspace-row-active'
-                      : null
+              <span
+                class="relative flex size-4 shrink-0 items-center justify-center"
+              >
+                <ng-icon
+                  hlm
+                  [name]="group.status.icon"
+                  size="xs"
+                  [class]="
+                    group.status.colorClass +
+                    ' transition-opacity group-hover/status:opacity-0'
                   "
-                  [hlmContextMenuTrigger]="workspaceCtxMenuTpl"
-                  [hlmContextMenuTriggerData]="{ $implicit: workspace }"
-                >
-                  <app-workspace-row
-                    [workspace]="workspace"
-                    [editing]="editingWorkspaceId() === workspace.id"
-                    [isStreaming]="streamingIds().has(workspace.id)"
-                    [chatTitle]="chatTitleFor(workspace.id)"
-                    [lastActivity]="lastActivityFor(workspace.id)"
-                    (archive)="archiveWorkspace(workspace.id)"
-                    (renameCommit)="onRenameCommit(workspace.id, $event)"
-                    (renameCancel)="editingWorkspaceId.set(null)"
-                  />
-                </li>
+                />
+                <ng-icon
+                  hlm
+                  name="lucideChevronRight"
+                  size="xs"
+                  class="absolute inset-0 m-auto text-muted-foreground opacity-0 transition-[opacity,transform] duration-200 group-hover/status:opacity-100"
+                  [class.rotate-90]="!collapsed"
+                />
+              </span>
+              <span class="flex-1 text-left">{{ group.status.label }}</span>
+              @if (collapsed) {
+                <span class="shrink-0 text-[10px] font-normal opacity-60">
+                  {{ group.workspaces.length }}
+                </span>
               }
-            </ul>
+            </button>
+            @if (!collapsed) {
+              <ul
+                class="ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
+              >
+                @for (workspace of group.workspaces; track workspace.id) {
+                  <li
+                    hlmSidebarMenuItem
+                    [attr.data-tour]="
+                      workspaces.activeId() === workspace.id
+                        ? 'workspace-row-active'
+                        : null
+                    "
+                    [hlmContextMenuTrigger]="workspaceCtxMenuTpl"
+                    [hlmContextMenuTriggerData]="{ $implicit: workspace }"
+                  >
+                    <app-workspace-row
+                      [workspace]="workspace"
+                      [editing]="editingWorkspaceId() === workspace.id"
+                      [isStreaming]="streamingIds().has(workspace.id)"
+                      [chatTitle]="chatTitleFor(workspace.id)"
+                      [lastActivity]="lastActivityFor(workspace.id)"
+                      (archive)="archiveWorkspace(workspace.id)"
+                      (renameCommit)="onRenameCommit(workspace.id, $event)"
+                      (renameCancel)="editingWorkspaceId.set(null)"
+                    />
+                  </li>
+                }
+              </ul>
+            }
           </li>
         }
       </ul>
