@@ -6,8 +6,15 @@
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Cross-Origin-Opener-Policy: same-origin
   Content-Security-Policy-Report-Only: default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
-  Cache-Control: public, max-age=0, must-revalidate
 
 # Hashed assets — immutable cache (Vite puts all hashed bundles under /assets/)
+# CF Pages stacks headers across matching rules rather than overriding, so Cache-Control
+# is only set here (not in /*) — otherwise the most-restrictive directive (max-age=0) wins.
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# HTML pages — keep them revalidated so deploys are immediately visible.
+/*.html
+  Cache-Control: public, max-age=0, must-revalidate
+/
+  Cache-Control: public, max-age=0, must-revalidate
