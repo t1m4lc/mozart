@@ -1,14 +1,14 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 
 const PLACEHOLDER_BRANDS = [
-  'ACME',
-  'BUILDR',
-  'STACKLY',
-  'FORGE',
-  'NOVA',
-  'PRISM',
-  'AXIOM',
-  'OCTAVE',
+  'Helix Labs',
+  'Stagewise',
+  'Supabase',
+  'Loop Robotics',
+  'Cartograph',
+  'Vela',
+  'Sentry',
+  'PostHog',
 ] as const;
 
 @Component({
@@ -25,7 +25,7 @@ const PLACEHOLDER_BRANDS = [
       >
         @for (brand of brands; track brand) {
           <li
-            class="text-muted-foreground flex h-8 items-center justify-center font-mono text-sm font-semibold tracking-wider sm:h-10 sm:text-base"
+            class="uppercase text-muted-foreground flex h-8 items-baseline justify-center font-mono text-sm font-semibold tracking-wider sm:h-10 sm:text-base"
           >
             {{ brand }}
           </li>
