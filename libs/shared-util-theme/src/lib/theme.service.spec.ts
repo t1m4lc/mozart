@@ -7,7 +7,7 @@ describe('ThemeService SSR safety', () => {
   it('init() is a no-op when PLATFORM_ID is server', () => {
     TestBed.configureTestingModule({
       providers: [
-        provideTheme({ theme: 'stone', mode: 'light' }),
+        provideTheme({ theme: 'mozart', mode: 'light' }),
         { provide: PLATFORM_ID, useValue: 'server' },
       ],
     });
@@ -23,7 +23,7 @@ describe('ThemeService SSR safety', () => {
   it('reads default mode without touching localStorage on the server', () => {
     TestBed.configureTestingModule({
       providers: [
-        provideTheme({ theme: 'stone', mode: 'dark' }),
+        provideTheme({ theme: 'mozart', mode: 'dark' }),
         { provide: PLATFORM_ID, useValue: 'server' },
       ],
     });

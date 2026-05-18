@@ -11,5 +11,5 @@ via `@import "../../../libs/mozart-design-tokens/src/index.css"` in their
 
 - `src/index.css` — entry point, imports base + theme variants
 - `src/lib/base.css` — `@font-face`, `@theme inline`, `@layer base`
-- `src/lib/themes/zinc.css` — neutral slate surface, violet brand accent
-- `src/lib/themes/stone.css` — warm stone surface, amber brand accent
+- `src/lib/themes/mozart.css` — default theme; warm stone surface, violet brand accent
+- `src/lib/themes/zinc.css` — alternate theme; neutral slate surface, same violet brand

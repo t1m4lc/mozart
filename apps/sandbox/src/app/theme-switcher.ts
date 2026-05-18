@@ -67,7 +67,7 @@ export class ThemeSwitcher {
   }
 
   protected onThemeChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value as 'zinc' | 'stone';
+    const value = (event.target as HTMLSelectElement).value as 'mozart' | 'zinc';
     this.themeService.setTheme(value);
   }
 }

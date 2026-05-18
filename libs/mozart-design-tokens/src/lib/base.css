@@ -80,7 +80,7 @@
 @layer base {
   /* Cross-theme tokens — subtle violet brand anchored on #7C3AED
    * (hsl 262 83% 58%), saturation dialed back so the brand reads as
-   * an accent. Living here (not in theme files) keeps zinc and stone
+   * an accent. Living here (not in theme files) keeps every theme
    * pinned to the same brand and focus ring — surface palette is the
    * only thing themes vary. Theme files MAY override `--brand*` /
    * `--ring` if a future variant needs a different accent. */

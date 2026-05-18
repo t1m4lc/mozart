@@ -21,6 +21,6 @@ export const appConfig: ApplicationConfig = {
       withViewTransitions(),
     ),
     provideContent(withMarkdownRenderer(), withPrismHighlighter()),
-    provideTheme({ theme: 'stone', mode: 'light' }),
+    provideTheme({ theme: 'mozart', mode: 'light' }),
   ],
 };

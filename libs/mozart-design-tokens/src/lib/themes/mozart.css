@@ -1,10 +1,10 @@
 /* ----------------------------------------------------------------------------
- * Stone — Warm stone surface. Brand + ring tokens live in base.css and
- * apply across themes (subtle violet, #7C3AED). Theme files only set the
- * surface palette — borders, cards, inputs, separators stay neutral.
+ * Mozart — Default theme. Warm stone surface. Brand + ring tokens live in
+ * base.css and apply across themes (subtle violet, #7C3AED). Theme files
+ * only set the surface palette — borders/cards/inputs stay neutral.
  * ------------------------------------------------------------------------- */
 
-:root .theme-stone {
+:root .theme-mozart {
   color-scheme: light;
 
   --background:             0 0% 100%;
@@ -34,7 +34,7 @@
   --sidebar-border:         20 6% 88%;            /* neutral */
 }
 
-:root.dark .theme-stone {
+:root.dark .theme-mozart {
   color-scheme: dark;
 
   /* Surfaces — warm stone palette (Frame #0C0A09 / Card #1C1917). */
