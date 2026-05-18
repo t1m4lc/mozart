@@ -1,4 +1,5 @@
 import { injectContentFiles } from '@analogjs/content';
+import { Location } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -6,8 +7,10 @@ import {
   effect,
   inject,
 } from '@angular/core';
-import { Location } from '@angular/common';
-import { RouterLink, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
+import { HlmIcon } from '@mozart/ui/icon';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideArrowLeft } from '@ng-icons/lucide';
 import {
   ChangelogAttributes,
   isChangelogFile,
@@ -19,34 +22,21 @@ import { ChangelogEntryShellComponent } from './changelog/_layout/changelog-entr
 
 @Component({
   selector: 'app-changelog-layout',
-  imports: [ChangelogEntryShellComponent, RouterOutlet, RouterLink],
+  imports: [ChangelogEntryShellComponent, RouterOutlet, HlmIcon, NgIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  providers: [provideIcons({ lucideArrowLeft })],
   host: { class: 'flex flex-1 flex-col' },
   template: `
     <section
-      class="font-sans mx-auto w-full max-w-5xl px-4 py-16 sm:px-8 sm:py-24"
+      class="font-sans mx-auto w-full max-w-5xl px-4 py-8 sm:px-8 sm:py-12"
     >
       @if (currentDetail(); as entry) {
-        <nav class="mb-8">
+        <nav class="mb-12">
           <button
             (click)="back()"
             class="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm transition-colors"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="2"
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M19 12H5" />
-              <path d="M12 19l-7-7 7-7" />
-            </svg>
+            <ng-icon hlm name="lucideArrowLeft" size="xs" />
             Changelog
           </button>
         </nav>
