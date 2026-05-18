@@ -13,7 +13,9 @@ import { lucideArrowDown, lucideDownload } from '@ng-icons/lucide';
   host: { class: 'block' },
   template: `
     <section class="px-8 pt-16 pb-24">
-      <div class="mx-auto flex max-w-xl flex-col gap-4">
+      <div
+        class="mx-auto flex  items-center lg:items-start max-w-xl flex-col gap-4"
+      >
         <p
           class="text-foreground text-2xl font-semibold tracking-tight md:text-3xl"
         >
@@ -43,7 +45,7 @@ import { lucideArrowDown, lucideDownload } from '@ng-icons/lucide';
             />
           </span>
         </a>
-        <p class="text-muted-foreground/80  max-w-md text-xs">
+        <p class="font-mono text-muted-foreground/80  max-w-md text-xs">
           We build Mozart with Mozart.
         </p>
       </div>

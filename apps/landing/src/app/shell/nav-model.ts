@@ -24,7 +24,7 @@ export const FOOTER_NAV: readonly NavColumn[] = [
       { label: 'Docs', href: '/docs' },
       { label: 'Changelog', href: '/changelog' },
       { label: 'Download', href: '/download' },
-      { label: 'LLMs.txt', href: '/llms.txt', external: true },
+      { label: 'llms.txt', href: '/llms.txt', external: true },
     ],
   },
   {
@@ -46,7 +46,7 @@ export const FOOTER_NAV: readonly NavColumn[] = [
   {
     title: 'Connect',
     links: Object.entries(SITE_CONFIG.social).map(([label, href]) => ({
-      label,
+      label: label.slice(0, 1).toUpperCase() + label.slice(1),
       href,
       external: true,
     })),

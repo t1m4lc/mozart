@@ -75,7 +75,9 @@ const TESTIMONIALS: readonly Testimonial[] = [
               <li
                 class="border-border bg-muted flex w-72 shrink-0 flex-col gap-4 rounded-lg border p-4"
               >
-                <p class="text-foreground text-sm">{{ item.quote }}</p>
+                <p class="text-foreground font-mono text-sm">
+                  {{ item.quote }}
+                </p>
                 <div class="flex items-center gap-3">
                   <div
                     aria-hidden="true"
@@ -92,7 +94,7 @@ const TESTIMONIALS: readonly Testimonial[] = [
                       </span>
                       <ng-icon
                         hlm
-                        size="sm"
+                        size="xs"
                         name="lucideBadgeCheck"
                         class="text-foreground shrink-0"
                         aria-hidden="true"

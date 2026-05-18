@@ -36,12 +36,12 @@ const STEPS: readonly Step[] = [
           @for (step of steps; track step.title; let i = $index) {
             <li class="grid grid-cols-[auto_1fr] gap-x-2">
               <span class="text-muted-foreground">{{ i + 1 }}.</span>
-              <span>
+              <div class="flex flex-col">
                 <span class="text-foreground font-semibold">
                   {{ step.title }}
                 </span>
                 <span class="text-muted-foreground"> {{ step.body }}</span>
-              </span>
+              </div>
             </li>
           }
         </ol>

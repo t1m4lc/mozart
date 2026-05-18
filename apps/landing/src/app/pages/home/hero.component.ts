@@ -65,13 +65,13 @@ const roadmapFeatures: Feature[] = [
   template: `
     <section class="mx-auto max-w-xl px-4 pt-12 pb-4 sm:pb-8 sm:pt-20 sm:px-8">
       <h1
-        class="text-foreground max-w-xl text-2xl font-semibold tracking-tight md:text-3xl mb-3"
+        class="text-foreground max-w-xl text-3xl font-semibold tracking-tight md:text-4xl mb-3"
       >
         Agents move <i>fast</i>. <br />
-        <b>Mozart</b> gives <i>direction</i>.
+        <b>Mozart</b> gives direction.
       </h1>
 
-      <p class="text-muted-foreground mb-8 max-w-2xl text-sm">
+      <p class="text-muted-foreground mb-8 max-w-2xl text-base">
         Run <b>parallel Agents</b> in isolated Workspaces. Review every diff.
         Ship faster <b>without losing control</b> —
 

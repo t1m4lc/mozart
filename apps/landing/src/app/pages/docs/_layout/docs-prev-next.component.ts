@@ -10,7 +10,7 @@ import type { DocsEntry } from '../../../content/docs';
   imports: [HlmIconImports, NgIcon, RouterLink],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideIcons({ lucideChevronLeft, lucideChevronRight })],
-  host: { class: 'mt-12 block' },
+  host: { class: 'mt-36 block' },
   template: `
     @if (prev() || next()) {
       <nav

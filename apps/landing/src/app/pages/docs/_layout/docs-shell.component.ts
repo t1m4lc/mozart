@@ -37,7 +37,7 @@ import { DocsSidebarComponent } from './docs-sidebar.component';
         </div>
       </aside>
 
-      <article class="mb-12 min-w-0 py-8 md:px-8 md:py-10">
+      <article class="min-w-0 py-8 md:px-8 md:py-10">
         <ng-content />
       </article>
 

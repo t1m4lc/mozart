@@ -9,7 +9,7 @@ const FAQ: readonly FaqEntry[] = [
   {
     question: 'How does Mozart isolate Agent Runs?',
     answer:
-      'Each Agent Run gets its own Workspace — a sandboxed copy of your Project. Changes stay scoped to that Workspace until you merge.',
+      'Each Agent Run gets its own Workspace, a sandboxed copy of your Project. Changes stay scoped to that Workspace until you merge.',
   },
   {
     question: 'Which coding agents does Mozart support?',
@@ -45,7 +45,7 @@ const FAQ: readonly FaqEntry[] = [
                 class="text-muted-foreground mt-1 grid grid-cols-[auto_1fr] gap-x-2"
               >
                 <span aria-hidden="true">└</span>
-                <span>{{ entry.answer }}</span>
+                <span class="">{{ entry.answer }}</span>
               </dd>
             </div>
           }
