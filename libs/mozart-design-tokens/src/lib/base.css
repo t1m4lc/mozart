@@ -5,53 +5,33 @@
  * user picks dark mode while the OS is set to light. */
 @custom-variant dark (&:where(.dark, .dark *));
 
+/* Variable fonts — one `format('woff2-variations')` src so the browser
+ * fetches a single file. `font-display: swap` lets the system fallback
+ * paint immediately and swap in Geist when it loads. */
 @font-face {
   font-family: 'Geist';
-  src: url('/assets/shared/fonts/GeistVariableVF.woff2') format('woff2-variations'),
-    url('/assets/shared/fonts/GeistVariableVF.woff2') format('woff2');
+  src: url('/assets/shared/fonts/GeistVariableVF.woff2') format('woff2-variations');
   font-weight: 100 900;
   font-style: normal;
-  font-display: optional;
+  font-display: swap;
 }
 
 @font-face {
   font-family: 'Geist Mono';
-  src: url('/assets/shared/fonts/GeistMonoVariableVF.woff2') format('woff2-variations'),
-    url('/assets/shared/fonts/GeistMonoVariableVF.woff2') format('woff2');
+  src: url('/assets/shared/fonts/GeistMonoVariableVF.woff2') format('woff2-variations');
   font-weight: 100 900;
   font-style: normal;
-  font-display: optional;
-}
-
-/* Fallback metrics matching Geist / Geist Mono — keeps the layout stable when
- * the variable font misses the `optional` block window and the system fallback
- * is used. Without these, headline reflow on font swap was the largest CLS
- * contributor (banner / topnav / screenshot drift on load). */
-@font-face {
-  font-family: 'Geist Fallback';
-  src: local('Arial');
-  size-adjust: 100%;
-  ascent-override: 92.5%;
-  descent-override: 24%;
-  line-gap-override: 0%;
-}
-
-@font-face {
-  font-family: 'Geist Mono Fallback';
-  src: local('Menlo'), local('Consolas'), local('Liberation Mono');
-  size-adjust: 120%;
-  ascent-override: 76.7%;
-  descent-override: 19.4%;
-  line-gap-override: 0%;
+  font-display: swap;
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback', 'Inter', ui-sans-serif, system-ui,
-    -apple-system, 'Segoe UI', sans-serif;
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback', 'JetBrains Mono',
-    ui-monospace, 'SFMono-Regular', Menlo, monospace;
-  /* Default UI text uses Geist Mono — opt-in to proportional via `.font-sans`. */
-  --default-font-family: var(--font-mono);
+  --font-sans: 'Geist', 'Inter', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --font-mono: 'Geist Mono', 'JetBrains Mono', ui-monospace, 'SFMono-Regular',
+    Menlo, monospace;
+  /* Sans is the default; mono is opt-in via the `font-mono` utility for
+   * technical UI (commands, file paths, model names, logs, versions). */
+  --default-font-family: var(--font-sans);
 
   --color-background: hsl(var(--background));
   --color-foreground: hsl(var(--foreground));
@@ -86,44 +66,54 @@
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
 
-  /* Violet brand glow — discreet bottom-only halo for primary CTAs.
+  /* Violet brand glow (#7C3AED) — discreet bottom-only halo for primary CTAs.
    * Blur radius must outpace the Y offset so the halo diffuses into a soft
    * bleed instead of stacking into a visible band under the element edge. */
   --shadow-brand:
-    0 10px 28px -12px rgba(139, 92, 246, 0.4);
+    0 10px 28px -12px rgba(124, 58, 237, 0.35);
   --shadow-brand-strong:
-    0 14px 36px -10px rgba(139, 92, 246, 0.5);
+    0 14px 36px -10px rgba(124, 58, 237, 0.45);
   --shadow-brand-subtle:
-    0 8px 24px -14px rgba(139, 92, 246, 0.28);
+    0 8px 24px -14px rgba(124, 58, 237, 0.22);
 }
 
 @layer base {
+  /* Cross-theme tokens — subtle violet brand anchored on #7C3AED
+   * (hsl 262 83% 58%), saturation dialed back so the brand reads as
+   * an accent. Living here (not in theme files) keeps zinc and stone
+   * pinned to the same brand and focus ring — surface palette is the
+   * only thing themes vary. Theme files MAY override `--brand*` /
+   * `--ring` if a future variant needs a different accent. */
   :root {
-    --brand: 192 55% 62%;
-    --brand-foreground: 229 64% 5%;
-    --brand-subtle: 250 45% 68%;
+    --brand: 262 70% 58%;
+    --brand-foreground: 0 0% 100%;
+    --brand-subtle: 262 50% 70%;
+    --ring: 262 70% 58%;
+    --sidebar-ring: 262 70% 58%;
+  }
+
+  :root.dark {
+    --brand: 262 70% 68%;
+    --brand-subtle: 262 45% 55%;
+    --ring: 262 70% 68%;
+    --sidebar-ring: 262 70% 68%;
   }
   
   html,
   body {
-    font-family: var(--font-mono);
-    font-feature-settings: 'ss01', 'ss03', 'zero';
-    font-variant-numeric: slashed-zero;
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01', 'ss03';
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
-  }
-
-  /* Opt-in: proportional Geist for marketing copy, large headings, etc. */
-  .font-sans {
-    font-family: var(--font-sans);
-    font-feature-settings: 'cv11', 'ss01', 'ss03';
   }
 
   code,
   kbd,
   pre,
   samp {
+    font-family: var(--font-mono);
+    font-feature-settings: 'ss01', 'ss03', 'zero';
     font-variant-numeric: tabular-nums slashed-zero;
   }
 

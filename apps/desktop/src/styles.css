@@ -1,6 +1,6 @@
 @import "tailwindcss" source("../src/app/");
 
-@import "../../../libs/shared-styles-theme/src/index.css";
+@import "../../../libs/mozart-design-tokens/src/index.css";
 /* xterm.js renderer styles — required for the Terminal tab. */
 @import "@xterm/xterm/css/xterm.css";
 

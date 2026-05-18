@@ -25,7 +25,7 @@ apps/web/                  future cloud UI
 apps/landing/              landing app, if present
 libs/ui/                   design system; see CLAUDE.md before touching
 libs/shared-util-theme/    theme utilities
-libs/shared-styles-theme/  global theme styles
+libs/mozart-design-tokens/ global theme styles + design tokens
 docs/                      specs, design, planning
 tmp/ready-plans/           ready plans
 tmp/done-plans/            completed plans

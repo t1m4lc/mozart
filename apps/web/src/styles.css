@@ -1,6 +1,6 @@
 @import "tailwindcss" source("../src/app/");
 
-@import "../../../libs/shared-styles-theme/src/index.css";
+@import "../../../libs/mozart-design-tokens/src/index.css";
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/clerk";

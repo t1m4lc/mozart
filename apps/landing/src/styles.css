@@ -11,7 +11,7 @@
 @source "../../../libs/ui/utils";
 /* nx-tailwind-sources:end */
 @source "../../../libs/{shared-util-theme,ui}/**/*.{html,ts}";
-@import "../../../libs/shared-styles-theme/src/index.css";
+@import "../../../libs/mozart-design-tokens/src/index.css";
 @import "./styles/prose.css";
 
 @utility scrollbar-hide {

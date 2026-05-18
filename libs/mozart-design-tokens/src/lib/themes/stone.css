@@ -1,8 +1,7 @@
 /* ----------------------------------------------------------------------------
- * Stone — Amber Forge
- *   light: neutral stone surface, amber-600 brand
- *   dark : Tailwind stone-950 base, yellow-400 brand, amber-600 subtle accent
- *          (mirrors the warm logo palette #FACC15 / #D97706 / #92400E)
+ * Stone — Warm stone surface. Brand + ring tokens live in base.css and
+ * apply across themes (subtle violet, #7C3AED). Theme files only set the
+ * surface palette — borders, cards, inputs, separators stay neutral.
  * ------------------------------------------------------------------------- */
 
 :root .theme-stone {
@@ -24,31 +23,24 @@
   --accent-foreground:      24 10% 10%;
   --destructive:            0 84% 60%;
   --destructive-foreground: 60 9% 98%;
-  --border:                 20 6% 90%;            /* stone-200 */
-  --input:                  20 6% 90%;
-  --ring:                   35 70% 50%;           /* soft amber focus ring */
+  --border:                 20 6% 90%;            /* stone-200 — neutral */
+  --input:                  20 6% 90%;            /* stone-200 — neutral */
   --radius:                 0.625rem;
 
   --sidebar:                60 9% 98%;
   --sidebar-foreground:     24 10% 16%;
   --sidebar-accent:         60 5% 96%;
   --sidebar-accent-foreground: 24 10% 22%;
-  --sidebar-border:         20 6% 88%;
-  --sidebar-ring:           35 70% 50%;
-
-  /* Brand — softened, blends with neutral stone palette */
-  --brand:                  35 70% 50%;           /* dusty amber, derived from #D97706 */
-  --brand-foreground:       48 100% 96%;
-  --brand-subtle:           42 75% 60%;           /* soft warm yellow */
+  --sidebar-border:         20 6% 88%;            /* neutral */
 }
 
 :root.dark .theme-stone {
   color-scheme: dark;
 
-  /* Surfaces — derived from warm logo palette (Frame #0C0A09 / Logo bg #1C1917) */
-  --background:             20 14% 4%;            /* #0C0A09 stone-950 */
-  --foreground:             48 100% 96%;          /* #FFFBEB amber-50 */
-  --card:                   24 10% 10%;           /* #1C1917 stone-900 */
+  /* Surfaces — warm stone palette (Frame #0C0A09 / Card #1C1917). */
+  --background:             20 14% 4%;            /* stone-950 */
+  --foreground:             48 100% 96%;          /* amber-50 */
+  --card:                   24 10% 10%;           /* stone-900 */
   --card-foreground:        48 100% 96%;
   --popover:                24 10% 10%;
   --popover-foreground:     48 100% 96%;
@@ -62,19 +54,14 @@
   --accent-foreground:      48 100% 96%;
   --destructive:            0 72% 51%;
   --destructive-foreground: 48 100% 96%;
-  --border:                 35 50% 28%;           /* dimmed yellow-700, less aggressive */
+  /* Borders / inputs stay neutral stone on dark — keeps the violet brand
+   * as a pure accent rather than bleeding into the chrome. */
+  --border:                 24 7% 22%;            /* neutral stone */
   --input:                  12 7% 18%;
-  --ring:                   42 75% 62%;           /* soft amber focus ring */
 
   --sidebar:                24 10% 10%;           /* matches card */
   --sidebar-foreground:     48 100% 96%;
   --sidebar-accent:         12 7% 15%;
   --sidebar-accent-foreground: 48 100% 96%;
-  --sidebar-border:         23 50% 22%;           /* dimmed amber */
-  --sidebar-ring:           42 75% 62%;
-
-  /* Brand — softened, blends with warm stone surfaces */
-  --brand:                  42 75% 62%;           /* dusty amber, derived from #FACC15 */
-  --brand-foreground:       20 14% 4%;
-  --brand-subtle:           32 60% 55%;           /* warm amber, derived from #D97706 */
+  --sidebar-border:         24 7% 20%;            /* neutral stone */
 }

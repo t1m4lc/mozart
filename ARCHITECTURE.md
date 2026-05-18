@@ -43,7 +43,7 @@ Apps + libs:
 - `apps/desktop/src-tauri/` Rust backend.
 - `libs/ui/` Spartan NG / Hlm dumb components. **Read-only** during
   desktop feature work.
-- `libs/shared-util-theme/` + `libs/shared-styles-theme/` global theme.
+- `libs/shared-util-theme/` + `libs/mozart-design-tokens/` global theme.
 
 ---
 

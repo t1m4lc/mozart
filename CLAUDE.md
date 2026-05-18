@@ -22,7 +22,7 @@ Monorepo Nx + pnpm.
 - `libs/ui/`: vendored Spartan NG / Hlm primitives (read-only — see Design system)
 - `libs/mozart-ui/`: Mozart-specific reusable UI components (composer, timeline, highlight-overlay)
 - `libs/shared-util-theme/`: ThemeService + provideTheme()
-- `libs/shared-styles-theme/`: global CSS + theme tokens
+- `libs/mozart-design-tokens/`: global CSS + design tokens (fonts, Tailwind v4 `@theme`, Spartan UI theme variables, brand colors)
 
 Use Angular standalone components, signals, SignalStore, Tailwind CSS v4, Spartan NG components, and Tauri v2.
 
