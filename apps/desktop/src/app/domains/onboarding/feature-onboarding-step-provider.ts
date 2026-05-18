@@ -188,11 +188,10 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
           </div>
         }
 
-        <!-- Compact key-storage disclosure -->
         <p
-          class="text-muted-foreground flex items-start justify-center gap-2 text-xs"
+          class="text-muted-foreground flex items-center justify-start gap-2 text-xs"
         >
-          <ng-icon hlm name="lucideLock" size="xs" class="mt-0.5 shrink-0" />
+          <ng-icon hlm name="lucideLock" size="xs" class="" />
           <span>
             Keys are stored in your OS keychain — never synced to our servers,
             never logged.

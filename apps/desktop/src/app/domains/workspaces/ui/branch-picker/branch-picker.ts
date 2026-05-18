@@ -76,7 +76,7 @@ import {
                   size="xs"
                   class="shrink-0 text-muted-foreground"
                 />
-                <span class="truncate font-semibold">{{ value() }}</span>
+                <span class="truncate font-mono font-semibold">{{ value() }}</span>
                 <span class="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
                   <span>target</span>
                   <kbd
@@ -96,7 +96,7 @@ import {
                   size="xs"
                   class="shrink-0 text-muted-foreground"
                 />
-                <span>{{ branch }}</span>
+                <span class="font-mono">{{ branch }}</span>
               </hlm-combobox-item>
             }
             @if (currentBranch()) {
@@ -107,7 +107,7 @@ import {
                   size="xs"
                   class="shrink-0 text-muted-foreground"
                 />
-                <span class="truncate">{{ currentBranch() }}</span>
+                <span class="truncate font-mono">{{ currentBranch() }}</span>
                 <span class="ml-auto text-xs text-muted-foreground">
                   current
                 </span>

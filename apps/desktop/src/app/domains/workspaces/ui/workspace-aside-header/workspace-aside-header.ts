@@ -48,7 +48,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         class="min-w-0 max-w-[140px] gap-1 font-normal"
       >
         <ng-icon hlm name="lucideGitBranch" size="xs" />
-        <span class="truncate">{{ branch() || '—' }}</span>
+        <span class="truncate font-mono">{{ branch() || '—' }}</span>
       </span>
 
       <span class="flex-1"></span>
