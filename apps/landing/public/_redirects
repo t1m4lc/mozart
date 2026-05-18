@@ -1,6 +1,5 @@
-# Canonical host — www always redirects to apex.
-# The ! forces the redirect even when a matching file exists in the deploy.
-https://www.mozart.build/* https://mozart.build/:splat 301!
+# Canonical host (www → apex) is enforced by a CF zone Redirect Rule, not here —
+# CF Pages _redirects only supports path-based sources, no host matching.
 
 # Vanity short URLs for social profiles.
 # Keep destinations in sync with apps/landing/src/app/shell/site-config.ts (SITE_CONFIG.social).
