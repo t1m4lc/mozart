@@ -6,7 +6,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowLeft } from '@ng-icons/lucide';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
-import { OsService } from '../core/os.service';
+import { OsService } from '@mozart/shared-util-os';
 import { ReturnRouteService } from '../core/return-route.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';

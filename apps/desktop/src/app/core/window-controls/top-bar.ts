@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { OsService } from '../os.service';
+import { OsService } from '@mozart/shared-util-os';
 import { MacWindowControls } from './mac-window-controls';
 import { NonMacWindowControls } from './non-mac-window-controls';
 

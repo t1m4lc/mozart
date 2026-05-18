@@ -3,7 +3,7 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
 // Source: libs/mozart-assets/src/landing/screenshots/...
 // Exposed at /assets/* by the mozartAssetsPlugin in apps/landing/vite.config.ts.
 const SCREENSHOT_SRC =
-  '/assets/landing/screenshots/mozart-desktop-screenshot-v0.0.1-beta.1.png';
+  '/assets/landing/screenshots/mozart-desktop-screenshot-v0.0.1-beta.1.webp';
 
 // Intrinsic dimensions of the PNG (2880×1800 = 16:10). Setting width/height
 // lets the browser reserve the box before the image decodes — no layout
@@ -18,13 +18,13 @@ const SCREENSHOT_HEIGHT = 1800;
   template: `
     <div class="mx-auto mt-16 mb-24 max-w-7xl px-4 sm:px-8">
       <figure
-        class="border-border bg-card relative overflow-hidden rounded-2xl border shadow-2xl"
+        class="border-border bg-card relative overflow-hidden rounded-xl border shadow-xl"
       >
         <img
           [src]="src"
           [width]="width"
           [height]="height"
-          alt="Mozart desktop — parallel Workspaces, agent timeline, and diff review running side by side. (screenshot v0.0.1-beta.1)"
+          alt="Mozart desktop: parallel Workspaces, agent timeline, and diff review running side by side. (screenshot v0.0.1-beta.1)"
           loading="lazy"
           decoding="async"
           class="block h-auto w-full"

@@ -15,7 +15,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
-import { OsService } from '../../../core/os.service';
+import { OsService } from '@mozart/shared-util-os';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
 import { ChatFacade, FeatureChatPanel } from '../../chat';
 import { ProjectsFacade } from '../../projects';

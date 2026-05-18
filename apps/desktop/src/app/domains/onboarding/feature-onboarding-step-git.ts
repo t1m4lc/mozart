@@ -11,7 +11,7 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideRefreshCw } from '@ng-icons/lucide';
-import { OsService } from '../../core/os.service';
+import { OsService } from '@mozart/shared-util-os';
 import { GIT_CHECK_ADAPTER, type GitIdentity } from './data/git-check.adapter';
 import { OnboardingFacade } from './data/onboarding.facade';
 import { GIT_INSTALL_INSTRUCTIONS } from './util-git-install-instructions';
@@ -147,7 +147,7 @@ export class FeatureOnboardingStepGit {
   protected readonly identity = signal<GitIdentity | null>(null);
   protected readonly stateDot = computed(() => STATE_DOT_CLASS[this.state()]);
   protected readonly instructions = computed(
-    () => GIT_INSTALL_INSTRUCTIONS[this.os.detect()],
+    () => GIT_INSTALL_INSTRUCTIONS[this.os.current()],
   );
 
   /** Dev-only override : `?simulateGitMissing=true` forces the

@@ -1,4 +1,4 @@
-import type { OS } from '../../core/os.service';
+import type { Os } from '@mozart/shared-util-os';
 
 // OS-specific install copy for the Git step. Dictionary-over-switch
 // (per project convention). Keys cover the three desktop OSes ; the
@@ -12,7 +12,7 @@ export interface GitInstallInstruction {
   readonly note?: string;
 }
 
-export const GIT_INSTALL_INSTRUCTIONS: Record<OS, GitInstallInstruction> = {
+export const GIT_INSTALL_INSTRUCTIONS: Record<Os, GitInstallInstruction> = {
   macos: {
     label: 'Install Git on macOS',
     command: 'brew install git',
@@ -27,14 +27,6 @@ export const GIT_INSTALL_INSTRUCTIONS: Record<OS, GitInstallInstruction> = {
     label: 'Download Git for Windows',
     command: null,
     note: 'Run the installer from git-scm.com/download/win.',
-  },
-  ios: {
-    label: 'Mozart runs on desktop only',
-    command: null,
-  },
-  android: {
-    label: 'Mozart runs on desktop only',
-    command: null,
   },
   unknown: {
     label: 'Install Git for your operating system',

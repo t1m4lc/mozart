@@ -27,7 +27,7 @@ import { AddProjectFlow } from '../core/add-project.flow';
 import { ConnectivityService } from '../core/connectivity.service';
 import { FeatureFlagsService } from '../core/feature-flags';
 import { LayoutService } from '../core/layout.service';
-import { OsService } from '../core/os.service';
+import { OsService } from '@mozart/shared-util-os';
 import { ReturnRouteService } from '../core/return-route.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
 import { FeatureChatList } from '../domains/chat';

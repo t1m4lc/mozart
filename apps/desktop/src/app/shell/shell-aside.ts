@@ -6,7 +6,7 @@ import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleStop, lucideGitMerge, lucidePlay } from '@ng-icons/lucide';
-import { OsService } from '../core/os.service';
+import { OsService } from '@mozart/shared-util-os';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
 import { ProfileFacade } from '../domains/profile';
 import { ProjectsFacade } from '../domains/projects';
