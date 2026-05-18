@@ -12,7 +12,8 @@
     "tauri-test": "pnpm nx run desktop:cargo-test",
     "seed": "sqlite3 ~/.local/share/build.mozart.desktop/mozart.db < apps/desktop/src-tauri/tests/fixtures/seed-shell.sql",
     "reset-db": "rm -rf ~/.local/share/build.mozart.desktop/",
-    "seed-fresh": "pnpm reset-db && echo 'reset done — start pnpm dev to recreate schema, then run pnpm seed in another shell'"
+    "seed-fresh": "pnpm reset-db && echo 'reset done — start pnpm dev to recreate schema, then run pnpm seed in another shell'",
+    "purge:landing-cache": "./tools/mozart-landing-cf-page-purge-cache.sh"
   },
   "private": true,
   "packageManager": "pnpm@11.0.8",
