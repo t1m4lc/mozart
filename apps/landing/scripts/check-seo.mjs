@@ -71,6 +71,23 @@ async function checkRobots() {
   }
 }
 
+async function checkLlmsIndex() {
+  for (const file of ['llms.txt', 'llms-full.txt']) {
+    const path = join(DIST, file);
+    if (!(await exists(path))) {
+      failures.push(`${file} missing at dist root`);
+      continue;
+    }
+    const text = await readFile(path, 'utf8');
+    if (!text.includes('https://mozart.build')) {
+      failures.push(`${file} missing canonical URLs`);
+    }
+    if (!text.includes('/docs/introduction')) {
+      failures.push(`${file} missing docs entries`);
+    }
+  }
+}
+
 async function checkNoindex(route) {
   const htmlPath = join(DIST, route.slice(1), 'index.html');
   if (!(await exists(htmlPath))) {
@@ -144,6 +161,7 @@ async function listPrerenderedRoutes() {
 
 await checkSitemap();
 await checkRobots();
+await checkLlmsIndex();
 for (const route of SITEMAP_FORBIDDEN_ROUTES) {
   await checkNoindex(route);
 }

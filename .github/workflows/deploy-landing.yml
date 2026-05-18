@@ -79,6 +79,8 @@ jobs:
 
       - run: pnpm nx run landing:post-build-seo
 
+      - run: pnpm nx run landing:generate-llms
+
       - run: pnpm nx run landing:seo-check
 
       - uses: actions/upload-artifact@v4

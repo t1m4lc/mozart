@@ -24,6 +24,7 @@ export const FOOTER_NAV: readonly NavColumn[] = [
       { label: 'Docs', href: '/docs' },
       { label: 'Changelog', href: '/changelog' },
       { label: 'Download', href: '/download' },
+      { label: 'LLMs.txt', href: '/llms.txt', external: true },
     ],
   },
   {
