@@ -35,7 +35,7 @@ export const SITE_CONFIG: SiteConfig = {
   copyrightYear: new Date().getFullYear(),
   promoStrip: {
     enabled: true,
-    label: 'Join the Mozart beta club →',
+    label: 'Get early access to the Mozart beta →',
     href: tally,
   },
   downloads: {
