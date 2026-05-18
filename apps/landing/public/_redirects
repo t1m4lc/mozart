@@ -8,8 +8,3 @@ https://www.mozart.build/* https://mozart.build/:splat 301!
 /discord https://discord.gg/BpTAyFf7qk 302
 /github https://github.com/t1m4lc 302
 /linkedin https://www.linkedin.com/in/timothyalcaide/ 302
-
-# Reserve /download/* for future desktop binaries.
-# Rewrites to the placeholder page (200 = serve /download without changing the URL).
-# Remove this rule when real per-platform routes exist.
-/download/*  /download  200
