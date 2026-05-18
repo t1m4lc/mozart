@@ -1,0 +1,23 @@
+# Mozart
+
+> Mozart is an AI coding agent manager: run, review, and orchestrate multiple Claude Code agents in parallel from a single desktop app.
+
+Mozart wraps the Claude Code CLI and adds a visual layer for managing isolated workspaces, reviewing diffs, and tracking agent runs without touching Git internals.
+
+## Docs
+
+- [Introduction](https://mozart.build/docs/introduction): What Mozart is and why it exists
+- [Install](https://mozart.build/docs/install): Download and set up Mozart
+- [First Workspace](https://mozart.build/docs/first-workspace): Run your first AI coding task
+- [Isolated Workspaces](https://mozart.build/docs/concepts/isolated-workspaces): How Mozart sandboxes each agent run
+- [Local-First](https://mozart.build/docs/concepts/local-first): Why Mozart runs on your machine
+
+## Blog
+
+- [Hello World](https://mozart.build/blog/hello-world): The story behind Mozart
+
+## Optional
+
+- [Changelog](https://mozart.build/changelog): Release notes
+- [Privacy Policy](https://mozart.build/privacy)
+- [Terms of Service](https://mozart.build/terms)
