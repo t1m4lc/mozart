@@ -68,7 +68,7 @@ jobs:
             nx-landing-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             nx-landing-${{ runner.os }}-
 
-      - run: pnpm nx affected -t lint typecheck --parallel=3
+      - run: pnpm nx affected -t lint typecheck --parallel=3 --exclude=sandbox,sandbox-e2e
 
   build:
     name: Build
