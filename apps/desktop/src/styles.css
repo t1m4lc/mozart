@@ -6,6 +6,7 @@
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/mozart-ui/composer";
+@source "../../../libs/mozart-ui/diff-stats";
 @source "../../../libs/mozart-ui/highlight-overlay";
 @source "../../../libs/mozart-ui/timeline";
 @source "../../../libs/shared-util-theme";

@@ -2,13 +2,13 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
-  computed,
   effect,
   input,
   output,
   viewChild,
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
+import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmHoverCardImports } from '@mozart/ui/hover-card';
 import { HlmIconImports } from '@mozart/ui/icon';
@@ -62,6 +62,7 @@ function statusLabel(status: string): string {
     HlmSidebarImports,
     HlmIconImports,
     ...HlmLoaderImports,
+    MzDiffStats,
   ],
   providers: [
     provideIcons({ lucideArchive, lucideGitBranch, lucideLoader, lucidePin }),
@@ -149,31 +150,20 @@ function statusLabel(status: string): string {
 
           <span class="ml-auto flex shrink-0 items-center gap-1">
             <button
+              #archiveBtn
               hlmPopoverTrigger
               type="button"
               aria-label="Archive workspace"
               (click)="$event.stopPropagation(); $event.preventDefault()"
-              class="flex size-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-hover/ws-item:opacity-100"
+              class="flex size-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-hover/ws-item:opacity-100 "
             >
               <ng-icon hlm name="lucideArchive" size="xs" />
             </button>
 
-            @if (_hasDiff()) {
-              <span
-                class="flex items-center tracking-widest gap-1 font-mono text-[10px] tabular-nums"
-              >
-                @if ((diffStats()?.added ?? 0) > 0) {
-                  <span class="text-emerald-600 dark:text-emerald-500"
-                    >+{{ diffStats()?.added }}</span
-                  >
-                }
-                @if ((diffStats()?.removed ?? 0) > 0) {
-                  <span class="text-red-600 dark:text-red-500"
-                    >−{{ diffStats()?.removed }}</span
-                  >
-                }
-              </span>
-            }
+            <mz-diff-stats
+              [added]="diffStats()?.added ?? 0"
+              [removed]="diffStats()?.removed ?? 0"
+            />
           </span>
         </a>
         <ng-template hlmHoverCardPortal>
@@ -245,11 +235,6 @@ export class WorkspaceRow {
   readonly archive = output<void>();
   readonly renameCommit = output<string>();
   readonly renameCancel = output<void>();
-
-  protected readonly _hasDiff = computed(() => {
-    const s = this.diffStats();
-    return !!s && (s.added > 0 || s.removed > 0);
-  });
 
   // Last meaningful activity timestamp for the hover popover. Falls
   // back to workspace.createdAt when no later activity is tracked.

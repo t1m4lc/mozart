@@ -208,6 +208,9 @@
       "@mozart-ui/composer": [
         "./libs/mozart-ui/composer/src/index.ts"
       ],
+      "@mozart-ui/diff-stats": [
+        "./libs/mozart-ui/diff-stats/src/index.ts"
+      ],
       "@mozart-ui/highlight-overlay": [
         "./libs/mozart-ui/highlight-overlay/src/index.ts"
       ],
