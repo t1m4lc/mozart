@@ -2225,6 +2225,36 @@ pub async fn set_onboarding_completed(
 }
 
 // ===========================================================================
+// Dev-only DB reset / demo seed (debug builds only)
+// ---------------------------------------------------------------------------
+//
+// Both commands are gated behind `#[cfg(debug_assertions)]`, so the
+// shipping release binary cannot wipe the user's DB even if a stray
+// `invoke()` call reaches it — the command name doesn't exist at runtime.
+//
+// Call from devtools:
+//   await window.__TAURI_INTERNALS__.invoke('reset_database_clean');
+//   await window.__TAURI_INTERNALS__.invoke('reset_database_with_demo_seed');
+//
+// See `crate::db::reset` for the wipe order and seed contents.
+
+#[cfg(debug_assertions)]
+#[tauri::command]
+#[specta::specta]
+pub async fn reset_database_clean(db: State<'_, DbState>) -> Result<(), AppError> {
+    let mut conn = db.lock();
+    crate::db::reset::reset_clean(&mut conn)
+}
+
+#[cfg(debug_assertions)]
+#[tauri::command]
+#[specta::specta]
+pub async fn reset_database_with_demo_seed(db: State<'_, DbState>) -> Result<(), AppError> {
+    let mut conn = db.lock();
+    crate::db::reset::reset_with_demo_seed(&mut conn)
+}
+
+// ===========================================================================
 // Tests
 // ===========================================================================
 

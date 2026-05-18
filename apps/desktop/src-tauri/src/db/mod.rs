@@ -21,6 +21,7 @@ pub mod messages;
 pub mod models;
 pub mod outbox;
 pub mod repos;
+pub mod reset;
 pub mod tasks;
 pub mod threads;
 pub mod workspace_active_chat;

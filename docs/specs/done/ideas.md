@@ -51,3 +51,23 @@ J'ai remarqué que en travaillant sur mon code j'ai trois approches une approche
 - possibilité dajouter des ligne en contexte en selectionnt et ajouter contexte llm.
 
 ---
+
+## DB schema follow-ups (surfaced by the demo-seed work)
+
+Captured while writing `db::reset::reset_with_demo_seed` — the seed wanted to
+express variety the current schema can't represent. None of these are blocking;
+land if/when a UI surface actually consumes them.
+
+**Recommended next migration (`007_repos_metadata.sql`) — additive, nullable:**
+
+- `repos.description TEXT` — short blurb for project cards / landing visuals.
+- `repos.kind TEXT` — framework/type tag (e.g. `tauri-angular`, `analogjs`, `rust-cli`, `audit`). Drives icons, filters, and the "what is this repo" line.
+- `repos.last_activity_at INTEGER` — denormalized "last touched" timestamp. Derivable from workspaces/runs, but cheap to maintain and removes a join from the sidebar's "recently active" sort.
+
+Each is opt-in per UI surface: the bindings regen exposes the optional fields, but existing components keep compiling untouched until they reference them.
+
+**Deferred — derivable from existing state, not worth a schema change yet:**
+
+- `repos.status` (`active | paused | completed | inaccessible`) — derivable: paused ≈ no recent workspaces; completed ≈ all tasks archived; inaccessible ≈ `path` not on disk.
+- `workspaces.status` extensions (`paused`, `archived`, `empty`, `inaccessible`) — current 8 values cover the lifecycle; "paused" overlaps `stopped`.
+- `agent_runs.status` extensions (`queued`, `cancelled`, `waiting_for_review`, `waiting_for_permission`) — `cancelled` ≈ `stopped`; `waiting_for_review` is a workspace concept, not a run concept; `queued` and `waiting_for_permission` are real states but only matter once the run scheduler / tool-permission gate exist.
