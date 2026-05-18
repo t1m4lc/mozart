@@ -7,18 +7,18 @@ import {
   signal,
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { injectCurrentPath } from '../shell/current-path';
-import { injectSeo } from '../shell/seo';
-import { TocHeading, extractHeadings } from './docs/_layout/toc';
-import { TocComponent } from './docs/_layout/toc.component';
 import {
   DocsAttributes,
   groupDocsEntries,
   isDocsFile,
   toDocsEntry,
 } from '../content/docs';
+import { injectCurrentPath } from '../shell/current-path';
+import { injectSeo } from '../shell/seo';
 import { DocsPrevNextComponent } from './docs/_layout/docs-prev-next.component';
 import { DocsShellComponent } from './docs/_layout/docs-shell.component';
+import { TocHeading, extractHeadings } from './docs/_layout/toc';
+import { TocComponent } from './docs/_layout/toc.component';
 
 @Component({
   selector: 'app-docs-layout',
@@ -107,7 +107,7 @@ export default class DocsLayoutPage {
       }
       void this.loadHeadings(detail.slug);
       this.seo({
-        title: `${detail.title} — Mozart docs`,
+        title: `${detail.title} | Mozart docs`,
         description:
           detail.description ||
           `${detail.title}: ${detail.groupTitle} documentation for Mozart.`,

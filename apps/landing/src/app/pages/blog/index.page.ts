@@ -67,7 +67,7 @@ import { injectSeo } from '../../shell/seo';
                     class="group inline-flex items-baseline"
                   >
                     <h2
-                      class="text-foreground group-hover:text-primary text-2xl font-semibold tracking-tight transition-colors sm:text-3xl"
+                      class="text-foreground group-hover:text-foreground/70 ease text-2xl font-semibold tracking-tight transition-colors sm:text-3xl"
                     >
                       {{ post.title }}
                     </h2>
@@ -143,7 +143,7 @@ export default class BlogIndexPage {
 
   constructor() {
     this.seo({
-      title: 'Blog — Mozart',
+      title: 'Blog | Mozart',
       description: 'Notes, updates, and stories from the Mozart team.',
       path: '/blog',
       type: 'website',

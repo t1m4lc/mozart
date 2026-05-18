@@ -1,11 +1,15 @@
-import { ChangeDetectionStrategy, Component, OnInit, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
 import {
   MarkdownComponent,
   injectContentFiles,
   injectContentFilesMap,
 } from '@analogjs/content';
-import { injectSeo } from '../../shell/seo';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  OnInit,
+  signal,
+} from '@angular/core';
+import { RouterLink } from '@angular/router';
 import {
   ChangelogAttributes,
   ChangelogEntry,
@@ -14,6 +18,7 @@ import {
   stripFrontMatter,
   toChangelogEntry,
 } from '../../content/changelog';
+import { injectSeo } from '../../shell/seo';
 import { ChangelogEntryShellComponent } from './_layout/changelog-entry-shell.component';
 
 @Component({
@@ -77,7 +82,7 @@ export default class ChangelogIndexPage implements OnInit {
 
   constructor() {
     this.seo({
-      title: 'Changelog — Mozart',
+      title: 'Changelog | Mozart',
       description: 'Every Mozart release, newest first.',
       path: '/changelog',
       type: 'website',
