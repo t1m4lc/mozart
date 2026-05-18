@@ -7,7 +7,7 @@ interface Testimonial {
   readonly quote: string;
   readonly name: string;
   readonly role: string;
-  readonly avatar: string;
+  readonly initials: string;
 }
 
 const PLACEHOLDER_QUOTE =
@@ -18,37 +18,37 @@ const TESTIMONIALS: readonly Testimonial[] = [
     quote: PLACEHOLDER_QUOTE,
     name: 'Alex M.',
     role: 'Founding Engineer, Placeholder Co.',
-    avatar: 'https://i.pravatar.cc/80?img=12',
+    initials: 'AM',
   },
   {
     quote: PLACEHOLDER_QUOTE,
     name: 'Priya R.',
     role: 'Tech Lead, Placeholder Co.',
-    avatar: 'https://i.pravatar.cc/80?img=47',
+    initials: 'PR',
   },
   {
     quote: PLACEHOLDER_QUOTE,
     name: 'Sam W.',
     role: 'Staff Engineer, Placeholder Co.',
-    avatar: 'https://i.pravatar.cc/80?img=33',
+    initials: 'SW',
   },
   {
     quote: PLACEHOLDER_QUOTE,
     name: 'Jordan K.',
     role: 'Software Engineer, Placeholder Co.',
-    avatar: 'https://i.pravatar.cc/80?img=15',
+    initials: 'JK',
   },
   {
     quote: PLACEHOLDER_QUOTE,
     name: 'Casey L.',
     role: 'Product Engineer, Placeholder Co.',
-    avatar: 'https://i.pravatar.cc/80?img=49',
+    initials: 'CL',
   },
   {
     quote: PLACEHOLDER_QUOTE,
     name: 'Riley T.',
     role: 'Engineering Lead, Placeholder Co.',
-    avatar: 'https://i.pravatar.cc/80?img=8',
+    initials: 'RT',
   },
 ] as const;
 
@@ -77,15 +77,12 @@ const TESTIMONIALS: readonly Testimonial[] = [
               >
                 <p class="text-foreground text-sm">{{ item.quote }}</p>
                 <div class="flex items-center gap-3">
-                  <img
-                    [src]="item.avatar"
-                    [alt]="item.name"
-                    width="40"
-                    height="40"
-                    loading="lazy"
-                    decoding="async"
-                    class="border-border size-10 shrink-0 rounded-full border object-cover"
-                  />
+                  <div
+                    aria-hidden="true"
+                    class="border-border bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-full border text-xs font-medium"
+                  >
+                    {{ item.initials }}
+                  </div>
                   <div class="min-w-0 flex-1">
                     <div class="flex items-center gap-1">
                       <span
@@ -119,15 +116,12 @@ const TESTIMONIALS: readonly Testimonial[] = [
           >
             <p class="text-foreground text-sm">{{ item.quote }}</p>
             <div class="flex items-center gap-3">
-              <img
-                [src]="item.avatar"
-                [alt]="item.name"
-                width="40"
-                height="40"
-                loading="lazy"
-                decoding="async"
-                class="border-border size-10 shrink-0 rounded-full border object-cover"
-              />
+              <div
+                aria-hidden="true"
+                class="border-border bg-muted text-muted-foreground flex size-10 shrink-0 items-center justify-center rounded-full border text-xs font-medium"
+              >
+                {{ item.initials }}
+              </div>
               <div class="min-w-0 flex-1">
                 <div class="flex items-center gap-1">
                   <span class="text-foreground truncate text-sm font-medium">

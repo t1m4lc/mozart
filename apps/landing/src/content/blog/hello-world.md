@@ -42,8 +42,8 @@ Finding your path is a chaotic process. At least it was for me. I regularly cros
 
 Before Mozart, I launched several projects. Not all of them finished, not all of them I'd own up to:
 
-- A Chrome extension to automate social-media replies via LLM. Not a bad idea, mediocre execution, zero distribution.
-- A sports platform built around events in France. Around 200 visitors a day, but zero paying customers so far. Alive, but small.
+- [A Chrome extension](https://chromewebstore.google.com/detail/magic-social/jmhegjhgbgnnlpohnmicbploiiohnhdg) to automate social-media replies via LLM. Not a bad idea, mediocre execution, zero distribution.
+- [A sports platform built around events](https://raceup.org) in France. Around 200 visitors a day, but zero paying customers so far. Alive, but small.
 
 The lesson fits in one word: **distribution.**
 
