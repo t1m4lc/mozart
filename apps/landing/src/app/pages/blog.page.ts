@@ -91,7 +91,7 @@ import { TocComponent } from './docs/_layout/toc.component';
           }
         </article>
       } @else {
-        <div class="mx-auto w-full max-w-2xl px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto w-full max-w-5xl px-4 sm:px-6 lg:px-8">
           <router-outlet />
         </div>
       }

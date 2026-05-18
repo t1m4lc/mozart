@@ -12,7 +12,10 @@ import {
   lucideMenu,
   lucideX,
 } from '@ng-icons/lucide';
-import { DownloadDialogComponent } from './download-dialog.component';
+import {
+  DOWNLOAD_DIALOG_CLASS,
+  DownloadDialogComponent,
+} from './download-dialog.component';
 import { PRIMARY_NAV } from './nav-model';
 
 @Component({
@@ -152,6 +155,8 @@ export class SiteHeaderComponent {
   }
 
   protected openDownload(): void {
-    this.dialog.open(DownloadDialogComponent, {});
+    this.dialog.open(DownloadDialogComponent, {
+      contentClass: DOWNLOAD_DIALOG_CLASS,
+    });
   }
 }

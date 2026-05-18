@@ -25,6 +25,7 @@ import {
   type CommitDialogContext,
   type CreatePrDialogContext,
 } from '../../repositories';
+import { RunRegistry } from '../../runs';
 import { FileTabsService } from '../data/file-tabs.service';
 import { IdeDetectionService } from '../data/ide-detection.service';
 import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
@@ -64,6 +65,8 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       [availableTools]="availableTools()"
       [lastUsedTool]="effectiveLastUsedTool()"
       [githubConnected]="profile.githubConnected()"
+      [runStatus]="runStatus()"
+      [hasRunCommand]="hasRunCommand()"
       data-tour="aside-header-buttons"
       (targetBranchChange)="store.setTargetBranch($event)"
       (toggleRightPanel)="layout.toggleRightPanel()"
@@ -71,6 +74,8 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       (openIn)="onOpenIn($event)"
       (commit)="onCommit()"
       (createPr)="onCreatePr()"
+      (run)="onRun()"
+      (stopRun)="onStopRun()"
     />
 
     <app-feature-chat-tab-bar
@@ -141,6 +146,7 @@ export class WorkspaceDetailPage {
   private readonly ides = inject(IdeDetectionService);
   private readonly dialog = inject(HlmDialogService);
   private readonly fileTabs = inject(FileTabsService);
+  private readonly runs = inject(RunRegistry);
 
   // Null when the active workspace tab is a chat (the chat panel
   // renders). A path when the active tab is a file tab opened from
@@ -187,6 +193,16 @@ export class WorkspaceDetailPage {
   private readonly chatFacade = inject(ChatFacade);
   protected readonly isStreaming = this.chatFacade.isStreaming(
     this.store.workspaceId,
+  );
+
+  protected readonly runStatus = computed(() => {
+    const id = this.id();
+    if (!id) return 'idle' as const;
+    return this.runs.ensureEntry(id).status();
+  });
+
+  protected readonly hasRunCommand = computed(
+    () => !!this.project()?.runCommand,
   );
 
   // True when the active chat is the first (oldest) chat in the
@@ -297,6 +313,26 @@ export class WorkspaceDetailPage {
       '../../repositories/feature-commit-dialog/feature-commit-dialog'
     );
     this.dialog.open(FeatureCommitDialog, { context });
+  }
+
+  protected async onRun(): Promise<void> {
+    const id = this.id();
+    if (!id) return;
+    try {
+      await this.runs.start(id);
+    } catch (err) {
+      console.warn('[detail] run start failed:', err);
+    }
+  }
+
+  protected async onStopRun(): Promise<void> {
+    const id = this.id();
+    if (!id) return;
+    try {
+      await this.runs.stop(id);
+    } catch (err) {
+      console.warn('[detail] run stop failed:', err);
+    }
   }
 
   protected async onCreatePr(): Promise<void> {

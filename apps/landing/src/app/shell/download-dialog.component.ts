@@ -21,21 +21,31 @@ type Primary = {
   readonly icon: 'apple' | 'windows' | 'linux';
 };
 
+// Pass to `dialog.open(DownloadDialogComponent, { contentClass: ... })`.
+// Desktop keeps the default `sm:max-w-lg` card. Mobile expands to a true
+// fullscreen sheet so the two tall CTAs + footnote stop overflowing past
+// the viewport on small phones.
+export const DOWNLOAD_DIALOG_CLASS =
+  'flex flex-col gap-0 ' +
+  'max-sm:!w-screen max-sm:!h-[100dvh] max-sm:!max-w-none ' +
+  'max-sm:!rounded-none max-sm:!border-0 max-sm:!mx-0 max-sm:!my-0 ' +
+  'max-sm:!p-0';
+
 @Component({
   selector: 'app-download-dialog',
   imports: [HlmButton, HlmDialogImports, HlmIconImports, NgIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideIcons({ lucideArrowRight })],
   template: `
-    <div hlmDialogHeader>
+    <header class="border-border max-sm:border-b max-sm:p-6 sm:pb-2">
       <h3 hlmDialogTitle>Join the Mozart beta</h3>
       <p hlmDialogDescription>
         Mozart is in early access. Tell us your platform and we'll ship you
         the build when it's ready.
       </p>
-    </div>
+    </header>
 
-    <div class="space-y-3 pt-2">
+    <div class="min-h-0 flex-1 space-y-3 overflow-y-auto max-sm:px-6 max-sm:pb-6 sm:pt-4">
       <a
         hlmBtn
         size="lg"

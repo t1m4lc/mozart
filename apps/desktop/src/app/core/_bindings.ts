@@ -1325,6 +1325,25 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async resetDatabaseClean(): Promise<Result<null, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('reset_database_clean') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async resetDatabaseWithDemoSeed(): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('reset_database_with_demo_seed'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
 };
 
 /** user-defined events **/

@@ -45,11 +45,21 @@ const FAQ: readonly FaqEntry[] = [
                 class="text-muted-foreground mt-1 grid grid-cols-[auto_1fr] gap-x-2"
               >
                 <span aria-hidden="true">└</span>
-                <span class="">{{ entry.answer }}</span>
+                <span>{{ entry.answer }}</span>
               </dd>
             </div>
           }
         </dl>
+
+        <p class="text-muted-foreground mt-8 text-xs">
+          Questions?
+          <a
+            href="/discord"
+            class="text-foreground hover:text-foreground/70 ml-1 inline-flex items-center underline decoration-dotted underline-offset-4 transition-colors"
+          >
+            Ask on Discord →
+          </a>
+        </p>
       </div>
     </section>
   `,

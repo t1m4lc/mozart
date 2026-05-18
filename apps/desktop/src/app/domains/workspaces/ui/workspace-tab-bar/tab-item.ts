@@ -32,7 +32,7 @@ import type { WorkspaceTab } from './workspace-tab.model';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class:
-      'group/tab relative flex h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 first:pl-1 transition-[width,background-color] duration-150 text-muted-foreground hover:bg-accent/60 aria-selected:bg-brand/15 aria-selected:text-foreground',
+      'group/tab relative flex h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 first:pl-1 transition-[width,background-color] duration-150 text-muted-foreground hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground',
     '[class.w-36]': '!renaming()',
     '[class.w-56]': 'renaming()',
     '[class.pr-2]': "renaming() || (tab().kind !== 'chat')",
@@ -115,7 +115,7 @@ import type { WorkspaceTab } from './workspace-tab.model';
     @if (active()) {
       <span
         aria-hidden="true"
-        class="pointer-events-none absolute inset-x-0 -bottom-px h-1 bg-brand shadow-[0_0_12px_hsl(var(--brand)/0.75)]"
+        class="pointer-events-none absolute inset-x-0 -bottom-px h-0.75 bg-brand shadow-[0_0_8px_hsl(var(--brand)/0.45)]"
       ></span>
     }
   `,

@@ -104,7 +104,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
             role="tab"
             [attr.aria-selected]="filesView() === 'all'"
             (click)="setFilesView('all')"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-selected:bg-brand/15 aria-selected:text-foreground"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
           >
             <ng-icon hlm name="lucideListTree" size="xs" />
             <span>All files</span>
@@ -114,7 +114,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
             role="tab"
             [attr.aria-selected]="filesView() === 'changes'"
             (click)="setFilesView('changes')"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-selected:bg-brand/15 aria-selected:text-foreground"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
           >
             <ng-icon hlm name="lucideGitCompareArrows" size="xs" />
             <span>Changes</span>
@@ -132,7 +132,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
 
         @if (filesView() === 'all') {
           <app-feature-file-tree
-            class="block min-h-0 flex-1 px-2"
+            class="block min-h-0 flex-1"
             [workspaceId]="workspaceId()"
             [refreshTick]="watcherTick()"
             [activePath]="activeFilePath()"
@@ -227,7 +227,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
               [attr.aria-current]="
                 activeFilePath() === file.path ? 'true' : null
               "
-              class="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground aria-[current=true]:bg-brand/15 aria-[current=true]:text-foreground"
+              class="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground aria-[current=true]:bg-brand/10 aria-[current=true]:text-foreground"
               (click)="onChangedFileClick(file)"
             >
               <span
@@ -242,12 +242,18 @@ function coerceBottomTab(raw: string | null): BottomTab {
                 file.path
               }}</span>
               @if (file.added > 0 || file.removed > 0) {
-                <span class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums">
+                <span
+                  class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums"
+                >
                   @if (file.added > 0) {
-                    <span class="text-emerald-600 dark:text-emerald-500">+{{ file.added }}</span>
+                    <span class="text-emerald-600 dark:text-emerald-500"
+                      >+{{ file.added }}</span
+                    >
                   }
                   @if (file.removed > 0) {
-                    <span class="text-red-600 dark:text-red-500">−{{ file.removed }}</span>
+                    <span class="text-red-600 dark:text-red-500"
+                      >−{{ file.removed }}</span
+                    >
                   }
                 </span>
               }
@@ -302,13 +308,13 @@ function coerceBottomTab(raw: string | null): BottomTab {
         role="tab"
         [attr.aria-selected]="bottomOpen() && bottomTab() === 'setup'"
         (click)="onTabClick('setup')"
-        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/15 aria-selected:text-foreground"
+        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground"
       >
         Setup
         @if (bottomOpen() && bottomTab() === 'setup') {
           <span
             aria-hidden="true"
-            class="pointer-events-none absolute inset-x-0 -bottom-px h-1 bg-brand shadow-[0_0_12px_hsl(var(--brand)/0.75)]"
+            class="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand shadow-[0_0_8px_hsl(var(--brand)/0.45)]"
           ></span>
         }
       </button>
@@ -318,13 +324,13 @@ function coerceBottomTab(raw: string | null): BottomTab {
         role="tab"
         [attr.aria-selected]="bottomOpen() && bottomTab() === 'run'"
         (click)="onTabClick('run')"
-        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/15 aria-selected:text-foreground"
+        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground"
       >
         Run
         @if (bottomOpen() && bottomTab() === 'run') {
           <span
             aria-hidden="true"
-            class="pointer-events-none absolute inset-x-0 -bottom-px h-1 bg-brand shadow-[0_0_12px_hsl(var(--brand)/0.75)]"
+            class="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand shadow-[0_0_8px_hsl(var(--brand)/0.45)]"
           ></span>
         }
       </button>
@@ -334,13 +340,13 @@ function coerceBottomTab(raw: string | null): BottomTab {
         role="tab"
         [attr.aria-selected]="bottomOpen() && bottomTab() === 'terminal'"
         (click)="onTabClick('terminal')"
-        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/15 aria-selected:text-foreground"
+        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground"
       >
         Terminal
         @if (bottomOpen() && bottomTab() === 'terminal') {
           <span
             aria-hidden="true"
-            class="pointer-events-none absolute inset-x-0 -bottom-px h-1 bg-brand shadow-[0_0_12px_hsl(var(--brand)/0.75)]"
+            class="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand shadow-[0_0_8px_hsl(var(--brand)/0.45)]"
           ></span>
         }
       </button>

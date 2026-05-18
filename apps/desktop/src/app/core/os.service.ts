@@ -1,5 +1,5 @@
-import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
+import { Injectable, PLATFORM_ID, inject } from '@angular/core';
 
 export type OS = 'macos' | 'windows' | 'linux' | 'ios' | 'android' | 'unknown';
 
@@ -14,7 +14,9 @@ export class OsService {
     const nav = window.navigator;
     const platform =
       (nav as Navigator & { userAgentData?: { platform?: string } })
-        .userAgentData?.platform ?? nav.platform ?? '';
+        .userAgentData?.platform ??
+      nav.platform ??
+      '';
     const userAgent = nav.userAgent ?? '';
 
     if (/iPhone|iPad|iPod/i.test(userAgent)) return 'ios';

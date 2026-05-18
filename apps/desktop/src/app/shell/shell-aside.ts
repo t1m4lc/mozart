@@ -1,14 +1,16 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideGitMerge, lucidePlay } from '@ng-icons/lucide';
+import { lucideCircleStop, lucideGitMerge, lucidePlay } from '@ng-icons/lucide';
 import { OsService } from '../core/os.service';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
 import { ProfileFacade } from '../domains/profile';
+import { ProjectsFacade } from '../domains/projects';
+import { RunRegistry } from '../domains/runs';
 import { WorkspacesFacade } from '../domains/workspaces';
 import { FeatureWorkspaceAside } from '../domains/workspaces/feature-workspace-aside/feature-workspace-aside';
 
@@ -26,7 +28,7 @@ import { FeatureWorkspaceAside } from '../domains/workspaces/feature-workspace-a
     NonMacWindowControls,
     FeatureWorkspaceAside,
   ],
-  providers: [provideIcons({ lucideGitMerge, lucidePlay })],
+  providers: [provideIcons({ lucideCircleStop, lucideGitMerge, lucidePlay })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <hlm-sidebar
@@ -41,24 +43,32 @@ import { FeatureWorkspaceAside } from '../domains/workspaces/feature-workspace-a
       >
         <span class="flex-1" data-tauri-drag-region></span>
         @if (workspaces.activeId()) {
-          <!-- Run — disabled stub. Workspace-level run lives in the
-               aside bottom slot toolbar; this is the future "primary"
-               surface (matches the IDE button look) but the wiring
-               isn't ready yet, so the button reads as Coming soon. -->
-          <button
-            hlmBtn
-            variant="default"
-            size="sm"
-            type="button"
-            disabled
-            hlmTooltip="Run — not available yet"
-            position="bottom"
-            class="h-7 px-2 text-xs font-normal"
-            data-tauri-drag-region="false"
-          >
-            <ng-icon hlm name="lucidePlay" size="xs" />
-            <span>Run</span>
-          </button>
+          @if (runStatus() === 'running') {
+            <button
+              type="button"
+              hlmTooltip="Stop the run"
+              position="bottom"
+              class="inline-flex h-6 items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 text-xs text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              data-tauri-drag-region="false"
+              (click)="onStopRun()"
+            >
+              <ng-icon hlm name="lucideCircleStop" size="xs" />
+              <span>Stop</span>
+            </button>
+          } @else {
+            <button
+              type="button"
+              hlmTooltip="Run the configured command"
+              position="bottom"
+              class="inline-flex h-6 items-center gap-1.5 rounded-md border border-border bg-muted px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
+              [disabled]="!hasRunCommand()"
+              data-tauri-drag-region="false"
+              (click)="onRun()"
+            >
+              <ng-icon hlm name="lucidePlay" size="xs" />
+              <span>Run</span>
+            </button>
+          }
 
           @if (profile.githubConnected()) {
             <button
@@ -91,7 +101,43 @@ export class ShellAside {
   protected readonly isMac = inject(OsService).isMac();
   protected readonly workspaces = inject(WorkspacesFacade);
   protected readonly profile = inject(ProfileFacade);
+  private readonly projects = inject(ProjectsFacade);
+  private readonly runs = inject(RunRegistry);
   private readonly dialog = inject(HlmDialogService);
+
+  protected readonly runStatus = computed(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return 'idle' as const;
+    return this.runs.ensureEntry(id).status();
+  });
+
+  protected readonly hasRunCommand = computed(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return false;
+    const ws = this.workspaces.workspaceById(id)();
+    if (!ws) return false;
+    return !!this.projects.byId(ws.projectId)()?.runCommand;
+  });
+
+  protected async onRun(): Promise<void> {
+    const id = this.workspaces.activeId();
+    if (!id) return;
+    try {
+      await this.runs.start(id);
+    } catch (err) {
+      console.warn('[shell-aside] run start failed:', err);
+    }
+  }
+
+  protected async onStopRun(): Promise<void> {
+    const id = this.workspaces.activeId();
+    if (!id) return;
+    try {
+      await this.runs.stop(id);
+    } catch (err) {
+      console.warn('[shell-aside] run stop failed:', err);
+    }
+  }
 
   protected async onCreatePr(): Promise<void> {
     const id = this.workspaces.activeId();

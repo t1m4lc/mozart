@@ -11,6 +11,8 @@ import {
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmHoverCardImports } from '@mozart/ui/hover-card';
+import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmLoaderImports } from '@mozart/ui/loader';
 import { HlmPopoverImports } from '@mozart/ui/popover';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -22,7 +24,6 @@ import {
 } from '@ng-icons/lucide';
 import type { Workspace } from '../../data/workspace.model';
 import { relativeTime } from '../../util-relative-time';
-import { HlmLoaderImports } from '@mozart/ui/loader';
 
 // Maps a UI workspace status to the dot color in the hover popover.
 const STATUS_COLOR: Record<string, string> = {
@@ -59,6 +60,7 @@ function statusLabel(status: string): string {
     HlmHoverCardImports,
     HlmPopoverImports,
     HlmSidebarImports,
+    HlmIconImports,
     ...HlmLoaderImports,
   ],
   providers: [
@@ -110,100 +112,114 @@ function statusLabel(status: string): string {
         />
       </div>
     } @else {
-      <hlm-hover-card>
-        <a
-          hlmSidebarMenuButton
-          hlmHoverCardTrigger
-          [showDelay]="800"
-          align="right"
-          [routerLink]="['/workspaces', workspace().id]"
-          routerLinkActive="bg-brand/15 text-foreground before:absolute before:left-0 before:top-0.5 before:bottom-0.5 before:w-1 before:rounded-r-full before:bg-brand before:shadow-[0_0_10px_hsl(var(--brand)/0.7)] [&_ng-icon]:text-brand!"
-          class="relative cursor-pointer rounded-sm gap-1.5 px-2"
-        >
-          @if (isStreaming()) {
-            <hlm-loader size="xs" class="text-brand" />
-          } @else {
-            <ng-icon
-              hlm
-              name="lucideGitBranch"
-              size="xs"
-              class="text-muted-foreground"
-            />
-          }
-          @if (workspace().pinned) {
-            <ng-icon hlm name="lucidePin" size="10px" class="text-brand" />
-          }
-          <span [class.font-semibold]="workspace().unread">{{
-            displayTitle()
-          }}</span>
-          @if (_hasDiff()) {
-            <span class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums">
-              @if ((diffStats()?.added ?? 0) > 0) {
-                <span class="text-emerald-600 dark:text-emerald-500">+{{ diffStats()?.added }}</span>
+      <div class="flex w-full items-center">
+        <div class="min-w-0 flex-1">
+          <hlm-hover-card>
+            <a
+              hlmSidebarMenuButton
+              hlmHoverCardTrigger
+              [showDelay]="800"
+              align="right"
+              [routerLink]="['/workspaces', workspace().id]"
+              routerLinkActive="bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
+              class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
+            >
+              @if (isStreaming()) {
+                <hlm-loader size="xs" class="text-brand" />
+              } @else {
+                @if (workspace().pinned) {
+                  <ng-icon
+                    hlm
+                    name="lucidePin"
+                    size="xs"
+                    class="text-brand rotate-45"
+                  />
+                }
+                <ng-icon
+                  hlm
+                  name="lucideGitBranch"
+                  size="xs"
+                  class="text-muted-foreground"
+                />
               }
-              @if ((diffStats()?.removed ?? 0) > 0) {
-                <span class="text-red-600 dark:text-red-500">−{{ diffStats()?.removed }}</span>
-              }
-            </span>
-          }
-        </a>
-        <ng-template hlmHoverCardPortal>
-          <div hlmHoverCardContent class="w-64">
-            <div class="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                [class]="
-                  'inline-block size-2 rounded-full ' +
-                  statusDotColor(workspace().status)
-                "
-              ></span>
-              <span class="text-sm font-medium">{{ workspace().name }}</span>
-              <span
-                class="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground"
-              >
-                {{ statusLabel(workspace().status) }}
-              </span>
-            </div>
-            @if (chatTitle()) {
-              <p class="mt-2 truncate text-xs text-muted-foreground">
-                {{ chatTitle() }}
-              </p>
-            }
-            <p class="mt-1 text-[11px] text-muted-foreground">
-              {{ relativeTime(lastActivityAt()) }}
-            </p>
-          </div>
-        </ng-template>
-      </hlm-hover-card>
 
-      <div hlmPopover>
-        <button
-          hlmPopoverTrigger
-          type="button"
-          aria-label="Archive workspace"
-          class="absolute right-1 top-1/2 -translate-y-1/2 flex size-5 items-center justify-center rounded-md
-                 text-muted-foreground opacity-0 transition-opacity
-                 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
-                 group-hover/ws-item:opacity-100"
-        >
-          <ng-icon hlm name="lucideArchive" size="xs" />
-        </button>
-        <ng-template hlmPopoverPortal>
-          <div hlmPopoverContent class="w-40 p-2">
-            <p class="text-xs text-muted-foreground/80">Archive workspace?</p>
-            <div class="mt-1.5 flex justify-end">
-              <button
-                hlmBtn
-                size="xs"
-                variant="destructive"
-                type="button"
-                (click)="archive.emit()"
-              >
-                Archive
-              </button>
+              <span class="min-w-0 truncate" [class.font-semibold]="workspace().unread">{{
+                displayTitle()
+              }}</span>
+
+              @if (_hasDiff()) {
+                <span
+                  class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums"
+                >
+                  @if ((diffStats()?.added ?? 0) > 0) {
+                    <span class="text-emerald-600 dark:text-emerald-500"
+                      >+{{ diffStats()?.added }}</span
+                    >
+                  }
+                  @if ((diffStats()?.removed ?? 0) > 0) {
+                    <span class="text-red-600 dark:text-red-500"
+                      >−{{ diffStats()?.removed }}</span
+                    >
+                  }
+                </span>
+              }
+            </a>
+            <ng-template hlmHoverCardPortal>
+              <div hlmHoverCardContent class="w-64">
+                <div class="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    [class]="
+                      'inline-block size-2 rounded-full ' +
+                      statusDotColor(workspace().status)
+                    "
+                  ></span>
+                  <span class="text-sm font-medium">{{ workspace().name }}</span>
+                  <span
+                    class="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground"
+                  >
+                    {{ statusLabel(workspace().status) }}
+                  </span>
+                </div>
+                @if (chatTitle()) {
+                  <p class="mt-2 truncate text-xs text-muted-foreground">
+                    {{ chatTitle() }}
+                  </p>
+                }
+                <p class="mt-1 text-[11px] text-muted-foreground">
+                  {{ relativeTime(lastActivityAt()) }}
+                </p>
+              </div>
+            </ng-template>
+          </hlm-hover-card>
+        </div>
+
+        <div hlmPopover class="shrink-0">
+          <button
+            hlmPopoverTrigger
+            type="button"
+            aria-label="Archive workspace"
+            class="mr-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-hover/ws-item:opacity-100"
+          >
+            <ng-icon hlm name="lucideArchive" size="xs" />
+          </button>
+          <ng-template hlmPopoverPortal>
+            <div hlmPopoverContent class="w-40 p-2">
+              <p class="text-xs text-muted-foreground/80">Archive workspace?</p>
+              <div class="mt-1.5 flex justify-end">
+                <button
+                  hlmBtn
+                  size="xs"
+                  variant="destructive"
+                  type="button"
+                  (click)="archive.emit()"
+                >
+                  Archive
+                </button>
+              </div>
             </div>
-          </div>
-        </ng-template>
+          </ng-template>
+        </div>
       </div>
     }
   `,

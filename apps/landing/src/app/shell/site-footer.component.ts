@@ -10,7 +10,7 @@ import { SITE_CONFIG } from './site-config';
   host: { class: 'block' },
   template: `
     <footer
-      class="bg-muted border-border relative overflow-hidden border-t px-6 pt-12 pb-8 font-mono sm:px-8"
+      class="bg-muted/40 border-border relative overflow-hidden border-t px-6 pt-12 pb-8 font-mono sm:px-8"
     >
       <div class="relative mx-auto max-w-5xl">
         <div

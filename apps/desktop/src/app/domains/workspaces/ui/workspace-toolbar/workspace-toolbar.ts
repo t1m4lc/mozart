@@ -13,15 +13,18 @@ import {
 import { HlmBreadcrumbImports } from '@mozart/ui/breadcrumb';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { HlmLoaderImports } from '@mozart/ui/loader';
+import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideCircleStop,
   lucideGitBranch,
   lucideGitCommitVertical,
   lucideGitPullRequest,
   lucidePanelRight,
+  lucidePlay,
 } from '@ng-icons/lucide';
+import type { RunStatus } from '../../../runs';
 import type { OpenInTool } from '../../data/open-in-tools';
 import { BranchPicker } from '../branch-picker/branch-picker';
 import { OpenInMenu } from '../open-in-menu/open-in-menu';
@@ -41,10 +44,12 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
   ],
   providers: [
     provideIcons({
+      lucideCircleStop,
       lucideGitBranch,
       lucideGitCommitVertical,
       lucideGitPullRequest,
       lucidePanelRight,
+      lucidePlay,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -59,7 +64,11 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
       }
 
       <div class="flex min-w-0 flex-1 items-center gap-1 px-1">
-        <nav hlmBreadcrumb aria-label="Workspace" class="min-w-0 overflow-hidden">
+        <nav
+          hlmBreadcrumb
+          aria-label="Workspace"
+          class="min-w-0 overflow-hidden"
+        >
           <ol hlmBreadcrumbList>
             <li hlmBreadcrumbItem class="shrink-0">
               <span
@@ -167,10 +176,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
           position="bottom"
           class="size-7 rounded-md text-muted-foreground"
           data-tauri-drag-region="false"
-          (click)="
-            toggleRightPanel.emit();
-            $any($event.currentTarget).blur()
-          "
+          (click)="toggleRightPanel.emit(); $any($event.currentTarget).blur()"
         >
           <ng-icon hlm name="lucidePanelRight" size="xs" />
         </button>
@@ -196,6 +202,8 @@ export class WorkspaceToolbar {
   readonly availableTools = input<readonly OpenInTool[]>([]);
   readonly lastUsedTool = input<OpenInTool | null>(null);
   readonly githubConnected = input<boolean>(false);
+  readonly runStatus = input<RunStatus>('idle');
+  readonly hasRunCommand = input<boolean>(false);
 
   readonly targetBranchChange = output<string>();
   readonly toggleRightPanel = output<void>();
@@ -203,6 +211,8 @@ export class WorkspaceToolbar {
   readonly openIn = output<OpenInTool>();
   readonly commit = output<void>();
   readonly createPr = output<void>();
+  readonly run = output<void>();
+  readonly stopRun = output<void>();
 
   protected readonly renaming = signal(false);
   private readonly renameInput =

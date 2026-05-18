@@ -36,7 +36,7 @@ import { statusBadge } from '../util-status-badge/util-status-badge';
     <button
       type="button"
       [attr.aria-current]="active() ? 'true' : null"
-      class="flex h-6 w-full items-center gap-1 rounded px-1 text-left text-xs hover:bg-muted/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring/50 aria-[current=true]:bg-brand/15 aria-[current=true]:text-foreground"
+      class="flex h-6 w-full items-center gap-1 rounded text-left text-xs hover:bg-muted/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring/50 aria-[current=true]:bg-brand/15 aria-[current=true]:text-foreground"
       [class.opacity-50]="node().ignored"
       (click)="onClick()"
     >
@@ -64,12 +64,18 @@ import { statusBadge } from '../util-status-badge/util-status-badge';
       }
       <span class="min-w-0 flex-1 truncate">{{ node().name }}</span>
       @if (_hasDiff()) {
-        <span class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums">
+        <span
+          class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums"
+        >
           @if ((node().added ?? 0) > 0) {
-            <span class="text-emerald-600 dark:text-emerald-500">+{{ node().added }}</span>
+            <span class="text-emerald-600 dark:text-emerald-500"
+              >+{{ node().added }}</span
+            >
           }
           @if ((node().removed ?? 0) > 0) {
-            <span class="text-red-600 dark:text-red-500">−{{ node().removed }}</span>
+            <span class="text-red-600 dark:text-red-500"
+              >−{{ node().removed }}</span
+            >
           }
         </span>
       } @else if (badge(); as b) {

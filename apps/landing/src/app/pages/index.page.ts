@@ -38,7 +38,7 @@ export default class HomePage {
 
   constructor() {
     this.seo({
-      title: 'Mozart — Conduct your AI coding agents',
+      title: 'Mozart | Conduct your AI coding agents',
       description:
         'Agents play the notes. Mozart helps you conduct the masterpiece.',
       path: '/',
