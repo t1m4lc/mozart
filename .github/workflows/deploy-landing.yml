@@ -42,6 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          filter: tree:0
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
@@ -55,7 +56,18 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm nx run-many -t lint typecheck -p landing
+      - uses: nrwl/nx-set-shas@v5
+
+      - name: Restore Nx cache
+        uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: nx-landing-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            nx-landing-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nx-landing-${{ runner.os }}-
+
+      - run: pnpm nx affected -t lint typecheck --parallel=3
 
   build:
     name: Build
@@ -64,6 +76,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          filter: tree:0
           fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
@@ -77,10 +90,16 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - run: pnpm nx run landing:post-build-seo
+      - name: Restore Nx cache
+        uses: actions/cache@v4
+        with:
+          path: .nx/cache
+          key: nx-landing-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
+          restore-keys: |
+            nx-landing-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
+            nx-landing-${{ runner.os }}-
 
-      - run: pnpm nx run landing:generate-llms
-
+      # seo-check transitively depends on generate-llms → post-build-seo → build
       - run: pnpm nx run landing:seo-check
 
       - uses: actions/upload-artifact@v4

@@ -107,9 +107,34 @@
     },
     "tauri-build": {
       "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["production", "tauriSrc", "^production"],
+      "outputs": [
+        "{workspaceRoot}/dist/apps/desktop",
+        "{projectRoot}/src-tauri/target/release/bundle"
+      ],
+      "dependsOn": ["build"],
       "options": {
         "command": "pnpm tauri build",
         "cwd": "apps/desktop"
+      }
+    },
+    "cargo-check": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["tauriSrc"],
+      "options": {
+        "command": "cargo check",
+        "cwd": "apps/desktop/src-tauri"
+      }
+    },
+    "cargo-test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["tauriSrc"],
+      "options": {
+        "command": "cargo build --tests",
+        "cwd": "apps/desktop/src-tauri"
       }
     }
   }

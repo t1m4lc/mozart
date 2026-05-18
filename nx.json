@@ -4,15 +4,23 @@
   "namedInputs": {
     "default": [
       "{projectRoot}/**/*",
+      "!{projectRoot}/src-tauri/target/**",
       "sharedGlobals"
     ],
     "production": [
       "default",
       "!{projectRoot}/.eslintrc.json",
-      "!{projectRoot}/eslint.config.mjs"
+      "!{projectRoot}/eslint.config.mjs",
+      "!{projectRoot}/src-tauri/**/*"
+    ],
+    "tauriSrc": [
+      "{projectRoot}/src-tauri/**/*",
+      "!{projectRoot}/src-tauri/target/**"
     ],
     "sharedGlobals": [
-      "{workspaceRoot}/.github/workflows/ci.yml"
+      "{workspaceRoot}/.github/workflows/*.yml",
+      "{workspaceRoot}/pnpm-lock.yaml",
+      "{workspaceRoot}/nx.json"
     ]
   },
   "plugins": [
@@ -52,6 +60,13 @@
       ]
     },
     "@angular/build:unit-test": {
+      "cache": true,
+      "inputs": [
+        "default",
+        "^production"
+      ]
+    },
+    "typecheck": {
       "cache": true,
       "inputs": [
         "default",
