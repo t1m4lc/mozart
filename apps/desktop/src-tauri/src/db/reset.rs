@@ -158,19 +158,23 @@ mod seed {
 
         // Chats — sparse: only a subset of workspaces have chats, some have
         // 2-3, two stand out (user-only, error, empty).
-        pub const CHAT_FILE_TREE_A_MAIN:   &str = "d0000005-0000-4000-8000-000000000001";
-        pub const CHAT_FILE_TREE_A_PLAN:   &str = "d0000005-0000-4000-8000-000000000002";
-        pub const CHAT_FILE_TREE_B_MAIN:   &str = "d0000005-0000-4000-8000-000000000003";
-        pub const CHAT_DIFF_VIEW_MAIN:     &str = "d0000005-0000-4000-8000-000000000004";
-        pub const CHAT_RUN_TAB_MAIN:       &str = "d0000005-0000-4000-8000-000000000005";
-        pub const CHAT_RELEASE_NOTES_MAIN: &str = "d0000005-0000-4000-8000-000000000006";
-        pub const CHAT_PROMPT_LIB_MAIN:    &str = "d0000005-0000-4000-8000-000000000007";
-        pub const CHAT_PROMPT_LIB_ASK:     &str = "d0000005-0000-4000-8000-000000000008";
-        pub const CHAT_LLMS_TXT_MAIN:      &str = "d0000005-0000-4000-8000-000000000009";
-        pub const CHAT_PRICING_USER_ONLY:  &str = "d0000005-0000-4000-8000-000000000010";
-        pub const CHAT_RLS_CLOSED:         &str = "d0000005-0000-4000-8000-000000000011";
-        pub const CHAT_LEGACY_ERROR:       &str = "d0000005-0000-4000-8000-000000000012";
-        pub const CHAT_LLAMACPP_EMPTY:     &str = "d0000005-0000-4000-8000-000000000013";
+        pub const CHAT_FILE_TREE_A_MAIN:      &str = "d0000005-0000-4000-8000-000000000001";
+        pub const CHAT_FILE_TREE_A_PLAN:      &str = "d0000005-0000-4000-8000-000000000002";
+        pub const CHAT_FILE_TREE_B_MAIN:      &str = "d0000005-0000-4000-8000-000000000003";
+        pub const CHAT_DIFF_VIEW_MAIN:        &str = "d0000005-0000-4000-8000-000000000004";
+        pub const CHAT_DIFF_VIEW_PLAN:        &str = "d0000005-0000-4000-8000-000000000014";
+        pub const CHAT_RUN_TAB_MAIN:          &str = "d0000005-0000-4000-8000-000000000005";
+        pub const CHAT_RELEASE_NOTES_MAIN:    &str = "d0000005-0000-4000-8000-000000000006";
+        pub const CHAT_RELEASE_NOTES_ASK:     &str = "d0000005-0000-4000-8000-000000000015";
+        pub const CHAT_RELEASE_NOTES_REVIEW:  &str = "d0000005-0000-4000-8000-000000000016";
+        pub const CHAT_PROMPT_LIB_MAIN:       &str = "d0000005-0000-4000-8000-000000000007";
+        pub const CHAT_PROMPT_LIB_ASK:        &str = "d0000005-0000-4000-8000-000000000008";
+        pub const CHAT_LLMS_TXT_MAIN:         &str = "d0000005-0000-4000-8000-000000000009";
+        pub const CHAT_LLMS_TXT_ASK:          &str = "d0000005-0000-4000-8000-000000000017";
+        pub const CHAT_PRICING_USER_ONLY:     &str = "d0000005-0000-4000-8000-000000000010";
+        pub const CHAT_RLS_CLOSED:            &str = "d0000005-0000-4000-8000-000000000011";
+        pub const CHAT_LEGACY_ERROR:          &str = "d0000005-0000-4000-8000-000000000012";
+        pub const CHAT_LLAMACPP_EMPTY:        &str = "d0000005-0000-4000-8000-000000000013";
 
         // Agent runs (a handful, covering every persisted status)
         pub const RUN_FILE_TREE_A_DONE:    &str = "d0000006-0000-4000-8000-000000000001";
@@ -209,6 +213,15 @@ mod seed {
         pub const MSG_RLS_A1: &str = "d0000007-0000-4000-8000-000000000023";
         pub const MSG_LEG_U1: &str = "d0000007-0000-4000-8000-000000000024";
         pub const MSG_LEG_A1_ERROR: &str = "d0000007-0000-4000-8000-000000000025";
+        // Extra chats (diff-view plan, release-notes ask+review, llms-txt ask)
+        pub const MSG_DV_PLAN_U:  &str = "d0000007-0000-4000-8000-000000000026";
+        pub const MSG_DV_PLAN_A:  &str = "d0000007-0000-4000-8000-000000000027";
+        pub const MSG_RN_ASK_U:   &str = "d0000007-0000-4000-8000-000000000028";
+        pub const MSG_RN_ASK_A:   &str = "d0000007-0000-4000-8000-000000000029";
+        pub const MSG_RN_REV_U:   &str = "d0000007-0000-4000-8000-000000000030";
+        pub const MSG_RN_REV_A:   &str = "d0000007-0000-4000-8000-000000000031";
+        pub const MSG_LT_ASK_U:   &str = "d0000007-0000-4000-8000-000000000032";
+        pub const MSG_LT_ASK_A:   &str = "d0000007-0000-4000-8000-000000000033";
     }
 
     pub fn insert_all(conn: &Connection) -> Result<(), AppError> {
@@ -233,7 +246,7 @@ mod seed {
                 path: "/home/demo/code/mozart-desktop".into(),
                 display_name: "Mozart Desktop".into(),
                 added_at: now - 45 * DAY_MS,
-                icon: Some("desktop".into()),
+                icon: None,
                 hidden: false,
                 sort_index: 0,
                 run_command: Some("pnpm nx serve desktop".into()),
@@ -243,7 +256,7 @@ mod seed {
                 path: "/home/demo/code/mozart-docs".into(),
                 display_name: "Mozart Docs".into(),
                 added_at: now - 60 * DAY_MS,
-                icon: Some("book".into()),
+                icon: None,
                 hidden: false,
                 sort_index: 1,
                 run_command: None,
@@ -253,7 +266,7 @@ mod seed {
                 path: "/home/demo/code/mozart-landing".into(),
                 display_name: "Mozart Landing".into(),
                 added_at: now - 30 * DAY_MS,
-                icon: Some("globe".into()),
+                icon: None,
                 hidden: false,
                 sort_index: 2,
                 run_command: Some("pnpm nx serve landing".into()),
@@ -263,7 +276,7 @@ mod seed {
                 path: "/home/demo/code/supabase-rls-audit".into(),
                 display_name: "Supabase RLS Audit".into(),
                 added_at: now - 90 * DAY_MS,
-                icon: Some("lock".into()),
+                icon: None,
                 hidden: false,
                 sort_index: 3,
                 run_command: None,
@@ -274,7 +287,7 @@ mod seed {
                 path: "/home/demo/old-machine/legacy-angular-dashboard".into(),
                 display_name: "Legacy Angular Dashboard".into(),
                 added_at: now - 120 * DAY_MS,
-                icon: Some("archive".into()),
+                icon: None,
                 hidden: false,
                 sort_index: 4,
                 run_command: None,
@@ -284,7 +297,7 @@ mod seed {
                 path: "/home/demo/code/empty-starter".into(),
                 display_name: "Empty Starter Project".into(),
                 added_at: now - 7 * DAY_MS,
-                icon: Some("box".into()),
+                icon: None,
                 hidden: false,
                 sort_index: 5,
                 run_command: None,
@@ -294,7 +307,7 @@ mod seed {
                 path: "/home/demo/code/local-ai-sandbox".into(),
                 display_name: "Local AI Sandbox".into(),
                 added_at: now - 150 * DAY_MS,
-                icon: Some("flask".into()),
+                icon: None,
                 hidden: false,
                 sort_index: 6,
                 run_command: Some("uv run main.py".into()),
@@ -652,6 +665,18 @@ mod seed {
                 closed_at: None,
                 created_at: now - 2 * DAY_MS + 4 * HOUR_MS,
             },
+            // diff view — plan side-chat
+            Chat {
+                chat_id: ids::CHAT_DIFF_VIEW_PLAN.into(),
+                workspace_id: ids::WS_DESKTOP_DIFF_VIEW.into(),
+                title: "Plan: alignment approach".into(),
+                llm_id: Some("claude-opus-4-7".into()),
+                mode: "plan".into(),
+                effort: "medium".into(),
+                last_read_message_id: Some(ids::MSG_DV_PLAN_A.into()),
+                closed_at: None,
+                created_at: now - 2 * DAY_MS + 3 * HOUR_MS,
+            },
             // run-tab — was running, user stopped
             Chat {
                 chat_id: ids::CHAT_RUN_TAB_MAIN.into(),
@@ -675,6 +700,29 @@ mod seed {
                 last_read_message_id: Some(ids::MSG_RN_A1.into()),
                 closed_at: None,
                 created_at: now - 5 * DAY_MS,
+            },
+            // docs / release-notes — 2 extra side chats (ask + review)
+            Chat {
+                chat_id: ids::CHAT_RELEASE_NOTES_ASK.into(),
+                workspace_id: ids::WS_DOCS_RELEASE_NOTES.into(),
+                title: "What's worth highlighting?".into(),
+                llm_id: Some("claude-sonnet-4-6".into()),
+                mode: "ask".into(),
+                effort: "low".into(),
+                last_read_message_id: Some(ids::MSG_RN_ASK_A.into()),
+                closed_at: None,
+                created_at: now - 5 * DAY_MS + 30 * MIN_MS,
+            },
+            Chat {
+                chat_id: ids::CHAT_RELEASE_NOTES_REVIEW.into(),
+                workspace_id: ids::WS_DOCS_RELEASE_NOTES.into(),
+                title: "Tighten the draft".into(),
+                llm_id: Some("claude-opus-4-7".into()),
+                mode: "agent".into(),
+                effort: "medium".into(),
+                last_read_message_id: Some(ids::MSG_RN_REV_A.into()),
+                closed_at: None,
+                created_at: now - 4 * DAY_MS,
             },
             // docs / prompt library — 2 chats, mixed modes
             Chat {
@@ -710,6 +758,18 @@ mod seed {
                 last_read_message_id: Some(ids::MSG_LT_A1.into()),
                 closed_at: None,
                 created_at: now - 9 * DAY_MS,
+            },
+            // landing / llms.txt — ask side-chat
+            Chat {
+                chat_id: ids::CHAT_LLMS_TXT_ASK.into(),
+                workspace_id: ids::WS_LANDING_LLMS_TXT.into(),
+                title: "Which crawlers support llms.txt?".into(),
+                llm_id: Some("claude-sonnet-4-6".into()),
+                mode: "ask".into(),
+                effort: "low".into(),
+                last_read_message_id: Some(ids::MSG_LT_ASK_A.into()),
+                closed_at: None,
+                created_at: now - 8 * DAY_MS,
             },
             // landing / pricing — USER ONLY (no assistant reply yet)
             Chat {
@@ -898,47 +958,57 @@ mod seed {
 
     fn insert_messages(conn: &Connection, now: i64) -> Result<(), AppError> {
         let rows = [
-            // file-tree A / main chat (full back-and-forth)
+            // file-tree A / main chat (full back-and-forth, rich timelines)
             msg(ids::MSG_FT_A_U1, ids::CHAT_FILE_TREE_A_MAIN, None,
                 "user", "Virtualize the tree, but keep keyboard nav working.",
                 Some("agent"), "done", None, now - 13 * DAY_MS + 30 * MIN_MS),
             msg(ids::MSG_FT_A_A1, ids::CHAT_FILE_TREE_A_MAIN, Some(ids::RUN_FILE_TREE_A_DONE),
-                "assistant", "Switching to a windowed virtual scroller.",
-                None, "done", Some(r#"{"steps":[{"kind":"tool_call","tool":"read_file"}]}"#),
+                "assistant", "Switching to a windowed virtual scroller. Rows now render on-demand — eliminated the 5k DOM node cap.",
+                None, "done", Some(r#"{"text":"Switching to a windowed virtual scroller. Rows now render on-demand — eliminated the 5k DOM node cap.","summary":"Virtualised the file-tree component","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":8200,"items":[{"id":"1","kind":"file-read","state":"done","title":"file-tree.component.ts","fileChip":{"label":"file-tree.component.ts"}},{"id":"2","kind":"thinking","state":"done","title":"Analysing render strategy"},{"id":"3","kind":"file-edit","state":"done","title":"file-tree.component.ts","fileChip":{"label":"file-tree.component.ts","added":52,"removed":19}}]}"#),
                 now - 13 * DAY_MS + 31 * MIN_MS),
             msg(ids::MSG_FT_A_U2, ids::CHAT_FILE_TREE_A_MAIN, None,
                 "user", "Looks good — what about keyboard focus when rows recycle?",
                 Some("agent"), "done", None, now - 13 * DAY_MS + 36 * MIN_MS),
             msg(ids::MSG_FT_A_A2, ids::CHAT_FILE_TREE_A_MAIN, Some(ids::RUN_FILE_TREE_A_DONE),
-                "assistant", "Tracking focus by node id, not DOM ref. Done.",
-                None, "done", Some(r#"{"steps":[{"kind":"tool_call","tool":"edit_file"}]}"#),
+                "assistant", "Tracking focus by stable node id, not DOM position. Arrow-key navigation survives row recycling.",
+                None, "done", Some(r#"{"text":"Tracking focus by stable node id, not DOM position. Arrow-key navigation survives row recycling.","summary":"Fixed keyboard focus after recycling","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":4100,"items":[{"id":"1","kind":"file-read","state":"done","title":"file-tree.component.ts"},{"id":"2","kind":"file-edit","state":"done","title":"file-tree.component.ts","fileChip":{"label":"file-tree.component.ts","added":18,"removed":7}}]}"#),
                 now - 13 * DAY_MS + 38 * MIN_MS),
 
             // file-tree A / plan chat
             msg(ids::MSG_FT_A_PLAN_U, ids::CHAT_FILE_TREE_A_PLAN, None,
-                "user", "Plan: how should we recycle rows?",
+                "user", "Plan: how should we recycle rows for the virtualized tree?",
                 Some("plan"), "done", None, now - 12 * DAY_MS + 3 * HOUR_MS),
             msg(ids::MSG_FT_A_PLAN_A, ids::CHAT_FILE_TREE_A_PLAN, None,
-                "assistant", "Three-bucket recycler, keyed by tree depth. (plan)",
-                None, "done", Some(r#"{"steps":[{"kind":"plan"}]}"#),
+                "assistant", "Three-bucket recycler keyed by tree depth. Shallow nodes (depth 0-1) in a pinned pool so rapid expand/collapse stays instant. Mid-depth (2-4) in a 50-slot FIFO. Deep nodes (5+) recycle aggressively.",
+                None, "done", Some(r#"{"text":"Three-bucket recycler keyed by tree depth. Shallow nodes (depth 0-1) in a pinned pool so rapid expand/collapse stays instant. Mid-depth (2-4) in a 50-slot FIFO. Deep nodes (5+) recycle aggressively.","summary":"Designed row-recycling strategy","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":60000,"items":[{"id":"1","kind":"thinking","state":"done","title":"Planning recycling pools","defaultExpanded":true,"body":"Depth-keyed pools keep the most-used nodes in the fast pool. The 50-slot FIFO balances memory vs recycle cost for mid-depth nodes."}]}"#),
                 now - 12 * DAY_MS + 3 * HOUR_MS + MIN_MS),
 
             // file-tree B
             msg(ids::MSG_FT_B_U1, ids::CHAT_FILE_TREE_B_MAIN, None,
-                "user", "Try row recycling instead — compare wall-clock.",
+                "user", "Try row recycling instead — compare wall-clock to the virtual scroller.",
                 Some("agent"), "done", None, now - 12 * DAY_MS + HOUR_MS),
             msg(ids::MSG_FT_B_A1, ids::CHAT_FILE_TREE_B_MAIN, Some(ids::RUN_FILE_TREE_B_DONE),
-                "assistant", "Row recycling is 1.8x faster on the 5k bench. Switching.",
-                None, "done", Some(r#"{"steps":[{"kind":"tool_call","tool":"bash"}]}"#),
+                "assistant", "Row recycling is 1.8× faster on the 5k-file bench. Implemented and switching main approach.",
+                None, "done", Some(r#"{"text":"Row recycling is 1.8× faster on the 5k-file bench. Implemented and switching main approach.","summary":"Benchmarked and implemented row recycling","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":12400,"items":[{"id":"1","kind":"shell","state":"done","title":"pnpm bench","body":"file-tree 5k rows: virtual=142ms  recycler=79ms"},{"id":"2","kind":"file-create","state":"done","title":"file-tree-row.ts","fileChip":{"label":"file-tree-row.ts","added":88,"removed":0}},{"id":"3","kind":"file-edit","state":"done","title":"file-tree.component.ts","fileChip":{"label":"file-tree.component.ts","added":12,"removed":9}}]}"#),
                 now - 12 * DAY_MS + HOUR_MS + 12 * MIN_MS),
 
-            // diff view — currently streaming
+            // diff view / main — currently streaming
             msg(ids::MSG_DV_U1, ids::CHAT_DIFF_VIEW_MAIN, None,
                 "user", "Add a side-by-side variant toggleable from the toolbar.",
                 Some("agent"), "done", None, now - 2 * DAY_MS + 4 * HOUR_MS),
             msg(ids::MSG_DV_A1_STREAMING, ids::CHAT_DIFF_VIEW_MAIN, Some(ids::RUN_DIFF_VIEW_INIT),
                 "assistant", "Sketching the two-pane layout. Hunks aligned by line number…",
-                None, "streaming", None, now - 90_000),
+                None, "streaming", Some(r#"{"text":"Sketching the two-pane layout. Hunks aligned by line number…","summary":"Building side-by-side diff view","isStreaming":true,"showDoneMarker":false,"startedAt":0,"items":[{"id":"1","kind":"file-read","state":"done","title":"diff-view.component.ts","fileChip":{"label":"diff-view.component.ts"}},{"id":"2","kind":"thinking","state":"active","title":"Designing the split layout"}]}"#),
+                now - 90_000),
+
+            // diff view / plan chat
+            msg(ids::MSG_DV_PLAN_U, ids::CHAT_DIFF_VIEW_PLAN, None,
+                "user", "Plan: how should two-pane alignment work for large hunks?",
+                Some("plan"), "done", None, now - 2 * DAY_MS + 3 * HOUR_MS),
+            msg(ids::MSG_DV_PLAN_A, ids::CHAT_DIFF_VIEW_PLAN, None,
+                "assistant", "Align hunks by the first line of each changed block. Overflow hunks scroll independently per pane — no pinning needed for typical diffs.",
+                None, "done", Some(r#"{"text":"Align hunks by the first line of each changed block. Overflow hunks scroll independently per pane — no pinning needed for typical diffs.","summary":"Planned two-pane hunk alignment","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":45000,"items":[{"id":"1","kind":"thinking","state":"done","title":"Evaluating alignment strategies","defaultExpanded":true,"body":"Line-number anchoring keeps context in view. Independent scroll lets each pane show different context without confusing the other side."}]}"#),
+                now - 2 * DAY_MS + 3 * HOUR_MS + 45_000),
 
             // run-tab — stopped mid-flight
             msg(ids::MSG_RT_U1, ids::CHAT_RUN_TAB_MAIN, None,
@@ -946,41 +1016,69 @@ mod seed {
                 Some("agent"), "done", None, now - DAY_MS + 2 * HOUR_MS),
             msg(ids::MSG_RT_A1_STOPPED, ids::CHAT_RUN_TAB_MAIN, Some(ids::RUN_RUN_TAB_STOPPED),
                 "assistant", "Sending SIGTERM then re-spawning. Buffer is preserved by…",
-                None, "stopped", None, now - DAY_MS + 2 * HOUR_MS + 3 * MIN_MS),
+                None, "stopped", Some(r#"{"text":"Sending SIGTERM then re-spawning. Buffer is preserved by…","summary":"Restarting PTY while preserving scroll buffer","isStreaming":false,"showDoneMarker":false,"startedAt":0,"outcome":"stopped","items":[{"id":"1","kind":"shell","state":"done","title":"pkill -TERM pnpm-serve"},{"id":"2","kind":"shell","state":"error","title":"spawn dev server"}]}"#),
+                now - DAY_MS + 2 * HOUR_MS + 3 * MIN_MS),
 
-            // docs / release notes
+            // docs / release notes / main
             msg(ids::MSG_RN_U1, ids::CHAT_RELEASE_NOTES_MAIN, None,
                 "user", "Pull headline changes from CHANGELOG.",
                 Some("agent"), "done", None, now - 5 * DAY_MS),
             msg(ids::MSG_RN_A1, ids::CHAT_RELEASE_NOTES_MAIN, Some(ids::RUN_RELEASE_NOTES_DONE),
-                "assistant", "Draft attached. Three sections: workflow, chat, performance.",
-                None, "done", Some(r#"{"steps":[{"kind":"tool_call","tool":"write_file"}]}"#),
+                "assistant", "Draft attached. Three sections: workflow improvements, new chat modes, performance gains.",
+                None, "done", Some(r#"{"text":"Draft attached. Three sections: workflow improvements, new chat modes, performance gains.","summary":"Drafted v0.1.0-beta.1 release notes","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":9300,"items":[{"id":"1","kind":"file-read","state":"done","title":"CHANGELOG.md"},{"id":"2","kind":"file-read","state":"done","title":"docs/plan-v0.1.0-beta.1.md"},{"id":"3","kind":"file-create","state":"done","title":"release-notes-beta1.md","fileChip":{"label":"release-notes-beta1.md","added":94,"removed":0}}]}"#),
                 now - 5 * DAY_MS + 9 * MIN_MS),
+
+            // docs / release notes / ask chat
+            msg(ids::MSG_RN_ASK_U, ids::CHAT_RELEASE_NOTES_ASK, None,
+                "user", "What's actually worth highlighting from this release?",
+                Some("ask"), "done", None, now - 5 * DAY_MS + 30 * MIN_MS),
+            msg(ids::MSG_RN_ASK_A, ids::CHAT_RELEASE_NOTES_ASK, None,
+                "assistant", "Focus on the three things users feel immediately: parallel workspaces (the headline), the new Plan mode that keeps the agent from touching files, and the diff-review step before merging. Everything else is polish.",
+                None, "done", None,
+                now - 5 * DAY_MS + 32 * MIN_MS),
+
+            // docs / release notes / review chat
+            msg(ids::MSG_RN_REV_U, ids::CHAT_RELEASE_NOTES_REVIEW, None,
+                "user", "Review the draft and tighten the first paragraph.",
+                Some("agent"), "done", None, now - 4 * DAY_MS),
+            msg(ids::MSG_RN_REV_A, ids::CHAT_RELEASE_NOTES_REVIEW, None,
+                "assistant", "Tightened. Cut 40 words from the opening, moved the \"what changed\" sentence to the top, removed the passive constructions.",
+                None, "done", Some(r#"{"text":"Tightened. Cut 40 words from the opening, moved the \"what changed\" sentence to the top, removed the passive constructions.","summary":"Reviewed and edited release notes draft","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":6800,"items":[{"id":"1","kind":"file-read","state":"done","title":"release-notes-beta1.md"},{"id":"2","kind":"file-edit","state":"done","title":"release-notes-beta1.md","fileChip":{"label":"release-notes-beta1.md","added":12,"removed":22}}]}"#),
+                now - 4 * DAY_MS + 7 * MIN_MS),
 
             // docs / prompt library / main (agent)
             msg(ids::MSG_PL_U1, ids::CHAT_PROMPT_LIB_MAIN, None,
                 "user", "Group prompts by surface (composer / plan / ask).",
                 Some("agent"), "done", None, now - 18 * DAY_MS),
             msg(ids::MSG_PL_A1, ids::CHAT_PROMPT_LIB_MAIN, None,
-                "assistant", "Done — composer surfaces grouped by intent, plan separated.",
-                None, "done", Some(r#"{"steps":[{"kind":"tool_call","tool":"write_file"}]}"#),
+                "assistant", "Done — 23 prompts grouped: 8 under composer, 9 under plan, 6 under ask. Each entry has a one-line usage note.",
+                None, "done", Some(r#"{"text":"Done — 23 prompts grouped: 8 under composer, 9 under plan, 6 under ask. Each entry has a one-line usage note.","summary":"Grouped and annotated 23 prompts","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":17100,"items":[{"id":"1","kind":"file-read","state":"done","title":"prompts/"},{"id":"2","kind":"thinking","state":"done","title":"Classifying by surface and intent"},{"id":"3","kind":"file-edit","state":"done","title":"prompt-library.md","fileChip":{"label":"prompt-library.md","added":67,"removed":31}}]}"#),
                 now - 18 * DAY_MS + 17 * MIN_MS),
             // docs / prompt library / ask
             msg(ids::MSG_PL_ASK_U1, ids::CHAT_PROMPT_LIB_ASK, None,
                 "user", "How does Claude classify intents internally?",
                 Some("ask"), "done", None, now - 17 * DAY_MS),
             msg(ids::MSG_PL_ASK_A1, ids::CHAT_PROMPT_LIB_ASK, None,
-                "assistant", "Short answer: it doesn't — intent is inferred per-turn.",
+                "assistant", "Short answer: it doesn't — intent is inferred per-turn from the conversation context, not by a classifier. The instruction in the system prompt shapes the distribution of what it notices, but there's no discrete intent taxonomy being decoded.",
                 None, "done", None, now - 17 * DAY_MS + 2 * MIN_MS),
 
-            // landing / llms.txt
+            // landing / llms.txt / main
             msg(ids::MSG_LT_U1, ids::CHAT_LLMS_TXT_MAIN, None,
                 "user", "Static-gen the two AI-crawler endpoints at build time.",
                 Some("agent"), "done", None, now - 9 * DAY_MS),
             msg(ids::MSG_LT_A1, ids::CHAT_LLMS_TXT_MAIN, Some(ids::RUN_LLMS_TXT_DONE),
-                "assistant", "Added an Analog build step that emits llms.txt and llms-full.txt.",
-                None, "done", Some(r#"{"steps":[{"kind":"tool_call","tool":"write_file"}]}"#),
+                "assistant", "Added an Analog build step that emits llms.txt and llms-full.txt at the site root during SSG.",
+                None, "done", Some(r#"{"text":"Added an Analog build step that emits llms.txt and llms-full.txt at the site root during SSG.","summary":"Generated AI-crawler endpoints at build time","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":14200,"items":[{"id":"1","kind":"file-read","state":"done","title":"analog.config.ts"},{"id":"2","kind":"file-create","state":"done","title":"scripts/build-llms-txt.ts","fileChip":{"label":"scripts/build-llms-txt.ts","added":73,"removed":0}},{"id":"3","kind":"file-edit","state":"done","title":"analog.config.ts","fileChip":{"label":"analog.config.ts","added":4,"removed":1}},{"id":"4","kind":"shell","state":"done","title":"pnpm build --prod","body":"✓ llms.txt (1.2kB)  llms-full.txt (8.4kB)"}]}"#),
                 now - 9 * DAY_MS + 14 * MIN_MS),
+
+            // landing / llms.txt / ask chat
+            msg(ids::MSG_LT_ASK_U, ids::CHAT_LLMS_TXT_ASK, None,
+                "user", "Which AI crawlers actually support llms.txt?",
+                Some("ask"), "done", None, now - 8 * DAY_MS),
+            msg(ids::MSG_LT_ASK_A, ids::CHAT_LLMS_TXT_ASK, None,
+                "assistant", "As of early 2025: Perplexity and You.com crawl it directly. OpenAI's crawler respects the file but doesn't advertise it. Anthropic's Claude.ai doesn't crawl external sites at all — llms.txt matters more for search-grounded models than for instruction-following ones.",
+                None, "done", None,
+                now - 8 * DAY_MS + 3 * MIN_MS),
 
             // landing / pricing — USER ONLY (no assistant reply yet)
             msg(ids::MSG_PRI_U_ONLY, ids::CHAT_PRICING_USER_ONLY, None,
@@ -992,8 +1090,8 @@ mod seed {
                 "user", "Compile the per-policy notes into a single report.",
                 Some("agent"), "done", None, now - 70 * DAY_MS),
             msg(ids::MSG_RLS_A1, ids::CHAT_RLS_CLOSED, Some(ids::RUN_RLS_DONE),
-                "assistant", "Report ready — 17 policies, 4 high-severity gaps flagged.",
-                None, "done", Some(r#"{"steps":[{"kind":"tool_call","tool":"write_file"}]}"#),
+                "assistant", "Report ready — 17 policies audited, 4 high-severity gaps flagged.",
+                None, "done", Some(r#"{"text":"Report ready — 17 policies audited, 4 high-severity gaps flagged.","summary":"Compiled RLS audit report","isStreaming":false,"showDoneMarker":true,"startedAt":0,"outcome":"done","elapsedMs":22300,"items":[{"id":"1","kind":"shell","state":"done","title":"supabase db pull --schema auth,public"},{"id":"2","kind":"file-read","state":"done","title":"policies/"},{"id":"3","kind":"thinking","state":"done","title":"Scoring each policy against OWASP A01"},{"id":"4","kind":"file-create","state":"done","title":"reports/audit.md","fileChip":{"label":"reports/audit.md","added":142,"removed":0}}]}"#),
                 now - 70 * DAY_MS + 22 * MIN_MS),
 
             // legacy — ERROR case
@@ -1002,7 +1100,8 @@ mod seed {
                 Some("agent"), "done", None, now - 95 * DAY_MS),
             msg(ids::MSG_LEG_A1_ERROR, ids::CHAT_LEGACY_ERROR, Some(ids::RUN_LEGACY_CRASHED),
                 "assistant", "Agent process exited with SIGSEGV — see logs.",
-                None, "error", None, now - 95 * DAY_MS + 47_000),
+                None, "error", Some(r#"{"text":"Agent process exited with SIGSEGV — see logs.","summary":"Migration failed with crash","isStreaming":false,"showDoneMarker":false,"startedAt":0,"outcome":"error","items":[{"id":"1","kind":"shell","state":"done","title":"ng update @angular/core @angular/cli"},{"id":"2","kind":"shell","state":"error","title":"ng lint --fix","body":"Process exited with SIGSEGV (signal 11)"}]}"#),
+                now - 95 * DAY_MS + 47_000),
 
             // CHAT_LLAMACPP_EMPTY intentionally has no messages.
         ];
@@ -1171,7 +1270,7 @@ mod tests {
         assert_eq!(row_count(&conn, "tasks"), 10);
         assert_eq!(row_count(&conn, "workspaces"), 12);
         assert_eq!(row_count(&conn, "threads"), 12);
-        assert_eq!(row_count(&conn, "chats"), 13);
+        assert_eq!(row_count(&conn, "chats"), 17);
         assert_eq!(row_count(&conn, "agent_runs"), 9);
         // 11 active-chat rows: one per workspace that has chats. The paused
         // ai workspace is intentionally left without one.
