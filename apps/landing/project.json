@@ -82,6 +82,14 @@
         "cwd": "{projectRoot}",
         "command": "node scripts/check-seo.mjs"
       }
+    },
+    "typecheck": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "options": {
+        "cwd": "{projectRoot}",
+        "command": "tsc --noEmit -p tsconfig.app.json"
+      }
     }
   }
 }

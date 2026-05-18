@@ -3,27 +3,25 @@ description: Where to find us, ask questions, and contribute.
 order: 1
 ---
 
-Mozart is built in the open. The team and a growing community live in a few public places — drop in and say hi.
+Mozart is built in the open. The team and a growing community live in a few public place, drop in and say hi.
 
 ## Discord
 
 Most day-to-day conversation happens on Discord. Bug reports, feature ideas, build help, and product feedback all land there.
 
-- [Join the Discord](https://discord.gg/mozart)
-
-## GitHub
-
-The repository and the public roadmap live on GitHub. Star it, file issues, or open a pull request.
-
-- [mozartbuild/mozart](https://github.com/mozartbuild/mozart) — main repository
-- [Issues](https://github.com/mozartbuild/mozart/issues) — bugs and feature requests
-- [Discussions](https://github.com/mozartbuild/mozart/discussions) — longer-form questions
+- [Join the Discord](/discord)
 
 ## Marketplace
 
 The Marketplace is where the community shares Agent presets, Task templates, and Workspace recipes. Browse what others have built or publish your own.
 
-- Marketplace — *coming soon*
+- Marketplace : _coming soon_
+
+## Blog
+
+The Mozart blog shares guides, case studies, product updates, and the story behind how Mozart is built.
+
+- [Read the Blog](/blog)
 
 ## Get started
 

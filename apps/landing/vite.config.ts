@@ -76,8 +76,10 @@ function devRedirectsFromCloudflareFile(): Plugin {
 
 // Exposes libs/mozart-assets/src/{shared,landing}/** at `/assets/...` —
 // dev via middleware, build via copy into outDir/assets.
+// Also serves shared/favicons/* at the output root (favicon.ico, favicon.svg, manifest.webmanifest).
 function mozartAssetsPlugin(): Plugin {
   const libRoot = resolve(__dirname, '../../libs/mozart-assets/src');
+  const faviconsRoot = resolve(libRoot, 'shared/favicons');
   const mime: Record<string, string> = {
     '.svg': 'image/svg+xml',
     '.png': 'image/png',
@@ -89,6 +91,7 @@ function mozartAssetsPlugin(): Plugin {
     '.woff2': 'font/woff2',
     '.woff': 'font/woff',
     '.ogg': 'audio/ogg',
+    '.webmanifest': 'application/manifest+json',
   };
   let outDir: string | undefined;
   return {
@@ -97,6 +100,7 @@ function mozartAssetsPlugin(): Plugin {
       outDir = cfg.build.outDir;
     },
     configureServer(server) {
+      // /assets/* → libs/mozart-assets/src/**
       server.middlewares.use('/assets', (req, res, next) => {
         try {
           const url = decodeURIComponent((req.url ?? '').split('?')[0]);
@@ -111,10 +115,32 @@ function mozartAssetsPlugin(): Plugin {
           next();
         }
       });
+      // Root-level favicon / manifest files → libs/mozart-assets/src/shared/favicons/
+      server.middlewares.use((req, res, next) => {
+        try {
+          const url = decodeURIComponent((req.url ?? '').split('?')[0]);
+          const filename = url.startsWith('/') ? url.slice(1) : url;
+          if (!filename || filename.includes('/')) return next();
+          const fp = join(faviconsRoot, filename);
+          if (!fp.startsWith(faviconsRoot)) return next();
+          const stat = statSync(fp);
+          if (!stat.isFile()) return next();
+          res.setHeader('Content-Type', mime[extname(fp).toLowerCase()] ?? 'application/octet-stream');
+          createReadStream(fp).pipe(res);
+        } catch {
+          next();
+        }
+      });
     },
     closeBundle() {
       if (!outDir) return;
+      // Copy all mozart-assets → /assets/
       cpSync(libRoot, resolve(__dirname, outDir, 'assets'), {
+        recursive: true,
+        filter: (src) => !src.endsWith('.md'),
+      });
+      // Copy shared/favicons/ → output root (favicon.ico, favicon.svg, manifest.webmanifest …)
+      cpSync(faviconsRoot, resolve(__dirname, outDir), {
         recursive: true,
         filter: (src) => !src.endsWith('.md'),
       });
@@ -152,6 +178,7 @@ export default defineConfig(({ mode }) => ({
           ...changelogRoutes,
           '/privacy',
           '/terms',
+          '/download',
         ],
         discover: false,
         sitemap: { host: 'https://mozart.build' },

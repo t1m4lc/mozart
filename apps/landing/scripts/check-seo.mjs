@@ -22,7 +22,7 @@ const REQUIRED_SITEMAP_ROUTES = [
   '/docs/concepts/isolated-workspaces',
   '/docs/community/we-are-mozart',
   '/blog',
-  '/blog/hello-mozart',
+  '/blog/hello-world',
   '/changelog',
 ];
 const SITEMAP_FORBIDDEN_ROUTES = ['/privacy', '/terms'];
