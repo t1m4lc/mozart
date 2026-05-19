@@ -40,6 +40,7 @@ use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
 use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::github::{self, CreatedPr, GithubProbeResult};
 use crate::ide_launch::{self, DetectedIde};
+use crate::merge::{self, MergeOutcome};
 use crate::terminal::{self, TerminalEvent};
 use crate::terminal_registry::TerminalRegistry;
 use crate::workspace_run_registry::WorkspaceRunRegistry;
@@ -2049,6 +2050,52 @@ pub async fn create_workspace_pr(
         draft,
     )
     .await
+}
+
+// ---------------------------------------------------------------------------
+// merge_workspace_locally (P2.6.B)
+// ---------------------------------------------------------------------------
+
+/// Plan §P2.6 "Merge-now flow". Runs the local-merge state machine on
+/// the workspace's worktree and persists the resulting status.
+///
+/// Returns:
+/// - `MergeOutcome { status: "done", conflicting_files: [] }` and flips
+///   `workspace.ui_status = 'done'` so P0.2 freeze takes over.
+/// - `MergeOutcome { status: "conflict", conflicting_files: […] }` and
+///   flips `workspace.status = 'conflict'`. The worktree is left
+///   mid-merge for the user to resolve in their IDE.
+///
+/// Surfaces typed precondition failures as `AppError`:
+/// - `MergeDirtyTree` → frontend toast "Commit your changes before merging."
+/// - `MergeBaseAhead(base)` → frontend toast "Pull <base> first."
+#[tauri::command]
+#[specta::specta]
+pub async fn merge_workspace_locally(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<MergeOutcome, AppError> {
+    let (worktree_path, branch_name, base_branch) = {
+        let conn = db.lock();
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
+        let ws = workspaces::get(&conn, &workspace_id)?;
+        (ws.worktree_path, ws.branch_name, ws.base_branch)
+    };
+    let outcome = merge::merge_workspace_locally(
+        std::path::Path::new(&worktree_path),
+        &branch_name,
+        &base_branch,
+    )
+    .await?;
+    {
+        let conn = db.lock();
+        workspaces::update_status(&conn, &workspace_id, &outcome.status)?;
+        if outcome.status == merge::STATUS_DONE {
+            // P0.2 freeze trigger — the IPC guards key off `ui_status`.
+            workspaces::set_ui_status(&conn, &workspace_id, "done")?;
+        }
+    }
+    Ok(outcome)
 }
 
 // ---------------------------------------------------------------------------

@@ -785,6 +785,29 @@ async createWorkspacePr(workspaceId: string, title: string, body: string, draft:
 }
 },
 /**
+ * Plan §P2.6 "Merge-now flow". Runs the local-merge state machine on
+ * the workspace's worktree and persists the resulting status.
+ * 
+ * Returns:
+ * - `MergeOutcome { status: "done", conflicting_files: [] }` and flips
+ * `workspace.ui_status = 'done'` so P0.2 freeze takes over.
+ * - `MergeOutcome { status: "conflict", conflicting_files: […] }` and
+ * flips `workspace.status = 'conflict'`. The worktree is left
+ * mid-merge for the user to resolve in their IDE.
+ * 
+ * Surfaces typed precondition failures as `AppError`:
+ * - `MergeDirtyTree` → frontend toast "Commit your changes before merging."
+ * - `MergeBaseAhead(base)` → frontend toast "Pull <base> first."
+ */
+async mergeWorkspaceLocally(workspaceId: string) : Promise<Result<MergeOutcome, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("merge_workspace_locally", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Phase 5 / Atom 3 — load the persisted Mozart auth session from the
  * OS keyring. Returns `None` when no entry exists OR when the stored
  * payload is malformed (defensive : the front-end falls back to the
@@ -1071,7 +1094,7 @@ export type AgentRun = { run_id: string; thread_id: string; prompt: string; stat
  * Angular `_bindings.ts` surfaces it as `events.agentRunTerminated`.
  */
 export type AgentRunTerminated = { run_id: string; status: string }
-export type AppError = { kind: "Db"; message: string } | { kind: "Io"; message: string } | { kind: "NotFound"; message: string } | { kind: "Validation"; message: string } | { kind: "AgentSpawn"; message: string } | { kind: "GitCmd"; message: string } | { kind: "Frozen"; message: string }
+export type AppError = { kind: "Db"; message: string } | { kind: "Io"; message: string } | { kind: "NotFound"; message: string } | { kind: "Validation"; message: string } | { kind: "AgentSpawn"; message: string } | { kind: "GitCmd"; message: string } | { kind: "Frozen"; message: string } | { kind: "MergeDirtyTree"; message: string } | { kind: "MergeBaseAhead"; message: string }
 /**
  * Wire shape persisted in the OS keyring (JSON-encoded). The `Date`
  * fields are normalized to epoch-ms numbers on the Angular side so the
@@ -1246,6 +1269,20 @@ success: boolean;
  * dump megabytes of npm output back to the UI.
  */
 message: string }
+/**
+ * Terminal outcome of a `merge_workspace_locally` run.
+ */
+export type MergeOutcome = { 
+/**
+ * `"done"` (merge committed, base ref advanced) or `"conflict"`
+ * (worktree left mid-merge for the user to resolve in their IDE).
+ */
+status: string; 
+/**
+ * Repo-relative paths reported by `git diff --name-only
+ * --diff-filter=U`. Empty when `status == "done"`.
+ */
+conflicting_files: string[] }
 export type Message = { message_id: string; chat_id: string; run_id: string | null; role: string; content: string; mode: string | null; status: string; timeline_json: string | null; created_at: number }
 export type NotificationPreferences = { desktop: boolean; sound: boolean }
 /**

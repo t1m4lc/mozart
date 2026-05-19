@@ -19,6 +19,7 @@ use crate::file_tree::{FileNodeDto, FileTreeEvent};
 use crate::get_started::GetStartedProject;
 use crate::github::{CreatedPr, GithubProbeResult};
 use crate::ide_launch::DetectedIde;
+use crate::merge::MergeOutcome;
 use crate::terminal::TerminalEvent;
 
 pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
@@ -100,6 +101,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::disconnect_github,
                 commands::push_workspace_branch,
                 commands::create_workspace_pr,
+                commands::merge_workspace_locally,
                 commands::auth_load_session,
                 commands::auth_save_session,
                 commands::auth_clear_session,
@@ -153,6 +155,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<FileTreeEvent>()
         .typ::<TerminalEvent>()
         .typ::<DetectedIde>()
+        .typ::<MergeOutcome>()
         .typ::<ChangedFile>()
         .typ::<GithubProbeResult>()
         .typ::<CreatedPr>()

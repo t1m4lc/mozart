@@ -35,6 +35,20 @@ pub enum AppError {
     // path) deliberately do NOT return this variant.
     #[error("workspace is done and read-only: {0}")]
     Frozen(String),
+
+    // Plan P2.6 — Merge-now flow step 1: the workspace has uncommitted
+    // changes. The frontend maps `kind: "MergeDirtyTree"` to the toast
+    // `"Commit your changes before merging."`. Carries the workspace
+    // branch name for debug/log context.
+    #[error("commit your changes before merging: {0}")]
+    MergeDirtyTree(String),
+
+    // Plan P2.6 — Merge-now flow step 3: the base branch is behind its
+    // origin counterpart. The frontend maps `kind: "MergeBaseAhead"` to
+    // the toast `"Pull <base name> first."` and renders a Pull button.
+    // Carries the base branch name so the toast can name it.
+    #[error("base ahead of origin/{0} — pull first")]
+    MergeBaseAhead(String),
 }
 
 impl From<rusqlite::Error> for AppError {

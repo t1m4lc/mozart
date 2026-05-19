@@ -14,6 +14,7 @@ pub mod get_started;
 pub mod git_query;
 pub mod github;
 pub mod ide_launch;
+pub mod merge;
 pub mod mozart_config;
 pub mod run_registry;
 pub mod sandbox;
@@ -149,6 +150,15 @@ pub fn run() {
                     dir.join("mozart.db")
                 });
             let db_state = db::init_db(&db_path).expect("db init failed");
+
+            // CG-2 — flip any workspace whose worktree has a lingering
+            // `MERGE_HEAD` (app crash / power loss mid-merge) into the
+            // `'conflict'` status so the standard resolve-in-IDE flow
+            // takes over on this boot. Best-effort: missing worktrees
+            // or git failures are logged and skipped — they will fail
+            // later through their normal user-visible paths.
+            recover_interrupted_merges(&db_state);
+
             app.manage(db_state);
 
             // Run registry holds live RunHandles for stop_agent_run lookup.
@@ -192,4 +202,67 @@ pub fn run() {
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// CG-2 — scan workspaces at boot and flip any whose worktree carries
+/// a `MERGE_HEAD` (interrupted merge) into the `'conflict'` runtime
+/// status. Best-effort and silent on errors: a missing worktree, an
+/// unreadable repo, or a `git rev-parse` failure does not block boot.
+/// The user will see the same red-badge / Open-in-IDE surface as a
+/// fresh conflict (A2.6.D), and any subsequent merge attempts will
+/// re-run the probe and stay accurate.
+fn recover_interrupted_merges(db: &db::DbState) {
+    let workspaces = {
+        let conn = db.lock();
+        match db::workspaces::list_all(&conn) {
+            Ok(rows) => rows,
+            Err(e) => {
+                eprintln!("CG-2 boot scan: list_all failed: {e}");
+                return;
+            }
+        }
+    };
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(rt) => rt,
+        Err(e) => {
+            eprintln!("CG-2 boot scan: tokio runtime build failed: {e}");
+            return;
+        }
+    };
+    for ws in workspaces {
+        if ws.status == merge::STATUS_CONFLICT {
+            continue;
+        }
+        let worktree = PathBuf::from(&ws.worktree_path);
+        if !worktree.exists() {
+            continue;
+        }
+        let probe = rt.block_on(merge::has_in_progress_merge(&worktree));
+        match probe {
+            Ok(true) => {
+                let conn = db.lock();
+                if let Err(e) = db::workspaces::update_status(
+                    &conn,
+                    &ws.workspace_id,
+                    merge::STATUS_CONFLICT,
+                ) {
+                    eprintln!(
+                        "CG-2 boot scan: failed to set conflict on ws {}: {e}",
+                        ws.workspace_id
+                    );
+                }
+            }
+            Ok(false) => {}
+            Err(e) => {
+                eprintln!(
+                    "CG-2 boot scan: probe failed for ws {} at {}: {e}",
+                    ws.workspace_id,
+                    worktree.display()
+                );
+            }
+        }
+    }
 }
