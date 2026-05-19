@@ -20,6 +20,7 @@ pub mod config;
 pub mod messages;
 pub mod models;
 pub mod outbox;
+pub mod project_local_config;
 pub mod repos;
 pub mod reset;
 pub mod tasks;

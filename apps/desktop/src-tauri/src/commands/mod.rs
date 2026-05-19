@@ -2307,6 +2307,75 @@ pub async fn reset_database_with_demo_seed(db: State<'_, DbState>) -> Result<(),
 }
 
 // ===========================================================================
+// P0.3 — project bootstrap on Open project
+// ===========================================================================
+
+/// Probe a project directory and return what Mozart inferred. Pure read,
+/// no DB writes. Used by `bootstrap_project` internally and by future
+/// "rescan" surfaces. Returns the flat summary the UI consumes — the
+/// internal `ProjectDetection` (with the full ordered `RunConfig`) stays
+/// crate-private.
+#[tauri::command]
+#[specta::specta]
+pub async fn detect_project(
+    path: String,
+) -> Result<crate::mozart_config::bootstrap::DetectedSummary, AppError> {
+    let p = std::path::Path::new(&path);
+    let d = crate::mozart_config::detect::detect_project(p).await;
+    Ok(crate::mozart_config::bootstrap::DetectedSummary::from_detection(&d))
+}
+
+/// Silent first-run bootstrap. Creates the project row (idempotent),
+/// writes a `project_local_config` row if there's no `.mozart/`, creates
+/// the first workspace, and creates the "Start" chat. Returns IDs +
+/// detection so the UI can navigate directly into the workspace.
+#[tauri::command]
+#[specta::specta]
+pub async fn bootstrap_project(
+    db: State<'_, DbState>,
+    path: String,
+) -> Result<crate::mozart_config::bootstrap::BootstrapResult, AppError> {
+    bootstrap_project_impl(db.inner(), path).await
+}
+
+pub(crate) async fn bootstrap_project_impl(
+    db: &DbState,
+    path: String,
+) -> Result<crate::mozart_config::bootstrap::BootstrapResult, AppError> {
+    let p = std::path::Path::new(&path);
+    crate::mozart_config::bootstrap::bootstrap_project(db, p).await
+}
+
+/// Deferred "Save config to repo" surface. Writes the local fallback
+/// config to `.mozart/run.json` + `.mozart/settings.json`, validating
+/// first and refusing to overwrite. Wired in P0.3 but not exposed in
+/// UI for v0 (TODO-006).
+#[tauri::command]
+#[specta::specta]
+pub async fn init_project_repo_from_local(
+    db: State<'_, DbState>,
+    project_id: String,
+) -> Result<(), AppError> {
+    crate::mozart_config::bootstrap::init_project_repo_from_local(
+        db.inner(),
+        &project_id,
+    )
+    .await
+}
+
+/// Read the active project config. Repo > local; falls back to the
+/// local DB row if `.mozart/run.json` is absent. Bootstrap guarantees
+/// at least one of the two sources exists.
+#[tauri::command]
+#[specta::specta]
+pub async fn read_project_config(
+    db: State<'_, DbState>,
+    project_id: String,
+) -> Result<crate::mozart_config::bootstrap::ProjectConfig, AppError> {
+    crate::mozart_config::bootstrap::read_project_config(db.inner(), &project_id)
+}
+
+// ===========================================================================
 // Tests
 // ===========================================================================
 
