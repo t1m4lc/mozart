@@ -18,6 +18,12 @@ export class AnalyticsService {
     const key = import.meta.env.VITE_POSTHOG_KEY;
     const host = import.meta.env.VITE_POSTHOG_HOST ?? 'https://eu.i.posthog.com';
     if (!key) return;
+    if (import.meta.env.DEV && !import.meta.env.VITE_POSTHOG_FORCE_ENABLE) {
+      console.info(
+        '[analytics] PostHog disabled in dev. Set VITE_POSTHOG_FORCE_ENABLE=1 in .env.local to override.',
+      );
+      return;
+    }
 
     this.initPromise = import('posthog-js').then(({ default: posthog }) => {
       posthog.init(key, {
