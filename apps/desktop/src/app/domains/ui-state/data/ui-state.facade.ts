@@ -1,5 +1,9 @@
-import { Injectable, inject } from '@angular/core';
-import { UiStateStore } from './ui-state.store';
+import { Injectable, Signal, computed, inject } from '@angular/core';
+import {
+  DEFAULT_WORKSPACE_ASIDE_STATE,
+  UiStateStore,
+  type WorkspaceAsideState,
+} from './ui-state.store';
 
 // Public surface for ui-state. The two existing domain facades
 // (WorkspacesFacade, ProjectsFacade) delegate to this store so that
@@ -13,6 +17,7 @@ export class UiStateFacade {
   readonly activeWorkspaceId = this.store.activeWorkspaceId;
   readonly expandedProjectIds = this.store.expandedProjectIds;
   readonly collapsedStatusIds = this.store.collapsedStatusIds;
+  readonly asideStateByWorkspace = this.store.asideStateByWorkspace;
 
   setActiveWorkspace(id: string | null): void {
     this.store.setActiveWorkspace(id);
@@ -52,5 +57,29 @@ export class UiStateFacade {
 
   expandAllStatuses(): void {
     this.store.expandAllStatuses();
+  }
+
+  // Returns a Signal that tracks the right-aside state for a given
+  // workspace id. Pass a Signal (typically `workspaces.activeId`) so
+  // the returned signal reactively flips as the user switches between
+  // workspaces. Falls back to DEFAULT_WORKSPACE_ASIDE_STATE while no
+  // entry exists for that id (first visit).
+  asideStateFor(
+    workspaceId: Signal<string | null>,
+  ): Signal<WorkspaceAsideState> {
+    return computed(() => {
+      const id = workspaceId();
+      if (!id) return DEFAULT_WORKSPACE_ASIDE_STATE;
+      return (
+        this.store.asideStateByWorkspace()[id] ?? DEFAULT_WORKSPACE_ASIDE_STATE
+      );
+    });
+  }
+
+  updateWorkspaceAsideState(
+    workspaceId: string,
+    patch: Partial<WorkspaceAsideState>,
+  ): void {
+    this.store.updateWorkspaceAsideState(workspaceId, patch);
   }
 }

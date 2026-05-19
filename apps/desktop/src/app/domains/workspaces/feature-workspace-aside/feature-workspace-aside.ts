@@ -8,7 +8,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HlmBadgeImports } from '@mozart/ui/badge';
 import { HlmButtonImports } from '@mozart/ui/button';
@@ -26,7 +25,6 @@ import {
   lucideListTree,
   lucidePlay,
 } from '@ng-icons/lucide';
-import { map } from 'rxjs/operators';
 import { toast } from '@spartan-ng/brain/sonner';
 import { ProjectsFacade } from '../../projects';
 import {
@@ -40,8 +38,49 @@ import {
 } from '../../repositories';
 import { FeatureWorkspaceRun, RunRegistry } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
+import { UiStateFacade, type WorkspaceAsideBottomTab } from '../../ui-state';
 import { FileTabsService } from '../data/file-tabs.service';
 import { WorkspacesFacade } from '../data/workspace.facade';
+
+// ─────────────────────────────────────────────────────────────────────
+// Tab-state map  (post-P1.1 — dogfood-readiness)
+// ─────────────────────────────────────────────────────────────────────
+// Every signal in this component that influences which tab / sub-tab
+// is visible, and where it lives. Decision context lives in
+// docs/specs/plan-mozart-dogfood-readiness.md §P1.1.
+//
+//   Signal              Source                            Scope
+//   ──────────────────  ────────────────────────────────  ───────────────
+//   bottomTab           uiState.asideStateFor(wsId)       per-workspace
+//                                                         (localStorage)
+//   filesView           uiState.asideStateFor(wsId)       per-workspace
+//                                                         (localStorage)
+//   bottomOpen          uiState.asideStateFor(wsId)       per-workspace
+//                                                         (localStorage)
+//   bottomHeight        uiState.asideStateFor(wsId)       per-workspace
+//                                                         (localStorage)
+//   stagedOpen          uiState.asideStateFor(wsId)       per-workspace
+//                                                         (localStorage)
+//   unstagedOpen        uiState.asideStateFor(wsId)       per-workspace
+//                                                         (localStorage)
+//   activeFilePath      FileTabsService.activeByWorkspace per-workspace
+//   watcherTick         local signal, bumped by watcher   component
+//                                                         (internal)
+//   changedFiles        local signal — data, not tab UI   component
+//
+// URL contract:
+//   `?tab=…` is a one-shot deep-link hint. On the first activation of
+//   a given workspace this session the hint is consumed into
+//   UiStateStore (only if no entry exists yet), then the param is
+//   removed from the URL — preventing Angular's
+//   `queryParamsHandling: 'merge'` from leaking it across workspaces.
+//
+// Sub-tab vs top-tab for "Changes":
+//   "All files" / "Changes" stays a Files-slot sub-tab (`filesView`),
+//   not a peer of the setup / run / terminal bottom-tabs. The bottom
+//   slot keeps three values only; P2.4 tab-aware open behavior reads
+//   `filesView` per-workspace from the same store.
+// ─────────────────────────────────────────────────────────────────────
 
 // Right aside is a vertical stack:
 //   - Files (flex-1) : All files / Changes tabs, click opens main tab
@@ -49,7 +88,7 @@ import { WorkspacesFacade } from '../data/workspace.facade';
 //   - Bottom content (fixed h-72 when open, hidden when collapsed)
 // Run + Terminal are lazy-loaded via `@defer` so xterm and the run-
 // command machinery don't bloat the main bundle.
-type BottomTab = 'setup' | 'run' | 'terminal';
+type BottomTab = WorkspaceAsideBottomTab;
 
 const BOTTOM_TAB_VALUES: readonly BottomTab[] = [
   'setup',
@@ -468,6 +507,9 @@ export class FeatureWorkspaceAside {
   private readonly runs = inject(RunRegistry);
   private readonly projects = inject(ProjectsFacade);
   private readonly dialogService = inject(HlmDialogService);
+  private readonly uiState = inject(UiStateFacade);
+
+  protected readonly workspaceId = this.workspaces.activeId;
 
   // Live status of the active workspace's run, surfaced in the bottom
   // toolbar so the play/stop button always reflects reality.
@@ -494,8 +536,28 @@ export class FeatureWorkspaceAside {
     return id ? this.workspaces.isFrozen(id)() : false;
   });
 
-  // Files-slot sub-tab selection : tree view vs flat changes list.
-  protected readonly filesView = signal<'all' | 'changes'>('all');
+  // Per-workspace tab + pane state. Backed by UiStateStore so each
+  // workspace remembers its own choices across switches and reloads.
+  // All template bindings read from these `computed`s; mutations go
+  // through `uiState.updateWorkspaceAsideState` so the storage-sync
+  // adapter picks them up.
+  protected readonly asideState = this.uiState.asideStateFor(this.workspaceId);
+  protected readonly bottomTab = computed(() => this.asideState().bottomTab);
+  protected readonly filesView = computed(() => this.asideState().filesView);
+  protected readonly bottomOpen = computed(() => this.asideState().bottomOpen);
+  protected readonly bottomHeight = computed(
+    () => this.asideState().bottomHeight,
+  );
+  protected readonly stagedOpen = computed(() => this.asideState().stagedOpen);
+  protected readonly unstagedOpen = computed(
+    () => this.asideState().unstagedOpen,
+  );
+
+  // Workspace ids whose `?tab=` URL hint has already been consumed
+  // this session. The first activation of a workspace reads the
+  // hint into store (if present), then clears the URL so it can't
+  // leak across workspace switches via Angular's queryParam merge.
+  private readonly hydratedFromUrl = new Set<string>();
 
   // Changed-files snapshot, refreshed on workspace change and on each
   // FS watcher tick. Empty when no workspace is active.
@@ -512,35 +574,20 @@ export class FeatureWorkspaceAside {
     this.changedFiles().filter((f) => !f.staged),
   );
 
-  // Collapse state for each group. Both default open; collapsed
-  // state lives in the component (session-scoped).
-  protected readonly stagedOpen = signal(true);
-  protected readonly unstagedOpen = signal(true);
-
   protected toggleStagedOpen(): void {
-    this.stagedOpen.update((v) => !v);
+    const id = this.workspaceId();
+    if (!id) return;
+    this.uiState.updateWorkspaceAsideState(id, {
+      stagedOpen: !this.stagedOpen(),
+    });
   }
   protected toggleUnstagedOpen(): void {
-    this.unstagedOpen.update((v) => !v);
+    const id = this.workspaceId();
+    if (!id) return;
+    this.uiState.updateWorkspaceAsideState(id, {
+      unstagedOpen: !this.unstagedOpen(),
+    });
   }
-
-  // Reflects `?tab=...` from the URL; default `run` so the param can
-  // stay absent in the canonical case.
-  protected readonly bottomTab = toSignal(
-    this.route.queryParamMap.pipe(map((p) => coerceBottomTab(p.get('tab')))),
-    { initialValue: DEFAULT_BOTTOM_TAB },
-  );
-
-  // Whether the bottom slot's content area is expanded. The tab bar
-  // is always visible regardless. Session-scoped — not persisted.
-  protected readonly bottomOpen = signal(true);
-
-  // Pixel height of the bottom-slot content area. Dragging the
-  // separator above the toolbar updates this. Clamped between
-  // MIN/MAX to keep the file tree usable.
-  protected readonly bottomHeight = signal(288);
-
-  protected readonly workspaceId = this.workspaces.activeId;
 
   // Bumped on every FS-watcher ping. The file-tree consumes this as
   // an input → effects re-run and re-fetch.
@@ -569,6 +616,32 @@ export class FeatureWorkspaceAside {
       onCleanup(() => this.detachWatcher());
     });
     this.destroyRef.onDestroy(() => this.detachWatcher());
+
+    // One-shot URL → store hydration per workspace. The URL `?tab=` is
+    // honored only on the first activation of a given workspace this
+    // session; after that the store is the source of truth and the
+    // URL param is cleared so it can't bleed into other workspaces
+    // via Angular's queryParamsHandling: 'merge'.
+    effect(() => {
+      const id = this.workspaceId();
+      if (!id || this.hydratedFromUrl.has(id)) return;
+      this.hydratedFromUrl.add(id);
+      const raw = this.route.snapshot.queryParamMap.get('tab');
+      const hasEntry = !!this.uiState.asideStateByWorkspace()[id];
+      if (raw !== null && !hasEntry) {
+        this.uiState.updateWorkspaceAsideState(id, {
+          bottomTab: coerceBottomTab(raw),
+        });
+      }
+      if (raw !== null) {
+        this.router.navigate([], {
+          relativeTo: this.route,
+          queryParams: { tab: null },
+          queryParamsHandling: 'merge',
+          replaceUrl: true,
+        });
+      }
+    });
 
     // Reload the changed-files snapshot on workspace change and on
     // every FS watcher tick. The Changes tab reads from this signal.
@@ -600,7 +673,9 @@ export class FeatureWorkspaceAside {
   }
 
   protected setFilesView(view: 'all' | 'changes'): void {
-    this.filesView.set(view);
+    const id = this.workspaceId();
+    if (!id) return;
+    this.uiState.updateWorkspaceAsideState(id, { filesView: view });
   }
 
   protected onChangedFileClick(file: ChangedFile): void {
@@ -689,22 +764,23 @@ export class FeatureWorkspaceAside {
 
   // Clicking a tab :
   //   - opens the bottom slot if it's collapsed
-  //   - sets the URL `?tab=` to the new tab (or clears it for Run)
+  //   - records the choice in UiStateStore so it survives ws switches
   protected onTabClick(tab: BottomTab): void {
-    if (!this.bottomOpen()) {
-      this.bottomOpen.set(true);
-    }
-    if (tab === this.bottomTab()) return;
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams: { tab: tab === DEFAULT_BOTTOM_TAB ? null : tab },
-      queryParamsHandling: 'merge',
-      replaceUrl: true,
-    });
+    const id = this.workspaceId();
+    if (!id) return;
+    const patch: Partial<{ bottomOpen: boolean; bottomTab: BottomTab }> = {};
+    if (!this.bottomOpen()) patch.bottomOpen = true;
+    if (tab !== this.bottomTab()) patch.bottomTab = tab;
+    if (Object.keys(patch).length === 0) return;
+    this.uiState.updateWorkspaceAsideState(id, patch);
   }
 
   protected toggleBottomSlot(): void {
-    this.bottomOpen.update((v) => !v);
+    const id = this.workspaceId();
+    if (!id) return;
+    this.uiState.updateWorkspaceAsideState(id, {
+      bottomOpen: !this.bottomOpen(),
+    });
   }
 
   /** Pointer-driven height resize for the bottom-slot content area.
@@ -713,6 +789,8 @@ export class FeatureWorkspaceAside {
    *  and 80% of viewport (file tree still reachable). */
   protected onResizeStart(event: MouseEvent): void {
     event.preventDefault();
+    const id = this.workspaceId();
+    if (!id) return;
     const startY = event.clientY;
     const startHeight = this.bottomHeight();
     const min = 120;
@@ -721,7 +799,7 @@ export class FeatureWorkspaceAside {
       // Dragging up grows the panel; clientY decreases as we move up.
       const delta = startY - e.clientY;
       const next = Math.min(max, Math.max(min, startHeight + delta));
-      this.bottomHeight.set(next);
+      this.uiState.updateWorkspaceAsideState(id, { bottomHeight: next });
     };
     const onUp = () => {
       window.removeEventListener('mousemove', onMove);
@@ -742,14 +820,11 @@ export class FeatureWorkspaceAside {
       await this.runs.start(id);
       // Auto-jump to the Run tab + expand the slot so the user sees
       // output the instant the process starts.
-      if (!this.bottomOpen()) this.bottomOpen.set(true);
-      if (this.bottomTab() !== 'run') {
-        this.router.navigate([], {
-          relativeTo: this.route,
-          queryParams: { tab: null },
-          queryParamsHandling: 'merge',
-          replaceUrl: true,
-        });
+      const patch: Partial<{ bottomOpen: boolean; bottomTab: BottomTab }> = {};
+      if (!this.bottomOpen()) patch.bottomOpen = true;
+      if (this.bottomTab() !== 'run') patch.bottomTab = 'run';
+      if (Object.keys(patch).length > 0) {
+        this.uiState.updateWorkspaceAsideState(id, patch);
       }
     } catch (err) {
       console.warn('[aside] run start failed:', err);

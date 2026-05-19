@@ -12,3 +12,9 @@
 // consolidating them later is desired.
 
 export { UiStateFacade } from './data/ui-state.facade';
+export {
+  DEFAULT_WORKSPACE_ASIDE_STATE,
+  type WorkspaceAsideBottomTab,
+  type WorkspaceAsideFilesView,
+  type WorkspaceAsideState,
+} from './data/ui-state.store';

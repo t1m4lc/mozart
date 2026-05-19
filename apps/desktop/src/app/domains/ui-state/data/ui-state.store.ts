@@ -1,4 +1,7 @@
-import { withDevtools } from '@angular-architects/ngrx-toolkit';
+import {
+  withDevtools,
+  withStorageSync,
+} from '@angular-architects/ngrx-toolkit';
 import {
   patchState,
   signalStore,
@@ -13,7 +16,35 @@ import {
 //
 // Visible in Redux DevTools under the name "uiState" so reviewers can
 // trace user navigation alongside data mutations from the per-domain
-// stores.
+// stores. Selected slices are also mirrored to localStorage via
+// `withStorageSync` so per-workspace UI choices (bottom tab, files
+// sub-tab, pane sizes…) survive a relaunch.
+
+export type WorkspaceAsideBottomTab = 'setup' | 'run' | 'terminal';
+export type WorkspaceAsideFilesView = 'all' | 'changes';
+
+// Per-workspace right-aside UI state. Persisted across sessions via the
+// `withStorageSync` slice below, keyed by workspaceId. Defaults match
+// the previous hard-coded component defaults so an empty entry maps
+// onto today's first-run behavior.
+export interface WorkspaceAsideState {
+  bottomTab: WorkspaceAsideBottomTab;
+  filesView: WorkspaceAsideFilesView;
+  bottomOpen: boolean;
+  bottomHeight: number;
+  stagedOpen: boolean;
+  unstagedOpen: boolean;
+}
+
+export const DEFAULT_WORKSPACE_ASIDE_STATE: WorkspaceAsideState = {
+  bottomTab: 'run',
+  filesView: 'all',
+  bottomOpen: true,
+  bottomHeight: 288,
+  stagedOpen: true,
+  unstagedOpen: true,
+};
+
 interface State {
   // Currently-routed workspace id. `null` on /, /welcome, /settings,
   // etc. Mirrored into the URL by the router; the store is the single
@@ -28,18 +59,35 @@ interface State {
   // 'status'. Default = expanded, so we track the inverse (collapsed)
   // and an empty set means everything is open.
   collapsedStatusIds: ReadonlySet<string>;
+
+  // Per-workspace right-aside tab + pane state. The only field
+  // persisted across sessions (the `select` below picks just this
+  // slice). Other fields use `ReadonlySet` which does not JSON-
+  // serialize, so persisting the whole state would corrupt them.
+  asideStateByWorkspace: Record<string, WorkspaceAsideState>;
 }
 
 const initialState: State = {
   activeWorkspaceId: null,
   expandedProjectIds: new Set<string>(),
   collapsedStatusIds: new Set<string>(),
+  asideStateByWorkspace: {},
 };
 
 export const UiStateStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
   withDevtools('uiState'),
+  // Persist only the slice we own per-workspace. The Set-typed fields
+  // above can't survive JSON.stringify, so leaving them out of `select`
+  // keeps them at their in-memory defaults across reloads. Versioned
+  // key (`-v1`) so we can bump if the shape ever changes incompatibly.
+  withStorageSync({
+    key: 'mozart-ui-state-v1',
+    select: (state) => ({
+      asideStateByWorkspace: state.asideStateByWorkspace,
+    }),
+  }),
   withMethods((store) => ({
     setActiveWorkspace(id: string | null): void {
       patchState(store, { activeWorkspaceId: id });
@@ -82,6 +130,26 @@ export const UiStateStore = signalStore(
 
     expandAllStatuses(): void {
       patchState(store, { collapsedStatusIds: new Set<string>() });
+    },
+
+    // Merge a partial right-aside state for a single workspace. The
+    // method is intentionally narrow — callers pass exactly the fields
+    // that changed (e.g. `{ bottomTab: 'terminal' }`) and the store
+    // fills the rest from the existing entry, or from
+    // DEFAULT_WORKSPACE_ASIDE_STATE on first write.
+    updateWorkspaceAsideState(
+      workspaceId: string,
+      patch: Partial<WorkspaceAsideState>,
+    ): void {
+      const current =
+        store.asideStateByWorkspace()[workspaceId] ??
+        DEFAULT_WORKSPACE_ASIDE_STATE;
+      patchState(store, {
+        asideStateByWorkspace: {
+          ...store.asideStateByWorkspace(),
+          [workspaceId]: { ...current, ...patch },
+        },
+      });
     },
   })),
 );
