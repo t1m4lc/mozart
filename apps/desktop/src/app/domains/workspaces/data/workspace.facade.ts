@@ -84,6 +84,18 @@ export class WorkspacesFacade {
     );
   }
 
+  // True when the workspace is in the kanban "done" state. The whole
+  // workspace becomes read-only — composer, file edits, run/setup,
+  // terminal input, discard. Closure-flow actions (final commit, PR)
+  // stay allowed. Unknown ids resolve to `false` so callers don't have
+  // to special-case "no workspace selected".
+  isFrozen(workspaceId: string): Signal<boolean> {
+    return computed(() => {
+      const ws = this.store.workspaces().find((w) => w.id === workspaceId);
+      return ws?.status === 'done';
+    });
+  }
+
   /**
    * `true` when any **other** workspace in the same project as
    * `workspaceId` has `unread === true`. Drives the composer's
