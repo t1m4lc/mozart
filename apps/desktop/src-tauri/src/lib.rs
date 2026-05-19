@@ -14,6 +14,7 @@ pub mod get_started;
 pub mod git_query;
 pub mod github;
 pub mod ide_launch;
+pub mod mozart_config;
 pub mod run_registry;
 pub mod sandbox;
 pub mod staging;

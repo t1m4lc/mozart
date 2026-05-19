@@ -23,7 +23,11 @@ specta = "2.0.0-rc.22"
 specta-typescript = "0.0.9"
 
 [dependencies]
-serde_json = "1.0"
+## preserve_order: P0.3 needs the JSON-key order of .mozart/run.json to
+## drive the Run/Setup tab order — without this feature serde_json sorts
+## keys alphabetically. See docs/specs/plan-mozart-dogfood-readiness.md
+## § P0.3 Prerequisite.
+serde_json = { version = "1.0", features = ["preserve_order"] }
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
 tauri = { version = "2.11.1", features = [] }
