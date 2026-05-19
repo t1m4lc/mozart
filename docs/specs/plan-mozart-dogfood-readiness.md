@@ -1188,6 +1188,34 @@ Files: ~2 + 3 tests.
    (path/filename)
 ```
 
+**Tabs implementation — use `<hlm-tabs>` with icon-only triggers:**
+Both `[Unified|Split]` and `[Diff|Edit]` are tablists, not toggles —
+each one switches the central panel between two render modes. Build
+them on top of `HlmTabsImports` (`@mozart/ui/tabs`) with `variant="line"`
+and icon-only triggers, e.g.:
+
+```html
+<hlm-tabs [tab]="diffMode()" (tabActivated)="setDiffMode($any($event))">
+  <hlm-tabs-list variant="line" aria-label="Diff layout">
+    <button hlmTabsTrigger="unified" hlmTooltip="Unified diff">
+      <ng-icon hlm name="lucideListTree" size="xs" />
+    </button>
+    <button hlmTabsTrigger="split" hlmTooltip="Split diff">
+      <ng-icon hlm name="lucideColumns2" size="xs" />
+    </button>
+  </hlm-tabs-list>
+</hlm-tabs>
+```
+
+Same shape for `[Diff|Edit]`. BrnTabs already supplies `role="tab"`,
+`aria-selected`, `aria-controls`, arrow / Home / End / Tab keyboard
+nav, and a `data-state="active"` hook for styling. Pattern matches
+the P1.2/B1 migration of the right-aside Files / Changes tabs —
+keep `<button hlmTabsTrigger="…">` for tooltips on each icon, and
+hide the underline (`after:hidden!`) when this toolbar lives next
+to the filename badge so the active state reads as a brand-tinted
+pill, not an underlined tab.
+
 ### Viewed state (see [[mozart-viewed-principle]] for the design lock)
 
 - DB table `workspace_file_views(workspace_id, path, viewed_at,
@@ -1243,6 +1271,12 @@ Files: ~3.
 - [ ] Renders the layout above. Inputs: filePath, viewedState,
       isFrozen, currentDiffMode, currentFileMode. Outputs: toggle
       events.
+- [ ] **Both segmented toggles (`[Unified|Split]`, `[Diff|Edit]`)
+      MUST use `<hlm-tabs>` with icon-only `hlmTabsTrigger`s**, per
+      the "Tabs implementation" note in the section above. Do not
+      hand-roll `role="tab"` buttons — Spartan supplies aria +
+      keyboard nav for free, and aligns visually with the P1.2/B1
+      aside migration.
 - [ ] **Manual checkpoint:** Render in sandbox app with each state.
       Verify discreet visual treatment matches the lock.
 
