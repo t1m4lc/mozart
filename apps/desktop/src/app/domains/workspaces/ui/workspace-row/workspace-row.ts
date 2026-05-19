@@ -9,19 +9,12 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
-import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmHoverCardImports } from '@mozart/ui/hover-card';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmLoaderImports } from '@mozart/ui/loader';
-import { HlmPopoverImports } from '@mozart/ui/popover';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideArchive,
-  lucideGitBranch,
-  lucideLoader,
-  lucidePin,
-} from '@ng-icons/lucide';
+import { lucideGitBranch, lucideLoader, lucidePin } from '@ng-icons/lucide';
 import type { Workspace } from '../../data/workspace.model';
 import { relativeTime } from '../../util-relative-time';
 
@@ -56,16 +49,14 @@ function statusLabel(status: string): string {
     NgIcon,
     RouterLink,
     RouterLinkActive,
-    HlmButtonImports,
     HlmHoverCardImports,
-    HlmPopoverImports,
     HlmSidebarImports,
     HlmIconImports,
     ...HlmLoaderImports,
     MzDiffStats,
   ],
   providers: [
-    provideIcons({ lucideArchive, lucideGitBranch, lucideLoader, lucidePin }),
+    provideIcons({ lucideGitBranch, lucideLoader, lucidePin }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block relative group/ws-item' },
@@ -113,7 +104,7 @@ function statusLabel(status: string): string {
         />
       </div>
     } @else {
-      <hlm-hover-card hlmPopover class="contents">
+      <hlm-hover-card class="contents">
         <a
           hlmSidebarMenuButton
           hlmHoverCardTrigger
@@ -149,17 +140,6 @@ function statusLabel(status: string): string {
           >
 
           <span class="ml-auto flex shrink-0 items-center gap-1">
-            <button
-              #archiveBtn
-              hlmPopoverTrigger
-              type="button"
-              aria-label="Archive workspace"
-              (click)="$event.stopPropagation(); $event.preventDefault()"
-              class="flex size-5 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-sidebar-accent hover:text-sidebar-accent-foreground group-hover/ws-item:opacity-100 "
-            >
-              <ng-icon hlm name="lucideArchive" size="xs" />
-            </button>
-
             <mz-diff-stats
               [added]="diffStats()?.added ?? 0"
               [removed]="diffStats()?.removed ?? 0"
@@ -193,22 +173,6 @@ function statusLabel(status: string): string {
             </p>
           </div>
         </ng-template>
-        <ng-template hlmPopoverPortal>
-          <div hlmPopoverContent class="w-40 p-2">
-            <p class="text-xs text-muted-foreground/80">Archive workspace?</p>
-            <div class="mt-1.5 flex justify-end">
-              <button
-                hlmBtn
-                size="xs"
-                variant="destructive"
-                type="button"
-                (click)="archive.emit()"
-              >
-                Archive
-              </button>
-            </div>
-          </div>
-        </ng-template>
       </hlm-hover-card>
     }
   `,
@@ -232,7 +196,6 @@ export class WorkspaceRow {
   // when stats haven't been fetched yet or this workspace has no
   // changes — either way, the chip stays hidden.
   readonly diffStats = input<{ added: number; removed: number } | null>(null);
-  readonly archive = output<void>();
   readonly renameCommit = output<string>();
   readonly renameCancel = output<void>();
 

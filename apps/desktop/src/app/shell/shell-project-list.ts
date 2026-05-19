@@ -145,7 +145,6 @@ import {
                       [chatTitle]="chatTitleFor(workspace.id)"
                       [lastActivity]="lastActivityFor(workspace.id)"
                       [diffStats]="diffStatsFor(workspace.id)"
-                      (archive)="archiveWorkspace(workspace.id)"
                       (renameCommit)="onRenameCommit(workspace.id, $event)"
                       (renameCancel)="editingWorkspaceId.set(null)"
                     />
@@ -213,7 +212,6 @@ import {
                       [chatTitle]="chatTitleFor(workspace.id)"
                       [lastActivity]="lastActivityFor(workspace.id)"
                       [diffStats]="diffStatsFor(workspace.id)"
-                      (archive)="archiveWorkspace(workspace.id)"
                       (renameCommit)="onRenameCommit(workspace.id, $event)"
                       (renameCancel)="editingWorkspaceId.set(null)"
                     />
