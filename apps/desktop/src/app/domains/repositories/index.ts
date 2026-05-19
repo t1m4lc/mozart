@@ -30,3 +30,8 @@ export {
   type DiffLine,
   type DiffLineKind,
 } from './util-diff-parser/util-diff-parser';
+export { UiChangesContextMenu } from './ui-changes-context-menu/ui-changes-context-menu';
+export {
+  UiConfirmDiscardChangesDialog,
+  type ConfirmDiscardChangesContext,
+} from './ui-confirm-discard-changes-dialog/ui-confirm-discard-changes-dialog';

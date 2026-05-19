@@ -421,6 +421,18 @@ function provideRepositoriesAdapter(): Provider {
           await commands.commitWorkspace(workspaceId, [...paths], message),
         );
       },
+      async stageFile(workspaceId, path) {
+        unwrap(await commands.stageFile(workspaceId, path));
+      },
+      async unstageFile(workspaceId, path) {
+        unwrap(await commands.unstageFile(workspaceId, path));
+      },
+      async isStaged(workspaceId, path) {
+        return unwrap(await commands.isStaged(workspaceId, path));
+      },
+      async discardWorkspaceChanges(workspaceId) {
+        unwrap(await commands.discardWorkspaceChanges(workspaceId));
+      },
     } satisfies RepositoriesAdapter,
   };
 }

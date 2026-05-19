@@ -12,6 +12,8 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HlmBadgeImports } from '@mozart/ui/badge';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmContextMenuImports } from '@mozart/ui/context-menu';
+import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmSkeletonImports } from '@mozart/ui/skeleton';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
@@ -25,11 +27,15 @@ import {
   lucidePlay,
 } from '@ng-icons/lucide';
 import { map } from 'rxjs/operators';
+import { toast } from '@spartan-ng/brain/sonner';
 import { ProjectsFacade } from '../../projects';
 import {
   FeatureFileTree,
   RepositoriesFacade,
+  UiChangesContextMenu,
+  UiConfirmDiscardChangesDialog,
   type ChangedFile,
+  type ConfirmDiscardChangesContext,
   type FileNode,
 } from '../../repositories';
 import { FeatureWorkspaceRun, RunRegistry } from '../../runs';
@@ -64,12 +70,14 @@ function coerceBottomTab(raw: string | null): BottomTab {
     NgTemplateOutlet,
     HlmBadgeImports,
     HlmButtonImports,
+    HlmContextMenuImports,
     HlmIconImports,
     HlmTooltipImports,
     NgIcon,
     FeatureFileTree,
     FeatureWorkspaceRun,
     FeatureWorkspaceTerminal,
+    UiChangesContextMenu,
     ...HlmSkeletonImports,
   ],
   providers: [
@@ -228,6 +236,8 @@ function coerceBottomTab(raw: string | null): BottomTab {
                 activeFilePath() === file.path ? 'true' : null
               "
               class="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground aria-[current=true]:bg-brand/10 aria-[current=true]:text-foreground"
+              [hlmContextMenuTrigger]="changedRowCtxMenuTpl"
+              [hlmContextMenuTriggerData]="{ $implicit: file }"
               (click)="onChangedFileClick(file)"
             >
               <span
@@ -258,6 +268,19 @@ function coerceBottomTab(raw: string | null): BottomTab {
                 </span>
               }
             </button>
+          </ng-template>
+
+          <ng-template #changedRowCtxMenuTpl let-file>
+            @if (workspaceId(); as wid) {
+              <app-ui-changes-context-menu
+                [workspaceId]="wid"
+                [path]="file.path"
+                (view)="onChangedFileClick(file)"
+                (toggleStaged)="onToggleStaged(file)"
+                (copyPath)="onCopyPath(file)"
+                (discardChanges)="onDiscardChanges(file)"
+              />
+            }
           </ng-template>
         }
       </div>
@@ -444,6 +467,7 @@ export class FeatureWorkspaceAside {
   private readonly fileTabs = inject(FileTabsService);
   private readonly runs = inject(RunRegistry);
   private readonly projects = inject(ProjectsFacade);
+  private readonly dialogService = inject(HlmDialogService);
 
   // Live status of the active workspace's run, surfaced in the bottom
   // toolbar so the play/stop button always reflects reality.
@@ -578,6 +602,61 @@ export class FeatureWorkspaceAside {
     // active — the workspace detail page then swaps the chat panel
     // for the diff view.
     this.fileTabs.openFor(id, file.path);
+  }
+
+  /** Flip the file's staged state via `git add` / `git reset HEAD`.
+   *  The ChangedFile row carries the current staged flag, so the toggle
+   *  direction is local; the FS watcher refreshes the list afterwards. */
+  protected async onToggleStaged(file: ChangedFile): Promise<void> {
+    const id = this.workspaceId();
+    if (!id) return;
+    try {
+      if (file.staged) {
+        await this.repos.unstageFile(id, file.path);
+      } else {
+        await this.repos.stageFile(id, file.path);
+      }
+      // Force an immediate refresh — the FS watcher debounces and the
+      // user expects the row to flip groups on the next paint.
+      this.watcherTick.update((n) => n + 1);
+    } catch (err) {
+      console.warn('[aside] toggle staged failed:', err);
+      toast.error('Could not change staged state', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  protected async onCopyPath(file: ChangedFile): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(file.path);
+      toast.success('Path copied');
+    } catch (err) {
+      console.warn('[aside] copy path failed:', err);
+      toast.error('Could not copy path');
+    }
+  }
+
+  /** Right-clicked → Discard changes. Destructive: open a confirmation
+   *  dialog first; on confirm reuse the existing workspace-level reset
+   *  command (per plan: `discard_changes_to` reused for v0.1.0-beta.1). */
+  protected onDiscardChanges(file: ChangedFile): void {
+    const id = this.workspaceId();
+    if (!id) return;
+    const context: ConfirmDiscardChangesContext = {
+      path: file.path,
+      onConfirm: async () => {
+        try {
+          await this.repos.discardWorkspaceChanges(id);
+          this.watcherTick.update((n) => n + 1);
+        } catch (err) {
+          toast.error('Could not discard changes', {
+            description: err instanceof Error ? err.message : String(err),
+          });
+        }
+      },
+    };
+    this.dialogService.open(UiConfirmDiscardChangesDialog, { context });
   }
 
   protected statusLetter(status: ChangedFile['status']): string {
