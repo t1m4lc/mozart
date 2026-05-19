@@ -21,12 +21,17 @@ import { UiFileTreeSkeleton } from '../ui-file-tree-skeleton/ui-file-tree-skelet
 // query / toggle without instantiating a TreeControl.
 //
 // Loading behavior (P1.2):
-//   - On workspace switch, the previous workspace's tree is dropped
+//   - On workspace switch, the previous workspace's own tree is dropped
 //     IMMEDIATELY so the eye never sees two workspaces' files mixed.
 //   - If the FileTreeCache has a fresh entry for the new workspace
 //     under the requested showIgnored, that tree renders instantly.
-//   - Otherwise a skeleton placeholder renders while the fetch is in
-//     flight; the tree replaces it on resolution.
+//   - Otherwise the most-recent fresh tree from any sibling workspace
+//     of the same project is shown as a placeholder while the real
+//     fetch is in flight. Sibling workspaces are branches of the same
+//     repo and share ~99% of files, so the eye reads "approximately
+//     correct, refreshing" instead of "empty page".
+//   - Only when neither own-cache nor sibling-cache exists does the
+//     skeleton placeholder render.
 //   - Fetch resolutions race-checked against workspaceId AND the cache
 //     revision captured at fetch start, so a watcher event mid-fetch
 //     forces a retry rather than persisting stale data.
@@ -46,7 +51,11 @@ import { UiFileTreeSkeleton } from '../ui-file-tree-skeleton/ui-file-tree-skelet
       } @else if (nodes().length === 0) {
         <p class="px-2 py-3 text-xs text-muted-foreground">No files yet.</p>
       } @else {
-        <cdk-tree [dataSource]="nodes()" [childrenAccessor]="childrenAccessor">
+        <cdk-tree
+          [dataSource]="nodes()"
+          [childrenAccessor]="childrenAccessor"
+          [trackBy]="trackByPath"
+        >
           <cdk-tree-node *cdkTreeNodeDef="let node">
             <app-file-tree-row
               [node]="node"
@@ -77,6 +86,10 @@ import { UiFileTreeSkeleton } from '../ui-file-tree-skeleton/ui-file-tree-skelet
 })
 export class FeatureFileTree {
   readonly workspaceId = input<string | null>(null);
+  /** Project the workspace belongs to. Drives the project-level
+   *  fallback tree shown during the brief fetch window when this
+   *  workspace has never been opened before but a sibling has. */
+  readonly projectId = input<string | null>(null);
   /** Bumped by the parent on FS-watcher pings; the cache revision is
    *  the canonical invalidation signal but we still re-fetch on this
    *  tick so the in-flight loading UI feels responsive. The aside owns
@@ -102,28 +115,48 @@ export class FeatureFileTree {
     this.showIgnored,
   );
 
-  // Locally-fetched fallback for when the cache is empty. Stays in
-  // sync with whatever was last written; reset to [] when workspaceId
-  // changes so the previous tree never lingers on screen.
+  // Sibling-workspace placeholder. Picks the freshest fresh tree from
+  // any other workspace of the same project — branches of the same
+  // repo are ~99% identical, so this gives the eye an approximately-
+  // correct tree during the fetch window.
+  private readonly projectFallbackTree = this.repos.projectFallbackTreeFor(
+    this.workspaceId,
+    this.projectId,
+    this.showIgnored,
+  );
+
+  // Locally-fetched fallback for when neither cache has a hit. Stays
+  // in sync with whatever was last written; reset to [] when
+  // workspaceId changes so the previous tree never lingers on screen.
   private readonly localTree = signal<readonly FileNode[]>([]);
 
-  // CdkTree's `dataSource` insists on a mutable `T[]`; the cache and
-  // local store are readonly, so we copy at the template-binding seam.
-  // Cheap — the array is shallow and gets recreated only when the
-  // upstream source actually changes.
+  // CdkTree's `dataSource` is typed `T[]`, but we never mutate it —
+  // the cache and local store are readonly. Returning the upstream
+  // reference UNCHANGED (no spread) is the load-bearing optimization
+  // for workspace switches: Angular's `computed` uses `Object.is`, so
+  // a fresh `[...own]` every read would make CdkTree re-tear-down /
+  // re-mount every row on every switch even when the underlying data
+  // is identical. Casting away `readonly` is safe here — CdkTree
+  // treats the array as a snapshot, never a mutable buffer.
   protected readonly nodes = computed<FileNode[]>(() => {
-    const tree = this.cachedTree() ?? this.localTree();
-    return [...tree];
+    const own = this.cachedTree();
+    if (own) return own as FileNode[];
+    const sibling = this.projectFallbackTree();
+    if (sibling) return sibling as FileNode[];
+    return this.localTree() as FileNode[];
   });
 
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  /** True when nothing renderable is available yet and a fetch is in
-   *  flight — i.e. first visit / post-invalidation. Cached cache-hits
-   *  short-circuit this. */
+  /** True when no tree at all is available yet (own cache empty AND
+   *  no sibling fallback) AND a fetch is in flight. Sibling-tree hits
+   *  short-circuit this so the user sees the placeholder instead. */
   protected readonly showSkeleton = computed(
-    () => this.nodes().length === 0 && this.loading(),
+    () =>
+      this.cachedTree() === null &&
+      this.projectFallbackTree() === null &&
+      this.loading(),
   );
 
   // Expansion state keyed by node.path. CdkTree's new childrenAccessor
@@ -139,6 +172,14 @@ export class FeatureFileTree {
   /** CdkTree predicate: true when the node renders as a folder. */
   protected readonly isDirectory = (_index: number, node: FileNode): boolean =>
     node.kind === 'directory';
+
+  /** Identity for CdkTree's IterableDiffer. Path is stable across
+   *  workspaces of the same project (they're branches of the same
+   *  repo), so switching between siblings only re-renders rows where
+   *  the path actually differs — not every row. The biggest single
+   *  perceived-latency win for workspace alternation. */
+  protected readonly trackByPath = (_index: number, node: FileNode): string =>
+    node.path;
 
   protected isExpanded(node: FileNode): boolean {
     return this.expanded().has(node.path);
@@ -196,6 +237,10 @@ export class FeatureFileTree {
     this.loading.set(true);
     this.error.set(null);
     const capturedRevision = this.repos.treeRevisionFor(workspaceId);
+    // Capture the projectId at fetch-start. The cache uses it both for
+    // the sibling-fallback lookup and to skip writes when the parent
+    // forgot to supply one (defensive — the page binding does set it).
+    const capturedProjectId = this.projectId();
     try {
       const tree = await this.repos.loadTree(workspaceId, showIgnored);
       // Rapid workspace clicks fire multiple in-flight fetches; only
@@ -204,7 +249,15 @@ export class FeatureFileTree {
       if (this.workspaceId() !== workspaceId) return;
       // Persist to the cache. The store discards the write silently
       // if a watcher event has bumped the revision since fetch start.
-      this.repos.cacheTree(workspaceId, tree, capturedRevision, showIgnored);
+      if (capturedProjectId) {
+        this.repos.cacheTree(
+          workspaceId,
+          capturedProjectId,
+          tree,
+          capturedRevision,
+          showIgnored,
+        );
+      }
       // Mirror into local fallback so the very first paint after a
       // long fetch still renders even before the cache signal
       // recomputes (which it will on the next tick).

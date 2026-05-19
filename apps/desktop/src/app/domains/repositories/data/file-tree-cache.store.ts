@@ -35,6 +35,14 @@ export interface CachedFileTree {
   // Revision the entry was captured under. Stale when this lags the
   // current `revisionByWorkspace[wsId]`.
   readonly revision: number;
+  // Project the workspace belongs to. Used by the project-level
+  // fallback so a freshly-opened workspace can paint a sibling's tree
+  // as a placeholder while its own fetch is in flight.
+  readonly projectId: string;
+  // Wall-clock at write time — used by the project fallback selector
+  // to pick the freshest sibling when multiple workspaces of the same
+  // project have cached trees.
+  readonly cachedAt: number;
 }
 
 interface State {
@@ -81,6 +89,7 @@ export const FileTreeCacheStore = signalStore(
      *  to 5 by the time the response lands. */
     cacheTree(
       workspaceId: string,
+      projectId: string,
       tree: readonly FileNode[],
       capturedRevision: number,
       showIgnored: boolean,
@@ -90,7 +99,13 @@ export const FileTreeCacheStore = signalStore(
       patchState(store, {
         byWorkspace: {
           ...store.byWorkspace(),
-          [workspaceId]: { tree, showIgnored, revision: capturedRevision },
+          [workspaceId]: {
+            tree,
+            showIgnored,
+            revision: capturedRevision,
+            projectId,
+            cachedAt: Date.now(),
+          },
         },
       });
     },

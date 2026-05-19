@@ -101,6 +101,42 @@ export class RepositoriesFacade {
     });
   }
 
+  /** Project-level fallback. When the current workspace has no fresh
+   *  cached tree of its own, pick the most recently-cached fresh tree
+   *  from any sibling workspace of the same project. Renders during
+   *  the brief fetch window so the user sees an approximately-correct
+   *  tree instead of a skeleton — sibling workspaces of one project
+   *  share ~99% of files (they're branches of the same repo).
+   *
+   *  Returns null if no usable sibling cache exists; in that case the
+   *  caller falls back to the skeleton. */
+  projectFallbackTreeFor(
+    workspaceId: Signal<string | null>,
+    projectId: Signal<string | null>,
+    showIgnored: Signal<boolean>,
+  ): Signal<readonly FileNode[] | null> {
+    return computed(() => {
+      const id = workspaceId();
+      const pid = projectId();
+      if (!id || !pid) return null;
+      const byWorkspace = this.fileTreeCache.byWorkspace();
+      const revisions = this.fileTreeCache.revisionByWorkspace();
+      let best: { entry: (typeof byWorkspace)[string]; at: number } | null =
+        null;
+      for (const [otherId, entry] of Object.entries(byWorkspace)) {
+        if (otherId === id) continue;
+        if (entry.projectId !== pid) continue;
+        if (entry.showIgnored !== showIgnored()) continue;
+        const currentRevision = revisions[otherId] ?? 0;
+        if (entry.revision !== currentRevision) continue;
+        if (!best || entry.cachedAt > best.at) {
+          best = { entry, at: entry.cachedAt };
+        }
+      }
+      return best?.entry.tree ?? null;
+    });
+  }
+
   /** Snapshot of the current revision for capture at fetch start. */
   treeRevisionFor(workspaceId: string): number {
     return this.fileTreeCache.revisionFor(workspaceId);
@@ -110,12 +146,14 @@ export class RepositoriesFacade {
    *  workspace's revision moved while the fetch was in flight. */
   cacheTree(
     workspaceId: string,
+    projectId: string,
     tree: readonly FileNode[],
     capturedRevision: number,
     showIgnored: boolean,
   ): void {
     this.fileTreeCache.cacheTree(
       workspaceId,
+      projectId,
       tree,
       capturedRevision,
       showIgnored,

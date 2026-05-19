@@ -181,6 +181,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
           <app-feature-file-tree
             class="block min-h-0 flex-1"
             [workspaceId]="workspaceId()"
+            [projectId]="activeProjectId()"
             [refreshTick]="watcherTick()"
             [activePath]="activeFilePath()"
             (fileSelected)="onFileSelected($event)"
@@ -510,6 +511,16 @@ export class FeatureWorkspaceAside {
   private readonly uiState = inject(UiStateFacade);
 
   protected readonly workspaceId = this.workspaces.activeId;
+
+  // Project the active workspace belongs to. Powers the file-tree's
+  // sibling-cache fallback: when a never-opened workspace mounts and
+  // a sibling has already cached a tree for the same project, that
+  // tree paints as a placeholder until the real fetch resolves.
+  protected readonly activeProjectId = computed(() => {
+    const id = this.workspaceId();
+    if (!id) return null;
+    return this.workspaces.workspaceById(id)()?.projectId ?? null;
+  });
 
   // Live status of the active workspace's run, surfaced in the bottom
   // toolbar so the play/stop button always reflects reality.
