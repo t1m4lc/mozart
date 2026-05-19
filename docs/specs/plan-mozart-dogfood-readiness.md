@@ -1,3 +1,5 @@
+Ok i see this workspace is done and readonly.. but so normally terminal is readonly too and no commit button (disabled) and cant change target branch or rename workspace, or cant ajust effort in composer but i can use ask in the composer just to ask things even if done. And in ciontextmenu it dont update this check option in done?ok I see reopen workspace option but ist not reactive i neeed to reload the page, fix that but i dont want this option. If user change the status (if it done status before the change) open the dialog.
+
 # Plan — Mozart dogfood readiness
 
 > Cross-refs: [`plan-v0.1.0-beta.1.md`](./plan-v0.1.0-beta.1.md) Phases 1, 4, 7;
@@ -22,15 +24,15 @@ start here. No other artifact is required.
 
 ### Per-scenario navigation
 
-| Goal | Section to open |
-|---|---|
-| Re-read / review the plan | "Phasing" → "Architectural decisions log" → "NOT in scope" → "TODOs" → "Completion summary" |
-| Refine the plan (add / change / cut an atom) | edit the relevant phase section in place; commit; no remote review tool required |
-| Pick the next atom to implement | "Worktree parallelization strategy" — work through lanes top to bottom |
-| Understand a locked decision | "Architectural decisions log" (AD-01 through AD-06). Re-open a decision only with a strong reason. |
-| Trace failure scenarios | "Failure modes — production scenarios" + the "Critical gaps" callouts |
-| Find what already exists in the codebase | "What already exists" section |
-| Track progress | the `[ ]` checkboxes flip to `[x]` as atoms ship. `grep '\[x\]'` to see what's done. |
+| Goal                                         | Section to open                                                                                    |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| Re-read / review the plan                    | "Phasing" → "Architectural decisions log" → "NOT in scope" → "TODOs" → "Completion summary"        |
+| Refine the plan (add / change / cut an atom) | edit the relevant phase section in place; commit; no remote review tool required                   |
+| Pick the next atom to implement              | "Worktree parallelization strategy" — work through lanes top to bottom                             |
+| Understand a locked decision                 | "Architectural decisions log" (AD-01 through AD-06). Re-open a decision only with a strong reason. |
+| Trace failure scenarios                      | "Failure modes — production scenarios" + the "Critical gaps" callouts                              |
+| Find what already exists in the codebase     | "What already exists" section                                                                      |
+| Track progress                               | the `[ ]` checkboxes flip to `[x]` as atoms ship. `grep '\[x\]'` to see what's done.               |
 
 ### Per-atom implementation template (drop into a fresh chat)
 
@@ -178,13 +180,13 @@ in `plan-v0.1.0-beta.1.md:38`). Each atom inside a phase ends with a
 
 The five locked architectural decisions, with one-line rationale.
 
-| # | Decision | Rationale |
-|---|---|---|
-| AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4. | Ship dogfood-safe security now without per-OS fence complexity. |
-| AD-02 | **Merge routing** = `.mozart/run.json` derives no merge preference; per-project `mergeMode` lives in **Mozart local DB** (`project_local_config`); per-workspace `last_merge_action` overrides it for the primary-button label, IDE-button style. | User-specific preference, never shared with team. Last-action memory mirrors the existing Open-in-IDE pattern. |
-| AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Auto-set on diff open. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]]. | Reduces review cognitive load without ceremony. |
-| AD-04 | **Editor** = CodeMirror 6 + `@codemirror/merge`. One library drives Diff (unified+split) and Edit modes. `.md` files open as code. | Lightweight, modular, minimal-feeling, ~250KB gzipped. Monaco is heavier and harder to keep visually minimal. |
-| AD-05 | **Freeze** = frontend `isFrozen` signal + Rust IPC guards on every mutating command with new `AppError::Frozen` variant. Belt-and-braces. | Single-source enforcement (frontend-only) is fragile; layered is robust. |
+| #     | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Rationale                                                                                                                                                                                                                                                      |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4.                                                                                                                                                                                                                                                                                                                   | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
+| AD-02 | **Merge routing** = `.mozart/run.json` derives no merge preference; per-project `mergeMode` lives in **Mozart local DB** (`project_local_config`); per-workspace `last_merge_action` overrides it for the primary-button label, IDE-button style.                                                                                                                                                                                                                                                               | User-specific preference, never shared with team. Last-action memory mirrors the existing Open-in-IDE pattern.                                                                                                                                                 |
+| AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Auto-set on diff open. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]].                                                                                                                                                                                                                                                                                                 | Reduces review cognitive load without ceremony.                                                                                                                                                                                                                |
+| AD-04 | **Editor** = CodeMirror 6 + `@codemirror/merge`. One library drives Diff (unified+split) and Edit modes. `.md` files open as code.                                                                                                                                                                                                                                                                                                                                                                              | Lightweight, modular, minimal-feeling, ~250KB gzipped. Monaco is heavier and harder to keep visually minimal.                                                                                                                                                  |
+| AD-05 | **Freeze** = frontend `isFrozen` signal + Rust IPC guards on every mutating command with new `AppError::Frozen` variant. Belt-and-braces.                                                                                                                                                                                                                                                                                                                                                                       | Single-source enforcement (frontend-only) is fragile; layered is robust.                                                                                                                                                                                       |
 | AD-06 | **Project bootstrap** = silent local default on Open project. No screen. Detect → write `project_local_config` row → auto-create first workspace → auto-create "Start" chat. The Start chat's timeline shows a system-info entry summarising the inferred setup/run + sandbox level + storage location. Two-file split (`.mozart/settings.json` + `.mozart/run.json`) is reserved for the deferred "Save config to repo" action (P4 / TODO-006). Mozart never auto-commits. See [[mozart-repo-init-principle]]. | The first-run user has no basis to choose between local and repo config. Defaulting to local matches the principle, removes a screen, and uses the existing chat timeline as the surface for the inference result. Decided 2026-05-19 in `/plan-devex-review`. |
 
 ---
@@ -227,6 +229,7 @@ L3 Workspace    │ --add-dir <this worktree only>                  │
 ```
 
 Plus mandatory on every run regardless of level:
+
 - `--permission-mode acceptEdits` (so tools actually fire in `-p` mode)
 - `--allowedTools` whitelist derived from `chat.mode`:
   - `agent` → `Read,Write,Edit,Bash,Glob,Grep,WebFetch`
@@ -252,7 +255,7 @@ permission_denials: []   (every tool call fired)
 calls. Tools fire under the default policy. The "dogfood broken by
 missing permission flag" framing is wrong.
 
-**What this changes for P0.1:** the urgency *increases* rather than
+**What this changes for P0.1:** the urgency _increases_ rather than
 decreases. The agent in today's Mozart shell has **full ambient
 filesystem authority** via `Read` / `Write` / `Edit` / `Bash` with no
 `--add-dir` ceiling and no path canonicalization at the IPC boundary.
@@ -289,7 +292,7 @@ deny + add layering," it is "wall off a wide-open agent."
 - [ ] New Rust type `SandboxLevel { L1Mozart, L2Project, L3Workspace }`
       in `claude_cli/sandbox_policy.rs` (new file alongside `runner.rs`).
 - [ ] DB migration: add `sandbox_level TEXT NOT NULL DEFAULT
-      'L2Project'` to `workspaces` table.
+'L2Project'` to `workspaces` table.
 - [ ] Workspaces start at L2Project. UI surface for switching the
       level is deferred (see S0.1.E and TODO-008) — P0 just wires the
       data + Tauri command.
@@ -304,10 +307,7 @@ Files: ~5 (migration, models.rs, schema mirror, facade, store).
 - [ ] In `claude_cli/sandbox_policy.rs`, function
       `build_sandbox_flags(workspace, level) -> Vec<String>`. Pure,
       no IO except resolving paths via `canonical_worktrees_root()`.
-- [ ] Returns `--add-dir` flags for the level's directory set:
-      - L1: `[~/.mozart/worktrees, ~/.mozart/projects]`
-      - L2: all worktree paths of workspaces in the same project
-      - L3: just `workspace.worktree_path`
+- [ ] Returns `--add-dir` flags for the level's directory set: - L1: `[~/.mozart/worktrees, ~/.mozart/projects]` - L2: all worktree paths of workspaces in the same project - L3: just `workspace.worktree_path`
 - [ ] Returns `--permission-mode acceptEdits` always.
 - [ ] Returns `--allowedTools` from the active chat's mode.
 - [ ] `runner.rs:command_argv_for_test` is renamed `production_argv` and
@@ -330,15 +330,12 @@ matrix.
 
 - [ ] New `path_guard.rs` exporting
       `validate_agent_path(path: &Path, ws: &Workspace) -> Result<PathBuf,
-      AppError>` that:
-      1. `canonicalize()` the input
-      2. Asserts the canonical form starts with the resolved canonical
-         root (`canonical_worktrees_root()` for L1, project worktrees
-         set for L2, single worktree for L3)
-      3. Rejects symlinks pointing outside via standard
-         `fs::canonicalize` behavior (canonicalize resolves symlinks)
-- [ ] Every Tauri command that takes a path *originating from agent
-      output* threads it through this guard. Audit list (initial):
+AppError>` that: 1. `canonicalize()` the input 2. Asserts the canonical form starts with the resolved canonical
+      root (`canonical_worktrees_root()` for L1, project worktrees
+      set for L2, single worktree for L3) 3. Rejects symlinks pointing outside via standard
+      `fs::canonicalize` behavior (canonicalize resolves symlinks)
+- [ ] Every Tauri command that takes a path _originating from agent
+      output_ threads it through this guard. Audit list (initial):
       `file_read`, `file_write`, `file_diff::*`, `commit::*`,
       `discard_changes_to`. Identified via `grep "tauri::command"`.
 - [ ] Returns `AppError::PathRefused { canonical, level }`.
@@ -349,8 +346,9 @@ matrix.
       timeline.
 
 Files: ~2 + audit edits across ~6 command sites. Tests: 8 cases (happy
-+ traversal + symlink-out + non-existent + relative + UNC on Windows
-guarded via `#[cfg(unix)]` for now).
+
+- traversal + symlink-out + non-existent + relative + UNC on Windows
+  guarded via `#[cfg(unix)]` for now).
 
 #### Atom S0.1.E — Sandbox-level Tauri command (no main UI for v0)
 
@@ -438,13 +436,13 @@ QUALITY target: ★★★:5 ★★:7 ★:0  |  REGRESSION TESTS: 2 (path travers
 When `workspaces.status == 'done'`, the workspace is read-only.
 Vocabulary locks (from your design):
 
-| Surface | Copy |
-|---|---|
-| Status menu action | `Mark as done` |
-| State label | `Done` |
-| Read-only banner above composer | `This workspace is done and read-only` |
-| Reopen action | `Reopen workspace` |
-| Reopen confirmation | `Reopen this workspace? You'll be able to edit and run agents again.` |
+| Surface                         | Copy                                                                  |
+| ------------------------------- | --------------------------------------------------------------------- |
+| Status menu action              | `Mark as done`                                                        |
+| State label                     | `Done`                                                                |
+| Read-only banner above composer | `This workspace is done and read-only`                                |
+| Reopen action                   | `Reopen workspace`                                                    |
+| Reopen confirmation             | `Reopen this workspace? You'll be able to edit and run agents again.` |
 
 ### Mental model lock
 
@@ -489,7 +487,7 @@ Files: 1 (facade extension).
 - [ ] Discard / Discard-all buttons in Changes tab: hidden when frozen.
 - [ ] Terminal input: textarea `readonly`; PTY itself untouched.
 - [ ] Workspace status menu shows `Reopen workspace` instead of `Mark as
-      done` when current status is `done`.
+done` when current status is `done`.
 - [ ] **Manual checkpoint:** Mark a workspace done. Verify each gate.
       Reopen via menu (with confirmation). Verify all gates lift.
 
@@ -502,14 +500,8 @@ hide, terminal-input readonly, status-menu copy, banner component).
       typed Tauri-specta error.
 - [ ] Helper `assert_workspace_active(ws_id) -> Result<(), AppError>`
       reads `workspaces.status` and returns `Frozen` if `done`.
-- [ ] Guard added to (audit list):
-      - `spawn_run` (runner.rs)
-      - `send_prompt` if present (else `spawn_run` covers it)
-      - `file_write`, `file_save` (any FS-mutating commands)
-      - `run_script` (setup/run launcher — to be created in P0.3 or
-        re-used from existing terminal_registry)
-      - `terminal_input` (terminal.rs)
-      - `discard_changes_to` (sandbox/reset.rs)
+- [ ] Guard added to (audit list): - `spawn_run` (runner.rs) - `send_prompt` if present (else `spawn_run` covers it) - `file_write`, `file_save` (any FS-mutating commands) - `run_script` (setup/run launcher — to be created in P0.3 or
+      re-used from existing terminal_registry) - `terminal_input` (terminal.rs) - `discard_changes_to` (sandbox/reset.rs)
 - [ ] Allowed: `git_commit`, `create_pr` (closure flow).
 - [ ] **Manual checkpoint:** From devtools, force-call a Tauri command
       that's supposed to be blocked. Verify the typed error reaches
@@ -687,13 +679,13 @@ Files: 2 (Cargo.toml, dto module).
 #### Atom R0.3.B — Detector + probe
 
 - [ ] `mozart_config/detect.rs` exporting `detect_project(root: &Path)
-      -> ProjectDetection`.
+-> ProjectDetection`.
 - [ ] `ProjectDetection { has_mozart_dir, inferred_run: RunConfig,
-      package_manager: Option<String> }`.
+package_manager: Option<String> }`.
 - [ ] Pure function; one async call to read manifests via `tokio::fs`.
 - [ ] **Manual checkpoint:** Point at `mozart-go` repo → returns
       `{ has_mozart_dir: false, inferred: { setup: "pnpm install",
-      run: "pnpm dev" } }`. Point at a `Cargo.toml`-only repo → returns
+run: "pnpm dev" } }`. Point at a `Cargo.toml`-only repo → returns
       cargo defaults.
 
 Files: 1 + 5 unit tests (one per probe).
@@ -701,12 +693,9 @@ Files: 1 + 5 unit tests (one per probe).
 #### Atom R0.3.C — Schema validator
 
 - [ ] `mozart_config/validate.rs` exporting `validate_config(json:
-      &Value) -> Result<(), AppError>`.
-- [ ] Walks the object; rejects:
-      - Any key (at any depth) matching forbidden regex
-      - Any string value matching `Path::is_absolute()` heuristic
-      - Schema-version mismatch (settings.json `version` must match
-        a known set)
+&Value) -> Result<(), AppError>`.
+- [ ] Walks the object; rejects: - Any key (at any depth) matching forbidden regex - Any string value matching `Path::is_absolute()` heuristic - Schema-version mismatch (settings.json `version` must match
+      a known set)
 - [ ] **Manual checkpoint:** Hand-edit `.mozart/run.json` to include
       `"setup": "/Users/timothy/install.sh"` (absolute path) → Mozart
       surfaces the validation error on next read. App does not start
@@ -720,16 +709,12 @@ Files: 1 + 4 unit tests.
       side effects. Used by the bootstrap command and any future
       "rescan" surface.
 - [ ] `bootstrap_project(path) -> BootstrapResult` — the silent
-      first-run command. Runs detect, then:
-      - If `.mozart/` present and valid: read repo config, no DB
-        write.
-      - Else: write a `project_local_config` row with the inferred
-        `run_config`.
-      - In both cases: create the project row, the first workspace,
-        and the "Start" chat (existing `initialChatName` convention).
-      - Returns `{ project_id, first_workspace_id, start_chat_id,
-        source: 'repo' | 'local' | 'fallback',
-        detected: { setup, run, stack, has_mozart_dir } }`.
+      first-run command. Runs detect, then: - If `.mozart/` present and valid: read repo config, no DB
+      write. - Else: write a `project_local_config` row with the inferred
+      `run_config`. - In both cases: create the project row, the first workspace,
+      and the "Start" chat (existing `initialChatName` convention). - Returns `{ project_id, first_workspace_id, start_chat_id,
+source: 'repo' | 'local' | 'fallback',
+detected: { setup, run, stack, has_mozart_dir } }`.
 - [ ] `init_project_repo_from_local(project_id) -> ()` — deferred
       surface used only by the future "Save config to repo" action
       (TODO-006). Validates first; refuses to overwrite an existing
@@ -760,19 +745,17 @@ fallback when detection fails).
 - [ ] Emit a chat-timeline `system_info` entry into the Start chat at
       bootstrap time. The entry is **stored once** (not derived) so
       subsequent app launches don't replay it. Shape:
-      ```
-      kind: 'system_info'
-      title: 'Project ready'
-      bullets: [
-        'Repository: <basename>',
-        'Detected stack: <stack | "unknown">',
-        'Setup: <cmd> · Run: <cmd>'  | OR 'Setup / Run: not detected — add them in the Run tab',
-        'Sandbox: project access (default)',
-        source === 'repo'
-          ? 'Settings read from .mozart/ in this repository'
-          : 'Settings stored on this computer (move to repo in Settings)',
-      ]
-      ```
+      `    kind: 'system_info'
+title: 'Project ready'
+bullets: [
+  'Repository: <basename>',
+  'Detected stack: <stack | "unknown">',
+  'Setup: <cmd> · Run: <cmd>'  | OR 'Setup / Run: not detected — add them in the Run tab',
+  'Sandbox: project access (default)',
+  source === 'repo'
+    ? 'Settings read from .mozart/ in this repository'
+    : 'Settings stored on this computer (move to repo in Settings)',
+]`
 - [ ] **Manual checkpoint:** Open `mozart-go` as a new project (with
       its existing `.mozart/` removed for this test) → land directly
       in the first workspace; Start chat shows the system-info entry
@@ -816,16 +799,16 @@ Files: 1 (Open-project handler guard).
 #### Atom R0.3.H — `project_local_config` DB migration
 
 - [ ] New table:
-      ```sql
-      CREATE TABLE project_local_config (
-        project_id   TEXT PRIMARY KEY,
-        run_json     TEXT NOT NULL,     -- mirrors .mozart/run.json shape
-        merge_mode   TEXT NOT NULL DEFAULT 'pr',  -- 'pr' | 'local'
-        created_at   INTEGER NOT NULL,
-        updated_at   INTEGER NOT NULL,
-        FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
-      );
-      ```
+      `sql
+CREATE TABLE project_local_config (
+  project_id   TEXT PRIMARY KEY,
+  run_json     TEXT NOT NULL,     -- mirrors .mozart/run.json shape
+  merge_mode   TEXT NOT NULL DEFAULT 'pr',  -- 'pr' | 'local'
+  created_at   INTEGER NOT NULL,
+  updated_at   INTEGER NOT NULL,
+  FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+);
+`
 - [ ] **Manual checkpoint:** Migration applies on app launch; existing
       installs survive because the table is brand new.
 
@@ -889,8 +872,8 @@ composer stays visible whether the middle shell shows chat or a file.
 `feature-workspace-aside.ts:495-502` reads the bottom-tab from the URL
 `?tab=...` — that's global per-route, not per-workspace. The Files
 sub-tab (tree vs changes) is local component state, also not keyed by
-workspace. `FileTabsService.activeByWorkspace()` correctly keys *file
-paths* per workspace, but the panel-level UI choices leak.
+workspace. `FileTabsService.activeByWorkspace()` correctly keys _file
+paths_ per workspace, but the panel-level UI choices leak.
 
 ### Fix
 
@@ -1185,12 +1168,9 @@ Files: ~3.
 #### Atom A2.1.D — File save command
 
 - [ ] New Tauri command `file_save(workspace_id, relative_path,
-      content)` that:
-      1. Calls `validate_agent_path` (P0.1.D) — same guard rails.
-      2. Returns `Frozen` if the workspace is done.
-      3. Writes file atomically (tmp + rename).
+content)` that: 1. Calls `validate_agent_path` (P0.1.D) — same guard rails. 2. Returns `Frozen` if the workspace is done. 3. Writes file atomically (tmp + rename).
 - [ ] **Manual checkpoint:** Edit a file in Mozart, observe `git
-      status` shows the change.
+status` shows the change.
 
 Files: ~2 + 3 tests.
 
@@ -1211,7 +1191,7 @@ Files: ~2 + 3 tests.
 ### Viewed state (see [[mozart-viewed-principle]] for the design lock)
 
 - DB table `workspace_file_views(workspace_id, path, viewed_at,
-  viewed_at_hash)`.
+viewed_at_hash)`.
 - Auto-set on diff-open.
 - Stale = content-hash mismatch.
 - Visual states in Changes tab only: `not viewed` / `viewed` (muted) /
@@ -1346,11 +1326,11 @@ Files: ~2.
 
 ### Spec
 
-| Source tab | Click on file | Opens in |
-|---|---|---|
-| All files | a file | **Edit mode** in middle shell |
-| Changes | a file | **Diff mode** in middle shell |
-| Anywhere else | a file (e.g. context-menu "View") | **Diff mode** by default |
+| Source tab    | Click on file                     | Opens in                      |
+| ------------- | --------------------------------- | ----------------------------- |
+| All files     | a file                            | **Edit mode** in middle shell |
+| Changes       | a file                            | **Diff mode** in middle shell |
+| Anywhere else | a file (e.g. context-menu "View") | **Diff mode** by default      |
 
 The middle shell's `fileMode` signal is set by the click handler in
 `feature-workspace-aside` based on the current sub-tab.
@@ -1451,7 +1431,7 @@ Files: ~2.
 - [ ] Implementation in new `merge.rs`. Uses `sandbox::run_git`
       (existing helper) for the merge.
 - [ ] Returns `MergeOutcome { status: 'done' | 'conflict',
-      conflicting_files: Vec<String> }`.
+conflicting_files: Vec<String> }`.
 - [ ] Sets `workspace.status` on success, `'conflict'` on conflict.
 - [ ] **Manual checkpoint:** Hand-craft a conflict via raw git, call
       the command, observe outcome.
@@ -1580,7 +1560,7 @@ Files: 1-2.
 ### Action item to author
 
 The current Tauri icons in `apps/desktop/src-tauri/icons/` are the
-default scaffold logos (Square*Logo, icon.icns, icon.ico). To replace
+default scaffold logos (Square\*Logo, icon.icns, icon.ico). To replace
 them with the Mozart brand, the author should provide one **master
 SVG or 1024×1024 PNG** sourced from `libs/mozart-assets/` (or wherever
 the canonical Mozart logo lives). Mozart will then generate the full
@@ -1618,14 +1598,14 @@ cleanly: a project IS a repo, you OPEN it.
 
 ### Renames
 
-| Surface | Before | After |
-|---|---|---|
-| Header button + tooltip | `Add project` | `Open project` |
-| Dropdown entry — open existing | `Open existing` | `Open a repository on this machine` |
-| Dropdown entry — clone | `Clone repo` | `Clone from Git` |
-| Dropdown entry — create empty | `Create local folder` | `Create a new project` |
-| Empty state CTA | `Add project` | `Open project` |
-| Header context menu | `Add project` | `Open project` |
+| Surface                        | Before                | After                               |
+| ------------------------------ | --------------------- | ----------------------------------- |
+| Header button + tooltip        | `Add project`         | `Open project`                      |
+| Dropdown entry — open existing | `Open existing`       | `Open a repository on this machine` |
+| Dropdown entry — clone         | `Clone repo`          | `Clone from Git`                    |
+| Dropdown entry — create empty  | `Create local folder` | `Create a new project`              |
+| Empty state CTA                | `Add project`         | `Open project`                      |
+| Header context menu            | `Add project`         | `Open project`                      |
 
 ### Atom A3.7.A
 
@@ -1697,18 +1677,18 @@ The 12 regression tests are mandatory (per the skill's iron rule).
 For each new codepath, one realistic failure scenario and whether the
 plan covers it:
 
-| Codepath | Failure scenario | Test? | Handler? | User-visible? |
-|---|---|---|---|---|
-| P0.1 sandbox argv | `claude` binary upgrade changes flag names | ❌ | ✓ (error surfaces in stderr → timeline) | ✓ |
-| P0.1 path guard | Agent crafts symlink loop | ✓ | ✓ (canonicalize errors) | ✓ |
-| P0.1 sandbox L2 | Project has 100+ workspaces → argv > shell limit | ❌ | ❌ | **CRITICAL GAP** — see below |
-| P0.2 freeze | Race: status flips to `done` mid-spawn_run | ✓ | ✓ (status read fresh at spawn) | ✓ |
-| P0.2 reopen | Two windows open same workspace, one reopens, one stays frozen | ❌ | ✓ (Tauri events propagate) | ✓ |
-| P0.3 detect | Repo path with non-UTF8 bytes (cursed filenames) | ❌ | ❌ | partial — `Path` handles, error message may lose info |
-| P0.3 write | Disk full when writing `.mozart/run.json` | ✓ | ✓ (IO error → toast) | ✓ |
-| P1.1 tab persist | localStorage cleared by user → defaults restore | ✓ | ✓ (defaults are sensible) | silent |
-| P1.2 tree cache | FS watcher misses an event (Linux inotify limit) | ❌ | partial — full refetch on next visit | silent |
-| P2.6 merge | Power loss mid-merge → repo in interrupted state | ❌ | ❌ | **CRITICAL GAP** — see below |
+| Codepath          | Failure scenario                                               | Test? | Handler?                                | User-visible?                                         |
+| ----------------- | -------------------------------------------------------------- | ----- | --------------------------------------- | ----------------------------------------------------- |
+| P0.1 sandbox argv | `claude` binary upgrade changes flag names                     | ❌    | ✓ (error surfaces in stderr → timeline) | ✓                                                     |
+| P0.1 path guard   | Agent crafts symlink loop                                      | ✓     | ✓ (canonicalize errors)                 | ✓                                                     |
+| P0.1 sandbox L2   | Project has 100+ workspaces → argv > shell limit               | ❌    | ❌                                      | **CRITICAL GAP** — see below                          |
+| P0.2 freeze       | Race: status flips to `done` mid-spawn_run                     | ✓     | ✓ (status read fresh at spawn)          | ✓                                                     |
+| P0.2 reopen       | Two windows open same workspace, one reopens, one stays frozen | ❌    | ✓ (Tauri events propagate)              | ✓                                                     |
+| P0.3 detect       | Repo path with non-UTF8 bytes (cursed filenames)               | ❌    | ❌                                      | partial — `Path` handles, error message may lose info |
+| P0.3 write        | Disk full when writing `.mozart/run.json`                      | ✓     | ✓ (IO error → toast)                    | ✓                                                     |
+| P1.1 tab persist  | localStorage cleared by user → defaults restore                | ✓     | ✓ (defaults are sensible)               | silent                                                |
+| P1.2 tree cache   | FS watcher misses an event (Linux inotify limit)               | ❌    | partial — full refetch on next visit    | silent                                                |
+| P2.6 merge        | Power loss mid-merge → repo in interrupted state               | ❌    | ❌                                      | **CRITICAL GAP** — see below                          |
 
 ## Critical gaps
 
@@ -1734,22 +1714,22 @@ user can resolve via IDE — same flow as a normal conflict.
 Module-level dependency map (per [[feedback_atom_unit.md]] — atoms run
 end-to-end and commit independently):
 
-| Step | Modules touched | Depends on |
-|---|---|---|
-| P0.1 sandbox | src-tauri/claude_cli/, src-tauri/path_guard, workspaces domain | — |
-| P0.2 freeze | src-tauri/error, src-tauri/db/workspaces, multiple cmd sites, workspaces domain | — |
-| P0.3 bootstrap | src-tauri/mozart_config (new), src-tauri/db (new table), projects domain, chat domain (system_info entry) | — |
-| P1.1 tab persist | ui-state domain, workspaces/feature-workspace-aside | — |
-| P1.2 tree cache | repositories domain | P1.1 (small overlap on uiState) |
-| P1.3 chat refactor | chat domain rename → workspaces/feature-workspace-middle | — |
-| P2.1 editor | libs/mozart-ui/code-editor (new), repositories/feature-file-content | P1.3 |
-| P2.2 viewed | src-tauri/db (new table), repositories/feature-file-toolbar | P2.1 |
-| P2.3 hunks | repositories/util-diff-parser, repositories/ui-diff-view | P2.1 |
-| P2.4 tab-aware | workspaces/feature-workspace-aside, workspaces/feature-workspace-middle | P1.3, P2.1 |
-| P2.5 context menu | repositories | — |
-| P2.6 merge-now | src-tauri/merge (new), workspaces domain | P0.2 (uses freeze) |
-| P2.7 auto-route | workspaces domain | P1.1 |
-| P3 polish | scattered | — |
+| Step               | Modules touched                                                                                           | Depends on                      |
+| ------------------ | --------------------------------------------------------------------------------------------------------- | ------------------------------- |
+| P0.1 sandbox       | src-tauri/claude_cli/, src-tauri/path_guard, workspaces domain                                            | —                               |
+| P0.2 freeze        | src-tauri/error, src-tauri/db/workspaces, multiple cmd sites, workspaces domain                           | —                               |
+| P0.3 bootstrap     | src-tauri/mozart_config (new), src-tauri/db (new table), projects domain, chat domain (system_info entry) | —                               |
+| P1.1 tab persist   | ui-state domain, workspaces/feature-workspace-aside                                                       | —                               |
+| P1.2 tree cache    | repositories domain                                                                                       | P1.1 (small overlap on uiState) |
+| P1.3 chat refactor | chat domain rename → workspaces/feature-workspace-middle                                                  | —                               |
+| P2.1 editor        | libs/mozart-ui/code-editor (new), repositories/feature-file-content                                       | P1.3                            |
+| P2.2 viewed        | src-tauri/db (new table), repositories/feature-file-toolbar                                               | P2.1                            |
+| P2.3 hunks         | repositories/util-diff-parser, repositories/ui-diff-view                                                  | P2.1                            |
+| P2.4 tab-aware     | workspaces/feature-workspace-aside, workspaces/feature-workspace-middle                                   | P1.3, P2.1                      |
+| P2.5 context menu  | repositories                                                                                              | —                               |
+| P2.6 merge-now     | src-tauri/merge (new), workspaces domain                                                                  | P0.2 (uses freeze)              |
+| P2.7 auto-route    | workspaces domain                                                                                         | P1.1                            |
+| P3 polish          | scattered                                                                                                 | —                               |
 
 ### Parallel lanes
 
@@ -1780,6 +1760,7 @@ Lane N: P3.* polish              ← after corresponding feature lane,
 ```
 
 **Conflict flags:**
+
 - P1.1 ↔ P1.2: both touch `ui-state.store.ts`. Schedule sequentially
   in the same lane OR ensure the same author runs both atoms back-to-
   back to avoid merge conflicts on the store file.
@@ -2026,7 +2007,7 @@ to AD-06 / P0.3.E.
 - Lake Score: **6 / 6** decisions chose the complete option (sandbox
   3-level, freeze 2-layer, viewed full design, editor full-CM6, repo
   init full screen + 5-stack probe, merge with conflict detection
-  + status update).
+  - status update).
 
 ---
 
@@ -2038,15 +2019,16 @@ Focused review on the first-run flow (Open project → repo detection →
 config storage → first workspace → agent run → diff review → freeze).
 Findings + resolutions:
 
-| # | Finding | Resolution |
-|---|---|---|
-| F1 | Repo init screen forced a config-storage choice before the user had seen Mozart do anything. Violated [[mozart-repo-init-principle]]'s own "local default" principle by surfacing the choice. | **Defer entirely.** P0.3 restructured: silent local default. AD-06 updated. Old R0.3.E (Repo init UI) replaced with R0.3.E (Wire `bootstrap_project` + Start-chat init entry). R0.3.F repurposed (system_info entry kind). R0.3.G repurposed (Open-project guard). |
-| F2 | "Add project" overloads three intents and uses list-management framing rather than workspace-orchestration framing. | **Renamed to "Open project"** across the dropdown + buttons. Dropdown entries renamed too. New atom P3.7 / A3.7.A. |
-| F3 | Vocab leaks: "Repo init", "Prepare repository", "Keep local" / "Add to repo", awkward reopen-modal copy. | **All replaced.** "Repo init" section retitled "Project bootstrap on Open project". "Keep local" / "Add to repo" deleted from first-run path (the silent default removes the choice). Reopen modal tightened to active voice. |
-| F4 | Sandbox-level menu in workspace status menu exposed 3 radio options with internal-jargon labels that a first-run user can't interpret. | **Debug-gated only for v0.** S0.1.E rewritten — data path stays, menu UI deleted. TODO-008 captures the proper "Security settings panel" surface. |
-| F5/F6 | First-time magical moment undesigned. First workspace creation step never explicit. | **Bootstrap auto-creates the first workspace + "Start" chat.** The Start chat's first timeline entry is a one-time `system_info` card summarising what was detected. Composer renders with its usual placeholder — no AI-suggested first prompt. New atom R0.3.F adds the `system_info` chat-timeline entry kind. |
+| #     | Finding                                                                                                                                                                                       | Resolution                                                                                                                                                                                                                                                                                                        |
+| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1    | Repo init screen forced a config-storage choice before the user had seen Mozart do anything. Violated [[mozart-repo-init-principle]]'s own "local default" principle by surfacing the choice. | **Defer entirely.** P0.3 restructured: silent local default. AD-06 updated. Old R0.3.E (Repo init UI) replaced with R0.3.E (Wire `bootstrap_project` + Start-chat init entry). R0.3.F repurposed (system_info entry kind). R0.3.G repurposed (Open-project guard).                                                |
+| F2    | "Add project" overloads three intents and uses list-management framing rather than workspace-orchestration framing.                                                                           | **Renamed to "Open project"** across the dropdown + buttons. Dropdown entries renamed too. New atom P3.7 / A3.7.A.                                                                                                                                                                                                |
+| F3    | Vocab leaks: "Repo init", "Prepare repository", "Keep local" / "Add to repo", awkward reopen-modal copy.                                                                                      | **All replaced.** "Repo init" section retitled "Project bootstrap on Open project". "Keep local" / "Add to repo" deleted from first-run path (the silent default removes the choice). Reopen modal tightened to active voice.                                                                                     |
+| F4    | Sandbox-level menu in workspace status menu exposed 3 radio options with internal-jargon labels that a first-run user can't interpret.                                                        | **Debug-gated only for v0.** S0.1.E rewritten — data path stays, menu UI deleted. TODO-008 captures the proper "Security settings panel" surface.                                                                                                                                                                 |
+| F5/F6 | First-time magical moment undesigned. First workspace creation step never explicit.                                                                                                           | **Bootstrap auto-creates the first workspace + "Start" chat.** The Start chat's first timeline entry is a one-time `system_info` card summarising what was detected. Composer renders with its usual placeholder — no AI-suggested first prompt. New atom R0.3.F adds the `system_info` chat-timeline entry kind. |
 
 Inputs that shaped this:
+
 - User is the persona (solo founder dogfooding Mozart on Mozart) and
   the next target persona (developer hearing "Cursor for workspace
   orchestration" and downloading Mozart).
