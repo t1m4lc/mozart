@@ -1,10 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmThemeToggle } from '@mozart-ui/theme-toggle';
 import { HlmButton } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowDown,
@@ -12,8 +13,12 @@ import {
   lucideMenu,
   lucideX,
 } from '@ng-icons/lucide';
+import { AnalyticsService } from './analytics/analytics.service';
+import { detectOsTag } from './analytics/detect-os';
+import { pageSection } from './analytics/page-section';
 import {
   DOWNLOAD_DIALOG_CLASS,
+  DOWNLOAD_DIALOG_SOURCES,
   DownloadDialogComponent,
 } from './download-dialog.component';
 import { PRIMARY_NAV } from './nav-model';
@@ -145,6 +150,9 @@ export class SiteHeaderComponent {
   protected readonly nav = PRIMARY_NAV;
   protected readonly menuOpen = signal(false);
   private readonly dialog = inject(HlmDialogService);
+  private readonly analytics = inject(AnalyticsService);
+  private readonly os = inject(OsService);
+  private readonly router = inject(Router);
 
   protected toggleMenu(): void {
     this.menuOpen.update((open) => !open);
@@ -155,8 +163,19 @@ export class SiteHeaderComponent {
   }
 
   protected openDownload(): void {
+    const source = DOWNLOAD_DIALOG_SOURCES.header;
+    const path = this.router.url.split('?')[0].split('#')[0] || '/';
+    const section = pageSection(path);
+    const osTag = detectOsTag(this.os);
+    this.analytics.capture('download_cta_clicked', {
+      source,
+      section,
+      os: osTag,
+      path,
+    });
     this.dialog.open(DownloadDialogComponent, {
       contentClass: DOWNLOAD_DIALOG_CLASS,
+      context: { source, section },
     });
   }
 }

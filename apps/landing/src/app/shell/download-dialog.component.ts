@@ -12,13 +12,29 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
-import { BrnDialogRef } from '@spartan-ng/brain/dialog';
+import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
+import { AnalyticsService } from './analytics/analytics.service';
+import { detectOsTag } from './analytics/detect-os';
+import { type PageSection, pageSection } from './analytics/page-section';
 import { SITE_CONFIG } from './site-config';
 
 type Primary = {
   readonly label: string;
   readonly href: string;
   readonly icon: 'apple' | 'windows' | 'linux';
+};
+
+export const DOWNLOAD_DIALOG_SOURCES = {
+  hero: 'hero',
+  header: 'header',
+} as const;
+
+export type DownloadDialogSource =
+  (typeof DOWNLOAD_DIALOG_SOURCES)[keyof typeof DOWNLOAD_DIALOG_SOURCES];
+
+type DownloadDialogContext = {
+  readonly source?: DownloadDialogSource;
+  readonly section?: PageSection;
 };
 
 // Pass to `dialog.open(DownloadDialogComponent, { contentClass: ... })`.
@@ -52,6 +68,7 @@ export const DOWNLOAD_DIALOG_CLASS =
         [href]="primary().href"
         target="_blank"
         rel="noopener noreferrer"
+        (click)="onRedirect('primary')"
         class="group w-full justify-between py-6"
       >
         <span class="flex items-center gap-2">
@@ -92,6 +109,7 @@ export const DOWNLOAD_DIALOG_CLASS =
         [href]="secondary().href"
         target="_blank"
         rel="noopener noreferrer"
+        (click)="onRedirect('secondary')"
         class="group w-full justify-between py-6"
       >
         <span class="text-base">{{ secondary().label }}</span>
@@ -105,6 +123,7 @@ export const DOWNLOAD_DIALOG_CLASS =
             [href]="buildHref('mac-intel')"
             target="_blank"
             rel="noopener noreferrer"
+            (click)="onRedirect('intel-mac')"
             class="text-foreground hover:underline"
           >
             Join the Intel-Mac beta team
@@ -117,17 +136,37 @@ export const DOWNLOAD_DIALOG_CLASS =
 export class DownloadDialogComponent {
   protected readonly os = inject(OsService);
   private readonly ref = inject(BrnDialogRef);
+  private readonly analytics = inject(AnalyticsService);
+  private readonly ctx =
+    injectBrnDialogContext<DownloadDialogContext>({ optional: true });
+  private readonly source: DownloadDialogSource | 'unknown' =
+    this.ctx?.source ?? 'unknown';
   private readonly betaBase = SITE_CONFIG.downloads.beta;
   // Captured at dialog-open time so analytics see the page that triggered the modal,
   // not whatever the router lands on after a click.
   private readonly fromPath =
     inject(Router).url.split('?')[0].split('#')[0] || '/';
+  private readonly section: PageSection =
+    this.ctx?.section ?? pageSection(this.fromPath);
 
   protected buildHref(os: string): string {
     const url = new URL(this.betaBase);
     url.searchParams.set('os', os);
     url.searchParams.set('from', this.fromPath);
+    url.searchParams.set('source', this.source);
+    const distinctId = this.analytics.distinctId();
+    if (distinctId) url.searchParams.set('dl_id', distinctId);
     return url.toString();
+  }
+
+  protected onRedirect(cta: 'primary' | 'secondary' | 'intel-mac'): void {
+    this.analytics.capture('download_tally_redirected', {
+      source: this.source,
+      section: this.section,
+      os: detectOsTag(this.os),
+      cta,
+      dl_id: this.analytics.distinctId(),
+    });
   }
 
   protected readonly primary = computed<Primary>(() => {
@@ -189,6 +228,7 @@ export class DownloadDialogComponent {
   @HostListener('document:keydown.enter')
   protected onEnter(): void {
     if (typeof window === 'undefined') return;
+    this.onRedirect('primary');
     window.open(this.primary().href, '_blank', 'noopener,noreferrer');
     this.ref.close();
   }

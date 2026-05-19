@@ -1,16 +1,21 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { HlmButton } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowDown,
   lucideArrowRight,
   lucideDownload,
 } from '@ng-icons/lucide';
+import { AnalyticsService } from '../../shell/analytics/analytics.service';
+import { detectOsTag } from '../../shell/analytics/detect-os';
+import { pageSection } from '../../shell/analytics/page-section';
 import {
   DOWNLOAD_DIALOG_CLASS,
+  DOWNLOAD_DIALOG_SOURCES,
   DownloadDialogComponent,
 } from '../../shell/download-dialog.component';
 import {
@@ -86,10 +91,24 @@ import {
 })
 export class HeroComponent {
   private readonly dialog = inject(HlmDialogService);
+  private readonly analytics = inject(AnalyticsService);
+  private readonly os = inject(OsService);
+  private readonly router = inject(Router);
 
   protected openDownload(): void {
+    const source = DOWNLOAD_DIALOG_SOURCES.hero;
+    const path = this.router.url.split('?')[0].split('#')[0] || '/';
+    const section = pageSection(path);
+    const osTag = detectOsTag(this.os);
+    this.analytics.capture('download_cta_clicked', {
+      source,
+      section,
+      os: osTag,
+      path,
+    });
     this.dialog.open(DownloadDialogComponent, {
       contentClass: DOWNLOAD_DIALOG_CLASS,
+      context: { source, section },
     });
   }
 

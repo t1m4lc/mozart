@@ -44,8 +44,6 @@ This spec covers the `telemetry` domain only. The separate **`metrics`** domain 
    ↓ (or from /docs/*, /blog/*, /changelog/*)
 [download_cta_clicked]       ← intent — source: 'hero' | 'header'
    ↓
-[download_dialog_opened]
-   ↓
 [download_tally_redirected]  ← proxy for "download started"
    ⤵   ⤴ (Tally form fill + email + binary delivery — out-of-band)
 [app_opened]                 ← desktop first launch → "installed"
@@ -72,9 +70,8 @@ This spec covers the `telemetry` domain only. The separate **`metrics`** domain 
 | `$pageview` | every Angular `NavigationEnd` | `$current_url`, `$referrer`, `$referring_domain`, UTM params |
 | `doc_viewed` | `/docs/<slug>` renders | `slug`, `title`, `section` |
 | `blog_post_viewed` | `/blog/<slug>` renders | `slug`, `title`, `authors[]`, `has_hero` |
-| `download_cta_clicked` | Download button click (hero or header) | `source: 'hero' \| 'header'`, `path` |
-| `download_dialog_opened` | `DownloadDialogComponent` mounted | `source`, `os`, `from` |
-| `download_tally_redirected` | primary/secondary CTA click or Enter key | `source`, `os`, `dl_id` |
+| `download_cta_clicked` | Download button click (hero or header) | `source: 'hero' \| 'header'`, `section: 'home' \| 'blog' \| 'docs' \| 'changelog' \| 'download' \| 'other'`, `os`, `path` |
+| `download_tally_redirected` | primary/secondary CTA click or Enter key inside dialog | `source`, `section`, `os`, `cta`, `dl_id` |
 
 ### Web (`app.mozart.build`) — gated on `apps/web` login page existence
 
@@ -101,12 +98,13 @@ Anonymous **`install_id`** = v4 UUID generated once on first Rust `setup` hook, 
 
 - [x] **A.1** Create PostHog Cloud project (EU region recommended for GDPR data residency). Add hidden `dl_id` field in Tally form `eq07lQ`. _(user action)_
 - [x] **A.2** Install `posthog-js` in `apps/landing/`; add `VITE_POSTHOG_KEY` + `VITE_POSTHOG_HOST` env vars; commit `.env.example`; ensure `.env.local` is gitignored.
-- [x] **A.3** Create `apps/landing/src/app/shell/analytics/analytics.service.ts` — browser-only wrapper (`isPlatformBrowser(PLATFORM_ID)` guard). Init with `{ cross_subdomain_cookie: true, persistence: 'localStorage+cookie', capture_pageview: 'history_change', capture_pageleave: 'if_capture_pageview', autocapture: false, capture_performance: false, disable_session_recording: true }`. Native `'history_change'` mode patches `history.pushState`/`replaceState` so Angular router navs auto-emit one `$pageview` each — no manual subscription needed. Other auto-features off for a GA-like stream. Methods: `init()`, `capture(event, props)`, `distinctId()`, `identify(userId, props)`.
+- [x] **A.3** Create `apps/landing/src/app/shell/analytics/analytics.service.ts` — browser-only wrapper (`isPlatformBrowser(PLATFORM_ID)` guard). Init with `{ cross_subdomain_cookie: true, persistence: 'localStorage+cookie', capture_pageview: 'history_change', capture_pageleave: false, autocapture: false, capture_performance: false, disable_session_recording: true, request_batching: false }` — GA-like single Pageview per nav, no Pageleave/click-heatmaps/session-recording/web-vitals, and `request_batching: false` so each capture is its own HTTP request (no batch delay; revisit if traffic justifies it). Methods: `init()`, `capture(event, props)`, `distinctId()`, `identify(userId, props)`. Internal queue flushes pre-init `capture()` calls once the SDK lazy-loads, so events fired right after page load don't drop.
 - [x] **A.4** (removed — superseded by A.3 native pageviews; no manual page-tracker file).
 - [x] **A.5** Hook `App` root (`apps/landing/src/app/app.ts:27`) to call `analytics.init()` inside `afterNextRender`. SSR/prerender stays untouched.
-- [ ] **A.6** Track `download_cta_clicked` in `hero.component.ts:90` and `site-header.component.ts:157`. Pass `source: 'hero' | 'header'` via dialog data to `DownloadDialogComponent`.
-- [ ] **A.7** Track `download_dialog_opened` in `download-dialog.component.ts` constructor (with `source`, `os`, `from`).
-- [ ] **A.8** Track `download_tally_redirected` on primary/secondary anchor click + `onEnter()` (`download-dialog.component.ts:189-194`).
+- [x] **A.6** Track `download_cta_clicked` from `hero.component.ts` and `site-header.component.ts` openers (with `source`, `section`, `os`, `path`). `section` is derived from the current path via `pageSection()` (home/blog/docs/changelog/download/other) — lets us slice header clicks by where the user was reading. Pass `source` + `section` via dialog context to `DownloadDialogComponent`. Share `detectOsTag(OsService)` and `pageSection(path)` as functional helpers under `apps/landing/src/app/shell/analytics/`.
+- [x] **A.7** (removed — `download_dialog_opened` was redundant with `download_cta_clicked` since clicking a CTA always opens the dialog. Dropped to keep the funnel to three meaningful steps.)
+- [x] **A.8** Track `download_tally_redirected` on primary/secondary anchor click + `onEnter()` in `download-dialog.component.ts` (with `source`, `section`, `os`, `cta`, `dl_id`).
+- [x] **A.9** Append `dl_id = analytics.distinctId()` and `source` to Tally URL via `buildHref()` in `download-dialog.component.ts`, alongside existing `os` and `from`.
 - [ ] **A.9** Append `dl_id = analytics.distinctId()` to Tally URL in `download-dialog.component.ts:buildHref()` (line 126-131), alongside existing `os` and `from`.
 - [ ] **A.10** Track `doc_viewed` from existing `effect()` in `docs.page.ts:101-118` when `currentDetail()` changes.
 - [ ] **A.11** Track `blog_post_viewed` from existing `effect()` in `blog.page.ts:119-135` when `currentPost()` changes.
