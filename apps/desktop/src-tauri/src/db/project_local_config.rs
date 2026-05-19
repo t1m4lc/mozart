@@ -155,7 +155,7 @@ mod tests {
     #[test]
     fn fk_cascades_when_repo_deleted() {
         let db = init_db_memory().unwrap();
-        let mut conn = db.lock();
+        let conn = db.lock();
         let project_id = seed_repo(&conn);
         let row = ProjectLocalConfig {
             project_id: project_id.clone(),

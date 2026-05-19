@@ -46,6 +46,7 @@ const WIPE_ORDER: &[&str] = &[
     "threads",
     "workspaces",
     "tasks",
+    "project_local_config",
     "repos",
     "events_outbox",
     "config",

@@ -107,6 +107,7 @@ fn apply_migrations(conn: &Connection) -> Result<(), AppError> {
     }
     patch_workspaces_columns(conn)?;
     patch_repos_user_state_columns(conn)?;
+    patch_project_local_config_table(conn)?;
     Ok(())
 }
 
@@ -168,6 +169,31 @@ fn patch_repos_user_state_columns(conn: &Connection) -> Result<(), AppError> {
     }
     if !cols.iter().any(|c| c == "run_command") {
         conn.execute_batch("ALTER TABLE repos ADD COLUMN run_command TEXT")?;
+    }
+    Ok(())
+}
+
+/// Idempotently (re-)create `project_local_config` at v7. Dev DB snapshots
+/// from pre-merge builds of P0.3.H landed with `schema_version = 7` set
+/// but the CREATE TABLE never finalized — this guard heals those snapshots
+/// on next boot. No-op when the table already exists.
+fn patch_project_local_config_table(conn: &Connection) -> Result<(), AppError> {
+    let n: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='project_local_config'",
+        [],
+        |r| r.get(0),
+    )?;
+    if n == 0 {
+        conn.execute_batch(
+            "CREATE TABLE project_local_config (\n\
+                project_id   TEXT PRIMARY KEY,\n\
+                run_json     TEXT NOT NULL,\n\
+                merge_mode   TEXT NOT NULL DEFAULT 'pr',\n\
+                created_at   INTEGER NOT NULL,\n\
+                updated_at   INTEGER NOT NULL,\n\
+                FOREIGN KEY (project_id) REFERENCES repos(repo_id) ON DELETE CASCADE\n\
+            );",
+        )?;
     }
     Ok(())
 }
@@ -312,5 +338,46 @@ mod tests {
         let b = new_id();
         assert_ne!(a, b);
         assert_eq!(a.len(), 36); // UUID canonical form
+    }
+}
+
+#[cfg(test)]
+mod heal_test {
+    use super::*;
+
+    #[test]
+    fn patch_recreates_missing_project_local_config_at_v7() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("legacy.db");
+        // Simulate the bad state: v7 set, but project_local_config table
+        // does not exist. (Run migrations 1-6 manually, then bump version.)
+        {
+            let conn = Connection::open(&path).unwrap();
+            apply_pragmas(&conn).unwrap();
+            for (target, sql) in &MIGRATIONS[..6] {
+                conn.execute_batch(sql).unwrap();
+                assert!(*target <= 6);
+            }
+            conn.execute("UPDATE schema_version SET version = 7", []).unwrap();
+            let n: i64 = conn
+                .query_row(
+                    "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='project_local_config'",
+                    [],
+                    |r| r.get(0),
+                )
+                .unwrap();
+            assert_eq!(n, 0, "table should be missing in the simulated bad state");
+        }
+        // init_db must heal: the patch creates the missing table.
+        let _db = init_db(&path).expect("init_db heals legacy DB");
+        let conn = Connection::open(&path).unwrap();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='project_local_config'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1, "patch should re-create project_local_config");
     }
 }
