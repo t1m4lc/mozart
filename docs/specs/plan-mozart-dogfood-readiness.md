@@ -184,7 +184,7 @@ The five locked architectural decisions, with one-line rationale.
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4.                                                                                                                                                                                                                                                                                                                   | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
 | AD-02 | **Merge routing** = `.mozart/run.json` derives no merge preference; per-project `mergeMode` lives in **Mozart local DB** (`project_local_config`); per-workspace `last_merge_action` overrides it for the primary-button label, IDE-button style.                                                                                                                                                                                                                                                               | User-specific preference, never shared with team. Last-action memory mirrors the existing Open-in-IDE pattern.                                                                                                                                                 |
-| AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Auto-set on diff open. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]].                                                                                                                                                                                                                                                                                                 | Reduces review cognitive load without ceremony.                                                                                                                                                                                                                |
+| AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Explicit reviewer action from the diff toolbar, never automatic on open. Review progress count. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]].                                                                                                                                                                                                                         | Reduces review cognitive load without ceremony while preserving the GitHub-style "I checked this file" intent.                                                                                                                                                  |
 | AD-04 | **Editor** = CodeMirror 6 + `@codemirror/merge`. One library drives Diff (unified+split) and Edit modes. `.md` files open as code.                                                                                                                                                                                                                                                                                                                                                                              | Lightweight, modular, minimal-feeling, ~250KB gzipped. Monaco is heavier and harder to keep visually minimal.                                                                                                                                                  |
 | AD-05 | **Freeze** = frontend `isFrozen` signal + Rust IPC guards on every mutating command with new `AppError::Frozen` variant. Belt-and-braces.                                                                                                                                                                                                                                                                                                                                                                       | Single-source enforcement (frontend-only) is fragile; layered is robust.                                                                                                                                                                                       |
 | AD-06 | **Project bootstrap** = silent local default on Open project. No screen. Detect → write `project_local_config` row → auto-create first workspace → auto-create "Start" chat. The Start chat's timeline shows a system-info entry summarising the inferred setup/run + sandbox level + storage location. Two-file split (`.mozart/settings.json` + `.mozart/run.json`) is reserved for the deferred "Save config to repo" action (P4 / TODO-006). Mozart never auto-commits. See [[mozart-repo-init-principle]]. | The first-run user has no basis to choose between local and repo config. Defaulting to local matches the principle, removes a screen, and uses the existing chat timeline as the surface for the inference result. Decided 2026-05-19 in `/plan-devex-review`. |
@@ -1141,10 +1141,11 @@ pinned comment).
 # P2 — Review UX
 
 Demoable milestone: after an agent run, the right-aside auto-routes to
-the Changes tab, the user clicks through 5 files (each auto-marked
-viewed on open), uses the diff toolbar to flip one to unified view, one
-to Edit mode and tweaks a line, marks all viewed for the trivial ones,
-clicks `Merge now`, the workspace transitions to `done` and freezes.
+the Changes tab, the user reviews 5 files, explicitly marks the trivial
+ones viewed, uses the diff toolbar to flip one to unified view, opens
+one in Edit mode and tweaks a line, confirms the edited file is marked
+`changed since viewed`, clicks `Merge now`, the workspace transitions
+to `done` and freezes.
 
 ## P2.1 — Code editor (CodeMirror 6) + line numbers
 
@@ -1258,22 +1259,57 @@ hide the underline (`after:hidden!`) when this toolbar lives next
 to the filename badge so the active state reads as a brand-tinted
 pill, not an underlined tab.
 
+### Spartan / Mozart UI component rule
+
+- Use Spartan primitives from `@mozart/ui/*` wherever they exist. Do not
+  hand-roll disclosure, progress, badge, menu, tooltip, tabs, dialog,
+  button, separator, or skeleton behavior.
+- Do not edit `libs/ui/**`; it is vendored Spartan. Compose Mozart-owned
+  components in `libs/mozart-ui/**` or app-domain UI files.
+- Create a reusable `mz-review-progress` component in `libs/mozart-ui`
+  for the review summary. It composes:
+  - `HlmProgressImports` for the reviewed ratio.
+  - `HlmCollapsibleImports` for optional detail disclosure.
+  - `HlmButtonImports` for `Review remaining` / `Mark all viewed`.
+  - `HlmBadgeImports` for file-state chips.
+  - `HlmTooltipImports` and `HlmSeparatorImports` where labels or
+    grouping need them.
+  - Existing `mz-diff-stats` only for `+added / -removed` line stats;
+    do not overload it with file review state.
+- `mz-review-progress` public inputs:
+  `viewedCount`, `changedCount`, `remainingCount`, `changedSinceViewedCount`,
+  and `fileStateCounts` for `added | modified | deleted | renamed | copied | untracked`.
+  Outputs: `reviewRemaining` and `markAllViewed`.
+- The collapsed row shows only the dense GitHub-style summary:
+  `N viewed / M changed` plus a compact progress bar. Expanding reveals
+  file-state counts and changed-since-viewed count.
+- Use `@defer` only around heavy surfaces that actually save startup or
+  tab-switch cost (CodeMirror diff/edit panel, long diff renderer, or
+  modal body with expensive dependencies). Do not defer small controls
+  such as the toolbar, `mz-review-progress`, context menus, badges, or
+  the collapsible trigger.
+
 ### Viewed state (see [[mozart-viewed-principle]] for the design lock)
 
 - DB table `workspace_file_views(workspace_id, path, viewed_at,
 viewed_at_hash)`.
-- Auto-set on diff-open.
-- Stale = content-hash mismatch.
+- Explicit action only: opening a file never marks it viewed. The diff
+  toolbar checkbox/action marks the current file viewed or unviewed.
+- Stale = content-hash mismatch. If a viewed file changes after review,
+  it becomes `changed since viewed` and no longer counts as reviewed.
 - Visual states in Changes tab only: `not viewed` / `viewed` (muted) /
   `changed since viewed` (small ↻ marker) / `staged` (orthogonal chip).
+- Review progress is shown near the Changes review surface through
+  `mz-review-progress` as `N viewed / M changed`. `changed since viewed`
+  counts as remaining.
 - Discreet visuals — never in All Files or file tree.
 
 ### Soft warning at merge/PR/commit
 
 Modal title: _"Some changes haven't been reviewed"_
 Body: _"You haven't viewed N files."_
-Actions: `[Review remaining]` (close modal, route to first unviewed)
-/ `[Continue anyway]`. No hard gate.
+Actions: `[Review remaining]` (close modal, route to first unviewed
+or `changed since viewed` file) / `[Continue anyway]`. No hard gate.
 
 ### Atoms
 
@@ -1289,30 +1325,59 @@ Files: ~3 + 1 migration.
 
 - [ ] `mark_file_viewed(workspace_id, path)` — computes content hash
       on the Rust side (sha256 truncated to 16 chars), upserts.
+      Called only from explicit reviewer actions, never from file open.
 - [ ] `list_file_views(workspace_id)` — returns map of path → state
       (`viewed` | `changed_since_viewed`) by comparing stored
       `viewed_at_hash` to current content hash for each changed file.
-- [ ] `mark_all_viewed(workspace_id)` — bulk upsert.
-- [ ] `clear_file_view(workspace_id, path)` — for discard flow.
+- [ ] `mark_all_viewed(workspace_id)` — deliberate bulk action that
+      marks every currently changed file viewed.
+- [ ] `clear_file_view(workspace_id, path)` — for discard flow or
+      explicit mark-unviewed.
 - [ ] **Manual checkpoint:** Sanity each command via devtools.
 
 Files: ~4 commands.
 
 #### Atom A2.2.C — `FileViewsFacade` + signal store
 
-- [ ] Per-workspace map signal driving the Changes tab.
-- [ ] On agent-run-end event (P2.7), re-fetch.
+- [ ] Per-workspace map signal driving the Changes tab and
+      `mz-review-progress` input model.
+- [ ] Keep durable Viewed state in `FileViewsFacade`; keep purely UI
+      review state (expanded progress details, selected review file,
+      expanded hunk context) in an NgRx SignalStore slice, reusing
+      `UiStateStore` if the state is cross-domain or creating a narrow
+      repositories UI store if it stays local to the review surface.
+- [ ] On agent-run-end event (P2.7), re-fetch and invalidate any
+      viewed file whose current content hash changed.
 - [ ] **Manual checkpoint:** Agent edits a viewed file → state flips
       to `changed since viewed` after run completion.
 
 Files: ~3.
 
-#### Atom A2.2.D — Diff toolbar component
+#### Atom A2.2.D — `mz-review-progress` component
+
+- [ ] Add a Mozart-owned reusable component in `libs/mozart-ui`.
+      It renders the collapsed `N viewed / M changed` row, progress bar,
+      and optional Collapsible details for file state counts:
+      `added | modified | deleted | renamed | copied | untracked`.
+- [ ] Compose Spartan primitives only: `HlmProgressImports`,
+      `HlmCollapsibleImports`, `HlmButtonImports`, `HlmBadgeImports`,
+      `HlmTooltipImports`, and `HlmSeparatorImports` from
+      `@mozart/ui/*`. Reuse `mz-diff-stats` for line-count stats only
+      when line additions/removals are displayed nearby.
+- [ ] Outputs: `reviewRemaining`, `markAllViewed`. No data fetching or
+      mutation inside the component.
+- [ ] **Manual checkpoint:** Render in sandbox/app with 0/0, partial,
+      complete, and changed-since-viewed states; Collapsible expands and
+      collapses without changing Viewed state.
+
+Files: ~2.
+
+#### Atom A2.2.E — Diff toolbar component
 
 - [ ] New `feature-file-toolbar` in the repositories domain.
 - [ ] Renders the layout above. Inputs: filePath, viewedState,
-      isFrozen, currentDiffMode, currentFileMode. Outputs: toggle
-      events.
+      isFrozen, currentDiffMode, currentFileMode. Outputs: explicit
+      mark-viewed / mark-unviewed events plus mode toggle events.
 - [ ] **Both segmented toggles (`[Unified|Split]`, `[Diff|Edit]`)
       MUST use `<hlm-tabs>` with icon-only `hlmTabsTrigger`s**, per
       the "Tabs implementation" note in the section above. Do not
@@ -1320,15 +1385,18 @@ Files: ~3.
       keyboard nav for free, and aligns visually with the P1.2/B1
       aside migration.
 - [ ] **Manual checkpoint:** Render in sandbox app with each state.
-      Verify discreet visual treatment matches the lock.
+      Verify opening a file does not mark it viewed, the explicit
+      toolbar action does, and discreet visual treatment matches the
+      lock.
 
 Files: ~3.
 
-#### Atom A2.2.E — Soft-warning modal
+#### Atom A2.2.F — Soft-warning modal
 
-- [ ] On `merge-now` or `create-pr` click, if any file has state ≠
-      `viewed`, open modal. On `[Review remaining]`, route to first
-      unviewed file. On `[Continue anyway]`, proceed with the action.
+- [ ] On `merge-now` or `create-pr` click, if any changed file has
+      state ≠ `viewed`, open modal. On `[Review remaining]`, route to
+      the first `not viewed` or `changed since viewed` file. On
+      `[Continue anyway]`, proceed with the action.
 - [ ] **Manual checkpoint:** Trigger with 0 unviewed → no modal.
       Trigger with 2 unviewed → modal with correct count.
 
@@ -1336,7 +1404,7 @@ Files: ~2.
 
 ---
 
-## P2.3 — Grouped diff hunks + expand bars
+## P2.3 — Grouped diff hunks + progressive context reveal
 
 ### Visual target
 
@@ -1363,15 +1431,19 @@ Files: ~2.
 ```
 
 Bar with `↑` expand-above and `↓` expand-below buttons between hunks
-loads N lines of context (default 10). Above first hunk and below last
-hunk, single-direction expand bars.
+reveals unchanged context lines in place (default 10). Above first hunk
+and below last hunk, single-direction expand bars. This is display
+state only: expanding context never marks a file viewed and never
+changes staged state.
 
 ### Atoms
 
 #### Atom A2.3.A — `util-diff-parser` extension
 
-- [ ] Extend the existing parser to group hunks. Output:
-      `Hunk { startLine, endLine, addedLines, removedLines }[]`.
+- [ ] Extend the existing parser to group hunks and preserve enough
+      unchanged-line metadata to expand partial context in place.
+      Output: `Hunk { startLine, endLine, addedLines, removedLines }[]`
+      plus context bounds needed by the renderer.
 - [ ] **Manual checkpoint:** Unit-test against the existing fixture
       diffs in `src-tauri/tests/fixtures/`.
 
@@ -1390,9 +1462,12 @@ Files: ~2.
 #### Atom A2.3.C — Wire into `ui-diff-view`
 
 - [ ] Group hunks via the parser. Render expand bars between groups.
-      `expand` event re-renders that hunk with more context lines.
+      `expand` event reveals more unchanged context lines in place and
+      preserves changed-line anchors.
 - [ ] **Manual checkpoint:** Open a real long-file diff with multiple
-      hunks → expand bars work, context loads in-place.
+      hunks → expand bars work, context loads in-place, repeated
+      expansion does not duplicate lines, and expanded context survives
+      switching away/back within Changes review mode.
 
 Files: ~2.
 
@@ -1402,22 +1477,41 @@ Files: ~2.
 
 ### Spec
 
-| Source tab    | Click on file                     | Opens in                      |
-| ------------- | --------------------------------- | ----------------------------- |
-| All files     | a file                            | **Edit mode** in middle shell |
-| Changes       | a file                            | **Diff mode** in middle shell |
-| Anywhere else | a file (e.g. context-menu "View") | **Diff mode** by default      |
+| Source tab    | Click on file        | Opens in                                           |
+| ------------- | -------------------- | -------------------------------------------------- |
+| All files     | a file               | **Edit mode** in middle shell                      |
+| Changes       | a changed file       | **Diff/review mode** in middle shell               |
+| Changes       | context-menu "View" | **Diff/review mode** in middle shell               |
+| Anywhere else | context-menu "View" | **Diff mode** by default when source is ambiguous  |
 
 The middle shell's `fileMode` signal is set by the click handler in
-`feature-workspace-aside` based on the current sub-tab.
+`feature-workspace-aside` based on the current sub-tab. All files and
+Changes keep separate per-workspace state for the same path: opening
+from All files preserves the user's edit-mode state, while opening from
+Changes preserves review-mode state (selected changed file, diff mode,
+expanded hunk context, `mz-review-progress` Collapsible open state, and
+Viewed status). Opening the same path from All files must not erase its
+Changes review state.
+
+State placement: durable data stays in domain facades/stores
+(`FileViewsFacade`, repository adapters). UI-only review navigation and
+expanded/collapsed details use NgRx SignalStore, preferably the existing
+`UiStateStore` if the state must persist across workspace switches or
+app relaunch. Component-local signals are allowed only for disposable
+hover/focus/transient rendering state.
 
 ### Atom A2.4.A
 
 - [ ] Two click handlers (one per sub-tab) call
-      `featureWorkspaceMiddle.openFile(path, { mode: 'edit' | 'diff' })`.
+      `featureWorkspaceMiddle.openFile(path, { mode: 'edit' | 'diff',
+      source: 'all-files' | 'changes' })`.
+- [ ] Store separate per-workspace file view state for edit flow and
+      review flow in NgRx SignalStore so the same path can retain
+      different mode/context state depending on where it was opened.
 - [ ] **Manual checkpoint:** Open same file from All files (Edit) and
       from Changes (Diff). Both modes work; switching back and forth
-      remembers mode per file (per workspace).
+      preserves edit state, review selected file, diff mode, expanded
+      context, and Viewed status independently.
 
 Files: ~2.
 
