@@ -15,6 +15,7 @@ import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmSkeletonImports } from '@mozart/ui/skeleton';
+import { HlmTabsImports } from '@mozart/ui/tabs';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -124,6 +125,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
     FeatureWorkspaceTerminal,
     UiChangesContextMenu,
     ...HlmSkeletonImports,
+    ...HlmTabsImports,
   ],
   providers: [
     provideIcons({
@@ -143,31 +145,33 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
          content areas stay transparent so the bg-background of the
          shell shows through (item: "remove background for content"). -->
     <div class="flex min-h-0 flex-1 flex-col">
-      <div class="flex min-h-0 flex-1 flex-col" data-tour="aside-files-tab">
-        <!-- Files-view picker: labeled rounded pill tabs. No
-               background row, no border underline — just two pills
-               that highlight when active. -->
-        <div
+      <!-- Files / Changes tabs via Spartan's BrnTabs (Hlm wrapper).
+           BrnTabsContent stays in the DOM and toggles via [hidden] —
+           the file-tree's CdkTree survives the tab switch (was a
+           hand-rolled [hidden] pattern previously). Spartan also
+           wires aria-selected, aria-controls, role=tab(panel)/list,
+           and arrow-key navigation for free. -->
+      <hlm-tabs
+        class="flex min-h-0 flex-1 flex-col"
+        data-tour="aside-files-tab"
+        [tab]="filesView()"
+        (tabActivated)="setFilesView($any($event))"
+      >
+        <hlm-tabs-list
+          variant="line"
           class="flex h-9 shrink-0 items-center gap-1 px-2"
-          role="tablist"
           aria-label="Files view"
         >
           <button
-            type="button"
-            role="tab"
-            [attr.aria-selected]="filesView() === 'all'"
-            (click)="setFilesView('all')"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
+            hlmTabsTrigger="all"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-3 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
           >
             <ng-icon hlm name="lucideListTree" size="xs" />
             <span>All files</span>
           </button>
           <button
-            type="button"
-            role="tab"
-            [attr.aria-selected]="filesView() === 'changes'"
-            (click)="setFilesView('changes')"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md px-3 text-xs font-normal text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground aria-selected:bg-brand/10 aria-selected:text-foreground"
+            hlmTabsTrigger="changes"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-3 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
           >
             <ng-icon hlm name="lucideGitCompareArrows" size="xs" />
             <span>Changes</span>
@@ -181,35 +185,31 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
               </span>
             }
           </button>
+        </hlm-tabs-list>
+
+        <!-- "All files" panel — host class makes the panel itself a
+             flex column that fills the remaining height; the
+             file-tree fills it. -->
+        <div hlmTabsContent="all" class="flex min-h-0 flex-1 flex-col">
+          <app-feature-file-tree
+            class="block min-h-0 flex-1"
+            [workspaceId]="workspaceId()"
+            [projectId]="activeProjectId()"
+            [refreshTick]="watcherTick()"
+            [activePath]="activeFilePath()"
+            (fileSelected)="onFileSelected($event)"
+          />
         </div>
 
-        <!-- Files / Changes are rendered IN PARALLEL with [hidden]
-             rather than swapped via @if so the file-tree's CdkTree
-             DOM survives the tab toggle. Switching from "All files"
-             to "Changes" and back used to remount the tree component
-             and rebuild every row from scratch — wasted hundreds of
-             ms on large repos. Same pattern as the bottom-slot
-             tabs lower in this template. -->
-        <app-feature-file-tree
-          class="block min-h-0 flex-1"
-          [hidden]="filesView() !== 'all'"
-          [workspaceId]="workspaceId()"
-          [projectId]="activeProjectId()"
-          [refreshTick]="watcherTick()"
-          [activePath]="activeFilePath()"
-          (fileSelected)="onFileSelected($event)"
-        />
-
-        <!-- Changes : flat path list. Click opens the file as a
-               tab in the central shell tab bar (the diff renders in
-               the central content area, replacing the chat panel).
-               When staged files exist, the list splits into two
-               collapsible groups; otherwise it's a single flat list
-               for the common case. -->
+        <!-- "Changes" panel — flat path list. Click opens the file as
+             a tab in the central shell tab bar (the diff renders in
+             the central content area, replacing the chat panel).
+             When staged files exist, the list splits into two
+             collapsible groups; otherwise it's a single flat list
+             for the common case. -->
         <div
-          class="min-h-0 flex-1 flex-col overflow-y-auto"
-          [class.flex]="filesView() === 'changes'"
-          [hidden]="filesView() !== 'changes'"
+          hlmTabsContent="changes"
+          class="flex min-h-0 flex-1 flex-col overflow-y-auto"
         >
           @if (changedFiles().length === 0) {
             <p class="p-4 text-xs text-muted-foreground">
@@ -320,7 +320,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
             }
           </button>
         </ng-template>
-      </div>
+      </hlm-tabs>
     </div>
 
     <!-- Drag handle to resize the bottom-slot content area. Only
@@ -686,7 +686,13 @@ export class FeatureWorkspaceAside {
     });
   }
 
-  protected setFilesView(view: 'all' | 'changes'): void {
+  // BrnTabs's `tabActivated` emits a plain `string` (the key of the
+  // activated trigger). The guard narrows it back to the
+  // WorkspaceAsideFilesView union before writing to the store; any
+  // unknown key is silently ignored — defense in depth against a typo
+  // in a trigger's `hlmTabsTrigger="..."` binding.
+  protected setFilesView(view: string): void {
+    if (view !== 'all' && view !== 'changes') return;
     const id = this.workspaceId();
     if (!id) return;
     this.uiState.updateWorkspaceAsideState(id, { filesView: view });
