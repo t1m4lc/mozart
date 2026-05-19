@@ -100,12 +100,16 @@ const DEFAULT_FIRST_WORKSPACE_NAME: &str = "first";
 const DEFAULT_FIRST_TASK_TEXT: &str = "Project ready";
 const START_CHAT_TITLE: &str = "Start";
 
-/// Run the bootstrap orchestration. Caller owns the guard checks
-/// (path exists, is readable) — see atom R0.3.G.
+/// Run the bootstrap orchestration. Atom R0.3.G's guard lives here so
+/// the invariant holds at the backend boundary — a devtools-fed bad
+/// path can't sneak past the frontend check.
 pub async fn bootstrap_project(
     db: &DbState,
     path: &Path,
 ) -> Result<BootstrapResult, AppError> {
+    // R0.3.G — path must be a real, readable directory. Bail before any
+    // DB writes so the failure leaves dashboard state untouched.
+    validate_open_path(path)?;
     let canonical = canonicalize_or_keep(path);
     let path_str = canonical.to_string_lossy().into_owned();
 
@@ -259,6 +263,45 @@ fn create_start_chat(db: &DbState, workspace_id: &str) -> Result<Chat, AppError>
 
 fn canonicalize_or_keep(path: &Path) -> PathBuf {
     path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
+}
+
+/// R0.3.G's guard. Refuses anything that isn't a real directory we can
+/// list. Error strings are kept stable so the UI can route them through
+/// the bootstrap toast template `Couldn't open <basename>. <reason>.`
+fn validate_open_path(path: &Path) -> Result<(), AppError> {
+    let meta = match std::fs::metadata(path) {
+        Ok(m) => m,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            return Err(AppError::Validation(format!(
+                "path does not exist: {}",
+                path.display()
+            )));
+        }
+        Err(e) if e.kind() == std::io::ErrorKind::PermissionDenied => {
+            return Err(AppError::Validation(format!(
+                "permission denied reading {}",
+                path.display()
+            )));
+        }
+        Err(e) => {
+            return Err(AppError::Validation(format!(
+                "cannot stat {}: {e}",
+                path.display()
+            )));
+        }
+    };
+    if !meta.is_dir() {
+        return Err(AppError::Validation(format!(
+            "path is not a directory: {}",
+            path.display()
+        )));
+    }
+    // Probe readability by trying to open it as a directory. Catches
+    // exec-only mode bits and other "directory but not listable" cases.
+    std::fs::read_dir(path).map_err(|e| {
+        AppError::Validation(format!("cannot read directory {}: {e}", path.display()))
+    })?;
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -738,6 +781,67 @@ mod tests {
         assert!(settings_body.contains("0.1"));
 
         restore_root(prev);
+    }
+
+    /// R0.3.G guard — bootstrap on a path that doesn't exist must
+    /// refuse before any DB writes. Project / workspace / chat tables
+    /// stay empty.
+    #[tokio::test]
+    async fn bootstrap_refuses_missing_path_without_side_effects() {
+        let _gate = test_env_gate().lock().unwrap_or_else(|e| e.into_inner());
+        let root = TempDir::new().unwrap();
+        let bogus = root.path().join("does-not-exist");
+        let db = init_db_memory().unwrap();
+
+        let err = bootstrap_project(&db, &bogus)
+            .await
+            .expect_err("missing path must refuse");
+        match err {
+            AppError::Validation(msg) => {
+                assert!(
+                    msg.contains("path does not exist"),
+                    "expected missing-path message, got: {msg}"
+                );
+            }
+            other => panic!("expected Validation, got {other:?}"),
+        }
+        let conn = db.lock();
+        let n_repos: i64 = conn
+            .query_row("SELECT COUNT(*) FROM repos", [], |r| r.get(0))
+            .unwrap();
+        let n_ws: i64 = conn
+            .query_row("SELECT COUNT(*) FROM workspaces", [], |r| r.get(0))
+            .unwrap();
+        let n_chats: i64 = conn
+            .query_row("SELECT COUNT(*) FROM chats", [], |r| r.get(0))
+            .unwrap();
+        let n_local: i64 = conn
+            .query_row("SELECT COUNT(*) FROM project_local_config", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            (n_repos, n_ws, n_chats, n_local),
+            (0, 0, 0, 0),
+            "no side effects allowed on guard failure"
+        );
+    }
+
+    /// Guard rejects a path that exists but is a file, not a directory.
+    #[tokio::test]
+    async fn bootstrap_refuses_file_path() {
+        let _gate = test_env_gate().lock().unwrap_or_else(|e| e.into_inner());
+        let root = TempDir::new().unwrap();
+        let f = root.path().join("regular.txt");
+        std::fs::write(&f, "hello").unwrap();
+        let db = init_db_memory().unwrap();
+
+        let err = bootstrap_project(&db, &f)
+            .await
+            .expect_err("file path must refuse");
+        if let AppError::Validation(msg) = err {
+            assert!(msg.contains("not a directory"), "got: {msg}");
+        } else {
+            panic!("expected Validation");
+        }
     }
 
     /// `read_project_config` — repo wins over local when `.mozart/` is present.
