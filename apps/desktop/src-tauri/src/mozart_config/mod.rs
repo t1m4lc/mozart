@@ -10,3 +10,4 @@
 
 pub mod detect;
 pub mod dto;
+pub mod validate;
