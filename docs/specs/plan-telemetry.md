@@ -108,7 +108,7 @@ Anonymous **`install_id`** = v4 UUID generated once on first Rust `setup` hook, 
 - [ ] **A.9** Append `dl_id = analytics.distinctId()` to Tally URL in `download-dialog.component.ts:buildHref()` (line 126-131), alongside existing `os` and `from`.
 - [x] **A.10** (removed — `doc_viewed` was redundant with `$pageview` filtered on `/docs/*`. Slug and section are already derivable from the URL.)
 - [x] **A.11** (removed — same reasoning for `blog_post_viewed`. Filter `$pageview` on `/blog/*` instead.)
-- [ ] **A.12** Manual verification with PostHog Live tab — cold load `/`, click-through hero Download, navigate `/docs → /docs/install → /blog/hello-world`, confirm Pageview + download events arrive with correct properties; confirm `pnpm nx build landing` still passes SSR prerender; no `posthog` strings in prerendered HTML.
+- [x] **A.12** Manual verification with PostHog Live tab — cold load `/`, click-through hero Download, navigate `/docs → /docs/install → /blog/hello-world`, confirm Pageview + download events arrive with correct properties; `pnpm nx build landing` passes SSR prerender; no `posthog` strings in prerendered HTML.
 
 **Acceptance**: cold-loading 4 pages + clicking the funnel produces ≥7 events visible in PostHog Live with correct `source`, `os`, `path`, `dl_id` properties.
 
