@@ -848,6 +848,9 @@ export class FeatureWorkspaceAside {
         // own effects. The aside owns the single subscription.
         if (this.workspaceId() === workspaceId) {
           this.watcherTick.update((n) => n + 1);
+          // Same event is the canonical invalidation signal for the
+          // file-tree cache (P1.2). Never call this on a timer.
+          this.repos.invalidateTreeCache(workspaceId);
         }
       });
       // If the workspace changed during the await, drop the late

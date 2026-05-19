@@ -1,15 +1,18 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, Signal, computed, inject } from '@angular/core';
 import type { FileNode } from './file-node.model';
+import { FileTreeCacheStore } from './file-tree-cache.store';
 import { REPOSITORIES_ADAPTER } from './repositories.adapter';
 
 /**
  * Public API of the `repositories` domain. Thin wrapper over the
- * adapter port — domain-internal state will land here when Atom D adds
- * caching / per-workspace memoization.
+ * adapter port — also exposes the per-workspace file-tree cache so
+ * the right-aside can render an instant repeat-visit without showing
+ * the previous workspace's tree while a fetch is in flight.
  */
 @Injectable({ providedIn: 'root' })
 export class RepositoriesFacade {
   private readonly adapter = inject(REPOSITORIES_ADAPTER);
+  private readonly fileTreeCache = inject(FileTreeCacheStore);
 
   /** Single-shot fetch of the workspace's file tree. */
   async loadTree(
@@ -23,10 +26,7 @@ export class RepositoriesFacade {
    * Subscribe to FS-change pings for the workspace. The caller must
    * invoke the returned unsubscribe on teardown.
    */
-  async watch(
-    workspaceId: string,
-    onChange: () => void,
-  ): Promise<() => void> {
+  async watch(workspaceId: string, onChange: () => void): Promise<() => void> {
     return this.adapter.watchTree(workspaceId, onChange);
   }
 
@@ -76,5 +76,56 @@ export class RepositoriesFacade {
    *  recent agent-run checkpoint. Destructive; callers must confirm. */
   async discardWorkspaceChanges(workspaceId: string): Promise<void> {
     return this.adapter.discardWorkspaceChanges(workspaceId);
+  }
+  // ── File-tree cache surface (P1.2) ───────────────────────────────
+  // Read = signal that flips between the cached tree and null on
+  // FS-watcher events; Write = `cacheTree` + `invalidateTreeCache`
+  // called by the aside's watcher callback.
+
+  /** Reactive accessor for the cached tree. Returns null until a
+   *  fetched tree has been stored for the given workspace + showIgnored
+   *  combination, AND that entry's revision is still current. */
+  cachedTreeFor(
+    workspaceId: Signal<string | null>,
+    showIgnored: Signal<boolean>,
+  ): Signal<readonly FileNode[] | null> {
+    return computed(() => {
+      const id = workspaceId();
+      if (!id) return null;
+      const entry = this.fileTreeCache.byWorkspace()[id];
+      if (!entry) return null;
+      const currentRevision = this.fileTreeCache.revisionByWorkspace()[id] ?? 0;
+      if (entry.revision !== currentRevision) return null;
+      if (entry.showIgnored !== showIgnored()) return null;
+      return entry.tree;
+    });
+  }
+
+  /** Snapshot of the current revision for capture at fetch start. */
+  treeRevisionFor(workspaceId: string): number {
+    return this.fileTreeCache.revisionFor(workspaceId);
+  }
+
+  /** Persist a freshly-fetched tree. Silently discarded if the
+   *  workspace's revision moved while the fetch was in flight. */
+  cacheTree(
+    workspaceId: string,
+    tree: readonly FileNode[],
+    capturedRevision: number,
+    showIgnored: boolean,
+  ): void {
+    this.fileTreeCache.cacheTree(
+      workspaceId,
+      tree,
+      capturedRevision,
+      showIgnored,
+    );
+  }
+
+  /** Bump the workspace's revision counter. Called by the aside's
+   *  single FS-watcher subscription on every debounced "changed"
+   *  ping — never on a timer. */
+  invalidateTreeCache(workspaceId: string): void {
+    this.fileTreeCache.bumpRevision(workspaceId);
   }
 }
