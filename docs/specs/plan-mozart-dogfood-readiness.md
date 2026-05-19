@@ -1972,6 +1972,54 @@ toggle was rejected as confusing for first-run users; data is wired
 but UI deferred. AD-01 + S0.1.E footnote.
 **Depends on:** P0.1 landing.
 
+### TODO-010 — Changes tab loses prior-prompt files after each agent run
+
+**What:** Files modified by an agent run vanish from the Changes tab
+the moment a second prompt fires. Only the latest prompt's files
+remain visible.
+
+**Root cause:** `commit::list_changed_files`
+(`apps/desktop/src-tauri/src/commit.rs:42`) runs `git status
+--porcelain=v1 -z`, which only surfaces working-tree-vs-HEAD changes.
+The runner calls `sandbox::git_checkpoint`
+(`apps/desktop/src-tauri/src/sandbox/checkpoint.rs:25-40`) before each
+prompt, which does `git add -A && git commit --allow-empty -m
+"checkpoint before run"`. That advances HEAD past the previous
+prompt's edits, so `git status` reports a clean tree on the next
+poll and the prior files drop off the list. The sidebar +/− chip is
+unaffected because `compute_aggregate_diff_stats`
+(`apps/desktop/src-tauri/src/commands/mod.rs:905-934`) already sums
+both `base_branch...HEAD --numstat` AND `HEAD --numstat`.
+
+**Fix sketch:** Change `list_changed_files` to mirror the diff-stats
+pattern — diff against the workspace's `base_branch` instead of HEAD:
+
+1. `git diff <base_branch> --name-status -z` → committed + staged +
+   unstaged diffs vs base (the bulk of files).
+2. `git ls-files --others --exclude-standard -z` → untracked files
+   (not surfaced by `git diff`).
+3. `git diff --cached --name-only -z` → drives the per-file `staged`
+   flag (X-byte equivalent of the existing porcelain X-byte).
+4. `git diff <base_branch> --numstat` → per-file +N/−N line counts.
+
+The Tauri command at `commands/mod.rs:1764` already loads the
+workspace row — pass `ws.base_branch` through. No frontend change.
+
+**Pros:** Changes tab matches user mental model ("everything I
+changed since I started this workspace"). Aligns the Changes tab
+with the sidebar +/− chip and per-file diff panel, which both
+already diff vs `base_branch`.
+
+**Cons:** Touches the commit dialog's source list too (same Tauri
+command); confirm staged toggling still works after the swap. Tests
+in `commit.rs` parse porcelain — they'll need updating.
+
+**Context:** Surfaced 2026-05-19 during P2.5.A dogfood (context menu
+on Changes tab). User confirmed reproduction; fix deferred so
+P2.5.A stays atomic.
+
+**Depends on:** Nothing — independent fix.
+
 ### TODO-009 — First-run inference correction inside Mozart
 
 **What:** Today, a first-run user whose detection is wrong can edit
