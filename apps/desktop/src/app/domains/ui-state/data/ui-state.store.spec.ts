@@ -86,13 +86,13 @@ describe('UiStateStore — right-aside per-workspace state', () => {
     const store = TestBed.inject(UiStateStore);
     store.updateWorkspaceAsideState(wsA, {
       bottomTab: 'terminal',
-      bottomHeight: 420,
+      bottomSize: 55,
     });
 
     const persisted = readSlice();
     expect(persisted[wsA]).toMatchObject({
       bottomTab: 'terminal',
-      bottomHeight: 420,
+      bottomSize: 55,
     });
   });
 
@@ -106,7 +106,7 @@ describe('UiStateStore — right-aside per-workspace state', () => {
             ...DEFAULT_WORKSPACE_ASIDE_STATE,
             bottomTab: 'terminal',
             filesView: 'changes',
-            bottomHeight: 512,
+            bottomSize: 65,
           },
         },
       }),
@@ -121,7 +121,7 @@ describe('UiStateStore — right-aside per-workspace state', () => {
       ...DEFAULT_WORKSPACE_ASIDE_STATE,
       bottomTab: 'terminal',
       filesView: 'changes',
-      bottomHeight: 512,
+      bottomSize: 65,
     });
   });
 });

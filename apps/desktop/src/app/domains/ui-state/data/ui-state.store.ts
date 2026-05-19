@@ -31,7 +31,11 @@ export interface WorkspaceAsideState {
   bottomTab: WorkspaceAsideBottomTab;
   filesView: WorkspaceAsideFilesView;
   bottomOpen: boolean;
-  bottomHeight: number;
+  // Percentage (0–100) of the aside's vertical resizable group that the
+  // bottom panel claims. Was a pixel height when the slot used a manual
+  // mousemove handle; switched to a percent when the slot moved to
+  // hlm-resizable, whose API talks in percentages.
+  bottomSize: number;
   stagedOpen: boolean;
   unstagedOpen: boolean;
 }
@@ -40,7 +44,7 @@ export const DEFAULT_WORKSPACE_ASIDE_STATE: WorkspaceAsideState = {
   bottomTab: 'run',
   filesView: 'all',
   bottomOpen: true,
-  bottomHeight: 288,
+  bottomSize: 40,
   stagedOpen: true,
   unstagedOpen: true,
 };

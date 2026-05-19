@@ -1,12 +1,9 @@
-// Fixed-width left sidebar. Matches the Settings shell sidebar (w-64
-// = 256px) so navigating between app and settings doesn't cause a
-// layout jump. No resize handle; collapsed → 0px.
-export const SHELL_LEFT_PANEL_PX = 256;
-// Phase 4 — wider aside accommodates the Files-tab and the Terminal
-// tab. 320 default matches the Phase 4 spec; 720 max gives diffs room
-// without horizontal scroll on common viewport widths.
-export const SHELL_RIGHT_PANEL_PX = { default: 320, min: 240, max: 720 } as const;
-
-export function pxToPercent(px: number): number {
-  return (px / window.innerWidth) * 100;
-}
+// Resizable panel sizes as percentages of the viewport width. We
+// hand these directly to hlm-resizable, which speaks in percentages —
+// no runtime conversion needed.
+//
+// Anchored to a 1440px reference viewport:
+//   Left  : 256px ≈ 18 %  (matches the Settings shell sidebar w-64)
+//   Right : 320px ≈ 22 %  (Phase-4 Files+Terminal aside)
+export const SHELL_LEFT_PANEL_PCT = { default: 18, min: 14, max: 32 } as const;
+export const SHELL_RIGHT_PANEL_PCT = { default: 22, min: 17, max: 50 } as const;

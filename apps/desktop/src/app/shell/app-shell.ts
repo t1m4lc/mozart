@@ -41,9 +41,8 @@ import {
 import { WorkspacesFacade } from '../domains/workspaces';
 import { ShellAside } from './shell-aside';
 import {
-  SHELL_LEFT_PANEL_PX,
-  SHELL_RIGHT_PANEL_PX,
-  pxToPercent,
+  SHELL_LEFT_PANEL_PCT,
+  SHELL_RIGHT_PANEL_PCT,
 } from './shell-panel.constants';
 import { ShellProjectList } from './shell-project-list';
 
@@ -80,16 +79,19 @@ import { ShellProjectList } from './shell-project-list';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-screen w-screen bg-background text-foreground' },
   template: `
-    <div class="flex h-full">
-      <aside
-        class="shrink-0 overflow-hidden border-r border-sidebar-border transition-[width] duration-200 ease-out"
-        [style.width.px]="layout.leftPanelOpen() ? leftPanelPx : 0"
+    <div hlmResizableGroup direction="horizontal" class="flex h-full">
+      <div
+        hlmResizablePanel
+        #leftPanel="hlmResizablePanel"
+        [defaultSize]="leftPanelDefault()"
+        [minSize]="layout.leftPanelOpen() ? leftPanel_.min : 0"
+        [maxSize]="leftPanel_.max"
+        class="overflow-hidden border-r border-sidebar-border transition-[flex] duration-200 ease-out"
       >
         <hlm-sidebar
           side="left"
           collapsible="none"
-          class="h-full"
-          [style.width.px]="leftPanelPx"
+          class="h-full w-full"
         >
           <div
             hlmSidebarHeader
@@ -199,28 +201,31 @@ import { ShellProjectList } from './shell-project-list';
             </button>
           </div>
         </hlm-sidebar>
-      </aside>
+      </div>
 
-      <div hlmResizableGroup direction="horizontal" class="min-w-0 flex-1">
-        <main hlmResizablePanel class="min-w-0 overflow-auto">
-          <router-outlet />
-        </main>
+      <hlm-resizable-handle
+        [class.hidden]="!layout.leftPanelOpen()"
+        (dblclick)="resetLeftPanel()"
+      />
 
-        <hlm-resizable-handle
-          [class.hidden]="!showRightAside()"
-          (dblclick)="resetRightPanel()"
-        />
+      <main hlmResizablePanel class="min-w-0 overflow-auto">
+        <router-outlet />
+      </main>
 
-        <div
-          hlmResizablePanel
-          #rightPanel="hlmResizablePanel"
-          [defaultSize]="rightPanelDefault()"
-          [minSize]="showRightAside() ? rightPanel_.min : 0"
-          [maxSize]="rightPanel_.max"
-          class="transition-[flex] duration-200 ease-out"
-        >
-          <app-shell-aside class="h-full w-full" />
-        </div>
+      <hlm-resizable-handle
+        [class.hidden]="!showRightAside()"
+        (dblclick)="resetRightPanel()"
+      />
+
+      <div
+        hlmResizablePanel
+        #rightPanel="hlmResizablePanel"
+        [defaultSize]="rightPanelDefault()"
+        [minSize]="showRightAside() ? rightPanel_.min : 0"
+        [maxSize]="rightPanel_.max"
+        class="transition-[flex] duration-200 ease-out"
+      >
+        <app-shell-aside class="h-full w-full" />
       </div>
     </div>
 
@@ -252,6 +257,7 @@ import { ShellProjectList } from './shell-project-list';
   `,
 })
 export class AppShell {
+  private readonly _leftPanelRef = viewChild<HlmResizablePanel>('leftPanel');
   private readonly _rightPanelRef = viewChild<HlmResizablePanel>('rightPanel');
 
   protected readonly isMac = inject(OsService).isMac();
@@ -285,12 +291,16 @@ export class AppShell {
   // group's first layout pass — driving defaultSize off the same signal
   // keeps initial render in sync with the showRightAside state.
   protected readonly rightPanelDefault = computed(() =>
-    this.workspaces.activeId() !== null
-      ? pxToPercent(SHELL_RIGHT_PANEL_PX.default)
-      : 0,
+    this.workspaces.activeId() !== null ? SHELL_RIGHT_PANEL_PCT.default : 0,
   );
 
-  protected readonly leftPanelPx = SHELL_LEFT_PANEL_PX;
+  // Same pattern as rightPanelDefault — defaultSize drives the first
+  // layout pass; the constructor effect imperatively sets size to 0
+  // when the left panel is toggled off so the resizable group hands
+  // its share over to main.
+  protected readonly leftPanelDefault = computed(() =>
+    this.layout.leftPanelOpen() ? SHELL_LEFT_PANEL_PCT.default : 0,
+  );
 
   // HlmToaster's default userStyle feeds the sonner CSS variables raw
   // HSL components (e.g. `var(--popover)` -> `0 0% 100%`), which is not
@@ -305,23 +315,31 @@ export class AppShell {
     '--border-radius': 'var(--radius)',
   };
 
-  protected readonly rightPanel_ = {
-    default: pxToPercent(SHELL_RIGHT_PANEL_PX.default),
-    min: pxToPercent(SHELL_RIGHT_PANEL_PX.min),
-    max: pxToPercent(SHELL_RIGHT_PANEL_PX.max),
-  };
+  protected readonly leftPanel_ = SHELL_LEFT_PANEL_PCT;
+  protected readonly rightPanel_ = SHELL_RIGHT_PANEL_PCT;
 
   constructor() {
+    effect(() => {
+      const open = this.layout.leftPanelOpen();
+      const panel = this._leftPanelRef();
+      if (panel) {
+        panel.setSize(open ? SHELL_LEFT_PANEL_PCT.default : 0);
+      }
+    });
     effect(() => {
       const open = this.showRightAside();
       const panel = this._rightPanelRef();
       if (panel) {
-        panel.setSize(open ? pxToPercent(SHELL_RIGHT_PANEL_PX.default) : 0);
+        panel.setSize(open ? SHELL_RIGHT_PANEL_PCT.default : 0);
       }
     });
   }
 
+  protected resetLeftPanel(): void {
+    this._leftPanelRef()?.setSize(SHELL_LEFT_PANEL_PCT.default);
+  }
+
   protected resetRightPanel(): void {
-    this._rightPanelRef()?.setSize(pxToPercent(SHELL_RIGHT_PANEL_PX.default));
+    this._rightPanelRef()?.setSize(SHELL_RIGHT_PANEL_PCT.default);
   }
 }

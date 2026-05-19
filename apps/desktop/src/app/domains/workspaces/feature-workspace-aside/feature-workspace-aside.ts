@@ -14,6 +14,7 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmResizableImports } from '@mozart/ui/resizable';
 import { HlmSkeletonImports } from '@mozart/ui/skeleton';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
@@ -57,8 +58,11 @@ import { WorkspacesFacade } from '../data/workspace.facade';
 //                                                         (localStorage)
 //   bottomOpen          uiState.asideStateFor(wsId)       per-workspace
 //                                                         (localStorage)
-//   bottomHeight        uiState.asideStateFor(wsId)       per-workspace
-//                                                         (localStorage)
+//   bottomSize          uiState.asideStateFor(wsId)       per-workspace
+//                                                         (localStorage —
+//                                                          percent 0-100,
+//                                                          read by
+//                                                          hlm-resizable)
 //   stagedOpen          uiState.asideStateFor(wsId)       per-workspace
 //                                                         (localStorage)
 //   unstagedOpen        uiState.asideStateFor(wsId)       per-workspace
@@ -117,6 +121,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
     HlmButtonImports,
     HlmContextMenuImports,
     HlmIconImports,
+    HlmResizableImports,
     HlmTooltipImports,
     NgIcon,
     FeatureFileTree,
@@ -138,11 +143,24 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col bg-background' },
   template: `
-    <!-- Files area takes flex-1. Toolbar pinned below; bottom content
-         area conditional. Section headers carry the sidebar bg; the
-         content areas stay transparent so the bg-background of the
-         shell shows through (item: "remove background for content"). -->
-    <div class="flex min-h-0 flex-1 flex-col">
+    <!-- Aside is a vertical stack:
+           Files panel (hlm-resizable-panel)
+           hlm-resizable-handle (only when bottomOpen)
+           Content panel (hlm-resizable-panel — Setup/Run/Terminal)
+           Toolbar (outside the group, always pinned to the aside bottom).
+         The handle replaces the hand-rolled mousedown resizer; sizes
+         travel in percentages and round-trip through bottomSize. -->
+    <hlm-tabs
+      class="contents"
+      [tab]="bottomTab()"
+      (tabActivated)="setBottomTab($any($event))"
+    >
+    <hlm-resizable-group
+      direction="vertical"
+      class="flex min-h-0 flex-1 flex-col"
+      (layoutChange)="onBottomLayoutChange($event)"
+    >
+      <hlm-resizable-panel class="flex min-h-0 flex-col">
       <!-- Files / Changes tabs via Spartan's BrnTabs (Hlm wrapper).
            BrnTabsContent stays in the DOM and toggles via [hidden] —
            the file-tree's CdkTree survives the tab switch (was a
@@ -319,35 +337,60 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
           </button>
         </ng-template>
       </hlm-tabs>
-    </div>
+      </hlm-resizable-panel>
 
-    <!-- Drag handle to resize the bottom-slot content area. Only
-         renders when the bottom is open. Mousedown captures the
-         pointer and updates bottomHeight until release. -->
-    @if (bottomOpen()) {
-      <div
-        role="separator"
-        aria-orientation="horizontal"
-        aria-label="Resize bottom panel"
-        (mousedown)="onResizeStart($event)"
-        class="h-1 shrink-0 cursor-row-resize bg-sidebar-border hover:bg-brand/60 active:bg-brand"
-      ></div>
-    }
+      <hlm-resizable-handle [class.hidden]="!bottomOpen()" />
 
-    <!-- Bottom slot — toolbar always visible at the bottom edge of
-         the aside. Content area collapses (display:none) when closed
-         but stays in the DOM so the Terminal's xterm state survives
-         the toggle. Toolbar layout: collapse-toggle | tablist |
-         spacer | play/stop. The tablist is a real <hlm-tabs-list>
-         (Spartan / BrnTabs) for aria + arrow-key keyboard nav. -->
-    <hlm-tabs
-      class="contents"
-      [tab]="bottomTab()"
-      (tabActivated)="setBottomTab($any($event))"
-    >
-      <div
-        class="flex h-9 shrink-0 items-stretch border-t border-b border-sidebar-border bg-sidebar"
+      <!-- Bottom content panel — Setup / Run / Terminal. Content
+           stays in the DOM across the open/close toggle so xterm and
+           the Run panel survive collapses; the host gets [hidden]
+           when bottomOpen flips off so the panel + its flex weight
+           drop out of the resizable group entirely. -->
+      <hlm-resizable-panel
+        [defaultSize]="bottomSize()"
+        [minSize]="15"
+        [maxSize]="80"
+        [collapsible]="true"
+        class="flex min-h-0 flex-col overflow-hidden"
+        [class.hidden]="!bottomOpen()"
       >
+        <div hlmTabsContent="setup" class="h-full overflow-auto">
+          <div class="p-4 text-sm text-muted-foreground">
+            <p class="font-medium text-foreground">Setup</p>
+            <p class="mt-1">
+              Workspace setup steps — package install, run command, environment
+              — land here.
+            </p>
+          </div>
+        </div>
+
+        <div hlmTabsContent="run" class="h-full overflow-hidden">
+          <app-feature-workspace-run
+            class="block h-full w-full"
+            [workspaceId]="workspaceId()"
+            [active]="bottomTab() === 'run'"
+          />
+        </div>
+
+        <div hlmTabsContent="terminal" class="h-full overflow-hidden">
+          <ng-template hlmTabsContentLazy>
+            <app-feature-workspace-terminal
+              class="block h-full w-full"
+              [workspaceId]="workspaceId()"
+              [active]="bottomTab() === 'terminal'"
+            />
+          </ng-template>
+        </div>
+      </hlm-resizable-panel>
+    </hlm-resizable-group>
+
+    <!-- Toolbar pinned to the aside bottom, outside the resizable
+         group so it stays visible when the bottom panel collapses.
+         Collapse-toggle | tablist | spacer | play/stop. The tablist
+         is a real <hlm-tabs-list> (BrnTabs) for aria + arrow-key nav. -->
+    <div
+      class="flex h-9 shrink-0 items-stretch border-t border-sidebar-border bg-sidebar"
+    >
         <button
           hlmBtn
           variant="ghost"
@@ -421,46 +464,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
             <ng-icon hlm name="lucidePlay" size="xs" />
           </button>
         }
-      </div>
-
-      <!-- Content area — stays in the DOM, hidden when collapsed, so
-           the Terminal's xterm instance and Run's panel survive the
-           collapse/expand cycle. Terminal uses hlmTabsContentLazy so
-           xterm only mounts when the tab is first activated;
-           thereafter the embedded view stays alive across switches. -->
-      <div
-        class="shrink-0 overflow-hidden"
-        [hidden]="!bottomOpen()"
-        [style.height.px]="bottomHeight()"
-      >
-        <div hlmTabsContent="setup" class="h-full overflow-auto">
-          <div class="p-4 text-sm text-muted-foreground">
-            <p class="font-medium text-foreground">Setup</p>
-            <p class="mt-1">
-              Workspace setup steps — package install, run command, environment
-              — land here.
-            </p>
-          </div>
-        </div>
-
-        <div hlmTabsContent="run" class="h-full overflow-hidden">
-          <app-feature-workspace-run
-            class="block h-full w-full"
-            [workspaceId]="workspaceId()"
-            [active]="bottomTab() === 'run'"
-          />
-        </div>
-
-        <div hlmTabsContent="terminal" class="h-full overflow-hidden">
-          <ng-template hlmTabsContentLazy>
-            <app-feature-workspace-terminal
-              class="block h-full w-full"
-              [workspaceId]="workspaceId()"
-              [active]="bottomTab() === 'terminal'"
-            />
-          </ng-template>
-        </div>
-      </div>
+    </div>
     </hlm-tabs>
   `,
 })
@@ -522,9 +526,7 @@ export class FeatureWorkspaceAside {
   protected readonly bottomTab = computed(() => this.asideState().bottomTab);
   protected readonly filesView = computed(() => this.asideState().filesView);
   protected readonly bottomOpen = computed(() => this.asideState().bottomOpen);
-  protected readonly bottomHeight = computed(
-    () => this.asideState().bottomHeight,
-  );
+  protected readonly bottomSize = computed(() => this.asideState().bottomSize);
   protected readonly stagedOpen = computed(() => this.asideState().stagedOpen);
   protected readonly unstagedOpen = computed(
     () => this.asideState().unstagedOpen,
@@ -783,34 +785,19 @@ export class FeatureWorkspaceAside {
     });
   }
 
-  /** Pointer-driven height resize for the bottom-slot content area.
-   *  Captures the pointer on mousedown, follows movement, releases on
-   *  mouseup. Height is clamped between 120 px (one prompt visible)
-   *  and 80% of viewport (file tree still reachable). */
-  protected onResizeStart(event: MouseEvent): void {
-    event.preventDefault();
+  /** Round-trip the resizable group's layout into the store. BrnTabs
+   *  emits `[topPercent, bottomPercent]`; we persist the bottom panel's
+   *  share so the next paint of this workspace lands on the same split.
+   *  Drops events while the bottom slot is collapsed — the panel is
+   *  display:none then and its emitted size is meaningless. */
+  protected onBottomLayoutChange(sizes: number[]): void {
+    if (!this.bottomOpen()) return;
     const id = this.workspaceId();
     if (!id) return;
-    const startY = event.clientY;
-    const startHeight = this.bottomHeight();
-    const min = 120;
-    const max = Math.max(min + 1, Math.floor(window.innerHeight * 0.8));
-    const onMove = (e: MouseEvent) => {
-      // Dragging up grows the panel; clientY decreases as we move up.
-      const delta = startY - e.clientY;
-      const next = Math.min(max, Math.max(min, startHeight + delta));
-      this.uiState.updateWorkspaceAsideState(id, { bottomHeight: next });
-    };
-    const onUp = () => {
-      window.removeEventListener('mousemove', onMove);
-      window.removeEventListener('mouseup', onUp);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-    };
-    window.addEventListener('mousemove', onMove);
-    window.addEventListener('mouseup', onUp);
-    document.body.style.cursor = 'row-resize';
-    document.body.style.userSelect = 'none';
+    const bottomPct = sizes[1];
+    if (typeof bottomPct !== 'number') return;
+    if (Math.abs(bottomPct - this.bottomSize()) < 0.1) return;
+    this.uiState.updateWorkspaceAsideState(id, { bottomSize: bottomPct });
   }
 
   protected async onStartRun(): Promise<void> {
