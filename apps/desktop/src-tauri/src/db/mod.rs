@@ -38,6 +38,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (4, include_str!("../../migrations/004_chat.sql")),
     (5, include_str!("../../migrations/005_chat_phase2.sql")),
     (6, include_str!("../../migrations/006_repos_run_command.sql")),
+    (7, include_str!("../../migrations/007_project_local_config.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.
@@ -251,6 +252,32 @@ mod tests {
             assert!(
                 cols.iter().any(|c| c == col),
                 "expected repos.{col} after v2 migration, got cols={cols:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn project_local_config_table_exists_after_v7() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='project_local_config'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1, "project_local_config should exist after v7 migration");
+        let mut stmt = conn.prepare("PRAGMA table_info(project_local_config)").unwrap();
+        let cols: Vec<String> = stmt
+            .query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap();
+        for col in ["project_id", "run_json", "merge_mode", "created_at", "updated_at"] {
+            assert!(
+                cols.iter().any(|c| c == col),
+                "expected project_local_config.{col} after v7, got cols={cols:?}"
             );
         }
     }
