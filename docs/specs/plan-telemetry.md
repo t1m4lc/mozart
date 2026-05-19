@@ -68,10 +68,10 @@ This spec covers the `telemetry` domain only. The separate **`metrics`** domain 
 | Event | Trigger | Properties |
 |---|---|---|
 | `$pageview` | every Angular `NavigationEnd` | `$current_url`, `$referrer`, `$referring_domain`, UTM params |
-| `doc_viewed` | `/docs/<slug>` renders | `slug`, `title`, `section` |
-| `blog_post_viewed` | `/blog/<slug>` renders | `slug`, `title`, `authors[]`, `has_hero` |
 | `download_cta_clicked` | Download button click (hero or header) | `source: 'hero' \| 'header'`, `section: 'home' \| 'blog' \| 'docs' \| 'changelog' \| 'download' \| 'other'`, `os`, `path` |
 | `download_tally_redirected` | primary/secondary CTA click or Enter key inside dialog | `source`, `section`, `os`, `cta`, `dl_id` |
+
+Docs and blog content reads are captured implicitly via `$pageview` filtered on `/docs/*` and `/blog/*` URL patterns — no separate `doc_viewed` / `blog_post_viewed` events. Slug, page title (auto-captured), and section (derived from the path prefix) are all present in Pageview properties already.
 
 ### Web (`app.mozart.build`) — gated on `apps/web` login page existence
 
@@ -106,9 +106,9 @@ Anonymous **`install_id`** = v4 UUID generated once on first Rust `setup` hook, 
 - [x] **A.8** Track `download_tally_redirected` on primary/secondary anchor click + `onEnter()` in `download-dialog.component.ts` (with `source`, `section`, `os`, `cta`, `dl_id`).
 - [x] **A.9** Append `dl_id = analytics.distinctId()` and `source` to Tally URL via `buildHref()` in `download-dialog.component.ts`, alongside existing `os` and `from`.
 - [ ] **A.9** Append `dl_id = analytics.distinctId()` to Tally URL in `download-dialog.component.ts:buildHref()` (line 126-131), alongside existing `os` and `from`.
-- [ ] **A.10** Track `doc_viewed` from existing `effect()` in `docs.page.ts:101-118` when `currentDetail()` changes.
-- [ ] **A.11** Track `blog_post_viewed` from existing `effect()` in `blog.page.ts:119-135` when `currentPost()` changes.
-- [ ] **A.12** Manual verification with PostHog Live tab — cold load `/`, click-through hero Download, navigate `/docs → /docs/install → /blog/hello-world`, confirm all events arrive with correct properties; confirm `pnpm nx build landing` still passes SSR prerender; no `posthog` strings in prerendered HTML.
+- [x] **A.10** (removed — `doc_viewed` was redundant with `$pageview` filtered on `/docs/*`. Slug and section are already derivable from the URL.)
+- [x] **A.11** (removed — same reasoning for `blog_post_viewed`. Filter `$pageview` on `/blog/*` instead.)
+- [ ] **A.12** Manual verification with PostHog Live tab — cold load `/`, click-through hero Download, navigate `/docs → /docs/install → /blog/hello-world`, confirm Pageview + download events arrive with correct properties; confirm `pnpm nx build landing` still passes SSR prerender; no `posthog` strings in prerendered HTML.
 
 **Acceptance**: cold-loading 4 pages + clicking the funnel produces ≥7 events visible in PostHog Live with correct `source`, `os`, `path`, `dl_id` properties.
 
