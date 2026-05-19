@@ -1108,7 +1108,14 @@ export type AgentRun = { run_id: string; thread_id: string; prompt: string; stat
  * emits via `tauri_specta::Event::emit` on the `AppHandle`; the
  * Angular `_bindings.ts` surfaces it as `events.agentRunTerminated`.
  */
-export type AgentRunTerminated = { run_id: string; status: string }
+export type AgentRunTerminated = { run_id: string; status: string; 
+/**
+ * P2.7 — the workspace whose supervisor task reached this terminal
+ * status. The Changes-tab auto-route filters on this field so a
+ * background run for workspace A doesn't yank the user's view in
+ * workspace B.
+ */
+workspace_id: string }
 export type AppError = { kind: "Db"; message: string } | { kind: "Io"; message: string } | { kind: "NotFound"; message: string } | { kind: "Validation"; message: string } | { kind: "AgentSpawn"; message: string } | { kind: "GitCmd"; message: string } | { kind: "Frozen"; message: string } | { kind: "MergeDirtyTree"; message: string } | { kind: "MergeBaseAhead"; message: string }
 /**
  * Wire shape persisted in the OS keyring (JSON-encoded). The `Date`

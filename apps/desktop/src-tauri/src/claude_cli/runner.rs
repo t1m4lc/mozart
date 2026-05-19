@@ -436,6 +436,7 @@ where
             emit_terminated(AgentRunTerminated {
                 run_id: run_id.clone(),
                 status: status_str.to_string(),
+                workspace_id: workspace_id_for_supervisor.clone(),
             });
 
             // Post-exit reach-back (S1.5.4 / D1.5-I): on success only,

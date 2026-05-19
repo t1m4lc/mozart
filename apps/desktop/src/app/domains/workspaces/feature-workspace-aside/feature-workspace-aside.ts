@@ -28,6 +28,7 @@ import {
   lucidePlay,
 } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
+import { events } from '../../../core/_bindings';
 import { ProjectsFacade } from '../../projects';
 import {
   FeatureFileTree,
@@ -660,6 +661,33 @@ export class FeatureWorkspaceAside {
       // tick that picks up new files also picks up new line counts.
       void this.workspaces.refreshDiffStats();
     });
+
+    // P2.7.A — auto-route to the Changes view when the active
+    // workspace's agent run completes with a non-empty diff. Silent
+    // route: no toast, no modal. The listener re-queries
+    // list_changed_files directly (rather than waiting on the FS
+    // watcher debounce) so the view flips as soon as the supervisor
+    // emits, not on the next inotify tick.
+    void events.agentRunTerminated
+      .listen((e) => {
+        const payload = e.payload;
+        if (payload.status !== 'done') return;
+        if (payload.workspace_id !== this.workspaceId()) return;
+        void this.repos
+          .listChangedFiles(payload.workspace_id)
+          .then((files) => {
+            if (files.length === 0) return;
+            if (this.workspaceId() !== payload.workspace_id) return;
+            this.changedFiles.set(files);
+            this.filesView.set('changes');
+          })
+          .catch((err) => {
+            console.warn('[aside] auto-route changed files lookup failed:', err);
+          });
+      })
+      .then((unlisten) => {
+        this.destroyRef.onDestroy(unlisten);
+      });
   }
 
   // BrnTabs's `tabActivated` emits a plain `string` (the key of the

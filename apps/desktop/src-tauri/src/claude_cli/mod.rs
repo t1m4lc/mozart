@@ -73,4 +73,9 @@ impl StreamEvent {
 pub struct AgentRunTerminated {
     pub run_id: String,
     pub status: String,
+    /// P2.7 — the workspace whose supervisor task reached this terminal
+    /// status. The Changes-tab auto-route filters on this field so a
+    /// background run for workspace A doesn't yank the user's view in
+    /// workspace B.
+    pub workspace_id: String,
 }
