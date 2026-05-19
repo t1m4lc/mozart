@@ -7,15 +7,12 @@ import {
 import type { Message } from '../../data/message.model';
 
 /**
- * Subtle muted card that renders a `system_info` chat-timeline entry.
+ * Subtle muted card that renders a `system_info` chat-timeline entry as
+ * stacked conversational paragraphs (no dotted bullet glyph).
  *
- * Stored once at bootstrap time (atom R0.3.E), this entry surfaces what
- * Mozart detected when the user opened the project — and where the
- * config is stored. Read-only: no edit / delete affordance.
- *
- * If `message.systemInfo` is absent (malformed payload, mis-routed
- * `role: 'system'` row), the component renders nothing so the timeline
- * doesn't show an empty card.
+ * Stored once at bootstrap time (atom R0.3.E). Read-only — no edit /
+ * delete affordance. Renders nothing when the underlying `systemInfo`
+ * payload is missing.
  */
 @Component({
   selector: 'app-system-info-message',
@@ -23,32 +20,15 @@ import type { Message } from '../../data/message.model';
   host: { class: 'block' },
   template: `
     @let info = _info();
-    @if (info) {
+    @if (info && info.lines.length > 0) {
       <div
         role="note"
         aria-label="Project status"
-        class="bg-muted/40 border-border/60 text-muted-foreground rounded-md border px-3 py-2 text-sm"
+        class="bg-muted/40 border-border/60 text-muted-foreground space-y-2 rounded-md border px-3 py-2 text-sm leading-relaxed"
       >
-        <div class="flex items-start gap-2">
-          <span
-            class="text-muted-foreground mt-0.5 select-none"
-            aria-hidden="true"
-            >ⓘ</span
-          >
-          <div class="flex-1 space-y-1">
-            <p class="text-foreground font-medium">{{ info.title }}</p>
-            @if (info.bullets.length > 0) {
-              <ul class="space-y-0.5">
-                @for (bullet of info.bullets; track bullet) {
-                  <li class="flex gap-1.5">
-                    <span aria-hidden="true">·</span>
-                    <span>{{ bullet }}</span>
-                  </li>
-                }
-              </ul>
-            }
-          </div>
-        </div>
+        @for (line of info.lines; track $index) {
+          <p class="text-foreground">{{ line }}</p>
+        }
       </div>
     }
   `,

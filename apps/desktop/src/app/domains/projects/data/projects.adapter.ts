@@ -1,11 +1,34 @@
 import { InjectionToken } from '@angular/core';
 import type { Project } from './project.model';
 
+/** Mirror of the Rust `BootstrapResult` shape on the wire. */
+export interface BootstrapResult {
+  readonly project: Project;
+  readonly firstWorkspaceId: string;
+  readonly startChatId: string;
+  /** Where the run config came from — 'repo' | 'local' | 'fallback'. */
+  readonly source: string;
+  /**
+   * Set when the backend planted a `setup_progress` chat-timeline entry.
+   * The frontend flips it to done / failed once `runInstall` resolves.
+   * `null` when no setup command was detected.
+   */
+  readonly setupProgressMessageId: string | null;
+}
+
 // Tauri-backed IO for the projects domain. Concrete impl bound in
 // app.config.ts (wraps `add_repo` / `list_repos` / mutators from
 // _bindings).
 export interface ProjectsAdapter {
   add(path: string): Promise<Project>;
+  /**
+   * Silent first-run bootstrap for `Open project`. Registers the repo
+   * (idempotent), writes `project_local_config` when there's no
+   * `.mozart/`, creates the first workspace + 'Start' chat, and stores a
+   * one-time `system_info` entry in that chat. Returns IDs so the caller
+   * can navigate straight in.
+   */
+  bootstrap(path: string): Promise<BootstrapResult>;
   // Runs `git init` + identity config + an initial empty commit at
   // `path`. Called after the user confirms the Initialize-project
   // dialog when add() throws NotARepo.

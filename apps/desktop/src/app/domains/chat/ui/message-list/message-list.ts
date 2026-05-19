@@ -15,6 +15,7 @@ import { fromEvent } from 'rxjs';
 import { auditTime } from 'rxjs/operators';
 import type { Message } from '../../data/message.model';
 import { AgentMessage } from '../agent-message/agent-message';
+import { SetupProgressMessage } from '../setup-progress-message/setup-progress-message';
 import { SystemInfoMessage } from '../system-info-message/system-info-message';
 import { UserMessage } from '../user-message/user-message';
 
@@ -34,7 +35,7 @@ const SCROLL_AUDIT_MS = 220;
 
 @Component({
   selector: 'app-message-list',
-  imports: [UserMessage, AgentMessage, SystemInfoMessage],
+  imports: [UserMessage, AgentMessage, SystemInfoMessage, SetupProgressMessage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full w-full' },
   template: `
@@ -49,7 +50,11 @@ const SCROLL_AUDIT_MS = 220;
               <app-agent-message [message]="msg" />
             }
             @case ('system') {
-              <app-system-info-message [message]="msg" />
+              @if (msg.setupProgress) {
+                <app-setup-progress-message [message]="msg" />
+              } @else if (msg.systemInfo) {
+                <app-system-info-message [message]="msg" />
+              }
             }
           }
         </div>

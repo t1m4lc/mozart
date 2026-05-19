@@ -24,10 +24,10 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::db::models::{Chat, Repo};
+use crate::db::models::{Chat, Message, Repo};
 use crate::db::project_local_config::ProjectLocalConfig;
 use crate::db::{
-    chats, new_id, now_ms, project_local_config, repos, DbState,
+    chats, messages, new_id, now_ms, project_local_config, repos, DbState,
 };
 use crate::error::AppError;
 use crate::git_query;
@@ -77,6 +77,11 @@ pub struct BootstrapResult {
     ///                 so callers always find a config.
     pub source: String,
     pub detected: DetectedSummary,
+    /// If detection produced a setup command, bootstrap also writes a
+    /// `setup_progress` timeline entry in the running state. The frontend
+    /// transitions this entry to `done` / `failed` after `runInstall`
+    /// resolves. `None` when no setup command was detected.
+    pub setup_progress_message_id: Option<String>,
 }
 
 /// Where merged config came from for read-time consumers. Mirrors
@@ -96,7 +101,11 @@ pub struct ProjectConfig {
 }
 
 const DEFAULT_MERGE_MODE: &str = "pr";
-const DEFAULT_FIRST_WORKSPACE_NAME: &str = "first";
+/// First workspace label after Open project. Stable string — the user
+/// can rename it any time. Reads better than a singer-pool name for the
+/// very first workspace (which is conceptually "onboarding", not just
+/// "another attempt").
+const DEFAULT_FIRST_WORKSPACE_NAME: &str = "get-started";
 const DEFAULT_FIRST_TASK_TEXT: &str = "Project ready";
 const START_CHAT_TITLE: &str = "Start";
 
@@ -139,13 +148,136 @@ pub async fn bootstrap_project(
     // 5. Start chat.
     let chat = create_start_chat(db, &ws.workspace_id)?;
 
+    // 6. One-time system_info entry into the Start chat. Stored, not
+    //    derived — subsequent app launches read it back like any other
+    //    message and never re-emit.
     let detected = DetectedSummary::from_detection(&detection);
+    let basename = canonical
+        .file_name()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| path_str.clone());
+    write_system_info(
+        db,
+        &chat.chat_id,
+        &basename,
+        &ws.name,
+        &ws.branch_name,
+        &base_branch,
+    )?;
+
+    // 7. If a setup command is known, plant a `setup_progress` entry in
+    //    the running state so the timeline shows a spinner while the
+    //    frontend's runInstall finishes. The frontend flips this entry
+    //    to done/failed via update_message_timeline.
+    let setup_progress_message_id = write_setup_progress_if_any(
+        db,
+        &chat.chat_id,
+        detected.setup.as_deref(),
+        detected.stack.as_deref(),
+    )?;
+
     Ok(BootstrapResult {
         project_id,
         first_workspace_id: ws.workspace_id,
         start_chat_id: chat.chat_id,
         source,
         detected,
+        setup_progress_message_id,
+    })
+}
+
+fn write_setup_progress_if_any(
+    db: &DbState,
+    chat_id: &str,
+    setup_command: Option<&str>,
+    stack: Option<&str>,
+) -> Result<Option<String>, AppError> {
+    let Some(cmd) = setup_command else {
+        return Ok(None);
+    };
+    let payload = serde_json::json!({
+        "kind": "setup_progress",
+        "status": "running",
+        "command": cmd,
+        // `manager` is what the renderer uses in copy ("Installing
+        // dependencies with pnpm…"). Falls back to the literal command
+        // when no toolchain was named.
+        "manager": stack.unwrap_or(""),
+    });
+    let timeline_json = serde_json::to_string(&payload)
+        .map_err(|e| AppError::Validation(format!("serialize setup_progress: {e}")))?;
+    let id = new_id();
+    let row = Message {
+        message_id: id.clone(),
+        chat_id: chat_id.to_string(),
+        run_id: None,
+        role: "system".into(),
+        content: String::new(),
+        mode: None,
+        status: "done".into(),
+        timeline_json: Some(timeline_json),
+        // Bumped by 1ms so list_for_chat (ORDER BY created_at ASC, message_id ASC)
+        // reliably places the progress entry after the system_info card.
+        created_at: now_ms() + 1,
+    };
+    let conn = db.lock();
+    messages::insert(&conn, &row)?;
+    Ok(Some(id))
+}
+
+fn write_system_info(
+    db: &DbState,
+    chat_id: &str,
+    project_name: &str,
+    workspace_name: &str,
+    branch_name: &str,
+    base_branch: &str,
+) -> Result<(), AppError> {
+    let timeline_json = serde_json::to_string(&build_system_info_payload(
+        project_name,
+        workspace_name,
+        branch_name,
+        base_branch,
+    ))
+    .map_err(|e| AppError::Validation(format!("serialize system_info: {e}")))?;
+    let row = Message {
+        message_id: new_id(),
+        chat_id: chat_id.to_string(),
+        run_id: None,
+        role: "system".into(),
+        content: String::new(),
+        mode: None,
+        status: "done".into(),
+        timeline_json: Some(timeline_json),
+        created_at: now_ms(),
+    };
+    let conn = db.lock();
+    messages::insert(&conn, &row)
+}
+
+/// Compose the `system_info` payload in the conversational tone the
+/// user kept from the pre-P0.3 flow. Three short paragraphs:
+///   1. Branch and base — orients the user in git terms.
+///   2. Workspace name + "ready with N files" (always 0 at bootstrap).
+///   3. The tagline.
+///
+/// Note: this surfaces `branch_name` / `base_branch` in copy. CLAUDE.md
+/// generally forbids those in UI labels, but the user explicitly asked
+/// for this phrasing back (May 2026 — see commit history). Update the
+/// vocabulary rule when you next revise CLAUDE.md.
+fn build_system_info_payload(
+    project_name: &str,
+    workspace_name: &str,
+    branch_name: &str,
+    base_branch: &str,
+) -> serde_json::Value {
+    serde_json::json!({
+        "kind": "system_info",
+        "lines": [
+            format!("Branched {branch_name} from {base_branch} in {project_name}."),
+            format!("{workspace_name} ready with 0 files."),
+            "Compose your first instruction and let the magic begin!",
+        ],
     })
 }
 
@@ -421,10 +553,46 @@ pub fn read_project_config(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::{init_db_memory, project_local_config as plc, repos};
+    use crate::db::{
+        init_db_memory, messages as msgs, project_local_config as plc, repos,
+    };
     use crate::sandbox::{git_available, test_env_gate};
     use std::process::Command;
     use tempfile::TempDir;
+
+    fn system_messages(db: &DbState, chat_id: &str) -> Vec<serde_json::Value> {
+        let conn = db.lock();
+        let list = msgs::list_for_chat(&conn, chat_id).expect("list ok");
+        list.into_iter()
+            .filter(|m| m.role == "system")
+            .filter_map(|m| m.timeline_json)
+            .filter_map(|j| serde_json::from_str(&j).ok())
+            .collect()
+    }
+
+    fn find_by_kind(
+        messages: &[serde_json::Value],
+        kind: &str,
+    ) -> Option<serde_json::Value> {
+        messages
+            .iter()
+            .find(|v| v["kind"].as_str() == Some(kind))
+            .cloned()
+    }
+
+    fn system_info_payload(
+        db: &DbState,
+        chat_id: &str,
+    ) -> Option<serde_json::Value> {
+        find_by_kind(&system_messages(db, chat_id), "system_info")
+    }
+
+    fn setup_progress_payload(
+        db: &DbState,
+        chat_id: &str,
+    ) -> Option<serde_json::Value> {
+        find_by_kind(&system_messages(db, chat_id), "setup_progress")
+    }
 
     fn init_git_repo(repo: &Path) {
         let s = Command::new("git")
@@ -494,7 +662,7 @@ mod tests {
         let root = TempDir::new().unwrap();
         // MOZART_WORKTREES_ROOT must be a *sibling* dir, not an ancestor
         // of `repo`, or the worktree creator would drop the worktree
-        // inside the repo's working tree (showing up as `?? first/`).
+        // inside the repo's working tree (showing up as `?? get-started/`).
         let worktrees = root.path().join("worktrees");
         std::fs::create_dir_all(&worktrees).unwrap();
         std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);
@@ -554,6 +722,39 @@ mod tests {
         let (clean, txt) = worktree_status_is_clean(&repo);
         assert!(clean, "expected clean worktree, got:\n{txt}");
 
+        // system_info entry was persisted exactly once into the Start chat.
+        // Conversational tone — three sentences, no bullet labels.
+        let payload = system_info_payload(&db, &result.start_chat_id)
+            .expect("system_info payload present");
+        assert_eq!(payload["kind"], "system_info");
+        let lines = payload["lines"].as_array().unwrap();
+        assert_eq!(lines.len(), 3, "expected exactly 3 lines, got {lines:?}");
+        assert!(
+            lines[0].as_str().unwrap().starts_with("Branched ")
+                && lines[0].as_str().unwrap().contains(" from main in repo."),
+            "got: {}",
+            lines[0]
+        );
+        assert_eq!(
+            lines[1].as_str().unwrap(),
+            "get-started ready with 0 files."
+        );
+        assert_eq!(
+            lines[2].as_str().unwrap(),
+            "Compose your first instruction and let the magic begin!"
+        );
+
+        // setup_progress entry was also written (setup command present).
+        assert!(
+            result.setup_progress_message_id.is_some(),
+            "expected setup_progress message id when setup is known"
+        );
+        let progress = setup_progress_payload(&db, &result.start_chat_id)
+            .expect("setup_progress entry should exist");
+        assert_eq!(progress["status"], "running");
+        assert_eq!(progress["command"], "pnpm install");
+        assert_eq!(progress["manager"], "pnpm");
+
         restore_root(prev);
     }
 
@@ -572,7 +773,7 @@ mod tests {
         let root = TempDir::new().unwrap();
         // MOZART_WORKTREES_ROOT must be a *sibling* dir, not an ancestor
         // of `repo`, or the worktree creator would drop the worktree
-        // inside the repo's working tree (showing up as `?? first/`).
+        // inside the repo's working tree (showing up as `?? get-started/`).
         let worktrees = root.path().join("worktrees");
         std::fs::create_dir_all(&worktrees).unwrap();
         std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);
@@ -616,6 +817,13 @@ mod tests {
         let (clean, txt) = worktree_status_is_clean(&repo);
         assert!(clean, "expected clean worktree, got:\n{txt}");
 
+        // Conversational tone is the same regardless of source — no
+        // repo vs local distinction surfaced (no action behind it yet).
+        let payload = system_info_payload(&db, &result.start_chat_id).unwrap();
+        let lines = payload["lines"].as_array().unwrap();
+        assert_eq!(lines.len(), 3);
+        assert!(lines.iter().all(|l| !l.as_str().unwrap().contains("Settings")));
+
         restore_root(prev);
     }
 
@@ -634,7 +842,7 @@ mod tests {
         let root = TempDir::new().unwrap();
         // MOZART_WORKTREES_ROOT must be a *sibling* dir, not an ancestor
         // of `repo`, or the worktree creator would drop the worktree
-        // inside the repo's working tree (showing up as `?? first/`).
+        // inside the repo's working tree (showing up as `?? get-started/`).
         let worktrees = root.path().join("worktrees");
         std::fs::create_dir_all(&worktrees).unwrap();
         std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);
@@ -667,6 +875,25 @@ mod tests {
         assert_eq!(local.run_json, r#"{"scripts":{}}"#);
         drop(conn);
 
+        // No setup or run → fallback still renders 3 conversational lines.
+        let payload = system_info_payload(&db, &result.start_chat_id).unwrap();
+        let lines = payload["lines"].as_array().unwrap();
+        assert_eq!(lines.len(), 3);
+        assert!(
+            lines[0].as_str().unwrap().contains(" from main in repo."),
+            "branch line should still render even without setup"
+        );
+
+        // No setup command detected → no setup_progress entry.
+        assert!(
+            result.setup_progress_message_id.is_none(),
+            "no setup command → no progress entry"
+        );
+        assert!(
+            setup_progress_payload(&db, &result.start_chat_id).is_none(),
+            "no setup_progress JSON should be present"
+        );
+
         restore_root(prev);
     }
 
@@ -697,7 +924,7 @@ mod tests {
         let root = TempDir::new().unwrap();
         // MOZART_WORKTREES_ROOT must be a *sibling* dir, not an ancestor
         // of `repo`, or the worktree creator would drop the worktree
-        // inside the repo's working tree (showing up as `?? first/`).
+        // inside the repo's working tree (showing up as `?? get-started/`).
         let worktrees = root.path().join("worktrees");
         std::fs::create_dir_all(&worktrees).unwrap();
         std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);
@@ -752,7 +979,7 @@ mod tests {
         let root = TempDir::new().unwrap();
         // MOZART_WORKTREES_ROOT must be a *sibling* dir, not an ancestor
         // of `repo`, or the worktree creator would drop the worktree
-        // inside the repo's working tree (showing up as `?? first/`).
+        // inside the repo's working tree (showing up as `?? get-started/`).
         let worktrees = root.path().join("worktrees");
         std::fs::create_dir_all(&worktrees).unwrap();
         std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);
@@ -858,7 +1085,7 @@ mod tests {
         let root = TempDir::new().unwrap();
         // MOZART_WORKTREES_ROOT must be a *sibling* dir, not an ancestor
         // of `repo`, or the worktree creator would drop the worktree
-        // inside the repo's working tree (showing up as `?? first/`).
+        // inside the repo's working tree (showing up as `?? get-started/`).
         let worktrees = root.path().join("worktrees");
         std::fs::create_dir_all(&worktrees).unwrap();
         std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);

@@ -13,16 +13,22 @@ describe('messageFromDto — system_info parsing (R0.3.F)', () => {
       status: 'done',
       timeline_json: JSON.stringify({
         kind: 'system_info',
-        title: 'Project ready',
-        bullets: ['Repository: mozart-go', 'Sandbox: project access (default)'],
+        lines: [
+          'Branched mozart/bjork from main in mozart-go.',
+          'bjork ready with 0 files.',
+          'Compose your first instruction and let the magic begin!',
+        ],
       }),
       created_at: 1,
     });
     expect(msg.role).toBe('system');
     expect(msg.systemInfo).toEqual({
       kind: 'system_info',
-      title: 'Project ready',
-      bullets: ['Repository: mozart-go', 'Sandbox: project access (default)'],
+      lines: [
+        'Branched mozart/bjork from main in mozart-go.',
+        'bjork ready with 0 files.',
+        'Compose your first instruction and let the magic begin!',
+      ],
     });
     expect(msg.turnState).toBeUndefined();
   });
@@ -36,7 +42,7 @@ describe('messageFromDto — system_info parsing (R0.3.F)', () => {
       content: '',
       mode: null,
       status: 'done',
-      timeline_json: JSON.stringify({ kind: 'other', title: 'x', bullets: [] }),
+      timeline_json: JSON.stringify({ kind: 'other', lines: [] }),
       created_at: 1,
     });
     expect(msg.systemInfo).toBeUndefined();
@@ -53,17 +59,13 @@ describe('messageFromDto — system_info parsing (R0.3.F)', () => {
       status: 'done',
       // An assistant row should never carry system_info; even if it did,
       // the mapper must not surface it.
-      timeline_json: JSON.stringify({
-        kind: 'system_info',
-        title: 'x',
-        bullets: [],
-      }),
+      timeline_json: JSON.stringify({ kind: 'system_info', lines: [] }),
       created_at: 1,
     });
     expect(msg.systemInfo).toBeUndefined();
   });
 
-  it('drops non-string bullets', () => {
+  it('drops non-string lines', () => {
     const msg = messageFromDto({
       message_id: 'm1',
       chat_id: 'c1',
@@ -74,12 +76,11 @@ describe('messageFromDto — system_info parsing (R0.3.F)', () => {
       status: 'done',
       timeline_json: JSON.stringify({
         kind: 'system_info',
-        title: 't',
-        bullets: ['ok', 42, null, 'also ok'],
+        lines: ['ok', 42, null, 'also ok'],
       }),
       created_at: 1,
     });
-    expect(msg.systemInfo?.bullets).toEqual(['ok', 'also ok']);
+    expect(msg.systemInfo?.lines).toEqual(['ok', 'also ok']);
   });
 
   it('survives malformed JSON', () => {
@@ -100,8 +101,7 @@ describe('messageFromDto — system_info parsing (R0.3.F)', () => {
   it('systemInfoToJson round-trips through messageFromDto', () => {
     const original = {
       kind: 'system_info' as const,
-      title: 'Project ready',
-      bullets: ['a', 'b'],
+      lines: ['Branched mozart/bjork from main in mozart-go.', 'tagline'],
     };
     const msg = messageFromDto({
       message_id: 'm1',
@@ -115,5 +115,95 @@ describe('messageFromDto — system_info parsing (R0.3.F)', () => {
       created_at: 1,
     });
     expect(msg.systemInfo).toEqual(original);
+  });
+});
+
+describe('messageFromDto — setup_progress parsing (R0.3.E)', () => {
+  it('parses running state with manager + command', () => {
+    const msg = messageFromDto({
+      message_id: 'm1',
+      chat_id: 'c1',
+      run_id: null,
+      role: 'system',
+      content: '',
+      mode: null,
+      status: 'done',
+      timeline_json: JSON.stringify({
+        kind: 'setup_progress',
+        status: 'running',
+        command: 'pnpm install',
+        manager: 'pnpm',
+      }),
+      created_at: 1,
+    });
+    expect(msg.setupProgress).toEqual({
+      kind: 'setup_progress',
+      status: 'running',
+      command: 'pnpm install',
+      manager: 'pnpm',
+      errorMessage: undefined,
+    });
+    expect(msg.systemInfo).toBeUndefined();
+  });
+
+  it('coerces unknown status to running', () => {
+    const msg = messageFromDto({
+      message_id: 'm1',
+      chat_id: 'c1',
+      run_id: null,
+      role: 'system',
+      content: '',
+      mode: null,
+      status: 'done',
+      timeline_json: JSON.stringify({
+        kind: 'setup_progress',
+        status: 'wat',
+        command: 'pnpm install',
+      }),
+      created_at: 1,
+    });
+    expect(msg.setupProgress?.status).toBe('running');
+  });
+
+  it('passes errorMessage through on failed status', () => {
+    const msg = messageFromDto({
+      message_id: 'm1',
+      chat_id: 'c1',
+      run_id: null,
+      role: 'system',
+      content: '',
+      mode: null,
+      status: 'done',
+      timeline_json: JSON.stringify({
+        kind: 'setup_progress',
+        status: 'failed',
+        command: 'pnpm install',
+        manager: 'pnpm',
+        errorMessage: 'ENOSPC',
+      }),
+      created_at: 1,
+    });
+    expect(msg.setupProgress?.status).toBe('failed');
+    expect(msg.setupProgress?.errorMessage).toBe('ENOSPC');
+  });
+
+  it('drops empty manager string', () => {
+    const msg = messageFromDto({
+      message_id: 'm1',
+      chat_id: 'c1',
+      run_id: null,
+      role: 'system',
+      content: '',
+      mode: null,
+      status: 'done',
+      timeline_json: JSON.stringify({
+        kind: 'setup_progress',
+        status: 'running',
+        command: 'make setup',
+        manager: '',
+      }),
+      created_at: 1,
+    });
+    expect(msg.setupProgress?.manager).toBeUndefined();
   });
 });

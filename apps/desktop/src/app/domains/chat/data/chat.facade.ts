@@ -15,7 +15,12 @@ import {
   MESSAGES_ADAPTER,
 } from './chats.adapter';
 import type { Chat, ChatMode, EffortLevel } from './chat.model';
-import type { Message, MessageStatus } from './message.model';
+import type {
+  Message,
+  MessageStatus,
+  SetupProgress,
+  SetupProgressStatus,
+} from './message.model';
 import { ChatStore } from './chat.store';
 
 function outcomeToStatus(
@@ -226,6 +231,50 @@ export class ChatFacade {
       // the chat).
       console.warn('[chat] hydrate failed for workspace', workspaceId, err);
       this.hydrated.delete(workspaceId);
+    }
+  }
+
+  /**
+   * Update a bootstrap `setup_progress` chat-timeline entry (P0.3 /
+   * R0.3.E). Persists the new payload via the existing
+   * `update_message_timeline` Tauri command and patches the in-memory
+   * message so the renderer reflects the new state on the next tick.
+   *
+   * No-op when the target message isn't in the store yet — the next
+   * `hydrate()` will pick the persisted state up.
+   */
+  async setSetupProgress(
+    messageId: string,
+    status: SetupProgressStatus,
+    options: {
+      command?: string;
+      manager?: string;
+      errorMessage?: string;
+    } = {},
+  ): Promise<void> {
+    const existing = this.store
+      .messages()
+      .find((m) => m.id === messageId);
+    const command = options.command ?? existing?.setupProgress?.command ?? '';
+    const manager = options.manager ?? existing?.setupProgress?.manager;
+    const payload: SetupProgress = {
+      kind: 'setup_progress',
+      status,
+      command,
+      ...(manager ? { manager } : {}),
+      ...(options.errorMessage ? { errorMessage: options.errorMessage } : {}),
+    };
+    try {
+      await this.messages.updateSetupProgress(messageId, payload);
+    } catch (err) {
+      console.warn('[chat] setSetupProgress persist failed', messageId, err);
+      return;
+    }
+    if (existing) {
+      this.store.updateMessage(messageId, (m) => ({
+        ...m,
+        setupProgress: payload,
+      }));
     }
   }
 

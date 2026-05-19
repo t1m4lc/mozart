@@ -72,6 +72,21 @@ export class ProjectsFacade {
     return project;
   }
 
+  /**
+   * Silent project bootstrap on `Open project` (P0.3 / R0.3.E). Runs the
+   * full backend orchestration in one Tauri call: register the repo,
+   * write `project_local_config` if there's no `.mozart/`, create the
+   * first workspace + 'Start' chat, store the `system_info` entry. The
+   * caller (AddProjectFlow) hydrates dependent stores and routes the
+   * user into the workspace.
+   */
+  async bootstrap(path: string) {
+    const result = await this.adapter.bootstrap(path);
+    this.store.upsertProject(result.project);
+    this.uiState.expandProjects([result.project.id]);
+    return result;
+  }
+
   // Run `git init` + initial commit at `path`. Called by the
   // AddProjectFlow after the user confirms the Initialize-project
   // dialog. Does not register the project — the flow re-runs `add`

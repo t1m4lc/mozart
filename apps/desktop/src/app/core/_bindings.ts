@@ -1378,6 +1378,82 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  /**
+   * Probe a project directory and return what Mozart inferred. Pure read,
+   * no DB writes. Used by `bootstrap_project` internally and by future
+   * "rescan" surfaces. Returns the flat summary the UI consumes — the
+   * internal `ProjectDetection` (with the full ordered `RunConfig`) stays
+   * crate-private.
+   */
+  async detectProject(
+    path: string,
+  ): Promise<Result<DetectedSummary, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('detect_project', { path }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Silent first-run bootstrap. Creates the project row (idempotent),
+   * writes a `project_local_config` row if there's no `.mozart/`, creates
+   * the first workspace, and creates the "Start" chat. Returns IDs +
+   * detection so the UI can navigate directly into the workspace.
+   */
+  async bootstrapProject(
+    path: string,
+  ): Promise<Result<BootstrapResult, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('bootstrap_project', { path }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Deferred "Save config to repo" surface. Writes the local fallback
+   * config to `.mozart/run.json` + `.mozart/settings.json`, validating
+   * first and refusing to overwrite. Wired in P0.3 but not exposed in
+   * UI for v0 (TODO-006).
+   */
+  async initProjectRepoFromLocal(
+    projectId: string,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('init_project_repo_from_local', { projectId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Read the active project config. Repo > local; falls back to the
+   * local DB row if `.mozart/run.json` is absent. Bootstrap guarantees
+   * at least one of the two sources exists.
+   */
+  async readProjectConfig(
+    projectId: string,
+  ): Promise<Result<ProjectConfig, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('read_project_config', { projectId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   async resetDatabaseClean(): Promise<Result<null, AppError>> {
     try {
       return { status: 'ok', data: await TAURI_INVOKE('reset_database_clean') };
@@ -1454,6 +1530,31 @@ export type AuthSessionDto = {
    */
   expires_at: number;
 };
+/**
+ * Result of a successful bootstrap. Maps to the JSON returned by the
+ * `bootstrap_project` Tauri command.
+ */
+export type BootstrapResult = {
+  projectId: string;
+  firstWorkspaceId: string;
+  startChatId: string;
+  /**
+   * Where the run config came from:
+   * - `"repo"`:     `.mozart/run.json` was present, valid, and read.
+   * - `"local"`:    Inferred and written to `project_local_config`.
+   * - `"fallback"`: No probe matched; an empty row was still written
+   * so callers always find a config.
+   */
+  source: string;
+  detected: DetectedSummary;
+  /**
+   * If detection produced a setup command, bootstrap also writes a
+   * `setup_progress` timeline entry in the running state. The frontend
+   * transitions this entry to `done` / `failed` after `runInstall`
+   * resolves. `None` when no setup command was detected.
+   */
+  setupProgressMessageId: string | null;
+};
 export type ChangedFile = {
   path: string;
   /**
@@ -1517,6 +1618,21 @@ export type DetectedIde = {
    * Resolved absolute binary path (informational).
    */
   binary_path: string;
+};
+/**
+ * Flattened detection summary for the UI surface. The internal
+ * `ProjectDetection` keeps the full ordered `RunConfig`; this DTO
+ * reduces it to the two strings the system_info bullet renders.
+ */
+export type DetectedSummary = {
+  setup: string | null;
+  run: string | null;
+  /**
+   * Toolchain name from the winning probe (`"pnpm"`, `"cargo"`, ...).
+   * `None` when no probe matched.
+   */
+  stack: string | null;
+  hasMozartDir: boolean;
 };
 /**
  * Wire shape consumed by the Angular `RepositoriesAdapter`. Names are
@@ -1628,6 +1744,23 @@ export type ProbeResult =
   | { kind: 'connected' }
   | { kind: 'invalid' }
   | { kind: 'network_error' };
+/**
+ * Where merged config came from for read-time consumers. Mirrors
+ * `BootstrapResult.source` minus `"fallback"` (fallback rows are stored
+ * in the local DB and read back as `"local"`).
+ *
+ * `run_json` is the raw JSON text the frontend parses — keeps the
+ * `.mozart/run.json` key order intact through the FFI without having
+ * to teach `specta::Type` about the ordered-Vec representation.
+ */
+export type ProjectConfig = {
+  runJson: string;
+  mergeMode: string;
+  /**
+   * `"repo"` or `"local"`.
+   */
+  source: string;
+};
 export type Repo = {
   repo_id: string;
   path: string;

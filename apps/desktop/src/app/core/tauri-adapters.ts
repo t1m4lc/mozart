@@ -140,6 +140,27 @@ function provideProjectsAdapter(): Provider {
       async add(path) {
         return projectFromDto(unwrap(await commands.addRepo(path)));
       },
+      async bootstrap(path) {
+        const r = unwrap(await commands.bootstrapProject(path));
+        // The backend returns a flat result; we re-fetch the project row
+        // to surface the Project model with hydrated display_name etc.
+        // listRepos is the cheapest seed since bootstrap is a once-per-
+        // open operation.
+        const repos = unwrap(await commands.listRepos());
+        const dto = repos.find((p) => p.repo_id === r.projectId);
+        if (!dto) {
+          throw new Error(
+            `bootstrap returned project ${r.projectId} but it is not in listRepos`,
+          );
+        }
+        return {
+          project: projectFromDto(dto),
+          firstWorkspaceId: r.firstWorkspaceId,
+          startChatId: r.startChatId,
+          source: r.source,
+          setupProgressMessageId: r.setupProgressMessageId ?? null,
+        };
+      },
       async initRepo(path) {
         unwrap(await commands.initRepo(path));
       },
@@ -305,6 +326,14 @@ function provideMessagesAdapter(): Provider {
           await commands.updateMessageTimeline(
             messageId,
             turnStateToJson(turnState ?? undefined),
+          ),
+        );
+      },
+      async updateSetupProgress(messageId, progress) {
+        unwrap(
+          await commands.updateMessageTimeline(
+            messageId,
+            JSON.stringify(progress),
           ),
         );
       },

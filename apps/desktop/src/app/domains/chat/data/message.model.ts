@@ -17,10 +17,33 @@ export type MessageStatus =
 // Subtle muted card emitted by the backend at project bootstrap time.
 // One per "Start" chat; read-only — not editable, not deletable. Carried
 // on `Message` only when `role === 'system'` and `kind === 'system_info'`.
+//
+// `lines` holds short conversational sentences ("Branched … from … in …",
+// "<workspace> ready with 0 files.", tagline). The renderer shows them as
+// stacked paragraphs — no dotted bullet glyph.
 export interface SystemInfo {
   readonly kind: 'system_info';
-  readonly title: string;
-  readonly bullets: readonly string[];
+  readonly lines: readonly string[];
+}
+
+// Bootstrap setup lifecycle. Backend writes the entry in `running` state
+// at Open-project time when a setup command is known. The frontend flips
+// it to `done` / `failed` once `runInstall` resolves (via the existing
+// `update_message_timeline` Tauri command).
+export type SetupProgressStatus = 'running' | 'done' | 'failed';
+
+export interface SetupProgress {
+  readonly kind: 'setup_progress';
+  readonly status: SetupProgressStatus;
+  readonly command: string;
+  /**
+   * Toolchain name used in the rendered copy ("Installed dependencies
+   * with pnpm."). Empty string when not known — renderer falls back to
+   * the bare command.
+   */
+  readonly manager?: string;
+  /** Set on failed runs when the backend has a reason to surface. */
+  readonly errorMessage?: string;
 }
 
 export interface Message {
@@ -38,4 +61,7 @@ export interface Message {
   // System only — present when this row is the bootstrap "Project ready"
   // entry. See P0.3 (R0.3.F).
   readonly systemInfo?: SystemInfo;
+  // System only — present when this row tracks the bootstrap setup
+  // lifecycle (P0.3 / R0.3.E). Mutable via update_message_timeline.
+  readonly setupProgress?: SetupProgress;
 }

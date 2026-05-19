@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmDialogService } from '@mozart/ui/dialog';
+import { toast } from '@spartan-ng/brain/sonner';
 import { ChatFacade } from '../domains/chat';
 import {
   type CloneRepoContext,
@@ -74,39 +75,76 @@ export class AddProjectFlow {
 
   async addAndOpen(path: string): Promise<void> {
     try {
-      await this._addAndContinue(path);
+      await this._bootstrapAndContinue(path);
     } catch (err) {
       if (this._isNotARepo(err)) {
         void this._openInitDialog(path);
         return;
       }
-      console.error('add project flow failed', err);
+      // P0.3 toast template: "Couldn't open <basename>. <reason>."
+      toast.error(`Couldn't open ${this._basename(path)}`, {
+        description: this._reasonFromError(err),
+      });
+      console.error('open project flow failed', err);
     }
   }
 
-  // Runs the full happy-path: register the project, locate or create
-  // a workspace, hydrate its first "Start" chat, navigate. Throws on
-  // the first Tauri failure; the caller decides whether to react.
-  private async _addAndContinue(path: string): Promise<void> {
-    const project = await this.projects.add(path);
+  // P0.3 happy path: one Tauri call writes everything, then hydrate the
+  // dependent stores and route into the workspace.
+  //
+  // Idempotency is enforced by the backend: bootstrap_project resolves
+  // an existing repo row by path instead of creating a duplicate, so
+  // re-opening the same folder lands the user back in the first
+  // workspace without leaving stray rows behind.
+  private async _bootstrapAndContinue(path: string): Promise<void> {
+    const result = await this.projects.bootstrap(path);
 
-    const existing = this.workspaces.byProject(project.id)();
-    if (existing.length > 0) {
-      await this.router.navigate(['/workspaces', existing[0].id]);
-      return;
+    // Re-hydrate the workspace list so the freshly-created row appears
+    // in the sidebar without waiting for a refresh.
+    await this.workspaces.loadAll();
+    // Hydrate the chat list — the 'Start' chat + the one-time
+    // system_info entry land here. hydrate() is idempotent.
+    await this.chat.hydrate(result.firstWorkspaceId);
+
+    await this.router.navigate(['/workspaces', result.firstWorkspaceId]);
+    // Track install progress on the setup_progress chat-timeline entry
+    // (planted by the backend in the running state). Fire-and-forget so
+    // navigation doesn't block on a long install, but `await` inside the
+    // promise so the entry actually flips when install resolves.
+    void this._trackSetupProgress(
+      result.firstWorkspaceId,
+      result.setupProgressMessageId,
+    );
+  }
+
+  private async _trackSetupProgress(
+    workspaceId: string,
+    setupProgressMessageId: string | null,
+  ): Promise<void> {
+    try {
+      await this.workspaces.runInstall(workspaceId);
+      if (!setupProgressMessageId) return;
+      const install = this.workspaces.installFor(workspaceId);
+      const status =
+        install.state === 'success'
+          ? 'done'
+          : install.state === 'no_package'
+            ? 'done'
+            : 'failed';
+      // Honor whatever manager the install detected at runtime — Mozart
+      // sometimes picks a different one than the bootstrap probe (e.g.
+      // when an unexpected lockfile shows up post-clone).
+      await this.chat.setSetupProgress(setupProgressMessageId, status, {
+        manager: install.manager || undefined,
+      });
+    } catch (err) {
+      if (setupProgressMessageId) {
+        await this.chat.setSetupProgress(setupProgressMessageId, 'failed', {
+          errorMessage: this._reasonFromError(err),
+        });
+      }
+      console.warn('[open-project] install tracking failed', workspaceId, err);
     }
-
-    const workspaceId = await this.workspaces.createForPrompt({
-      projectId: project.id,
-    });
-    // Eagerly hydrate so the first "Start" chat lands before navigation.
-    // hydrate() is idempotent and creates the chat lazily when none
-    // exists, persisting the title server-side.
-    await this.chat.hydrate(workspaceId);
-    await this.router.navigate(['/workspaces', workspaceId]);
-    // Fire-and-forget package install. The chat Start tab's empty-state
-    // step 4 reflects the running -> success/failed lifecycle. No toast.
-    void this.workspaces.runInstall(workspaceId);
   }
 
   // `add_repo` returns the sentinel `Validation("NotARepo")` when the
@@ -136,10 +174,26 @@ export class AddProjectFlow {
   private async _initAndContinue(path: string): Promise<void> {
     try {
       await this.projects.initRepo(path);
-      await this._addAndContinue(path);
+      await this._bootstrapAndContinue(path);
     } catch (err) {
-      console.error('init + add project flow failed', err);
+      toast.error(`Couldn't open ${this._basename(path)}`, {
+        description: this._reasonFromError(err),
+      });
+      console.error('init + open project flow failed', err);
     }
+  }
+
+  private _basename(path: string): string {
+    // Honor both OS separators since the picker on Windows hands back
+    // a path with backslashes.
+    const trimmed = path.replace(/[/\\]+$/, '');
+    const idx = Math.max(trimmed.lastIndexOf('/'), trimmed.lastIndexOf('\\'));
+    return idx >= 0 ? trimmed.slice(idx + 1) : trimmed;
+  }
+
+  private _reasonFromError(err: unknown): string {
+    if (err instanceof Error && err.message) return err.message;
+    return 'Unknown error';
   }
 
   // Default `<home>/mozart/repos` used as the seed for Clone (Location)

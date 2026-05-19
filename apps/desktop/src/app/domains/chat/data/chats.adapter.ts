@@ -1,7 +1,7 @@
 import { InjectionToken } from '@angular/core';
 import type { TurnState } from '../../llm-model';
 import type { Chat, ChatMode, EffortLevel } from './chat.model';
-import type { Message, MessageStatus } from './message.model';
+import type { Message, MessageStatus, SetupProgress } from './message.model';
 
 // Tauri-backed IO for the chat domain. Concrete impl bound in
 // app.config.ts. Two interfaces — chats vs messages — bound under the
@@ -43,6 +43,13 @@ export interface MessagesAdapter {
   // Persists the turn state as JSON on the DB column `timeline_json`
   // (column name retained for backwards compat with migration 004).
   updateTurnState(messageId: string, turnState: TurnState | null): Promise<void>;
+  // Replaces `timeline_json` with a `setup_progress` payload. Used by
+  // AddProjectFlow to flip the bootstrap setup entry to done / failed
+  // once `runInstall` resolves (P0.3 / R0.3.E).
+  updateSetupProgress(
+    messageId: string,
+    progress: SetupProgress,
+  ): Promise<void>;
 }
 
 export const CHATS_ADAPTER = new InjectionToken<ChatsAdapter>('CHATS_ADAPTER');
