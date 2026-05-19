@@ -100,6 +100,17 @@ jobs:
             nx-landing-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             nx-landing-${{ runner.os }}-
 
+      # Inject public PostHog env vars only on main → keeps PR previews silent.
+      # Vite doesn't auto-read process.env, so we write a .env.local
+      # (gitignored) that Vite loads at build time.
+      - name: Write PostHog env for build
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          cat > apps/landing/.env.local <<EOF
+          VITE_POSTHOG_KEY=${{ vars.VITE_POSTHOG_KEY }}
+          VITE_POSTHOG_HOST=${{ vars.VITE_POSTHOG_HOST }}
+          EOF
+
       # seo-check transitively depends on generate-llms → post-build-seo → build
       - run: pnpm nx run landing:seo-check
 

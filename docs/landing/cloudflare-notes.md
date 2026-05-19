@@ -35,15 +35,15 @@ connected.
 ## 2. Environment assumptions
 
 - `mozart.build` apex is attached to the Cloudflare Pages project.
-- No build-time **secrets** are required (everything in the bundle is public-by-design).
-- Two **public** `VITE_*` env vars feed the PostHog telemetry service (see `docs/specs/plan-telemetry.md`):
+- The actual build + deploy runs from **`.github/workflows/deploy-landing.yml`**, not Cloudflare's GitHub App. `wrangler-action@v3` uploads the prerendered tree to the Pages project via `secrets.CLOUDFLARE_API_TOKEN` + `secrets.CLOUDFLARE_ACCOUNT_ID`. (Earlier versions of this note described a pure CF GitHub-App setup — that's stale.)
+- Two **public** `VITE_*` vars feed the PostHog telemetry service (see `docs/specs/plan-telemetry.md`). Set them in **GitHub** repo → Settings → Secrets and variables → **Actions** → **Variables** (not Secrets — they ship in the public bundle, so the redaction Secrets give you is wasted):
 
-  | Variable | Where to set | Value |
-  | --- | --- | --- |
-  | `VITE_POSTHOG_KEY` | CF Pages → Settings → Environment variables → **Production** | `phc_…` (PostHog project API key — public ingest key, safe in bundle) |
-  | `VITE_POSTHOG_HOST` | same | `https://us.i.posthog.com` (or `eu.i.posthog.com`) |
+  | Variable | Value |
+  | --- | --- |
+  | `VITE_POSTHOG_KEY` | `phc_…` (PostHog project API key — public ingest key, safe in bundle) |
+  | `VITE_POSTHOG_HOST` | `https://us.i.posthog.com` (or `eu.i.posthog.com`) |
 
-  Leave both **unset** in the **Preview** environment so PR-preview deploys stay silent (the analytics service no-ops without a key). The dev server skips init too — see `import.meta.env.DEV` guard in `analytics.service.ts`.
+  The workflow only writes them into `apps/landing/.env.local` on `push` to `main`, so PR-preview deploys ship with no key and the analytics service no-ops. The dev server skips init too — see the `import.meta.env.DEV` guard in `analytics.service.ts`.
 
 ## 3. Custom domain / DNS
 
