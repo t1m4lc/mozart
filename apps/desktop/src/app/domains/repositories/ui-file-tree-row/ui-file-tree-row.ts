@@ -38,6 +38,7 @@ import { statusBadge } from '../util-status-badge/util-status-badge';
       [attr.aria-current]="active() ? 'true' : null"
       class="flex h-6 w-full items-center gap-1 rounded text-left text-xs hover:bg-muted/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring/50 aria-[current=true]:bg-brand/15 aria-[current=true]:text-foreground"
       [class.opacity-50]="node().ignored"
+      [class.px-2]="isFolder()"
       (click)="onClick()"
     >
       @if (isFolder()) {
@@ -95,8 +96,6 @@ export class FileTreeRow {
   readonly node = input.required<FileNode>();
   readonly isFolder = input<boolean>(false);
   readonly expanded = input<boolean>(false);
-  // True when this row's path matches the currently-active file tab —
-  // drives the brand-tint highlight on the selected file.
   readonly active = input<boolean>(false);
 
   readonly fileClick = output<FileNode>();
