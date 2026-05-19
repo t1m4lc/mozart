@@ -31,7 +31,6 @@ import { ProjectsFacade } from '../../projects';
 import {
   FeatureFileTree,
   RepositoriesFacade,
-  UiChangesContextMenu,
   UiConfirmDiscardChangesDialog,
   type ChangedFile,
   type ConfirmDiscardChangesContext,
@@ -123,9 +122,8 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
     FeatureFileTree,
     FeatureWorkspaceRun,
     FeatureWorkspaceTerminal,
-    UiChangesContextMenu,
-    ...HlmSkeletonImports,
-    ...HlmTabsImports,
+    HlmSkeletonImports,
+    HlmTabsImports,
   ],
   providers: [
     provideIcons({
@@ -337,119 +335,105 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
     }
 
     <!-- Bottom slot — toolbar always visible at the bottom edge of
-         the aside. Content area collapses to 0 height when closed.
-         Collapse toggle far left, Run trigger far right. border-t
-         separates the toolbar from the files area above. -->
-    <div
-      class="flex h-9 shrink-0 items-stretch border-t border-b border-sidebar-border bg-sidebar"
-      role="tablist"
-      aria-label="Workspace processes"
+         the aside. Content area collapses (display:none) when closed
+         but stays in the DOM so the Terminal's xterm state survives
+         the toggle. Toolbar layout: collapse-toggle | tablist |
+         spacer | play/stop. The tablist is a real <hlm-tabs-list>
+         (Spartan / BrnTabs) for aria + arrow-key keyboard nav. -->
+    <hlm-tabs
+      class="contents"
+      [tab]="bottomTab()"
+      (tabActivated)="setBottomTab($any($event))"
     >
-      <button
-        hlmBtn
-        variant="ghost"
-        size="icon-xs"
-        type="button"
-        [hlmTooltip]="bottomOpen() ? 'Collapse panel' : 'Expand panel'"
-        position="top"
-        class="my-1 ml-1 size-7 shrink-0 rounded-md text-muted-foreground"
-        [attr.aria-expanded]="bottomOpen()"
-        (click)="toggleBottomSlot()"
+      <div
+        class="flex h-9 shrink-0 items-stretch border-t border-b border-sidebar-border bg-sidebar"
       >
-        <ng-icon
-          hlm
-          [name]="bottomOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
-          size="xs"
-        />
-      </button>
-      <button
-        #setupTabBtn
-        type="button"
-        role="tab"
-        [attr.aria-selected]="bottomOpen() && bottomTab() === 'setup'"
-        (click)="onTabClick('setup')"
-        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground"
-      >
-        Setup
-        @if (bottomOpen() && bottomTab() === 'setup') {
-          <span
-            aria-hidden="true"
-            class="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand shadow-[0_0_8px_hsl(var(--brand)/0.45)]"
-          ></span>
-        }
-      </button>
-      <button
-        #runTabBtn
-        type="button"
-        role="tab"
-        [attr.aria-selected]="bottomOpen() && bottomTab() === 'run'"
-        (click)="onTabClick('run')"
-        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground"
-      >
-        Run
-        @if (bottomOpen() && bottomTab() === 'run') {
-          <span
-            aria-hidden="true"
-            class="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand shadow-[0_0_8px_hsl(var(--brand)/0.45)]"
-          ></span>
-        }
-      </button>
-      <button
-        #terminalTabBtn
-        type="button"
-        role="tab"
-        [attr.aria-selected]="bottomOpen() && bottomTab() === 'terminal'"
-        (click)="onTabClick('terminal')"
-        class="relative flex h-full items-center px-2 text-xs font-light text-muted-foreground transition-colors hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground"
-      >
-        Terminal
-        @if (bottomOpen() && bottomTab() === 'terminal') {
-          <span
-            aria-hidden="true"
-            class="pointer-events-none absolute inset-x-0 -bottom-px h-0.5 rounded-full bg-brand shadow-[0_0_8px_hsl(var(--brand)/0.45)]"
-          ></span>
-        }
-      </button>
-      <span class="flex-1"></span>
-      @if (runStatus() === 'running') {
         <button
           hlmBtn
           variant="ghost"
           size="icon-xs"
           type="button"
-          hlmTooltip="Stop the run"
+          [hlmTooltip]="bottomOpen() ? 'Collapse panel' : 'Expand panel'"
           position="top"
-          class="my-1 mr-1 size-7 shrink-0 rounded-md text-destructive"
-          (click)="onStopRun()"
+          class="my-1 ml-1 size-7 shrink-0 rounded-md text-muted-foreground"
+          [attr.aria-expanded]="bottomOpen()"
+          (click)="toggleBottomSlot()"
         >
-          <ng-icon hlm name="lucideCircleStop" size="xs" />
+          <ng-icon
+            hlm
+            [name]="bottomOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
+            size="xs"
+          />
         </button>
-      } @else {
-        <button
-          hlmBtn
-          variant="ghost"
-          size="icon-xs"
-          type="button"
-          hlmTooltip="Run the configured command"
-          position="top"
-          class="my-1 mr-1 size-7 shrink-0 rounded-md text-muted-foreground"
-          [disabled]="!hasRunCommand() || frozen()"
-          (click)="onStartRun()"
+        <hlm-tabs-list
+          variant="line"
+          class="flex items-stretch bg-transparent p-0"
+          aria-label="Workspace processes"
         >
-          <ng-icon hlm name="lucidePlay" size="xs" />
-        </button>
-      }
-    </div>
+          <button
+            hlmTabsTrigger="setup"
+            (click)="ensureBottomOpen()"
+            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+          >
+            Setup
+          </button>
+          <button
+            hlmTabsTrigger="run"
+            (click)="ensureBottomOpen()"
+            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+          >
+            Run
+          </button>
+          <button
+            hlmTabsTrigger="terminal"
+            (click)="ensureBottomOpen()"
+            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+          >
+            Terminal
+          </button>
+        </hlm-tabs-list>
+        <span class="flex-1"></span>
+        @if (runStatus() === 'running') {
+          <button
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
+            type="button"
+            hlmTooltip="Stop the run"
+            position="top"
+            class="my-1 mr-1 size-7 shrink-0 rounded-md text-destructive"
+            (click)="onStopRun()"
+          >
+            <ng-icon hlm name="lucideCircleStop" size="xs" />
+          </button>
+        } @else {
+          <button
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
+            type="button"
+            hlmTooltip="Run the configured command"
+            position="top"
+            class="my-1 mr-1 size-7 shrink-0 rounded-md text-muted-foreground"
+            [disabled]="!hasRunCommand()"
+            (click)="onStartRun()"
+          >
+            <ng-icon hlm name="lucidePlay" size="xs" />
+          </button>
+        }
+      </div>
 
-    <!-- Content area — collapses to 0 height when closed. Each tab
-         is rendered in parallel inside [hidden] divs so state
-         survives switches (Terminal PTY in particular stays alive
-         across visits). Heavy tabs use @defer to keep their chunks
-         out of the main bundle. -->
-    @if (bottomOpen()) {
-      <div class="shrink-0 overflow-hidden" [style.height.px]="bottomHeight()">
-        <!-- Setup : plain text, always rendered. -->
-        <div [hidden]="bottomTab() !== 'setup'" class="h-full overflow-auto">
+      <!-- Content area — stays in the DOM, hidden when collapsed, so
+           the Terminal's xterm instance and Run's panel survive the
+           collapse/expand cycle. Terminal uses hlmTabsContentLazy so
+           xterm only mounts when the tab is first activated;
+           thereafter the embedded view stays alive across switches. -->
+      <div
+        class="shrink-0 overflow-hidden"
+        [hidden]="!bottomOpen()"
+        [style.height.px]="bottomHeight()"
+      >
+        <div hlmTabsContent="setup" class="h-full overflow-auto">
           <div class="p-4 text-sm text-muted-foreground">
             <p class="font-medium text-foreground">Setup</p>
             <p class="mt-1">
@@ -459,11 +443,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
           </div>
         </div>
 
-        <!-- Run : the panel is light (it's an EmptyState until a run
-             fires; xterm only mounts on start). No defer — the earlier
-             on-immediate trigger delayed first paint of the workspace
-             and showed an empty bg-muted strip for around a second. -->
-        <div [hidden]="bottomTab() !== 'run'" class="h-full overflow-hidden">
+        <div hlmTabsContent="run" class="h-full overflow-hidden">
           <app-feature-workspace-run
             class="block h-full w-full"
             [workspaceId]="workspaceId()"
@@ -471,28 +451,17 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
           />
         </div>
 
-        <!-- Terminal : @defer (on interaction) waits until the user
-             clicks the Terminal tab button. Once loaded the PTY
-             stays alive across tab switches — re-opening Terminal
-             returns to the same scrollback. -->
-        <div
-          [hidden]="bottomTab() !== 'terminal'"
-          class="h-full overflow-hidden"
-        >
-          @defer (on interaction(terminalTabBtn)) {
+        <div hlmTabsContent="terminal" class="h-full overflow-hidden">
+          <ng-template hlmTabsContentLazy>
             <app-feature-workspace-terminal
               class="block h-full w-full"
               [workspaceId]="workspaceId()"
               [active]="bottomTab() === 'terminal'"
             />
-          } @loading (minimum 0ms) {
-            <hlm-skeleton class="h-full w-full rounded-none" />
-          } @placeholder {
-            <hlm-skeleton class="h-full w-full rounded-none opacity-40" />
-          }
+          </ng-template>
         </div>
       </div>
-    }
+    </hlm-tabs>
   `,
 })
 export class FeatureWorkspaceAside {
@@ -782,17 +751,28 @@ export class FeatureWorkspaceAside {
     this.fileTabs.openFor(id, node.path);
   }
 
-  // Clicking a tab :
-  //   - opens the bottom slot if it's collapsed
-  //   - records the choice in UiStateStore so it survives ws switches
-  protected onTabClick(tab: BottomTab): void {
+  // BrnTabs's `tabActivated` emits a plain `string` (the key of the
+  // activated trigger). The guard narrows it back to the BottomTab
+  // union before writing to the store; an unknown key is silently
+  // dropped — defense against a `hlmTabsTrigger="..."` typo.
+  protected setBottomTab(tab: string): void {
+    if (!(BOTTOM_TAB_VALUES as readonly string[]).includes(tab)) return;
     const id = this.workspaceId();
     if (!id) return;
-    const patch: Partial<{ bottomOpen: boolean; bottomTab: BottomTab }> = {};
-    if (!this.bottomOpen()) patch.bottomOpen = true;
-    if (tab !== this.bottomTab()) patch.bottomTab = tab;
-    if (Object.keys(patch).length === 0) return;
-    this.uiState.updateWorkspaceAsideState(id, patch);
+    if (tab === this.bottomTab()) return;
+    this.uiState.updateWorkspaceAsideState(id, { bottomTab: tab as BottomTab });
+  }
+
+  // Sibling concern: clicking a tab when the slot is collapsed must
+  // expand the slot. BrnTabs's (tabActivated) only fires when the
+  // ACTIVE tab actually changes, so re-clicking the already-selected
+  // tab while collapsed wouldn't reopen the slot. Each trigger also
+  // binds a plain (click) → ensureBottomOpen() to cover that case.
+  protected ensureBottomOpen(): void {
+    if (this.bottomOpen()) return;
+    const id = this.workspaceId();
+    if (!id) return;
+    this.uiState.updateWorkspaceAsideState(id, { bottomOpen: true });
   }
 
   protected toggleBottomSlot(): void {
