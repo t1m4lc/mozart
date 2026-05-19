@@ -6,6 +6,96 @@
 > Vocabulary: locked per CLAUDE.md (never expose `worktree`, `branch_name`,
 > `HEAD`, `detached HEAD`, `agent/wip-*` in UI surfaces).
 
+## How to use this plan (read first if you came here cold)
+
+This document is the single source of truth for the dogfood-readiness
+work. Anything you want to do — review, refine, implement, track — you
+start here. No other artifact is required.
+
+### Per-scenario navigation
+
+| Goal | Section to open |
+|---|---|
+| Re-read / review the plan | "Phasing" → "Architectural decisions log" → "NOT in scope" → "TODOs" → "Completion summary" |
+| Refine the plan (add / change / cut an atom) | edit the relevant phase section in place; commit; no remote review tool required |
+| Pick the next atom to implement | "Worktree parallelization strategy" — work through lanes top to bottom |
+| Understand a locked decision | "Architectural decisions log" (AD-01 through AD-06). Re-open a decision only with a strong reason. |
+| Trace failure scenarios | "Failure modes — production scenarios" + the "Critical gaps" callouts |
+| Find what already exists in the codebase | "What already exists" section |
+| Track progress | the `[ ]` checkboxes flip to `[x]` as atoms ship. `grep '\[x\]'` to see what's done. |
+
+### Per-atom implementation template (drop into a fresh chat)
+
+Each atom in this plan is a self-contained, commitable functional
+slice (per [[feedback_atom_unit]]). When starting an atom in a
+context-clean session, paste this prompt — replace `<ATOM_ID>` with
+the atom you want (e.g. `P0.1.B`, `A1.2.A`, `P3.4`):
+
+```
+Implement atom <ATOM_ID> from docs/specs/plan-mozart-dogfood-readiness.md.
+
+Rules:
+- Read the atom's section in full; follow CLAUDE.md; honor auto-loaded
+  memory (Viewed principle, Repo init principle, etc.).
+- One atom = one functional slice. Do NOT do the whole phase.
+- End with the atom's "Manual checkpoint" so I can verify before commit.
+- Do not commit until I confirm the checkpoint passes.
+```
+
+That's the entire bootstrap. Memory auto-loads, CLAUDE.md auto-loads,
+the plan section is self-describing. No other context-priming
+required.
+
+### Recommended implementation order
+
+Three waves. Inside a wave, atoms are independent — run them in
+parallel chats (each cleared on completion) without merge conflict.
+
+```
+Wave 1 (start anywhere, atoms are independent):
+  P3.4    Remove Archive button (smallest — use to learn the flow)
+  P3.1    Composer effort/mode/model heights + chevron
+  P3.2    Dot loader trim
+  P0.1.B  SandboxLevel enum + DB migration
+  P1.1.A  Audit aside tab state (no code, just a doc-comment)
+
+Wave 2 (depends on Wave 1):
+  P0.1.C  build_sandbox_flags + production argv
+  P0.1.D  Path canonicalize guard at IPC boundary
+  P0.2.A  isFrozen signal
+  P0.2.B  Frontend UI gates for freeze
+  P0.3.A  serde_json preserve_order + IndexMap DTO
+  P1.1.B  Move tab state to UiStateStore per-workspace
+
+Wave 3 (depends on Wave 2):
+  P0.1.E  Sandbox-level toggle UI
+  P0.2.C  Rust IPC guards for freeze
+  P0.3.B  Detector + probe (5 stacks)
+  P0.3.C  Schema validator
+  P1.2.A  FileTreeCache signal store
+  P1.3.A/B/C  Chat-panel refactor (sequential within this group)
+
+Wave 4 and beyond: see "Worktree parallelization strategy" section.
+```
+
+### Anti-regression rules (DO NOT do these while implementing)
+
+- Do not edit `libs/ui/**` — vendored Spartan primitives, read-only
+  per CLAUDE.md.
+- Do not expose `worktree`, `branch_name`, `HEAD`, `detached HEAD`,
+  `agent/wip-*`, `checkpoint sha` in user-facing strings.
+- Do not auto-`git add` or auto-commit `.mozart/` files
+  ([[mozart-repo-init-principle]]).
+- Do not gate Merge-now / Create PR / commit on the Viewed state —
+  soft warning only ([[mozart-viewed-principle]]).
+- Do not run `/ultraplan` from inside Claude Code — it is broken for
+  this account/branch as of 2026-05-19 and not on the critical path.
+  Refine this plan in-place and commit deltas.
+- Do not bulk `git add` — the project hook blocks it. Add specific
+  files only.
+
+---
+
 ## Why this plan
 
 The author wants to dogfood Mozart on Mozart itself. That requires three
