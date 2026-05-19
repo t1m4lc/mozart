@@ -835,6 +835,9 @@ export const commands = {
   },
   /**
    * Forward bytes (typed by the user via xterm.js) to the PTY's stdin.
+   * Plan P0.2 — refuses on frozen workspaces. The xterm frontend also
+   * sets `disableStdin = true` when frozen, so this should rarely fire;
+   * the guard is defense-in-depth for any caller bypassing the UI.
    */
   async writeTerminal(
     workspaceId: string,
@@ -1517,7 +1520,8 @@ export type AppError =
   | { kind: 'NotFound'; message: string }
   | { kind: 'Validation'; message: string }
   | { kind: 'AgentSpawn'; message: string }
-  | { kind: 'GitCmd'; message: string };
+  | { kind: 'GitCmd'; message: string }
+  | { kind: 'Frozen'; message: string };
 /**
  * Wire shape persisted in the OS keyring (JSON-encoded). The `Date`
  * fields are normalized to epoch-ms numbers on the Angular side so the

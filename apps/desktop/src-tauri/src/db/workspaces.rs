@@ -160,6 +160,41 @@ pub fn set_ui_status(
     Ok(())
 }
 
+// Plan P0.2 — the freeze guard reads `ui_status` (the kanban-level
+// state, not the runtime `status` column) and treats `done` as the
+// single frozen value. Unknown workspace ids surface as `NotFound` so
+// callers don't silently pass the guard for a stale id.
+pub fn is_frozen(conn: &Connection, workspace_id: &str) -> Result<bool, AppError> {
+    conn.query_row(
+        "SELECT ui_status FROM workspaces WHERE workspace_id = ?1",
+        [workspace_id],
+        |row| row.get::<_, String>(0),
+    )
+    .map(|s| s == "done")
+    .map_err(|e| match e {
+        rusqlite::Error::QueryReturnedNoRows => {
+            AppError::NotFound(format!("workspace id={workspace_id}"))
+        }
+        other => other.into(),
+    })
+}
+
+// Returns `Err(AppError::Frozen)` when the workspace is in the `done`
+// UI state. Used as the single guard at the head of every mutating
+// Tauri command listed in the P0.2 audit (start_agent_run,
+// install_workspace_packages, start_workspace_run, write_terminal,
+// discard_workspace_changes). Closure-flow commands (commit, push,
+// create_pr, set_workspace_ui_status) intentionally bypass this.
+pub fn assert_workspace_active(
+    conn: &Connection,
+    workspace_id: &str,
+) -> Result<(), AppError> {
+    if is_frozen(conn, workspace_id)? {
+        return Err(AppError::Frozen(workspace_id.to_string()));
+    }
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

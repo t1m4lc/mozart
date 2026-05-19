@@ -26,6 +26,15 @@ pub enum AppError {
 
     #[error("git command failed: {0}")]
     GitCmd(String),
+
+    // Plan P0.2 — the workspace is in the `done` (frozen) UI state.
+    // The carried string is the workspace_id so the frontend can route
+    // a typed error back to a banner / toast on the right surface.
+    // Closure-flow commands (`commit_workspace`, `push_workspace_branch`,
+    // `create_workspace_pr`, `set_workspace_ui_status` for the reopen
+    // path) deliberately do NOT return this variant.
+    #[error("workspace is done and read-only: {0}")]
+    Frozen(String),
 }
 
 impl From<rusqlite::Error> for AppError {

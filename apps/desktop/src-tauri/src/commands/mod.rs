@@ -174,10 +174,13 @@ pub(crate) async fn install_workspace_packages_impl(
     db: &DbState,
     workspace_id: String,
 ) -> Result<InstallResult, AppError> {
+    // Plan P0.2 freeze guard — `pnpm install` mutates the worktree
+    // (node_modules + lockfile), so it's blocked on `done` workspaces.
     // Resolve the worktree path. Holding the lock across the install
     // would block other DB ops for minutes — read the path and drop.
     let worktree_path = {
         let conn = db.lock();
+        crate::db::workspaces::assert_workspace_active(&conn, &workspace_id)?;
         let ws = crate::db::workspaces::get(&conn, &workspace_id)?;
         ws.worktree_path
     };
@@ -757,9 +760,11 @@ pub(crate) async fn start_agent_run_impl<E>(
 where
     E: Fn(AgentRunTerminated) + Send + Sync + 'static,
 {
-    // D20: 1:1 workspace -> thread traversal.
+    // D20: 1:1 workspace -> thread traversal. Plan P0.2: refuse on
+    // frozen workspaces before doing any further work.
     let (ws, thread) = {
         let conn = db.lock();
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
         (
             workspaces::get(&conn, &workspace_id)?,
             threads::get_by_workspace(&conn, &workspace_id)?,
@@ -961,6 +966,9 @@ pub(crate) async fn discard_workspace_changes_impl(
 ) -> Result<(), AppError> {
     let (worktree_path, checkpoint_sha) = {
         let conn = db.lock();
+        // Plan P0.2 — `git reset --hard` mutates the worktree; blocked
+        // on frozen workspaces.
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
         let ws = workspaces::get(&conn, &workspace_id)?;
         let thread = threads::get_by_workspace(&conn, &workspace_id)?;
         let runs = agent_runs::list_by_thread(&conn, &thread.thread_id)?;
@@ -1618,13 +1626,30 @@ pub async fn open_terminal(
 }
 
 /// Forward bytes (typed by the user via xterm.js) to the PTY's stdin.
+/// Plan P0.2 — refuses on frozen workspaces. The xterm frontend also
+/// sets `disableStdin = true` when frozen, so this should rarely fire;
+/// the guard is defense-in-depth for any caller bypassing the UI.
 #[tauri::command]
 #[specta::specta]
 pub async fn write_terminal(
+    db: State<'_, DbState>,
     registry: State<'_, TerminalRegistry>,
     workspace_id: String,
     data: String,
 ) -> Result<(), AppError> {
+    write_terminal_impl(db.inner(), registry.inner(), workspace_id, data).await
+}
+
+pub(crate) async fn write_terminal_impl(
+    db: &DbState,
+    registry: &TerminalRegistry,
+    workspace_id: String,
+    data: String,
+) -> Result<(), AppError> {
+    {
+        let conn = db.lock();
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
+    }
     let handle = registry
         .get(&workspace_id)
         .ok_or_else(|| AppError::NotFound(format!("no terminal for workspace {workspace_id}")))?;
@@ -1689,8 +1714,29 @@ pub async fn start_workspace_run(
     rows: u16,
     on_event: Channel<TerminalEvent>,
 ) -> Result<(), AppError> {
+    start_workspace_run_impl(
+        db.inner(),
+        registry.inner(),
+        workspace_id,
+        cols,
+        rows,
+        on_event,
+    )
+    .await
+}
+
+pub(crate) async fn start_workspace_run_impl(
+    db: &DbState,
+    registry: &WorkspaceRunRegistry,
+    workspace_id: String,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<TerminalEvent>,
+) -> Result<(), AppError> {
     let (worktree_path, command) = {
         let conn = db.lock();
+        // Plan P0.2 — block run-script launches on frozen workspaces.
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
         let ws = workspaces::get(&conn, &workspace_id)?;
         let task = tasks::get(&conn, &ws.task_id)?;
         let repo = repos::get(&conn, &task.repo_id)?;
@@ -3584,5 +3630,105 @@ mod tests {
         std::env::remove_var("MOZART_CLAUDE_BIN");
         std::env::remove_var("MOZART_MOCK_FIXTURE");
         std::env::remove_var("MOZART_WORKTREES_ROOT");
+    }
+
+    // =================================================================
+    // P0.2 — Freeze enforcement: each guarded command returns
+    // `AppError::Frozen(workspace_id)` when ui_status == "done".
+    // =================================================================
+
+    fn mark_workspace_done(db: &DbState, workspace_id: &str) {
+        let conn = db.lock();
+        workspaces::set_ui_status(&conn, workspace_id, "done").unwrap();
+    }
+
+    fn assert_frozen(result: Result<impl std::fmt::Debug, AppError>, expected_id: &str) {
+        match result {
+            Err(AppError::Frozen(id)) => assert_eq!(id, expected_id),
+            other => panic!("expected AppError::Frozen({expected_id}), got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn assert_workspace_active_returns_frozen_when_done() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-helper");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+
+        let conn = db.lock();
+        let result = workspaces::assert_workspace_active(&conn, &ws_id);
+        match result {
+            Err(AppError::Frozen(id)) => assert_eq!(id, ws_id),
+            other => panic!("expected Frozen, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn start_agent_run_returns_frozen_when_workspace_done() {
+        let db = init_db_memory().unwrap();
+        let registry = RunRegistry::new();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-spawn");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+
+        let result = start_agent_run_impl(
+            &db,
+            &registry,
+            ws_id.clone(),
+            "ignored".into(),
+            noop_channel(),
+            |_| {},
+        )
+        .await;
+        assert_frozen(result, &ws_id);
+    }
+
+    #[tokio::test]
+    async fn install_workspace_packages_returns_frozen_when_workspace_done() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-install");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+
+        let result = install_workspace_packages_impl(&db, ws_id.clone()).await;
+        assert_frozen(result, &ws_id);
+    }
+
+    #[tokio::test]
+    async fn start_workspace_run_returns_frozen_when_workspace_done() {
+        let db = init_db_memory().unwrap();
+        let registry = WorkspaceRunRegistry::new();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-run");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+
+        let on_event: Channel<TerminalEvent> = Channel::new(|_| Ok(()));
+        let result =
+            start_workspace_run_impl(&db, &registry, ws_id.clone(), 80, 24, on_event).await;
+        assert_frozen(result, &ws_id);
+    }
+
+    #[tokio::test]
+    async fn write_terminal_returns_frozen_when_workspace_done() {
+        let db = init_db_memory().unwrap();
+        let registry = TerminalRegistry::new();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-term");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+
+        let result = write_terminal_impl(&db, &registry, ws_id.clone(), "ls\n".into()).await;
+        assert_frozen(result, &ws_id);
+    }
+
+    #[tokio::test]
+    async fn discard_workspace_changes_returns_frozen_when_workspace_done() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-discard");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+
+        let result = discard_workspace_changes_impl(&db, ws_id.clone()).await;
+        assert_frozen(result, &ws_id);
     }
 }
