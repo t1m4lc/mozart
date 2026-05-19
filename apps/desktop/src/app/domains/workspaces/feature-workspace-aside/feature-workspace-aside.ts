@@ -177,87 +177,55 @@ function coerceBottomTab(raw: string | null): BottomTab {
           </button>
         </div>
 
-        @if (filesView() === 'all') {
-          <app-feature-file-tree
-            class="block min-h-0 flex-1"
-            [workspaceId]="workspaceId()"
-            [projectId]="activeProjectId()"
-            [refreshTick]="watcherTick()"
-            [activePath]="activeFilePath()"
-            (fileSelected)="onFileSelected($event)"
-          />
-        } @else {
-          <!-- Changes : flat path list. Click opens the file as a
-                 tab in the central shell tab bar (the diff renders in
-                 the central content area, replacing the chat panel).
-                 When staged files exist, the list splits into two
-                 collapsible groups; otherwise it's a single flat list
-                 for the common case. -->
-          <div class="min-h-0 flex-1 overflow-y-auto">
-            @if (changedFiles().length === 0) {
-              <p class="p-4 text-xs text-muted-foreground">
-                No changes since the base branch.
-              </p>
-            } @else if (stagedFiles().length > 0) {
-              <!-- Staged group -->
-              <button
-                type="button"
-                (click)="toggleStagedOpen()"
-                class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
-              >
-                <ng-icon
-                  hlm
-                  [name]="
-                    stagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'
-                  "
-                  size="9px"
-                />
-                <span>Staged ({{ stagedFiles().length }})</span>
-              </button>
-              @if (stagedOpen()) {
-                <ul class="flex flex-col">
-                  @for (file of stagedFiles(); track file.path) {
-                    <li>
-                      <ng-container
-                        [ngTemplateOutlet]="changedRowTpl"
-                        [ngTemplateOutletContext]="{ $implicit: file }"
-                      />
-                    </li>
-                  }
-                </ul>
-              }
-              <!-- Unstaged group -->
-              @if (unstagedFiles().length > 0) {
-                <button
-                  type="button"
-                  (click)="toggleUnstagedOpen()"
-                  class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
-                >
-                  <ng-icon
-                    hlm
-                    [name]="
-                      unstagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'
-                    "
-                    size="9px"
-                  />
-                  <span>Changes ({{ unstagedFiles().length }})</span>
-                </button>
-                @if (unstagedOpen()) {
-                  <ul class="flex flex-col pb-2">
-                    @for (file of unstagedFiles(); track file.path) {
-                      <li>
-                        <ng-container
-                          [ngTemplateOutlet]="changedRowTpl"
-                          [ngTemplateOutletContext]="{ $implicit: file }"
-                        />
-                      </li>
-                    }
-                  </ul>
-                }
-              }
-            } @else {
-              <ul class="flex flex-col py-1">
-                @for (file of changedFiles(); track file.path) {
+        <!-- Files / Changes are rendered IN PARALLEL with [hidden]
+             rather than swapped via @if so the file-tree's CdkTree
+             DOM survives the tab toggle. Switching from "All files"
+             to "Changes" and back used to remount the tree component
+             and rebuild every row from scratch — wasted hundreds of
+             ms on large repos. Same pattern as the bottom-slot
+             tabs lower in this template. -->
+        <app-feature-file-tree
+          class="block min-h-0 flex-1"
+          [hidden]="filesView() !== 'all'"
+          [workspaceId]="workspaceId()"
+          [projectId]="activeProjectId()"
+          [refreshTick]="watcherTick()"
+          [activePath]="activeFilePath()"
+          (fileSelected)="onFileSelected($event)"
+        />
+
+        <!-- Changes : flat path list. Click opens the file as a
+               tab in the central shell tab bar (the diff renders in
+               the central content area, replacing the chat panel).
+               When staged files exist, the list splits into two
+               collapsible groups; otherwise it's a single flat list
+               for the common case. -->
+        <div
+          class="min-h-0 flex-1 flex-col overflow-y-auto"
+          [class.flex]="filesView() === 'changes'"
+          [hidden]="filesView() !== 'changes'"
+        >
+          @if (changedFiles().length === 0) {
+            <p class="p-4 text-xs text-muted-foreground">
+              No changes since the base branch.
+            </p>
+          } @else if (stagedFiles().length > 0) {
+            <!-- Staged group -->
+            <button
+              type="button"
+              (click)="toggleStagedOpen()"
+              class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+            >
+              <ng-icon
+                hlm
+                [name]="stagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
+                size="9px"
+              />
+              <span>Staged ({{ stagedFiles().length }})</span>
+            </button>
+            @if (stagedOpen()) {
+              <ul class="flex flex-col">
+                @for (file of stagedFiles(); track file.path) {
                   <li>
                     <ng-container
                       [ngTemplateOutlet]="changedRowTpl"
@@ -267,62 +235,85 @@ function coerceBottomTab(raw: string | null): BottomTab {
                 }
               </ul>
             }
-          </div>
-
-          <ng-template #changedRowTpl let-file>
-            <button
-              type="button"
-              [attr.aria-current]="
-                activeFilePath() === file.path ? 'true' : null
-              "
-              class="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground aria-[current=true]:bg-brand/10 aria-[current=true]:text-foreground"
-              [hlmContextMenuTrigger]="changedRowCtxMenuTpl"
-              [hlmContextMenuTriggerData]="{ $implicit: file }"
-              (click)="onChangedFileClick(file)"
-            >
-              <span
-                class="inline-block w-4 shrink-0 text-center font-mono text-[10px]"
-                [class.text-green-600]="file.status === 'added'"
-                [class.text-yellow-600]="file.status === 'modified'"
-                [class.text-red-600]="file.status === 'deleted'"
+            <!-- Unstaged group -->
+            @if (unstagedFiles().length > 0) {
+              <button
+                type="button"
+                (click)="toggleUnstagedOpen()"
+                class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
               >
-                {{ statusLetter(file.status) }}
-              </span>
-              <span class="min-w-0 flex-1 truncate font-mono">{{
-                file.path
-              }}</span>
-              @if (file.added > 0 || file.removed > 0) {
-                <span
-                  class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums"
-                >
-                  @if (file.added > 0) {
-                    <span class="text-emerald-600 dark:text-emerald-500"
-                      >+{{ file.added }}</span
-                    >
+                <ng-icon
+                  hlm
+                  [name]="
+                    unstagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'
+                  "
+                  size="9px"
+                />
+                <span>Changes ({{ unstagedFiles().length }})</span>
+              </button>
+              @if (unstagedOpen()) {
+                <ul class="flex flex-col pb-2">
+                  @for (file of unstagedFiles(); track file.path) {
+                    <li>
+                      <ng-container
+                        [ngTemplateOutlet]="changedRowTpl"
+                        [ngTemplateOutletContext]="{ $implicit: file }"
+                      />
+                    </li>
                   }
-                  @if (file.removed > 0) {
-                    <span class="text-red-600 dark:text-red-500"
-                      >−{{ file.removed }}</span
-                    >
-                  }
-                </span>
+                </ul>
               }
-            </button>
-          </ng-template>
-
-          <ng-template #changedRowCtxMenuTpl let-file>
-            @if (workspaceId(); as wid) {
-              <app-ui-changes-context-menu
-                [workspaceId]="wid"
-                [path]="file.path"
-                (view)="onChangedFileClick(file)"
-                (toggleStaged)="onToggleStaged(file)"
-                (copyPath)="onCopyPath(file)"
-                (discardChanges)="onDiscardChanges(file)"
-              />
             }
-          </ng-template>
-        }
+          } @else {
+            <ul class="flex flex-col py-1">
+              @for (file of changedFiles(); track file.path) {
+                <li>
+                  <ng-container
+                    [ngTemplateOutlet]="changedRowTpl"
+                    [ngTemplateOutletContext]="{ $implicit: file }"
+                  />
+                </li>
+              }
+            </ul>
+          }
+        </div>
+
+        <ng-template #changedRowTpl let-file>
+          <button
+            type="button"
+            [attr.aria-current]="activeFilePath() === file.path ? 'true' : null"
+            class="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground aria-[current=true]:bg-brand/10 aria-[current=true]:text-foreground"
+            (click)="onChangedFileClick(file)"
+          >
+            <span
+              class="inline-block w-4 shrink-0 text-center font-mono text-[10px]"
+              [class.text-green-600]="file.status === 'added'"
+              [class.text-yellow-600]="file.status === 'modified'"
+              [class.text-red-600]="file.status === 'deleted'"
+            >
+              {{ statusLetter(file.status) }}
+            </span>
+            <span class="min-w-0 flex-1 truncate font-mono">{{
+              file.path
+            }}</span>
+            @if (file.added > 0 || file.removed > 0) {
+              <span
+                class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums"
+              >
+                @if (file.added > 0) {
+                  <span class="text-emerald-600 dark:text-emerald-500"
+                    >+{{ file.added }}</span
+                  >
+                }
+                @if (file.removed > 0) {
+                  <span class="text-red-600 dark:text-red-500"
+                    >−{{ file.removed }}</span
+                  >
+                }
+              </span>
+            }
+          </button>
+        </ng-template>
       </div>
     </div>
 
