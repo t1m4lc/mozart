@@ -55,4 +55,26 @@ export class RepositoriesFacade {
   ): Promise<string> {
     return this.adapter.commitWorkspace(workspaceId, paths, message);
   }
+
+  /** Stage a single file. Powers the Changes tab "Staged" toggle. */
+  async stageFile(workspaceId: string, path: string): Promise<void> {
+    return this.adapter.stageFile(workspaceId, path);
+  }
+
+  /** Unstage a single file (working-tree copy stays as-is). */
+  async unstageFile(workspaceId: string, path: string): Promise<void> {
+    return this.adapter.unstageFile(workspaceId, path);
+  }
+
+  /** Read the index state for one file. Read at render time by the
+   *  Changes tab context menu to show the ✓ on the Staged toggle. */
+  async isStaged(workspaceId: string, path: string): Promise<boolean> {
+    return this.adapter.isStaged(workspaceId, path);
+  }
+
+  /** Discard ALL changes in the workspace — hard reset to the most
+   *  recent agent-run checkpoint. Destructive; callers must confirm. */
+  async discardWorkspaceChanges(workspaceId: string): Promise<void> {
+    return this.adapter.discardWorkspaceChanges(workspaceId);
+  }
 }

@@ -60,6 +60,22 @@ export interface RepositoriesAdapter {
     paths: readonly string[],
     message: string,
   ): Promise<string>;
+
+  /** `git add -- <path>` inside the workspace's worktree. */
+  stageFile(workspaceId: string, path: string): Promise<void>;
+
+  /** `git reset HEAD -- <path>` inside the workspace's worktree. Leaves
+   *  the working-tree copy untouched. */
+  unstageFile(workspaceId: string, path: string): Promise<void>;
+
+  /** `true` when the path has changes in the git index. Used by the
+   *  Changes tab context menu to render the ✓ on the Staged toggle. */
+  isStaged(workspaceId: string, path: string): Promise<boolean>;
+
+  /** Discard ALL changes in the workspace by hard-resetting to the
+   *  most-recent agent-run checkpoint. Destructive — callers must
+   *  confirm with the user before invoking. */
+  discardWorkspaceChanges(workspaceId: string): Promise<void>;
 }
 
 /** UI-facing changed-file entry. Wire status normalised to one of

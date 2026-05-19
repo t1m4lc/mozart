@@ -34,6 +34,7 @@ use crate::db::{
 use crate::db::DbState;
 use crate::error::AppError;
 use crate::commit::{self, ChangedFile};
+use crate::staging;
 use crate::file_diff;
 use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
 use crate::file_watcher_registry::FileWatcherRegistry;
@@ -1792,6 +1793,57 @@ pub async fn commit_workspace(
         &message,
     )
     .await
+}
+
+// ---------------------------------------------------------------------------
+// Per-file staging (P2.5 Changes tab context menu)
+// ---------------------------------------------------------------------------
+
+/// `git add -- <path>` inside the workspace's worktree.
+#[tauri::command]
+#[specta::specta]
+pub async fn stage_file(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    path: String,
+) -> Result<(), AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    staging::stage(std::path::Path::new(&ws.worktree_path), &path).await
+}
+
+/// `git reset HEAD -- <path>` inside the workspace's worktree. Leaves
+/// the working-tree copy untouched.
+#[tauri::command]
+#[specta::specta]
+pub async fn unstage_file(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    path: String,
+) -> Result<(), AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    staging::unstage(std::path::Path::new(&ws.worktree_path), &path).await
+}
+
+/// `true` when the path has changes in the git index (X byte of
+/// porcelain status is non-space, non-`?`).
+#[tauri::command]
+#[specta::specta]
+pub async fn is_staged(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    path: String,
+) -> Result<bool, AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    staging::is_staged(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
 // ---------------------------------------------------------------------------

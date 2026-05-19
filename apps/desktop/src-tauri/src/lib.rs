@@ -16,6 +16,7 @@ pub mod github;
 pub mod ide_launch;
 pub mod run_registry;
 pub mod sandbox;
+pub mod staging;
 pub mod terminal;
 pub mod terminal_registry;
 pub mod workspace_run_registry;
