@@ -68,7 +68,7 @@ const ROW_BY_MODE: Record<ChatMode, ModeRow> = MODE_ROWS.reduce(
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block' },
+  host: { class: 'inline-flex' },
   template: `
     <hlm-select
       [value]="mode()"
@@ -76,7 +76,7 @@ const ROW_BY_MODE: Record<ChatMode, ModeRow> = MODE_ROWS.reduce(
       (valueChange)="_onValueChange($event)"
     >
       <hlm-select-trigger
-        size="sm"
+        size="auto"
         hlmTooltip="Change mode"
         class="h-6 w-auto rounded-md border-transparent shadow-none px-1.5 gap-1"
       >

@@ -68,7 +68,7 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
       (valueChange)="_onValueChange($event)"
     >
       <hlm-select-trigger
-        size="sm"
+        size="auto"
         hlmTooltip="Change model"
         class="h-6 rounded-md border-transparent shadow-none px-1.5 gap-1"
       >

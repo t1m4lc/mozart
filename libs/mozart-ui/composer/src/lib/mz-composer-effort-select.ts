@@ -67,7 +67,7 @@ const ROW_BY_LEVEL: Record<EffortLevel, EffortRow> = EFFORT_ROWS.reduce(
       (valueChange)="_onValueChange($event)"
     >
       <hlm-select-trigger
-        size="sm"
+        size="auto"
         hlmTooltip="Adjust effort"
         class="h-6 w-auto rounded-md border-transparent shadow-none px-1.5 gap-1"
       >
