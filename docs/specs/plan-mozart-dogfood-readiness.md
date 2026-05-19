@@ -1,10 +1,18 @@
 # Plan — Mozart dogfood readiness
 
-> Status: draft, awaiting Ultraplan review per [[feedback_plan_ultraplan]].
 > Cross-refs: [`plan-v0.1.0-beta.1.md`](./plan-v0.1.0-beta.1.md) Phases 1, 4, 7;
 > [`mozart-product-architecture-specs.md`](./mozart-product-architecture-specs.md).
 > Vocabulary: locked per CLAUDE.md (never expose `worktree`, `branch_name`,
 > `HEAD`, `detached HEAD`, `agent/wip-*` in UI surfaces).
+>
+> **DX review pass — 2026-05-19.** First-run flow restructured: Repo init
+> screen deleted; silent local default; first workspace + "Start" chat
+> auto-created on Open project; inferred setup/run surfaced as a
+> system-info entry in the Start chat timeline. P0.1.E sandbox-level
+> menu debug-gated. Wording: "Add project" → "Open project";
+> "Keep local" / "Add to repo" jargon removed from user surfaces;
+> reopen-modal copy tightened. See `## DX review log` near the end of
+> this document for the full diff record.
 
 ## How to use this plan (read first if you came here cold)
 
@@ -54,6 +62,7 @@ parallel chats (each cleared on completion) without merge conflict.
 ```
 Wave 1 (start anywhere, atoms are independent):
   P3.4    Remove Archive button (smallest — use to learn the flow)
+  P3.7    "Add project" → "Open project" wording pass (string-only)
   P3.1    Composer effort/mode/model heights + chevron
   P3.2    Dot loader trim
   P0.1.B  SandboxLevel enum + DB migration
@@ -127,7 +136,7 @@ the scope analysis) is captured in [§ NOT in scope](#not-in-scope).
 P0 — Security gate                                  blocks dogfood
    ├── P0.1  Agent permission sandbox (L1 / L2 / L3)
    ├── P0.2  Workspace freeze enforcement
-   └── P0.3  Repo init flow + .mozart/ files
+   └── P0.3  Project bootstrap on Open project + .mozart/ files
 
 P1 — Bugs + frame                                   solid foundation
    ├── P1.1  Right-aside tab persistence (per-workspace)
@@ -149,7 +158,8 @@ P3 — Polish                                         cosmetic
    ├── P3.3  Global `select-none` with allow-list
    ├── P3.4  Remove Archive button from workspace menu
    ├── P3.5  Tauri app icons (request set from author)
-   └── P3.6  Rename `ui-markdown-view` to chat-scoped name
+   ├── P3.6  Rename `ui-markdown-view` to chat-scoped name
+   └── P3.7  Wording pass: "Add project" → "Open project"
 
 P4 — Follow-ups (NOT in this plan, captured for tracking)
    ├── OS-level sandbox fence (sandbox-exec / bubblewrap / AppContainer)
@@ -175,17 +185,19 @@ The five locked architectural decisions, with one-line rationale.
 | AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Auto-set on diff open. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]]. | Reduces review cognitive load without ceremony. |
 | AD-04 | **Editor** = CodeMirror 6 + `@codemirror/merge`. One library drives Diff (unified+split) and Edit modes. `.md` files open as code. | Lightweight, modular, minimal-feeling, ~250KB gzipped. Monaco is heavier and harder to keep visually minimal. |
 | AD-05 | **Freeze** = frontend `isFrozen` signal + Rust IPC guards on every mutating command with new `AppError::Frozen` variant. Belt-and-braces. | Single-source enforcement (frontend-only) is fragile; layered is robust. |
-| AD-06 | **Repo init** = dedicated screen before first workspace creation. Two-file split (`.mozart/settings.json` + `.mozart/run.json`). Default storage = **Keep local** for imported repos. Mozart never auto-commits. See [[mozart-repo-init-principle]]. | Mozart is not an IDE that opens a folder; it manages workspaces. Imported repos belong to the user. |
+| AD-06 | **Project bootstrap** = silent local default on Open project. No screen. Detect → write `project_local_config` row → auto-create first workspace → auto-create "Start" chat. The Start chat's timeline shows a system-info entry summarising the inferred setup/run + sandbox level + storage location. Two-file split (`.mozart/settings.json` + `.mozart/run.json`) is reserved for the deferred "Save config to repo" action (P4 / TODO-006). Mozart never auto-commits. See [[mozart-repo-init-principle]]. | The first-run user has no basis to choose between local and repo config. Defaulting to local matches the principle, removes a screen, and uses the existing chat timeline as the surface for the inference result. Decided 2026-05-19 in `/plan-devex-review`. |
 
 ---
 
 # P0 — Security gate
 
-Demoable milestone (end of P0): the author can spin up a workspace on
-the `mozart-go` repo, ask the agent to make a change, observe that the
-agent cannot read `~/.ssh` or write outside `~/.mozart/worktrees`, mark
-the workspace `done` and see it freeze, and reopen it through the
-status menu with a confirmation.
+Demoable milestone (end of P0): the author clicks "Open project" on
+the `mozart-go` repo, lands directly in the first workspace with the
+Start chat showing the bootstrap system-info entry, asks the agent to
+make a change, observes that the agent cannot read `~/.ssh` or write
+outside `~/.mozart/worktrees`, marks the workspace `done` and sees it
+freeze, then reopens it through the status menu with the tightened
+confirmation copy.
 
 ## P0.1 — Agent permission sandbox (L1 / L2 / L3)
 
@@ -278,9 +290,9 @@ deny + add layering," it is "wall off a wide-open agent."
       in `claude_cli/sandbox_policy.rs` (new file alongside `runner.rs`).
 - [ ] DB migration: add `sandbox_level TEXT NOT NULL DEFAULT
       'L2Project'` to `workspaces` table.
-- [ ] Workspaces start at L2Project. UI exposes a level toggle in the
-      workspace status menu (P0 just wires the data + Tauri command;
-      the actual UI control is a P2.1 follow-on atom).
+- [ ] Workspaces start at L2Project. UI surface for switching the
+      level is deferred (see S0.1.E and TODO-008) — P0 just wires the
+      data + Tauri command.
 - [ ] **Manual checkpoint:** Open SQLite browser, verify new column,
       verify existing workspaces backfilled to `L2Project`. App boots
       without runtime error.
@@ -340,27 +352,31 @@ Files: ~2 + audit edits across ~6 command sites. Tests: 8 cases (happy
 + traversal + symlink-out + non-existent + relative + UNC on Windows
 guarded via `#[cfg(unix)]` for now).
 
-#### Atom S0.1.E — Sandbox-level toggle UI (workspace status menu)
+#### Atom S0.1.E — Sandbox-level Tauri command (no main UI for v0)
 
-- [ ] Add a `SandboxLevelMenu` Hlm-menu primitive inside the existing
-      `workspace-status-menu` component.
-- [ ] Three radio options labelled in product vocab — never expose the
-      underlying enum:
-      - "Full project access (default)"
-      - "Workspace only"
-      - "Mozart-wide" (L1 — only available if explicitly enabled via
-        a debug toggle; not user-facing by default since L1 is the
-        always-on floor, not a normal pick)
-- [ ] Mutation calls a new Tauri command
-      `set_workspace_sandbox_level(ws_id, level)` that writes the DB
-      column. Next agent run picks it up.
-- [ ] **Manual checkpoint:** Switch to L3 ("Workspace only") in a
-      workspace, run an agent prompt asking it to read a file in a
-      sibling workspace. Agent should fail. Switch back to L2, retry,
-      should succeed.
+Decided 2026-05-19: the level toggle is **not exposed in the workspace
+status menu** for first-run users. L2 default is correct for the
+dogfood path; a misread label here is worse than no toggle (a first-run
+user opening the menu sees "Full project access / Workspace only /
+Mozart-wide" with no anchor for what those words mean). The data path
+is still wired in P0.1, so a future "Security" settings panel can
+surface it with proper explanation.
 
-Files: ~3 (menu component, facade method, store action). Tests: 1
-e2e per level transition.
+- [ ] Tauri command `set_workspace_sandbox_level(ws_id, level)` —
+      writes the DB column. Wired but not called from any menu.
+- [ ] Debug-only invocation surface: a hidden `mozart://` URL handler
+      or a devtools-callable facade method, sufficient for the manual
+      checkpoint and for E2E tests. Not user-facing.
+- [ ] **Manual checkpoint:** Via devtools, call
+      `facade.setSandboxLevel(ws_id, 'L3')`. Run an agent prompt
+      asking the agent to read a file in a sibling workspace — agent
+      should fail with the IPC guard from S0.1.D. Set back to `L2`,
+      retry, should succeed.
+- [ ] Captured as TODO-008 — "Security settings panel exposes sandbox
+      level". Not blocking dogfood.
+
+Files: ~2 (facade method, store action). Tests: 1 unit + 1 e2e via
+the test seam.
 
 #### Atom S0.1.F — Audit: every other agent-touching IPC command
 
@@ -428,7 +444,7 @@ Vocabulary locks (from your design):
 | State label | `Done` |
 | Read-only banner above composer | `This workspace is done and read-only` |
 | Reopen action | `Reopen workspace` |
-| Reopen confirmation | `Reopen this workspace? Future changes will modify a workspace previously marked as done.` |
+| Reopen confirmation | `Reopen this workspace? You'll be able to edit and run agents again.` |
 
 ### Mental model lock
 
@@ -540,31 +556,50 @@ COVERAGE: 0/10  |  REGRESSION TESTS: 5 (one per guard)
 
 ---
 
-## P0.3 — Repo init flow + `.mozart/` files
+## P0.3 — Project bootstrap on Open project
 
 ### Goal
 
-Lock the project onboarding flow per [[mozart-repo-init-principle]]:
+Lock the project onboarding flow per [[mozart-repo-init-principle]],
+restructured 2026-05-19 to drop the Repo init screen:
 
 ```
-Add project
+Open project
    │
    ▼
-Detect project
+Detect project (silent, no UI)
    │
-   ├── Mozart template (.mozart/ generated)  → skip Repo init
-   ├── Existing .mozart/ present             → read-only summary, proceed
-   └── No .mozart/                           → Repo init screen
-                                                ┌──────────────┐
-                                                │ [Cancel]     │
-                                                │ [Keep local] │
-                                                │ [Add config  │
-                                                │  to repo]    │
-                                                └──────────────┘
-                                                       │
-                                                       ▼
-                                                Create first workspace
+   ├── Existing .mozart/ present             → read repo config
+   ├── Mozart template (.mozart/ generated)  → read repo config
+   └── No .mozart/                           → write project_local_config
+                                                with inferred run.json
+   │
+   ▼
+Auto-create first workspace
+   │
+   ▼
+Auto-create "Start" chat
+   │
+   ▼
+Start chat timeline shows ONE system-info entry, e.g.:
+   ┌───────────────────────────────────────────────────────────────┐
+   │ ⓘ Project ready                                                │
+   │   • Repository: mozart-go                                      │
+   │   • Detected stack: pnpm workspace                             │
+   │   • Setup: pnpm install · Run: pnpm dev   (edit in Run tab)    │
+   │   • Sandbox: project access (default)                          │
+   │   • Settings stored on this computer (move to repo in Settings)│
+   └───────────────────────────────────────────────────────────────┘
+
+Composer renders with its usual placeholder. User types their first
+prompt. No screen, no modal, no choice forced.
 ```
+
+The Start chat's timeline entry is the **only** first-run surface for
+the detection result. If detection is wrong (no `setup`/`run` inferred),
+the line reads `• Setup / Run: not detected — add them in the Run tab`.
+The chat name "Start" is the existing `initialChatName` convention from
+[`feat-repository-owned-config.md`](./feat-repository-owned-config.md).
 
 ### File split
 
@@ -582,14 +617,18 @@ Mozart local DB        — project_local_config table:
 
 ### Hard rules
 
-- Never auto-`git add`. Files appear in next Changes diff for explicit
-  user commit.
+- Never auto-`git add`. If a future "Save config to repo" action ever
+  writes `.mozart/*`, the files appear in the next Changes diff for
+  explicit user commit (deferred to TODO-006).
 - Never overwrite existing `.mozart/*` files.
 - Schema validator at read **and** write rejects keys matching
   `/(password|secret|token|api[_-]?key)/i` and any value that
   `Path::is_absolute()`.
-- Workspace creation is **blocked** until project has config (repo or
-  local).
+- Workspace creation is never blocked on config — `bootstrap_project`
+  writes a `project_local_config` row before the first workspace is
+  created, so the config is always present.
+- The Start chat timeline entry is added **once** at bootstrap; it never
+  re-fires on subsequent app launches.
 
 ### Inference probe order (5 stacks, hardcoded in Rust)
 
@@ -677,80 +716,102 @@ Files: 1 + 4 unit tests.
 
 #### Atom R0.3.D — Tauri commands
 
-- [ ] `detect_project_for_init(path) -> ProjectDetection`
-- [ ] `init_project_repo(project_id, repo_path, run_config)` — writes
-      `.mozart/settings.json` + `.mozart/run.json`. Validates first.
-      Errors if files exist.
-- [ ] `init_project_local(project_id, run_config)` — writes a row to
-      new `project_local_config` table.
+- [ ] `detect_project(path) -> ProjectDetection` — pure read, no
+      side effects. Used by the bootstrap command and any future
+      "rescan" surface.
+- [ ] `bootstrap_project(path) -> BootstrapResult` — the silent
+      first-run command. Runs detect, then:
+      - If `.mozart/` present and valid: read repo config, no DB
+        write.
+      - Else: write a `project_local_config` row with the inferred
+        `run_config`.
+      - In both cases: create the project row, the first workspace,
+        and the "Start" chat (existing `initialChatName` convention).
+      - Returns `{ project_id, first_workspace_id, start_chat_id,
+        source: 'repo' | 'local' | 'fallback',
+        detected: { setup, run, stack, has_mozart_dir } }`.
+- [ ] `init_project_repo_from_local(project_id) -> ()` — deferred
+      surface used only by the future "Save config to repo" action
+      (TODO-006). Validates first; refuses to overwrite an existing
+      `.mozart/*` file. **Wired in P0.3 but not exposed in UI for v0.**
 - [ ] `read_project_config(project_id) -> ProjectConfig` — checks repo
-      first, falls back to local DB, errors if neither exists.
-- [ ] **Manual checkpoint:** Call each from devtools; verify FS or DB
-      effects match.
+      first, falls back to local DB. Bootstrap guarantees one exists.
+- [ ] **Manual checkpoint:** Call `bootstrap_project` from devtools on
+      the `mozart-go` repo path. Verify (a) project row exists,
+      (b) workspace exists, (c) Start chat exists, (d) `project_local_config`
+      row has `run_json` with `pnpm install` / `pnpm dev`. Git status
+      on `mozart-go` is clean — no `.mozart/` appeared.
 
-Files: 4 commands + 1 facade + 1 DB module + 1 migration. Tests: 4 e2e.
+Files: 4 commands + 1 facade + 1 DB module + 1 migration. Tests: 4 e2e
+(detect-only, bootstrap no-mozart, bootstrap with-mozart, bootstrap
+fallback when detection fails).
 
-#### Atom R0.3.E — Repo init UI
+#### Atom R0.3.E — Wire `bootstrap_project` into Open project + Start-chat init entry
 
-- [ ] New `feature-repo-init` component in domain
-      `apps/desktop/src/app/domains/projects/feature-repo-init/`.
-- [ ] Route: `/projects/init?path=<absolute_path>` — gated, only
-      reachable from the "Add project" flow.
-- [ ] Layout:
-      ```
-      ┌─────────────────────────────────────────────────────────┐
-      │  Prepare repository for Mozart                          │
-      │                                                          │
-      │  Before creating your first workspace, Mozart needs a   │
-      │  small project configuration to set up and run agent    │
-      │  workspaces.                                             │
-      │                                                          │
-      │  Detected stack: pnpm workspace                         │
-      │  .mozart/ directory: not present                        │
-      │                                                          │
-      │  Setup command:  [pnpm install              ] (editable)│
-      │  Run command:    [pnpm dev                  ] (editable)│
-      │                                                          │
-      │                  [Cancel]  [Keep local] [Add to repo]   │
-      └─────────────────────────────────────────────────────────┘
-      ```
-- [ ] On `Add to repo` → calls `init_project_repo`, transitions to
-      workspace-creation.
-- [ ] On `Keep local` → calls `init_project_local`, transitions to
-      workspace-creation.
-- [ ] On `Cancel` → deletes the in-flight project record, returns to
+- [ ] Update the Open-project entry point (the "Open repository"
+      handler in `feature-add-project` after the F2 rename) to call
+      `bootstrap_project` instead of routing to a Repo init screen.
+- [ ] On success, navigate directly to
+      `/projects/<id>/workspaces/<first_workspace_id>` with the Start
+      chat as the active chat.
+- [ ] On error (path not a directory, permissions denied, etc.) →
+      toast `"Couldn't open <basename>. <reason>."` and stay on the
       dashboard.
-- [ ] **Manual checkpoint:** Import `mozart-go` as a new project → see
-      detected stack → click Keep local → arrive at workspace-create.
-      Git status is clean (no `.mozart/` appeared). Repeat with Add to
-      repo → `.mozart/settings.json` + `.mozart/run.json` appear in
-      Changes diff, but no commit was made.
+- [ ] Emit a chat-timeline `system_info` entry into the Start chat at
+      bootstrap time. The entry is **stored once** (not derived) so
+      subsequent app launches don't replay it. Shape:
+      ```
+      kind: 'system_info'
+      title: 'Project ready'
+      bullets: [
+        'Repository: <basename>',
+        'Detected stack: <stack | "unknown">',
+        'Setup: <cmd> · Run: <cmd>'  | OR 'Setup / Run: not detected — add them in the Run tab',
+        'Sandbox: project access (default)',
+        source === 'repo'
+          ? 'Settings read from .mozart/ in this repository'
+          : 'Settings stored on this computer (move to repo in Settings)',
+      ]
+      ```
+- [ ] **Manual checkpoint:** Open `mozart-go` as a new project (with
+      its existing `.mozart/` removed for this test) → land directly
+      in the first workspace; Start chat shows the system-info entry
+      with `pnpm install` / `pnpm dev` and "Settings stored on this
+      computer". Composer placeholder is the standard one. Repeat
+      with `.mozart/run.json` pre-created → land in workspace; entry
+      reads "Settings read from .mozart/ in this repository". Git
+      status clean throughout.
 
-Files: ~6 (component, route, facade methods, copy strings i18n
-placeholder). Tests: 2 e2e (one per path) + 1 cancel path.
+Files: ~5 (chat-timeline `system_info` entry kind, Open-project
+handler, store action for storing the one-time entry, navigation
+glue, toast strings). Tests: 2 e2e (with and without `.mozart/`).
 
-#### Atom R0.3.F — Existing `.mozart/` summary banner
+#### Atom R0.3.F — `system_info` chat-timeline entry kind
 
-- [ ] When detect returns `has_mozart_dir: true`, skip Repo init
-      screen but show a one-shot banner on the workspace-create page:
-      _"Mozart configuration read from .mozart/. Setup: <cmd>. Run:
-      <cmd>."_ with a `Dismiss` button.
-- [ ] **Manual checkpoint:** Pre-create `.mozart/run.json` in a test
-      repo. Import it → workspace-create shows the banner; no init
-      screen.
+- [ ] New chat-timeline entry variant `system_info` in the chat
+      domain. Renders distinct from agent/user messages (subtle muted
+      card with `ⓘ` glyph, title + bullet list). Read-only — not
+      editable, not deletable from the timeline.
+- [ ] Persistence: stored once at insert; carries the same lifecycle
+      as other chat-timeline entries (lives or dies with the chat).
+- [ ] **Manual checkpoint:** Insert one via test seam, observe the
+      muted card render in the Start chat. Switch chats and back —
+      entry persists in Start.
 
-Files: 2.
+Files: ~3 (chat entry type, renderer, store mutator).
 
-#### Atom R0.3.G — Workspace creation gate
+#### Atom R0.3.G — Open-project guard (replaces old workspace-create gate)
 
-- [ ] In the workspace-create flow, before issuing the Tauri command,
-      check `read_project_config(project_id)` exists. If not, redirect
-      to `/projects/init?path=...`.
-- [ ] **Manual checkpoint:** Try to navigate directly to
-      `/projects/<id>/workspaces/new` for a project that hasn't been
-      initialized → redirected to Repo init.
+- [ ] In the Open-project flow, before calling `bootstrap_project`,
+      validate the path is a directory and is readable. If not, surface
+      the toast from R0.3.E and stay on the dashboard.
+- [ ] Workspace-create flow inside an already-opened project remains
+      unchanged — config is guaranteed to exist after bootstrap.
+- [ ] **Manual checkpoint:** Try to Open project on a path that
+      doesn't exist (devtools-fed) → toast appears; no project row
+      created; no workspace created. Dashboard state unchanged.
 
-Files: 1 (route guard).
+Files: 1 (Open-project handler guard).
 
 #### Atom R0.3.H — `project_local_config` DB migration
 
@@ -792,16 +853,22 @@ Files: 1 migration.
   └── reject unknown version            [GAP] [★★ needed]
 
 [+] Tauri commands
-  ├── init_project_repo writes files    [GAP] [★★ needed]
-  ├── init_project_repo refuses overwrite [GAP] [★★★ INVARIANT]
-  ├── init_project_local writes DB row  [GAP] [★★ needed]
-  └── read_project_config: repo > local [GAP] [★★ needed]
+  ├── bootstrap_project: no .mozart/      [GAP] [★★★ needed]
+  ├── bootstrap_project: with .mozart/    [GAP] [★★★ needed]
+  ├── bootstrap_project: detect fallback  [GAP] [★★ needed]
+  ├── init_project_repo_from_local: writes files [GAP] [★★ needed]
+  ├── init_project_repo_from_local: refuses overwrite [GAP] [★★★ INVARIANT]
+  └── read_project_config: repo > local   [GAP] [★★ needed]
 
 USER FLOWS
-  ├── [GAP] [→E2E] Import mozart-go → Repo init → Keep local → workspace
-  ├── [GAP] [→E2E] Import w/ existing .mozart/ → summary banner → workspace
-  ├── [GAP] [→E2E] Import → Cancel → project record cleaned up
-  └── [GAP] [→E2E] Direct nav to workspace-new w/o init → redirect
+  ├── [GAP] [→E2E] Open project (no .mozart/) → land in workspace, Start
+  │                chat shows system-info with detected setup/run +
+  │                "stored on this computer"
+  ├── [GAP] [→E2E] Open project (with .mozart/) → land in workspace, Start
+  │                chat shows system-info with "Settings read from .mozart/"
+  ├── [GAP] [→E2E] Open project, detection finds nothing → Start chat
+  │                shows "Setup / Run: not detected — add them in the Run tab"
+  └── [GAP] [→E2E] Open project on invalid path → toast, dashboard unchanged
 
 COVERAGE: 0/22  |  REGRESSION TESTS: 3 (overwrite refusal + 2 schema)
 ```
@@ -1538,6 +1605,41 @@ Files: ~14 icon binaries.
 
 ---
 
+## P3.7 — Wording pass: "Add project" → "Open project"
+
+### Rationale
+
+Decided in `/plan-devex-review` 2026-05-19. The current dropdown reads
+"Add project" with three entries (Create local, Clone repo, Open
+existing). "Add" implies a list-management mental model. Mozart is a
+workspace orchestrator, not a database GUI. Conductor, Cursor, and
+VSCode all use "Open." The product vocab `Project = repository` maps
+cleanly: a project IS a repo, you OPEN it.
+
+### Renames
+
+| Surface | Before | After |
+|---|---|---|
+| Header button + tooltip | `Add project` | `Open project` |
+| Dropdown entry — open existing | `Open existing` | `Open a repository on this machine` |
+| Dropdown entry — clone | `Clone repo` | `Clone from Git` |
+| Dropdown entry — create empty | `Create local folder` | `Create a new project` |
+| Empty state CTA | `Add project` | `Open project` |
+| Header context menu | `Add project` | `Open project` |
+
+### Atom A3.7.A
+
+- [ ] Update strings in `feature-add-project.ts:42` (tooltip),
+      `ui-projects-empty-state.ts`, `ui-projects-header-context-menu.ts:69`,
+      and the dropdown entries.
+- [ ] **Manual checkpoint:** Dashboard header reads "Open project";
+      dropdown reads as above; empty state reads "Open project". All
+      three click paths still work end-to-end.
+
+Files: 3-4 string-edit-only files.
+
+---
+
 ## P3.6 — Rename `ui-markdown-view` to chat-scoped name
 
 ### Rationale
@@ -1566,7 +1668,7 @@ Aggregate from per-section diagrams:
 PATH COVERAGE TARGET
   P0.1 sandbox       14 paths,  2 regression tests (path traversal)
   P0.2 freeze        10 paths,  5 regression tests (one per IPC guard)
-  P0.3 repo init     22 paths,  3 regression tests (overwrite refusal,
+  P0.3 bootstrap     22 paths,  3 regression tests (overwrite refusal,
                                 schema rejects)
   P1.1 tab persist    4 paths,  1 regression test (the bug itself)
   P1.2 tree cache     3 paths,  1 regression test (stale tree)
@@ -1636,7 +1738,7 @@ end-to-end and commit independently):
 |---|---|---|
 | P0.1 sandbox | src-tauri/claude_cli/, src-tauri/path_guard, workspaces domain | — |
 | P0.2 freeze | src-tauri/error, src-tauri/db/workspaces, multiple cmd sites, workspaces domain | — |
-| P0.3 repo init | src-tauri/mozart_config (new), src-tauri/db (new table), projects domain | — |
+| P0.3 bootstrap | src-tauri/mozart_config (new), src-tauri/db (new table), projects domain, chat domain (system_info entry) | — |
 | P1.1 tab persist | ui-state domain, workspaces/feature-workspace-aside | — |
 | P1.2 tree cache | repositories domain | P1.1 (small overlap on uiState) |
 | P1.3 chat refactor | chat domain rename → workspaces/feature-workspace-middle | — |
@@ -1654,7 +1756,7 @@ end-to-end and commit independently):
 ```
 Lane A: P0.1 (sandbox)           ← independent
 Lane B: P0.2 (freeze)            ← independent
-Lane C: P0.3 (repo init)         ← independent
+Lane C: P0.3 (bootstrap)         ← independent
 Lane D: P1.1 (tab persist)       ← independent
 Lane E: P1.3 (chat refactor)     ← independent
 
@@ -1853,6 +1955,46 @@ JavaScript) and that link-clicks are intercepted via the existing
 **Context:** Tightens the rename.
 **Depends on:** P3.6.
 
+### TODO-008 — Security settings panel surfaces sandbox level
+
+**What:** A "Security" section in project settings exposes the
+sandbox-level radio with question-shaped labels ("What the agent can
+read: this workspace / this project (default) / Mozart files").
+Re-uses the Tauri command wired in S0.1.E.
+**Why:** Power users and audit-conscious users need a way to tighten
+the agent's reach. The data path exists; the UI was deferred.
+**Pros:** Real per-workspace tightening for users who want L3.
+Discoverable in the right place (not the workspace status menu).
+**Cons:** Project-settings surface doesn't exist yet — this TODO
+implies building (or extending) that surface.
+**Context:** Decided in `/plan-devex-review` 2026-05-19. The status-menu
+toggle was rejected as confusing for first-run users; data is wired
+but UI deferred. AD-01 + S0.1.E footnote.
+**Depends on:** P0.1 landing.
+
+### TODO-009 — First-run inference correction inside Mozart
+
+**What:** Today, a first-run user whose detection is wrong can edit
+the Run tab fields (existing surface). This TODO covers two adjacent
+needs that emerge from the deferred Repo init screen: (a) a one-click
+"Re-detect" button in the Run tab that re-runs the probe and offers
+to overwrite; (b) a small "fix it" link inside the Start-chat
+system-info entry when `Setup / Run: not detected`, jumping the user
+straight to the Run tab editor.
+**Why:** The silent local default (AD-06) is great when detection is
+right and benign when it's empty, but mediocre when it's confidently
+wrong. Two small affordances close the gap without bringing back a
+forced screen.
+**Pros:** Recovers the legitimate use case behind the old Repo init
+screen (showing + editing what was inferred) at the moment the user
+actually cares (Run tab) instead of at the first-impression moment
+(project open).
+**Cons:** Re-detect on an existing project has to reconcile with any
+manual edits the user already made — at minimum, a confirm dialog.
+**Context:** Decided in `/plan-devex-review` 2026-05-19 as a follow-up
+to AD-06 / P0.3.E.
+**Depends on:** P0.3 landing; surfaces inside the Run tab (existing).
+
 ---
 
 # Completion summary
@@ -1885,6 +2027,42 @@ JavaScript) and that link-clicks are intercepted via the existing
   3-level, freeze 2-layer, viewed full design, editor full-CM6, repo
   init full screen + 5-stack probe, merge with conflict detection
   + status update).
+
+---
+
+# DX review log
+
+## 2026-05-19 — `/plan-devex-review` pass
+
+Focused review on the first-run flow (Open project → repo detection →
+config storage → first workspace → agent run → diff review → freeze).
+Findings + resolutions:
+
+| # | Finding | Resolution |
+|---|---|---|
+| F1 | Repo init screen forced a config-storage choice before the user had seen Mozart do anything. Violated [[mozart-repo-init-principle]]'s own "local default" principle by surfacing the choice. | **Defer entirely.** P0.3 restructured: silent local default. AD-06 updated. Old R0.3.E (Repo init UI) replaced with R0.3.E (Wire `bootstrap_project` + Start-chat init entry). R0.3.F repurposed (system_info entry kind). R0.3.G repurposed (Open-project guard). |
+| F2 | "Add project" overloads three intents and uses list-management framing rather than workspace-orchestration framing. | **Renamed to "Open project"** across the dropdown + buttons. Dropdown entries renamed too. New atom P3.7 / A3.7.A. |
+| F3 | Vocab leaks: "Repo init", "Prepare repository", "Keep local" / "Add to repo", awkward reopen-modal copy. | **All replaced.** "Repo init" section retitled "Project bootstrap on Open project". "Keep local" / "Add to repo" deleted from first-run path (the silent default removes the choice). Reopen modal tightened to active voice. |
+| F4 | Sandbox-level menu in workspace status menu exposed 3 radio options with internal-jargon labels that a first-run user can't interpret. | **Debug-gated only for v0.** S0.1.E rewritten — data path stays, menu UI deleted. TODO-008 captures the proper "Security settings panel" surface. |
+| F5/F6 | First-time magical moment undesigned. First workspace creation step never explicit. | **Bootstrap auto-creates the first workspace + "Start" chat.** The Start chat's first timeline entry is a one-time `system_info` card summarising what was detected. Composer renders with its usual placeholder — no AI-suggested first prompt. New atom R0.3.F adds the `system_info` chat-timeline entry kind. |
+
+Inputs that shaped this:
+- User is the persona (solo founder dogfooding Mozart on Mozart) and
+  the next target persona (developer hearing "Cursor for workspace
+  orchestration" and downloading Mozart).
+- Competitive anchor: Cursor (`cursor .` = 1 step), Conductor (open +
+  cmd-T = 2 steps). Mozart pre-review was ~7 screens from "want to try"
+  to "first prompt." Post-review: 1 screen (Open project) plus the
+  existing onboarding (which is out of scope for this plan but flagged
+  for future trimming).
+- DX First Principles violated by the pre-review flow: #1 (zero
+  friction at T0), #4 (decide for me, let me override), #9 (Pit of
+  Success).
+
+Five findings F1–F4 / F5–F6 landed. Two more (F7 first-time Viewed
+tooltip, F8 onboarding-trim) were noted but not added as atoms — F7 is
+small enough to fold into P2.2 polish if it surfaces in dogfooding;
+F8 belongs in `onboarding-and-auth.md`, not this plan.
 
 ---
 
