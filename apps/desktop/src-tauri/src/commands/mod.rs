@@ -756,6 +756,31 @@ pub(crate) async fn set_workspace_unread_impl(
 }
 
 // ---------------------------------------------------------------------------
+// set_workspace_last_merge_action (P2.6.C — AD-02 routing memory)
+// ---------------------------------------------------------------------------
+
+/// Persist the workspace's last merge-action choice (`'pr'` or `'local'`).
+/// The right-aside primary-button label routes off this column with
+/// `project_local_config.merge_mode` as the fallback. Fires on every
+/// click of either dropdown option — outcome-independent, mirroring the
+/// existing Open-in-IDE last-used pattern (AD-02).
+#[tauri::command]
+#[specta::specta]
+pub async fn set_workspace_last_merge_action(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    action: String,
+) -> Result<(), AppError> {
+    if action != "pr" && action != "local" {
+        return Err(AppError::Validation(format!(
+            "last_merge_action must be 'pr' or 'local', got '{action}'"
+        )));
+    }
+    let conn = db.lock();
+    workspaces::set_last_merge_action(&conn, &workspace_id, &action)
+}
+
+// ---------------------------------------------------------------------------
 // start_agent_run
 // ---------------------------------------------------------------------------
 

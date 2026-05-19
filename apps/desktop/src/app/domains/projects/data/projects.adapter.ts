@@ -46,7 +46,13 @@ export interface ProjectsAdapter {
   setSort(orderedIds: readonly string[]): Promise<void>;
   /** Persist the project's run command. Pass `null` to clear. */
   setRunCommand(id: string, command: string | null): Promise<void>;
+  /** P2.6 / AD-02 — read the persisted `project_local_config.merge_mode`
+   *  (`'pr'` or `'local'`). Falls back to `'pr'` if the project hasn't
+   *  bootstrapped a local config yet. */
+  getMergeMode(id: string): Promise<MergeMode>;
 }
+
+export type MergeMode = 'pr' | 'local';
 
 export const PROJECTS_ADAPTER = new InjectionToken<ProjectsAdapter>(
   'PROJECTS_ADAPTER',

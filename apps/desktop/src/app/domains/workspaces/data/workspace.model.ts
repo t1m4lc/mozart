@@ -25,4 +25,12 @@ export interface Workspace {
   unread: boolean;
   pending: boolean;
   createdAt: Date;
+  /** AD-02 routing memory for the right-aside primary merge-action
+   * button. `'pr'` or `'local'` once the user has picked an option on
+   * this workspace, `null` until then. Routing then falls back to
+   * `project_local_config.merge_mode` (set at bootstrap from the git
+   * remote auto-detect). */
+  lastMergeAction: MergeAction | null;
 }
+
+export type MergeAction = 'pr' | 'local';

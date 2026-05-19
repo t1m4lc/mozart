@@ -1,4 +1,4 @@
-import { Injectable, computed, inject } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
 import { UiStateFacade } from '../../ui-state';
 // Deep import: workspaces -> projects already exists (WorkspacesFacade
 // depends on ProjectsFacade). Going through workspaces/index.ts would
@@ -9,7 +9,7 @@ import { DIALOG_ADAPTER } from './dialog.adapter';
 import type { Project } from './project.model';
 import type { GroupBy, ProjectFilter } from './project.store';
 import { ProjectStore } from './project.store';
-import { PROJECTS_ADAPTER } from './projects.adapter';
+import { PROJECTS_ADAPTER, type MergeMode } from './projects.adapter';
 
 // Public API of the `projects` domain. Features inject this — never
 // the store directly. All mutators are optimistic-first: patch the
@@ -27,6 +27,15 @@ export class ProjectsFacade {
   // instant.
   private reorderTimer: ReturnType<typeof setTimeout> | null = null;
 
+  // P2.6 / AD-02 — per-project merge_mode cache. The right-aside merge
+  // button reads this signal as part of the routing chain (workspace's
+  // last_merge_action → project mergeMode → default 'pr'). Loaded lazily
+  // the first time `mergeModeFor(id)` is read.
+  private readonly mergeModeCache = signal<ReadonlyMap<string, MergeMode>>(
+    new Map(),
+  );
+  private readonly mergeModeInflight = new Map<string, Promise<MergeMode>>();
+
   // Reads
   readonly all = this.store.projects;
   readonly visible = this.store.visibleProjects;
@@ -39,6 +48,39 @@ export class ProjectsFacade {
 
   isExpanded(id: string): boolean {
     return this.uiState.isProjectExpanded(id);
+  }
+
+  /** P2.6 — reactive view of the cached merge_mode. Returns `null` until
+   *  the value is loaded via `ensureMergeMode(id)`. Components can show
+   *  a fallback ('pr') while loading. */
+  mergeModeFor(id: string) {
+    return computed(() => this.mergeModeCache().get(id) ?? null);
+  }
+
+  /** Kick the lazy read. Idempotent — a second call while the first is
+   *  in flight reuses the same promise. Failures fall back to `'pr'`
+   *  silently so the button label still renders. */
+  ensureMergeMode(id: string): Promise<MergeMode> {
+    const cached = this.mergeModeCache().get(id);
+    if (cached) return Promise.resolve(cached);
+    const inflight = this.mergeModeInflight.get(id);
+    if (inflight) return inflight;
+    const p = (async () => {
+      try {
+        const mode = await this.adapter.getMergeMode(id);
+        const next = new Map(this.mergeModeCache());
+        next.set(id, mode);
+        this.mergeModeCache.set(next);
+        return mode;
+      } catch (err) {
+        console.warn('[projects] getMergeMode failed:', err);
+        return 'pr' as const;
+      } finally {
+        this.mergeModeInflight.delete(id);
+      }
+    })();
+    this.mergeModeInflight.set(id, p);
+    return p;
   }
 
   isStatusCollapsed(statusId: string): boolean {

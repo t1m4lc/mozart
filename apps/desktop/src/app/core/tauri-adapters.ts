@@ -188,6 +188,10 @@ function provideProjectsAdapter(): Provider {
       async setRunCommand(id, command) {
         unwrap(await commands.setRepoRunCommand(id, command));
       },
+      async getMergeMode(id) {
+        const config = unwrap(await commands.readProjectConfig(id));
+        return config.mergeMode === 'local' ? 'local' : 'pr';
+      },
     } satisfies ProjectsAdapter,
   };
 }
@@ -247,6 +251,20 @@ function provideWorkspacesAdapter(): Provider {
           added: s.added,
           removed: s.removed,
         }));
+      },
+      async setLastMergeAction(workspaceId, action) {
+        unwrap(
+          await commands.setWorkspaceLastMergeAction(workspaceId, action),
+        );
+      },
+      async mergeLocally(workspaceId) {
+        // Bespoke unwrap: preserve the typed AppError discriminator so
+        // the caller can route toasts on `err.kind` (MergeDirtyTree /
+        // MergeBaseAhead / Frozen). The generic unwrap collapses to
+        // `new Error(message)` which would lose the kind.
+        const r = await commands.mergeWorkspaceLocally(workspaceId);
+        if (r.status === 'error') throw r.error;
+        return r.data;
       },
     } satisfies WorkspacesAdapter,
   };

@@ -1,8 +1,9 @@
 import { InjectionToken } from '@angular/core';
-import type { InstallResult } from '../../../core/_bindings';
+import type { InstallResult, MergeOutcome } from '../../../core/_bindings';
 import type { OpenInToolId } from './open-in-tools';
 import type { UiWorkspaceStatus } from './workspace-status';
 import type { WorkspaceDto } from './workspace.dto';
+import type { MergeAction } from './workspace.model';
 
 // Domain-level alias for the Tauri install command result. Re-exported
 // so features + facade don't need to reach into `core/_bindings`.
@@ -61,6 +62,15 @@ export interface WorkspacesAdapter {
    *  chip from this map. Batched on the Rust side — one IPC call
    *  returns counts for all workspaces. */
   listDiffStats(): Promise<readonly WorkspaceDiffStatsEntry[]>;
+
+  /** P2.6 / AD-02 — persist the user's last picked merge action for the
+   *  right-aside primary-button label. Fire-and-forget from the menu
+   *  click; outcome-independent. */
+  setLastMergeAction(workspaceId: string, action: MergeAction): Promise<void>;
+
+  /** P2.6 — run the six-step local merge flow. Returns the outcome the
+   *  frontend uses to route toasts / mark conflicting files. */
+  mergeLocally(workspaceId: string): Promise<MergeOutcome>;
 }
 
 /** Per-workspace aggregate line counts. Sums of `git diff --numstat`

@@ -8,6 +8,7 @@ export { DIALOG_ADAPTER, type DialogAdapter } from './data/dialog.adapter';
 export {
   PROJECTS_ADAPTER,
   type BootstrapResult,
+  type MergeMode,
   type ProjectsAdapter,
 } from './data/projects.adapter';
 export { projectFromDto } from './data/project.adapter';

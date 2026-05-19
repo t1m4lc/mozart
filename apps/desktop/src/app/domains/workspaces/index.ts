@@ -3,7 +3,7 @@
 // (WORKSPACES_ADAPTER) is exposed so app.config.ts can bind a Tauri
 // implementation in one place.
 
-export type { Workspace } from './data/workspace.model';
+export type { MergeAction, Workspace } from './data/workspace.model';
 export {
   UI_WORKSPACE_STATUSES,
   getUiStatusMeta,

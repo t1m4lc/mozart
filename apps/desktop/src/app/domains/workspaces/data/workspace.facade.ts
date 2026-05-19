@@ -7,7 +7,7 @@ import { IdeDetectionService } from './ide-detection.service';
 import type { OpenInToolId } from './open-in-tools';
 import type { UiWorkspaceStatus } from './workspace-status';
 import { workspaceFromDto } from './workspace.adapter';
-import type { Workspace } from './workspace.model';
+import type { MergeAction, Workspace } from './workspace.model';
 import { WorkspaceStore } from './workspace.store';
 import {
   WORKSPACES_ADAPTER,
@@ -203,6 +203,7 @@ export class WorkspacesFacade {
       unread: false,
       pending: true,
       createdAt: new Date(),
+      lastMergeAction: null,
     };
     this.store.upsertOne(pendingRow);
 
@@ -382,6 +383,31 @@ export class WorkspacesFacade {
       this.store.setName(id, previous);
       throw err;
     }
+  }
+
+  /** P2.6 / AD-02 — remember which merge action the user just picked,
+   *  so the primary-button label sticks across reopens. Optimistic +
+   *  rollback on Tauri failure. */
+  async setLastMergeAction(id: string, action: MergeAction): Promise<void> {
+    const current = this.workspaceById(id)();
+    if (!current) return;
+    const previous = current.lastMergeAction;
+    if (previous === action) return;
+    this.store.setLastMergeAction(id, action);
+    try {
+      await this.adapter.setLastMergeAction(id, action);
+    } catch (err) {
+      this.store.setLastMergeAction(id, previous);
+      throw err;
+    }
+  }
+
+  /** P2.6 — run the local merge flow. The frontend uses the outcome to
+   *  route toasts ("Merged into <base>" vs "Conflicts in N files…").
+   *  Errors are thrown raw so callers can pattern-match on the typed
+   *  `AppError.kind` (MergeDirtyTree / MergeBaseAhead). */
+  async mergeLocally(id: string) {
+    return this.adapter.mergeLocally(id);
   }
 }
 

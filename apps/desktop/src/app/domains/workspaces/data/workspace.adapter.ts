@@ -1,6 +1,6 @@
 import type { UiWorkspaceStatus } from './workspace-status';
 import type { WorkspaceDto } from './workspace.dto';
-import type { Workspace } from './workspace.model';
+import type { MergeAction, Workspace } from './workspace.model';
 
 // DTO -> Model mapper. `projectId` is supplied by the caller — for
 // freshly-created workspaces the projectId is the input to the create
@@ -21,7 +21,15 @@ export function workspaceFromDto(
     unread: dto.unread,
     pending: false,
     createdAt: new Date(dto.created_at),
+    lastMergeAction: coerceMergeAction(dto.last_merge_action),
   };
+}
+
+const MERGE_ACTIONS: ReadonlySet<MergeAction> = new Set(['pr', 'local']);
+
+function coerceMergeAction(raw: string | null): MergeAction | null {
+  if (raw == null) return null;
+  return MERGE_ACTIONS.has(raw as MergeAction) ? (raw as MergeAction) : null;
 }
 
 const ALLOWED: ReadonlySet<UiWorkspaceStatus> = new Set([

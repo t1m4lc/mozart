@@ -102,6 +102,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::push_workspace_branch,
                 commands::create_workspace_pr,
                 commands::merge_workspace_locally,
+                commands::set_workspace_last_merge_action,
                 commands::auth_load_session,
                 commands::auth_save_session,
                 commands::auth_clear_session,

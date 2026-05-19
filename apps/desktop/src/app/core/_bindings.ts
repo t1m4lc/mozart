@@ -808,6 +808,21 @@ async mergeWorkspaceLocally(workspaceId: string) : Promise<Result<MergeOutcome, 
 }
 },
 /**
+ * Persist the workspace's last merge-action choice (`'pr'` or `'local'`).
+ * The right-aside primary-button label routes off this column with
+ * `project_local_config.merge_mode` as the fallback. Fires on every
+ * click of either dropdown option — outcome-independent, mirroring the
+ * existing Open-in-IDE last-used pattern (AD-02).
+ */
+async setWorkspaceLastMergeAction(workspaceId: string, action: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_workspace_last_merge_action", { workspaceId, action }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Phase 5 / Atom 3 — load the persisted Mozart auth session from the
  * OS keyring. Returns `None` when no entry exists OR when the stored
  * payload is malformed (defensive : the front-end falls back to the

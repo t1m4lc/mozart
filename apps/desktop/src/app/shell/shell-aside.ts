@@ -1,4 +1,10 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  effect,
+  inject,
+} from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
@@ -7,12 +13,14 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleStop, lucideGitMerge, lucidePlay } from '@ng-icons/lucide';
 import { OsService } from '@mozart/shared-util-os';
+import { toast } from '@spartan-ng/brain/sonner';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
 import { ProfileFacade } from '../domains/profile';
 import { ProjectsFacade } from '../domains/projects';
 import { RunRegistry } from '../domains/runs';
-import { WorkspacesFacade } from '../domains/workspaces';
+import { WorkspacesFacade, type MergeAction } from '../domains/workspaces';
 import { FeatureWorkspaceAside } from '../domains/workspaces/feature-workspace-aside/feature-workspace-aside';
+import { MergeActionMenu } from '../domains/workspaces/ui/merge-action-menu/merge-action-menu';
 
 // Right-aside shell. macOS traffic-light buttons live in the LEFT
 // sidebar header (per the user's preference). Non-mac controls render
@@ -27,6 +35,7 @@ import { FeatureWorkspaceAside } from '../domains/workspaces/feature-workspace-a
     NgIcon,
     NonMacWindowControls,
     FeatureWorkspaceAside,
+    MergeActionMenu,
   ],
   providers: [provideIcons({ lucideCircleStop, lucideGitMerge, lucidePlay })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -70,22 +79,11 @@ import { FeatureWorkspaceAside } from '../domains/workspaces/feature-workspace-a
             </button>
           }
 
-          @if (profile.githubConnected()) {
-            <button
-              hlmBtn
-              variant="outline"
-              size="sm"
-              type="button"
-              hlmTooltip="Open a pull request"
-              position="bottom"
-              class="h-7 px-2 text-xs font-normal"
-              data-tauri-drag-region="false"
-              (click)="onCreatePr()"
-            >
-              <ng-icon hlm name="lucideGitMerge" size="xs" />
-              <span>Create PR</span>
-            </button>
-          }
+          <app-merge-action-menu
+            [primaryAction]="mergePrimaryAction()"
+            [githubConnected]="profile.githubConnected()"
+            (pick)="onMergeActionPick($event)"
+          />
         }
         @if (!isMac) {
           <app-non-mac-window-controls />
@@ -119,6 +117,31 @@ export class ShellAside {
     return !!this.projects.byId(ws.projectId)()?.runCommand;
   });
 
+  // AD-02 routing: workspace.lastMergeAction → project.mergeMode →
+  // default 'pr'. `mergeModeFor` returns null until ensureMergeMode has
+  // resolved; the effect below kicks it off whenever the active
+  // workspace changes.
+  protected readonly mergePrimaryAction = computed<MergeAction>(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return 'pr';
+    const ws = this.workspaces.workspaceById(id)();
+    if (ws?.lastMergeAction) return ws.lastMergeAction;
+    if (!ws) return 'pr';
+    const mode = this.projects.mergeModeFor(ws.projectId)();
+    return mode ?? 'pr';
+  });
+
+  constructor() {
+    // Kick the lazy mergeMode read for the active workspace's project.
+    effect(() => {
+      const id = this.workspaces.activeId();
+      if (!id) return;
+      const ws = this.workspaces.workspaceById(id)();
+      if (!ws) return;
+      void this.projects.ensureMergeMode(ws.projectId);
+    });
+  }
+
   protected async onRun(): Promise<void> {
     const id = this.workspaces.activeId();
     if (!id) return;
@@ -139,15 +162,82 @@ export class ShellAside {
     }
   }
 
-  protected async onCreatePr(): Promise<void> {
+  protected async onMergeActionPick(action: MergeAction): Promise<void> {
     const id = this.workspaces.activeId();
     if (!id) return;
-    const ws = this.workspaces.workspaceById(id)();
+    // AD-02 — persist the click outcome-independently so the label
+    // sticks even on a precondition failure.
+    void this.workspaces.setLastMergeAction(id, action).catch((err) => {
+      console.warn('[shell-aside] persist last merge action failed:', err);
+    });
+    if (action === 'pr') {
+      await this.openCreatePrDialog(id);
+    } else {
+      await this.runLocalMerge(id);
+    }
+  }
+
+  private async openCreatePrDialog(workspaceId: string): Promise<void> {
+    const ws = this.workspaces.workspaceById(workspaceId)();
     const { FeatureCreatePrDialog } = await import(
       '../domains/repositories/feature-create-pr-dialog/feature-create-pr-dialog'
     );
     this.dialog.open(FeatureCreatePrDialog, {
-      context: { workspaceId: id, defaultTitle: ws?.name ?? '' },
+      context: { workspaceId, defaultTitle: ws?.name ?? '' },
     });
   }
+
+  // P2.6 — Merge-now flow. Toast copy is locked by the plan:
+  //  - "Commit your changes before merging."
+  //  - "Pull <base name> first."
+  //  - "Conflicts in N files. Resolve in your editor — Open in IDE"
+  //  - "Merged into <base name>"
+  private async runLocalMerge(workspaceId: string): Promise<void> {
+    const ws = this.workspaces.workspaceById(workspaceId)();
+    const baseName = ws?.baseBranch ?? 'base';
+    try {
+      const outcome = await this.workspaces.mergeLocally(workspaceId);
+      if (outcome.status === 'conflict') {
+        const n = outcome.conflicting_files.length;
+        toast.error(
+          `Conflicts in ${n} ${n === 1 ? 'file' : 'files'}. Resolve in your editor — Open in IDE`,
+        );
+        return;
+      }
+      toast.success(`Merged into ${baseName}`);
+    } catch (err) {
+      const kind = readAppErrorKind(err);
+      if (kind === 'MergeDirtyTree') {
+        toast.error('Commit your changes before merging.');
+        return;
+      }
+      if (kind === 'MergeBaseAhead') {
+        toast.error(`Pull ${baseName} first.`);
+        return;
+      }
+      if (kind === 'Frozen') {
+        toast.error('This workspace is read-only.');
+        return;
+      }
+      console.warn('[shell-aside] merge failed:', err);
+      toast.error('Merge failed.', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+}
+
+// `AppError` crosses the IPC boundary as `{ kind, message }`. Adapters
+// re-throw the raw object; this guard lets the toast router pattern-
+// match on `kind` without depending on a runtime type from `_bindings`.
+function readAppErrorKind(err: unknown): string | null {
+  if (
+    err &&
+    typeof err === 'object' &&
+    'kind' in err &&
+    typeof (err as { kind: unknown }).kind === 'string'
+  ) {
+    return (err as { kind: string }).kind;
+  }
+  return null;
 }

@@ -8,7 +8,7 @@ import {
   withState,
 } from '@ngrx/signals';
 import type { UiWorkspaceStatus } from './workspace-status';
-import type { Workspace } from './workspace.model';
+import type { MergeAction, Workspace } from './workspace.model';
 
 interface State {
   workspaces: Workspace[];
@@ -118,6 +118,13 @@ export const WorkspaceStore = signalStore(
         const next = name.trim();
         if (!next) return;
         mutate(workspaceId, (w) => ({ ...w, name: next }));
+      },
+
+      setLastMergeAction(
+        workspaceId: string,
+        action: MergeAction | null,
+      ): void {
+        mutate(workspaceId, (w) => ({ ...w, lastMergeAction: action }));
       },
     };
   }),
