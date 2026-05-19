@@ -999,6 +999,24 @@ Files: 1 e2e.
 
 ## P1.3 — Chat-panel + composer frame refactor
 
+> **Picks up the deferred B3 from §P1.2's Spartan-tabs migration.**
+> The right-aside Files/Changes (B1) and Setup/Run/Terminal (B2)
+> tablists now use `<hlm-tabs>`. The `WorkspaceTabBar` (chat / file
+> tab strip under the breadcrumb) stayed hand-rolled — Spartan's
+> BrnTabs is a tabs+panels component, and the tab bar's panels live
+> here under `feature-workspace-detail` (chat vs file diff, swapped
+> via `@if`). A tab-list-only `<hlm-tabs>` would emit
+> `aria-controls="brn-tabs-content-<key>"` against a panel that
+> doesn't exist in the DOM — a net a11y regression. The fix is to
+> hoist `<hlm-tabs>` up to the middle-shell parent so it wraps BOTH
+> the tab bar and the content slot, with one `hlmTabsContent` panel
+> per dynamic tab. That hoist IS this refactor — once
+> `feature-workspace-middle` exists with a child-slot pattern (A1.3.A
+> below), wrapping it in `<hlm-tabs>` is a small follow-up. Add it as
+> A1.3.D when implementing this lane. Source-side note pinned in
+> `apps/desktop/src/app/domains/workspaces/ui/workspace-tab-bar/
+> workspace-tab-bar.ts`.
+
 ### Current shape
 
 ```
@@ -1093,6 +1111,30 @@ Files: ~5 (rename + extract + import updates).
       unchanged across the switch (no re-mount flash).
 
 Files: ~3.
+
+#### Atom A1.3.D — Hoist `<hlm-tabs>` over the middle shell (picks up deferred B3)
+
+- [ ] Wrap `feature-workspace-middle`'s template in `<hlm-tabs>`
+      bound to the active tab id (chat ids + file paths). The
+      existing `WorkspaceTabBar` lives inside, with its `app-tab-item`
+      children adapted to use `hlmTabsTrigger` host directives (one
+      trigger per dynamic tab — `[hlmTabsTrigger]="tab.id"`).
+- [ ] One `<div hlmTabsContent>` per tab in the content slot:
+      `feature-chat-content` for chat tabs, `feature-file-content`
+      for file tabs. Spartan's `[hidden]`-keep-mounted contract
+      preserves message-list scroll position and (eventually)
+      CodeMirror state across tab switches.
+- [ ] Drop the explanatory comment block in
+      `workspace-tab-bar.ts` once this lands — the reason it was
+      pinned (broken aria-controls in tab-list-only mode) no longer
+      applies.
+- [ ] **Manual checkpoint:** Switch between two chat tabs and a file
+      tab. Each tab's content re-appears with its previous scroll
+      position. Screen-reader / browser dev tools confirm each tab's
+      `aria-controls` resolves to an existing `role="tabpanel"`.
+
+Files: ~3 (middle template + tab-item host migration + drop the
+pinned comment).
 
 ---
 
