@@ -6,23 +6,30 @@ import {
   withState,
 } from '@ngrx/signals';
 import type { FileNode } from './file-node.model';
+import type { ChangedFile } from './repositories.adapter';
 
-// Per-workspace cache for the right-aside file tree.
+// Per-workspace repository-data cache. Holds two slices that the
+// right-aside needs to render instantly on workspace switches:
+//
+//   - byWorkspace             → cached file tree per workspace
+//   - changedFilesByWorkspace → cached changed-files list per workspace
 //
 // Why this store exists:
-//   `feature-file-tree` historically refetched the worktree on every
-//   workspace switch + every Files sub-tab toggle, leaving the previous
-//   workspace's tree rendered while the new fetch was in flight. The
-//   cache flips that — once a tree has been fetched for a workspace it
-//   stays available instantly until a real FS-watcher event arrives.
+//   `feature-file-tree` (and the aside's Changes list) historically
+//   refetched on every workspace switch + every sub-tab toggle, leaving
+//   the previous workspace's data rendered while the new fetch was in
+//   flight. The cache flips that — once a slice has been fetched for a
+//   workspace it stays available instantly until a real FS-watcher
+//   event arrives.
 //
 // Freshness invariant:
-//   Each workspace carries a monotonic `revision` counter. The aside
-//   already owns a single FS-watcher subscription per active workspace;
-//   on every debounced "changed" ping it bumps the revision via
-//   `bumpRevision()`. Cache entries store the revision they were
-//   written under — `cachedTreeFor` returns null whenever the stored
-//   revision lags the current one, which is what forces a refetch.
+//   Each workspace carries a SINGLE monotonic `revision` counter shared
+//   across both slices. The aside owns the FS-watcher subscription per
+//   active workspace; on every debounced "changed" ping it bumps the
+//   revision via `bumpRevision()`, which invalidates BOTH the tree and
+//   the changed-files entry for that workspace in one shot. Cache
+//   reads compare the entry's captured revision against the current
+//   one; a mismatch yields null (forcing a refetch).
 //
 //   The invalidation source is the Rust-side FS-watcher event, NEVER
 //   a timer (see docs/specs/plan-mozart-dogfood-readiness.md §P1.2).
@@ -45,8 +52,17 @@ export interface CachedFileTree {
   readonly cachedAt: number;
 }
 
+export interface CachedChangedFiles {
+  readonly files: readonly ChangedFile[];
+  // Revision the entry was captured under — see CachedFileTree above
+  // for the freshness invariant. Bumped by the same `bumpRevision`
+  // call that invalidates the tree, so both slices stay coherent.
+  readonly revision: number;
+}
+
 interface State {
   byWorkspace: Record<string, CachedFileTree>;
+  changedFilesByWorkspace: Record<string, CachedChangedFiles>;
   // Current revision per workspace. Defaults to 0. Bumped on each
   // FS-watcher event. Reads default to 0 for unknown ids so a first
   // write with `revision: 0` is always considered current.
@@ -55,6 +71,7 @@ interface State {
 
 const initialState: State = {
   byWorkspace: {},
+  changedFilesByWorkspace: {},
   revisionByWorkspace: {},
 };
 
@@ -110,16 +127,38 @@ export const FileTreeCacheStore = signalStore(
       });
     },
 
+    /** Writes the changed-files list for a workspace under the
+     *  captured revision. Mirrors `cacheTree`'s staleness check: a
+     *  fetch that started under revision N gets silently dropped if
+     *  the watcher has since bumped to N+1. */
+    cacheChangedFiles(
+      workspaceId: string,
+      files: readonly ChangedFile[],
+      capturedRevision: number,
+    ): void {
+      const current = store.revisionByWorkspace()[workspaceId] ?? 0;
+      if (capturedRevision !== current) return;
+      patchState(store, {
+        changedFilesByWorkspace: {
+          ...store.changedFilesByWorkspace(),
+          [workspaceId]: { files, revision: capturedRevision },
+        },
+      });
+    },
+
     /** Drops the cached entry (does not touch revision). Useful when a
      *  workspace is deleted; routine FS changes go through
      *  `bumpRevision`. */
     clear(workspaceId: string): void {
       const next = { ...store.byWorkspace() };
       delete next[workspaceId];
+      const nextChanges = { ...store.changedFilesByWorkspace() };
+      delete nextChanges[workspaceId];
       const nextRev = { ...store.revisionByWorkspace() };
       delete nextRev[workspaceId];
       patchState(store, {
         byWorkspace: next,
+        changedFilesByWorkspace: nextChanges,
         revisionByWorkspace: nextRev,
       });
     },

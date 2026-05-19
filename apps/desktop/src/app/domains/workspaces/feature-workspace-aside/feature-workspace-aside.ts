@@ -103,6 +103,12 @@ function coerceBottomTab(raw: string | null): BottomTab {
     : DEFAULT_BOTTOM_TAB;
 }
 
+// Shared empty array — returning the same reference on cache miss
+// keeps `changedFiles`'s computed reference-stable, which in turn
+// stops `stagedFiles` / `unstagedFiles` (and their filter()) from
+// re-running on every CD pass where the cache stays empty.
+const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
+
 @Component({
   selector: 'app-feature-workspace-aside',
   imports: [
@@ -561,9 +567,17 @@ export class FeatureWorkspaceAside {
   // leak across workspace switches via Angular's queryParam merge.
   private readonly hydratedFromUrl = new Set<string>();
 
-  // Changed-files snapshot, refreshed on workspace change and on each
-  // FS watcher tick. Empty when no workspace is active.
-  protected readonly changedFiles = signal<readonly ChangedFile[]>([]);
+  // Changed-files reactive accessor — reads through the repositories
+  // cache so workspace alternation never pays the Tauri round-trip
+  // when a fresh entry exists. Cache miss / FS-watcher invalidation
+  // triggers a fetch via the effect in the constructor below, which
+  // writes back into the cache on resolve.
+  protected readonly changedFiles = computed<readonly ChangedFile[]>(
+    () => this.cachedChangedFiles() ?? EMPTY_CHANGED_FILES,
+  );
+  private readonly cachedChangedFiles = this.repos.cachedChangedFilesFor(
+    this.workspaceId,
+  );
 
   // Split for the Changes pane: files with index changes (X byte) go
   // in the Staged group; everything else in Unstaged. A file with
@@ -645,28 +659,26 @@ export class FeatureWorkspaceAside {
       }
     });
 
-    // Reload the changed-files snapshot on workspace change and on
-    // every FS watcher tick. The Changes tab reads from this signal.
+    // Refetch changed-files only when the cache for the active
+    // workspace is empty (first visit, or FS-watcher invalidated the
+    // entry). Subsequent visits to the same workspace flip the
+    // `changedFiles` computed via the cache signal — no Tauri call.
     effect(() => {
       const id = this.workspaceId();
-      // Subscribe to the watcher tick so post-write refreshes happen.
+      // Subscribe to the watcher tick so post-write refreshes happen
+      // even before the cache invalidation signal flips through.
       this.watcherTick();
-      if (!id) {
-        this.changedFiles.set([]);
-        return;
-      }
+      if (!id) return;
+      if (this.cachedChangedFiles() !== null) return;
+      const capturedRevision = this.repos.treeRevisionFor(id);
       void this.repos
         .listChangedFiles(id)
         .then((files) => {
-          if (this.workspaceId() === id) {
-            this.changedFiles.set(files);
-          }
+          if (this.workspaceId() !== id) return;
+          this.repos.cacheChangedFiles(id, files, capturedRevision);
         })
         .catch((err) => {
           console.warn('[aside] list changed files failed:', err);
-          if (this.workspaceId() === id) {
-            this.changedFiles.set([]);
-          }
         });
       // Refresh sidebar aggregate chips alongside the file list — same
       // tick that picks up new files also picks up new line counts.

@@ -1,7 +1,7 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
 import type { FileNode } from './file-node.model';
 import { FileTreeCacheStore } from './file-tree-cache.store';
-import { REPOSITORIES_ADAPTER } from './repositories.adapter';
+import { REPOSITORIES_ADAPTER, type ChangedFile } from './repositories.adapter';
 
 /**
  * Public API of the `repositories` domain. Thin wrapper over the
@@ -40,10 +40,12 @@ export class RepositoriesFacade {
     return this.adapter.readFile(workspaceId, path);
   }
 
-  /** List uncommitted + untracked files (commit dialog input). */
-  async listChangedFiles(
-    workspaceId: string,
-  ): Promise<readonly import('./repositories.adapter').ChangedFile[]> {
+  /** List uncommitted + untracked files. Always hits the adapter —
+   *  callers that need an always-fresh read (commit dialog) use this.
+   *  The aside's Changes pane goes through `cachedChangedFilesFor` /
+   *  `cacheChangedFiles` instead so workspace alternation never
+   *  pays the Tauri round-trip. */
+  async listChangedFiles(workspaceId: string): Promise<readonly ChangedFile[]> {
     return this.adapter.listChangedFiles(workspaceId);
   }
 
@@ -162,8 +164,41 @@ export class RepositoriesFacade {
 
   /** Bump the workspace's revision counter. Called by the aside's
    *  single FS-watcher subscription on every debounced "changed"
-   *  ping — never on a timer. */
+   *  ping — never on a timer. Invalidates BOTH the cached tree AND
+   *  the cached changed-files list for the workspace in one shot.  */
   invalidateTreeCache(workspaceId: string): void {
     this.fileTreeCache.bumpRevision(workspaceId);
+  }
+
+  // ── Changed-files cache surface (P1.2) ───────────────────────────
+  // Same revision counter as the tree cache, so a single FS-watcher
+  // event invalidates both slices together.
+
+  /** Reactive accessor for the cached changed-files list. Returns
+   *  null until the aside has fetched + cached it for the given
+   *  workspace AND the entry's revision is still current. */
+  cachedChangedFilesFor(
+    workspaceId: Signal<string | null>,
+  ): Signal<readonly ChangedFile[] | null> {
+    return computed(() => {
+      const id = workspaceId();
+      if (!id) return null;
+      const entry = this.fileTreeCache.changedFilesByWorkspace()[id];
+      if (!entry) return null;
+      const currentRevision = this.fileTreeCache.revisionByWorkspace()[id] ?? 0;
+      if (entry.revision !== currentRevision) return null;
+      return entry.files;
+    });
+  }
+
+  /** Persist a freshly-fetched changed-files list. Silently discarded
+   *  if the workspace's revision moved while the fetch was in flight
+   *  (a watcher event landed first → the list is already stale). */
+  cacheChangedFiles(
+    workspaceId: string,
+    files: readonly ChangedFile[],
+    capturedRevision: number,
+  ): void {
+    this.fileTreeCache.cacheChangedFiles(workspaceId, files, capturedRevision);
   }
 }
