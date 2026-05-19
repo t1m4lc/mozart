@@ -1162,7 +1162,14 @@ added?: number;
 /**
  * Removed lines vs. `HEAD`. `0` for untracked / binary diffs.
  */
-removed?: number }
+removed?: number; 
+/**
+ * P2.6.D — `true` when the file is in git's unmerged state
+ * (`git diff --name-only --diff-filter=U` lists it). The Changes
+ * tab paints these rows with a red conflict badge while the
+ * worktree sits mid-merge.
+ */
+has_conflict?: boolean }
 export type Chat = { chat_id: string; workspace_id: string; title: string; llm_id: string | null; mode: string; effort: string; last_read_message_id: string | null; closed_at: number | null; created_at: number }
 /**
  * Outcome of probing for the `claude` CLI.

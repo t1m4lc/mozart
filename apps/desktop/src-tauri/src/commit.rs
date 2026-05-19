@@ -36,6 +36,12 @@ pub struct ChangedFile {
     /// Removed lines vs. `HEAD`. `0` for untracked / binary diffs.
     #[serde(default)]
     pub removed: i64,
+    /// P2.6.D — `true` when the file is in git's unmerged state
+    /// (`git diff --name-only --diff-filter=U` lists it). The Changes
+    /// tab paints these rows with a red conflict badge while the
+    /// worktree sits mid-merge.
+    #[serde(default)]
+    pub has_conflict: bool,
 }
 
 pub async fn list_changed_files(worktree: &Path) -> Result<Vec<ChangedFile>, AppError> {
@@ -71,6 +77,30 @@ pub async fn list_changed_files(worktree: &Path) -> Result<Vec<ChangedFile>, App
             // a meaningful "+N". Best-effort — IO failures yield 0.
             if let Ok(bytes) = tokio::fs::read(worktree.join(&f.path)).await {
                 f.added = bytecount_newlines(&bytes);
+            }
+        }
+    }
+
+    // P2.6.D — overlay conflict flags. `--diff-filter=U` returns the
+    // unmerged paths and only has output during an active merge state;
+    // missing-binary / IO errors fall through to a no-op so the changes
+    // list still renders.
+    if let Ok(out) =
+        sandbox::run_git_capture(worktree, &["diff", "--name-only", "--diff-filter=U"]).await
+    {
+        if out.status.success() {
+            let raw = String::from_utf8_lossy(&out.stdout);
+            let conflict_set: std::collections::HashSet<&str> = raw
+                .lines()
+                .map(|s| s.trim())
+                .filter(|s| !s.is_empty())
+                .collect();
+            if !conflict_set.is_empty() {
+                for f in &mut files {
+                    if conflict_set.contains(f.path.as_str()) {
+                        f.has_conflict = true;
+                    }
+                }
             }
         }
     }
@@ -162,6 +192,7 @@ fn parse_porcelain(stdout: &str) -> Vec<ChangedFile> {
                 staged,
                 added: 0,
                 removed: 0,
+                has_conflict: false,
             });
         }
     }
@@ -197,6 +228,13 @@ fn classify(xy: &str) -> Option<&'static str> {
     if any(b'M') || any(b'R') || any(b'C') || any(b'T') {
         return Some("modified");
     }
+    // Unmerged paths (conflict states: UU, AU, UA, UD, DU, AA, DD).
+    // Surface them as "modified" so the Changes tab still lists them;
+    // the conflict badge comes from the `has_conflict` overlay set in
+    // `list_changed_files` via `git diff --diff-filter=U`.
+    if any(b'U') {
+        return Some("modified");
+    }
     None
 }
 
@@ -228,5 +266,62 @@ mod tests {
         assert!(validate_path("/absolute").is_err());
         assert!(validate_path("ok/../bad").is_err());
         assert!(validate_path("ok/sub").is_ok());
+    }
+
+    async fn run(cwd: &Path, args: &[&str]) {
+        let out = sandbox::run_git_capture(cwd, args).await.expect("git");
+        assert!(
+            out.status.success(),
+            "git {args:?} failed: {}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+
+    #[tokio::test]
+    async fn list_changed_files_flags_unmerged_paths() {
+        if !sandbox::git_available() {
+            eprintln!("skip: git not on PATH");
+            return;
+        }
+        let _g = sandbox::test_env_gate().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        run(&repo, &["init", "-q", "-b", "main"]).await;
+        run(&repo, &["config", "user.email", "t@example.com"]).await;
+        run(&repo, &["config", "user.name", "T"]).await;
+        std::fs::write(repo.join("conflict.txt"), "base\n").unwrap();
+        run(&repo, &["add", "conflict.txt"]).await;
+        run(&repo, &["commit", "-m", "base"]).await;
+
+        run(&repo, &["checkout", "-b", "feature"]).await;
+        std::fs::write(repo.join("conflict.txt"), "from-feature\n").unwrap();
+        run(&repo, &["commit", "-am", "feature edit"]).await;
+        // Re-touch a non-conflict file so the changes list has a
+        // baseline entry that should NOT be flagged.
+        std::fs::write(repo.join("calm.txt"), "calm\n").unwrap();
+        run(&repo, &["add", "calm.txt"]).await;
+        run(&repo, &["commit", "-m", "calm"]).await;
+
+        run(&repo, &["checkout", "main"]).await;
+        std::fs::write(repo.join("conflict.txt"), "from-main\n").unwrap();
+        run(&repo, &["commit", "-am", "main edit"]).await;
+
+        // Force a conflict.
+        let out = sandbox::run_git_capture(&repo, &["merge", "--no-ff", "feature"])
+            .await
+            .expect("git merge");
+        assert!(!out.status.success(), "merge should conflict");
+
+        let files = list_changed_files(&repo).await.expect("list");
+        let by_path: std::collections::HashMap<_, _> =
+            files.iter().map(|f| (f.path.as_str(), f)).collect();
+        assert!(
+            by_path.get("conflict.txt").map(|f| f.has_conflict).unwrap_or(false),
+            "expected conflict.txt to be flagged; got: {files:?}"
+        );
+        // calm.txt was merged cleanly — it shouldn't be in the changes
+        // list at all (no porcelain entry post-merge for a clean file).
+        // The assertion above is the contract we care about.
     }
 }

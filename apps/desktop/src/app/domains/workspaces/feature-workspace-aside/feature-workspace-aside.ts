@@ -155,127 +155,143 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
       [tab]="bottomTab()"
       (tabActivated)="setBottomTab($any($event))"
     >
-    <hlm-resizable-group
-      direction="vertical"
-      class="flex min-h-0 flex-1 flex-col"
-      (layoutChange)="onBottomLayoutChange($event)"
-    >
-      <hlm-resizable-panel class="flex min-h-0 flex-col">
-      <!-- Files / Changes tabs via Spartan's BrnTabs (Hlm wrapper).
+      <hlm-resizable-group
+        direction="vertical"
+        class="flex min-h-0 flex-1 flex-col"
+        (layoutChange)="onBottomLayoutChange($event)"
+      >
+        <hlm-resizable-panel class="flex min-h-0 flex-col">
+          <!-- Files / Changes tabs via Spartan's BrnTabs (Hlm wrapper).
            BrnTabsContent stays in the DOM and toggles via [hidden] —
            the file-tree's CdkTree survives the tab switch (was a
            hand-rolled [hidden] pattern previously). Spartan also
            wires aria-selected, aria-controls, role=tab(panel)/list,
            and arrow-key navigation for free. -->
-      <hlm-tabs
-        class="flex min-h-0 flex-1 flex-col"
-        data-tour="aside-files-tab"
-        [tab]="filesView()"
-        (tabActivated)="setFilesView($any($event))"
-      >
-        <hlm-tabs-list
-          variant="line"
-          class="flex h-9 shrink-0 items-center gap-1 px-2"
-          aria-label="Files view"
-        >
-          <button
-            hlmTabsTrigger="all"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-3 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
+          <hlm-tabs
+            class="flex min-h-0 flex-1 flex-col"
+            data-tour="aside-files-tab"
+            [tab]="filesView()"
+            (tabActivated)="setFilesView($any($event))"
           >
-            <ng-icon hlm name="lucideListTree" size="xs" />
-            <span>All files</span>
-          </button>
-          <button
-            hlmTabsTrigger="changes"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-3 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
-          >
-            <ng-icon hlm name="lucideGitCompareArrows" size="xs" />
-            <span>Changes</span>
-            @if (changedFiles().length > 0) {
-              <span
-                hlmBadge
-                variant="secondary"
-                class="h-4 min-w-4 justify-center rounded-md px-1 text-xs font-medium"
+            <hlm-tabs-list
+              variant="line"
+              class="flex h-9 shrink-0 items-center gap-1 px-2"
+              aria-label="Files view"
+            >
+              <button
+                hlmTabsTrigger="all"
+                class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-3 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
               >
-                {{ changedFiles().length }}
-              </span>
-            }
-          </button>
-        </hlm-tabs-list>
+                <ng-icon hlm name="lucideListTree" size="xs" />
+                <span>All files</span>
+              </button>
+              <button
+                hlmTabsTrigger="changes"
+                class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-3 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
+              >
+                <ng-icon hlm name="lucideGitCompareArrows" size="xs" />
+                <span>Changes</span>
+                @if (changedFiles().length > 0) {
+                  <span
+                    hlmBadge
+                    variant="secondary"
+                    class="h-4 min-w-4 justify-center rounded-md px-1 text-xs font-medium"
+                  >
+                    {{ changedFiles().length }}
+                  </span>
+                }
+              </button>
+            </hlm-tabs-list>
 
-        <!-- "All files" panel — host class makes the panel itself a
+            <!-- "All files" panel — host class makes the panel itself a
              flex column that fills the remaining height; the
              file-tree fills it. -->
-        <div hlmTabsContent="all" class="flex min-h-0 flex-1 flex-col">
-          <app-feature-file-tree
-            class="block min-h-0 flex-1"
-            [workspaceId]="workspaceId()"
-            [projectId]="activeProjectId()"
-            [refreshTick]="watcherTick()"
-            [activePath]="activeFilePath()"
-            (fileSelected)="onFileSelected($event)"
-          />
-        </div>
+            <div hlmTabsContent="all" class="flex min-h-0 flex-1 flex-col">
+              <app-feature-file-tree
+                class="block min-h-0 flex-1"
+                [workspaceId]="workspaceId()"
+                [projectId]="activeProjectId()"
+                [refreshTick]="watcherTick()"
+                [activePath]="activeFilePath()"
+                (fileSelected)="onFileSelected($event)"
+              />
+            </div>
 
-        <!-- "Changes" panel — flat path list. Click opens the file as
+            <!-- "Changes" panel — flat path list. Click opens the file as
              a tab in the central shell tab bar (the diff renders in
              the central content area, replacing the chat panel).
              When staged files exist, the list splits into two
              collapsible groups; otherwise it's a single flat list
              for the common case. -->
-        <div
-          hlmTabsContent="changes"
-          class="flex min-h-0 flex-1 flex-col overflow-y-auto"
-        >
-          @if (changedFiles().length === 0) {
-            <p class="p-4 text-xs text-muted-foreground">
-              No changes since the base branch.
-            </p>
-          } @else if (stagedFiles().length > 0) {
-            <!-- Staged group -->
-            <button
-              type="button"
-              (click)="toggleStagedOpen()"
-              class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+            <div
+              hlmTabsContent="changes"
+              class="flex min-h-0 flex-1 flex-col overflow-y-auto"
             >
-              <ng-icon
-                hlm
-                [name]="stagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
-                size="9px"
-              />
-              <span>Staged ({{ stagedFiles().length }})</span>
-            </button>
-            @if (stagedOpen()) {
-              <ul class="flex flex-col">
-                @for (file of stagedFiles(); track file.path) {
-                  <li>
-                    <ng-container
-                      [ngTemplateOutlet]="changedRowTpl"
-                      [ngTemplateOutletContext]="{ $implicit: file }"
-                    />
-                  </li>
+              @if (changedFiles().length === 0) {
+                <p class="p-4 text-xs text-muted-foreground">
+                  No changes since the base branch.
+                </p>
+              } @else if (stagedFiles().length > 0) {
+                <!-- Staged group -->
+                <button
+                  type="button"
+                  (click)="toggleStagedOpen()"
+                  class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                >
+                  <ng-icon
+                    hlm
+                    [name]="
+                      stagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'
+                    "
+                    size="9px"
+                  />
+                  <span>Staged ({{ stagedFiles().length }})</span>
+                </button>
+                @if (stagedOpen()) {
+                  <ul class="flex flex-col">
+                    @for (file of stagedFiles(); track file.path) {
+                      <li>
+                        <ng-container
+                          [ngTemplateOutlet]="changedRowTpl"
+                          [ngTemplateOutletContext]="{ $implicit: file }"
+                        />
+                      </li>
+                    }
+                  </ul>
                 }
-              </ul>
-            }
-            <!-- Unstaged group -->
-            @if (unstagedFiles().length > 0) {
-              <button
-                type="button"
-                (click)="toggleUnstagedOpen()"
-                class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
-              >
-                <ng-icon
-                  hlm
-                  [name]="
-                    unstagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'
-                  "
-                  size="9px"
-                />
-                <span>Changes ({{ unstagedFiles().length }})</span>
-              </button>
-              @if (unstagedOpen()) {
-                <ul class="flex flex-col pb-2">
-                  @for (file of unstagedFiles(); track file.path) {
+                <!-- Unstaged group -->
+                @if (unstagedFiles().length > 0) {
+                  <button
+                    type="button"
+                    (click)="toggleUnstagedOpen()"
+                    class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+                  >
+                    <ng-icon
+                      hlm
+                      [name]="
+                        unstagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'
+                      "
+                      size="9px"
+                    />
+                    <span>Changes ({{ unstagedFiles().length }})</span>
+                  </button>
+
+                  @if (unstagedOpen()) {
+                    <ul class="flex flex-col pb-2">
+                      @for (file of unstagedFiles(); track file.path) {
+                        <li>
+                          <ng-container
+                            [ngTemplateOutlet]="changedRowTpl"
+                            [ngTemplateOutletContext]="{ $implicit: file }"
+                          />
+                        </li>
+                      }
+                    </ul>
+                  }
+                }
+              } @else {
+                <ul class="flex flex-col py-1">
+                  @for (file of changedFiles(); track file.path) {
                     <li>
                       <ng-container
                         [ngTemplateOutlet]="changedRowTpl"
@@ -285,112 +301,101 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
                   }
                 </ul>
               }
-            }
-          } @else {
-            <ul class="flex flex-col py-1">
-              @for (file of changedFiles(); track file.path) {
-                <li>
-                  <ng-container
-                    [ngTemplateOutlet]="changedRowTpl"
-                    [ngTemplateOutletContext]="{ $implicit: file }"
-                  />
-                </li>
-              }
-            </ul>
-          }
-        </div>
+            </div>
 
-        <ng-template #changedRowTpl let-file>
-          <button
-            type="button"
-            [attr.aria-current]="activeFilePath() === file.path ? 'true' : null"
-            class="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground aria-[current=true]:bg-brand/10 aria-[current=true]:text-foreground"
-            (click)="onChangedFileClick(file)"
-          >
-            <span
-              class="inline-block w-4 shrink-0 text-center font-mono text-[10px]"
-              [class.text-green-600]="file.status === 'added'"
-              [class.text-yellow-600]="file.status === 'modified'"
-              [class.text-red-600]="file.status === 'deleted'"
-            >
-              {{ statusLetter(file.status) }}
-            </span>
-            <span class="min-w-0 flex-1 truncate font-mono">{{
-              file.path
-            }}</span>
-            @if (file.added > 0 || file.removed > 0) {
-              <span
-                class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums"
+            <ng-template #changedRowTpl let-file>
+              <button
+                type="button"
+                [attr.aria-current]="
+                  activeFilePath() === file.path ? 'true' : null
+                "
+                class="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground aria-[current=true]:bg-brand/10 aria-[current=true]:text-foreground"
+                (click)="onChangedFileClick(file)"
               >
-                @if (file.added > 0) {
-                  <span class="text-emerald-600 dark:text-emerald-500"
-                    >+{{ file.added }}</span
+                <span
+                  class="inline-block w-4 shrink-0 text-center font-mono text-[10px]"
+                  [class.text-green-600]="file.status === 'added'"
+                  [class.text-yellow-600]="file.status === 'modified'"
+                  [class.text-red-600]="file.status === 'deleted'"
+                >
+                  {{ statusLetter(file.status) }}
+                </span>
+                <span class="min-w-0 flex-1 truncate font-mono">{{
+                  file.path
+                }}</span>
+                @if (file.added > 0 || file.removed > 0) {
+                  <span
+                    class="ml-auto flex shrink-0 items-center gap-1 font-mono text-[10px] tabular-nums"
                   >
+                    @if (file.added > 0) {
+                      <span class="text-emerald-600 dark:text-emerald-500"
+                        >+{{ file.added }}</span
+                      >
+                    }
+                    @if (file.removed > 0) {
+                      <span class="text-red-600 dark:text-red-500"
+                        >−{{ file.removed }}</span
+                      >
+                    }
+                  </span>
                 }
-                @if (file.removed > 0) {
-                  <span class="text-red-600 dark:text-red-500"
-                    >−{{ file.removed }}</span
-                  >
-                }
-              </span>
-            }
-          </button>
-        </ng-template>
-      </hlm-tabs>
-      </hlm-resizable-panel>
+              </button>
+            </ng-template>
+          </hlm-tabs>
+        </hlm-resizable-panel>
 
-      <hlm-resizable-handle [class.hidden]="!bottomOpen()" />
+        <hlm-resizable-handle [class.hidden]="!bottomOpen()" />
 
-      <!-- Bottom content panel — Setup / Run / Terminal. Content
+        <!-- Bottom content panel — Setup / Run / Terminal. Content
            stays in the DOM across the open/close toggle so xterm and
            the Run panel survive collapses; the host gets [hidden]
            when bottomOpen flips off so the panel + its flex weight
            drop out of the resizable group entirely. -->
-      <hlm-resizable-panel
-        [defaultSize]="bottomSize()"
-        [minSize]="15"
-        [maxSize]="80"
-        [collapsible]="true"
-        class="flex min-h-0 flex-col overflow-hidden"
-        [class.hidden]="!bottomOpen()"
-      >
-        <div hlmTabsContent="setup" class="h-full overflow-auto">
-          <div class="p-4 text-sm text-muted-foreground">
-            <p class="font-medium text-foreground">Setup</p>
-            <p class="mt-1">
-              Workspace setup steps — package install, run command, environment
-              — land here.
-            </p>
+        <hlm-resizable-panel
+          [defaultSize]="bottomSize()"
+          [minSize]="15"
+          [maxSize]="80"
+          [collapsible]="true"
+          class="flex min-h-0 flex-col overflow-hidden"
+          [class.hidden]="!bottomOpen()"
+        >
+          <div hlmTabsContent="setup" class="h-full overflow-auto">
+            <div class="p-4 text-sm text-muted-foreground">
+              <p class="font-medium text-foreground">Setup</p>
+              <p class="mt-1">
+                Workspace setup steps — package install, run command,
+                environment — land here.
+              </p>
+            </div>
           </div>
-        </div>
 
-        <div hlmTabsContent="run" class="h-full overflow-hidden">
-          <app-feature-workspace-run
-            class="block h-full w-full"
-            [workspaceId]="workspaceId()"
-            [active]="bottomTab() === 'run'"
-          />
-        </div>
-
-        <div hlmTabsContent="terminal" class="h-full overflow-hidden">
-          <ng-template hlmTabsContentLazy>
-            <app-feature-workspace-terminal
+          <div hlmTabsContent="run" class="h-full overflow-hidden">
+            <app-feature-workspace-run
               class="block h-full w-full"
               [workspaceId]="workspaceId()"
-              [active]="bottomTab() === 'terminal'"
+              [active]="bottomTab() === 'run'"
             />
-          </ng-template>
-        </div>
-      </hlm-resizable-panel>
-    </hlm-resizable-group>
+          </div>
 
-    <!-- Toolbar pinned to the aside bottom, outside the resizable
+          <div hlmTabsContent="terminal" class="h-full overflow-hidden">
+            <ng-template hlmTabsContentLazy>
+              <app-feature-workspace-terminal
+                class="block h-full w-full"
+                [workspaceId]="workspaceId()"
+                [active]="bottomTab() === 'terminal'"
+              />
+            </ng-template>
+          </div>
+        </hlm-resizable-panel>
+      </hlm-resizable-group>
+
+      <!-- Toolbar pinned to the aside bottom, outside the resizable
          group so it stays visible when the bottom panel collapses.
          Collapse-toggle | tablist | spacer | play/stop. The tablist
          is a real <hlm-tabs-list> (BrnTabs) for aria + arrow-key nav. -->
-    <div
-      class="flex h-9 shrink-0 items-stretch border-t border-sidebar-border bg-sidebar"
-    >
+      <div
+        class="flex h-9 shrink-0 items-stretch border-t border-sidebar-border bg-sidebar"
+      >
         <button
           hlmBtn
           variant="ghost"
@@ -464,7 +469,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
             <ng-icon hlm name="lucidePlay" size="xs" />
           </button>
         }
-    </div>
+      </div>
     </hlm-tabs>
   `,
 })
