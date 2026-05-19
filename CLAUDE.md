@@ -80,6 +80,22 @@ The `@nx/enforce-module-boundaries` ESLint rule enforces:
 
 Run `bash tools/verify-scope-tags.sh` after adding a new project — a missing tag silently exempts the project from the boundary rule.
 
+## Commit discipline
+
+1. **Always ask before committing.** Never commit without explicit human approval, even when the work looks complete, even after a manual checkpoint passed, even for a one-liner. The user reviews the diff and says "commit" before any `git commit` runs.
+
+2. **After approval, commit atomically in a single shell command.** Always:
+
+   ```bash
+   git add <path1> <path2> ... && git commit -m "..."
+   ```
+
+   Never split `git add` and `git commit` across two invocations on a shared branch — another parallel chat working on a different atom on the same branch could race the index and accidentally include foreign staged files in your commit.
+
+3. **Stage explicit paths only.** Never `git add -A`, `git add .`, or `git add -u`. List the files this atom touched. The project hook blocks bulk staging; the rule is also defense-in-depth against committing unrelated work that a parallel chat staged.
+
+4. **One atom = one commit.** Don't bundle multiple atoms into a single commit. The plan's checkbox tracking depends on atom-sized commits.
+
 <!-- nx configuration start-->
 <!-- Leave the start & end comments to automatically receive updates. -->
 
