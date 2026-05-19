@@ -164,9 +164,9 @@ export class ChatFacade {
     () => new Set(this.activeByWorkspace().keys()),
   );
 
-  // Idempotent — kept for FeatureChatPanel's effect, which calls this
-  // on workspace input. Triggers hydration; the returned Chat may be a
-  // synthetic placeholder until hydration completes.
+  // Idempotent — called by `FeatureWorkspaceMiddle`'s workspace-id
+  // effect. Triggers hydration ; the returned Chat may be a synthetic
+  // placeholder until hydration completes.
   ensureChatForWorkspace(workspaceId: string): Chat {
     void this.hydrate(workspaceId);
     return this.store.ensureChat(workspaceId);

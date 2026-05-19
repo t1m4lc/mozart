@@ -28,8 +28,8 @@ import { UserMessage } from '../user-message/user-message';
 //   chats stay under a few hundred messages, well below the DOM
 //   threshold where this becomes a bottleneck.
 //
-// `feature-chat-panel` drives auto-follow via `isAtBottom()` +
-// `scrollToBottom()`.
+// `feature-workspace-middle` drives auto-follow via `isAtBottom()` +
+// `scrollToBottom()` (queried as contentChild from the slot).
 const AT_BOTTOM_THRESHOLD_PX = 50;
 const SCROLL_AUDIT_MS = 220;
 

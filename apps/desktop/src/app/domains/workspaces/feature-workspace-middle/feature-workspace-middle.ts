@@ -3,6 +3,7 @@ import {
   Component,
   ElementRef,
   computed,
+  contentChild,
   effect,
   inject,
   input,
@@ -16,31 +17,32 @@ import {
   type ComposerSendEvent,
   type EffortLevel,
 } from '@mozart-ui/composer';
+import { ChatFacade, FeatureChatContent } from '../../chat';
 import {
   DEFAULT_MODEL_ID,
   LLM_MODEL_CATALOG,
   PROVIDERS,
 } from '../../llm-model';
-import { WorkspacesFacade } from '../../workspaces';
-import { ChatFacade } from '../data/chat.facade';
-import { MessageList } from '../ui/message-list/message-list';
+import { WorkspacesFacade } from '../data/workspace.facade';
 
-// Chat panel — composer pinned to the bottom, virtual-scrolling
-// message list above. MessageList owns the viewport (CDK virtual
-// scroll) and exposes `isAtBottom()` + `scrollToBottom()` for the
-// autoFollow plumbing.
+// Workspace middle shell — frame shared between chat and file content.
+// Hosts the composer pinned to the bottom and a `[middle-content]`
+// projection slot for the active tab's content.
+//
+// The composer drives the chat facade unconditionally (mode / effort /
+// model / send / stop) so chat-driven typing keeps working even when a
+// file tab is visible. Auto-follow + scroll-to-bottom are gated on a
+// projected `FeatureChatContent` ; when no chat content is in the slot
+// (file tab active) the composer's scroll-to-bottom button hides and
+// scroll wires no-op.
 @Component({
-  selector: 'app-feature-chat-panel',
-  imports: [HlmComposer, MessageList],
+  selector: 'app-feature-workspace-middle',
+  imports: [HlmComposer],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col h-full w-full' },
   template: `
     <div class="flex-1 min-h-0">
-      @if (messages().length > 0) {
-        <app-message-list #list [messages]="messages()" />
-      } @else {
-        <ng-content select="[chat-empty-state]" />
-      }
+      <ng-content select="[middle-content]" />
     </div>
 
     <div class="relative px-4 pb-3 pt-0" data-tour="composer-mode">
@@ -85,7 +87,7 @@ import { MessageList } from '../ui/message-list/message-list';
     </div>
   `,
 })
-export class FeatureChatPanel {
+export class FeatureWorkspaceMiddle {
   readonly workspaceId = input<string | null>(null);
   readonly frozen = input<boolean>(false);
 
@@ -93,23 +95,24 @@ export class FeatureChatPanel {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly router = inject(Router);
 
-  private readonly list = viewChild<MessageList>('list');
+  // The chat content sits in the `[middle-content]` slot — querying it
+  // as content (light DOM) keeps the frame agnostic of what's inside.
+  // Undefined when a non-chat content (file tab) is projected.
+  private readonly chatContent = contentChild(FeatureChatContent);
   private readonly composerEl = viewChild('composerEl', {
     read: ElementRef<HTMLElement>,
   });
 
   protected readonly value = signal('');
-  protected readonly messages = this.facade.messagesForWorkspace(
-    this.workspaceId,
-  );
   protected readonly isStreaming = this.facade.isStreaming(this.workspaceId);
 
   // True while the user is parked near the bottom of the message list.
   // Drives the composer's scroll-to-bottom overlay button visibility.
-  // Sourced from MessageList's viewport position when the list is
-  // mounted ; defaults to true when there are no messages yet.
+  // Sourced from the projected chat content's `isAtBottom` signal ;
+  // defaults to true when no chat content is in the slot (file tab) or
+  // when the message list is unmounted (empty state).
   protected readonly autoFollowChat = computed(
-    () => this.list()?.isAtBottom() ?? true,
+    () => this.chatContent()?.isAtBottom() ?? true,
   );
 
   protected readonly hasNextUnreadInProject =
@@ -168,7 +171,7 @@ export class FeatureChatPanel {
     if (!id) return;
     // Sending implicitly re-engages auto-follow — the user wants to
     // see the assistant's reply land.
-    this.list()?.scrollToBottom();
+    this.chatContent()?.scrollToBottom();
     void this.facade.sendUserMessage(id, event.text, event.mode);
     this.value.set('');
   }
@@ -198,7 +201,7 @@ export class FeatureChatPanel {
   }
 
   protected onScrollToBottom(): void {
-    this.list()?.scrollToBottom();
+    this.chatContent()?.scrollToBottom();
   }
 
   protected onNextUnreadWorkspace(): void {

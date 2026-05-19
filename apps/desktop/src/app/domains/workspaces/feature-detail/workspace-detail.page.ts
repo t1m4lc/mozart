@@ -17,11 +17,10 @@ import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
 import { OsService } from '@mozart/shared-util-os';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
-import { ChatFacade, FeatureChatPanel } from '../../chat';
+import { ChatFacade, FeatureChatContent } from '../../chat';
 import { ProjectsFacade } from '../../projects';
 import { ProfileFacade } from '../../profile';
 import {
-  FeatureFileDiff,
   type CommitDialogContext,
   type CreatePrDialogContext,
 } from '../../repositories';
@@ -31,6 +30,8 @@ import { IdeDetectionService } from '../data/ide-detection.service';
 import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { FeatureChatTabBar } from '../feature-chat-tab-bar/feature-chat-tab-bar';
+import { FeatureFileContent } from '../feature-file-content/feature-file-content';
+import { FeatureWorkspaceMiddle } from '../feature-workspace-middle/feature-workspace-middle';
 import { ChatEmptyState } from '../ui/chat-empty-state/chat-empty-state';
 import { WorkspaceToolbar } from '../ui/workspace-toolbar/workspace-toolbar';
 import { WorkspaceDetailStore } from './workspace-detail.store';
@@ -43,8 +44,9 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     WorkspaceToolbar,
     FeatureChatTabBar,
     ChatEmptyState,
-    FeatureChatPanel,
-    FeatureFileDiff,
+    FeatureWorkspaceMiddle,
+    FeatureChatContent,
+    FeatureFileContent,
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
@@ -84,37 +86,41 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       [workspaceId]="store.workspaceId()"
     />
 
-    @if (activeFileTabPath(); as path) {
-      <!-- File tab active — diff view replaces the chat panel.
-           @defer was removed because on-viewport sometimes didn't
-           re-trigger when the user came back to a file tab after a
-           chat detour. The diff chunk is light; markdown.js is still
-           deferred inside ui-markdown-view. -->
-      <app-feature-file-diff
-        class="flex-1 min-h-0"
-        [workspaceId]="id()!"
-        [path]="path"
-      />
-    } @else {
-      <app-feature-chat-panel
-        #chatPanel
-        class="flex-1 min-h-0"
-        [workspaceId]="store.workspaceId()"
-        [frozen]="frozen()"
-      >
-        <app-chat-empty-state
-          chat-empty-state
-          [variant]="activeTabIsFirst() ? 'start' : 'untitled'"
-          [projectName]="projectName()"
-          [workspaceName]="workspaceName()"
-          [sourceBranch]="store.currentBranch()"
-          [targetBranch]="store.targetBranch() || 'main'"
-          [numberOfFiles]="0"
-          [installState]="install().state"
-          [installManager]="install().manager"
+    <!-- Frame always mounts — composer stays pinned across chat / file
+         tab switches. The active tab path picks the projected content:
+         feature-file-content for file tabs (Edit / Diff / Split
+         scaffolding inside), feature-chat-content for chat tabs
+         (messages + empty state). -->
+    <app-feature-workspace-middle
+      #middle
+      class="flex-1 min-h-0"
+      [workspaceId]="store.workspaceId()"
+      [frozen]="frozen()"
+    >
+      @if (activeFileTabPath(); as path) {
+        <app-feature-file-content
+          middle-content
+          [workspaceId]="store.workspaceId()"
+          [filePath]="path"
         />
-      </app-feature-chat-panel>
-    }
+      } @else {
+        <app-feature-chat-content
+          middle-content
+          [workspaceId]="store.workspaceId()"
+        >
+          <app-chat-empty-state
+            [variant]="activeTabIsFirst() ? 'start' : 'untitled'"
+            [projectName]="projectName()"
+            [workspaceName]="workspaceName()"
+            [sourceBranch]="store.currentBranch()"
+            [targetBranch]="store.targetBranch() || 'main'"
+            [numberOfFiles]="0"
+            [installState]="install().state"
+            [installManager]="install().manager"
+          />
+        </app-feature-chat-content>
+      }
+    </app-feature-workspace-middle>
 
     <ng-template #sidebarHeaderTpl>
       @if (isMac) {
@@ -239,10 +245,10 @@ export class WorkspaceDetailPage {
 
   protected readonly sidebarHeader =
     viewChild.required<TemplateRef<unknown>>('sidebarHeaderTpl');
-  // Optional because the chat panel only mounts in the `@else` branch
-  // (when no file tab is active). `viewChild.required` would throw
-  // NG0951 every time a file diff replaced the chat panel.
-  private readonly chatPanel = viewChild(FeatureChatPanel);
+  // Optional because the middle shell only mounts in the `@else`
+  // branch (when no file tab is active). `viewChild.required` would
+  // throw NG0951 every time a file diff replaced the chat content.
+  private readonly middle = viewChild(FeatureWorkspaceMiddle);
 
   constructor() {
     // Active chat changed -> refocus the composer. Mirrors the previous
@@ -254,7 +260,7 @@ export class WorkspaceDetailPage {
         // touch to subscribe; value not used
         this.chatFacade.activeChatIdFor(ws);
       }
-      this.chatPanel()?.focusComposer();
+      this.middle()?.focusComposer();
     });
 
     effect(() => {
