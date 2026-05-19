@@ -14,6 +14,15 @@ export type MessageStatus =
   | 'error'
   | 'stopped';
 
+// Subtle muted card emitted by the backend at project bootstrap time.
+// One per "Start" chat; read-only — not editable, not deletable. Carried
+// on `Message` only when `role === 'system'` and `kind === 'system_info'`.
+export interface SystemInfo {
+  readonly kind: 'system_info';
+  readonly title: string;
+  readonly bullets: readonly string[];
+}
+
 export interface Message {
   readonly id: string;
   readonly chatId: string;
@@ -26,4 +35,7 @@ export interface Message {
   // reads `.text` via <message-body>; Phase 3b will render the full
   // Claude-style timeline from `.items` + `.summary` + `.outcome`.
   readonly turnState?: TurnState;
+  // System only — present when this row is the bootstrap "Project ready"
+  // entry. See P0.3 (R0.3.F).
+  readonly systemInfo?: SystemInfo;
 }

@@ -1,7 +1,12 @@
 import type { TurnState } from '../../llm-model';
 import type { ChatDto, MessageDto } from './chat.dto';
 import type { Chat, ChatMode, EffortLevel } from './chat.model';
-import type { Message, MessageRole, MessageStatus } from './message.model';
+import type {
+  Message,
+  MessageRole,
+  MessageStatus,
+  SystemInfo,
+} from './message.model';
 
 const ALLOWED_MODES: ReadonlySet<ChatMode> = new Set(['agent', 'plan', 'ask']);
 const ALLOWED_EFFORTS: ReadonlySet<EffortLevel> = new Set([
@@ -25,7 +30,11 @@ export function chatFromDto(dto: ChatDto): Chat {
   };
 }
 
-const ALLOWED_ROLES: ReadonlySet<MessageRole> = new Set(['user', 'assistant']);
+const ALLOWED_ROLES: ReadonlySet<MessageRole> = new Set([
+  'user',
+  'assistant',
+  'system',
+]);
 const ALLOWED_STATUSES: ReadonlySet<MessageStatus> = new Set([
   'pending',
   'queued',
@@ -36,15 +45,21 @@ const ALLOWED_STATUSES: ReadonlySet<MessageStatus> = new Set([
 ]);
 
 export function messageFromDto(dto: MessageDto): Message {
+  const role = coerceRole(dto.role);
+  // `timeline_json` is shared between assistant TurnState and the system_info
+  // payload — discriminated by `role`. Keeps the DB schema unchanged.
+  const turnState = role === 'assistant' ? parseTurnState(dto.timeline_json) : undefined;
+  const systemInfo = role === 'system' ? parseSystemInfo(dto.timeline_json) : undefined;
   return {
     id: dto.message_id,
     chatId: dto.chat_id,
-    role: coerceRole(dto.role),
+    role,
     content: dto.content,
     mode: coerceMessageMode(dto.mode),
     status: coerceStatus(dto.status),
     createdAt: dto.created_at,
-    turnState: parseTurnState(dto.timeline_json),
+    turnState,
+    systemInfo,
   };
 }
 
@@ -67,6 +82,32 @@ function coerceRole(raw: string): MessageRole {
   return ALLOWED_ROLES.has(raw as MessageRole)
     ? (raw as MessageRole)
     : 'assistant';
+}
+
+function parseSystemInfo(json: string | null): SystemInfo | undefined {
+  if (json == null) return undefined;
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    if (
+      !parsed ||
+      typeof parsed !== 'object' ||
+      (parsed as { kind?: unknown }).kind !== 'system_info'
+    ) {
+      return undefined;
+    }
+    const obj = parsed as { kind: 'system_info'; title?: unknown; bullets?: unknown };
+    const title = typeof obj.title === 'string' ? obj.title : '';
+    const bullets = Array.isArray(obj.bullets)
+      ? obj.bullets.filter((b): b is string => typeof b === 'string')
+      : [];
+    return { kind: 'system_info', title, bullets };
+  } catch {
+    return undefined;
+  }
+}
+
+export function systemInfoToJson(info: SystemInfo): string {
+  return JSON.stringify(info);
 }
 
 function coerceStatus(raw: string): MessageStatus {

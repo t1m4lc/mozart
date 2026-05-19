@@ -15,6 +15,7 @@ import { fromEvent } from 'rxjs';
 import { auditTime } from 'rxjs/operators';
 import type { Message } from '../../data/message.model';
 import { AgentMessage } from '../agent-message/agent-message';
+import { SystemInfoMessage } from '../system-info-message/system-info-message';
 import { UserMessage } from '../user-message/user-message';
 
 // Plain scrolling message list. CDK virtual scroll was removed because
@@ -33,7 +34,7 @@ const SCROLL_AUDIT_MS = 220;
 
 @Component({
   selector: 'app-message-list',
-  imports: [UserMessage, AgentMessage],
+  imports: [UserMessage, AgentMessage, SystemInfoMessage],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full w-full' },
   template: `
@@ -46,6 +47,9 @@ const SCROLL_AUDIT_MS = 220;
             }
             @case ('assistant') {
               <app-agent-message [message]="msg" />
+            }
+            @case ('system') {
+              <app-system-info-message [message]="msg" />
             }
           }
         </div>
