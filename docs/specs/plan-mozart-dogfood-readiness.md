@@ -185,7 +185,7 @@ The five locked architectural decisions, with one-line rationale.
 | AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4.                                                                                                                                                                                                                                                                                                                   | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
 | AD-02 | **Merge routing** = `.mozart/run.json` derives no merge preference; per-project `mergeMode` lives in **Mozart local DB** (`project_local_config`); per-workspace `last_merge_action` overrides it for the primary-button label, IDE-button style.                                                                                                                                                                                                                                                               | User-specific preference, never shared with team. Last-action memory mirrors the existing Open-in-IDE pattern.                                                                                                                                                 |
 | AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Explicit reviewer action from the diff toolbar, never automatic on open. Review progress count. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]].                                                                                                                                                                                                                         | Reduces review cognitive load without ceremony while preserving the GitHub-style "I checked this file" intent.                                                                                                                                                  |
-| AD-04 | **Editor** = CodeMirror 6 + `@codemirror/merge`. One library drives Diff (unified+split) and Edit modes. `.md` files open as code.                                                                                                                                                                                                                                                                                                                                                                              | Lightweight, modular, minimal-feeling, ~250KB gzipped. Monaco is heavier and harder to keep visually minimal.                                                                                                                                                  |
+| AD-04 | **Editor** = CodeMirror 6 for Edit mode and code viewing. P2.1 does **not** replace the existing unified diff renderer with `@codemirror/merge`; split/merge diff requires a separate backend contract for base/workspace file bodies. Markdown preview stays for Review mode; `.md` opens as code only in Edit mode.                                                                                                                                                                                             | Keeps P2.1 dogfood-sized and avoids regressing the existing markdown preview. Monaco is heavier and harder to keep visually minimal; CodeMirror remains the editor choice, but diff replacement is deferred until its data contract is explicit.                                                                               |
 | AD-05 | **Freeze** = frontend `isFrozen` signal + Rust IPC guards on every mutating command with new `AppError::Frozen` variant. Belt-and-braces.                                                                                                                                                                                                                                                                                                                                                                       | Single-source enforcement (frontend-only) is fragile; layered is robust.                                                                                                                                                                                       |
 | AD-06 | **Project bootstrap** = silent local default on Open project. No screen. Detect → write `project_local_config` row → auto-create first workspace → auto-create "Start" chat. The Start chat's timeline shows a system-info entry summarising the inferred setup/run + sandbox level + storage location. Two-file split (`.mozart/settings.json` + `.mozart/run.json`) is reserved for the deferred "Save config to repo" action (P4 / TODO-006). Mozart never auto-commits. See [[mozart-repo-init-principle]]. | The first-run user has no basis to choose between local and repo config. Defaulting to local matches the principle, removes a screen, and uses the existing chat timeline as the surface for the inference result. Decided 2026-05-19 in `/plan-devex-review`. |
 
@@ -1149,14 +1149,32 @@ to `done` and freezes.
 
 ## P2.1 — Code editor (CodeMirror 6) + line numbers
 
+### Scope challenge resolution
+
+P2.1 is narrowed to the editable code surface only. It must not replace
+`ui-diff-view` or introduce `@codemirror/merge` yet. The current backend
+diff path returns unified patch text; CodeMirror merge needs comparable
+base/workspace file bodies, so split/merge diff moves to P2.3 or a
+follow-up atom with an explicit backend contract.
+
+Markdown preview also stays in Review mode. `.md`, `.markdown`, and
+`.mdx` files open as rendered preview/diff exactly as today unless the
+user switches the file to Edit mode; Edit mode always uses the code
+editor.
+
 ### Library choice
 
 `@codemirror/state`, `@codemirror/view`, `@codemirror/commands`,
-`@codemirror/language`, `@codemirror/merge`, plus language packs:
+`@codemirror/language`, plus language packs:
 `@codemirror/lang-javascript`, `@codemirror/lang-html`,
 `@codemirror/lang-css`, `@codemirror/lang-markdown`,
-`@codemirror/lang-json`, `@codemirror/lang-rust`. ~250KB gzipped
-total. All under MIT.
+`@codemirror/lang-json`, `@codemirror/lang-rust`. All under MIT.
+
+Do not add `@codemirror/merge` in P2.1. Lazy-load the editor surface so
+the desktop startup bundle does not pay for CodeMirror until a file is
+opened in Edit mode or the sandbox editor demo is visited. The manual
+bundle checkpoint records the actual gzipped delta instead of assuming a
+fixed size.
 
 ### Theme
 
@@ -1170,11 +1188,11 @@ exposed as a CodeMirror `EditorView.theme` extension lives in
 #### Atom A2.1.A — Add CodeMirror deps + Mozart theme lib
 
 - [ ] `pnpm add @codemirror/state @codemirror/view ...` at workspace
-      root.
+      root, excluding `@codemirror/merge`.
 - [ ] New `libs/mozart-ui/codemirror-theme/` exporting
       `mozartLightTheme` and `mozartDarkTheme`.
-- [ ] **Manual checkpoint:** Build the desktop app → bundle grows by
-      the expected ~250KB. No runtime errors.
+- [ ] **Manual checkpoint:** Build the desktop app → record actual
+      gzipped bundle delta. No runtime errors.
 
 Files: ~5 (lib scaffolding + theme).
 
@@ -1187,35 +1205,52 @@ Files: ~5 (lib scaffolding + theme).
 - [ ] Outputs: `valueChange` (debounced).
 - [ ] Uses `viewChild` signal per [[feedback_viewchild_signal]] —
       no `inject(ElementRef)` on `this`.
+- [ ] Handles external `value` changes without overwriting local dirty
+      edits unless the parent explicitly resets the buffer.
 - [ ] **Manual checkpoint:** Render in sandbox app (`apps/sandbox`)
       with a TS file → syntax highlighted, line numbers visible, edit
       works.
 
 Files: ~2 + sandbox demo page.
 
-#### Atom A2.1.C — Replace the placeholder in `feature-file-content`
+#### Atom A2.1.C — Add Edit mode to `feature-file-content`
 
-- [ ] Component receives `filePath`, `mode: 'diff' | 'edit'`,
-      `diffMode: 'unified' | 'split'`.
-- [ ] For Edit mode: render `<mz-code-editor>` reading file contents
-      via a Tauri command.
-- [ ] For Diff mode: render `<mz-code-diff>` using `@codemirror/merge`,
-      reading both sides from `sandbox::capture_diff`.
-- [ ] `.md` files always open as code (not rendered).
-- [ ] **Manual checkpoint:** Click a `.md` file in All Files → opens
-      in code editor, not the markdown view. Edit a line, save (P2.1.D
-      below), reload, change persists.
+- [ ] Component receives `filePath` and `mode: 'diff' | 'edit'`.
+      `diffMode` remains owned by the existing diff toolbar/path until
+      the split-diff feature is implemented.
+- [ ] For Edit mode: lazy-render `<mz-code-editor>` reading file
+      contents via the existing `read_workspace_file` command.
+- [ ] For Diff/Review mode: keep the existing unified diff renderer and
+      existing markdown preview behavior.
+- [ ] Track dirty state in the file-content component and expose an
+      explicit Save action; no autosave in P2.1.
+- [ ] If the file changes on disk while the editor is dirty, block save
+      and show a stale-file error with reload/discard as the recovery
+      path.
+- [ ] **Manual checkpoint:** Click a `.md` file in All Files → Review
+      mode still opens rendered preview/diff. Switch to Edit mode → code
+      editor opens. Edit a line, Save (P2.1.D below), reload, change
+      persists.
 
 Files: ~3.
 
 #### Atom A2.1.D — File save command
 
 - [ ] New Tauri command `file_save(workspace_id, relative_path,
-content)` that: 1. Calls `validate_agent_path` (P0.1.D) — same guard rails. 2. Returns `Frozen` if the workspace is done. 3. Writes file atomically (tmp + rename).
-- [ ] **Manual checkpoint:** Edit a file in Mozart, observe `git
-status` shows the change.
+content, expected_hash)` that uses the same canonical path guard as
+`read_workspace_file` and future file-write commands.
+- [ ] Return `Frozen` if the workspace is done.
+- [ ] Return a stale-file validation error if the current on-disk hash
+      differs from `expected_hash`.
+- [ ] Write UTF-8 text atomically (tmp + rename). Binary and non-UTF-8
+      editing are out of scope for P2.1.
+- [ ] Update `read_workspace_file` to use the shared path guard so read
+      and save security cannot drift.
+- [ ] **Manual checkpoint:** Edit a file in Mozart, Save, observe `git
+      status` shows the change; mark workspace done, then verify Save is
+      rejected with `Frozen`.
 
-Files: ~2 + 3 tests.
+Files: ~2 + 4 tests.
 
 ---
 
