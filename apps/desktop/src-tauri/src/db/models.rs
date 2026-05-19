@@ -48,6 +48,10 @@ pub struct Workspace {
     pub created_at: i64,
     pub deletion_intent: i64,
     pub ui_status: String, // backlog | in_progress | in_review | done | canceled
+    /// Remembered merge action for the AD-02 primary-button label.
+    /// `'pr'` | `'local'` | `None` (no prior choice → fall back to
+    /// project_local_config.merge_mode, then remote auto-detect).
+    pub last_merge_action: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

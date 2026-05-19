@@ -506,6 +506,7 @@ mod tests {
                 created_at: now_ms(),
                 deletion_intent: 1, // archived
                 ui_status: "backlog".into(),
+                last_merge_action: None,
             };
             workspaces::create(&conn, &archived).unwrap();
         }
@@ -766,6 +767,7 @@ mod tests {
                 created_at: now_ms(),
                 deletion_intent: 0,
             ui_status: "backlog".into(),
+            last_merge_action: None,
             };
             workspaces::create(&conn, &ws).unwrap();
         }
@@ -843,6 +845,7 @@ mod tests {
                     created_at: now_ms(),
                     deletion_intent: 0,
                     ui_status: "backlog".into(),
+                    last_merge_action: None,
                 };
                 workspaces::create(&conn, &ws).unwrap();
             }

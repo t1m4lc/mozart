@@ -40,6 +40,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (5, include_str!("../../migrations/005_chat_phase2.sql")),
     (6, include_str!("../../migrations/006_repos_run_command.sql")),
     (7, include_str!("../../migrations/007_project_local_config.sql")),
+    (8, include_str!("../../migrations/008_workspaces_last_merge_action.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.
@@ -140,6 +141,9 @@ fn patch_workspaces_columns(conn: &Connection) -> Result<(), AppError> {
         conn.execute_batch(
             "ALTER TABLE workspaces ADD COLUMN ui_status TEXT NOT NULL DEFAULT 'backlog'",
         )?;
+    }
+    if !cols.iter().any(|c| c == "last_merge_action") {
+        conn.execute_batch("ALTER TABLE workspaces ADD COLUMN last_merge_action TEXT")?;
     }
     Ok(())
 }

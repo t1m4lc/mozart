@@ -684,6 +684,7 @@ mod tests {
                 created_at: now_ms(),
                 deletion_intent: 0,
             ui_status: "backlog".into(),
+            last_merge_action: None,
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {

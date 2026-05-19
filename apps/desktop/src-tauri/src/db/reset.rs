@@ -430,6 +430,7 @@ mod seed {
                 created_at: now - 13 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "in_review".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_DESKTOP_FILE_TREE_B.into(),
@@ -444,6 +445,7 @@ mod seed {
                 created_at: now - 12 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "in_progress".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_DESKTOP_DIFF_VIEW.into(),
@@ -458,6 +460,7 @@ mod seed {
                 created_at: now - 2 * DAY_MS + 4 * HOUR_MS,
                 deletion_intent: 0,
                 ui_status: "in_progress".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_DESKTOP_RUN_TAB.into(),
@@ -472,6 +475,7 @@ mod seed {
                 created_at: now - 1 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "backlog".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_DOCS_RELEASE_NOTES.into(),
@@ -486,6 +490,7 @@ mod seed {
                 created_at: now - 5 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "done".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_DOCS_PROMPT_LIBRARY.into(),
@@ -500,6 +505,7 @@ mod seed {
                 created_at: now - 18 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "in_progress".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_LANDING_LLMS_TXT.into(),
@@ -514,6 +520,7 @@ mod seed {
                 created_at: now - 9 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "done".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_LANDING_PRICING.into(),
@@ -528,6 +535,7 @@ mod seed {
                 created_at: now - 2 * HOUR_MS,
                 deletion_intent: 0,
                 ui_status: "backlog".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_RLS_AUDIT.into(),
@@ -542,6 +550,7 @@ mod seed {
                 created_at: now - 70 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "done".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_LEGACY_MIGRATION.into(),
@@ -556,6 +565,7 @@ mod seed {
                 created_at: now - 95 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "canceled".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_AI_LLAMACPP.into(),
@@ -570,6 +580,7 @@ mod seed {
                 created_at: now - 78 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "canceled".into(),
+                last_merge_action: None,
             },
             Workspace {
                 workspace_id: ids::WS_AI_EXPERIMENT_PAUSED.into(),
@@ -584,6 +595,7 @@ mod seed {
                 created_at: now - 65 * DAY_MS,
                 deletion_intent: 0,
                 ui_status: "in_review".into(),
+                last_merge_action: None,
             },
         ];
         for w in &rows {

@@ -7,16 +7,16 @@ use crate::error::AppError;
 
 pub fn create(conn: &Connection, ws: &Workspace) -> Result<(), AppError> {
     conn.execute(
-        "INSERT INTO workspaces(workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
-        params![ws.workspace_id, ws.task_id, ws.name, ws.worktree_path, ws.branch_name, ws.base_branch, ws.status, ws.pinned, ws.unread, ws.created_at, ws.deletion_intent, ws.ui_status],
+        "INSERT INTO workspaces(workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
+        params![ws.workspace_id, ws.task_id, ws.name, ws.worktree_path, ws.branch_name, ws.base_branch, ws.status, ws.pinned, ws.unread, ws.created_at, ws.deletion_intent, ws.ui_status, ws.last_merge_action],
     )?;
     Ok(())
 }
 
 pub fn get(conn: &Connection, workspace_id: &str) -> Result<Workspace, AppError> {
     conn.query_row(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action
          FROM workspaces WHERE workspace_id = ?1",
         [workspace_id],
         row_to_workspace,
@@ -31,7 +31,7 @@ pub fn get(conn: &Connection, workspace_id: &str) -> Result<Workspace, AppError>
 
 pub fn list_by_task(conn: &Connection, task_id: &str) -> Result<Vec<Workspace>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action
          FROM workspaces WHERE task_id = ?1 ORDER BY created_at DESC",
     )?;
     let rows = stmt.query_map([task_id], row_to_workspace)?;
@@ -42,7 +42,7 @@ pub fn list_by_task(conn: &Connection, task_id: &str) -> Result<Vec<Workspace>, 
 
 pub fn list_all(conn: &Connection) -> Result<Vec<Workspace>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action
          FROM workspaces ORDER BY created_at DESC",
     )?;
     let rows = stmt.query_map([], row_to_workspace)?;
@@ -131,6 +131,7 @@ fn row_to_workspace(row: &rusqlite::Row<'_>) -> rusqlite::Result<Workspace> {
         created_at: row.get(9)?,
         deletion_intent: row.get(10)?,
         ui_status: row.get(11)?,
+        last_merge_action: row.get(12)?,
     })
 }
 
@@ -153,6 +154,25 @@ pub fn set_ui_status(
     let n = conn.execute(
         "UPDATE workspaces SET ui_status = ?1 WHERE workspace_id = ?2",
         params![ui_status, workspace_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("workspace id={workspace_id}")));
+    }
+    Ok(())
+}
+
+// Plan P2.6 AD-02 — remembered merge action for the primary-button
+// label. `'pr'` or `'local'` after the user picks; the dropdown still
+// shows both options regardless. Stored per workspace so each one
+// remembers what was last clicked.
+pub fn set_last_merge_action(
+    conn: &Connection,
+    workspace_id: &str,
+    action: &str,
+) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE workspaces SET last_merge_action = ?1 WHERE workspace_id = ?2",
+        params![action, workspace_id],
     )?;
     if n == 0 {
         return Err(AppError::NotFound(format!("workspace id={workspace_id}")));
@@ -225,6 +245,7 @@ mod tests {
             created_at: now_ms(),
             deletion_intent: 0,
             ui_status: "backlog".into(),
+            last_merge_action: None,
         }
     }
 
@@ -393,6 +414,34 @@ mod tests {
         let db = init_db_memory().unwrap();
         let conn = db.lock();
         let err = set_unread(&conn, "no-such-ws", true).unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn last_merge_action_defaults_null_and_round_trips() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        let ws = make_ws(&task_id, "lma");
+        create(&conn, &ws).unwrap();
+        assert!(get(&conn, &ws.workspace_id).unwrap().last_merge_action.is_none());
+        set_last_merge_action(&conn, &ws.workspace_id, "local").unwrap();
+        assert_eq!(
+            get(&conn, &ws.workspace_id).unwrap().last_merge_action.as_deref(),
+            Some("local")
+        );
+        set_last_merge_action(&conn, &ws.workspace_id, "pr").unwrap();
+        assert_eq!(
+            get(&conn, &ws.workspace_id).unwrap().last_merge_action.as_deref(),
+            Some("pr")
+        );
+    }
+
+    #[test]
+    fn set_last_merge_action_missing_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let err = set_last_merge_action(&conn, "no-such-ws", "pr").unwrap_err();
         assert!(matches!(err, AppError::NotFound(_)));
     }
 
