@@ -9,6 +9,7 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { memoize } from '../../../core/util-memoize';
 import type { FileNode } from '../data/file-node.model';
 import { RepositoriesFacade } from '../data/repositories.facade';
 import { FileTreeRow } from '../ui-file-tree-row/ui-file-tree-row';
@@ -164,10 +165,29 @@ export class FeatureFileTree {
   // toggle semantics here with a signal so OnPush re-renders kick in.
   private readonly expanded = signal<ReadonlySet<string>>(new Set());
 
-  /** Children accessor for CdkTree. Copies because the model exposes
-   *  `children` as readonly and CdkTree expects `T[]`. */
+  /** Children accessor for CdkTree. CdkTree calls this without
+   *  binding, so we keep an arrow property as the public surface and
+   *  delegate to a `@memoize()`-decorated method where `this` is the
+   *  component — needed for the decorator's per-instance cache. */
   protected readonly childrenAccessor = (node: FileNode): FileNode[] =>
-    node.children ? [...node.children] : [];
+    this._childrenOf(node);
+
+  /** Memoized spread of `node.children`. Spreading is required because
+   *  the model exposes `children` as `readonly` while CdkTree's
+   *  `dataSource` expects `FileNode[]`; with memoization the spread
+   *  happens at most once per node identity per component instance
+   *  (a tree refetch produces new FileNode objects → cache miss →
+   *  re-spread; old node references are GC'd along with the WeakMap
+   *  entry). Big win on workspace switches where CdkTree consults
+   *  this for every visible folder.
+   *
+   *  References:
+   *    - https://medium.com/@bansal.suneet/memo-decorator-with-angular-pipe-big-performance-boost-73f94b5c728a
+   *    - https://angular.dev/best-practices/slow-computations */
+  @memoize()
+  private _childrenOf(node: FileNode): FileNode[] {
+    return node.children ? [...node.children] : [];
+  }
 
   /** CdkTree predicate: true when the node renders as a folder. */
   protected readonly isDirectory = (_index: number, node: FileNode): boolean =>
