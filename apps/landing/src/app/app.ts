@@ -1,5 +1,12 @@
-import { ChangeDetectionStrategy, Component, computed } from '@angular/core';
+import {
+  afterNextRender,
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AnalyticsService } from './shell/analytics/analytics.service';
 import { injectCurrentPath } from './shell/current-path';
 import { PromoStripComponent } from './shell/promo-strip.component';
 import { SiteFooterComponent } from './shell/site-footer.component';
@@ -26,6 +33,13 @@ import { SiteHeaderComponent } from './shell/site-header.component';
 })
 export class App {
   private readonly path = injectCurrentPath();
+  private readonly analytics = inject(AnalyticsService);
 
   protected readonly isHome = computed(() => this.path() === '');
+
+  constructor() {
+    afterNextRender(() => {
+      void this.analytics.init();
+    });
+  }
 }
