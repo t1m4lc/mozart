@@ -8,4 +8,5 @@
 //! defines the DTO; later atoms add `detect`, `validate`, and the Tauri
 //! commands that read/write it.
 
+pub mod detect;
 pub mod dto;
