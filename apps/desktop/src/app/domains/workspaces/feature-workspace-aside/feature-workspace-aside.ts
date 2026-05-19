@@ -673,13 +673,22 @@ export class FeatureWorkspaceAside {
         const payload = e.payload;
         if (payload.status !== 'done') return;
         if (payload.workspace_id !== this.workspaceId()) return;
+        const capturedRevision = this.repos.treeRevisionFor(
+          payload.workspace_id,
+        );
         void this.repos
           .listChangedFiles(payload.workspace_id)
           .then((files) => {
             if (files.length === 0) return;
             if (this.workspaceId() !== payload.workspace_id) return;
-            this.changedFiles.set(files);
-            this.filesView.set('changes');
+            this.repos.cacheChangedFiles(
+              payload.workspace_id,
+              files,
+              capturedRevision,
+            );
+            this.uiState.updateWorkspaceAsideState(payload.workspace_id, {
+              filesView: 'changes',
+            });
           })
           .catch((err) => {
             console.warn('[aside] auto-route changed files lookup failed:', err);
