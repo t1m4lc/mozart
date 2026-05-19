@@ -240,6 +240,7 @@ import {
         (rename)="editingWorkspaceId.set(w.id)"
         (archive)="archiveWorkspace(w.id)"
         (setStatus)="onSetStatus(w.id, $event)"
+        (reopenRequested)="onReopenWorkspace(w.id)"
       />
     </ng-template>
 
@@ -473,6 +474,21 @@ export class ShellProjectList {
       await this.workspaces.setStatus(workspaceId, status);
     } catch (err) {
       toast.error('Could not update status', {
+        description: errorMessage(err),
+      });
+    }
+  }
+
+  // Reopen a frozen workspace. F0.2.B wires the menu wording + event
+  // through; F0.2.D adds the confirmation dialog ("Reopen this
+  // workspace? You'll be able to edit and run agents again.") and the
+  // dedicated `reopen_workspace` Tauri command. For now we flip status
+  // back to `ready` so the freeze gates lift end-to-end.
+  protected async onReopenWorkspace(workspaceId: string): Promise<void> {
+    try {
+      await this.workspaces.setStatus(workspaceId, 'in_progress');
+    } catch (err) {
+      toast.error('Could not reopen workspace', {
         description: errorMessage(err),
       });
     }

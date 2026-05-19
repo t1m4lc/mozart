@@ -103,6 +103,7 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
       <app-workspace-status-menu
         [current]="workspace().status"
         (statusSelect)="setStatus.emit($event)"
+        (reopenRequested)="reopenRequested.emit()"
       />
     </ng-template>
   `,
@@ -114,4 +115,5 @@ export class WorkspaceContextMenu {
   readonly rename = output<void>();
   readonly archive = output<void>();
   readonly setStatus = output<UiWorkspaceStatus>();
+  readonly reopenRequested = output<void>();
 }

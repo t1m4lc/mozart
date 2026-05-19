@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  computed,
   effect,
   inject,
   input,
@@ -11,7 +12,10 @@ import {
 } from '@angular/core';
 import { HlmLoaderImports } from '@mozart/ui/loader';
 import { WorkspacesFacade } from '../../workspaces';
-import { TerminalRegistry } from '../data/terminal-registry.service';
+import {
+  TerminalRegistry,
+  type TerminalEntry,
+} from '../data/terminal-registry.service';
 
 // Window the host stays hidden behind a loader on first mount of a
 // workspace's terminal. Just enough for the shell to consume the
@@ -55,11 +59,20 @@ export class FeatureWorkspaceTerminal {
   // Which workspace's xterm element is currently mounted in the host.
   // Tracked so the effect can no-op when nothing changes.
   private mounted: string | null = null;
+  private mountedEntry: TerminalEntry | null = null;
   private resizeObserver: ResizeObserver | null = null;
   // First-mount tracking — second+ visits skip the settle delay since
   // the PTY's already initialized.
   private readonly initialized = new Set<string>();
   protected readonly loading = signal(false);
+
+  // Plan P0.2 freeze gate — `done` workspaces are read-only. We toggle
+  // xterm's `disableStdin` so keystrokes never reach the PTY; the PTY
+  // itself stays alive so scrollback + log inspection keep working.
+  private readonly frozen = computed(() => {
+    const id = this.workspaceId();
+    return id ? this.workspaces.isFrozen(id)() : false;
+  });
 
   constructor() {
     effect(() => {
@@ -71,6 +84,16 @@ export class FeatureWorkspaceTerminal {
       }
       if (this.mounted === id) return;
       void this.mount(id);
+    });
+
+    // Reflect the freeze state onto the currently-mounted xterm. Runs
+    // whenever the active workspace flips status, and on first mount
+    // (the value is re-applied right after `mount(id)` sets the entry).
+    effect(() => {
+      const isFrozen = this.frozen();
+      const entry = this.mountedEntry;
+      if (!entry) return;
+      entry.term.options.disableStdin = isFrozen;
     });
 
     this.destroyRef.onDestroy(() => this.detach());
@@ -117,6 +140,11 @@ export class FeatureWorkspaceTerminal {
     });
     this.installResizeObserver(entry.fit);
     this.mounted = workspaceId;
+    this.mountedEntry = entry;
+    // Re-apply the current freeze state synchronously — the effect that
+    // watches frozen() only re-runs when its inputs change, not when a
+    // new entry is mounted, so we set it once at attach time.
+    entry.term.options.disableStdin = this.frozen();
 
     if (isFirstOpen) {
       // Give the shell a beat to swallow the PS1/PROMPT init line
@@ -147,6 +175,7 @@ export class FeatureWorkspaceTerminal {
       }
     }
     this.mounted = null;
+    this.mountedEntry = null;
   }
 
   private installResizeObserver(fit: { fit(): void }): void {

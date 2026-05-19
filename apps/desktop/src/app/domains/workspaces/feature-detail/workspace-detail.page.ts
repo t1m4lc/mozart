@@ -99,6 +99,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
         #chatPanel
         class="flex-1 min-h-0"
         [workspaceId]="store.workspaceId()"
+        [frozen]="frozen()"
       >
         <app-chat-empty-state
           chat-empty-state
@@ -204,6 +205,15 @@ export class WorkspaceDetailPage {
   protected readonly hasRunCommand = computed(
     () => !!this.project()?.runCommand,
   );
+
+  // Plan P0.2 freeze gate — true when the active workspace's UI status
+  // is `done`. Drives the chat-panel banner + composer disabled, and
+  // (indirectly via the aside) the Run/terminal gates.
+  protected readonly frozen = computed(() => {
+    const id = this.id();
+    if (!id) return false;
+    return this.workspaces.isFrozen(id)();
+  });
 
   // True when the active chat is the first (oldest) chat in the
   // workspace — drives the empty-state copy ('Start' vs 'Untitled').

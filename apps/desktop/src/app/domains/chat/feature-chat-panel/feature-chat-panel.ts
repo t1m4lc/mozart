@@ -52,6 +52,16 @@ import { MessageList } from '../ui/message-list/message-list';
         class="pointer-events-none absolute inset-x-0 -top-4 h-4 bg-gradient-to-t from-background to-transparent dark:from-background"
         aria-hidden="true"
       ></div>
+      @if (frozen()) {
+        <!-- Vocabulary lock (plan P0.2): exact banner copy required. -->
+        <div
+          role="status"
+          aria-live="polite"
+          class="mb-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs font-normal text-muted-foreground"
+        >
+          This workspace is done and read-only
+        </div>
+      }
       <mz-composer
         #composerEl
         [(value)]="value"
@@ -64,6 +74,7 @@ import { MessageList } from '../ui/message-list/message-list';
         [selectedModelId]="currentModelId()"
         (modelChange)="onModelChange($event)"
         [isRunning]="isStreaming()"
+        [disabled]="frozen()"
         [autoFollowChat]="autoFollowChat()"
         [hasNextUnreadInProject]="hasNextUnreadInProject()"
         (send)="onSend($event)"
@@ -76,6 +87,7 @@ import { MessageList } from '../ui/message-list/message-list';
 })
 export class FeatureChatPanel {
   readonly workspaceId = input<string | null>(null);
+  readonly frozen = input<boolean>(false);
 
   private readonly facade = inject(ChatFacade);
   private readonly workspaces = inject(WorkspacesFacade);

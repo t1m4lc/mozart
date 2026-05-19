@@ -396,7 +396,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
           hlmTooltip="Run the configured command"
           position="top"
           class="my-1 mr-1 size-7 shrink-0 rounded-md text-muted-foreground"
-          [disabled]="!hasRunCommand()"
+          [disabled]="!hasRunCommand() || frozen()"
           (click)="onStartRun()"
         >
           <ng-icon hlm name="lucidePlay" size="xs" />
@@ -484,6 +484,14 @@ export class FeatureWorkspaceAside {
     if (!ws) return false;
     const project = this.projects.byId(ws.projectId)();
     return !!project?.runCommand;
+  });
+
+  // Plan P0.2 — when the active workspace is frozen (status === 'done')
+  // the bottom-toolbar Run button is disabled. Stop stays available so
+  // an in-flight run can still be cancelled.
+  protected readonly frozen = computed(() => {
+    const id = this.workspaces.activeId();
+    return id ? this.workspaces.isFrozen(id)() : false;
   });
 
   // Files-slot sub-tab selection : tree view vs flat changes list.
