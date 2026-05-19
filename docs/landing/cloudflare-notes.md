@@ -34,9 +34,16 @@ connected.
 
 ## 2. Environment assumptions
 
-- No build-time secrets are required for the static site.
-- No analytics keys (analytics is out of scope per plan §6).
 - `mozart.build` apex is attached to the Cloudflare Pages project.
+- No build-time **secrets** are required (everything in the bundle is public-by-design).
+- Two **public** `VITE_*` env vars feed the PostHog telemetry service (see `docs/specs/plan-telemetry.md`):
+
+  | Variable | Where to set | Value |
+  | --- | --- | --- |
+  | `VITE_POSTHOG_KEY` | CF Pages → Settings → Environment variables → **Production** | `phc_…` (PostHog project API key — public ingest key, safe in bundle) |
+  | `VITE_POSTHOG_HOST` | same | `https://us.i.posthog.com` (or `eu.i.posthog.com`) |
+
+  Leave both **unset** in the **Preview** environment so PR-preview deploys stay silent (the analytics service no-ops without a key). The dev server skips init too — see `import.meta.env.DEV` guard in `analytics.service.ts`.
 
 ## 3. Custom domain / DNS
 
