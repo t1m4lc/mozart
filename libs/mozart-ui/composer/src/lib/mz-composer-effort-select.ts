@@ -61,7 +61,11 @@ const ROW_BY_LEVEL: Record<EffortLevel, EffortRow> = EFFORT_ROWS.reduce(
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'inline-flex' },
   template: `
-    <hlm-select [value]="effort()" (valueChange)="_onValueChange($event)">
+    <hlm-select
+      [value]="effort()"
+      [disabled]="disabled()"
+      (valueChange)="_onValueChange($event)"
+    >
       <hlm-select-trigger
         size="sm"
         hlmTooltip="Adjust effort"
@@ -95,6 +99,7 @@ const ROW_BY_LEVEL: Record<EffortLevel, EffortRow> = EFFORT_ROWS.reduce(
 })
 export class ComposerEffortSelect {
   readonly effort = input.required<EffortLevel>();
+  readonly disabled = input(false);
   readonly effortChange = output<EffortLevel>();
 
   protected readonly _rows = EFFORT_ROWS;

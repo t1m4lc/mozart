@@ -84,15 +84,15 @@ export class WorkspacesFacade {
     );
   }
 
-  // True when the workspace is in the kanban "done" state. The whole
-  // workspace becomes read-only — composer, file edits, run/setup,
-  // terminal input, discard. Closure-flow actions (final commit, PR)
-  // stay allowed. Unknown ids resolve to `false` so callers don't have
-  // to special-case "no workspace selected".
+  // True when the workspace is in a kanban-level "closed" state —
+  // either `done` (work shipped) or `canceled` (work abandoned). Both
+  // turn the workspace read-only; transitions between them are sideways
+  // moves, not a reopen. Unknown ids resolve to `false` so callers don't
+  // have to special-case "no workspace selected".
   isFrozen(workspaceId: string): Signal<boolean> {
     return computed(() => {
       const ws = this.store.workspaces().find((w) => w.id === workspaceId);
-      return ws?.status === 'done';
+      return ws?.status === 'done' || ws?.status === 'canceled';
     });
   }
 
@@ -302,6 +302,24 @@ export class WorkspacesFacade {
     this.store.setStatus(id, status);
     try {
       await this.adapter.setUiStatus(id, status);
+    } catch (err) {
+      this.store.setStatus(id, previous);
+      throw err;
+    }
+  }
+
+  // Plan P0.2.D — lift a frozen workspace back to an editable state.
+  // Optimistic flip to the caller-chosen target, then the Tauri
+  // `reopen_workspace` call (which also resets the runtime status to
+  // `ready`). Reverts on failure so the UI doesn't fall out of sync
+  // with the DB.
+  async reopen(id: string, target: UiWorkspaceStatus): Promise<void> {
+    const current = this.workspaceById(id)();
+    if (!current) return;
+    const previous = current.status;
+    this.store.setStatus(id, target);
+    try {
+      await this.adapter.reopen(id, target);
     } catch (err) {
       this.store.setStatus(id, previous);
       throw err;

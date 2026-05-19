@@ -1953,6 +1953,29 @@ toggle was rejected as confusing for first-run users; data is wired
 but UI deferred. AD-01 + S0.1.E footnote.
 **Depends on:** P0.1 landing.
 
+### TODO-009 — First-run inference correction inside Mozart
+
+**What:** Today, a first-run user whose detection is wrong can edit
+the Run tab fields (existing surface). This TODO covers two adjacent
+needs that emerge from the deferred Repo init screen: (a) a one-click
+"Re-detect" button in the Run tab that re-runs the probe and offers
+to overwrite; (b) a small "fix it" link inside the Start-chat
+system-info entry when `Setup / Run: not detected`, jumping the user
+straight to the Run tab editor.
+**Why:** The silent local default (AD-06) is great when detection is
+right and benign when it's empty, but mediocre when it's confidently
+wrong. Two small affordances close the gap without bringing back a
+forced screen.
+**Pros:** Recovers the legitimate use case behind the old Repo init
+screen (showing + editing what was inferred) at the moment the user
+actually cares (Run tab) instead of at the first-impression moment
+(project open).
+**Cons:** Re-detect on an existing project has to reconcile with any
+manual edits the user already made — at minimum, a confirm dialog.
+**Context:** Decided in `/plan-devex-review` 2026-05-19 as a follow-up
+to AD-06 / P0.3.E.
+**Depends on:** P0.3 landing; surfaces inside the Run tab (existing).
+
 ### TODO-010 — Changes tab loses prior-prompt files after each agent run
 
 **What:** Files modified by an agent run vanish from the Changes tab
@@ -2001,28 +2024,37 @@ P2.5.A stays atomic.
 
 **Depends on:** Nothing — independent fix.
 
-### TODO-009 — First-run inference correction inside Mozart
+### TODO-011 — Ask-mode read-only enforcement for frozen workspaces
 
-**What:** Today, a first-run user whose detection is wrong can edit
-the Run tab fields (existing surface). This TODO covers two adjacent
-needs that emerge from the deferred Repo init screen: (a) a one-click
-"Re-detect" button in the Run tab that re-runs the probe and offers
-to overwrite; (b) a small "fix it" link inside the Start-chat
-system-info entry when `Setup / Run: not detected`, jumping the user
-straight to the Run tab editor.
-**Why:** The silent local default (AD-06) is great when detection is
-right and benign when it's empty, but mediocre when it's confidently
-wrong. Two small affordances close the gap without bringing back a
-forced screen.
-**Pros:** Recovers the legitimate use case behind the old Repo init
-screen (showing + editing what was inferred) at the moment the user
-actually cares (Run tab) instead of at the first-impression moment
-(project open).
-**Cons:** Re-detect on an existing project has to reconcile with any
-manual edits the user already made — at minimum, a confirm dialog.
-**Context:** Decided in `/plan-devex-review` 2026-05-19 as a follow-up
-to AD-06 / P0.3.E.
-**Depends on:** P0.3 landing; surfaces inside the Run tab (existing).
+**What:** Today, the freeze IPC guard (`assert_workspace_active`) lets
+`start_agent_run` through when the chat mode is `ask` so the user can
+keep querying a `done` workspace. Observed in dogfood: Claude in `ask`
+mode still accepted and acted on a write request, mutating the
+worktree. The "double protection" the freeze design promised
+(workspace-level + mode-level) is therefore one-sided.
+
+This TODO covers tightening `ask` so the assertion holds end-to-end:
+the agent should refuse Edit/Write/Bash-with-side-effects tool calls
+regardless of workspace state, either via Claude CLI permission flags,
+the P0.1 sandbox argv, or a system-prompt clamp. Once `ask` is
+provably read-only at the agent layer, the IPC bypass becomes safe
+again.
+
+**Why:** Without this, marking a workspace done doesn't actually
+prevent edits — `ask` becomes a hole. The user-visible read-only
+banner overpromises.
+
+**Pros:** Restores the freeze invariant the [[mozart-viewed-principle]]
+sister principle implies — done workspaces are for inspection only.
+**Cons:** May require changes to the Claude CLI invocation, which is
+shared with `agent`/`plan` modes; risk of behavioural drift if the
+permission flags differ subtly from the prompt-only approach.
+**Context:** Surfaced 2026-05-19 during dogfood of P0.2.D. Until this
+lands, P0.2.C ships with the strict freeze (no `ask`-mode bypass) so
+the workspace-level protection holds; the composer is fully disabled
+when frozen.
+**Depends on:** P0.1 (`SandboxLevel` argv) — the cleanest path is to
+let `ask` map to the most-restrictive level that still permits reads.
 
 ---
 

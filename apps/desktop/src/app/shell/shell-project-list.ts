@@ -36,6 +36,7 @@ import {
 } from '../domains/projects';
 import { AddProjectFlow } from '../core/add-project.flow';
 import { ChatFacade } from '../domains/chat';
+import type { ConfirmReopenWorkspaceContext } from '../domains/workspaces';
 import { WorkspaceContextMenu } from '../domains/workspaces/ui/workspace-context-menu/workspace-context-menu';
 import { WorkspaceEmptyState } from '../domains/workspaces/ui/workspace-empty-state/workspace-empty-state';
 import { WorkspaceRow } from '../domains/workspaces/ui/workspace-row/workspace-row';
@@ -240,7 +241,6 @@ import {
         (rename)="editingWorkspaceId.set(w.id)"
         (archive)="archiveWorkspace(w.id)"
         (setStatus)="onSetStatus(w.id, $event)"
-        (reopenRequested)="onReopenWorkspace(w.id)"
       />
     </ng-template>
 
@@ -466,29 +466,43 @@ export class ShellProjectList {
     }
   }
 
+  // Plan P0.2: a status pick that crosses from a frozen state
+  // (done | canceled) into an active state is conceptually a reopen,
+  // and the user has to confirm. Done↔canceled sideways moves stay
+  // frozen on both sides and skip the dialog. Other transitions are
+  // straight optimistic updates. The dialog component is dynamically
+  // imported so its bundle stays out of the sidebar's critical path.
   protected async onSetStatus(
     workspaceId: string,
     status: UiWorkspaceStatus,
   ): Promise<void> {
+    const current = this.workspaces.workspaceById(workspaceId)();
+    const wasFrozen =
+      current?.status === 'done' || current?.status === 'canceled';
+    const willBeFrozen = status === 'done' || status === 'canceled';
+    const isReopen = wasFrozen && !willBeFrozen;
+    if (isReopen) {
+      const context: ConfirmReopenWorkspaceContext = {
+        onConfirm: async () => {
+          try {
+            await this.workspaces.reopen(workspaceId, status);
+          } catch (err) {
+            toast.error('Could not reopen workspace', {
+              description: errorMessage(err),
+            });
+          }
+        },
+      };
+      const { ConfirmReopenWorkspaceDialog } = await import(
+        '../domains/workspaces/ui-confirm-reopen-workspace-dialog'
+      );
+      this._dialogService.open(ConfirmReopenWorkspaceDialog, { context });
+      return;
+    }
     try {
       await this.workspaces.setStatus(workspaceId, status);
     } catch (err) {
       toast.error('Could not update status', {
-        description: errorMessage(err),
-      });
-    }
-  }
-
-  // Reopen a frozen workspace. F0.2.B wires the menu wording + event
-  // through; F0.2.D adds the confirmation dialog ("Reopen this
-  // workspace? You'll be able to edit and run agents again.") and the
-  // dedicated `reopen_workspace` Tauri command. For now we flip status
-  // back to `ready` so the freeze gates lift end-to-end.
-  protected async onReopenWorkspace(workspaceId: string): Promise<void> {
-    try {
-      await this.workspaces.setStatus(workspaceId, 'in_progress');
-    } catch (err) {
-      toast.error('Could not reopen workspace', {
         description: errorMessage(err),
       });
     }

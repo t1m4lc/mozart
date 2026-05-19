@@ -81,7 +81,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
         class="relative flex flex-col rounded-xl border bg-background dark:bg-card shadow-sm overflow-hidden transition-colors"
         [class]="_containerClasses()"
       >
-        @if (mode() === 'ask') {
+        @if (_effectiveMode() === 'ask') {
           <span
             class="absolute top-2 right-3 z-10 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
             aria-hidden="true"
@@ -110,8 +110,8 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
           />
 
           <mz-composer-mode-select
-            [mode]="mode()"
-            [disabled]="isRunning() || disabled()"
+            [mode]="_effectiveMode()"
+            [disabled]="isRunning() || disabled() || askOnly()"
             (modeChange)="mode.set($event)"
           />
 
@@ -165,9 +165,9 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
                 [disabled]="!_canSubmit()"
                 hlmTooltip="Send"
                 [attr.aria-label]="
-                  mode() === 'plan'
+                  _effectiveMode() === 'plan'
                     ? 'Plan'
-                    : mode() === 'ask'
+                    : _effectiveMode() === 'ask'
                       ? 'Ask'
                       : 'Send message'
                 "
@@ -209,6 +209,12 @@ export class HlmComposer {
    * mode default from `PLACEHOLDER_BY_MODE`. */
   readonly placeholder = input('');
   readonly disabled = input(false);
+  /** Plan P0.2: when the host workspace is frozen, the composer keeps
+   *  textarea + send + effort enabled so the user can still ask
+   *  read-only questions (and tune effort if desired) — only the mode
+   *  is locked to `ask`. The host sets this to `frozen()` separately
+   *  from `disabled()` so the two intents don't bleed into each other. */
+  readonly askOnly = input(false);
   readonly models = input<readonly ModelOption[]>([]);
   readonly providers = input<Record<ProviderId, ProviderInfo>>({
     anthropic: {
@@ -233,12 +239,21 @@ export class HlmComposer {
     () => !this.disabled() && this.value().trim().length > 0,
   );
 
+  // The host can be frozen (askOnly = true). Rather than mutating the
+  // mode model from a signal write (which is illegal during render),
+  // we derive an effective mode for display + submission. The mode
+  // select is also disabled when askOnly, so the user can never push
+  // a different mode while the composer is forced into `ask`.
+  protected readonly _effectiveMode = computed<ChatMode>(() =>
+    this.askOnly() ? 'ask' : this.mode(),
+  );
+
   protected readonly _effectivePlaceholder = computed(
-    () => this.placeholder() || PLACEHOLDER_BY_MODE[this.mode()],
+    () => this.placeholder() || PLACEHOLDER_BY_MODE[this._effectiveMode()],
   );
 
   protected readonly _containerClasses = computed(
-    () => CONTAINER_CLASSES_BY_MODE[this.mode()],
+    () => CONTAINER_CLASSES_BY_MODE[this._effectiveMode()],
   );
 
   // Three submit states with visually-distinct affordances:
@@ -278,6 +293,9 @@ export class HlmComposer {
   private _emitSubmit(): void {
     if (!this._canSubmit()) return;
     const text = this.value().trim();
-    this.send.emit({ text, mode: this.mode() });
+    // Emit the effective mode (`ask` when askOnly, otherwise the
+    // user-selected mode) so the host's `(send)` consumer never sees
+    // a stale mode through the askOnly gate.
+    this.send.emit({ text, mode: this._effectiveMode() });
   }
 }

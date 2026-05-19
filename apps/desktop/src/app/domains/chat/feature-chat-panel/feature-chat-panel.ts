@@ -74,7 +74,7 @@ import { MessageList } from '../ui/message-list/message-list';
         [selectedModelId]="currentModelId()"
         (modelChange)="onModelChange($event)"
         [isRunning]="isStreaming()"
-        [disabled]="frozen()"
+        [askOnly]="frozen()"
         [autoFollowChat]="autoFollowChat()"
         [hasNextUnreadInProject]="hasNextUnreadInProject()"
         (send)="onSend($event)"

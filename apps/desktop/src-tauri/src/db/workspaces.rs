@@ -161,16 +161,18 @@ pub fn set_ui_status(
 }
 
 // Plan P0.2 — the freeze guard reads `ui_status` (the kanban-level
-// state, not the runtime `status` column) and treats `done` as the
-// single frozen value. Unknown workspace ids surface as `NotFound` so
-// callers don't silently pass the guard for a stale id.
+// state, not the runtime `status` column) and treats `done` and
+// `canceled` as the two closed states. Done↔canceled transitions stay
+// frozen on both sides; only a move INTO an active state lifts the
+// freeze. Unknown workspace ids surface as `NotFound` so callers don't
+// silently pass the guard for a stale id.
 pub fn is_frozen(conn: &Connection, workspace_id: &str) -> Result<bool, AppError> {
     conn.query_row(
         "SELECT ui_status FROM workspaces WHERE workspace_id = ?1",
         [workspace_id],
         |row| row.get::<_, String>(0),
     )
-    .map(|s| s == "done")
+    .map(|s| s == "done" || s == "canceled")
     .map_err(|e| match e {
         rusqlite::Error::QueryReturnedNoRows => {
             AppError::NotFound(format!("workspace id={workspace_id}"))

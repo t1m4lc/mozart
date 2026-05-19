@@ -30,6 +30,13 @@ export interface WorkspacesAdapter {
 
   setUiStatus(workspaceId: string, status: UiWorkspaceStatus): Promise<void>;
 
+  /** Plan P0.2.D — lift a workspace out of the frozen `done` state.
+   *  Rust-side: flips ui_status to `targetUiStatus` (the status the
+   *  user picked from the menu) and runtime status to `ready`. Returns
+   *  Validation if the workspace isn't currently frozen or if the
+   *  target is itself `done`. */
+  reopen(workspaceId: string, targetUiStatus: UiWorkspaceStatus): Promise<void>;
+
   setPinned(workspaceId: string, pinned: boolean): Promise<void>;
 
   setUnread(workspaceId: string, unread: boolean): Promise<void>;

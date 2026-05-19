@@ -221,6 +221,9 @@ function provideWorkspacesAdapter(): Provider {
       async setUiStatus(workspaceId, status) {
         unwrap(await commands.setWorkspaceUiStatus(workspaceId, status));
       },
+      async reopen(workspaceId, targetUiStatus) {
+        unwrap(await commands.reopenWorkspace(workspaceId, targetUiStatus));
+      },
       async setPinned(workspaceId: string, pinned: boolean) {
         unwrap(await commands.setWorkspacePinned(workspaceId, pinned));
       },

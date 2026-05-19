@@ -668,6 +668,47 @@ pub(crate) async fn set_workspace_ui_status_impl(
 }
 
 // ---------------------------------------------------------------------------
+// reopen_workspace (Plan P0.2.D)
+// ---------------------------------------------------------------------------
+
+/// Lift a workspace out of the frozen `done` UI state so the user can
+/// edit and run agents again. Flips `ui_status` to the caller-chosen
+/// `target_ui_status` (the user's pick from the status menu) and
+/// resets the runtime `status` to `ready`. Returns `Validation` if the
+/// workspace isn't currently frozen, or if the target is itself
+/// `done` (that would be a no-op pretending to be a reopen).
+#[tauri::command]
+#[specta::specta]
+pub async fn reopen_workspace(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    target_ui_status: String,
+) -> Result<(), AppError> {
+    reopen_workspace_impl(db.inner(), workspace_id, target_ui_status).await
+}
+
+pub(crate) async fn reopen_workspace_impl(
+    db: &DbState,
+    workspace_id: String,
+    target_ui_status: String,
+) -> Result<(), AppError> {
+    if target_ui_status == "done" || target_ui_status == "canceled" {
+        return Err(AppError::Validation(
+            "reopen target cannot be a frozen state (`done` or `canceled`)".into(),
+        ));
+    }
+    let conn = db.lock();
+    if !workspaces::is_frozen(&conn, &workspace_id)? {
+        return Err(AppError::Validation(format!(
+            "workspace {workspace_id} is not frozen"
+        )));
+    }
+    workspaces::set_ui_status(&conn, &workspace_id, &target_ui_status)?;
+    workspaces::update_status(&conn, &workspace_id, "ready")?;
+    Ok(())
+}
+
+// ---------------------------------------------------------------------------
 // set_workspace_pinned
 // ---------------------------------------------------------------------------
 
@@ -725,6 +766,7 @@ pub async fn start_agent_run(
     app: tauri::AppHandle,
     workspace_id: String,
     prompt: String,
+    mode: String,
     on_event: Channel<StreamEvent>,
 ) -> Result<AgentRun, AppError> {
     // Capture an owned `AppHandle` so the emitter closure can outlive the
@@ -735,6 +777,7 @@ pub async fn start_agent_run(
         registry.inner(),
         workspace_id,
         prompt,
+        mode,
         on_event,
         move |ev| {
             use tauri_specta::Event;
@@ -754,6 +797,7 @@ pub(crate) async fn start_agent_run_impl<E>(
     registry: &RunRegistry,
     workspace_id: String,
     prompt: String,
+    mode: String,
     on_event: Channel<StreamEvent>,
     emit_terminated: E,
 ) -> Result<AgentRun, AppError>
@@ -761,10 +805,17 @@ where
     E: Fn(AgentRunTerminated) + Send + Sync + 'static,
 {
     // D20: 1:1 workspace -> thread traversal. Plan P0.2: refuse on
-    // frozen workspaces before doing any further work.
+    // frozen workspaces before doing any further work, EXCEPT in `ask`
+    // mode — read-only inquiry stays allowed even after the workspace
+    // is done/canceled. KNOWN GAP (TODO-010): `ask` is not yet provably
+    // read-only at the agent layer, so a determined user can still
+    // request writes in ask mode and Claude may comply. The freeze
+    // banner UI honestly overpromises until that TODO lands.
     let (ws, thread) = {
         let conn = db.lock();
-        workspaces::assert_workspace_active(&conn, &workspace_id)?;
+        if mode != "ask" {
+            workspaces::assert_workspace_active(&conn, &workspace_id)?;
+        }
         (
             workspaces::get(&conn, &workspace_id)?,
             threads::get_by_workspace(&conn, &workspace_id)?,
@@ -3013,6 +3064,7 @@ mod tests {
             &registry,
             ws_id,
             "do the thing".into(),
+            "agent".into(),
             noop_channel(),
             |_| (),
         )
@@ -3110,6 +3162,7 @@ mod tests {
             &registry,
             ws_id,
             "do".into(),
+            "agent".into(),
             noop_channel(),
             |_| (),
         )
@@ -3448,6 +3501,7 @@ mod tests {
             &registry,
             ws_id,
             "do".into(),
+            "agent".into(),
             noop_channel(),
             move |ev| {
                 if let Ok(mut g) = captured_for_closure.lock() {
@@ -3577,6 +3631,7 @@ mod tests {
             &registry,
             ws_id,
             "do".into(),
+            "agent".into(),
             noop_channel(),
             move |ev| {
                 if let Ok(mut g) = captured_for_closure.lock() {
@@ -3677,6 +3732,74 @@ mod tests {
             &registry,
             ws_id.clone(),
             "ignored".into(),
+            "agent".into(),
+            noop_channel(),
+            |_| {},
+        )
+        .await;
+        assert_frozen(result, &ws_id);
+    }
+
+    // `ask` is the read-only mode; users keep being able to query the
+    // workspace even after it's marked done. The freeze guard skips
+    // this mode at the IPC layer. KNOWN GAP (TODO-010): the agent
+    // itself is not yet sandboxed read-only in `ask`, so a determined
+    // prompt can still cause writes. This test pins the IPC bypass;
+    // when TODO-010 lands and `ask` is provably read-only end-to-end,
+    // this stays green.
+    #[tokio::test]
+    async fn start_agent_run_allows_ask_mode_on_frozen_workspace() {
+        if !sandbox::git_available() {
+            eprintln!("SKIP start_agent_run_allows_ask_mode_on_frozen_workspace: git not on PATH");
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo_with_main(&repo);
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, repo.to_string_lossy().as_ref());
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+
+        let registry = RunRegistry::new();
+        // The guard short-circuits before any worktree work; we accept
+        // any non-Frozen outcome (Ok or another downstream error from
+        // the minimal seeded workspace).
+        let result = start_agent_run_impl(
+            &db,
+            &registry,
+            ws_id.clone(),
+            "what does this codebase do?".into(),
+            "ask".into(),
+            noop_channel(),
+            |_| {},
+        )
+        .await;
+        if let Err(AppError::Frozen(id)) = &result {
+            panic!("ask-mode must bypass the freeze guard, but got Frozen({id})");
+        }
+    }
+
+    // Canceled is also a frozen state (per the kanban model) — same
+    // guard semantics as `done`.
+    #[tokio::test]
+    async fn start_agent_run_returns_frozen_when_workspace_canceled() {
+        let db = init_db_memory().unwrap();
+        let registry = RunRegistry::new();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-canceled");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        {
+            let conn = db.lock();
+            workspaces::set_ui_status(&conn, &ws_id, "canceled").unwrap();
+        }
+
+        let result = start_agent_run_impl(
+            &db,
+            &registry,
+            ws_id.clone(),
+            "ignored".into(),
+            "agent".into(),
             noop_channel(),
             |_| {},
         )
@@ -3730,5 +3853,76 @@ mod tests {
 
         let result = discard_workspace_changes_impl(&db, ws_id.clone()).await;
         assert_frozen(result, &ws_id);
+    }
+
+    // F0.2.D — reopen_workspace flips ui_status away from `done` and
+    // resets the runtime status to `ready`; refuses on a non-frozen
+    // workspace so a stale UI never silently retargets a live one.
+
+    #[tokio::test]
+    async fn reopen_workspace_lifts_freeze_to_target_status_and_resets_runtime() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-reopen");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+        // Runtime status as if the workspace had truly closed out.
+        {
+            let conn = db.lock();
+            workspaces::update_status(&conn, &ws_id, "done").unwrap();
+        }
+
+        // Reopen with `backlog` to confirm the target arg flows through
+        // rather than being hardcoded.
+        reopen_workspace_impl(&db, ws_id.clone(), "backlog".into())
+            .await
+            .unwrap();
+
+        let conn = db.lock();
+        let ws = workspaces::get(&conn, &ws_id).unwrap();
+        assert_eq!(ws.ui_status, "backlog");
+        assert_eq!(ws.status, "ready");
+        assert!(!workspaces::is_frozen(&conn, &ws_id).unwrap());
+    }
+
+    #[tokio::test]
+    async fn reopen_workspace_rejects_non_frozen_workspace() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-reopen-noop");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        // Workspace stays at ui_status='backlog' from the seed.
+
+        let result =
+            reopen_workspace_impl(&db, ws_id.clone(), "in_progress".into()).await;
+        match result {
+            Err(AppError::Validation(msg)) => {
+                assert!(
+                    msg.contains(&ws_id),
+                    "expected validation message to mention the workspace id, got: {msg}"
+                );
+            }
+            other => panic!("expected Validation, got {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn reopen_workspace_rejects_frozen_states_as_target() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-reopen-self");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        mark_workspace_done(&db, &ws_id);
+
+        for target in ["done", "canceled"] {
+            let result =
+                reopen_workspace_impl(&db, ws_id.clone(), target.into()).await;
+            match result {
+                Err(AppError::Validation(msg)) => {
+                    assert!(
+                        msg.contains("frozen"),
+                        "expected validation to call out the frozen target, got: {msg}"
+                    );
+                }
+                other => panic!("expected Validation for target {target}, got {other:?}"),
+            }
+        }
     }
 }

@@ -67,6 +67,7 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       [githubConnected]="profile.githubConnected()"
       [runStatus]="runStatus()"
       [hasRunCommand]="hasRunCommand()"
+      [frozen]="frozen()"
       data-tour="aside-header-buttons"
       (targetBranchChange)="store.setTargetBranch($event)"
       (toggleRightPanel)="layout.toggleRightPanel()"

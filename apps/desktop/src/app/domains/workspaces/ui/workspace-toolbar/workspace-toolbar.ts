@@ -105,7 +105,9 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
                   />
                 } @else {
                   <span
-                    class="truncate cursor-text"
+                    class="truncate"
+                    [class.cursor-text]="!frozen()"
+                    [class.cursor-default]="frozen()"
                     (dblclick)="startRename($event)"
                   >
                     {{ workspaceTitle() }}
@@ -120,6 +122,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
           [value]="targetBranch()"
           [currentBranch]="currentBranch()"
           [branches]="selectableBranches()"
+          [disabled]="frozen()"
           (valueChange)="targetBranchChange.emit($event)"
         />
 
@@ -149,8 +152,11 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
             size="sm"
             type="button"
             class="h-7 px-2 text-xs font-normal text-muted-foreground"
-            hlmTooltip="Commit changes"
+            [hlmTooltip]="
+              frozen() ? 'Workspace is done — reopen to commit' : 'Commit changes'
+            "
             position="bottom"
+            [disabled]="frozen()"
             (click)="commit.emit()"
           >
             <ng-icon hlm name="lucideGitCommitVertical" size="xs" />
@@ -204,6 +210,10 @@ export class WorkspaceToolbar {
   readonly githubConnected = input<boolean>(false);
   readonly runStatus = input<RunStatus>('idle');
   readonly hasRunCommand = input<boolean>(false);
+  // Plan P0.2 — toolbar-level read-only state. Disables Commit, locks
+  // the BranchPicker, and refuses to enter rename mode. Open in IDE
+  // stays enabled (read-only browsing in an external editor is fine).
+  readonly frozen = input<boolean>(false);
 
   readonly targetBranchChange = output<string>();
   readonly toggleRightPanel = output<void>();
@@ -234,6 +244,7 @@ export class WorkspaceToolbar {
 
   protected startRename(event: Event): void {
     event.stopPropagation();
+    if (this.frozen()) return;
     this.renaming.set(true);
   }
 

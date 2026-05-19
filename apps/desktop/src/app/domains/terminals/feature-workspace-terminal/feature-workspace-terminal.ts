@@ -28,7 +28,15 @@ const FIRST_OPEN_SETTLE_MS = 300;
   selector: 'app-feature-workspace-terminal',
   imports: [...HlmLoaderImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block h-full w-full' },
+  host: {
+    class: 'block h-full w-full',
+    // Plan P0.2: visual cue that the terminal is read-only. The host
+    // class drives a grey filter + hides xterm's cursor layer (see
+    // styles below). disableStdin already blocks input; the host
+    // class is purely cosmetic so the user reads "you can't type
+    // here" before they try.
+    '[class.is-frozen]': 'frozen()',
+  },
   template: `
     <div class="relative h-full w-full">
       <div #host class="h-full w-full p-2" [class.invisible]="loading()"></div>
@@ -41,6 +49,15 @@ const FIRST_OPEN_SETTLE_MS = 300;
         </div>
       }
     </div>
+  `,
+  styles: `
+    :host(.is-frozen) {
+      opacity: 0.6;
+      filter: grayscale(0.5);
+    }
+    :host(.is-frozen) ::ng-deep .xterm-cursor-layer {
+      display: none;
+    }
   `,
 })
 export class FeatureWorkspaceTerminal {
@@ -66,10 +83,13 @@ export class FeatureWorkspaceTerminal {
   private readonly initialized = new Set<string>();
   protected readonly loading = signal(false);
 
-  // Plan P0.2 freeze gate — `done` workspaces are read-only. We toggle
-  // xterm's `disableStdin` so keystrokes never reach the PTY; the PTY
-  // itself stays alive so scrollback + log inspection keep working.
-  private readonly frozen = computed(() => {
+  // Plan P0.2 freeze gate — `done`/`canceled` workspaces are read-only.
+  // We toggle xterm's `disableStdin` so keystrokes never reach the PTY,
+  // and a host class (`is-frozen`) drives the grey/no-cursor styling.
+  // The PTY itself stays alive so scrollback + log inspection keep
+  // working. `protected` (not private) so the host metadata binding
+  // can reach it.
+  protected readonly frozen = computed(() => {
     const id = this.workspaceId();
     return id ? this.workspaces.isFrozen(id)() : false;
   });

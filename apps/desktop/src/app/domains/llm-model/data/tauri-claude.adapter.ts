@@ -65,7 +65,7 @@ export class TauriClaudeAdapter implements LlmAdapter {
       });
 
     const startPromise = commands
-      .startAgentRun(input.workspaceId, lastPrompt, channel)
+      .startAgentRun(input.workspaceId, lastPrompt, input.mode, channel)
       .then((r) => {
         if (r.status === 'error') {
           throw new Error(r.error.message);

@@ -47,10 +47,13 @@ import {
         variant="ghost"
         size="icon-xs"
         type="button"
-        hlmTooltip="Target branch"
+        [hlmTooltip]="
+          disabled() ? 'Workspace is done — reopen to change target' : 'Target branch'
+        "
         position="bottom"
         class="size-7 shrink-0 rounded-md text-muted-foreground"
         data-tauri-drag-region="false"
+        [disabled]="disabled()"
       >
         <ng-icon hlm name="lucideGitPullRequestArrow" size="xs" />
       </button>
@@ -129,6 +132,7 @@ export class BranchPicker {
   readonly value = input.required<string>();
   readonly branches = input.required<readonly string[]>();
   readonly currentBranch = input<string>('');
+  readonly disabled = input(false);
   readonly valueChange = output<string>();
 
   // Selectable branches minus the current target (the target is pinned

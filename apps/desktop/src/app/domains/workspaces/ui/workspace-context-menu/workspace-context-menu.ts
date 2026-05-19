@@ -1,6 +1,8 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
+  inject,
   input,
   output,
 } from '@angular/core';
@@ -17,6 +19,7 @@ import {
 } from '@ng-icons/lucide';
 import type { UiWorkspaceStatus } from '../../data/workspace-status';
 import type { Workspace } from '../../data/workspace.model';
+import { WorkspacesFacade } from '../../data/workspace.facade';
 import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-menu';
 
 @Component({
@@ -48,7 +51,7 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
           class="cursor-pointer"
           (triggered)="pin.emit()"
         >
-          @if (workspace().pinned) {
+          @if (_live().pinned) {
             <ng-icon hlm name="lucidePinOff" size="xs" /> Unpin
           } @else {
             <ng-icon hlm name="lucidePin" size="xs" /> Pin
@@ -79,7 +82,7 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
           class="cursor-pointer"
           (triggered)="markUnread.emit()"
         >
-          @if (workspace().unread) {
+          @if (_live().unread) {
             <ng-icon hlm name="lucideBell" size="xs" /> Mark as read
           } @else {
             <ng-icon hlm name="lucideBell" size="xs" /> Mark as unread
@@ -101,19 +104,30 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
 
     <ng-template #statusSubTpl>
       <app-workspace-status-menu
-        [current]="workspace().status"
+        [current]="_live().status"
         (statusSelect)="setStatus.emit($event)"
-        (reopenRequested)="reopenRequested.emit()"
       />
     </ng-template>
   `,
 })
 export class WorkspaceContextMenu {
+  // The host (sidebar @for) hands the menu its workspace via the
+  // hlmContextMenuTrigger directive's triggerData. That value is
+  // captured at right-click time and never re-evaluated for the
+  // lifetime of the popup, so reads off `workspace()` go stale the
+  // instant the underlying status flips. `_live` re-resolves the row
+  // from the store on every change-detection pass so the Set-status
+  // check icon + pinned/unread labels track real state.
   readonly workspace = input.required<Workspace>();
   readonly markUnread = output<void>();
   readonly pin = output<void>();
   readonly rename = output<void>();
   readonly archive = output<void>();
   readonly setStatus = output<UiWorkspaceStatus>();
-  readonly reopenRequested = output<void>();
+
+  private readonly _workspaces = inject(WorkspacesFacade);
+  protected readonly _live = computed<Workspace>(() => {
+    const captured = this.workspace();
+    return this._workspaces.workspaceById(captured.id)() ?? captured;
+  });
 }
