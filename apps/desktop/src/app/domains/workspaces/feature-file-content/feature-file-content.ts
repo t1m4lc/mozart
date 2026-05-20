@@ -9,18 +9,19 @@ import {
 } from '@angular/core';
 import { ThemeService } from '@mozart/shared-util-theme';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { MzCodeEditorImports } from '@mozart-ui/code-editor';
-import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
-  lucideColumns2,
-  lucideFileDiff,
-  lucideFilePen,
-} from '@ng-icons/lucide';
-import { FeatureFileDiff, RepositoriesFacade } from '../../repositories';
+  FeatureFileDiff,
+  FeatureFileToolbar,
+  FileViewsFacade,
+  RepositoriesFacade,
+  type DiffMode,
+  type FileMode,
+  type FileViewedState,
+} from '../../repositories';
 
-type FileContentMode = 'edit' | 'diff';
+type FileContentMode = FileMode;
 
 interface SaveError {
   readonly kind: 'frozen' | 'stale' | 'other';
@@ -46,13 +47,9 @@ const TEXT_ENCODER = new TextEncoder();
   imports: [
     HlmTabsImports,
     HlmButtonImports,
-    HlmIconImports,
-    NgIcon,
     FeatureFileDiff,
+    FeatureFileToolbar,
     MzCodeEditorImports,
-  ],
-  providers: [
-    provideIcons({ lucideFileDiff, lucideFilePen, lucideColumns2 }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
@@ -62,78 +59,55 @@ const TEXT_ENCODER = new TextEncoder();
       [tab]="mode()"
       (tabActivated)="setMode($any($event))"
     >
-      <!-- Toolbar : Edit / Diff tabs on the left, Edit-mode actions
-           (Save / dirty indicator) on the right when in Edit mode,
-           Split toggle (stub) when in Diff mode. -->
-      <div
-        class="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-border px-2"
-      >
-        <hlm-tabs-list
-          variant="line"
-          class="flex h-9 items-center gap-1"
-          aria-label="File content mode"
-        >
-          <button
-            hlmTabsTrigger="edit"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-3 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
-          >
-            <ng-icon hlm name="lucideFilePen" size="xs" />
-            <span>Edit</span>
-          </button>
-          <button
-            hlmTabsTrigger="diff"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-3 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
-          >
-            <ng-icon hlm name="lucideFileDiff" size="xs" />
-            <span>Diff</span>
-          </button>
-        </hlm-tabs-list>
+      <!-- P2.2 toolbar : filename badge + Viewed checkbox + diff layout
+           tabs (in Diff mode) + Diff/Edit tabs. Edit-mode save / discard
+           actions sit just under the toolbar so the toolbar surface
+           stays consistent across modes. -->
+      <app-feature-file-toolbar
+        [filePath]="filePath()"
+        [viewedState]="viewedState()"
+        [isFrozen]="!canEdit()"
+        [diffMode]="diffMode()"
+        [fileMode]="mode()"
+        (markViewed)="onMarkViewed()"
+        (markUnviewed)="onMarkUnviewed()"
+        (diffModeChange)="setDiffMode($event)"
+        (fileModeChange)="setMode($event)"
+      />
 
-        @if (mode() === 'edit') {
-          <div class="flex items-center gap-2">
-            @if (saving()) {
-              <span class="text-[11px] text-muted-foreground">Saving…</span>
-            } @else if (dirty()) {
-              <span class="text-[11px] text-muted-foreground">Unsaved</span>
-            }
-            <button
-              type="button"
-              hlmBtn
-              variant="outline"
-              size="xs"
-              class="h-7 px-2 text-[11px]"
-              [disabled]="!dirty() || saving() || !canEdit()"
-              (click)="save()"
-            >
-              Save
-            </button>
-            <button
-              type="button"
-              hlmBtn
-              variant="ghost"
-              size="xs"
-              class="h-7 px-2 text-[11px] text-muted-foreground"
-              [disabled]="!dirty() || saving()"
-              (click)="discardEdits()"
-            >
-              Discard
-            </button>
-          </div>
-        } @else {
+      @if (mode() === 'edit') {
+        <div
+          class="flex h-8 shrink-0 items-center justify-end gap-2 border-b border-border px-2 text-[11px]"
+        >
+          @if (saving()) {
+            <span class="text-muted-foreground">Saving…</span>
+          } @else if (dirty()) {
+            <span class="text-muted-foreground">Unsaved</span>
+          }
+          <button
+            type="button"
+            hlmBtn
+            variant="outline"
+            size="xs"
+            class="h-7 px-2 text-[11px]"
+            [disabled]="!dirty() || saving() || !canEdit()"
+            (click)="save()"
+          >
+            Save
+          </button>
           <button
             type="button"
             hlmBtn
             variant="ghost"
-            size="icon-xs"
-            class="size-7 text-muted-foreground"
-            [attr.aria-pressed]="splitDiff()"
-            [attr.aria-label]="splitDiff() ? 'Unified diff' : 'Split diff'"
-            (click)="toggleSplit()"
+            size="xs"
+            class="h-7 px-2 text-[11px] text-muted-foreground"
+            [disabled]="!dirty() || saving()"
+            (click)="discardEdits()"
           >
-            <ng-icon hlm name="lucideColumns2" size="xs" />
+            Discard
           </button>
-        }
-      </div>
+        </div>
+      }
 
       <!-- Edit pane — defers CodeMirror until the user actually clicks
            Edit so the startup bundle never pays for it. -->
@@ -253,10 +227,22 @@ export class FeatureFileContent {
   readonly canEdit = input<boolean>(true);
 
   private readonly repos = inject(RepositoriesFacade);
+  private readonly fileViews = inject(FileViewsFacade);
   private readonly themeService = inject(ThemeService);
 
   protected readonly mode = signal<FileContentMode>('diff');
-  protected readonly splitDiff = signal(false);
+  protected readonly diffMode = signal<DiffMode>('unified');
+  /** Three-way Viewed decoration for the currently-open file. Computed
+   *  against the FileViewsFacade so the toolbar checkbox always
+   *  reflects the durable mark — opening the file never flips it. */
+  protected readonly viewedState = computed<FileViewedState>(() => {
+    const ws = this.workspaceId();
+    const path = this.filePath();
+    if (!ws || !path) return 'not_viewed';
+    const entry = this.fileViews.entryFor(ws, path);
+    if (!entry) return 'not_viewed';
+    return entry.state;
+  });
 
   // Edit-mode state. `baseline` is the buffer we last loaded or saved,
   // `editorValue` is what the user sees; `dirty` flips when they
@@ -312,8 +298,26 @@ export class FeatureFileContent {
     this.mode.set(value);
   }
 
-  protected toggleSplit(): void {
-    this.splitDiff.update((v) => !v);
+  protected setDiffMode(value: DiffMode): void {
+    this.diffMode.set(value);
+  }
+
+  protected onMarkViewed(): void {
+    const ws = this.workspaceId();
+    const path = this.filePath();
+    if (!ws || !path) return;
+    void this.fileViews.markViewed(ws, path).catch((err) => {
+      console.warn('[file-content] markViewed failed:', err);
+    });
+  }
+
+  protected onMarkUnviewed(): void {
+    const ws = this.workspaceId();
+    const path = this.filePath();
+    if (!ws || !path) return;
+    void this.fileViews.clearViewed(ws, path).catch((err) => {
+      console.warn('[file-content] clearViewed failed:', err);
+    });
   }
 
   protected onEditorChange(next: string): void {
