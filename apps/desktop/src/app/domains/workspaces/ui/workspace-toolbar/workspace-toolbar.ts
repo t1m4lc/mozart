@@ -13,7 +13,7 @@ import {
 import { HlmBreadcrumbImports } from '@mozart/ui/breadcrumb';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmLoaderImports } from '@mozart/ui/loader';
+import { MzLoader } from '@mozart-ui/loader';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -40,7 +40,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
-    ...HlmLoaderImports,
+    MzLoader,
   ],
   providers: [
     provideIcons({
@@ -127,7 +127,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
         />
 
         @if (isStreaming()) {
-          <hlm-loader
+          <mz-loader
             size="xs"
             class="shrink-0 text-brand"
             hlmTooltip="Agent is running"
@@ -153,7 +153,9 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
             type="button"
             class="h-7 px-2 text-xs font-normal text-muted-foreground"
             [hlmTooltip]="
-              frozen() ? 'Workspace is done — reopen to commit' : 'Commit changes'
+              frozen()
+                ? 'Workspace is done — reopen to commit'
+                : 'Commit changes'
             "
             position="bottom"
             [disabled]="frozen()"

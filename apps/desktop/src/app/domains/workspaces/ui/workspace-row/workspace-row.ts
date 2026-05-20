@@ -11,7 +11,7 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { HlmHoverCardImports } from '@mozart/ui/hover-card';
 import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmLoaderImports } from '@mozart/ui/loader';
+import { MzLoader } from '@mozart-ui/loader';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucideLoader, lucidePin } from '@ng-icons/lucide';
@@ -52,12 +52,10 @@ function statusLabel(status: string): string {
     HlmHoverCardImports,
     HlmSidebarImports,
     HlmIconImports,
-    ...HlmLoaderImports,
+    MzLoader,
     MzDiffStats,
   ],
-  providers: [
-    provideIcons({ lucideGitBranch, lucideLoader, lucidePin }),
-  ],
+  providers: [provideIcons({ lucideGitBranch, lucideLoader, lucidePin })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block relative group/ws-item' },
   template: `
@@ -115,7 +113,7 @@ function statusLabel(status: string): string {
           class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
         >
           @if (isStreaming()) {
-            <hlm-loader size="xs" class="text-brand" />
+            <mz-loader size="xs" class="text-brand" />
           } @else {
             @if (workspace().pinned) {
               <ng-icon

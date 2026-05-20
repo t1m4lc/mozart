@@ -11,7 +11,7 @@ import {
   lucideZap,
 } from '@ng-icons/lucide';
 
-// "Add project" button + dropdown. Atom 1: the "Open project" item emits
+// "Open project" button + dropdown. Atom 1: the "Open project" item emits
 // an event but no handler is wired yet (matches today's behavior).
 // Atom 2 will wire the click to ProjectsFacade.openPickerAndAdd().
 @Component({
@@ -39,7 +39,7 @@ import {
       variant="ghost"
       size="icon-xs"
       type="button"
-      hlmTooltip="Add project"
+      hlmTooltip="Open project"
       position="bottom"
       class="size-7 rounded-md text-muted-foreground"
       [hlmDropdownMenuTrigger]="addMenu"
@@ -54,7 +54,7 @@ import {
           (triggered)="openProject.emit()"
         >
           <ng-icon hlm name="lucideFolderOpen" size="sm" />
-          Open project
+          Open a repository on this machine
         </button>
         <button
           hlmDropdownMenuItem
@@ -62,7 +62,7 @@ import {
           (triggered)="openGithubProject.emit()"
         >
           <ng-icon hlm name="lucideGithub" size="sm" />
-          Open GitHub project
+          Clone from Git
         </button>
         <button
           hlmDropdownMenuItem
@@ -70,7 +70,7 @@ import {
           (triggered)="quickStart.emit()"
         >
           <ng-icon hlm name="lucideZap" size="sm" />
-          Quick start
+          Create a new project
         </button>
       </hlm-dropdown-menu>
     </ng-template>

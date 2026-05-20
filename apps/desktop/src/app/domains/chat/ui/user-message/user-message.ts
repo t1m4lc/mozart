@@ -15,7 +15,7 @@ import type { Message } from '../../data/message.model';
   template: `
     <div class="flex justify-end">
       <div
-        class="inline-flex text-foreground bg-muted max-w-[80%] items-center gap-2 whitespace-pre-wrap break-words rounded-lg px-3 py-2 text-sm transition-colors"
+        class="inline-flex max-w-[80%] select-text items-center gap-2 whitespace-pre-wrap break-words rounded-lg bg-muted px-3 py-2 text-sm text-foreground transition-colors"
         [class.italic]="_isQueued() || _isStopped()"
         [class.opacity-70]="_isQueued()"
         [class.opacity-50]="_isStopped()"

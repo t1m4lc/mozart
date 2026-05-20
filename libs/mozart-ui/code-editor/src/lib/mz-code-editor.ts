@@ -41,9 +41,12 @@ const VALUE_CHANGE_DEBOUNCE_MS = 150;
   selector: 'mz-code-editor',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'flex h-full w-full min-h-0 flex-col overflow-hidden',
+    class: 'flex h-full w-full min-h-0 select-text flex-col overflow-hidden',
   },
-  template: `<div #host class="flex-1 min-h-0 overflow-auto"></div>`,
+  template: `<div
+    #host
+    class="min-h-0 flex-1 overflow-auto select-text"
+  ></div>`,
 })
 export class MzCodeEditor {
   readonly value = input<string>('');
@@ -55,9 +58,8 @@ export class MzCodeEditor {
   readonly valueChange = output<string>();
 
   private readonly destroyRef = inject(DestroyRef);
-  private readonly hostRef = viewChild.required<ElementRef<HTMLDivElement>>(
-    'host',
-  );
+  private readonly hostRef =
+    viewChild.required<ElementRef<HTMLDivElement>>('host');
 
   private readonly _ready = signal(false);
   private view: EditorView | null = null;
@@ -130,9 +132,7 @@ export class MzCodeEditor {
       keymap.of([...defaultKeymap, ...historyKeymap]),
       this.languageCompartment.of([]),
       this.themeCompartment.of(mozartThemeFor(this.theme())),
-      this.readOnlyCompartment.of(
-        EditorState.readOnly.of(this.readOnly()),
-      ),
+      this.readOnlyCompartment.of(EditorState.readOnly.of(this.readOnly())),
       EditorView.lineWrapping,
       EditorView.updateListener.of((u) => {
         if (!u.docChanged) return;

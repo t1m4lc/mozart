@@ -30,7 +30,7 @@ import { PROVIDER_SETUP_ADAPTER } from './data/provider-setup.adapter';
   selector: 'app-feature-claude-login-pty',
   imports: [HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block w-full' },
+  host: { class: 'block w-full select-text' },
   template: `
     <div class="space-y-4">
       <div class="space-y-1 text-center">
@@ -43,7 +43,7 @@ import { PROVIDER_SETUP_ADAPTER } from './data/provider-setup.adapter';
 
       <div
         #host
-        class="h-72 w-full overflow-hidden rounded-md border bg-sidebar"
+        class="h-72 w-full overflow-hidden rounded-md border bg-sidebar select-text"
       ></div>
 
       @if (state() === 'detecting') {
@@ -164,11 +164,9 @@ export class FeatureClaudeLoginPty {
       });
       term.onResize(({ cols, rows }) => {
         if (!this.terminalId) return;
-        void this.adapter
-          .resize(this.terminalId, cols, rows)
-          .catch((err) => {
-            console.warn('[onboarding] claude-login resize failed:', err);
-          });
+        void this.adapter.resize(this.terminalId, cols, rows).catch((err) => {
+          console.warn('[onboarding] claude-login resize failed:', err);
+        });
       });
 
       this.resizeObserver = new ResizeObserver(() => {

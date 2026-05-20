@@ -3,6 +3,8 @@
 @import "../../../libs/mozart-design-tokens/src/index.css";
 
 /* nx-tailwind-sources:start */
+@source "../../../libs/mozart-ui/code-editor";
+@source "../../../libs/mozart-ui/codemirror-theme";
 @source "../../../libs/mozart-ui/composer";
 @source "../../../libs/mozart-ui/review-progress";
 @source "../../../libs/shared-util-theme";

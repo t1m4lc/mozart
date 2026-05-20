@@ -66,7 +66,7 @@ import {
           align="start"
           side="right"
         >
-          <ng-icon hlm name="lucideFolderPlus" size="xs" /> Add project
+          <ng-icon hlm name="lucideFolderPlus" size="xs" /> Open project
           <hlm-dropdown-menu-item-sub-indicator />
         </button>
       </hlm-dropdown-menu-group>
@@ -80,7 +80,8 @@ import {
           class="cursor-pointer"
           (triggered)="openProject.emit()"
         >
-          <ng-icon hlm name="lucideFolderOpen" size="xs" /> Open project
+          <ng-icon hlm name="lucideFolderOpen" size="xs" /> Open a repository on
+          this machine
         </button>
         <button
           hlmDropdownMenuItem
@@ -88,7 +89,7 @@ import {
           class="cursor-pointer"
           (triggered)="openGithubProject.emit()"
         >
-          <ng-icon hlm name="lucideGithub" size="xs" /> Open GitHub project
+          <ng-icon hlm name="lucideGithub" size="xs" /> Clone from Git
         </button>
         <button
           hlmDropdownMenuItem
@@ -96,7 +97,7 @@ import {
           class="cursor-pointer"
           (triggered)="quickStart.emit()"
         >
-          <ng-icon hlm name="lucideZap" size="xs" /> Quick start
+          <ng-icon hlm name="lucideZap" size="xs" /> Create a new project
         </button>
       </hlm-dropdown-menu>
     </ng-template>

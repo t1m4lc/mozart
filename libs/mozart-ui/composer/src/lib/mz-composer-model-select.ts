@@ -38,7 +38,11 @@ interface ProviderGroup {
 }
 
 const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
-  anthropic: { id: 'anthropic', label: 'Anthropic', iconName: 'lucideSparkles' },
+  anthropic: {
+    id: 'anthropic',
+    label: 'Anthropic',
+    iconName: 'lucideSparkles',
+  },
   openai: { id: 'openai', label: 'OpenAI', iconName: 'lucideCpu' },
   local: { id: 'local', label: 'Local', iconName: 'lucideHardDrive' },
 };
@@ -70,7 +74,7 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
       <hlm-select-trigger
         size="auto"
         hlmTooltip="Change model"
-        class="h-6 rounded-md border-transparent shadow-none px-1.5 gap-1"
+        class="h-6 w-auto gap-1 rounded-md border-transparent px-1.5 py-0 text-xs shadow-none [&>ng-icon:last-child]:text-xs"
       >
         <ng-icon hlm [name]="_triggerIcon()" size="xs" />
         <span class="text-xs">{{ _triggerLabel() }}</span>
@@ -115,9 +119,8 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
 })
 export class ComposerModelSelect {
   readonly models = input.required<readonly ModelOption[]>();
-  readonly providers = input<Record<ProviderId, ProviderInfo>>(
-    DEFAULT_PROVIDERS,
-  );
+  readonly providers =
+    input<Record<ProviderId, ProviderInfo>>(DEFAULT_PROVIDERS);
   readonly selectedModelId = input.required<string>();
   readonly modelChange = output<string>();
 

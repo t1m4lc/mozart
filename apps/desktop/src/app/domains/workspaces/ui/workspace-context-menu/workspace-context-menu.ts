@@ -10,7 +10,6 @@ import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
-  lucideArchive,
   lucideBell,
   lucidePencil,
   lucidePin,
@@ -32,7 +31,6 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
   ],
   providers: [
     provideIcons({
-      lucideArchive,
       lucideBell,
       lucidePencil,
       lucidePin,
@@ -89,17 +87,6 @@ import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-m
           }
         </button>
       </hlm-dropdown-menu-group>
-      <hlm-dropdown-menu-separator />
-      <hlm-dropdown-menu-group>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          class="cursor-pointer"
-          (triggered)="archive.emit()"
-        >
-          <ng-icon hlm name="lucideArchive" size="xs" /> Archive
-        </button>
-      </hlm-dropdown-menu-group>
     </hlm-dropdown-menu>
 
     <ng-template #statusSubTpl>
@@ -122,7 +109,6 @@ export class WorkspaceContextMenu {
   readonly markUnread = output<void>();
   readonly pin = output<void>();
   readonly rename = output<void>();
-  readonly archive = output<void>();
   readonly setStatus = output<UiWorkspaceStatus>();
 
   private readonly _workspaces = inject(WorkspacesFacade);

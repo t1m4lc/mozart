@@ -8,9 +8,7 @@ import { HlmEmptyImports } from '@mozart/ui/empty';
   template: `
     <div hlmEmpty class="gap-1 rounded-md border p-3">
       <p class="text-xs text-muted-foreground">No projects yet.</p>
-      <p class="text-xs text-muted-foreground/70">
-        Click + to add a folder.
-      </p>
+      <p class="text-xs text-muted-foreground/70">Use + to open a project.</p>
     </div>
   `,
 })

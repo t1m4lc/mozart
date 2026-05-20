@@ -77,7 +77,10 @@ import { ShellProjectList } from './shell-project-list';
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block h-screen w-screen bg-background text-foreground' },
+  host: {
+    class:
+      'block h-screen w-screen select-none bg-background text-foreground [&_.cm-editor]:select-text [&_.xterm]:select-text [&_input]:select-text [&_textarea]:select-text',
+  },
   template: `
     <div hlmResizableGroup direction="horizontal" class="flex h-full">
       <div
@@ -88,11 +91,7 @@ import { ShellProjectList } from './shell-project-list';
         [maxSize]="leftPanel_.max"
         class="overflow-hidden border-r border-sidebar-border transition-[flex] duration-200 ease-out"
       >
-        <hlm-sidebar
-          side="left"
-          collapsible="none"
-          class="h-full w-full"
-        >
+        <hlm-sidebar side="left" collapsible="none" class="h-full w-full">
           <div
             hlmSidebarHeader
             data-tauri-drag-region
@@ -229,10 +228,7 @@ import { ShellProjectList } from './shell-project-list';
       </div>
     </div>
 
-    <hlm-toaster
-      position="bottom-right"
-      [style]="toasterStyle"
-    />
+    <hlm-toaster position="bottom-right" [style]="toasterStyle" />
 
     @if (!connectivity.connected()) {
       <div
@@ -243,7 +239,10 @@ import { ShellProjectList } from './shell-project-list';
           class="pointer-events-auto flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-900 shadow dark:text-amber-200"
         >
           <ng-icon hlm name="lucideWifiOff" size="xs" />
-          <span>You're offline. Hosted features (sign-in, hosted LLMs) are paused.</span>
+          <span
+            >You're offline. Hosted features (sign-in, hosted LLMs) are
+            paused.</span
+          >
         </div>
       </div>
     }

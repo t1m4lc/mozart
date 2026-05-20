@@ -10,7 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { HlmLoaderImports } from '@mozart/ui/loader';
+import { MzLoader } from '@mozart-ui/loader';
 import { WorkspacesFacade } from '../../workspaces';
 import {
   TerminalRegistry,
@@ -26,10 +26,10 @@ const FIRST_OPEN_SETTLE_MS = 300;
 
 @Component({
   selector: 'app-feature-workspace-terminal',
-  imports: [...HlmLoaderImports],
+  imports: [MzLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'block h-full w-full',
+    class: 'block h-full w-full select-text',
     // Plan P0.2: visual cue that the terminal is read-only. The host
     // class drives a grey filter + hides xterm's cursor layer (see
     // styles below). disableStdin already blocks input; the host
@@ -45,7 +45,7 @@ const FIRST_OPEN_SETTLE_MS = 300;
           class="pointer-events-none absolute inset-0 flex items-center justify-center"
           aria-hidden="true"
         >
-          <hlm-loader size="sm" class="text-brand" />
+          <mz-loader size="sm" class="text-brand" />
         </div>
       }
     </div>

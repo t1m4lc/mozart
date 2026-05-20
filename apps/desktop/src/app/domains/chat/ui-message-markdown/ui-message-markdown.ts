@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { marked } from 'marked';
 
-// Dumb markdown renderer. Takes a raw markdown string, runs it through
+// Chat-scoped markdown renderer. Takes a raw markdown string, runs it through
 // `marked` (GitHub Flavored Markdown), and injects the resulting HTML
 // into a styled container. Trusted-content only — the source is the
 // workspace file system, not arbitrary user input, so we don't pull
@@ -19,9 +19,9 @@ import { marked } from 'marked';
 // `:where()` selectors so a single class wraps every common element.
 // Avoids depending on `@tailwindcss/typography` for one component.
 @Component({
-  selector: 'app-ui-markdown-view',
+  selector: 'app-message-markdown',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block h-full w-full overflow-auto' },
+  host: { class: 'block h-full w-full overflow-auto select-text' },
   styles: [
     `
       .md :where(h1) {
@@ -132,7 +132,7 @@ import { marked } from 'marked';
     ></article>
   `,
 })
-export class UiMarkdownView {
+export class MessageMarkdown {
   readonly source = input<string>('');
 
   private readonly sanitizer = inject(DomSanitizer);

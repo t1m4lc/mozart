@@ -10,6 +10,7 @@
 @source "../../../libs/mozart-ui/composer";
 @source "../../../libs/mozart-ui/diff-stats";
 @source "../../../libs/mozart-ui/highlight-overlay";
+@source "../../../libs/mozart-ui/loader";
 @source "../../../libs/mozart-ui/timeline";
 @source "../../../libs/shared-util-os";
 @source "../../../libs/shared-util-theme";
@@ -29,7 +30,6 @@
 @source "../../../libs/ui/input-group";
 @source "../../../libs/ui/kbd";
 @source "../../../libs/ui/label";
-@source "../../../libs/ui/loader";
 @source "../../../libs/ui/popover";
 @source "../../../libs/ui/resizable";
 @source "../../../libs/ui/select";

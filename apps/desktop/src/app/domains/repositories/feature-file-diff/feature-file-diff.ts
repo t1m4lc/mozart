@@ -8,12 +8,9 @@ import {
   signal,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { MessageMarkdown } from '../../chat/ui-message-markdown/ui-message-markdown';
 import { RepositoriesFacade } from '../data/repositories.facade';
-import {
-  DiffView,
-  type FetchContextLines,
-} from '../ui-diff-view/ui-diff-view';
-import { UiMarkdownView } from '../ui-markdown-view/ui-markdown-view';
+import { DiffView, type FetchContextLines } from '../ui-diff-view/ui-diff-view';
 
 type ViewMode = 'diff' | 'preview';
 
@@ -25,7 +22,7 @@ function isMarkdownPath(path: string | null): boolean {
   return MARKDOWN_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-// Smart wrapper around `DiffView` + `UiMarkdownView`. Picks the right
+// Smart wrapper around `DiffView` + `MessageMarkdown`. Picks the right
 // renderer for the selected file :
 //
 //   - `.md` / `.markdown` / `.mdx` → defaults to **Preview** (rendered
@@ -45,7 +42,7 @@ function isMarkdownPath(path: string | null): boolean {
 // same file pay no Tauri round-trip.
 @Component({
   selector: 'app-feature-file-diff',
-  imports: [DiffView, UiMarkdownView, HlmButtonImports],
+  imports: [DiffView, MessageMarkdown, HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
@@ -98,7 +95,7 @@ function isMarkdownPath(path: string | null): boolean {
                only needed for .md / .mdx previews. With @defer it
                lands in its own chunk, loaded on first preview. -->
           @defer (on viewport) {
-            <app-ui-markdown-view [source]="previewText()" />
+            <app-message-markdown [source]="previewText()" />
           } @placeholder {
             <p class="text-muted-foreground px-3 py-3 text-xs">
               Loading preview…
@@ -304,7 +301,7 @@ export class FeatureFileDiff {
 }
 
 function bodyKey(workspaceId: string, path: string): string {
-  return `${workspaceId} ${path}`;
+  return `${workspaceId}/${path}`;
 }
 
 function splitLines(text: string): string[] {

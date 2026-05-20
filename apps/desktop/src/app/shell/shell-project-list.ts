@@ -1,8 +1,4 @@
-import {
-  CdkDrag,
-  CdkDragDrop,
-  CdkDropList,
-} from '@angular/cdk/drag-drop';
+import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -79,7 +75,8 @@ import {
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
+  template:
+    `
     @if (visibleProjects().length === 0) {
       <app-projects-empty-state
         [hlmContextMenuTrigger]="emptyProjectsCtxMenuTpl"
@@ -239,15 +236,15 @@ import {
         (markUnread)="toggleUnreadWorkspace(w.id)"
         (pin)="togglePinnedWorkspace(w.id)"
         (rename)="editingWorkspaceId.set(w.id)"
-        (archive)="archiveWorkspace(w.id)"
         (setStatus)="onSetStatus(w.id, $event)"
       />
     </ng-template>
 
     <!-- Context menus surfaced on the empty states (right-click on
          "No projects yet." / "No workspaces yet") so the user has the
-         same add-project / new-workspace entry points without needing
-         to find the sidebar header `+` button. -->
+         same open-project / new-workspace entry points without needing
+         to find the sidebar header ` +
+    ` button. -->
     <ng-template #emptyProjectsCtxMenuTpl>
       <hlm-dropdown-menu class="w-52">
         <button
@@ -256,7 +253,7 @@ import {
           class="cursor-pointer"
           (triggered)="addProjectFlow.openPickerAndOpen()"
         >
-          Open project
+          Open a repository on this machine
         </button>
         <button
           hlmDropdownMenuItem
@@ -264,7 +261,7 @@ import {
           class="cursor-pointer"
           (triggered)="addProjectFlow.openCloneDialog()"
         >
-          Open GitHub project
+          Clone from Git
         </button>
         <button
           hlmDropdownMenuItem
@@ -272,7 +269,7 @@ import {
           class="cursor-pointer"
           (triggered)="addProjectFlow.openCreateDialog()"
         >
-          Quick start
+          Create a new project
         </button>
       </hlm-dropdown-menu>
     </ng-template>
@@ -401,16 +398,6 @@ export class ShellProjectList {
       void this._router.navigate(['/workspaces', id]);
     } catch (err) {
       toast.error('Could not create workspace', {
-        description: errorMessage(err),
-      });
-    }
-  }
-
-  protected async archiveWorkspace(workspaceId: string): Promise<void> {
-    try {
-      await this.workspaces.archive(workspaceId);
-    } catch (err) {
-      toast.error('Could not archive workspace', {
         description: errorMessage(err),
       });
     }

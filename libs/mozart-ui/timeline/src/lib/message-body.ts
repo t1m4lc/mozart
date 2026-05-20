@@ -16,16 +16,23 @@ import {
   host: { class: 'block' },
   template: `
     <p
-      class="whitespace-pre-wrap text-sm leading-relaxed text-foreground"
-    >{{ text() }}@if (streaming()) {<span
-        class="message-body__cursor"
-        aria-hidden="true"
-      ></span>}</p>
+      class="whitespace-pre-wrap text-sm leading-relaxed text-foreground select-text"
+    >
+      {{ text() }}
+      @if (streaming()) {
+        <span class="message-body__cursor" aria-hidden="true"></span>
+      }
+    </p>
   `,
   styles: `
     @keyframes message-body-pulse {
-      0%, 100% { opacity: 0.3; }
-      50%      { opacity: 1; }
+      0%,
+      100% {
+        opacity: 0.3;
+      }
+      50% {
+        opacity: 1;
+      }
     }
     .message-body__cursor {
       display: inline-block;

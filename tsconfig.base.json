@@ -228,6 +228,9 @@
       ],
       "@mozart-ui/timeline": [
         "./libs/mozart-ui/timeline/src/index.ts"
+      ],
+      "@mozart-ui/loader": [
+        "./libs/mozart-ui/loader/src/index.ts"
       ]
     }
   }

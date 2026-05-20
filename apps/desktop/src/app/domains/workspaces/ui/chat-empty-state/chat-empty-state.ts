@@ -8,7 +8,7 @@ import {
   lucideSparkles,
 } from '@ng-icons/lucide';
 import type { InstallState } from '../../data/workspace.facade';
-import { HlmLoaderImports } from '@mozart/ui/loader';
+import { MzLoader } from '@mozart-ui/loader';
 
 // Step 4 copy lookup. Manager suffix is appended in the template when
 // state is `success` or `failed` and a manager name is known.
@@ -30,7 +30,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
  */
 @Component({
   selector: 'app-chat-empty-state',
-  imports: [NgIcon, HlmIconImports, ...HlmLoaderImports],
+  imports: [NgIcon, HlmIconImports, MzLoader],
   providers: [
     provideIcons({
       lucideCheck,
@@ -54,97 +54,105 @@ const SETUP_LABEL: Record<InstallState, string> = {
         </p>
       </div>
     } @else {
-    <div class="w-full pl-12 pr-6 py-4">
-      <ol class="flex w-full flex-col">
-        <!-- 1 — branched into project -->
-        <li class="relative flex w-full items-center gap-3 pb-4">
-          <span
-            class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
-            aria-hidden="true"
-          ></span>
-          <span
-            class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
-          >
-            <ng-icon hlm name="lucideGitBranch" size="10px" />
-          </span>
-          <p class="text-sm font-light leading-none text-foreground">
-            Branched
-            <code
-              class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
-              >{{ sourceBranch() }}</code
+      <div class="w-full pl-12 pr-6 py-4">
+        <ol class="flex w-full flex-col">
+          <!-- 1 — branched into project -->
+          <li class="relative flex w-full items-center gap-3 pb-4">
+            <span
+              class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
+              aria-hidden="true"
+            ></span>
+            <span
+              class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
             >
-            from
-            <code
-              class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
-              >{{ targetBranch() }}</code
-            >
-            in <span class="font-medium">{{ projectName() }}</span
-            >.
-          </p>
-        </li>
+              <ng-icon hlm name="lucideGitBranch" size="10px" />
+            </span>
+            <p class="text-sm font-light leading-none text-foreground">
+              Branched
+              <code
+                class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
+                >{{ sourceBranch() }}</code
+              >
+              from
+              <code
+                class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
+                >{{ targetBranch() }}</code
+              >
+              in <span class="font-medium">{{ projectName() }}</span
+              >.
+            </p>
+          </li>
 
-        <!-- 2 — ready (workspace + files + install lifecycle) -->
-        <li class="relative flex w-full items-center gap-3 pb-4">
-          <span
-            class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
-            aria-hidden="true"
-          ></span>
-          @switch (installState()) {
-            @case ('running') {
-              <span
-                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"
-              >
-                <hlm-loader size="xs" />
-              </span>
+          <!-- 2 — ready (workspace + files + install lifecycle) -->
+          <li class="relative flex w-full items-center gap-3 pb-4">
+            <span
+              class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
+              aria-hidden="true"
+            ></span>
+            @switch (installState()) {
+              @case ('running') {
+                <span
+                  class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"
+                >
+                  <mz-loader size="xs" />
+                </span>
+              }
+              @case ('failed') {
+                <span
+                  class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive [--ng-icon__stroke-width:1.5]"
+                >
+                  <ng-icon hlm name="lucideCircleAlert" size="10px" />
+                </span>
+              }
+              @default {
+                <span
+                  class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 [--ng-icon__stroke-width:1.5]"
+                >
+                  <ng-icon hlm name="lucideCheck" size="10px" />
+                </span>
+              }
             }
-            @case ('failed') {
-              <span
-                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive [--ng-icon__stroke-width:1.5]"
+            <p class="text-sm font-light leading-none text-muted-foreground">
+              <code
+                class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
+                >{{ workspaceName() }}</code
               >
-                <ng-icon hlm name="lucideCircleAlert" size="10px" />
-              </span>
-            }
-            @default {
-              <span
-                class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 [--ng-icon__stroke-width:1.5]"
-              >
-                <ng-icon hlm name="lucideCheck" size="10px" />
-              </span>
-            }
-          }
-          <p class="text-sm font-light leading-none text-muted-foreground">
-            <code
-              class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
-              >{{ workspaceName() }}</code
-            >
-            ready with
-            <span class="font-medium text-foreground">{{ numberOfFiles() }}</span>
-            files.
-            @if (installState() !== 'idle' && installState() !== 'no_package') {
-              {{ setupLabel() }}@if (
-                installManager() &&
-                (installState() === 'success' || installState() === 'failed')
+              ready with
+              <span class="font-medium text-foreground">{{
+                numberOfFiles()
+              }}</span>
+              files.
+              @if (
+                installState() !== 'idle' && installState() !== 'no_package'
               ) {
-                with
-                <span class="font-medium text-foreground">{{ installManager() }}</span>
-              }.
-            }
-          </p>
-        </li>
+                {{ setupLabel() }}
+                @if (
+                  installManager() &&
+                  (installState() === 'success' || installState() === 'failed')
+                ) {
+                  with
+                  <span class="font-medium text-foreground">{{
+                    installManager()
+                  }}</span>
+                }
+                .
+              }
+            </p>
+          </li>
 
-        <!-- 3 — CTA -->
-        <li class="relative flex w-full items-center gap-3">
-          <span
-            class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
-          >
-            <ng-icon hlm name="lucideSparkles" size="10px" />
-          </span>
-          <p class="text-sm font-light leading-none text-foreground">
-            Compose your first instruction and let the magic begin!
-          </p>
-        </li>
-      </ol>
-    </div>
+          <!-- 3 — CTA -->
+          <li class="relative flex w-full items-center gap-3">
+            <span
+              class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
+            >
+              <ng-icon hlm name="lucideSparkles" size="10px" />
+            </span>
+            <p class="text-sm font-light leading-none text-foreground">
+              Compose your first instruction and let the magic begin!
+            </p>
+          </li>
+        </ol>
+      </div>
     }
   `,
 })
