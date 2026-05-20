@@ -114,6 +114,14 @@ jobs:
       # seo-check transitively depends on generate-llms → post-build-seo → build
       - run: pnpm nx run landing:seo-check
 
+      # Cloudflare Pages Functions live in apps/landing/functions/ but the build
+      # output is dist/apps/landing/analog/public/. wrangler `pages deploy <dir>`
+      # discovers functions at <dir>/functions/, so we copy them into the deploy
+      # tree before uploading the artifact. Without this step CF serves a generic
+      # 405 for /api/analytics/* because the routes are never registered.
+      - name: Bundle Pages Functions into deploy tree
+        run: cp -r apps/landing/functions dist/apps/landing/analog/public/functions
+
       - uses: actions/upload-artifact@v4
         with:
           name: landing-dist

@@ -5,7 +5,7 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), interest-cohort=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
   Cross-Origin-Opener-Policy: same-origin
-  Content-Security-Policy-Report-Only: default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy-Report-Only: default-src 'self'; img-src 'self' data: https:; script-src 'self' 'unsafe-inline' https://t.mozart.build; style-src 'self' 'unsafe-inline'; font-src 'self' data:; connect-src 'self' https://t.mozart.build; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 
 # Hashed assets — immutable cache (Vite puts all hashed bundles under /assets/)
 # CF Pages stacks headers across matching rules rather than overriding, so Cache-Control
