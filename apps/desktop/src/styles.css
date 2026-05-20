@@ -47,6 +47,20 @@
 @source "../../../libs/ui/utils";
 /* nx-tailwind-sources:end */
 
+/* Tauri drag region: signal that the bar is grabbable. Elements
+ * tagged `data-tauri-drag-region="false"` opt out (e.g. window-control
+ * buttons, dropdowns) so interactive widgets keep the pointer cursor. */
+[data-tauri-drag-region] {
+  cursor: grab;
+}
+[data-tauri-drag-region]:active {
+  cursor: grabbing;
+}
+[data-tauri-drag-region="false"],
+[data-tauri-drag-region] [data-tauri-drag-region="false"] {
+  cursor: auto;
+}
+
 /* Toolbar breadcrumb: single line, last segment truncates */
 nav[aria-label="Workspace"] [data-slot="breadcrumb-list"] {
   flex-wrap: nowrap;

@@ -12,8 +12,9 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
   host: { class: 'inline-flex items-center' },
   template: `
     <!-- Windows / Linux: VS Code-style compact controls. Smaller hit
-         targets than Chrome, sharp (not rounded), close goes red on
-         hover. -->
+         targets than Chrome, sharp (not rounded). All three buttons
+         share the same neutral accent hover — the red close button
+         read as too aggressive on a dark UI. -->
     <span
       class="inline-flex items-center"
       data-tauri-drag-region="false"
@@ -39,7 +40,7 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
       </button>
       <button
         type="button"
-        class="inline-flex h-7 w-10 items-center justify-center text-muted-foreground hover:bg-red-600 hover:text-white"
+        class="inline-flex h-7 w-10 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Close"
         data-tauri-drag-region="false"
         (click)="close()"

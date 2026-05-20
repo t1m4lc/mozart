@@ -12,7 +12,7 @@ export const THEME_CONFIG = new InjectionToken<ThemeConfig>('THEME_CONFIG');
 
 const DEFAULT_CONFIG: ThemeConfig = {
   theme: 'mozart',
-  mode: 'light',
+  mode: 'system',
   options: themes,
 };
 

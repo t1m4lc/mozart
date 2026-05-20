@@ -99,6 +99,13 @@ import { ShellProjectList } from './shell-project-list';
           >
             @if (isMac) {
               <app-mac-window-controls />
+            } @else {
+              <img
+                src="/assets/shared/logos/mozart-logo.svg"
+                alt=""
+                class="size-4 shrink-0"
+                data-tauri-drag-region
+              />
             }
             <span class="flex-1" data-tauri-drag-region></span>
             <button

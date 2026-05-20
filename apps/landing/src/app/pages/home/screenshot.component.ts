@@ -25,7 +25,8 @@ const SCREENSHOT_HEIGHT = 1800;
           [width]="width"
           [height]="height"
           alt="Mozart desktop: parallel Workspaces, agent timeline, and diff review running side by side. (screenshot v0.0.1-beta.1)"
-          loading="lazy"
+          loading="eager"
+          fetchpriority="high"
           decoding="async"
           class="block h-auto w-full"
         />

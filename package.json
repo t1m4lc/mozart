@@ -13,7 +13,8 @@
     "seed": "cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --bin seed_demo -- --demo",
     "reset-db": "cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml --bin seed_demo -- --clean",
     "seed-fresh": "pnpm seed",
-    "purge:landing-cache": "./tools/mozart-landing-cf-page-purge-cache.sh"
+    "purge:landing-cache": "./tools/mozart-landing-cf-page-purge-cache.sh",
+    "purge:tauri": "rm -rf apps/desktop/src-tauri/target && rm -rf node_modules/.cache .nx/cache && nx reset"
   },
   "private": true,
   "packageManager": "pnpm@11.0.8",

@@ -21,7 +21,7 @@ const PLACEHOLDER_BRANDS = [
         Trusted by builders at
       </p>
       <ul
-        class="mx-auto grid max-w-2xl grid-cols-4 items-center gap-4 sm:gap-6"
+        class="mx-auto grid max-w-2xl grid-cols-2 md:grid-cols-4 items-center gap-3 md:gap-6"
       >
         @for (brand of brands; track brand) {
           <li

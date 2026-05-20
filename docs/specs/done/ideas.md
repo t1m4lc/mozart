@@ -1,37 +1,61 @@
-Template universel pour un atome (prompt à coller dans un nouveau chat)
+Prompt B — Items partiels résiduels (post-P0.1)
 
-Implémente l'atome <ID> de docs/specs/plan-mozart-dogfood-readiness.md.
+Une fois P0.1 done, il reste 8 atomes ⚠️ partiels / ❌ non commencés à clore :
 
-Règles :
+Pick the next item from this audit punch list
+(docs/specs/plan-mozart-dogfood-readiness.md):
 
-- lis la section de l'atome, applique CLAUDE.md, respecte la mémoire auto-chargée
-- atom = slice fonctionnelle commitable ; fait UN atome, pas le phase entier
-- termine par le manual checkpoint de l'atome
-- ne commit PAS avant que je valide le checkpoint
+    P1.1.A — one-page doc-comment in feature-workspace-aside.ts listing
+             every tab signal + its scope (per-workspace / global / URL)
+    P1.1.C — Playwright/Cypress E2E for tab persistence regression
+    P1.2.C — E2E for stale-tree-on-switch regression
+    P1.3.A — short sketch comment at top of feature-workspace-middle.ts
+             documenting the [middle-content] slot decision
+    P1.3.D — hoist <hlm-tabs> over the middle shell + drop the pinned
+             comment in workspace-tab-bar.ts
+    P2.2.F — soft-warning "Some changes haven't been reviewed" modal
+             wired into merge-now + create-pr paths
+    A3.5.A — Tauri app icons (needs the master SVG/PNG from the user
+             first — block on input)
+    P3.5  — propagate the new icons through tauri.conf.json once A3.5.A
+            lands
 
-Exemples concrets :
+Rules same as the per-atom template — one atom, one functional slice,
+stop at its Manual checkpoint, wait for my OK before committing.
 
-- <ATOM_ID> = P0.1.B → SandboxLevel enum + DB migration
-- <ATOM_ID> = P3.4 → suppression du bouton Archive
-- <ATOM_ID> = A1.1.B → tab state per-workspace dans UiStateStore
+---
 
-Ordre recommandé pour l'implémentation
+Prompt C — Quick taste decisions
 
-D'après la section "Worktree parallelization strategy" du plan :
+Deux choses sont déjà décidées mais pas encore traduites en code :
 
-Wave 1 (parallèle, chacun dans son chat) :
-P3.4 archive removal ← le plus petit, fait-le en premier pour roder le flow
-P3.1 composer button heights
-P0.1.B SandboxLevel enum + migration
-P1.1.A audit tab state
+- TODO-011 (ask-mode mute le freeze) — bloquée par la livraison de P0.1.C, donc rien à
+  faire avant.
+- Le user header note dans le plan (« reopen workspace … its not reactive ») — à
+  vérifier au runbook P0.2.D ; si confirmé encore présent, mini-fix dans
+  WorkspacesFacade.reopen().
 
-Wave 2 (après Wave 1) :
-P0.1.C build_sandbox_flags + argv
-P0.1.D path canonicalize guard
-P0.2.A isFrozen signal
-P0.3.A serde_json preserve_order
+- timeline moche à revoir
+- diff moche à revoir inspiration github
+- revoir file view car header moche
+- composer: bouton enter round, placeholder,
+- terminal tab break, add resizable et remet en haut. ajouter bouton run et enlever celui du haut.
+  add run tabcontent, btn to run (lauch run command from .mozart/run.json, if run show console like commande from npm for instance.
+  add settings tabcontent, btn to run (lauch run command from .mozart/run.json, if run show console like commande from npm for instance.
 
-Wave 3 et + : voir la table "module dependencies" dans le plan.
+- onboarding create a parent to wrap steper to dont have steper jump between setps maybe use ngcontent
+  <app-stepper>step detail</app-stepper>
+- Fix sidebar resizable car celui de droite influence celui de gauche, pas bon
+- Créer un variante du dot loader, variante simple plus petite, copye du CLI dot loader de codex et utiliser variante simple pour tab et workspace menu.
+
+- All files tree issue: Il y a toujours le problème suivant, c'est-à-dire que quand je suis sur un workspace et que je clique sur un autre workspace qui contient un filetree, un gros filetree, du coup quand je clique, ça ne route pas, ça attend que le filetree soit résolu et ensuite ça route. Ça, c'est vraiment pas beau, il faut router. Il faut que du coup l'utilisateur route vers le workspace et qu'après seulement le filetree soit résolu. Donc je ne sais pas, c'est peut-être lié au cache. il n'y a pas, je ne pense pas qu'il y ait de résolveur, ça doit être lié au cache qui attend d'être résolu avant que la route navigue bien. Donc ça, c'est vraiment pas bon. Il faut que, il faut Il faut creuser ça. Déjà un quick win, on va dire, ça serait d'inverser les tables all files et change, de les inverser pour que par défaut, ça soit la table change qui soit montrée par défaut, mais ça ne règle pas le problème parce que du coup, on a de la persistence sur les tables. Il suffit que l'utilisateur euh et cliqué sur all files, la table all file, donc du coup, il y a le trick qui est bien chargé. Et du coup ensuite il navigue sur un autre workspace, ensuite il décide de revenir sur le workspace avec le gros filetree et là on a le problème. ET une amélioration serai de rendre l'aétat du file tree persistent entre les changement de workspace.
+
+- change cursor in texte edit et ajoute si possible un background leger un peu different sur la ligne selectionner ancien qu'un leger brand color sur le chiffre de la ligne actif
+
+- fix terminal is light when dark theme, change background.
+
+- improve workspace status icons
+- je trouve que l'ensemble du texte en general est un peu trop petit et les icon aussi peut tu faire des proposition pour rendre l'UI un peu plus accessible.
 
 # Todo
 
