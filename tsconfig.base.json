@@ -205,6 +205,9 @@
       "@mozart/clerk": [
         "./libs/clerk/src/index.ts"
       ],
+      "@mozart-ui/codemirror-theme": [
+        "./libs/mozart-ui/codemirror-theme/src/index.ts"
+      ],
       "@mozart-ui/composer": [
         "./libs/mozart-ui/composer/src/index.ts"
       ],

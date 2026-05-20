@@ -1187,12 +1187,16 @@ exposed as a CodeMirror `EditorView.theme` extension lives in
 
 #### Atom A2.1.A — Add CodeMirror deps + Mozart theme lib
 
-- [ ] `pnpm add @codemirror/state @codemirror/view ...` at workspace
+- [x] `pnpm add @codemirror/state @codemirror/view ...` at workspace
       root, excluding `@codemirror/merge`.
-- [ ] New `libs/mozart-ui/codemirror-theme/` exporting
+- [x] New `libs/mozart-ui/codemirror-theme/` exporting
       `mozartLightTheme` and `mozartDarkTheme`.
-- [ ] **Manual checkpoint:** Build the desktop app → record actual
+- [x] **Manual checkpoint:** Build the desktop app → record actual
       gzipped bundle delta. No runtime errors.
+      _Desktop production build adds ~95 kB gzipped of lazy CodeMirror
+      chunks (core ~31 kB + each language pack 8–14 kB) split out via
+      the `@defer` in `feature-file-content`. Eager bundle unchanged
+      because `MzCodeEditor` is referenced only inside the defer block._
 
 Files: ~5 (lib scaffolding + theme).
 

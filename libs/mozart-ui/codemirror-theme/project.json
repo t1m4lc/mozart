@@ -1,0 +1,15 @@
+{
+  "name": "codemirror-theme",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-ui/codemirror-theme/src",
+  "prefix": "mz",
+  "projectType": "library",
+  "tags": [
+    "scope:mozart-ui"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}
