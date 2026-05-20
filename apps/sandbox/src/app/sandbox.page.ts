@@ -32,6 +32,11 @@ import { HlmButtonImports } from '@mozart/ui/button';
             MzCodeEditor →
           </a>
         </li>
+        <li>
+          <a hlmBtn variant="outline" routerLink="/review-progress">
+            MzReviewProgress →
+          </a>
+        </li>
       </ul>
     </section>
   `,

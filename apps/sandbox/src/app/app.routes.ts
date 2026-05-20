@@ -17,4 +17,11 @@ export const appRoutes: Route[] = [
     loadComponent: () =>
       import('./code-editor.sandbox').then((m) => m.CodeEditorSandbox),
   },
+  {
+    path: 'review-progress',
+    loadComponent: () =>
+      import('./review-progress.sandbox').then(
+        (m) => m.ReviewProgressSandbox,
+      ),
+  },
 ];
