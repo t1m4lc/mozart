@@ -41,6 +41,7 @@ use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::github::{self, CreatedPr, GithubProbeResult};
 use crate::ide_launch::{self, DetectedIde};
 use crate::merge::{self, MergeOutcome};
+use crate::path_guard::validate_workspace_relative_path;
 use crate::terminal::{self, TerminalEvent};
 use crate::terminal_registry::TerminalRegistry;
 use crate::workspace_run_registry::WorkspaceRunRegistry;
@@ -1610,9 +1611,10 @@ pub async fn get_file_diff(
 }
 
 /// Read a file's raw contents from a workspace's worktree. Used by the
-/// markdown preview in the file viewer (and any other component that
-/// needs file content rather than a diff). Reuses `file_diff`'s path
-/// validation so traversal escapes are rejected before any FS read.
+/// markdown preview, the CodeMirror Edit pane (P2.1) and any other
+/// component that needs file content rather than a diff. Path validation
+/// goes through `path_guard::validate_workspace_relative_path` so the
+/// read and save paths cannot drift.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_workspace_file(
@@ -1626,27 +1628,120 @@ pub async fn read_workspace_file(
         workspaces::get(&conn, &workspace_id)?
     };
 
-    // Defensive : same path rules as the diff endpoint — no empties,
-    // no absolutes, no `..` segments.
-    if path.is_empty() {
-        return Err(AppError::Validation("empty path".into()));
-    }
-    if path.starts_with('/') || path.contains('\0') {
-        return Err(AppError::Validation(format!("invalid path: {path}")));
-    }
-    for segment in path.split('/') {
-        if segment == ".." {
-            return Err(AppError::Validation(format!(
-                "path escapes workspace: {path}"
-            )));
-        }
-    }
+    validate_workspace_relative_path(&path)?;
 
     let abs = std::path::Path::new(&ws.worktree_path).join(&path);
     let body = tokio::fs::read_to_string(&abs)
         .await
         .map_err(|e| AppError::Io(format!("read {abs:?}: {e}")))?;
     Ok(body)
+}
+
+/// Write a file in the workspace's worktree. Used by the CodeMirror Edit
+/// pane (P2.1) for an explicit Save action.
+///
+/// Contract:
+/// - `expected_hash` = sha256 of the buffer the editor last loaded /
+///   saved. The command computes the current on-disk hash and rejects
+///   with `AppError::StaleFile(path)` if they diverge — the file changed
+///   under us, the editor must reload or discard.
+/// - `AppError::Frozen` when the workspace is in the closed UI state
+///   (`done` / `canceled`) — Save must be blocked, [§P0.2 freeze].
+/// - UTF-8 text only. Binary / non-UTF-8 editing is out of scope for
+///   P2.1.
+/// - Atomic: writes to `<path>.mozart-tmp-<rand>` next to the target
+///   and renames it into place so a torn write can never leave a half
+///   file on disk.
+#[tauri::command]
+#[specta::specta]
+pub async fn file_save(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    path: String,
+    content: String,
+    expected_hash: String,
+) -> Result<String, AppError> {
+    file_save_impl(db.inner(), workspace_id, path, content, expected_hash).await
+}
+
+pub(crate) async fn file_save_impl(
+    db: &DbState,
+    workspace_id: String,
+    path: String,
+    content: String,
+    expected_hash: String,
+) -> Result<String, AppError> {
+    // Pull workspace + freeze gate together. Done/canceled blocks the
+    // mutation; the read path stays open.
+    let ws = {
+        let conn = db.lock();
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
+        workspaces::get(&conn, &workspace_id)?
+    };
+
+    validate_workspace_relative_path(&path)?;
+
+    let abs = std::path::Path::new(&ws.worktree_path).join(&path);
+
+    // Stale check: compare expected (editor-side baseline) against the
+    // current on-disk body. A missing file is treated as a divergence —
+    // P2.1 only edits files that already exist on disk; callers that
+    // want create-on-save semantics would have to opt in explicitly.
+    let on_disk = match tokio::fs::read(&abs).await {
+        Ok(bytes) => Some(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => None,
+        Err(e) => return Err(AppError::Io(format!("read {abs:?}: {e}"))),
+    };
+
+    let current_hash = match &on_disk {
+        Some(bytes) => sha256_hex(bytes),
+        None => sha256_hex(b""),
+    };
+    if current_hash != expected_hash {
+        return Err(AppError::StaleFile(path));
+    }
+
+    // Atomic write: tmp file in the same directory, then rename. Same
+    // directory keeps the rename single-fs and atomic on POSIX. We use
+    // a uuid-tagged suffix so two saves in flight never clobber each
+    // other's tmp file.
+    let parent = abs.parent().ok_or_else(|| {
+        AppError::Validation(format!("path has no parent: {path}"))
+    })?;
+    let file_name = abs
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| AppError::Validation(format!("non-utf8 path: {path}")))?;
+    let tmp_name = format!(".{}.mozart-tmp-{}", file_name, uuid::Uuid::new_v4());
+    let tmp_path = parent.join(&tmp_name);
+
+    tokio::fs::create_dir_all(parent)
+        .await
+        .map_err(|e| AppError::Io(format!("mkdir {parent:?}: {e}")))?;
+    tokio::fs::write(&tmp_path, content.as_bytes())
+        .await
+        .map_err(|e| AppError::Io(format!("write {tmp_path:?}: {e}")))?;
+    if let Err(e) = tokio::fs::rename(&tmp_path, &abs).await {
+        // Best-effort cleanup; if the rename failed the tmp is the
+        // dangling artifact.
+        let _ = tokio::fs::remove_file(&tmp_path).await;
+        return Err(AppError::Io(format!("rename {tmp_path:?} -> {abs:?}: {e}")));
+    }
+
+    Ok(sha256_hex(content.as_bytes()))
+}
+
+fn sha256_hex(bytes: &[u8]) -> String {
+    use sha2::{Digest, Sha256};
+    let mut h = Sha256::new();
+    h.update(bytes);
+    let out = h.finalize();
+    let mut s = String::with_capacity(out.len() * 2);
+    for b in out.iter() {
+        use std::fmt::Write;
+        let _ = write!(&mut s, "{b:02x}");
+    }
+    s
 }
 
 pub(crate) async fn get_file_diff_impl(
@@ -4001,5 +4096,139 @@ mod tests {
                 other => panic!("expected Validation for target {target}, got {other:?}"),
             }
         }
+    }
+
+    // -------------------------------------------------------------------
+    // file_save — P2.1.D
+    // -------------------------------------------------------------------
+
+    fn hex_sha256(bytes: &[u8]) -> String {
+        super::sha256_hex(bytes)
+    }
+
+    /// Seed a workspace whose `worktree_path` is a real on-disk directory
+    /// so file_save can actually read + write through it. Returns
+    /// (db, workspace_id, tempdir handle).
+    fn seed_real_workspace(prefix: &str) -> (DbState, String, tempfile::TempDir) {
+        let tmp = tempfile::tempdir().unwrap();
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, &format!("/tmp/{prefix}-repo"));
+        let ws_id = {
+            let conn = db.lock();
+            let t = Task {
+                task_id: new_id(),
+                repo_id: repo_id.clone(),
+                title: "t".into(),
+                task_text: "t".into(),
+                status: "active".into(),
+                created_at: now_ms(),
+            };
+            tasks::create(&conn, &t).unwrap();
+            let ws = Workspace {
+                workspace_id: new_id(),
+                task_id: t.task_id.clone(),
+                name: "ws-file-save".into(),
+                worktree_path: tmp.path().to_string_lossy().into_owned(),
+                branch_name: "agent/wip-x".into(),
+                base_branch: "main".into(),
+                status: "ready".into(),
+                pinned: false,
+                unread: false,
+                created_at: now_ms(),
+                deletion_intent: 0,
+                ui_status: "backlog".into(),
+                last_merge_action: None,
+            };
+            workspaces::create(&conn, &ws).unwrap();
+            ws.workspace_id
+        };
+        (db, ws_id, tmp)
+    }
+
+    #[tokio::test]
+    async fn file_save_writes_when_hash_matches() {
+        let (db, ws_id, tmp) = seed_real_workspace("file-save-happy");
+        std::fs::write(tmp.path().join("foo.txt"), b"old").unwrap();
+        let hash = hex_sha256(b"old");
+
+        let new_hash = file_save_impl(
+            &db,
+            ws_id,
+            "foo.txt".into(),
+            "new".into(),
+            hash,
+        )
+        .await
+        .expect("save succeeds");
+
+        let on_disk = std::fs::read_to_string(tmp.path().join("foo.txt")).unwrap();
+        assert_eq!(on_disk, "new");
+        assert_eq!(new_hash, hex_sha256(b"new"));
+    }
+
+    #[tokio::test]
+    async fn file_save_rejects_stale_hash() {
+        let (db, ws_id, tmp) = seed_real_workspace("file-save-stale");
+        std::fs::write(tmp.path().join("foo.txt"), b"current").unwrap();
+        // Editor's baseline was an older version.
+        let stale_hash = hex_sha256(b"stale");
+
+        let err = file_save_impl(
+            &db,
+            ws_id,
+            "foo.txt".into(),
+            "new".into(),
+            stale_hash,
+        )
+        .await
+        .expect_err("expected StaleFile");
+        match err {
+            AppError::StaleFile(p) => assert_eq!(p, "foo.txt"),
+            other => panic!("expected StaleFile, got {other:?}"),
+        }
+        // On-disk untouched.
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("foo.txt")).unwrap(),
+            "current"
+        );
+    }
+
+    #[tokio::test]
+    async fn file_save_returns_frozen_when_workspace_done() {
+        let (db, ws_id, tmp) = seed_real_workspace("file-save-frozen");
+        std::fs::write(tmp.path().join("foo.txt"), b"old").unwrap();
+        mark_workspace_done(&db, &ws_id);
+        let hash = hex_sha256(b"old");
+
+        let result = file_save_impl(
+            &db,
+            ws_id.clone(),
+            "foo.txt".into(),
+            "new".into(),
+            hash,
+        )
+        .await;
+        assert_frozen(result, &ws_id);
+
+        // On-disk untouched.
+        assert_eq!(
+            std::fs::read_to_string(tmp.path().join("foo.txt")).unwrap(),
+            "old"
+        );
+    }
+
+    #[tokio::test]
+    async fn file_save_rejects_traversal_path() {
+        let (db, ws_id, _tmp) = seed_real_workspace("file-save-traversal");
+        let err = file_save_impl(
+            &db,
+            ws_id,
+            "../etc/hosts".into(),
+            "pwn".into(),
+            hex_sha256(b""),
+        )
+        .await
+        .expect_err("traversal must be rejected");
+        assert!(matches!(err, AppError::Validation(_)));
     }
 }

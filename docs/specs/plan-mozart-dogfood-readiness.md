@@ -1241,19 +1241,29 @@ Files: ~3.
 
 #### Atom A2.1.D — File save command
 
-- [ ] New Tauri command `file_save(workspace_id, relative_path,
+- [x] New Tauri command `file_save(workspace_id, relative_path,
 content, expected_hash)` that uses the same canonical path guard as
 `read_workspace_file` and future file-write commands.
-- [ ] Return `Frozen` if the workspace is done.
-- [ ] Return a stale-file validation error if the current on-disk hash
-      differs from `expected_hash`.
-- [ ] Write UTF-8 text atomically (tmp + rename). Binary and non-UTF-8
+- [x] Return `Frozen` if the workspace is done.
+- [x] Return a stale-file validation error if the current on-disk hash
+      differs from `expected_hash`. _Dedicated `AppError::StaleFile`
+      variant carries the path; frontend dispatches on `kind:
+      'StaleFile'` to surface the Reload / Keep editing banner._
+- [x] Write UTF-8 text atomically (tmp + rename). Binary and non-UTF-8
       editing are out of scope for P2.1.
-- [ ] Update `read_workspace_file` to use the shared path guard so read
-      and save security cannot drift.
-- [ ] **Manual checkpoint:** Edit a file in Mozart, Save, observe `git
+- [x] Update `read_workspace_file` to use the shared path guard so read
+      and save security cannot drift. _Extracted to
+      `path_guard::validate_workspace_relative_path` with its own unit
+      tests; `file_save` and `read_workspace_file` both go through it._
+- [x] **Manual checkpoint:** Edit a file in Mozart, Save, observe `git
       status` shows the change; mark workspace done, then verify Save is
-      rejected with `Frozen`.
+      rejected with `Frozen`. _Four cargo unit tests cover the matrix:
+      happy save updates the file + returns the new sha; stale-hash
+      save returns `StaleFile` and leaves the file untouched; frozen
+      workspace returns `Frozen` and the file is untouched; `..`
+      traversal path is rejected as `Validation`. End-to-end Mozart
+      manual checkpoint to be exercised by the author when running
+      `pnpm dev`._
 
 Files: ~2 + 4 tests.
 

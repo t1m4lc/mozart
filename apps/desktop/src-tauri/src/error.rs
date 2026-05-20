@@ -49,6 +49,13 @@ pub enum AppError {
     // Carries the base branch name so the toast can name it.
     #[error("base ahead of origin/{0} — pull first")]
     MergeBaseAhead(String),
+
+    // Plan P2.1.D — file_save's on-disk hash differs from the
+    // `expected_hash` the editor handed back. Frontend dispatches on
+    // `kind: "StaleFile"` and offers the user reload-or-discard.
+    // Carries the workspace-relative path so the banner can name it.
+    #[error("file changed on disk: {0}")]
+    StaleFile(String),
 }
 
 impl From<rusqlite::Error> for AppError {

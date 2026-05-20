@@ -16,6 +16,7 @@ pub mod github;
 pub mod ide_launch;
 pub mod merge;
 pub mod mozart_config;
+pub mod path_guard;
 pub mod run_registry;
 pub mod sandbox;
 pub mod staging;
