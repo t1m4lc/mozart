@@ -712,7 +712,10 @@ export class FeatureWorkspaceAside {
               });
           })
           .catch((err) => {
-            console.warn('[aside] auto-route changed files lookup failed:', err);
+            console.warn(
+              '[aside] auto-route changed files lookup failed:',
+              err,
+            );
           });
       })
       .then((unlisten) => {
@@ -733,12 +736,7 @@ export class FeatureWorkspaceAside {
   }
 
   protected onChangedFileClick(file: ChangedFile): void {
-    const id = this.workspaceId();
-    if (!id) return;
-    // Opens a file tab in the central shell tab bar AND makes it
-    // active — the workspace detail page then swaps the chat panel
-    // for the diff view.
-    this.fileTabs.openFor(id, file.path);
+    this.openFileFromChanges(file.path);
   }
 
   /** Flip the file's staged state via `git add` / `git reset HEAD`.
@@ -809,11 +807,27 @@ export class FeatureWorkspaceAside {
 
   protected onFileSelected(node: FileNode): void {
     if (node.kind === 'directory') return;
+    this.openFileFromAllFiles(node.path);
+  }
+
+  private openFileFromAllFiles(path: string): void {
     const id = this.workspaceId();
     if (!id) return;
-    // Tree click opens a file tab in the central shell — matches the
-    // Changes list behavior so there's a single way files surface.
-    this.fileTabs.openFor(id, node.path);
+    this.uiState.openWorkspaceFile(id, path, {
+      mode: 'edit',
+      source: 'all-files',
+    });
+    this.fileTabs.openFor(id, path);
+  }
+
+  private openFileFromChanges(path: string): void {
+    const id = this.workspaceId();
+    if (!id) return;
+    this.uiState.openWorkspaceFile(id, path, {
+      mode: 'diff',
+      source: 'changes',
+    });
+    this.fileTabs.openFor(id, path);
   }
 
   // BrnTabs's `tabActivated` emits a plain `string` (the key of the

@@ -1,8 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import {
   DEFAULT_WORKSPACE_ASIDE_STATE,
+  DEFAULT_WORKSPACE_FILE_VIEW_STATE,
   UiStateStore,
   type WorkspaceAsideState,
+  type WorkspaceFileViewState,
 } from './ui-state.store';
 
 // Regression test for the P1.1 bug: switching workspaces leaked the
@@ -36,6 +38,15 @@ describe('UiStateStore — right-aside per-workspace state', () => {
       asideStateByWorkspace?: Record<string, WorkspaceAsideState>;
     };
     return parsed.asideStateByWorkspace ?? {};
+  }
+
+  function readFileViewSlice(): Record<string, WorkspaceFileViewState> {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw === null) return {};
+    const parsed = JSON.parse(raw) as {
+      fileViewStateByWorkspace?: Record<string, WorkspaceFileViewState>;
+    };
+    return parsed.fileViewStateByWorkspace ?? {};
   }
 
   it('returns the default state when no entry exists for a workspace', () => {
@@ -122,6 +133,88 @@ describe('UiStateStore — right-aside per-workspace state', () => {
       bottomTab: 'terminal',
       filesView: 'changes',
       bottomSize: 65,
+    });
+    expect(store.fileViewStateByWorkspace()).toEqual({});
+  });
+
+  it('defaults file-view state to separate edit and review flows', () => {
+    const store = TestBed.inject(UiStateStore);
+    expect(
+      store.fileViewStateByWorkspace()[wsA] ??
+        DEFAULT_WORKSPACE_FILE_VIEW_STATE,
+    ).toEqual(DEFAULT_WORKSPACE_FILE_VIEW_STATE);
+  });
+
+  it('keeps All files and Changes file-view state separate for the same path', () => {
+    const store = TestBed.inject(UiStateStore);
+    const path = 'src/app.ts';
+
+    store.openWorkspaceFile(wsA, path, {
+      mode: 'edit',
+      source: 'all-files',
+    });
+    store.openWorkspaceFile(wsA, path, {
+      mode: 'diff',
+      source: 'changes',
+    });
+    store.updateActiveWorkspaceFileViewState(wsA, { splitDiff: true });
+    store.openWorkspaceFile(wsA, path, {
+      mode: 'edit',
+      source: 'all-files',
+    });
+
+    expect(store.fileViewStateByWorkspace()[wsA]).toEqual({
+      activeFlow: 'edit',
+      edit: {
+        path,
+        mode: 'edit',
+        source: 'all-files',
+        splitDiff: false,
+      },
+      review: {
+        path,
+        mode: 'diff',
+        source: 'changes',
+        splitDiff: true,
+      },
+    });
+  });
+
+  it('isolates file-view state per workspace id', () => {
+    const store = TestBed.inject(UiStateStore);
+
+    store.openWorkspaceFile(wsA, 'src/a.ts', {
+      mode: 'edit',
+      source: 'all-files',
+    });
+    store.openWorkspaceFile(wsB, 'src/b.ts', {
+      mode: 'diff',
+      source: 'changes',
+    });
+
+    expect(store.fileViewStateByWorkspace()[wsA]?.activeFlow).toBe('edit');
+    expect(store.fileViewStateByWorkspace()[wsA]?.edit.path).toBe('src/a.ts');
+    expect(store.fileViewStateByWorkspace()[wsB]?.activeFlow).toBe('review');
+    expect(store.fileViewStateByWorkspace()[wsB]?.review.path).toBe('src/b.ts');
+  });
+
+  it('writes file-view state through to localStorage', () => {
+    const store = TestBed.inject(UiStateStore);
+    store.openWorkspaceFile(wsA, 'src/app.ts', {
+      mode: 'diff',
+      source: 'changes',
+    });
+    store.updateActiveWorkspaceFileViewState(wsA, { splitDiff: true });
+
+    expect(readFileViewSlice()[wsA]).toEqual({
+      ...DEFAULT_WORKSPACE_FILE_VIEW_STATE,
+      activeFlow: 'review',
+      review: {
+        path: 'src/app.ts',
+        mode: 'diff',
+        source: 'changes',
+        splitDiff: true,
+      },
     });
   });
 });

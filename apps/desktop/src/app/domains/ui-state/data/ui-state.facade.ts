@@ -1,8 +1,12 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
 import {
   DEFAULT_WORKSPACE_ASIDE_STATE,
+  DEFAULT_WORKSPACE_FILE_VIEW_STATE,
   UiStateStore,
   type WorkspaceAsideState,
+  type WorkspaceFileFlowState,
+  type WorkspaceFileOpenOptions,
+  type WorkspaceFileViewState,
 } from './ui-state.store';
 
 // Public surface for ui-state. The two existing domain facades
@@ -81,5 +85,33 @@ export class UiStateFacade {
     patch: Partial<WorkspaceAsideState>,
   ): void {
     this.store.updateWorkspaceAsideState(workspaceId, patch);
+  }
+
+  fileViewStateFor(
+    workspaceId: Signal<string | null>,
+  ): Signal<WorkspaceFileViewState> {
+    return computed(() => {
+      const id = workspaceId();
+      if (!id) return DEFAULT_WORKSPACE_FILE_VIEW_STATE;
+      return (
+        this.store.fileViewStateByWorkspace()[id] ??
+        DEFAULT_WORKSPACE_FILE_VIEW_STATE
+      );
+    });
+  }
+
+  openWorkspaceFile(
+    workspaceId: string,
+    path: string,
+    options: WorkspaceFileOpenOptions,
+  ): void {
+    this.store.openWorkspaceFile(workspaceId, path, options);
+  }
+
+  updateActiveWorkspaceFileViewState(
+    workspaceId: string,
+    patch: Partial<Pick<WorkspaceFileFlowState, 'mode' | 'splitDiff'>>,
+  ): void {
+    this.store.updateActiveWorkspaceFileViewState(workspaceId, patch);
   }
 }

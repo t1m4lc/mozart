@@ -2,12 +2,7 @@ import {
   withDevtools,
   withStorageSync,
 } from '@angular-architects/ngrx-toolkit';
-import {
-  patchState,
-  signalStore,
-  withMethods,
-  withState,
-} from '@ngrx/signals';
+import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 
 // Cross-domain UI state. Per Phase 7 conventions §1.3 :
 //   Domain stores own entity collections.
@@ -22,6 +17,30 @@ import {
 
 export type WorkspaceAsideBottomTab = 'setup' | 'run' | 'terminal';
 export type WorkspaceAsideFilesView = 'all' | 'changes';
+export type WorkspaceFileContentMode = 'edit' | 'diff';
+export type WorkspaceFileOpenSource = 'all-files' | 'changes';
+export type WorkspaceFileViewFlow = 'edit' | 'review';
+
+export interface WorkspaceFileOpenOptions {
+  mode: WorkspaceFileContentMode;
+  source: WorkspaceFileOpenSource;
+}
+
+export interface WorkspaceFileFlowState {
+  path: string | null;
+  mode: WorkspaceFileContentMode;
+  source: WorkspaceFileOpenSource;
+  splitDiff: boolean;
+}
+
+// Per-workspace middle-shell file state. `edit` is the All files flow,
+// `review` is the Changes flow; keeping both lets the same path retain
+// separate UI choices depending on where the user opened it from.
+export interface WorkspaceFileViewState {
+  activeFlow: WorkspaceFileViewFlow | null;
+  edit: WorkspaceFileFlowState;
+  review: WorkspaceFileFlowState;
+}
 
 // Per-workspace right-aside UI state. Persisted across sessions via the
 // `withStorageSync` slice below, keyed by workspaceId. Defaults match
@@ -49,6 +68,22 @@ export const DEFAULT_WORKSPACE_ASIDE_STATE: WorkspaceAsideState = {
   unstagedOpen: true,
 };
 
+export const DEFAULT_WORKSPACE_FILE_VIEW_STATE: WorkspaceFileViewState = {
+  activeFlow: null,
+  edit: {
+    path: null,
+    mode: 'edit',
+    source: 'all-files',
+    splitDiff: false,
+  },
+  review: {
+    path: null,
+    mode: 'diff',
+    source: 'changes',
+    splitDiff: false,
+  },
+};
+
 interface State {
   // Currently-routed workspace id. `null` on /, /welcome, /settings,
   // etc. Mirrored into the URL by the router; the store is the single
@@ -64,11 +99,15 @@ interface State {
   // and an empty set means everything is open.
   collapsedStatusIds: ReadonlySet<string>;
 
-  // Per-workspace right-aside tab + pane state. The only field
-  // persisted across sessions (the `select` below picks just this
-  // slice). Other fields use `ReadonlySet` which does not JSON-
+  // Per-workspace right-aside tab + pane state. Persisted via the
+  // `select` below. Other fields use `ReadonlySet` which does not JSON-
   // serialize, so persisting the whole state would corrupt them.
   asideStateByWorkspace: Record<string, WorkspaceAsideState>;
+
+  // Per-workspace middle-shell file view state. Stored separately from
+  // FileTabsService's open-tab list so All files and Changes can keep
+  // independent mode/review state for the same path.
+  fileViewStateByWorkspace: Record<string, WorkspaceFileViewState>;
 }
 
 const initialState: State = {
@@ -76,7 +115,31 @@ const initialState: State = {
   expandedProjectIds: new Set<string>(),
   collapsedStatusIds: new Set<string>(),
   asideStateByWorkspace: {},
+  fileViewStateByWorkspace: {},
 };
+
+function fileFlowFromSource(
+  source: WorkspaceFileOpenSource,
+): WorkspaceFileViewFlow {
+  return source === 'all-files' ? 'edit' : 'review';
+}
+
+function normalizeFileViewState(
+  state: WorkspaceFileViewState | undefined,
+): WorkspaceFileViewState {
+  return {
+    activeFlow:
+      state?.activeFlow ?? DEFAULT_WORKSPACE_FILE_VIEW_STATE.activeFlow,
+    edit: {
+      ...DEFAULT_WORKSPACE_FILE_VIEW_STATE.edit,
+      ...state?.edit,
+    },
+    review: {
+      ...DEFAULT_WORKSPACE_FILE_VIEW_STATE.review,
+      ...state?.review,
+    },
+  };
+}
 
 export const UiStateStore = signalStore(
   { providedIn: 'root' },
@@ -90,6 +153,7 @@ export const UiStateStore = signalStore(
     key: 'mozart-ui-state-v1',
     select: (state) => ({
       asideStateByWorkspace: state.asideStateByWorkspace,
+      fileViewStateByWorkspace: state.fileViewStateByWorkspace,
     }),
   }),
   withMethods((store) => ({
@@ -152,6 +216,55 @@ export const UiStateStore = signalStore(
         asideStateByWorkspace: {
           ...store.asideStateByWorkspace(),
           [workspaceId]: { ...current, ...patch },
+        },
+      });
+    },
+
+    openWorkspaceFile(
+      workspaceId: string,
+      path: string,
+      options: WorkspaceFileOpenOptions,
+    ): void {
+      const flow = fileFlowFromSource(options.source);
+      const current = normalizeFileViewState(
+        store.fileViewStateByWorkspace()[workspaceId],
+      );
+      patchState(store, {
+        fileViewStateByWorkspace: {
+          ...store.fileViewStateByWorkspace(),
+          [workspaceId]: {
+            ...current,
+            activeFlow: flow,
+            [flow]: {
+              ...current[flow],
+              path,
+              mode: options.mode,
+              source: options.source,
+            },
+          },
+        },
+      });
+    },
+
+    updateActiveWorkspaceFileViewState(
+      workspaceId: string,
+      patch: Partial<Pick<WorkspaceFileFlowState, 'mode' | 'splitDiff'>>,
+    ): void {
+      const current = normalizeFileViewState(
+        store.fileViewStateByWorkspace()[workspaceId],
+      );
+      const flow = current.activeFlow;
+      if (!flow) return;
+      patchState(store, {
+        fileViewStateByWorkspace: {
+          ...store.fileViewStateByWorkspace(),
+          [workspaceId]: {
+            ...current,
+            [flow]: {
+              ...current[flow],
+              ...patch,
+            },
+          },
         },
       });
     },

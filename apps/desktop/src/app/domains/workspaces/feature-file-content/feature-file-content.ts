@@ -7,21 +7,27 @@ import {
   input,
   signal,
 } from '@angular/core';
+import { MzCodeEditorImports } from '@mozart-ui/code-editor';
 import { ThemeService } from '@mozart/shared-util-theme';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmTabsImports } from '@mozart/ui/tabs';
-import { MzCodeEditorImports } from '@mozart-ui/code-editor';
+import { provideIcons } from '@ng-icons/core';
+import {
+  lucideColumns2,
+  lucideFileDiff,
+  lucideFilePen,
+} from '@ng-icons/lucide';
 import {
   FeatureFileDiff,
   FeatureFileToolbar,
   FileViewsFacade,
   RepositoriesFacade,
   type DiffMode,
-  type FileMode,
   type FileViewedState,
 } from '../../repositories';
+import { UiStateFacade, type WorkspaceFileContentMode } from '../../ui-state';
 
-type FileContentMode = FileMode;
+type FileContentMode = WorkspaceFileContentMode;
 
 interface SaveError {
   readonly kind: 'frozen' | 'stale' | 'other';
@@ -30,18 +36,6 @@ interface SaveError {
 
 const TEXT_ENCODER = new TextEncoder();
 
-/**
- * File-only content for the middle shell — projected into
- * `FeatureWorkspaceMiddle`'s `[middle-content]` slot when a file tab
- * is active.
- *
- * Diff mode embeds the existing `FeatureFileDiff` (unified diff +
- * markdown preview); Edit mode lazy-loads CodeMirror via
- * `MzCodeEditor`, tracks an explicit dirty signal, and exposes a
- * Save action that round-trips through `RepositoriesFacade.saveFile`
- * with a sha256 baseline so the backend can refuse a save when the
- * file changed on disk under the editor.
- */
 @Component({
   selector: 'app-feature-file-content',
   imports: [
@@ -51,6 +45,7 @@ const TEXT_ENCODER = new TextEncoder();
     FeatureFileToolbar,
     MzCodeEditorImports,
   ],
+  providers: [provideIcons({ lucideFileDiff, lucideFilePen, lucideColumns2 })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
@@ -59,10 +54,6 @@ const TEXT_ENCODER = new TextEncoder();
       [tab]="mode()"
       (tabActivated)="setMode($any($event))"
     >
-      <!-- P2.2 toolbar : filename badge + Viewed checkbox + diff layout
-           tabs (in Diff mode) + Diff/Edit tabs. Edit-mode save / discard
-           actions sit just under the toolbar so the toolbar surface
-           stays consistent across modes. -->
       <app-feature-file-toolbar
         [filePath]="filePath()"
         [viewedState]="viewedState()"
@@ -109,8 +100,6 @@ const TEXT_ENCODER = new TextEncoder();
         </div>
       }
 
-      <!-- Edit pane — defers CodeMirror until the user actually clicks
-           Edit so the startup bundle never pays for it. -->
       <div hlmTabsContent="edit" class="flex min-h-0 flex-1 flex-col">
         @if (mode() === 'edit') {
           @if (loadError(); as err) {
@@ -141,8 +130,8 @@ const TEXT_ENCODER = new TextEncoder();
               >
                 <span class="text-amber-900 dark:text-amber-200">
                   @if (serr.kind === 'stale') {
-                    File changed on disk. Reload to see the new version
-                    or keep editing and overwrite.
+                    File changed on disk. Reload to see the new version or keep
+                    editing and overwrite.
                   } @else if (serr.kind === 'frozen') {
                     This workspace is done and read-only.
                   } @else {
@@ -210,7 +199,6 @@ const TEXT_ENCODER = new TextEncoder();
         }
       </div>
 
-      <!-- Diff pane — embeds the existing file-diff view. -->
       <div hlmTabsContent="diff" class="flex min-h-0 flex-1 flex-col">
         <app-feature-file-diff
           class="flex-1 min-h-0"
@@ -229,12 +217,29 @@ export class FeatureFileContent {
   private readonly repos = inject(RepositoriesFacade);
   private readonly fileViews = inject(FileViewsFacade);
   private readonly themeService = inject(ThemeService);
+  private readonly uiState = inject(UiStateFacade);
 
-  protected readonly mode = signal<FileContentMode>('diff');
-  protected readonly diffMode = signal<DiffMode>('unified');
-  /** Three-way Viewed decoration for the currently-open file. Computed
-   *  against the FileViewsFacade so the toolbar checkbox always
-   *  reflects the durable mark — opening the file never flips it. */
+  private readonly fileViewState = this.uiState.fileViewStateFor(
+    this.workspaceId,
+  );
+
+  protected readonly mode = computed<FileContentMode>(() => {
+    const state = this.fileViewState();
+    const flow = state.activeFlow;
+    if (!flow) return 'diff';
+    const active = state[flow];
+    return active.path === this.filePath() ? active.mode : 'diff';
+  });
+
+  protected readonly diffMode = computed<DiffMode>(() => {
+    const state = this.fileViewState();
+    const flow = state.activeFlow;
+    if (!flow) return 'unified';
+    const active = state[flow];
+    if (active.path !== this.filePath()) return 'unified';
+    return active.splitDiff ? 'split' : 'unified';
+  });
+
   protected readonly viewedState = computed<FileViewedState>(() => {
     const ws = this.workspaceId();
     const path = this.filePath();
@@ -244,10 +249,6 @@ export class FeatureFileContent {
     return entry.state;
   });
 
-  // Edit-mode state. `baseline` is the buffer we last loaded or saved,
-  // `editorValue` is what the user sees; `dirty` flips when they
-  // diverge. `baselineHash` is the sha256-hex stale-detection token
-  // the backend compares against the current on-disk hash at save.
   private readonly baseline = signal<string>('');
   private readonly baselineHash = signal<string>('');
   protected readonly editorValue = signal<string>('');
@@ -262,14 +263,10 @@ export class FeatureFileContent {
     this.themeService.isDark() ? 'dark' : 'light',
   );
 
-  // Monotonic fetch id so out-of-order responses don't clobber the
-  // visible buffer (same pattern as `FeatureFileDiff`).
   private loadFetchId = 0;
+  private loadedEditKey: string | null = null;
 
   constructor() {
-    // Whenever the active file (or workspace) changes AND we're in Edit
-    // mode, reload the buffer. The first Edit-mode click on a fresh
-    // file also triggers this via `mode()` becoming 'edit'.
     effect(() => {
       const ws = this.workspaceId();
       const p = this.filePath();
@@ -277,14 +274,16 @@ export class FeatureFileContent {
       if (m !== 'edit' || !ws || !p) {
         return;
       }
+
+      const key = fileStateKey(ws, p);
+      if (this.loadedEditKey === key) return;
       void this.loadFile(ws, p);
     });
 
-    // File path changed while we were editing → drop the buffer state
-    // so the next Edit-mode entry refetches clean (no leaking dirty
-    // edits from one file into another).
     effect(() => {
+      this.workspaceId();
       this.filePath();
+      this.loadedEditKey = null;
       this.baseline.set('');
       this.baselineHash.set('');
       this.editorValue.set('');
@@ -295,17 +294,55 @@ export class FeatureFileContent {
 
   protected setMode(value: string): void {
     if (value !== 'edit' && value !== 'diff') return;
-    this.mode.set(value);
+    const ws = this.workspaceId();
+    const p = this.filePath();
+    if (!ws || !p) return;
+
+    const state = this.fileViewState();
+    const flow = state.activeFlow;
+    const active = flow ? state[flow] : null;
+
+    if (flow && active?.path === p) {
+      this.uiState.updateActiveWorkspaceFileViewState(ws, { mode: value });
+      return;
+    }
+
+    this.uiState.openWorkspaceFile(ws, p, {
+      mode: value,
+      source: value === 'edit' ? 'all-files' : 'changes',
+    });
   }
 
   protected setDiffMode(value: DiffMode): void {
-    this.diffMode.set(value);
+    const ws = this.workspaceId();
+    const p = this.filePath();
+    if (!ws || !p) return;
+
+    const state = this.fileViewState();
+    const flow = state.activeFlow;
+    const active = flow ? state[flow] : null;
+
+    if (!flow || active?.path !== p) {
+      this.uiState.openWorkspaceFile(ws, p, {
+        mode: 'diff',
+        source: 'changes',
+      });
+    }
+
+    this.uiState.updateActiveWorkspaceFileViewState(ws, {
+      splitDiff: value === 'split',
+    });
+  }
+
+  protected toggleSplit(): void {
+    this.setDiffMode(this.diffMode() === 'split' ? 'unified' : 'split');
   }
 
   protected onMarkViewed(): void {
     const ws = this.workspaceId();
     const path = this.filePath();
     if (!ws || !path) return;
+
     void this.fileViews.markViewed(ws, path).catch((err) => {
       console.warn('[file-content] markViewed failed:', err);
     });
@@ -315,6 +352,7 @@ export class FeatureFileContent {
     const ws = this.workspaceId();
     const path = this.filePath();
     if (!ws || !path) return;
+
     void this.fileViews.clearViewed(ws, path).catch((err) => {
       console.warn('[file-content] clearViewed failed:', err);
     });
@@ -322,8 +360,6 @@ export class FeatureFileContent {
 
   protected onEditorChange(next: string): void {
     this.editorValue.set(next);
-    // User typed → clear any stale-from-server banner so they can
-    // attempt another save.
     if (this.saveError()) this.saveError.set(null);
   }
 
@@ -348,10 +384,13 @@ export class FeatureFileContent {
     const p = this.filePath();
     if (!ws || !p) return;
     if (this.saving()) return;
+
     const content = this.editorValue();
     const expected = this.baselineHash();
+
     this.saving.set(true);
     this.saveError.set(null);
+
     try {
       const newHash = await this.repos.saveFile(ws, p, content, expected);
       this.baseline.set(content);
@@ -365,14 +404,19 @@ export class FeatureFileContent {
 
   private async loadFile(workspaceId: string, path: string): Promise<void> {
     const myId = ++this.loadFetchId;
+
     this.loading.set(true);
     this.loadError.set(null);
     this.saveError.set(null);
+
     try {
       const text = await this.repos.loadFile(workspaceId, path);
       if (myId !== this.loadFetchId) return;
+
       const hash = await sha256Hex(text);
       if (myId !== this.loadFetchId) return;
+
+      this.loadedEditKey = fileStateKey(workspaceId, path);
       this.baseline.set(text);
       this.baselineHash.set(hash);
       this.editorValue.set(text);
@@ -392,33 +436,38 @@ interface AppErrorShape {
   readonly message?: unknown;
 }
 
+function fileStateKey(workspaceId: string, path: string): string {
+  return `${workspaceId}:${path}`;
+}
+
 function mapSaveError(err: unknown): SaveError {
   if (err && typeof err === 'object') {
     const e = err as AppErrorShape;
     const kind = typeof e.kind === 'string' ? e.kind : null;
-    const message =
-      typeof e.message === 'string' ? e.message : String(err);
+    const message = typeof e.message === 'string' ? e.message : String(err);
+
     if (kind === 'StaleFile') return { kind: 'stale', message };
     if (kind === 'Frozen') return { kind: 'frozen', message };
+
     return { kind: 'other', message };
   }
+
   return {
     kind: 'other',
     message: err instanceof Error ? err.message : String(err),
   };
 }
 
-/** sha256 → lowercase hex. Mirrors the backend `sha256_hex` helper so
- *  the editor's baseline matches what the Rust side computes for a
- *  given UTF-8 buffer. */
 async function sha256Hex(text: string): Promise<string> {
   const bytes = TEXT_ENCODER.encode(text);
   const digest = await crypto.subtle.digest('SHA-256', bytes);
   const view = new Uint8Array(digest);
+
   let out = '';
   for (let i = 0; i < view.length; i++) {
     const b = view[i];
     out += b.toString(16).padStart(2, '0');
   }
+
   return out;
 }
