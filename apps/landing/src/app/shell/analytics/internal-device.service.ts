@@ -1,5 +1,6 @@
 import { isPlatformBrowser } from '@angular/common';
 import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { Router } from '@angular/router';
 import {
   INTERNAL_DEVICE_COOKIE,
   INTERNAL_DEVICE_TOKEN_PARAM,
@@ -28,6 +29,7 @@ type IsInternalResponse = { readonly isInternalDevice: boolean };
 export class InternalDeviceService {
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
   private readonly cookies = inject(CookieService);
+  private readonly router = inject(Router);
   private resolved: boolean | null = null;
 
   /** Authoritative resolution: opts in if needed, then queries the API. */
@@ -62,17 +64,26 @@ export class InternalDeviceService {
     }
     // Always strip the token from the visible URL — even on failure, so a
     // wrong-token URL doesn't end up in screenshots, bookmarks, or referrers.
-    this.scrubTokenFromUrl();
+    await this.scrubTokenFromUrl();
     if (ok) window.alert(OPT_IN_WELCOME);
   }
 
-  private scrubTokenFromUrl(): void {
+  // Route through Angular Router (not history.replaceState) so Router's
+  // internal URL state matches the bar. Otherwise withViewTransitions /
+  // scroll restoration can re-navigate to the captured URL and re-introduce
+  // the query param after we've stripped it.
+  private async scrubTokenFromUrl(): Promise<void> {
     const url = new URL(window.location.href);
     if (!url.searchParams.has(INTERNAL_DEVICE_TOKEN_PARAM)) return;
-    url.searchParams.delete(INTERNAL_DEVICE_TOKEN_PARAM);
-    const search = url.searchParams.toString();
-    const next = url.pathname + (search ? `?${search}` : '') + url.hash;
-    history.replaceState(history.state, '', next);
+    const queryParams: Record<string, string | null> = {
+      [INTERNAL_DEVICE_TOKEN_PARAM]: null,
+    };
+    await this.router.navigate([], {
+      queryParams,
+      queryParamsHandling: 'merge',
+      replaceUrl: true,
+      preserveFragment: true,
+    });
   }
 
   private async fetchStatus(): Promise<boolean> {
