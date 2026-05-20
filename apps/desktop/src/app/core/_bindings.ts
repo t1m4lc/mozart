@@ -755,6 +755,66 @@ async isStaged(workspaceId: string, path: string) : Promise<Result<boolean, AppE
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Mark a file viewed. Explicit reviewer action only — opening a file
+ * never calls this. Idempotent: re-marking refreshes `viewed_at` and
+ * `viewed_at_hash` to the current on-disk hash, clearing any
+ * `changed_since_viewed` state.
+ */
+async markFileViewed(workspaceId: string, path: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("mark_file_viewed", { workspaceId, path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Drop the Viewed mark for a single file. Used by the discard flow
+ * and by an explicit "Mark unviewed" toolbar action. No-op when the
+ * file was never viewed.
+ */
+async clearFileView(workspaceId: string, path: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("clear_file_view", { workspaceId, path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Return the per-file Viewed status for every file that currently
+ * has a stored mark in this workspace. Each entry is either
+ * `viewed` (stored hash matches current on-disk hash) or
+ * `changed_since_viewed` (mismatch — agent or user edit since the
+ * mark). The frontend overlays this on its own changed-files list to
+ * derive the four-way `not_viewed | viewed | changed_since_viewed |
+ * staged` decoration described in `[[mozart-viewed-principle]]`.
+ */
+async listFileViews(workspaceId: string) : Promise<Result<FileViewStatus[], AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("list_file_views", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Bulk "Mark all viewed" — marks every currently changed file viewed
+ * with its current on-disk hash. Used by the dense Changes-tab summary
+ * to close out a review in one click. Re-running the agent and
+ * modifying any of these files flips them back to
+ * `changed_since_viewed` via the normal hash comparison in
+ * `list_file_views`.
+ */
+async markAllViewed(workspaceId: string) : Promise<Result<null, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("mark_all_viewed", { workspaceId }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 async hasGithubToken() : Promise<Result<boolean, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("has_github_token") };
@@ -1285,6 +1345,16 @@ removed?: number | null }
  * single variant — the front-end re-fetches on every ping.
  */
 export type FileTreeEvent = { kind: "changed" }
+/**
+ * State of a single file relative to its stored Viewed mark. The
+ * frontend uses this to decorate Changes-tab rows and to drive the
+ * `mz-review-progress` summary. `not_viewed` is implicit (no row in
+ * the table) and never returned by this surface — the Changes-tab
+ * renderer defaults to `not_viewed` for any file without a status
+ * entry here.
+ */
+export type FileViewState = "viewed" | "changed_since_viewed"
+export type FileViewStatus = { path: string; state: FileViewState; viewed_at: number }
 /**
  * Return type — pairs the registered repo with the auto-created
  * workspace. The TS bindings expose this as `GetStartedProject`.

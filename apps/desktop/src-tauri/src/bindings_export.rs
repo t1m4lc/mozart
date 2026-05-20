@@ -97,6 +97,10 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::stage_file,
                 commands::unstage_file,
                 commands::is_staged,
+                commands::mark_file_viewed,
+                commands::clear_file_view,
+                commands::list_file_views,
+                commands::mark_all_viewed,
                 commands::has_github_token,
                 commands::connect_github,
                 commands::disconnect_github,
@@ -159,6 +163,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<DetectedIde>()
         .typ::<MergeOutcome>()
         .typ::<ChangedFile>()
+        .typ::<commands::FileViewState>()
+        .typ::<commands::FileViewStatus>()
         .typ::<GithubProbeResult>()
         .typ::<CreatedPr>()
         .typ::<AuthSessionDto>()

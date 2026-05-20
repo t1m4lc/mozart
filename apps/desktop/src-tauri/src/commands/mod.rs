@@ -29,8 +29,9 @@ use crate::credentials::keyring_store;
 use crate::db::models::{AgentRun, Chat, Message, Repo, Task, Workspace, WorkspaceChange};
 use crate::db::{
     agent_runs, chats, config, messages, new_id, now_ms, repos, tasks, threads,
-    workspace_active_chat, workspace_changes, workspaces,
+    workspace_active_chat, workspace_changes, workspace_file_views, workspaces,
 };
+use crate::db::workspace_file_views::WorkspaceFileView;
 use crate::db::DbState;
 use crate::error::AppError;
 use crate::commit::{self, ChangedFile};
@@ -1731,7 +1732,7 @@ pub(crate) async fn file_save_impl(
     Ok(sha256_hex(content.as_bytes()))
 }
 
-fn sha256_hex(bytes: &[u8]) -> String {
+pub(crate) fn sha256_hex(bytes: &[u8]) -> String {
     use sha2::{Digest, Sha256};
     let mut h = Sha256::new();
     h.update(bytes);
@@ -1742,6 +1743,16 @@ fn sha256_hex(bytes: &[u8]) -> String {
         let _ = write!(&mut s, "{b:02x}");
     }
     s
+}
+
+/// Truncated content hash used by the Viewed state. 16 hex chars =
+/// 64 bits of entropy — collision-resistant enough to distinguish
+/// "user-viewed" vs "agent-modified-since" within a single workspace's
+/// file set.
+pub(crate) fn short_content_hash(bytes: &[u8]) -> String {
+    let mut full = sha256_hex(bytes);
+    full.truncate(16);
+    full
 }
 
 pub(crate) async fn get_file_diff_impl(
@@ -2062,6 +2073,189 @@ pub async fn is_staged(
         workspaces::get(&conn, &workspace_id)?
     };
     staging::is_staged(std::path::Path::new(&ws.worktree_path), &path).await
+}
+
+// ---------------------------------------------------------------------------
+// Viewed state — per-file review markers (P2.2 / [[mozart-viewed-principle]])
+// ---------------------------------------------------------------------------
+
+/// State of a single file relative to its stored Viewed mark. The
+/// frontend uses this to decorate Changes-tab rows and to drive the
+/// `mz-review-progress` summary. `not_viewed` is implicit (no row in
+/// the table) and never returned by this surface — the Changes-tab
+/// renderer defaults to `not_viewed` for any file without a status
+/// entry here.
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
+pub enum FileViewState {
+    Viewed,
+    ChangedSinceViewed,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
+pub struct FileViewStatus {
+    pub path: String,
+    pub state: FileViewState,
+    pub viewed_at: i64,
+}
+
+/// Compute the truncated content hash of a workspace-relative file
+/// inside `worktree`. Missing files hash as the empty body so a
+/// deleted-since-viewed file lands in `changed_since_viewed`.
+async fn hash_workspace_file(worktree: &std::path::Path, path: &str) -> String {
+    let abs = worktree.join(path);
+    match tokio::fs::read(&abs).await {
+        Ok(bytes) => short_content_hash(&bytes),
+        Err(_) => short_content_hash(b""),
+    }
+}
+
+/// Mark a file viewed. Explicit reviewer action only — opening a file
+/// never calls this. Idempotent: re-marking refreshes `viewed_at` and
+/// `viewed_at_hash` to the current on-disk hash, clearing any
+/// `changed_since_viewed` state.
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_file_viewed(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    path: String,
+) -> Result<(), AppError> {
+    mark_file_viewed_impl(db.inner(), workspace_id, path).await
+}
+
+pub(crate) async fn mark_file_viewed_impl(
+    db: &DbState,
+    workspace_id: String,
+    path: String,
+) -> Result<(), AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    validate_workspace_relative_path(&path)?;
+    let hash = hash_workspace_file(std::path::Path::new(&ws.worktree_path), &path).await;
+    let row = WorkspaceFileView {
+        workspace_id,
+        path,
+        viewed_at: now_ms(),
+        viewed_at_hash: hash,
+    };
+    let conn = db.lock();
+    workspace_file_views::upsert(&conn, &row)
+}
+
+/// Drop the Viewed mark for a single file. Used by the discard flow
+/// and by an explicit "Mark unviewed" toolbar action. No-op when the
+/// file was never viewed.
+#[tauri::command]
+#[specta::specta]
+pub async fn clear_file_view(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    path: String,
+) -> Result<(), AppError> {
+    clear_file_view_impl(db.inner(), workspace_id, path).await
+}
+
+pub(crate) async fn clear_file_view_impl(
+    db: &DbState,
+    workspace_id: String,
+    path: String,
+) -> Result<(), AppError> {
+    validate_workspace_relative_path(&path)?;
+    let conn = db.lock();
+    workspace_file_views::delete(&conn, &workspace_id, &path)
+}
+
+/// Return the per-file Viewed status for every file that currently
+/// has a stored mark in this workspace. Each entry is either
+/// `viewed` (stored hash matches current on-disk hash) or
+/// `changed_since_viewed` (mismatch — agent or user edit since the
+/// mark). The frontend overlays this on its own changed-files list to
+/// derive the four-way `not_viewed | viewed | changed_since_viewed |
+/// staged` decoration described in `[[mozart-viewed-principle]]`.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_file_views(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<Vec<FileViewStatus>, AppError> {
+    list_file_views_impl(db.inner(), workspace_id).await
+}
+
+pub(crate) async fn list_file_views_impl(
+    db: &DbState,
+    workspace_id: String,
+) -> Result<Vec<FileViewStatus>, AppError> {
+    let (ws, rows) = {
+        let conn = db.lock();
+        let ws = workspaces::get(&conn, &workspace_id)?;
+        let rows = workspace_file_views::list_for_workspace(&conn, &workspace_id)?;
+        (ws, rows)
+    };
+    let worktree = std::path::PathBuf::from(&ws.worktree_path);
+    let mut out = Vec::with_capacity(rows.len());
+    for r in rows {
+        let current = hash_workspace_file(&worktree, &r.path).await;
+        let state = if current == r.viewed_at_hash {
+            FileViewState::Viewed
+        } else {
+            FileViewState::ChangedSinceViewed
+        };
+        out.push(FileViewStatus {
+            path: r.path,
+            state,
+            viewed_at: r.viewed_at,
+        });
+    }
+    Ok(out)
+}
+
+/// Bulk "Mark all viewed" — marks every currently changed file viewed
+/// with its current on-disk hash. Used by the dense Changes-tab summary
+/// to close out a review in one click. Re-running the agent and
+/// modifying any of these files flips them back to
+/// `changed_since_viewed` via the normal hash comparison in
+/// `list_file_views`.
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_all_viewed(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<(), AppError> {
+    mark_all_viewed_impl(db.inner(), workspace_id).await
+}
+
+pub(crate) async fn mark_all_viewed_impl(
+    db: &DbState,
+    workspace_id: String,
+) -> Result<(), AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    let worktree = std::path::PathBuf::from(&ws.worktree_path);
+    let changed = commit::list_changed_files(&worktree).await?;
+    if changed.is_empty() {
+        return Ok(());
+    }
+    let now = now_ms();
+    let mut rows = Vec::with_capacity(changed.len());
+    for f in changed {
+        let hash = hash_workspace_file(&worktree, &f.path).await;
+        rows.push(WorkspaceFileView {
+            workspace_id: workspace_id.clone(),
+            path: f.path,
+            viewed_at: now,
+            viewed_at_hash: hash,
+        });
+    }
+    let conn = db.lock();
+    for row in &rows {
+        workspace_file_views::upsert(&conn, row)?;
+    }
+    Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -4229,6 +4423,90 @@ mod tests {
         )
         .await
         .expect_err("traversal must be rejected");
+        assert!(matches!(err, AppError::Validation(_)));
+    }
+
+    // -------------------------------------------------------------------
+    // File views — P2.2.B (mark / clear / list / mark-all)
+    // -------------------------------------------------------------------
+
+    fn hex_short(bytes: &[u8]) -> String {
+        super::short_content_hash(bytes)
+    }
+
+    #[tokio::test]
+    async fn mark_file_viewed_inserts_row_with_current_hash() {
+        let (db, ws_id, tmp) = seed_real_workspace("fv-mark");
+        std::fs::write(tmp.path().join("foo.ts"), b"hello").unwrap();
+        mark_file_viewed_impl(&db, ws_id.clone(), "foo.ts".into())
+            .await
+            .unwrap();
+        let conn = db.lock();
+        let row = workspace_file_views::get_opt(&conn, &ws_id, "foo.ts")
+            .unwrap()
+            .unwrap();
+        assert_eq!(row.viewed_at_hash, hex_short(b"hello"));
+    }
+
+    #[tokio::test]
+    async fn list_file_views_returns_viewed_when_hash_matches() {
+        let (db, ws_id, tmp) = seed_real_workspace("fv-list-viewed");
+        std::fs::write(tmp.path().join("foo.ts"), b"hello").unwrap();
+        mark_file_viewed_impl(&db, ws_id.clone(), "foo.ts".into())
+            .await
+            .unwrap();
+        let out = list_file_views_impl(&db, ws_id).await.unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].path, "foo.ts");
+        assert_eq!(out[0].state, FileViewState::Viewed);
+    }
+
+    #[tokio::test]
+    async fn list_file_views_flips_to_changed_when_content_changes() {
+        let (db, ws_id, tmp) = seed_real_workspace("fv-list-changed");
+        std::fs::write(tmp.path().join("foo.ts"), b"hello").unwrap();
+        mark_file_viewed_impl(&db, ws_id.clone(), "foo.ts".into())
+            .await
+            .unwrap();
+        // Simulate the agent (or user) modifying the file post-review.
+        std::fs::write(tmp.path().join("foo.ts"), b"hello world").unwrap();
+        let out = list_file_views_impl(&db, ws_id).await.unwrap();
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].state, FileViewState::ChangedSinceViewed);
+    }
+
+    #[tokio::test]
+    async fn list_file_views_flips_to_changed_when_file_deleted() {
+        let (db, ws_id, tmp) = seed_real_workspace("fv-list-deleted");
+        std::fs::write(tmp.path().join("foo.ts"), b"hello").unwrap();
+        mark_file_viewed_impl(&db, ws_id.clone(), "foo.ts".into())
+            .await
+            .unwrap();
+        std::fs::remove_file(tmp.path().join("foo.ts")).unwrap();
+        let out = list_file_views_impl(&db, ws_id).await.unwrap();
+        assert_eq!(out[0].state, FileViewState::ChangedSinceViewed);
+    }
+
+    #[tokio::test]
+    async fn clear_file_view_removes_row() {
+        let (db, ws_id, tmp) = seed_real_workspace("fv-clear");
+        std::fs::write(tmp.path().join("foo.ts"), b"hello").unwrap();
+        mark_file_viewed_impl(&db, ws_id.clone(), "foo.ts".into())
+            .await
+            .unwrap();
+        clear_file_view_impl(&db, ws_id.clone(), "foo.ts".into())
+            .await
+            .unwrap();
+        let out = list_file_views_impl(&db, ws_id).await.unwrap();
+        assert!(out.is_empty());
+    }
+
+    #[tokio::test]
+    async fn mark_file_viewed_rejects_traversal_path() {
+        let (db, ws_id, _tmp) = seed_real_workspace("fv-traversal");
+        let err = mark_file_viewed_impl(&db, ws_id, "../etc/hosts".into())
+            .await
+            .expect_err("traversal must be rejected");
         assert!(matches!(err, AppError::Validation(_)));
     }
 }
