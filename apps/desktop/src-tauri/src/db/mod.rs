@@ -27,6 +27,7 @@ pub mod tasks;
 pub mod threads;
 pub mod workspace_active_chat;
 pub mod workspace_changes;
+pub mod workspace_file_views;
 pub mod workspaces;
 
 /// Embedded migration SQL. Each entry is `(target_version, sql)`. The
@@ -41,6 +42,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (6, include_str!("../../migrations/006_repos_run_command.sql")),
     (7, include_str!("../../migrations/007_project_local_config.sql")),
     (8, include_str!("../../migrations/008_workspaces_last_merge_action.sql")),
+    (9, include_str!("../../migrations/009_workspace_file_views.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.
