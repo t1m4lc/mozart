@@ -49,6 +49,23 @@ export interface RepositoriesAdapter {
    */
   readFile(workspaceId: string, path: string): Promise<string>;
 
+  /**
+   * Write UTF-8 text back to a file in the worktree (P2.1 Edit mode).
+   *
+   * `expectedHash` is sha256-hex of the buffer the editor last loaded
+   * (or last saved). The backend compares it against the current
+   * on-disk hash and rejects with a typed `StaleFile` error if the
+   * file changed under the editor. The returned hash is the sha256-hex
+   * of the new buffer — callers should adopt it as their new baseline
+   * so a follow-up edit can save without round-tripping a fresh read.
+   */
+  saveFile(
+    workspaceId: string,
+    path: string,
+    content: string,
+    expectedHash: string,
+  ): Promise<string>;
+
   /** Flat list of changed files in the workspace's worktree (uncommitted +
    *  untracked). Powers the commit dialog's checkbox list. */
   listChangedFiles(workspaceId: string): Promise<readonly ChangedFile[]>;

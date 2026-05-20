@@ -1220,19 +1220,19 @@ Files: ~2 + sandbox demo page.
 
 #### Atom A2.1.C — Add Edit mode to `feature-file-content`
 
-- [ ] Component receives `filePath` and `mode: 'diff' | 'edit'`.
+- [x] Component receives `filePath` and `mode: 'diff' | 'edit'`.
       `diffMode` remains owned by the existing diff toolbar/path until
       the split-diff feature is implemented.
-- [ ] For Edit mode: lazy-render `<mz-code-editor>` reading file
+- [x] For Edit mode: lazy-render `<mz-code-editor>` reading file
       contents via the existing `read_workspace_file` command.
-- [ ] For Diff/Review mode: keep the existing unified diff renderer and
+- [x] For Diff/Review mode: keep the existing unified diff renderer and
       existing markdown preview behavior.
-- [ ] Track dirty state in the file-content component and expose an
+- [x] Track dirty state in the file-content component and expose an
       explicit Save action; no autosave in P2.1.
-- [ ] If the file changes on disk while the editor is dirty, block save
+- [x] If the file changes on disk while the editor is dirty, block save
       and show a stale-file error with reload/discard as the recovery
       path.
-- [ ] **Manual checkpoint:** Click a `.md` file in All Files → Review
+- [x] **Manual checkpoint:** Click a `.md` file in All Files → Review
       mode still opens rendered preview/diff. Switch to Edit mode → code
       editor opens. Edit a line, Save (P2.1.D below), reload, change
       persists.

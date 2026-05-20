@@ -542,13 +542,39 @@ async getFileDiff(workspaceId: string, path: string) : Promise<Result<string, Ap
 },
 /**
  * Read a file's raw contents from a workspace's worktree. Used by the
- * markdown preview in the file viewer (and any other component that
- * needs file content rather than a diff). Reuses `file_diff`'s path
- * validation so traversal escapes are rejected before any FS read.
+ * markdown preview, the CodeMirror Edit pane (P2.1) and any other
+ * component that needs file content rather than a diff. Path validation
+ * goes through `path_guard::validate_workspace_relative_path` so the
+ * read and save paths cannot drift.
  */
 async readWorkspaceFile(workspaceId: string, path: string) : Promise<Result<string, AppError>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_workspace_file", { workspaceId, path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Write a file in the workspace's worktree. Used by the CodeMirror Edit
+ * pane (P2.1) for an explicit Save action.
+ * 
+ * Contract:
+ * - `expected_hash` = sha256 of the buffer the editor last loaded /
+ * saved. The command computes the current on-disk hash and rejects
+ * with `AppError::StaleFile(path)` if they diverge — the file changed
+ * under us, the editor must reload or discard.
+ * - `AppError::Frozen` when the workspace is in the closed UI state
+ * (`done` / `canceled`) — Save must be blocked, [§P0.2 freeze].
+ * - UTF-8 text only. Binary / non-UTF-8 editing is out of scope for
+ * P2.1.
+ * - Atomic: writes to `<path>.mozart-tmp-<rand>` next to the target
+ * and renames it into place so a torn write can never leave a half
+ * file on disk.
+ */
+async fileSave(workspaceId: string, path: string, content: string, expectedHash: string) : Promise<Result<string, AppError>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("file_save", { workspaceId, path, content, expectedHash }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -1116,7 +1142,7 @@ export type AgentRunTerminated = { run_id: string; status: string;
  * workspace B.
  */
 workspace_id: string }
-export type AppError = { kind: "Db"; message: string } | { kind: "Io"; message: string } | { kind: "NotFound"; message: string } | { kind: "Validation"; message: string } | { kind: "AgentSpawn"; message: string } | { kind: "GitCmd"; message: string } | { kind: "Frozen"; message: string } | { kind: "MergeDirtyTree"; message: string } | { kind: "MergeBaseAhead"; message: string }
+export type AppError = { kind: "Db"; message: string } | { kind: "Io"; message: string } | { kind: "NotFound"; message: string } | { kind: "Validation"; message: string } | { kind: "AgentSpawn"; message: string } | { kind: "GitCmd"; message: string } | { kind: "Frozen"; message: string } | { kind: "MergeDirtyTree"; message: string } | { kind: "MergeBaseAhead"; message: string } | { kind: "StaleFile"; message: string }
 /**
  * Wire shape persisted in the OS keyring (JSON-encoded). The `Date`
  * fields are normalized to epoch-ms numbers on the Angular side so the

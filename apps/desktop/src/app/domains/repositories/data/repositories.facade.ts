@@ -40,6 +40,17 @@ export class RepositoriesFacade {
     return this.adapter.readFile(workspaceId, path);
   }
 
+  /** Save edited UTF-8 text back to a workspace file. See
+   *  `RepositoriesAdapter.saveFile` for the stale-hash contract. */
+  async saveFile(
+    workspaceId: string,
+    path: string,
+    content: string,
+    expectedHash: string,
+  ): Promise<string> {
+    return this.adapter.saveFile(workspaceId, path, content, expectedHash);
+  }
+
   /** List uncommitted + untracked files. Always hits the adapter —
    *  callers that need an always-fresh read (commit dialog) use this.
    *  The aside's Changes pane goes through `cachedChangedFilesFor` /
