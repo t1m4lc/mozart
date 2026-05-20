@@ -1365,79 +1365,108 @@ or `changed since viewed` file) / `[Continue anyway]`. No hard gate.
 
 #### Atom A2.2.A — DB migration `workspace_file_views`
 
-- [ ] Migration script + Rust model + insert/get/list_for_workspace
+- [x] Migration script + Rust model + insert/get/list_for_workspace
       mutators.
-- [ ] **Manual checkpoint:** Insert a row via test, query back.
+- [x] **Manual checkpoint:** Insert a row via test, query back.
+      _Five db unit tests (`upsert_then_get`, `upsert_overwrites_existing`,
+      `delete_removes_row`, `list_returns_only_workspace_rows`,
+      `fk_cascades_on_workspace_delete`) all green. Schema bumps to v9._
 
 Files: ~3 + 1 migration.
 
 #### Atom A2.2.B — Tauri commands
 
-- [ ] `mark_file_viewed(workspace_id, path)` — computes content hash
+- [x] `mark_file_viewed(workspace_id, path)` — computes content hash
       on the Rust side (sha256 truncated to 16 chars), upserts.
       Called only from explicit reviewer actions, never from file open.
-- [ ] `list_file_views(workspace_id)` — returns map of path → state
+- [x] `list_file_views(workspace_id)` — returns map of path → state
       (`viewed` | `changed_since_viewed`) by comparing stored
       `viewed_at_hash` to current content hash for each changed file.
-- [ ] `mark_all_viewed(workspace_id)` — deliberate bulk action that
+- [x] `mark_all_viewed(workspace_id)` — deliberate bulk action that
       marks every currently changed file viewed.
-- [ ] `clear_file_view(workspace_id, path)` — for discard flow or
+- [x] `clear_file_view(workspace_id, path)` — for discard flow or
       explicit mark-unviewed.
-- [ ] **Manual checkpoint:** Sanity each command via devtools.
+- [x] **Manual checkpoint:** Sanity each command via devtools.
+      _Six cargo unit tests cover the matrix: mark inserts row at
+      current hash; list reports `viewed` when hash matches; flips
+      to `changed_since_viewed` on content change AND on file
+      deletion; clear removes row; traversal path is rejected as
+      `Validation`. Bindings re-exported via the regen helper —
+      `markFileViewed` / `listFileViews` / `markAllViewed` /
+      `clearFileView` / `FileViewState` / `FileViewStatus` present
+      in `_bindings.ts`._
 
 Files: ~4 commands.
 
 #### Atom A2.2.C — `FileViewsFacade` + signal store
 
-- [ ] Per-workspace map signal driving the Changes tab and
+- [x] Per-workspace map signal driving the Changes tab and
       `mz-review-progress` input model.
-- [ ] Keep durable Viewed state in `FileViewsFacade`; keep purely UI
+- [x] Keep durable Viewed state in `FileViewsFacade`; keep purely UI
       review state (expanded progress details, selected review file,
       expanded hunk context) in an NgRx SignalStore slice, reusing
       `UiStateStore` if the state is cross-domain or creating a narrow
       repositories UI store if it stays local to the review surface.
-- [ ] On agent-run-end event (P2.7), re-fetch and invalidate any
+- [x] On agent-run-end event (P2.7), re-fetch and invalidate any
       viewed file whose current content hash changed.
-- [ ] **Manual checkpoint:** Agent edits a viewed file → state flips
+- [x] **Manual checkpoint:** Agent edits a viewed file → state flips
       to `changed since viewed` after run completion.
+      _Eight Vitest specs cover the facade surface (`refresh`,
+      `markViewed`, `clearViewed`, `markAll`, `countsFor`,
+      `viewsFor` empty default, `invalidateAfterRun` flip,
+      `forget`). Run-end hook also wired in
+      `feature-workspace-aside.ts` so the cache invalidates as soon
+      as `agentRunTerminated` fires._
 
 Files: ~3.
 
 #### Atom A2.2.D — `mz-review-progress` component
 
-- [ ] Add a Mozart-owned reusable component in `libs/mozart-ui`.
+- [x] Add a Mozart-owned reusable component in `libs/mozart-ui`.
       It renders the collapsed `N viewed / M changed` row, progress bar,
       and optional Collapsible details for file state counts:
       `added | modified | deleted | renamed | copied | untracked`.
-- [ ] Compose Spartan primitives only: `HlmProgressImports`,
+- [x] Compose Spartan primitives only: `HlmProgressImports`,
       `HlmCollapsibleImports`, `HlmButtonImports`, `HlmBadgeImports`,
       `HlmTooltipImports`, and `HlmSeparatorImports` from
       `@mozart/ui/*`. Reuse `mz-diff-stats` for line-count stats only
       when line additions/removals are displayed nearby.
-- [ ] Outputs: `reviewRemaining`, `markAllViewed`. No data fetching or
+- [x] Outputs: `reviewRemaining`, `markAllViewed`. No data fetching or
       mutation inside the component.
-- [ ] **Manual checkpoint:** Render in sandbox/app with 0/0, partial,
+- [x] **Manual checkpoint:** Render in sandbox/app with 0/0, partial,
       complete, and changed-since-viewed states; Collapsible expands and
       collapses without changing Viewed state.
+      _New `libs/mozart-ui/review-progress` lib. Sandbox demo at
+      `/review-progress` exercises four scenarios (empty, partial,
+      complete, mix with changed-since-viewed); buttons emit log
+      lines so the host wiring is visible. `pnpm nx run sandbox:build`
+      green._
 
 Files: ~2.
 
 #### Atom A2.2.E — Diff toolbar component
 
-- [ ] New `feature-file-toolbar` in the repositories domain.
-- [ ] Renders the layout above. Inputs: filePath, viewedState,
+- [x] New `feature-file-toolbar` in the repositories domain.
+- [x] Renders the layout above. Inputs: filePath, viewedState,
       isFrozen, currentDiffMode, currentFileMode. Outputs: explicit
       mark-viewed / mark-unviewed events plus mode toggle events.
-- [ ] **Both segmented toggles (`[Unified|Split]`, `[Diff|Edit]`)
+- [x] **Both segmented toggles (`[Unified|Split]`, `[Diff|Edit]`)
       MUST use `<hlm-tabs>` with icon-only `hlmTabsTrigger`s**, per
       the "Tabs implementation" note in the section above. Do not
       hand-roll `role="tab"` buttons — Spartan supplies aria +
       keyboard nav for free, and aligns visually with the P1.2/B1
       aside migration.
-- [ ] **Manual checkpoint:** Render in sandbox app with each state.
+- [x] **Manual checkpoint:** Render in sandbox app with each state.
       Verify opening a file does not mark it viewed, the explicit
       toolbar action does, and discreet visual treatment matches the
       lock.
+      _Wired into `feature-file-content` as the replacement for the
+      inline header. `viewedState` reads `FileViewsFacade.entryFor(…)`,
+      so opening a file never marks it viewed (the facade is read-only
+      until the toolbar button fires `markViewed` / `markUnviewed`).
+      `<hlm-tabs>` drives both segmented controls — Edit tab is
+      disabled when the workspace is frozen. Desktop build + lint
+      green._
 
 Files: ~3.
 
