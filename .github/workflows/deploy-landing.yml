@@ -138,6 +138,13 @@ jobs:
           name: landing-dist
           path: dist
 
+      # wrangler `pages deploy <dir>` discovers Functions at
+      # path.join(process.cwd(), "functions") — NOT <dir>/functions. The build
+      # job bundled them into dist/functions/; hoist them to the workspace root
+      # so wrangler's CWD-relative lookup finds them.
+      - name: Hoist Pages Functions to workspace root for wrangler discovery
+        run: mv dist/functions functions
+
       # GitHub is the source of truth for runtime secrets. We push them to CF
       # Pages on every main push so a secret rotation in GitHub propagates on
       # the next deploy. Skipped on PRs — previews don't get the token, so
