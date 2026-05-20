@@ -9,7 +9,10 @@ import {
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { RepositoriesFacade } from '../data/repositories.facade';
-import { DiffView } from '../ui-diff-view/ui-diff-view';
+import {
+  DiffView,
+  type FetchContextLines,
+} from '../ui-diff-view/ui-diff-view';
 import { UiMarkdownView } from '../ui-markdown-view/ui-markdown-view';
 
 type ViewMode = 'diff' | 'preview';
@@ -34,6 +37,12 @@ function isMarkdownPath(path: string | null): boolean {
 // `loadFileDiff` is unchanged. Both calls are tagged with a monotonic
 // `fetchId` so out-of-order responses (user clicks foo then bar) never
 // clobber the visible content.
+//
+// `DiffView` also accepts a context-fetch callback so P2.3 expand bars
+// can reveal unchanged lines between hunks. The callback lazy-loads
+// the full file body the first time it's needed and slices the
+// requested range from a per-path cache; subsequent expansions on the
+// same file pay no Tauri round-trip.
 @Component({
   selector: 'app-feature-file-diff',
   imports: [DiffView, UiMarkdownView, HlmButtonImports],
@@ -103,6 +112,8 @@ function isMarkdownPath(path: string | null): boolean {
           [diffText]="diffText()"
           [loading]="loading()"
           [error]="error()"
+          [fetchContext]="fetchContext"
+          [fileLineCount]="fileLineCount()"
           (refresh)="reload()"
         />
       }
@@ -137,6 +148,20 @@ export class FeatureFileDiff {
   private diffFetchId = 0;
   private previewFetchId = 0;
 
+  // Per-path file-body cache for P2.3 expand-bar context fetches.
+  // Stays populated across switches so re-opening a file with prior
+  // expansions can satisfy them without another Tauri round-trip.
+  private readonly fileBodies = new Map<string, string[]>();
+  private readonly fileBodyFetches = new Map<string, Promise<string[]>>();
+
+  protected readonly fileLineCount = signal<number | null>(null);
+
+  // Stable callback identity so DiffView's effect doesn't tear down on
+  // every change-detection pass. Reads the current workspaceId/path
+  // through signals at call time.
+  protected readonly fetchContext: FetchContextLines = (from, to) =>
+    this.loadContextLines(from, to);
+
   constructor() {
     // Reset mode when the file changes — markdown default is preview,
     // everything else stays on diff.
@@ -152,6 +177,7 @@ export class FeatureFileDiff {
       if (!id || !p) {
         this.diffText.set('');
         this.error.set(null);
+        this.fileLineCount.set(null);
         return;
       }
       void this.fetchDiff(id, p);
@@ -170,6 +196,14 @@ export class FeatureFileDiff {
         return;
       }
       void this.fetchPreview(id, p);
+    });
+
+    // Invalidate the per-file body cache on FS-watcher ping. Hunks
+    // shift; the cached lines would be stale.
+    effect(() => {
+      this.refreshTick();
+      this.fileBodies.clear();
+      this.fileBodyFetches.clear();
     });
   }
 
@@ -220,4 +254,61 @@ export class FeatureFileDiff {
       }
     }
   }
+
+  private async loadContextLines(
+    from: number,
+    to: number,
+  ): Promise<readonly string[]> {
+    const ws = this.workspaceId();
+    const p = this.path();
+    if (!ws || !p) return [];
+
+    const lines = await this.ensureFileBody(ws, p);
+    if (lines.length === 0) return [];
+    const safeFrom = Math.max(1, from);
+    const safeTo = Math.min(lines.length, to);
+    if (safeTo < safeFrom) return [];
+    // lines is indexed 0-based; line numbers are 1-based.
+    return lines.slice(safeFrom - 1, safeTo);
+  }
+
+  private async ensureFileBody(
+    workspaceId: string,
+    path: string,
+  ): Promise<string[]> {
+    const key = bodyKey(workspaceId, path);
+    const cached = this.fileBodies.get(key);
+    if (cached) return cached;
+
+    const pending = this.fileBodyFetches.get(key);
+    if (pending) return pending;
+
+    const promise = this.repos.loadFile(workspaceId, path).then(
+      (text) => {
+        const lines = splitLines(text);
+        this.fileBodies.set(key, lines);
+        this.fileBodyFetches.delete(key);
+        if (this.workspaceId() === workspaceId && this.path() === path) {
+          this.fileLineCount.set(lines.length);
+        }
+        return lines;
+      },
+      (err) => {
+        this.fileBodyFetches.delete(key);
+        throw err;
+      },
+    );
+    this.fileBodyFetches.set(key, promise);
+    return promise;
+  }
+}
+
+function bodyKey(workspaceId: string, path: string): string {
+  return `${workspaceId} ${path}`;
+}
+
+function splitLines(text: string): string[] {
+  if (!text) return [];
+  const trimmed = text.endsWith('\n') ? text.slice(0, -1) : text;
+  return trimmed.split('\n');
 }
