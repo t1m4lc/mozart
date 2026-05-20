@@ -12,4 +12,9 @@ export const appRoutes: Route[] = [
     loadComponent: () =>
       import('./composer.sandbox').then((m) => m.ComposerSandbox),
   },
+  {
+    path: 'code-editor',
+    loadComponent: () =>
+      import('./code-editor.sandbox').then((m) => m.CodeEditorSandbox),
+  },
 ];

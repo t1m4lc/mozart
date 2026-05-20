@@ -1202,18 +1202,19 @@ Files: ~5 (lib scaffolding + theme).
 
 #### Atom A2.1.B — `MzCodeEditor` standalone component
 
-- [ ] In `libs/mozart-ui/code-editor/`, a standalone component
+- [x] In `libs/mozart-ui/code-editor/`, a standalone component
       wrapping a `viewChild(ElementRef)` host and an `EditorView`.
-- [ ] Inputs: `value`, `language` (string → extension), `readOnly`,
+- [x] Inputs: `value`, `language` (string → extension), `readOnly`,
       `theme`.
-- [ ] Outputs: `valueChange` (debounced).
-- [ ] Uses `viewChild` signal per [[feedback_viewchild_signal]] —
+- [x] Outputs: `valueChange` (debounced).
+- [x] Uses `viewChild` signal per [[feedback_viewchild_signal]] —
       no `inject(ElementRef)` on `this`.
-- [ ] Handles external `value` changes without overwriting local dirty
+- [x] Handles external `value` changes without overwriting local dirty
       edits unless the parent explicitly resets the buffer.
-- [ ] **Manual checkpoint:** Render in sandbox app (`apps/sandbox`)
+- [x] **Manual checkpoint:** Render in sandbox app (`apps/sandbox`)
       with a TS file → syntax highlighted, line numbers visible, edit
-      works.
+      works. _Sandbox page at `/code-editor` exercises language /
+      theme / readOnly toggles with a debounced emit panel._
 
 Files: ~2 + sandbox demo page.
 

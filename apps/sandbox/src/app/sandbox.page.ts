@@ -27,6 +27,11 @@ import { HlmButtonImports } from '@mozart/ui/button';
             HlmComposer →
           </a>
         </li>
+        <li>
+          <a hlmBtn variant="outline" routerLink="/code-editor">
+            MzCodeEditor →
+          </a>
+        </li>
       </ul>
     </section>
   `,
