@@ -32,6 +32,7 @@ import { events } from '../../../core/_bindings';
 import { ProjectsFacade } from '../../projects';
 import {
   FeatureFileTree,
+  FileViewsFacade,
   RepositoriesFacade,
   UiConfirmDiscardChangesDialog,
   type ChangedFile,
@@ -477,6 +478,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
 export class FeatureWorkspaceAside {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly repos = inject(RepositoriesFacade);
+  private readonly fileViews = inject(FileViewsFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -660,6 +662,14 @@ export class FeatureWorkspaceAside {
       // Refresh sidebar aggregate chips alongside the file list — same
       // tick that picks up new files also picks up new line counts.
       void this.workspaces.refreshDiffStats();
+      // P2.2.C — keep the Viewed map in sync with the freshly-loaded
+      // changed-files list. The Rust side recomputes
+      // `viewed | changed_since_viewed` against current on-disk hashes,
+      // so the toolbar checkbox + `mz-review-progress` always reflect
+      // post-edit reality.
+      void this.fileViews.refresh(id).catch((err) => {
+        console.warn('[aside] refresh file views failed:', err);
+      });
     });
 
     // P2.7.A — auto-route to the Changes view when the active
@@ -689,6 +699,17 @@ export class FeatureWorkspaceAside {
             this.uiState.updateWorkspaceAsideState(payload.workspace_id, {
               filesView: 'changes',
             });
+            // P2.2.C — any file the agent touched will now have a
+            // fresh on-disk hash. Re-fetch so previously-viewed files
+            // that changed flip to `changed_since_viewed`.
+            void this.fileViews
+              .invalidateAfterRun(payload.workspace_id)
+              .catch((err) => {
+                console.warn(
+                  '[aside] file views invalidate after run failed:',
+                  err,
+                );
+              });
           })
           .catch((err) => {
             console.warn('[aside] auto-route changed files lookup failed:', err);

@@ -93,6 +93,34 @@ export interface RepositoriesAdapter {
    *  most-recent agent-run checkpoint. Destructive — callers must
    *  confirm with the user before invoking. */
   discardWorkspaceChanges(workspaceId: string): Promise<void>;
+
+  // ── Viewed state (P2.2 / [[mozart-viewed-principle]]) ────────────
+  // Each surface is an explicit reviewer action — opening a file
+  // never marks it viewed. See the spec at
+  // `docs/specs/plan-mozart-dogfood-readiness.md` § P2.2.
+
+  /** Mark one file viewed at its current content hash. Idempotent. */
+  markFileViewed(workspaceId: string, path: string): Promise<void>;
+
+  /** Drop the Viewed record for one file (mark-unviewed / discard). */
+  clearFileView(workspaceId: string, path: string): Promise<void>;
+
+  /** Per-file Viewed status for every file currently marked viewed.
+   *  Files without a record default to `not_viewed` and never appear
+   *  in this list. */
+  listFileViews(workspaceId: string): Promise<readonly FileViewEntry[]>;
+
+  /** Mark every currently changed file viewed in one call. */
+  markAllViewed(workspaceId: string): Promise<void>;
+}
+
+/** Aside-facing variant of the wire-level `FileViewStatus`. The
+ *  `state` is normalised to the union; the timestamp is exposed so
+ *  the review surface can surface "viewed X ago" if it ever wants. */
+export interface FileViewEntry {
+  readonly path: string;
+  readonly state: 'viewed' | 'changed_since_viewed';
+  readonly viewedAt: number;
 }
 
 /** UI-facing changed-file entry. Wire status normalised to one of

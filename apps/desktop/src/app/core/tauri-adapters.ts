@@ -488,6 +488,23 @@ function provideRepositoriesAdapter(): Provider {
       async discardWorkspaceChanges(workspaceId) {
         unwrap(await commands.discardWorkspaceChanges(workspaceId));
       },
+      async markFileViewed(workspaceId, path) {
+        unwrap(await commands.markFileViewed(workspaceId, path));
+      },
+      async clearFileView(workspaceId, path) {
+        unwrap(await commands.clearFileView(workspaceId, path));
+      },
+      async listFileViews(workspaceId) {
+        const list = unwrap(await commands.listFileViews(workspaceId));
+        return list.map((v) => ({
+          path: v.path,
+          state: v.state,
+          viewedAt: v.viewed_at,
+        }));
+      },
+      async markAllViewed(workspaceId) {
+        unwrap(await commands.markAllViewed(workspaceId));
+      },
     } satisfies RepositoriesAdapter,
   };
 }

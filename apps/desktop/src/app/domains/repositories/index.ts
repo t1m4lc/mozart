@@ -11,8 +11,18 @@ export type {
 export { fileNodeFromDto } from './data/file-node.adapter';
 export { RepositoriesFacade } from './data/repositories.facade';
 export {
+  FileViewsFacade,
+  type ReviewProgressCounts,
+} from './data/file-views.facade';
+export {
+  FileViewsStore,
+  type FileViewEntry,
+  type FileViewState,
+} from './data/file-views.store';
+export {
   REPOSITORIES_ADAPTER,
   type ChangedFile,
+  type FileViewEntry as FileViewAdapterEntry,
   type RepositoriesAdapter,
 } from './data/repositories.adapter';
 export { FeatureFileTree } from './feature-file-tree/feature-file-tree';
