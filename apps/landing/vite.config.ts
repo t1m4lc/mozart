@@ -74,6 +74,68 @@ function devRedirectsFromCloudflareFile(): Plugin {
   };
 }
 
+// Mirrors the Cloudflare Pages Functions under functions/api/analytics/* in
+// `vite dev`. Production uses CF Functions directly — this plugin is dev-only.
+// Reads INTERNAL_DEVICE_TOKEN from process.env (i.e. .env / .env.local loaded
+// via `loadEnv`). The cookie name must stay in sync with functions/api/analytics/_lib.ts.
+function devAnalyticsApi(token: string | undefined): Plugin {
+  const COOKIE = 'mozart_internal_device';
+  const MAX_AGE = 60 * 60 * 24 * 365;
+  const constantTimeEquals = (a: string, b: string): boolean => {
+    if (a.length !== b.length) return false;
+    let diff = 0;
+    for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+    return diff === 0;
+  };
+  const hasCookie = (header: string | undefined): boolean => {
+    if (!header) return false;
+    const prefix = `${COOKIE}=`;
+    return header
+      .split(';')
+      .map((s) => s.trim())
+      .some((s) => s.startsWith(prefix) && s.length > prefix.length);
+  };
+  const json = (res: import('http').ServerResponse, status: number, body: unknown, extra?: Record<string, string>) => {
+    res.writeHead(status, {
+      'content-type': 'application/json',
+      'cache-control': 'no-store',
+      ...extra,
+    });
+    res.end(JSON.stringify(body));
+  };
+  return {
+    name: 'mozart-dev-analytics-api',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/api/analytics/is-internal-device', (req, res, next) => {
+        if (req.method !== 'GET') return next();
+        json(res, 200, { isInternalDevice: hasCookie(req.headers.cookie) });
+      });
+      server.middlewares.use('/api/analytics/set-internal-device', (req, res, next) => {
+        if (req.method !== 'POST') return next();
+        if (!token) return json(res, 503, { error: 'internal_device_token_unset' });
+        const chunks: Buffer[] = [];
+        req.on('data', (c) => chunks.push(c));
+        req.on('end', () => {
+          let body: { token?: unknown } = {};
+          try {
+            body = JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
+          } catch {
+            return json(res, 400, { error: 'invalid_json' });
+          }
+          const provided = typeof body.token === 'string' ? body.token : '';
+          if (!constantTimeEquals(provided, token)) {
+            return json(res, 401, { error: 'invalid_token' });
+          }
+          json(res, 200, { ok: true }, {
+            'set-cookie': `${COOKIE}=1; Path=/; Max-Age=${MAX_AGE}; SameSite=Lax`,
+          });
+        });
+      });
+    },
+  };
+}
+
 // Exposes libs/mozart-assets/src/{shared,landing}/** at `/assets/...` —
 // dev via middleware, build via copy into outDir/assets.
 // Also serves shared/favicons/* at the output root (favicon.ico, favicon.svg, manifest.webmanifest).
