@@ -201,6 +201,32 @@ fn resolve_sandbox_roots(
     }
 }
 
+/// # Single-spawn-site invariant (P0.1 S0.1.F audit)
+///
+/// `claude` is spawned in exactly ONE production code path:
+/// [`spawn_run`] below, which calls `Command::new(resolve_claude_bin())`
+/// with the argv built by [`production_argv`]. The only other
+/// `Command::new("claude")` in the crate is `install::check_installed`
+/// (`--version` probe — not an agent run, sandbox flags do not apply).
+///
+/// Spike modules under `src/spikes/` are `#[cfg(test)]`-gated and never
+/// reach production builds; their direct `Command::new("claude")`
+/// calls are dev-only proof-of-concept code and do not violate the
+/// invariant.
+///
+/// **Rule:** any new code that needs to invoke `claude` MUST funnel
+/// through [`production_argv`]. Skipping that path bypasses the
+/// sandbox tail (`--add-dir`, `--permission-mode=acceptEdits`,
+/// `--allowedTools`), which is a security regression.
+///
+/// Verify the invariant with:
+/// `rg "Command::new\(.*claude" apps/desktop/src-tauri/src` →
+/// expected hits: runner.rs (this site) + install.rs (version probe).
+/// Spike files appear because they're physically in the tree but they
+/// don't compile into the production binary.
+///
+/// ---
+///
 /// Compose the full argv `spawn_run` passes to `claude` (after the
 /// program name). Locked output-format prefix (D1.4-C) followed by the
 /// sandbox tail from

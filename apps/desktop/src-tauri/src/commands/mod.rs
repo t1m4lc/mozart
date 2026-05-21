@@ -784,6 +784,46 @@ pub async fn set_workspace_last_merge_action(
 }
 
 // ---------------------------------------------------------------------------
+// set_workspace_sandbox_level (P0.1 S0.1.E — debug-only)
+// ---------------------------------------------------------------------------
+
+/// Change a workspace's [`SandboxLevel`]. Validated against
+/// `SandboxLevel::from_str` before writing — an unknown string
+/// surfaces as `AppError::Validation` rather than silently widening
+/// the agent's reach via a bogus DB row.
+///
+/// **No UI in v0.** The toggle UI ships with the Security settings
+/// panel (TODO-008). For now this command is reachable only via the
+/// devtools (`__TAURI__.invoke('set_workspace_sandbox_level', …)`) and
+/// from E2E tests; that's intentional per /plan-devex-review
+/// 2026-05-19 (first-run users have no context to interpret a
+/// "Mozart-wide / project / workspace-only" choice without a security
+/// surface around it).
+#[tauri::command]
+#[specta::specta]
+pub async fn set_workspace_sandbox_level(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    level: String,
+) -> Result<(), AppError> {
+    set_workspace_sandbox_level_impl(db.inner(), workspace_id, level).await
+}
+
+pub(crate) async fn set_workspace_sandbox_level_impl(
+    db: &DbState,
+    workspace_id: String,
+    level: String,
+) -> Result<(), AppError> {
+    use std::str::FromStr;
+    // Parse before touching the DB — refuse to write anything that
+    // wouldn't round-trip back through `SandboxLevel::from_str` later.
+    let parsed = crate::claude_cli::sandbox_policy::SandboxLevel::from_str(&level)?;
+    let canonical = parsed.to_string();
+    let conn = db.lock();
+    workspaces::set_sandbox_level(&conn, &workspace_id, &canonical)
+}
+
+// ---------------------------------------------------------------------------
 // start_agent_run
 // ---------------------------------------------------------------------------
 
@@ -1862,6 +1902,27 @@ pub async fn open_terminal(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+
+    // Atom 6 (user-added) — assert the worktree path lives inside
+    // this workspace's sandbox roots before opening the PTY. The
+    // worktree is set by Mozart at workspace-create time so this is
+    // mostly defensive; a corrupted DB row pointing at /etc would
+    // otherwise spawn a shell with $HOME-wide access from
+    // /etc/. The OS-level fence (TODO-001 / P4 sandbox-exec) is
+    // still the only thing that prevents `cd ~/.ssh` after the
+    // shell is live; this gate just refuses to OPEN a shell whose
+    // initial cwd is outside scope.
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let _canonical = path_guard::validate_agent_path(
+        std::path::Path::new(&ws.worktree_path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
+
     // Drop any prior PTY before spawning a new one (kills child).
     registry.cancel(&workspace_id);
     let handle = terminal::spawn(
@@ -1982,7 +2043,7 @@ pub(crate) async fn start_workspace_run_impl(
     rows: u16,
     on_event: Channel<TerminalEvent>,
 ) -> Result<(), AppError> {
-    let (worktree_path, command) = {
+    let (ws, command) = {
         let conn = db.lock();
         // Plan P0.2 — block run-script launches on frozen workspaces.
         workspaces::assert_workspace_active(&conn, &workspace_id)?;
@@ -1994,8 +2055,26 @@ pub(crate) async fn start_workspace_run_impl(
                 "no run_command configured for this project".into(),
             )
         })?;
-        (ws.worktree_path, cmd)
+        (ws, cmd)
     };
+
+    // Atom 6 (user-added) — same PTY sandbox-root assertion as
+    // `open_terminal`. The Run-tab PTY also inherits the user's
+    // shell environment but starts at the workspace worktree; refuse
+    // to launch it if the worktree falls outside the workspace's
+    // sandbox roots.
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let _canonical = path_guard::validate_agent_path(
+        std::path::Path::new(&ws.worktree_path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
+
+    let worktree_path = ws.worktree_path;
     registry.cancel(&workspace_id);
     let handle = terminal::spawn_command(
         std::path::Path::new(&worktree_path),
@@ -3466,6 +3545,66 @@ mod tests {
         let err = set_workspace_unread_impl(&db, "no-such-ws".into(), true)
             .await
             .expect_err("unknown id must error");
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    // -------------------------------------------------------------------
+    // 7c. set_workspace_sandbox_level (P0.1 S0.1.E)
+    // -------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn set_workspace_sandbox_level_round_trips_through_command() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/sbx");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        // Default is L2Project (migration 010); confirm we can flip
+        // to L3 and back through the Tauri command layer, not just
+        // the raw DB mutator.
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().sandbox_level,
+            "L2Project"
+        );
+        set_workspace_sandbox_level_impl(&db, ws_id.clone(), "L3Workspace".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().sandbox_level,
+            "L3Workspace"
+        );
+        set_workspace_sandbox_level_impl(&db, ws_id.clone(), "L1Mozart".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().sandbox_level,
+            "L1Mozart"
+        );
+    }
+
+    #[tokio::test]
+    async fn set_workspace_sandbox_level_rejects_unknown_string() {
+        // The DB column is TEXT so the SQL layer would happily accept
+        // garbage; the parse step in the command rejects it instead so
+        // a corrupted row never widens agent reach.
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/sbxr");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        let err = set_workspace_sandbox_level_impl(&db, ws_id.clone(), "L4Cosmic".into())
+            .await
+            .expect_err("unknown level must be rejected");
+        assert!(matches!(err, AppError::Validation(_)));
+        // DB row must be untouched on parse failure.
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().sandbox_level,
+            "L2Project"
+        );
+    }
+
+    #[tokio::test]
+    async fn set_workspace_sandbox_level_unknown_id_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let err = set_workspace_sandbox_level_impl(&db, "no-such-ws".into(), "L3Workspace".into())
+            .await
+            .expect_err("unknown workspace must error");
         assert!(matches!(err, AppError::NotFound(_)));
     }
 

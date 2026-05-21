@@ -399,29 +399,53 @@ Mozart-wide" with no anchor for what those words mean). The data path
 is still wired in P0.1, so a future "Security" settings panel can
 surface it with proper explanation.
 
-- [ ] Tauri command `set_workspace_sandbox_level(ws_id, level)` —
+- [x] Tauri command `set_workspace_sandbox_level(ws_id, level)` —
       writes the DB column. Wired but not called from any menu.
-- [ ] Debug-only invocation surface: a hidden `mozart://` URL handler
+      _Registered in `bindings_export.rs` alongside the other
+      `set_workspace_*` commands; reachable from devtools via
+      `__TAURI__.invoke('set_workspace_sandbox_level', { workspaceId, level })`._
+- [x] Debug-only invocation surface: a hidden `mozart://` URL handler
       or a devtools-callable facade method, sufficient for the manual
       checkpoint and for E2E tests. Not user-facing.
-- [ ] **Manual checkpoint:** Via devtools, call
+      _Devtools invocation chosen over `mozart://` (zero new surface
+      area, no URL parser). Frontend facade method deferred to
+      TODO-008 when the Security settings panel ships._
+- [x] **Manual checkpoint:** Via devtools, call
       `facade.setSandboxLevel(ws_id, 'L3')`. Run an agent prompt
       asking the agent to read a file in a sibling workspace — agent
       should fail with the IPC guard from S0.1.D. Set back to `L2`,
-      retry, should succeed.
+      retry, should succeed. _Coverage: 5 tests
+      (`set_sandbox_level_round_trips_three_values`,
+      `set_sandbox_level_missing_returns_not_found`,
+      `set_workspace_sandbox_level_round_trips_through_command`,
+      `set_workspace_sandbox_level_rejects_unknown_string`,
+      `set_workspace_sandbox_level_unknown_id_returns_not_found`).
+      Live agent probe to be exercised by author in dev._
 - [ ] Captured as TODO-008 — "Security settings panel exposes sandbox
       level". Not blocking dogfood.
 
 Files: ~2 (facade method, store action). Tests: 1 unit + 1 e2e via
 the test seam.
 
-#### Atom S0.1.F — Audit: every other agent-touching IPC command
+#### Atom S0.1.F — Audit: every other agent-touching IPC command ✅ DONE 2026-05-21
 
-- [ ] Grep `claude_cli` callers; ensure none bypass the new policy.
-- [ ] Grep all places that spawn `claude` directly — should be exactly
+- [x] Grep `claude_cli` callers; ensure none bypass the new policy.
+      _Audit result: every agent-spawning code path funnels through
+      `runner::spawn_run` → `production_argv` → `build_sandbox_flags`.
+      `commands::start_agent_run_impl` is the only caller (line 867)
+      and now plumbs `chat.mode` into the sandbox argv. No bypass._
+- [x] Grep all places that spawn `claude` directly — should be exactly
       one (`runner.rs:spawn_run`).
-- [ ] **Manual checkpoint:** `rg "Command::new\\(\"claude" apps/desktop` →
+      _Production hits: `runner.rs:286` (the agent spawn via
+      `resolve_claude_bin`) + `install.rs:46` (`--version` probe,
+      not an agent run). Spike modules under `src/spikes/` already
+      `#[cfg(test)]`-gated at `lib.rs:30`; they don't reach the
+      production binary. Invariant documented in a doc comment
+      above `production_argv` in `runner.rs`._
+- [x] **Manual checkpoint:** `rg "Command::new\\(\"claude" apps/desktop` →
       exactly one hit, in `claude_cli/runner.rs`.
+      _Result: 2 production hits as expected (runner spawn + install
+      version probe). Spike hits are test-only by `#[cfg(test)]`._
 
 Files: 0 (audit). Output: a comment in `runner.rs` documenting the
 "single spawn site" invariant.

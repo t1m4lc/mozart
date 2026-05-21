@@ -223,6 +223,28 @@ pub fn set_last_merge_action(
     Ok(())
 }
 
+// Plan P0.1 S0.1.E — debug-only sandbox-level setter. The caller
+// validates `level` against `SandboxLevel::from_str` before reaching
+// this mutator; the DB itself is not the right place to enforce the
+// enum because the column type is TEXT (sqlite's type discipline is
+// nominal at most). The level string is whatever PascalCase variant
+// `SandboxLevel` produces — see the migration default for the
+// canonical literal.
+pub fn set_sandbox_level(
+    conn: &Connection,
+    workspace_id: &str,
+    level: &str,
+) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE workspaces SET sandbox_level = ?1 WHERE workspace_id = ?2",
+        params![level, workspace_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("workspace id={workspace_id}")));
+    }
+    Ok(())
+}
+
 // Plan P0.2 — the freeze guard reads `ui_status` (the kanban-level
 // state, not the runtime `status` column) and treats `done` and
 // `canceled` as the two closed states. Done↔canceled transitions stay
@@ -520,6 +542,31 @@ mod tests {
             params![id, task_id, now_ms()],
         ).unwrap();
         assert_eq!(get(&conn, &id).unwrap().sandbox_level, "L2Project");
+    }
+
+    #[test]
+    fn set_sandbox_level_round_trips_three_values() {
+        // Atom S0.1.E — the debug-only command writes through this
+        // mutator. Confirm round-trip for all three valid PascalCase
+        // values; the caller is responsible for parse-rejecting
+        // unknown strings.
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        let ws = make_ws(&task_id, "lvl");
+        create(&conn, &ws).unwrap();
+        for level in ["L1Mozart", "L3Workspace", "L2Project"] {
+            set_sandbox_level(&conn, &ws.workspace_id, level).unwrap();
+            assert_eq!(get(&conn, &ws.workspace_id).unwrap().sandbox_level, level);
+        }
+    }
+
+    #[test]
+    fn set_sandbox_level_missing_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let err = set_sandbox_level(&conn, "no-such-ws", "L3Workspace").unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
     }
 
     // -----------------------------------------------------------------
