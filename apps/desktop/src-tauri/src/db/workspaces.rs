@@ -51,6 +51,48 @@ pub fn list_all(conn: &Connection) -> Result<Vec<Workspace>, AppError> {
     Ok(out)
 }
 
+/// P0.1 S0.1.C — enumerate the active siblings of a project for the
+/// L2 sandbox flag set. Returns up to `limit` workspaces under the
+/// project (= repo) ordered by last-agent-run time (with workspace
+/// `created_at` as the fallback for workspaces that have never run).
+/// Excludes rows with `deletion_intent > 0`.
+///
+/// Used by [`crate::claude_cli::runner::spawn_run`] to compute the
+/// `--add-dir` set for an L2 run; the limit defends against the CG-1
+/// argv-length blow-up flagged in the plan (~128 KB argv ceiling on
+/// most Unixes). The active workspace is NOT force-included here —
+/// callers that need that guarantee should re-insert it after the
+/// query (the runner does this).
+///
+/// `project_id` matches `tasks.repo_id` (Mozart vocabulary maps
+/// project → repo at the storage layer).
+pub fn list_active_siblings_for_project(
+    conn: &Connection,
+    project_id: &str,
+    limit: usize,
+) -> Result<Vec<Workspace>, AppError> {
+    let mut stmt = conn.prepare(
+        "SELECT w.workspace_id, w.task_id, w.name, w.worktree_path, w.branch_name, w.base_branch,
+                w.status, w.pinned, w.unread, w.created_at, w.deletion_intent, w.ui_status,
+                w.last_merge_action, w.sandbox_level
+         FROM workspaces w
+         INNER JOIN tasks t ON w.task_id = t.task_id
+         LEFT JOIN threads th ON th.workspace_id = w.workspace_id
+         LEFT JOIN agent_runs r ON r.thread_id = th.thread_id
+         WHERE t.repo_id = ?1
+           AND w.deletion_intent = 0
+         GROUP BY w.workspace_id
+         ORDER BY COALESCE(MAX(r.started_at), w.created_at) DESC
+         LIMIT ?2",
+    )?;
+    let rows = stmt.query_map(params![project_id, limit as i64], row_to_workspace)?;
+    let mut out = Vec::new();
+    for r in rows {
+        out.push(r?);
+    }
+    Ok(out)
+}
+
 pub fn update_status(conn: &Connection, workspace_id: &str, status: &str) -> Result<(), AppError> {
     let n = conn.execute(
         "UPDATE workspaces SET status = ?1 WHERE workspace_id = ?2",
@@ -478,6 +520,146 @@ mod tests {
             params![id, task_id, now_ms()],
         ).unwrap();
         assert_eq!(get(&conn, &id).unwrap().sandbox_level, "L2Project");
+    }
+
+    // -----------------------------------------------------------------
+    // P0.1 S0.1.C — list_active_siblings_for_project
+    // -----------------------------------------------------------------
+
+    /// Seed a fresh project (repo) + return its `repo_id`. Distinct from
+    /// `seed_task` which produces a task under a fresh repo each call.
+    fn seed_project(conn: &Connection) -> String {
+        let r = Repo {
+            repo_id: new_id(),
+            path: format!("/r-{}", new_id()),
+            display_name: "r".into(),
+            added_at: now_ms(),
+            icon: None,
+            hidden: false,
+            sort_index: 0,
+            run_command: None,
+        };
+        repos::create(conn, &r).unwrap();
+        r.repo_id
+    }
+
+    fn seed_task_under(conn: &Connection, repo_id: &str) -> String {
+        let t = crate::db::models::Task {
+            task_id: new_id(),
+            repo_id: repo_id.to_string(),
+            title: "t".into(),
+            task_text: "t".into(),
+            status: "active".into(),
+            created_at: now_ms(),
+        };
+        crate::db::tasks::create(conn, &t).unwrap();
+        t.task_id
+    }
+
+    #[test]
+    fn list_active_siblings_returns_only_this_project() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let p1 = seed_project(&conn);
+        let p2 = seed_project(&conn);
+        let t1 = seed_task_under(&conn, &p1);
+        let t2 = seed_task_under(&conn, &p2);
+        create(&conn, &make_ws(&t1, "p1-a")).unwrap();
+        create(&conn, &make_ws(&t1, "p1-b")).unwrap();
+        create(&conn, &make_ws(&t2, "p2-c")).unwrap();
+
+        let got = list_active_siblings_for_project(&conn, &p1, 20).unwrap();
+        assert_eq!(got.len(), 2, "must filter to p1's workspaces only");
+        for w in &got {
+            assert_eq!(w.task_id, t1, "every result must belong to p1's task");
+        }
+    }
+
+    #[test]
+    fn list_active_siblings_excludes_deletion_intent() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let p = seed_project(&conn);
+        let t = seed_task_under(&conn, &p);
+        let alive = make_ws(&t, "alive");
+        let mut doomed = make_ws(&t, "doomed");
+        doomed.deletion_intent = 1;
+        create(&conn, &alive).unwrap();
+        create(&conn, &doomed).unwrap();
+
+        let got = list_active_siblings_for_project(&conn, &p, 20).unwrap();
+        assert_eq!(got.len(), 1, "deletion_intent>0 must be excluded");
+        assert_eq!(got[0].workspace_id, alive.workspace_id);
+    }
+
+    #[test]
+    fn list_active_siblings_respects_limit_for_cg1_argv_cap() {
+        // CG-1 regression: the L2 cap defends against unbounded argv
+        // growth. Feed 25 siblings; the function must return exactly
+        // the cap (20).
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let p = seed_project(&conn);
+        let t = seed_task_under(&conn, &p);
+        for i in 0..25 {
+            create(&conn, &make_ws(&t, &format!("ws-{i:02}"))).unwrap();
+        }
+        let got = list_active_siblings_for_project(&conn, &p, 20).unwrap();
+        assert_eq!(got.len(), 20, "must cap at the requested limit");
+    }
+
+    #[test]
+    fn list_active_siblings_orders_by_last_agent_run_then_created_at() {
+        use crate::db::{agent_runs, threads};
+        use crate::db::models::{AgentRun, Thread};
+
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let p = seed_project(&conn);
+        let t = seed_task_under(&conn, &p);
+
+        // Three workspaces, created at distinct times.
+        let mut old = make_ws(&t, "old");
+        old.created_at = 1_000;
+        let mut mid = make_ws(&t, "mid");
+        mid.created_at = 2_000;
+        let mut new = make_ws(&t, "new");
+        new.created_at = 3_000;
+        create(&conn, &old).unwrap();
+        create(&conn, &mid).unwrap();
+        create(&conn, &new).unwrap();
+
+        // Give `old` a recent agent_run so it bubbles to the top by
+        // last-run time; `new` and `mid` have no runs, so they
+        // fall back to created_at order.
+        let th = Thread {
+            thread_id: new_id(),
+            workspace_id: old.workspace_id.clone(),
+            created_at: 1_500,
+        };
+        threads::create(&conn, &th).unwrap();
+        let run = AgentRun {
+            run_id: new_id(),
+            thread_id: th.thread_id.clone(),
+            prompt: "p".into(),
+            status: "done".into(),
+            started_at: 5_000,
+            ended_at: Some(5_100),
+            exit_code: Some(0),
+            error_message: None,
+            checkpoint_sha: None,
+        };
+        agent_runs::create(&conn, &run).unwrap();
+
+        let got = list_active_siblings_for_project(&conn, &p, 20).unwrap();
+        let ids: Vec<&str> = got.iter().map(|w| w.workspace_id.as_str()).collect();
+        // `old` first (run @ 5000 beats both created_at values).
+        // `new` (created 3000) before `mid` (2000), neither has a run.
+        assert_eq!(
+            ids,
+            vec![old.workspace_id.as_str(), new.workspace_id.as_str(), mid.workspace_id.as_str()],
+            "expected order: old (run), new (created 3000), mid (created 2000)"
+        );
     }
 
     #[test]

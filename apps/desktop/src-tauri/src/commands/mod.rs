@@ -865,7 +865,7 @@ where
         let conn = db.lock();
         agent_runs::create(&conn, &run)?;
     }
-    let handle = spawn_run(&ws, &run, on_event, db, emit_terminated).await?;
+    let handle = spawn_run(&ws, &run, &mode, on_event, db, emit_terminated).await?;
     registry.register(run.run_id.clone(), Arc::new(handle));
     Ok(run)
 }

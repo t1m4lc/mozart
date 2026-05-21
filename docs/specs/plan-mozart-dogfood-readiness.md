@@ -279,10 +279,13 @@ Both are still in scope for P0.1.
       [§ S0.1.A probe outcome](#s01a-probe-outcome--hypothesis-falsified-security-urgency-raised)
       above.
 - [x] Cost: ~$0.18 / 13s. Session id `b6ef60fc-...` retained for audit.
-- [ ] **Follow-up:** Add a doc-comment on `runner.rs:147-152` capturing
+- [x] **Follow-up:** Add a doc-comment on `runner.rs:147-152` capturing
       "tools fire by default; sandbox flags are about WHERE they fire,
       not WHETHER they fire." This is a 1-line code change folded into
-      S0.1.C.
+      S0.1.C. _Done 2026-05-21: module doc D1.4-C now states "P0.1
+      S0.1.A probe (2026-05-19) verified the agent fires every tool
+      by default in `-p` mode — sandbox flags govern WHERE tools
+      fire, not WHETHER."_
 
 Outcome shaped P0.1 framing: the urgency is no longer "fix silent
 deny + add layering," it is "wall off a wide-open agent."
@@ -305,25 +308,37 @@ deny + add layering," it is "wall off a wide-open agent."
 
 Files: ~5 (migration, models.rs, schema mirror, facade, store).
 
-#### Atom S0.1.C — Build the argv from `SandboxLevel`
+#### Atom S0.1.C — Build the argv from `SandboxLevel` ✅ DONE 2026-05-21
 
-- [ ] In `claude_cli/sandbox_policy.rs`, function
+- [x] In `claude_cli/sandbox_policy.rs`, function
       `build_sandbox_flags(workspace, level) -> Vec<String>`. Pure,
       no IO except resolving paths via `canonical_worktrees_root()`.
-- [ ] Returns `--add-dir` flags for the level's directory set: - L1: `[~/.mozart/worktrees, ~/.mozart/projects]` - L2: all worktree paths of workspaces in the same project - L3: just `workspace.worktree_path`
-- [ ] Returns `--permission-mode acceptEdits` always.
-- [ ] Returns `--allowedTools` from the active chat's mode.
-- [ ] `runner.rs:command_argv_for_test` is renamed `production_argv` and
-      now takes `(workspace, run, chat_mode, level)`. The locked-flag
-      test in `runner.rs:567` updates to assert the **new** flag set
-      (presence of `--add-dir` for L1, `--permission-mode=acceptEdits`,
-      `--allowedTools=…`, and continued absence of
-      `--dangerously-skip-permissions`).
-- [ ] **Manual checkpoint:** Run a real agent turn through Mozart with
+      _Shipped as pure fn: caller (runner.rs `resolve_sandbox_roots`)
+      pre-computes siblings + L1 roots; the builder is sync + test-
+      only inputs._
+- [x] Returns `--add-dir` flags for the level's directory set: - L1: `[~/.mozart/worktrees, ~/.mozart/projects]` - L2: all worktree paths of workspaces in the same project - L3: just `workspace.worktree_path`
+- [x] Returns `--permission-mode acceptEdits` always.
+- [x] Returns `--allowedTools` from the active chat's mode.
+      `ask`→`Read,Glob,Grep` closes TODO-011 (no `Write`/`Edit`/`Bash`).
+- [x] `runner.rs:command_argv_for_test` is renamed `production_argv` and
+      now takes `(prompt, workspace, chat_mode, level, project_siblings,
+      l1_roots)`. The locked-flag test asserts the **new** flag set
+      (locked prefix, presence of `--add-dir`, `--permission-mode=
+      acceptEdits`, `--allowedTools=…`, continued absence of
+      `--dangerously-skip-permissions`, + TODO-011 ask-mode regression).
+- [x] **Manual checkpoint:** Run a real agent turn through Mozart with
       L2 default. Open `~/.mozart/logs/*.log` (or stderr capture), grep
       for the argv. Verify `--add-dir` is present for every workspace
       in the active project and only those. Try a prompt that asks the
       agent to read `~/.ssh/id_rsa` — agent should report it cannot.
+      _Coverage: 15 unit tests in `sandbox_policy::tests` (level→
+      add-dir matrix, mode→allowedTools matrix, ask-mode TODO-011
+      regression, unknown-mode strict-default fallthrough) + 4 tests
+      on `list_active_siblings_for_project` (filter by project,
+      exclude deletion_intent, CG-1 cap=20, ordering by last
+      agent_run then created_at) + `unit_argv_has_locked_flag_set`
+      asserting prefix byte-stability and tail flag presence. Live
+      `~/.ssh/id_rsa` probe to be exercised by the author in dev._
 
 Files: ~3 (sandbox_policy.rs new, runner.rs argv site, parser test).
 Tests: 6 unit tests in sandbox_policy_test.rs covering level → flag-set

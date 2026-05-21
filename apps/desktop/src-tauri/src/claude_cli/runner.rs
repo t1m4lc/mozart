@@ -9,13 +9,18 @@
 //! the final status / `exit_code` / last stderr line.
 //!
 //! Locked decisions (plan §4):
-//! - **D1.4-C** — production argv is exactly `[-p, prompt,
+//! - **D1.4-C** — production argv prefix is exactly `[-p, prompt,
 //!   --output-format=stream-json, --include-partial-messages,
 //!   --verbose]`. The skip-permissions debug switch is NEVER passed;
 //!   verbose is required by Claude CLI when --output-format=stream-json
-//!   is used together with -p. The unit test
-//!   `unit_argv_has_locked_flag_set` plus the cross-cutting greps in
-//!   `cargo test --tests` belt-and-brace this.
+//!   is used together with -p. P0.1 S0.1.A probe (2026-05-19) verified
+//!   the agent fires every tool by default in `-p` mode — sandbox
+//!   flags govern WHERE tools fire, not WHETHER. S0.1.C appends the
+//!   sandbox tail (`--add-dir`, `--permission-mode=acceptEdits`,
+//!   `--allowedTools=<mode-csv>`) via
+//!   `crate::claude_cli::sandbox_policy::build_sandbox_flags`. The
+//!   unit test `unit_argv_has_locked_flag_set` plus the cross-cutting
+//!   greps in `cargo test --tests` belt-and-brace this.
 //! - **D1.4-E** — cancel uses `Child::start_kill` (SIGKILL on Unix per
 //!   tokio) plus `kill_on_drop(true)`. Final status is `stopped`.
 //! - **D1.4-F** — one INSERT per parsed event; no batching in v0.1.0-beta.1.
@@ -36,8 +41,9 @@
 //! failures are logged via `log::warn!` and do not surface to the caller.
 
 use std::ffi::OsString;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Stdio;
+use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -48,12 +54,21 @@ use tokio::process::Command;
 use tokio::task::JoinHandle;
 
 use crate::claude_cli::parser::{parse_line, ParserState};
+use crate::claude_cli::sandbox_policy::{build_sandbox_flags, SandboxLevel};
 use crate::claude_cli::{AgentRunTerminated, StreamEvent};
 use crate::credentials::keyring_store;
 use crate::db::models::{AgentRun, Workspace, WorkspaceChange};
-use crate::db::{agent_events, agent_runs, now_ms, workspace_changes, DbState};
+use crate::db::{agent_events, agent_runs, now_ms, tasks, workspace_changes, workspaces, DbState};
 use crate::error::AppError;
 use crate::sandbox;
+
+/// CG-1 defense — cap the L2 sibling set so very-large projects do not
+/// blow past the ~128KB argv ceiling on most Unixes. 20 workspaces ×
+/// 2 args/workspace (`--add-dir <path>`) × ~150 bytes/path ≈ 6KB, well
+/// inside the ceiling and big enough that "active siblings" is
+/// representative. See plan-mozart-dogfood-readiness.md § "Critical
+/// gaps → CG-1".
+const L2_SIBLING_CAP: usize = 20;
 
 /// Handle returned by [`spawn_run`]. Owns the JoinHandle of the
 /// supervisor task and a `cancelled` flag the supervisor reads after
@@ -139,17 +154,85 @@ fn inject_anthropic_key_env(cmd: &mut Command, key: Option<&str>) {
     }
 }
 
-/// Test-only introspection of the argv `spawn_run` constructs (after
-/// the program name). Lets `unit_argv_has_locked_flag_set` assert
-/// the locked flag set without spawning a subprocess.
-pub(crate) fn command_argv_for_test(prompt: &str) -> Vec<String> {
-    vec![
+/// Resolve the level-specific `--add-dir` roots into the two slices
+/// `production_argv` consumes:
+///   - `project_siblings` — worktree paths of L2 sibling workspaces
+///     (always empty for L1 / L3).
+///   - `l1_roots`         — `~/.mozart/worktrees` + `~/.mozart/projects`
+///     for L1 (always empty for L2 / L3).
+///
+/// The active workspace is force-included in `project_siblings` even
+/// when the [`L2_SIBLING_CAP`] cap would have pushed it out (e.g. 20+
+/// more-recently-active siblings exist). Without that guarantee an
+/// idle workspace could spawn an agent that can't see its own
+/// worktree.
+fn resolve_sandbox_roots(
+    workspace: &Workspace,
+    level: SandboxLevel,
+    db: &DbState,
+) -> Result<(Vec<String>, Vec<PathBuf>), AppError> {
+    match level {
+        SandboxLevel::L1Mozart => Ok((
+            Vec::new(),
+            vec![
+                sandbox::canonical_worktrees_root()?,
+                sandbox::canonical_projects_root()?,
+            ],
+        )),
+        SandboxLevel::L2Project => {
+            let conn = db.0.lock().expect("db mutex poisoned");
+            let task = tasks::get(&conn, &workspace.task_id)?;
+            let mut siblings = workspaces::list_active_siblings_for_project(
+                &conn,
+                &task.repo_id,
+                L2_SIBLING_CAP,
+            )?;
+            if !siblings
+                .iter()
+                .any(|w| w.workspace_id == workspace.workspace_id)
+            {
+                siblings.insert(0, workspace.clone());
+                siblings.truncate(L2_SIBLING_CAP);
+            }
+            let paths = siblings.into_iter().map(|w| w.worktree_path).collect();
+            Ok((paths, Vec::new()))
+        }
+        SandboxLevel::L3Workspace => Ok((Vec::new(), Vec::new())),
+    }
+}
+
+/// Compose the full argv `spawn_run` passes to `claude` (after the
+/// program name). Locked output-format prefix (D1.4-C) followed by the
+/// sandbox tail from
+/// [`crate::claude_cli::sandbox_policy::build_sandbox_flags`].
+///
+/// Pure function: callers (production `spawn_run` + the
+/// `unit_argv_has_locked_flag_set` test) pre-compute `project_siblings`
+/// and `l1_roots`, which keeps this function synchronously testable
+/// without DB access or filesystem touches.
+pub(crate) fn production_argv(
+    prompt: &str,
+    workspace: &Workspace,
+    chat_mode: &str,
+    level: SandboxLevel,
+    project_siblings: &[String],
+    l1_roots: &[PathBuf],
+) -> Vec<String> {
+    let mut argv = vec![
         "-p".to_string(),
         prompt.to_string(),
         "--output-format=stream-json".to_string(),
         "--include-partial-messages".to_string(),
         "--verbose".to_string(),
-    ]
+    ];
+    argv.extend(build_sandbox_flags(
+        &workspace.worktree_path,
+        chat_mode,
+        level,
+        project_siblings,
+        l1_roots,
+    ));
+    argv
 }
 
 /// Spawn the agent run.
@@ -182,6 +265,7 @@ pub(crate) fn command_argv_for_test(prompt: &str) -> Vec<String> {
 pub async fn spawn_run<E>(
     workspace: &Workspace,
     run: &AgentRun,
+    chat_mode: &str,
     channel: Channel<StreamEvent>,
     db: &DbState,
     emit_terminated: E,
@@ -190,7 +274,24 @@ where
     E: Fn(AgentRunTerminated) + Send + Sync + 'static,
 {
     let bin = resolve_claude_bin();
-    let argv = command_argv_for_test(&run.prompt);
+
+    // P0.1 S0.1.C — resolve the sandbox level + the per-level
+    // `--add-dir` root set, then assemble the full argv. Each branch
+    // produces a `Vec<String>` (siblings for L2, L1 PathBufs for L1)
+    // that flows into the pure `production_argv` below. Parse failure
+    // falls back to the migration default so a corrupted DB row never
+    // widens the agent's reach.
+    let level = SandboxLevel::from_str(&workspace.sandbox_level)
+        .unwrap_or(SandboxLevel::DEFAULT);
+    let (project_siblings, l1_roots) = resolve_sandbox_roots(workspace, level, db)?;
+    let argv = production_argv(
+        &run.prompt,
+        workspace,
+        chat_mode,
+        level,
+        &project_siblings,
+        &l1_roots,
+    );
 
     // Pre-spawn reach-back (S1.5.4 / D1.5-I): capture a git checkpoint of
     // the workspace's worktree, persist it onto `agent_runs.checkpoint_sha`,
@@ -546,21 +647,74 @@ mod tests {
 
     // --- argv unit test (no fixture, no subprocess) ---
 
+    /// Test-only Workspace fixture for `production_argv` assertions. The
+    /// argv only reads `worktree_path`; other fields are set to safe
+    /// defaults.
+    fn argv_test_workspace(worktree: &str) -> Workspace {
+        Workspace {
+            workspace_id: "ws-fixture".into(),
+            task_id: "task-fixture".into(),
+            name: "fixture".into(),
+            worktree_path: worktree.into(),
+            branch_name: "agent/wip-fixture".into(),
+            base_branch: "main".into(),
+            status: "ready".into(),
+            pinned: false,
+            unread: false,
+            created_at: 0,
+            deletion_intent: 0,
+            ui_status: "backlog".into(),
+            last_merge_action: None,
+            sandbox_level: "L2Project".into(),
+        }
+    }
+
     #[test]
     fn unit_argv_has_locked_flag_set() {
-        let argv = command_argv_for_test("hi");
+        // P0.1 S0.1.C — assert the new locked shape:
+        //   - the five output-format flags (prefix, exactly that order)
+        //   - at least one --add-dir (sandbox roots)
+        //   - --permission-mode=acceptEdits
+        //   - --allowedTools=<mode-csv>
+        //   - --dangerously-skip-permissions still absent (regression)
+        let ws = argv_test_workspace("/wt-fixture");
+        let argv = production_argv(
+            "hi",
+            &ws,
+            "agent",
+            SandboxLevel::L2Project,
+            &["/wt-fixture".into()],
+            &[],
+        );
+
+        // 1. Locked prefix is byte-stable.
         assert_eq!(
-            argv,
-            vec![
+            &argv[..5],
+            &[
                 "-p".to_string(),
                 "hi".to_string(),
                 "--output-format=stream-json".to_string(),
                 "--include-partial-messages".to_string(),
                 "--verbose".to_string(),
             ],
-            "argv must be exactly the five locked elements"
+            "first five argv slots must be the locked output-format prefix"
         );
-        // Forbidden flag — string is runtime-constructed so the
+
+        // 2. Sandbox tail flags must all be present.
+        assert!(
+            argv.iter().any(|a| a == "--add-dir"),
+            "argv must include at least one --add-dir, got: {argv:?}"
+        );
+        assert!(
+            argv.iter().any(|a| a == "--permission-mode=acceptEdits"),
+            "argv must set --permission-mode=acceptEdits, got: {argv:?}"
+        );
+        assert!(
+            argv.iter().any(|a| a.starts_with("--allowedTools=")),
+            "argv must include --allowedTools=<csv>, got: {argv:?}"
+        );
+
+        // 3. Forbidden flag — string is runtime-constructed so the
         // `! grep` validation gate doesn't trip on this source file.
         let forbidden_skip_perms = format!(
             "{}{}",
@@ -569,8 +723,28 @@ mod tests {
         );
         assert!(
             !argv.iter().any(|a| a == &forbidden_skip_perms),
-            "skip-permissions flag must never be passed"
+            "skip-permissions flag must never be passed, got: {argv:?}"
         );
+
+        // 4. ask mode regression (TODO-011): no Write/Edit/Bash.
+        let ask_argv = production_argv(
+            "hi",
+            &ws,
+            "ask",
+            SandboxLevel::L2Project,
+            &["/wt-fixture".into()],
+            &[],
+        );
+        let allowed = ask_argv
+            .iter()
+            .find(|a| a.starts_with("--allowedTools="))
+            .expect("ask argv must include --allowedTools=");
+        for forbidden in ["Write", "Edit", "Bash"] {
+            assert!(
+                !allowed.contains(forbidden),
+                "ask mode argv must NOT include {forbidden} in {allowed}"
+            );
+        }
     }
 
     // --- integration tests (mock subprocess, all gated #[cfg(unix)]) ---
@@ -748,7 +922,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // ≥ 1 stream_token row from the text_delta in the fixture.
@@ -797,7 +971,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // The fixture exercises the full tool round-trip: an
@@ -894,7 +1068,7 @@ mod tests {
             std::env::set_var("MOZART_MOCK_FIXTURE", &slow);
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
             // Give the child a moment to actually start before cancelling.
             tokio::time::sleep(Duration::from_millis(100)).await;
             handle.cancel().await.unwrap();
@@ -931,7 +1105,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             let got = agent_runs::get(&db.lock(), &run.run_id).unwrap();
