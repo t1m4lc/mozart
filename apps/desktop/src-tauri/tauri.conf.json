@@ -10,6 +10,7 @@
     "beforeBuildCommand": "pnpm nx build desktop"
   },
   "app": {
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Mozart",
