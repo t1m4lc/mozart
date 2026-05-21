@@ -20,12 +20,18 @@ import {
 } from '../domains/workspaces';
 import { MergeActionMenu } from '../domains/workspaces/ui/merge-action-menu/merge-action-menu';
 import { SHELL_RIGHT_PANEL_WIDTH } from './shell-panel.constants';
+import { ShellSidePanel } from './shell-side-panel';
 
-// Right shell panel. Owns its own collapse behavior (width → 0px when
-// closed) AND the visibility gate (only shown when a workspace is
-// active). Hosts the merge-action header + the workspace aside body.
+// Right shell panel. Outer collapse chrome lives in
+// <app-shell-side-panel> (shared with shell-left). Owns the
+// visibility gate (only shown when a workspace is active AND the
+// user has the panel toggled open) and the right-specific content:
+// merge-action header + workspace aside body.
 //
-// Pulled out of `app-shell` so the root shell stays a thin composer.
+// On compact viewports (below Tailwind's `lg` = 1024px) the inline
+// panel is CSS-hidden and the workspace toolbar swaps in a sheet
+// trigger so the content stays reachable. `hideOnCompact=true` on
+// the shared primitive does that.
 @Component({
   selector: 'app-shell-right',
   imports: [
@@ -33,26 +39,16 @@ import { SHELL_RIGHT_PANEL_WIDTH } from './shell-panel.constants';
     NonMacWindowControls,
     FeatureWorkspaceAside,
     MergeActionMenu,
+    ShellSidePanel,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    // `max-lg:hidden` collapses the inline right pane on viewports
-    // below Tailwind's `lg` breakpoint (1024px) — matches the
-    // `LayoutService.isCompact` query. Below that, the toolbar's
-    // toggle button switches to a sheet trigger (handled in
-    // workspace-toolbar) so the content stays reachable.
-    class:
-      'relative block shrink-0 overflow-hidden max-lg:hidden transition-[width] duration-200 ease-out',
-    '[style.width]': '_width()',
-  },
+  host: { class: 'contents' },
   template: `
-    <!-- Inner panel anchored to the host's RIGHT edge with a fixed
-         width. border-l lives ON this inner panel (not the host), so
-         overflow-hidden clips both the content AND the border together
-         when the host shrinks to 0 — no orphan border line stays. -->
-    <div
-      class="absolute inset-y-0 right-0 border-l border-sidebar-border"
-      [style.width]="_fullWidth"
+    <app-shell-side-panel
+      side="right"
+      [open]="_visible()"
+      [width]="_fullWidth"
+      [hideOnCompact]="true"
     >
       <hlm-sidebar
         side="right"
@@ -89,7 +85,7 @@ import { SHELL_RIGHT_PANEL_WIDTH } from './shell-panel.constants';
           }
         </div>
       </hlm-sidebar>
-    </div>
+    </app-shell-side-panel>
   `,
 })
 export class ShellRight {
@@ -101,18 +97,15 @@ export class ShellRight {
   private readonly dialog = inject(HlmDialogService);
 
   // Right pane is only meaningful inside a workspace context, and the
-  // user can additionally toggle it via the workspace toolbar.
-  private readonly _visible = computed(
+  // user can additionally toggle it via the workspace toolbar. Fed
+  // into <app-shell-side-panel>'s `open` input.
+  protected readonly _visible = computed(
     () => this.workspaces.activeId() !== null && this.layout.rightPanelOpen(),
   );
 
-  // Inner panel keeps a constant width — only the host's width animates
-  // (0 ↔ SHELL_RIGHT_PANEL_WIDTH). overflow-hidden does the reveal/hide
-  // via clipping; the inner stays anchored to the host's right edge.
+  // Constant — only the side panel's host width animates between this
+  // and 0 (driven by ShellSidePanel from `_visible`).
   protected readonly _fullWidth = SHELL_RIGHT_PANEL_WIDTH;
-  protected readonly _width = computed(() =>
-    this._visible() ? SHELL_RIGHT_PANEL_WIDTH : '0px',
-  );
 
   // AD-02 routing: workspace.lastMergeAction → project.mergeMode →
   // default 'pr'. `mergeModeFor` returns null until ensureMergeMode has

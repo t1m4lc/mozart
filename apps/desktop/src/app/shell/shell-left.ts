@@ -1,9 +1,4 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  computed,
-  inject,
-} from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { OsService } from '@mozart/shared-util-os';
 import { HlmButtonImports } from '@mozart/ui/button';
@@ -30,12 +25,12 @@ import {
 } from '../domains/projects';
 import { SHELL_LEFT_PANEL_WIDTH } from './shell-panel.constants';
 import { ShellProjectList } from './shell-project-list';
+import { ShellSidePanel } from './shell-side-panel';
 
-// Left shell panel. Owns its own collapse behavior: width snaps to
-// SHELL_LEFT_PANEL_WIDTH when open, 0px when closed. Hosts the projects
-// list, optional chat list, and the footer (help + settings).
-//
-// Pulled out of `app-shell` so the root shell stays a thin composer.
+// Left shell panel. Outer collapse chrome lives in <app-shell-side-panel>
+// (shared with shell-right). This component composes the left-specific
+// content: projects list, optional chat list, and the footer
+// (help + settings).
 @Component({
   selector: 'app-shell-left',
   imports: [
@@ -52,6 +47,7 @@ import { ShellProjectList } from './shell-project-list';
     GroupByFilter,
     ProjectsHeaderContextMenu,
     ShellProjectList,
+    ShellSidePanel,
   ],
   providers: [
     provideIcons({
@@ -61,20 +57,12 @@ import { ShellProjectList } from './shell-project-list';
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: {
-    class:
-      'relative block shrink-0 overflow-hidden transition-[width] duration-200 ease-out',
-    '[style.width]': '_width()',
-  },
+  host: { class: 'contents' },
   template: `
-    <!-- Inner panel is absolute-positioned at the host's left edge with
-         a fixed width. The border-r lives ON this inner panel (not the
-         host), so when the host shrinks to 0px, overflow-hidden clips
-         both the content AND the border in one stroke — no orphan
-         border line remains when the sidebar is closed. -->
-    <div
-      class="absolute inset-y-0 left-0 border-r border-sidebar-border"
-      [style.width]="_fullWidth"
+    <app-shell-side-panel
+      side="left"
+      [open]="layout.leftPanelOpen()"
+      [width]="_fullWidth"
     >
       <hlm-sidebar side="left" collapsible="none" class="h-full w-full">
         <div
@@ -187,7 +175,7 @@ import { ShellProjectList } from './shell-project-list';
           </button>
         </div>
       </hlm-sidebar>
-    </div>
+    </app-shell-side-panel>
   `,
 })
 export class ShellLeft {
@@ -197,11 +185,7 @@ export class ShellLeft {
   protected readonly addProjectFlow = inject(AddProjectFlow);
   protected readonly flags = inject(FeatureFlagsService);
 
-  // Inner panel keeps a constant width — only the host's width
-  // animates (0 ↔ SHELL_LEFT_PANEL_WIDTH). overflow-hidden does the
-  // reveal/hide via clipping; the inner stays put.
+  // Constant — only the side panel's host width animates between this
+  // and 0 (driven by ShellSidePanel from layout.leftPanelOpen()).
   protected readonly _fullWidth = SHELL_LEFT_PANEL_WIDTH;
-  protected readonly _width = computed(() =>
-    this.layout.leftPanelOpen() ? SHELL_LEFT_PANEL_WIDTH : '0px',
-  );
 }
