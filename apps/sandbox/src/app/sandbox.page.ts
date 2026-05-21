@@ -37,6 +37,11 @@ import { HlmButtonImports } from '@mozart/ui/button';
             MzReviewProgress →
           </a>
         </li>
+        <li>
+          <a hlmBtn variant="outline" routerLink="/hunk-expand-bar">
+            MzHunkExpandBar →
+          </a>
+        </li>
       </ul>
     </section>
   `,

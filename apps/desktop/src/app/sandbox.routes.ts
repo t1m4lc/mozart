@@ -18,11 +18,4 @@ export const sandboxRoutes: Route[] = [
         (m) => m.TimelineSandbox,
       ),
   },
-  {
-    path: 'sandbox/hunk-expand-bar',
-    loadComponent: () =>
-      import('./pages/sandbox/hunk-expand-bar.sandbox').then(
-        (m) => m.HunkExpandBarSandbox,
-      ),
-  },
 ];

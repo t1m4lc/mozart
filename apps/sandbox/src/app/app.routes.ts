@@ -24,4 +24,9 @@ export const appRoutes: Route[] = [
         (m) => m.ReviewProgressSandbox,
       ),
   },
+  {
+    path: 'hunk-expand-bar',
+    loadComponent: () =>
+      import('./hunk-expand-bar.sandbox').then((m) => m.HunkExpandBarSandbox),
+  },
 ];

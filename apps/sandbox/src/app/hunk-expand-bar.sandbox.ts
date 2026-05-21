@@ -1,4 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { HlmButtonImports } from '@mozart/ui/button';
 import {
   MzHunkExpandBar,
   type HunkExpandEvent,
@@ -15,22 +17,25 @@ interface LogEntry {
 // keyboard story can be eyeballed in isolation.
 @Component({
   selector: 'app-hunk-expand-bar-sandbox',
-  imports: [MzHunkExpandBar],
+  imports: [RouterLink, HlmButtonImports, MzHunkExpandBar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block p-8' },
   template: `
     <section class="flex max-w-2xl flex-col gap-8">
-      <header class="flex flex-col gap-1">
-        <h1 class="text-xl font-semibold">MzHunkExpandBar</h1>
-        <p class="text-sm text-muted-foreground">
-          P2.3 expand bar shown between diff hunks. Click an arrow to
-          emit; shift-click doubles the step.
-        </p>
+      <header class="flex items-start justify-between gap-4">
+        <div class="flex flex-col gap-1">
+          <h1 class="text-xl font-semibold">MzHunkExpandBar</h1>
+          <p class="text-muted-foreground text-sm">
+            P2.3 expand bar shown between diff hunks. Click an arrow to
+            emit; shift-click doubles the step.
+          </p>
+        </div>
+        <a hlmBtn variant="ghost" size="sm" routerLink="/"> ← Back </a>
       </header>
 
       <div class="flex flex-col gap-4">
         <div>
-          <p class="mb-1 text-[11px] text-muted-foreground">
+          <p class="text-muted-foreground mb-1 text-[11px]">
             direction = "up" (above first hunk)
           </p>
           <mz-hunk-expand-bar
@@ -41,7 +46,7 @@ interface LogEntry {
         </div>
 
         <div>
-          <p class="mb-1 text-[11px] text-muted-foreground">
+          <p class="text-muted-foreground mb-1 text-[11px]">
             direction = "both" (between hunks)
           </p>
           <mz-hunk-expand-bar
@@ -52,7 +57,7 @@ interface LogEntry {
         </div>
 
         <div>
-          <p class="mb-1 text-[11px] text-muted-foreground">
+          <p class="text-muted-foreground mb-1 text-[11px]">
             direction = "down" (below last hunk)
           </p>
           <mz-hunk-expand-bar
@@ -63,7 +68,7 @@ interface LogEntry {
         </div>
 
         <div>
-          <p class="mb-1 text-[11px] text-muted-foreground">
+          <p class="text-muted-foreground mb-1 text-[11px]">
             direction = "both", only 4 lines available (cap kicks in)
           </p>
           <mz-hunk-expand-bar
@@ -74,7 +79,7 @@ interface LogEntry {
         </div>
 
         <div>
-          <p class="mb-1 text-[11px] text-muted-foreground">
+          <p class="text-muted-foreground mb-1 text-[11px]">
             direction = "both", 0 lines available (buttons disabled)
           </p>
           <mz-hunk-expand-bar
@@ -87,7 +92,9 @@ interface LogEntry {
 
       <div class="flex flex-col gap-1">
         <p class="text-xs font-medium">Emitted events</p>
-        <ul class="flex flex-col gap-1 font-mono text-[11px] text-muted-foreground">
+        <ul
+          class="text-muted-foreground flex flex-col gap-1 font-mono text-[11px]"
+        >
           @for (entry of events(); track entry.at) {
             <li>
               [{{ entry.label }}] direction={{ entry.event.direction }} count={{
