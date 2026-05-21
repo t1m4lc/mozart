@@ -1,0 +1,22 @@
+{
+  "name": "file-diff-card",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-ui/file-diff-card/src",
+  "prefix": "mz",
+  "projectType": "library",
+  "tags": [
+    "scope:mozart-ui"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/mozart-ui/file-diff-card/tsconfig.spec.json"
+      }
+    }
+  }
+}
