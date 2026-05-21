@@ -137,30 +137,44 @@ We applied the Linux fix because the slowness was reported there. macOS and Wind
 
 ## Sandbox — real OS-level filesystem fence for the Claude subprocess (load-bearing)
 
-**What:** Wrap the `claude` subprocess in an OS-level sandbox so its `Read`/`Bash` tools physically cannot reach paths outside `~/.mozart/worktrees/<scope>`. Linux first via `bubblewrap`, then macOS via `sandbox-exec`, then Windows via `AppContainer`.
+## Sandbox — real OS-level filesystem fence for the Claude subprocess AND the terminal PTY (load-bearing)
 
-**Why:** Empirically falsified 2026-05-21 — Claude CLI's `--add-dir` is **contextual, not enforced**. The probe (MOZART_CLAUDE_BIN shim) confirmed Mozart sends the correct argv (`--add-dir`, `--permission-mode=acceptEdits`, `--allowedTools`, `--append-system-prompt` clamp) but the agent still reads any OS-readable path because nothing blocks the syscall. The Atom 7 system-prompt clamp now makes the agent refuse politely, but a jailbreak prompt would bypass it. The OS fence is the only real boundary.
+**What:** Wrap **both** the `claude` subprocess and the in-app terminal PTY in an OS-level sandbox so neither can reach paths outside `~/.mozart/worktrees/<scope>`. Linux first via `bubblewrap`, then macOS via `sandbox-exec`, then Windows via `AppContainer`.
 
-The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_sandbox_level` Tauri command, IPC path guard, terminal PTY guard) is all still useful — the OS fence layers on top by reading the workspace's `sandbox_level` and picking the right binding profile.
+**Why:** Two surfaces, same gap.
+
+1. **Claude subprocess:** empirically falsified 2026-05-21 — Claude CLI's `--add-dir` is **contextual, not enforced**. The probe (MOZART_CLAUDE_BIN shim) confirmed Mozart sends the correct argv (`--add-dir`, `--permission-mode=acceptEdits`, `--allowedTools`, `--append-system-prompt` clamp) but the agent still reads any OS-readable path because nothing blocks the syscall. The Atom 7 system-prompt clamp now makes the agent refuse politely, but a jailbreak prompt would bypass it.
+
+2. **Terminal PTY:** the `path_guard::guard_workspace_worktree` check at the spawn site (`open_terminal`, `start_workspace_run_impl`) only validates the **initial `cwd`** before launching the shell. Once the shell is alive it inherits the user's full environment — a user (or anything driving the terminal) can `cd ~/.ssh && cat id_rsa` and there is **no** OS-level constraint stopping it. Same root cause as the Claude case: no syscall fence.
+
+The OS fence is the only real boundary for either surface.
+
+The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_sandbox_level` Tauri command, IPC path guard, terminal PTY spawn-cwd check) is all still useful — the OS fence layers on top by reading the workspace's `sandbox_level` and picking the right binding profile for both the agent spawn and the PTY spawn.
 
 **How to apply (Linux first):**
 
 1. Detect `bwrap` on PATH at app start; degrade gracefully (warn + run unwrapped) if missing or kernel `unprivileged_userns_clone` is disabled.
-2. In `apps/desktop/src-tauri/src/claude_cli/runner.rs::spawn_run`, wrap `Command::new(resolve_claude_bin())` in `Command::new("bwrap")` with:
+2. Single helper, called from both spawn sites:
+   - `claude_cli::runner::spawn_run` — wrap `Command::new(resolve_claude_bin())` in `Command::new("bwrap") --args …`.
+   - `terminal::spawn_inner` (or its callers in `commands/mod.rs`: `open_terminal`, `start_workspace_run_impl`) — same wrap around the shell spawn.
+3. Bindings template:
    - `--ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64` (libs)
    - `--ro-bind /etc/ssl /etc/ssl --ro-bind /etc/resolv.conf /etc/resolv.conf` (TLS + DNS)
-   - `--ro-bind $HOME/.claude $HOME/.claude` (auth/session — needed for the API key in keyring fallback)
+   - `--ro-bind $HOME/.claude $HOME/.claude` (auth/session — only for the agent spawn, not the terminal)
    - `--bind <each --add-dir target> <same path>` (the actual workspace + L2 siblings)
    - `--tmpfs /tmp --proc /proc --dev /dev` (minimum runtime)
    - `--share-net --chdir <workspace_worktree>` (network for WebFetch, working dir)
-3. Expect iteration: claude may shell out to other binaries; each missing one needs an additional `--ro-bind`. Run with the strictest profile and add binds as they break.
-4. Skip wrapping in tests (the `MOZART_CLAUDE_BIN` test seam shim doesn't need a sandbox).
-5. macOS: `sandbox-exec -p <profile>` with a `.sb` file that allows file-read/file-write on the workspace paths only. Deprecated but functional.
-6. Windows: `AppContainer` is non-trivial and probably waits for a later milestone.
+4. Expect iteration: claude and interactive shells may shell out to other binaries; each missing one needs an additional `--ro-bind`. Run with the strictest profile and add binds as they break.
+5. Skip wrapping in tests (the `MOZART_CLAUDE_BIN` test seam shim doesn't need a sandbox).
+6. macOS: `sandbox-exec -p <profile>` with a `.sb` file that allows file-read/file-write on the workspace paths only. Deprecated but functional. Same profile reused for the PTY shell.
+7. Windows: `AppContainer` is non-trivial and probably waits for a later milestone.
 
-**Probe to validate after implementing:** run the same dogfood test that surfaced the gap — `read /home/<user>/Documents/test.txt` in agent mode. With OS fence active, the read should fail at the syscall layer (`ENOENT` or `EACCES`), not just by polite agent refusal.
+**Probe to validate after implementing:**
 
-**Footnote:** if Anthropic ships an upstream `--restrict-fs` / `--sandbox` flag that actually enforces, re-probe and drop the OS-fence dependency for the typical dogfood case. The fence then becomes belt-and-braces rather than the only layer.
+- Agent test: prompt `read /home/<user>/Documents/test.txt` in agent mode → read should fail at the syscall layer (`ENOENT` or `EACCES`), not just by polite agent refusal.
+- Terminal test: open the Mozart terminal tab, run `cat ~/.ssh/id_rsa` → should fail with permission/not-found at the OS layer.
+
+**Footnote:** if Anthropic ships an upstream `--restrict-fs` / `--sandbox` flag that actually enforces, re-probe and drop the OS-fence dependency for the _Claude_ case. The terminal PTY still needs OS-level confinement regardless — there is no CLI flag for a generic interactive shell.
 
 **Depends on:** P0.1 atoms landed (✅ `wt-security-sandbox`); user-namespace cloning enabled on the user's kernel (check `/proc/sys/kernel/unprivileged_userns_clone` on Debian/Ubuntu).
 
