@@ -8,9 +8,9 @@ import {
   signal,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
+import { MzDiffView, type FetchContextLines } from '@mozart-ui/diff-view';
 import { MessageMarkdown } from '../../chat/ui-message-markdown/ui-message-markdown';
 import { RepositoriesFacade } from '../data/repositories.facade';
-import { DiffView, type FetchContextLines } from '../ui-diff-view/ui-diff-view';
 
 type ViewMode = 'diff' | 'preview';
 
@@ -22,27 +22,27 @@ function isMarkdownPath(path: string | null): boolean {
   return MARKDOWN_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-// Smart wrapper around `DiffView` + `MessageMarkdown`. Picks the right
+// Smart wrapper around `MzDiffView` + `MessageMarkdown`. Picks the right
 // renderer for the selected file :
 //
 //   - `.md` / `.markdown` / `.mdx` → defaults to **Preview** (rendered
 //     markdown). A header tab toggle exposes Diff for users who want
 //     the unified diff anyway.
-//   - everything else → DiffView only (no tab toggle).
+//   - everything else → MzDiffView only (no tab toggle).
 //
 // `RepositoriesFacade.loadFile` fetches the raw content for preview ;
 // `loadFileDiff` is unchanged. Both calls are tagged with a monotonic
 // `fetchId` so out-of-order responses (user clicks foo then bar) never
 // clobber the visible content.
 //
-// `DiffView` also accepts a context-fetch callback so P2.3 expand bars
-// can reveal unchanged lines between hunks. The callback lazy-loads
-// the full file body the first time it's needed and slices the
+// `MzDiffView` also accepts a context-fetch callback so P2.3 expand
+// bars can reveal unchanged lines between hunks. The callback lazy
+// loads the full file body the first time it's needed and slices the
 // requested range from a per-path cache; subsequent expansions on the
 // same file pay no Tauri round-trip.
 @Component({
   selector: 'app-feature-file-diff',
-  imports: [DiffView, MessageMarkdown, HlmButtonImports],
+  imports: [MzDiffView, MessageMarkdown, HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
@@ -103,7 +103,7 @@ function isMarkdownPath(path: string | null): boolean {
           }
         }
       } @else {
-        <app-diff-view
+        <mz-diff-view
           class="block h-full w-full"
           [path]="path()"
           [diffText]="diffText()"
@@ -111,7 +111,6 @@ function isMarkdownPath(path: string | null): boolean {
           [error]="error()"
           [fetchContext]="fetchContext"
           [fileLineCount]="fileLineCount()"
-          (refresh)="reload()"
         />
       }
     </div>
@@ -153,8 +152,8 @@ export class FeatureFileDiff {
 
   protected readonly fileLineCount = signal<number | null>(null);
 
-  // Stable callback identity so DiffView's effect doesn't tear down on
-  // every change-detection pass. Reads the current workspaceId/path
+  // Stable callback identity so MzDiffView's effect doesn't tear down
+  // on every change-detection pass. Reads the current workspaceId/path
   // through signals at call time.
   protected readonly fetchContext: FetchContextLines = (from, to) =>
     this.loadContextLines(from, to);
