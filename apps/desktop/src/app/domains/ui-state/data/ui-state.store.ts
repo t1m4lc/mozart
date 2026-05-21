@@ -108,6 +108,13 @@ interface State {
   // FileTabsService's open-tab list so All files and Changes can keep
   // independent mode/review state for the same path.
   fileViewStateByWorkspace: Record<string, WorkspaceFileViewState>;
+
+  // Per-workspace All-files tree expansion. List of folder paths the
+  // user has expanded; absence == collapsed. Persisted so that
+  // returning to a workspace restores the tree in the same shape the
+  // user left it. Stored as an array (not a Set) because Sets don't
+  // survive JSON.stringify in `withStorageSync`.
+  treeExpandedByWorkspace: Record<string, readonly string[]>;
 }
 
 const initialState: State = {
@@ -116,6 +123,7 @@ const initialState: State = {
   collapsedStatusIds: new Set<string>(),
   asideStateByWorkspace: {},
   fileViewStateByWorkspace: {},
+  treeExpandedByWorkspace: {},
 };
 
 function fileFlowFromSource(
@@ -154,6 +162,7 @@ export const UiStateStore = signalStore(
     select: (state) => ({
       asideStateByWorkspace: state.asideStateByWorkspace,
       fileViewStateByWorkspace: state.fileViewStateByWorkspace,
+      treeExpandedByWorkspace: state.treeExpandedByWorkspace,
     }),
   }),
   withMethods((store) => ({
@@ -267,6 +276,21 @@ export const UiStateStore = signalStore(
           },
         },
       });
+    },
+
+    // Replace the expanded-folder list for a workspace. Caller passes
+    // the full next state (not a delta) — the file-tree component
+    // already holds the working Set in memory and converts it on each
+    // toggle. Empty array drops the entry to keep the persisted map
+    // small.
+    setTreeExpanded(workspaceId: string, paths: readonly string[]): void {
+      const next = { ...store.treeExpandedByWorkspace() };
+      if (paths.length === 0) {
+        delete next[workspaceId];
+      } else {
+        next[workspaceId] = paths;
+      }
+      patchState(store, { treeExpandedByWorkspace: next });
     },
   })),
 );

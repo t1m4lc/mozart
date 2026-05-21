@@ -114,4 +114,22 @@ export class UiStateFacade {
   ): void {
     this.store.updateActiveWorkspaceFileViewState(workspaceId, patch);
   }
+
+  /** Persisted expanded-folder list for a workspace's All-files tree.
+   *  Pass a Signal (typically the file-tree's `workspaceId` input)
+   *  so the returned signal flips reactively on workspace switch and
+   *  the tree restores the user's previous expansion state. */
+  treeExpandedFor(
+    workspaceId: Signal<string | null>,
+  ): Signal<readonly string[]> {
+    return computed(() => {
+      const id = workspaceId();
+      if (!id) return [];
+      return this.store.treeExpandedByWorkspace()[id] ?? [];
+    });
+  }
+
+  setTreeExpanded(workspaceId: string, paths: readonly string[]): void {
+    this.store.setTreeExpanded(workspaceId, paths);
+  }
 }

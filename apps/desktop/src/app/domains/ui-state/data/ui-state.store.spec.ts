@@ -217,4 +217,52 @@ describe('UiStateStore — right-aside per-workspace state', () => {
       },
     });
   });
+
+  describe('per-workspace tree-expansion persistence', () => {
+    function readTreeExpandedSlice(): Record<string, readonly string[]> {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      if (raw === null) return {};
+      const parsed = raw
+        ? (JSON.parse(raw) as {
+            treeExpandedByWorkspace?: Record<string, readonly string[]>;
+          })
+        : {};
+      return parsed.treeExpandedByWorkspace ?? {};
+    }
+
+    it('starts empty for any workspace', () => {
+      const store = TestBed.inject(UiStateStore);
+      expect(store.treeExpandedByWorkspace()[wsA]).toBeUndefined();
+    });
+
+    it('stores expanded paths per workspace', () => {
+      const store = TestBed.inject(UiStateStore);
+      store.setTreeExpanded(wsA, ['src', 'src/app']);
+      store.setTreeExpanded(wsB, ['docs']);
+
+      expect(store.treeExpandedByWorkspace()[wsA]).toEqual(['src', 'src/app']);
+      expect(store.treeExpandedByWorkspace()[wsB]).toEqual(['docs']);
+    });
+
+    it('drops the entry when the list collapses to empty (compact storage)', () => {
+      const store = TestBed.inject(UiStateStore);
+      store.setTreeExpanded(wsA, ['src']);
+      expect(store.treeExpandedByWorkspace()[wsA]).toEqual(['src']);
+      store.setTreeExpanded(wsA, []);
+      expect(store.treeExpandedByWorkspace()[wsA]).toBeUndefined();
+    });
+
+    it('persists to localStorage and rehydrates on relaunch', () => {
+      const store = TestBed.inject(UiStateStore);
+      store.setTreeExpanded(wsA, ['src', 'src/util']);
+
+      expect(readTreeExpandedSlice()[wsA]).toEqual(['src', 'src/util']);
+
+      // Fresh injector simulates an app relaunch.
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({});
+      const next = TestBed.inject(UiStateStore);
+      expect(next.treeExpandedByWorkspace()[wsA]).toEqual(['src', 'src/util']);
+    });
+  });
 });
