@@ -182,7 +182,7 @@ The five locked architectural decisions, with one-line rationale.
 
 | #     | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Rationale                                                                                                                                                                                                                                                      |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4.                                                                                                                                                                                                                                                                                                                   | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
+| AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4. **⚠️ PARTIALLY FALSIFIED 2026-05-21:** dogfood probe with the `MOZART_CLAUDE_BIN` shim confirmed `--add-dir` is *contextual, not enforced* — the agent's `Read`/`Bash` tools access any OS-readable path regardless. `--allowedTools` IS enforced (ask-mode write attempts refuse). Atom 7 added `--append-system-prompt` clamp as defense in depth (agent politely refuses), but real filesystem isolation needs the OS fence (now TODO-001, upgraded to load-bearing).                                                                                                                       | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
 | AD-02 | **Merge routing** = `.mozart/run.json` derives no merge preference; per-project `mergeMode` lives in **Mozart local DB** (`project_local_config`); per-workspace `last_merge_action` overrides it for the primary-button label, IDE-button style.                                                                                                                                                                                                                                                               | User-specific preference, never shared with team. Last-action memory mirrors the existing Open-in-IDE pattern.                                                                                                                                                 |
 | AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Explicit reviewer action from the diff toolbar, never automatic on open. Review progress count. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]].                                                                                                                                                                                                                         | Reduces review cognitive load without ceremony while preserving the GitHub-style "I checked this file" intent.                                                                                                                                                  |
 | AD-04 | **Editor** = CodeMirror 6 for Edit mode and code viewing. P2.1 does **not** replace the existing unified diff renderer with `@codemirror/merge`; split/merge diff requires a separate backend contract for base/workspace file bodies. Markdown preview stays for Review mode; `.md` opens as code only in Edit mode.                                                                                                                                                                                             | Keeps P2.1 dogfood-sized and avoids regressing the existing markdown preview. Monaco is heavier and harder to keep visually minimal; CodeMirror remains the editor choice, but diff replacement is deferred until its data contract is explicit.                                                                               |
@@ -2155,20 +2155,115 @@ Each below is a candidate item for `TODOS.md` (or your equivalent
 backlog). Format follows the per-item template: What, Why, Pros, Cons,
 Context, Depends-on.
 
-### TODO-001 — OS-level sandbox fence (P4)
+### TODO-001 — OS-level sandbox fence (UPGRADED 2026-05-21: now load-bearing)
 
-**What:** Add macOS Seatbelt profile and Linux bubblewrap profile that
-constrain the `claude` subprocess to `~/.mozart/` at the OS level.
-**Why:** Defense-in-depth. If the CLI permission gate has a bug, the
-OS fence still blocks egress.
-**Pros:** Real security posture for shipping beyond solo dogfood.
+**What:** Add Linux bubblewrap profile, macOS Seatbelt profile, and
+Windows AppContainer profile that constrain the `claude` subprocess
+to `~/.mozart/worktrees/<scope>` at the OS level.
+
+**Why (revised 2026-05-21):** Empirically falsified an AD-01
+assumption. `--add-dir` in Claude CLI is **contextual, not enforced**
+— the agent's `Read`/`Bash` tools can access any path the OS user
+can. The P0.1 sandbox argv (`--add-dir`, `--permission-mode`,
+`--allowedTools`) and the Atom 7 `--append-system-prompt` clamp
+together only stop *accidental* escapes; a jailbreak prompt or a
+misbehaving agent will read `/home/user/Documents/anything.txt`
+because nothing actually blocks the syscall.
+
+**Probe that surfaced this:** user ran the MOZART_CLAUDE_BIN shim
+2026-05-21 and confirmed the argv was correct (`--add-dir
+/home/u/.mozart/worktrees/p/ws-a --add-dir
+/home/u/.mozart/worktrees/p/ws-b --permission-mode=acceptEdits
+--allowedTools=Read,Glob,Grep`). The agent then read
+`/home/timothy/Documents/test.txt` anyway. After Atom 7 (system
+prompt clamp) the agent now refuses politely, but the underlying
+filesystem reach remains unconstrained.
+
+**This TODO becomes the ONLY real filesystem isolation.** Before
+2026-05-21 it was "defense in depth"; now it is "the load-bearing
+boundary."
+
+**Implementation sketch (Linux first, Atom 8 in the local fix-plan):**
+```
+bwrap \
+  --ro-bind /usr /usr \
+  --ro-bind /lib /lib --ro-bind /lib64 /lib64 \
+  --ro-bind /etc/ssl /etc/ssl --ro-bind /etc/resolv.conf /etc/resolv.conf \
+  --ro-bind $HOME/.claude $HOME/.claude     # auth, session
+  --bind <workspace_worktree> <workspace_worktree>   # one per --add-dir
+  --tmpfs /tmp --proc /proc --dev /dev \
+  --share-net --chdir <workspace_worktree> \
+  claude -p ... <flags>
+```
+
+**Pros:** Real security posture. Closes the hole AD-01 implicitly
+assumed didn't exist.
 **Cons:** Per-OS work; sandbox-exec deprecated by Apple (still
-functional); bubblewrap needs user-namespaces enabled in the kernel;
-Windows AppContainer adds weeks.
-**Context:** AD-01 explicitly defers this. Re-evaluate before any
-external beta.
-**Depends on:** P0.1 landing (the CLI flags must already be the source
-of truth so the OS fence is additive).
+functional); bubblewrap needs user-namespaces enabled in the kernel
+(common on most distros; check `/proc/sys/kernel/unprivileged_
+userns_clone` on Debian-family); Windows AppContainer adds weeks.
+Also: claude CLI may need additional binds (e.g. `/var/cache/...`,
+shell PATH binaries it shells out to) — discover by running with
+strictest profile + iterating.
+
+**Depends on:** P0.1 atoms landed (✅ as of 2026-05-21); workspace
+sandbox level wired through (✅, atom S0.1.B).
+
+### TODO-012 — Reverse: now consider the previous-CLI-sandbox sufficient again if Anthropic ships `--restrict-fs`
+
+**What:** Anthropic's roadmap may add a real filesystem-confinement
+flag (an actual `--restrict-fs` / `--sandbox` /
+`--strict-add-dir` etc.). If/when it lands, validate with a probe
+that it actually enforces, then drop the OS-fence dependency for
+the *typical* dogfood case and keep OS fence as the defense-in-depth
+layer rather than the only layer.
+**Why:** Bubblewrap is high-maintenance (per-OS profile, kernel
+caveats, breakage on claude CLI updates). A real upstream flag is
+the durable fix.
+**Pros:** Reduces maintenance burden long-term.
+**Cons:** Unknown timeline. Depends on Anthropic.
+**Context:** Added 2026-05-21 alongside the TODO-001 upgrade. Watch
+the Anthropic changelog.
+**Depends on:** External (Anthropic).
+
+### TODO-013 — Surface agent refusals + CLI permission-denied events in the timeline
+
+**What:** When the agent refuses a tool call (because the system
+prompt clamp told it to refuse, or because `--allowedTools` excludes
+the tool), the natural-language refusal arrives as
+`stream_event.content_block_delta.text_delta` events. The parser
+correctly maps them to `StreamEvent::StreamToken` (parser.rs:144-153),
+but the chat timeline either drops them or renders them with no
+visible delineation from a normal assistant reply. Dogfood report
+2026-05-21: user prompted `read /home/user/Documents/test.txt`, the
+clamp worked (agent refused), but the user saw no visible refusal
+message in the chat — just silence after the spinner finished.
+
+**Why:** Without a visible refusal the user can't tell the
+difference between (a) the agent succeeded silently, (b) the agent
+refused, (c) the runtime errored. Each has very different security
+implications. Surfacing the refusal closes the user-facing security
+loop.
+
+**Investigation hints:**
+- Reproduce with a long prompt that forces a refusal; capture the
+  raw stream-json output via `MOZART_CLAUDE_BIN=…` shim.
+- Check whether `text_delta` events fire at all on refusals. If yes,
+  the issue is in the frontend timeline component.
+- If not, the agent may emit a `tool_use` block targeting a tool not
+  in `--allowedTools` and Claude CLI rejects it silently with a
+  `permission_denials` array. In that case the parser at
+  `parser.rs:handle_user_message` needs to surface those rejections
+  as a new `StreamEvent::ToolRefused { tool, path }` variant, and
+  the timeline UI gets a new card kind.
+
+**Pros:** Closes the user-facing security loop. Makes the sandbox
+visible.
+**Cons:** Requires both parser + timeline component work. Possibly a
+new StreamEvent variant; may force a tauri-specta type update.
+**Context:** Surfaced 2026-05-21 during dogfood of Atom 7 (system
+prompt clamp).
+**Depends on:** Nothing — independent fix.
 
 ### TODO-002 — Inline 3-way conflict editor
 
