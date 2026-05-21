@@ -211,10 +211,43 @@ pub fn run() {
             let port = auth::http_callback::start_server(app.handle().clone());
             app.manage(auth::http_callback::CallbackPort(port));
 
+            // Linux/WebKitGTK scroll-feel parity with Chromium. The
+            // default WebKit "smooth scrolling" animates each wheel
+            // tick, which feels noticeably slower than Chromium's
+            // discrete wheel scroll for high-velocity mice. Disabling
+            // smooth scrolling + forcing GPU compositing brings the
+            // wheel feel close to Chromium on the same hardware. No-op
+            // on macOS / Windows where Tauri's webview is native
+            // WebKit / WebView2 with their own scroll defaults.
+            #[cfg(target_os = "linux")]
+            if let Some(window) = app.get_webview_window("main") {
+                configure_webkit_scroll(&window);
+            }
+
             Ok(())
         })
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
+}
+
+/// Apply WebKitGTK scroll tweaks to bring wheel-scroll feel closer to
+/// Chromium's on the same hardware. Called from the setup hook on
+/// Linux only. Best-effort: any failure inside `with_webview` is
+/// logged and ignored — the app still runs with WebKit defaults.
+#[cfg(target_os = "linux")]
+fn configure_webkit_scroll(window: &tauri::WebviewWindow) {
+    use webkit2gtk::{SettingsExt, WebViewExt};
+    if let Err(err) = window.with_webview(|webview| {
+        let wv = webview.inner();
+        if let Some(settings) = wv.settings() {
+            settings.set_enable_smooth_scrolling(false);
+            settings.set_hardware_acceleration_policy(
+                webkit2gtk::HardwareAccelerationPolicy::Always,
+            );
+        }
+    }) {
+        eprintln!("[webkit] configure_webkit_scroll failed: {err}");
+    }
 }
 
 /// CG-2 — scan workspaces at boot and flip any whose worktree carries

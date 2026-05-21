@@ -126,3 +126,11 @@ sha2 = "0.10.9"
 tempfile = "3"
 anyhow = "1"
 specta-typescript = "0.0.9"
+
+# Linux-only: direct access to the WebKitGTK settings API so we can
+# disable WebKit's animated smooth-scrolling (which feels slower than
+# Chromium's discrete wheel scroll on high-velocity mice) and force
+# GPU compositing for the scroll surface. Version pinned to match the
+# version wry/tauri already pulls in transitively (2.0.x).
+[target.'cfg(target_os = "linux")'.dependencies]
+webkit2gtk = "2.0"

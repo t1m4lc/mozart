@@ -1,6 +1,7 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   ElementRef,
   Injector,
   afterNextRender,
@@ -19,13 +20,28 @@ import {
   type ComposerSendEvent,
   type EffortLevel,
 } from '@mozart-ui/composer';
+import {
+  ScrollPositionService,
+  chatTabKey,
+} from '../../../core/scroll-position.service';
 import { ChatFacade, FeatureChatContent } from '../../chat';
 import {
   DEFAULT_MODEL_ID,
   LLM_MODEL_CATALOG,
   PROVIDERS,
 } from '../../llm-model';
+import { FeatureFileContent } from '../feature-file-content/feature-file-content';
 import { WorkspacesFacade } from '../data/workspace.facade';
+
+// Distance-from-bottom threshold (px) for the at-bottom detector. Under
+// this, the chat is considered attached (auto-follow stream); over,
+// it's detached (the user has scrolled up to read history).
+const AT_BOTTOM_THRESHOLD_PX = 50;
+
+// Where the just-sent user message lands as a fraction of viewport
+// height from the top of `<main>`. 0.2 = 1/5 from top, leaving 4/5
+// below for the agent's response (ChatGPT-style).
+const USER_MESSAGE_TOP_FRACTION = 0.2;
 
 @Component({
   selector: 'app-feature-workspace-middle',
@@ -33,12 +49,22 @@ import { WorkspacesFacade } from '../data/workspace.facade';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex w-full flex-col' },
   template: `
-    <!-- Native browser scroll: the scroll happens on the shell's
-         <main> overflow-y-auto. No internal scroll container here.
-         The chat/file content area is flex-1 so that on short
-         conversations the composer naturally sits at the bottom of
-         the viewport (where its sticky offset takes over). -->
-    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5">
+    <!-- Chat scroll surface is the shell's <main> (overflow-y-auto in
+         app-shell.ts). Owner of all scroll behavior for chat lives in
+         this component — see the orchestration in the constructor.
+         The content area stays flex-1 so the composer sits at viewport
+         bottom on short conversations.
+
+         padding-bottom — when the user has just sent a prompt and the
+         agent hasn't started responding yet, we reserve 80vh of scroll
+         room below the messages so the just-sent message can be
+         scrolled up to 1/5 from <main>'s viewport top (ChatGPT-style
+         room for the upcoming response). The padding releases as soon
+         as an assistant message appears in the array. -->
+    <div
+      class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5"
+      [style.padding-bottom]="_pendingPromptPadding()"
+    >
       <ng-content />
     </div>
 
@@ -83,11 +109,15 @@ export class FeatureWorkspaceMiddle {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
+  private readonly scroll = inject(ScrollPositionService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  // The chat content sits in the `[middle-content]` slot — querying it
-  // as content (light DOM) keeps the frame agnostic of what's inside.
-  // Undefined when a non-chat content (file tab) is projected.
+  // Projected content probes — distinguish chat mode from file mode
+  // without coupling to the parent's activeFileTabPath signal.
   private readonly chatContent = contentChild(FeatureChatContent);
+  private readonly fileContent = contentChild(FeatureFileContent);
+
   private readonly composerEl = viewChild('composerEl', {
     read: ElementRef<HTMLElement>,
   });
@@ -95,14 +125,33 @@ export class FeatureWorkspaceMiddle {
   protected readonly value = signal('');
   protected readonly isStreaming = this.facade.isStreaming(this.workspaceId);
 
-  // True while the user is parked near the bottom of the message list.
-  // Drives the composer's scroll-to-bottom overlay button visibility.
-  // Sourced from the projected chat content's `isAtBottom` signal ;
-  // defaults to true when no chat content is in the slot (file tab) or
-  // when the message list is unmounted (empty state).
-  protected readonly autoFollowChat = computed(
-    () => this.chatContent()?.isAtBottom() ?? true,
-  );
+  // Composer auto-follow indicator: sources the per-chat attach mode
+  // from ScrollPositionService when chat content is mounted; defaults
+  // to true on the file tab so the scroll-to-bottom overlay stays
+  // hidden in that mode.
+  protected readonly autoFollowChat = computed(() => {
+    if (this.fileContent()) return true;
+    const chatId = this._activeChatId();
+    if (!chatId) return true;
+    return this.scroll.followModeFor(chatId)() === 'attached';
+  });
+
+  // Reserves scroll room below the messages so the just-sent user
+  // message can slide to 1/5 from <main>'s viewport top, leaving 4/5
+  // of viewport empty for the agent's response to fill. The padding
+  // stays present for the full streaming turn (user-just-sent OR
+  // agent currently streaming) so the user's prompt holds its
+  // position while tokens fill below it (ChatGPT-style). Padding
+  // releases on the next idle tick once the stream completes.
+  protected readonly _pendingPromptPadding = computed<string | null>(() => {
+    if (this.fileContent()) return null;
+    const msgs = this._messages();
+    const last = msgs.at(-1);
+    if (!last) return null;
+    if (last.role === 'user') return '80vh';
+    if (last.role === 'assistant' && this.isStreaming()) return '80vh';
+    return null;
+  });
 
   protected readonly hasNextUnreadInProject =
     this.workspaces.hasOtherUnreadInProject(this.workspaceId);
@@ -114,10 +163,47 @@ export class FeatureWorkspaceMiddle {
   // a run ends.
   private _wasStreaming = false;
 
+  // Programmatic-scroll grace window. While `performance.now() <
+  // _programmaticScrollUntil`, the at-bottom detector is suppressed —
+  // a smooth scrollTo() takes ~300-500ms and fires scroll events at
+  // partway scrollTop values that would otherwise flip the chat to
+  // detached. We open this window before Send / scroll-to-bottom-button
+  // smooth scrolls; closing comfortably after the animation finishes.
+  private _programmaticScrollUntil = 0;
+
+  // Cached scroll surface — `<main>` in app-shell. Walked once after
+  // first render. Null until resolved (or if the orchestrator is used
+  // in a test harness without a scroll ancestor).
+  private mainEl: HTMLElement | null = null;
+
   private readonly _activeChat = computed(() => {
     const id = this.workspaceId();
     if (!id) return null;
     return this.facade.activeChatFor(id);
+  });
+
+  private readonly _activeChatId = computed(
+    () => this._activeChat()?.id ?? null,
+  );
+
+  // Messages for the workspace's active chat. The signal recomputes
+  // when activeChatId changes (chat A → chat B) AND when the active
+  // chat's message array changes (new token / new message). The
+  // auto-follow effect distinguishes these two via _lastSyncedChatId.
+  private readonly _messages = this.facade.messagesForWorkspace(
+    this.workspaceId,
+  );
+
+  // The tab key for chat scroll persistence. Null when:
+  //   - no workspace / no active chat
+  //   - file tab is active (the file's own [mzScrollPersist] directive
+  //     owns scroll persistence for that surface)
+  private readonly _chatTabKey = computed(() => {
+    if (this.fileContent()) return null;
+    const ws = this.workspaceId();
+    const chatId = this._activeChatId();
+    if (!ws || !chatId) return null;
+    return chatTabKey(ws, chatId);
   });
 
   protected readonly currentMode = computed<ChatMode>(
@@ -164,6 +250,144 @@ export class FeatureWorkspaceMiddle {
       }
       this._wasStreaming = streaming;
     });
+
+    // Resolve `<main>` and attach the at-bottom detector. The app is
+    // zoneless (no zone.js in package.json) so listeners and signal
+    // writes flow without zone bookkeeping. `{ passive: true }` keeps
+    // the listener from blocking the browser's native scroll path.
+    afterNextRender(
+      () => {
+        this.mainEl = closestScrollable(this.hostEl.nativeElement);
+        if (!this.mainEl) {
+          console.warn(
+            '[workspace-middle] no scrollable ancestor — chat scroll persistence disabled',
+          );
+          return;
+        }
+        const main = this.mainEl;
+
+        const onScroll = () => {
+          // Suppress attach/detach flips during a programmatic
+          // smooth scroll — those scroll events would otherwise
+          // flip the chat to detached as scrollTop transits the
+          // animation.
+          if (performance.now() < this._programmaticScrollUntil) {
+            return;
+          }
+          const chatId = this._activeChatId();
+          if (!chatId) return;
+          if (this.fileContent()) return;
+
+          const distance =
+            main.scrollHeight - main.scrollTop - main.clientHeight;
+          const atBottom = distance < AT_BOTTOM_THRESHOLD_PX;
+          const currentlyAttached = this.scroll.isAttached(chatId);
+
+          if (atBottom && !currentlyAttached) {
+            this.scroll.setAttached(chatId);
+          } else if (!atBottom && currentlyAttached) {
+            this.scroll.setDetached(chatId);
+          }
+        };
+        main.addEventListener('scroll', onScroll, { passive: true });
+        this.destroyRef.onDestroy(() => {
+          main.removeEventListener('scroll', onScroll);
+        });
+      },
+      { injector: this.injector },
+    );
+
+    // Chat tab activate / switch: snapshot the prior chat's scrollTop
+    // (via onCleanup) and restore the new chat's value after the next
+    // render. First visit to a chat → default to bottom (newest
+    // message visible).
+    effect((onCleanup) => {
+      const key = this._chatTabKey();
+      const main = this.mainEl;
+      if (!key || !main) return;
+
+      const stored = this.scroll.recall(key);
+      afterNextRender(
+        () => {
+          if (stored != null) {
+            main.scrollTop = stored;
+          } else {
+            // First visit: chat default is bottom (newest).
+            main.scrollTop = main.scrollHeight;
+          }
+        },
+        { injector: this.injector },
+      );
+
+      onCleanup(() => {
+        this.scroll.remember(key, main.scrollTop);
+      });
+    });
+
+    this.destroyRef.onDestroy(() => {
+      const key = this._chatTabKey();
+      if (key && this.mainEl) {
+        this.scroll.remember(key, this.mainEl.scrollTop);
+      }
+    });
+
+    // Message-arrival auto-follow. The messages signal fires when:
+    //   - a new message is appended (user sends, agent placeholder
+    //     appears, etc.)
+    //   - the active message's content updates during streaming
+    //     (the store creates a new array on each token mutation, so
+    //     the signal fires per-token)
+    //   - the active chat changes (chat A -> chat B) — but the
+    //     tab-key effect's afterNextRender restore runs AFTER this
+    //     microtask scrollTo, so a chat-switch overrides whatever
+    //     this effect sets and lands the user at the stored position.
+    //
+    // We skip the auto-follow when the last message is from the user
+    // — onSend handles that case by positioning the user's prompt at
+    // 1/5 from top to leave room for the agent's response. Once the
+    // agent's placeholder/response message arrives, role flips to
+    // 'assistant' and normal auto-follow resumes.
+    //
+    // The scroll target is the BOTTOM OF THE MESSAGE-LIST, not
+    // scrollHeight. While `_pendingPromptPadding` is present (during
+    // streaming) scrollHeight includes the 80vh of empty space, and
+    // targeting that would scroll past the agent's response into
+    // empty padding. Targeting the message-list's bottom keeps the
+    // newest token at viewport bottom regardless of padding. The
+    // scroll also only moves DOWNWARD — when the response still fits
+    // in the empty space, no scroll fires (the user's prompt holds
+    // at 1/5 from top until the response overflows).
+    effect(() => {
+      const msgs = this._messages();
+      const chatId = this._activeChatId();
+      const inFileMode = this.fileContent() !== undefined;
+      const main = this.mainEl;
+
+      if (!chatId || inFileMode || !main) return;
+      if (!this.scroll.isAttached(chatId)) return;
+
+      const lastMsg = msgs.at(-1);
+      if (lastMsg?.role === 'user') return;
+
+      queueMicrotask(() => {
+        const msgList = main.querySelector('app-message-list');
+        if (!msgList) {
+          main.scrollTop = main.scrollHeight;
+          return;
+        }
+        const listRect = msgList.getBoundingClientRect();
+        const mainRect = main.getBoundingClientRect();
+        const listBottomInContent =
+          listRect.bottom - mainRect.top + main.scrollTop;
+        const targetScrollTop = listBottomInContent - main.clientHeight;
+        // Scroll only DOWNWARD — never yank the user up to "follow"
+        // the agent, otherwise the 1/5-from-top positioning at Send
+        // would be undone the moment the placeholder appears.
+        if (targetScrollTop > main.scrollTop) {
+          main.scrollTop = targetScrollTop;
+        }
+      });
+    });
   }
 
   protected onSend(event: ComposerSendEvent): void {
@@ -171,9 +395,19 @@ export class FeatureWorkspaceMiddle {
     if (!id) return;
     // Sending implicitly re-engages auto-follow — the user wants to
     // see the assistant's reply land.
-    this.chatContent()?.scrollToBottom();
+    const chatId = this._activeChatId();
+    if (chatId) this.scroll.setAttached(chatId);
     void this.facade.sendUserMessage(id, event.text, event.mode);
     this.value.set('');
+
+    // After the user message renders, position it at 1/5 from <main>'s
+    // viewport top so the agent's response has room to fill below
+    // (ChatGPT-style). The messages-effect skip on role 'user'
+    // prevents an interim scroll-to-bottom from fighting this.
+    afterNextRender(
+      () => this.scrollLastUserMessageToTopFraction(),
+      { injector: this.injector },
+    );
   }
 
   protected onStop(): void {
@@ -201,7 +435,9 @@ export class FeatureWorkspaceMiddle {
   }
 
   protected onScrollToBottom(): void {
-    this.chatContent()?.scrollToBottom();
+    const chatId = this._activeChatId();
+    if (chatId) this.scroll.setAttached(chatId);
+    this.scrollMainToBottom(true);
   }
 
   protected onNextUnreadWorkspace(): void {
@@ -209,4 +445,73 @@ export class FeatureWorkspaceMiddle {
     if (!target) return;
     void this.router.navigate(['/workspaces', target]);
   }
+
+  // Reads prefers-reduced-motion and applies smooth vs auto. `smooth`
+  // is honored only when the user hasn't asked for reduced motion.
+  // When smooth applies, opens a grace window so the partway scroll
+  // events the animation fires don't flip the chat to detached.
+  private scrollMainToBottom(smooth: boolean): void {
+    const main = this.mainEl;
+    if (!main) return;
+    const reduced =
+      typeof matchMedia !== 'undefined' &&
+      matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const useSmooth = !reduced && smooth;
+    if (useSmooth) {
+      // 700ms covers the default smooth-scroll duration (~500ms in
+      // Chromium) plus a margin for layout settling.
+      this._programmaticScrollUntil = performance.now() + 700;
+    }
+    main.scrollTo({
+      top: main.scrollHeight,
+      behavior: useSmooth ? 'smooth' : 'auto',
+    });
+  }
+
+  // Positions the last user-message element at USER_MESSAGE_TOP_FRACTION
+  // of `<main>`'s viewport height from the top, smooth-scrolling
+  // there. Falls back to scroll-to-bottom if no user message is
+  // found in the DOM. Opens the programmatic-scroll grace window so
+  // the partway scroll events during the animation don't flip the
+  // chat to detached.
+  private scrollLastUserMessageToTopFraction(): void {
+    const main = this.mainEl;
+    if (!main) return;
+    const userEls = main.querySelectorAll('app-user-message');
+    const lastUser = userEls[userEls.length - 1] as
+      | HTMLElement
+      | undefined;
+    if (!lastUser) {
+      this.scrollMainToBottom(true);
+      return;
+    }
+    const userRect = lastUser.getBoundingClientRect();
+    const mainRect = main.getBoundingClientRect();
+    const currentOffset = userRect.top - mainRect.top;
+    const targetOffset = main.clientHeight * USER_MESSAGE_TOP_FRACTION;
+    const delta = currentOffset - targetOffset;
+    if (Math.abs(delta) < 1) return;
+    const reduced =
+      typeof matchMedia !== 'undefined' &&
+      matchMedia('(prefers-reduced-motion: reduce)').matches;
+    this._programmaticScrollUntil = performance.now() + 700;
+    main.scrollBy({
+      top: delta,
+      behavior: reduced ? 'auto' : 'smooth',
+    });
+  }
+}
+
+// Walks up the DOM looking for the first ancestor whose computed
+// overflow-y is `auto` or `scroll`. Falls back to the document's
+// scrolling element so callers never have to handle null on a
+// well-formed page. Returns null only if `start` is detached.
+function closestScrollable(start: HTMLElement | null): HTMLElement | null {
+  let el = start;
+  while (el) {
+    const overflow = getComputedStyle(el).overflowY;
+    if (overflow === 'auto' || overflow === 'scroll') return el;
+    el = el.parentElement;
+  }
+  return (document.scrollingElement as HTMLElement | null) ?? null;
 }

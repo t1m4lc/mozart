@@ -54,3 +54,70 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 **Depends on:** llm-model stream slice extracted to a lib. Real domain work — likely a half-day on its own.
 
 ---
+
+## Chat — anchor-based scroll restore (replaces pixel-based)
+
+**What:** Replace the pixel `scrollTop` stored by `ScrollPositionService` with anchor-based restore: on snapshot, identify the topmost message visible in the viewport and store `{messageId, offsetWithinMessage}`. On restore, find that message in the (possibly grown) DOM and scroll so it lands at the same offset.
+
+**Why:** Pixel restore lands the user at the wrong semantic place when content arrived while they were on another tab — common during streaming. Anchor-based survives content growth.
+
+**How to apply:** `ScrollPositionService` grows a parallel `anchorByTabKey: Map<string, {messageId: string, offsetPx: number}>`. Snapshot uses `IntersectionObserver` (or `getBoundingClientRect` on each message child) to find the first message whose `top >= 0`. Offset = `0 - element.getBoundingClientRect().top` (or the visible portion). Restore: `querySelector` for that message by id, scroll to its top + offset. Fallback to pixel when no anchor element is found (chat empty, anchor message deleted). Same pattern can apply to file diff (anchor to hunk header line number) — but only if anchor-based proves valuable in chat first.
+
+**Depends on:** Scroll persistence PR landed. Pure additive — no architectural change.
+
+---
+
+## Chat / Files — CDK virtual scrolling reintroduction
+
+**What:** Re-attempt CDK virtual scrolling for chat (and maybe file diff) with a real autosize strategy. Was reverted before (commit `37f6171`) because the fixed-size strategy mis-measured variable-height messages.
+
+**Why:** Today's "no virtual scroll" decision is "acceptable for now — typical chats stay under a few hundred messages". When chats start exceeding ~1000 messages, the unbounded DOM becomes a perf bottleneck.
+
+**How to apply:** Trigger condition — chat sizes hit 1000+ in real usage OR perf telemetry shows scroll jank on long chats. Try `@angular/cdk-experimental/scrolling` first (autosize strategy). If still flaky on markdown / code blocks / streaming, write a custom strategy that uses `ResizeObserver` per item to track height changes. Architectural prereq: chat scroll surface needs to move off `<main>` and into the message-list (the inverse of today's design) — see D1 option D from the eng review.
+
+**Depends on:** Real perf signal (telemetry or user complaint) OR a custom autosize strategy. Experiment in `apps/sandbox` before touching the chat domain.
+
+---
+
+## Codebase hygiene — rename `core/shell.service.ts`
+
+**What:** `apps/desktop/src/app/core/shell.service.ts` wraps `@tauri-apps/plugin-shell` for `openExternal`. It is NOT related to the UI shell (`apps/desktop/src/app/shell/`). With the shell folder getting cleaned up via the new `shell-side-panel` primitive, the name collision becomes more confusing for new readers.
+
+**Why:** Future-you opens `shell.service.ts` expecting UI-shell logic and finds Tauri openExternal instead. Code-search for "shell" returns mixed results.
+
+**How to apply:** Rename to `ExternalLinkService` (preferred) or `TauriShellService`. Move to `apps/desktop/src/app/core/external-link.service.ts`. Update all call sites (`grep -r ShellService apps/desktop/src --include="*.ts"`). One PR, low risk.
+
+**Depends on:** Nothing. Standalone refactor — anyone can do it.
+
+---
+
+## Scroll — handle file path identity changes
+
+**What:** `ScrollPositionService` keys for files use `file:${workspaceId}:${path}`. Renames, moves, case changes, and symlinks all produce different keys for what is logically the same file, breaking restore.
+
+**Why:** When a user renames a file mid-session, the saved scroll position is orphaned and the new path opens fresh (or at default top), which feels like a bug.
+
+**How to apply:** Two options. (a) Subscribe to file-tab rename events from FileTabsService; on rename, rewrite the key in ScrollPositionService (`forget(oldKey); remember(newKey, value)`). Requires FileTabsService to emit rename events. (b) Switch keys to content-derived identity (e.g., normalized absolute path + file inode/content hash) — more robust but heavier. Option (a) is the right first cut.
+
+**Depends on:** FileTabsService growing a rename event. Could be done in the same PR as rename support if/when that ships.
+
+---
+
+## Chat scroll — extend Linux WebKitGTK fix to other platforms if needed
+
+**What:** Today `apps/desktop/src-tauri/src/lib.rs` only configures WebKit scroll on Linux (disable smooth-scrolling, force GPU compositing) because that's the only platform where Tauri's webview engine (WebKitGTK) feels noticeably slower than Chromium for wheel scrolling. If users on macOS or Windows report a similar slowness, evaluate platform-specific tweaks.
+
+**Why:** Tauri uses a different webview engine per platform:
+- Linux → WebKitGTK 4.1 (the fixed-here case)
+- macOS → WKWebView (Apple's WebKit). Scroll behavior is OS-native via NSScrollView; expected to feel like every other macOS app. Usually fine.
+- Windows → WebView2 (Chromium-based). Scroll feel matches Chrome/Edge.
+
+We applied the Linux fix because the slowness was reported there. macOS and Windows haven't been reported yet but could surface as we get more cross-platform usage.
+
+**How to apply:** Reproduce the complaint on the target platform first. Then:
+- macOS: WKWebView doesn't expose an equivalent `enable-smooth-scrolling` setting. Investigate `WKPreferences` and `NSScrollView` properties via `tauri::WebviewWindow::with_webview` + the wry crate's macOS extensions. Many "fixes" here are at the OS preferences layer, not the app.
+- Windows: WebView2 settings are exposed via `tauri::WebviewWindow::with_webview` and the wry Windows extensions. Look at `CoreWebView2Settings` and any high-precision-input flags.
+
+**Depends on:** A real complaint on a non-Linux platform. Don't speculate-fix.
+
+---
