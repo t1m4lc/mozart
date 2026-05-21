@@ -104,6 +104,46 @@ pub fn allowed_tools_for_mode(mode: &str) -> &'static str {
     }
 }
 
+/// Atom 7 — build the system-prompt clamp text appended to the
+/// agent's system prompt via `--append-system-prompt`. Defense in
+/// depth, **not real enforcement**: Anthropic's Claude CLI honors
+/// `--add-dir` only as a contextual hint (the `Read` tool reads any
+/// path the OS user can access). The clamp tells the agent
+/// explicitly which paths are in scope and asks it to refuse the
+/// rest. A jailbreak / persistent prompt can override it; the only
+/// real fix is the OS-level fence (bubblewrap on Linux,
+/// sandbox-exec on macOS, AppContainer on Windows) — see
+/// TODO-001 / P4 / planned Atom 8.
+///
+/// Pure function; siblings + L1 roots are pre-resolved by the
+/// caller (same shape as `build_sandbox_flags`).
+pub fn build_system_prompt_clamp(
+    workspace_worktree: &str,
+    level: SandboxLevel,
+    project_siblings: &[String],
+    l1_roots: &[PathBuf],
+) -> String {
+    let allowed: Vec<String> = match level {
+        SandboxLevel::L1Mozart => l1_roots.iter().map(|p| p.display().to_string()).collect(),
+        SandboxLevel::L2Project => project_siblings.to_vec(),
+        SandboxLevel::L3Workspace => vec![workspace_worktree.to_string()],
+    };
+    let bullets = allowed
+        .iter()
+        .map(|p| format!("- {p}"))
+        .collect::<Vec<_>>()
+        .join("\n");
+    format!(
+        "You operate inside a Mozart sandbox at level {level}.\n\
+         You may only read, write, edit, or run commands on files inside these allowed paths:\n\n\
+         {bullets}\n\n\
+         If asked to access files outside these paths (anywhere else in the user's home directory, \
+         /etc, /var, /tmp, or any other system location not listed above), refuse and tell the user \
+         the path is outside the workspace sandbox. Do not follow symlinks that resolve outside \
+         these paths. This applies to every tool you have available, including Read, Bash, and Glob."
+    )
+}
+
 /// Build the sandbox-specific argv tail for a single agent run. Pure
 /// function — the caller resolves project siblings (S0.1.C `db::
 /// workspaces::list_active_siblings_for_project`) and L1 roots
@@ -118,6 +158,10 @@ pub fn allowed_tools_for_mode(mode: &str) -> &'static str {
 /// 2. `--permission-mode=acceptEdits` (always; tools fire without per-
 ///    call prompts since the CLI is acting on the user's behalf)
 /// 3. `--allowedTools=<csv>` from [`allowed_tools_for_mode`]
+/// 4. `--append-system-prompt <text>` from [`build_system_prompt_clamp`]
+///    (Atom 7 — defense in depth; `--add-dir` is contextual, not
+///    enforced, so the system prompt is the agent-layer barrier
+///    until the OS fence ships)
 ///
 /// The runner's `production_argv` prepends the locked output-format
 /// flags (`-p prompt`, `--output-format=stream-json`, etc.) before
@@ -152,6 +196,13 @@ pub fn build_sandbox_flags(
     argv.push(format!(
         "--allowedTools={}",
         allowed_tools_for_mode(chat_mode)
+    ));
+    argv.push("--append-system-prompt".to_string());
+    argv.push(build_system_prompt_clamp(
+        workspace_worktree,
+        level,
+        project_siblings,
+        l1_roots,
     ));
     argv
 }
@@ -367,5 +418,115 @@ mod tests {
                 "expected {expected} in argv for mode {mode}, got: {argv:?}"
             );
         }
+    }
+
+    // --- system prompt clamp (Atom 7) -------------------------------
+
+    #[test]
+    fn system_prompt_clamp_lists_allowed_paths_for_l2() {
+        let siblings = vec![
+            "/home/u/.mozart/worktrees/p/ws-a".to_string(),
+            "/home/u/.mozart/worktrees/p/ws-b".to_string(),
+        ];
+        let prompt = build_system_prompt_clamp(
+            "/home/u/.mozart/worktrees/p/ws-a",
+            SandboxLevel::L2Project,
+            &siblings,
+            &[],
+        );
+        for sib in &siblings {
+            assert!(
+                prompt.contains(sib),
+                "L2 clamp must mention each sibling, missing {sib} in: {prompt}"
+            );
+        }
+        assert!(prompt.contains("L2Project"), "clamp must name the level");
+    }
+
+    #[test]
+    fn system_prompt_clamp_l3_lists_only_workspace_path() {
+        let prompt = build_system_prompt_clamp(
+            "/home/u/.mozart/worktrees/p/ws-a",
+            SandboxLevel::L3Workspace,
+            &["/home/u/.mozart/worktrees/p/ws-b".into()],
+            &[],
+        );
+        assert!(prompt.contains("/home/u/.mozart/worktrees/p/ws-a"));
+        assert!(
+            !prompt.contains("/home/u/.mozart/worktrees/p/ws-b"),
+            "L3 clamp must NOT leak sibling paths, got: {prompt}"
+        );
+    }
+
+    #[test]
+    fn system_prompt_clamp_l1_lists_mozart_roots() {
+        let l1 = vec![pb("/home/u/.mozart/worktrees"), pb("/home/u/.mozart/projects")];
+        let prompt = build_system_prompt_clamp(
+            "/home/u/.mozart/worktrees/p/ws-a",
+            SandboxLevel::L1Mozart,
+            &[],
+            &l1,
+        );
+        for root in &l1 {
+            assert!(
+                prompt.contains(root.to_str().unwrap()),
+                "L1 clamp must mention root {}, prompt: {prompt}",
+                root.display()
+            );
+        }
+    }
+
+    #[test]
+    fn system_prompt_clamp_explicitly_calls_out_sensitive_paths() {
+        // Regression: the agent must be told to refuse common
+        // sensitive paths even though they aren't in the allow-list.
+        // This is the "you may only" wording paired with explicit
+        // "refuse for /etc, /var..." since some agents only parse
+        // positive constraints.
+        let prompt = build_system_prompt_clamp(
+            "/wt",
+            SandboxLevel::L3Workspace,
+            &[],
+            &[],
+        );
+        assert!(prompt.contains("refuse"), "clamp must use the word 'refuse'");
+        for sensitive in ["/etc", "/var", "home directory"] {
+            assert!(
+                prompt.contains(sensitive),
+                "clamp must explicitly mention {sensitive}, got: {prompt}"
+            );
+        }
+    }
+
+    #[test]
+    fn build_sandbox_flags_appends_system_prompt() {
+        // The clamp lands as the last two argv elements:
+        // `--append-system-prompt <text>`. Verify both presence and
+        // adjacency so a future refactor can't drop the value arg
+        // while keeping the flag.
+        let argv = build_sandbox_flags(
+            "/wt-fixture",
+            "agent",
+            SandboxLevel::L3Workspace,
+            &[],
+            &[],
+        );
+        let idx = argv
+            .iter()
+            .position(|s| s == "--append-system-prompt")
+            .expect("--append-system-prompt must be present");
+        assert!(
+            idx + 1 < argv.len(),
+            "--append-system-prompt must be followed by its text arg"
+        );
+        let text = &argv[idx + 1];
+        assert!(
+            text.contains("/wt-fixture"),
+            "system-prompt text must include the allowed path"
+        );
+        assert!(
+            text.contains("Mozart sandbox"),
+            "system-prompt text must name itself, got: {text}"
+        );
     }
 }
