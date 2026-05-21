@@ -18,6 +18,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use ignore::{gitignore::Gitignore, WalkBuilder};
@@ -28,6 +29,7 @@ use specta::Type;
 use tauri::ipc::Channel;
 
 use crate::error::AppError;
+use crate::file_tree_cache::FileTreeCache;
 use crate::sandbox;
 use crate::sandbox::diff::parse_numstat_per_file;
 
@@ -164,12 +166,20 @@ async fn compute_numstat_map(
 /// `Debouncer` owns the underlying notify watcher; dropping it stops
 /// the watcher and joins its background thread.
 ///
-/// Each debounce window collapses to a single `FileTreeEvent::Changed`
-/// pushed on `on_event`. The front-end re-fetches the full tree on
-/// each ping — bandwidth is small (one no-payload event) and the
-/// rebuild is cheap relative to a real burst (e.g. `pnpm install`).
+/// Each debounce window does two things, in order:
+///   1. Bumps `cache`'s revision for `workspace_id` — invalidates the
+///      Rust-side `FileTreeCache` so the next `list_repository_tree`
+///      call re-walks the worktree.
+///   2. Pushes a single `FileTreeEvent::Changed` on `on_event` —
+///      signals the frontend to trigger its soft-refresh path.
+///
+/// The bump runs first so that by the time the frontend reacts to the
+/// event and re-issues `list_repository_tree`, the cache lookup
+/// already misses and the rebuild kicks in.
 pub fn spawn_watcher(
     worktree: PathBuf,
+    workspace_id: String,
+    cache: Arc<FileTreeCache>,
     on_event: Channel<FileTreeEvent>,
 ) -> Result<Debouncer<RecommendedWatcher>, AppError> {
     let mut debouncer = new_debouncer(WATCHER_DEBOUNCE, move |res: DebounceEventResult| {
@@ -178,6 +188,7 @@ pub fn spawn_watcher(
                 if events.is_empty() {
                     return;
                 }
+                cache.bump_revision(&workspace_id);
                 if let Err(e) = on_event.send(FileTreeEvent::Changed) {
                     log::warn!("file_tree watcher: channel send failed: {e}");
                 }

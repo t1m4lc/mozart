@@ -9,6 +9,7 @@ pub mod db;
 pub mod error;
 pub mod file_diff;
 pub mod file_tree;
+pub mod file_tree_cache;
 pub mod file_watcher_registry;
 pub mod get_started;
 pub mod git_query;
@@ -169,6 +170,17 @@ pub fn run() {
             // by workspace_id (Phase 4b). Atom C registers the
             // skeleton; Atom E populates it from `watch_repository_tree`.
             app.manage(file_watcher_registry::FileWatcherRegistry::new());
+
+            // File-tree cache keyed by workspace_id. Populated on the
+            // first `list_repository_tree` per workspace and invalidated
+            // by `spawn_watcher`'s debounce callback. Lets repeat
+            // workspace visits skip the FS walk + git status.
+            //
+            // Wrapped in `Arc` because the watcher debouncer closure
+            // captures it by move and runs on a background thread —
+            // the same Arc is cloned into each watcher and into every
+            // command call.
+            app.manage(std::sync::Arc::new(file_tree_cache::FileTreeCache::new()));
 
             // Terminal registry holds PTY handles keyed by workspace_id
             // (Phase 4d). One PTY per workspace, killed on archive.

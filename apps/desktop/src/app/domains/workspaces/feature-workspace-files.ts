@@ -6,7 +6,6 @@ import {
   computed,
   effect,
   inject,
-  signal,
 } from '@angular/core';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
@@ -107,14 +106,21 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
       </div>
 
       <div hlmTabsContent="all" class="flex min-h-0 flex-1 flex-col">
-        <app-feature-file-tree
-          class="block min-h-0 flex-1"
-          [workspaceId]="workspaceId()"
-          [projectId]="activeProjectId()"
-          [refreshTick]="watcherTick()"
-          [activePath]="activeFilePath()"
-          (fileSelected)="onFileSelected($event)"
-        />
+        @if (filesView() === 'all') {
+          <!-- Lazy-mount: instantiating FeatureFileTree triggers a
+               cache-miss fetch on the active workspace, which is the
+               dominant cost when switching to a never-opened heavy
+               repo. Only mount when the user is actually looking at
+               this tab so a workspace persisted on 'changes' incurs
+               zero file-tree work. -->
+          <app-feature-file-tree
+            class="block min-h-0 flex-1"
+            [workspaceId]="workspaceId()"
+            [projectId]="activeProjectId()"
+            [activePath]="activeFilePath()"
+            (fileSelected)="onFileSelected($event)"
+          />
+        }
       </div>
 
       <div
@@ -249,10 +255,6 @@ export class FeatureWorkspaceFiles {
     () => this.asideState().unstagedOpen,
   );
 
-  // Bumped on every FS-watcher ping. The file-tree consumes this as
-  // an input → effects re-run and re-fetch.
-  protected readonly watcherTick = signal(0);
-
   // Path of the currently-active file tab in the central shell. Drives
   // the active-row highlight on All files / Changes lists.
   protected readonly activeFilePath = computed(() => {
@@ -298,13 +300,15 @@ export class FeatureWorkspaceFiles {
     });
     this.destroyRef.onDestroy(() => this.detachWatcher());
 
-    // Refetch changed-files only when the cache for the active
-    // workspace is empty (first visit, or FS-watcher invalidated the
-    // entry). Subsequent visits flip via the cache signal — no Tauri
-    // round-trip.
+    // Initial fetch of the changed-files list on workspace switch.
+    // Subsequent updates flow through the FS-watcher's soft-refresh
+    // path (`refreshChangedFilesInBackground`) which keeps the cache
+    // populated — so this effect only fires on the first visit per
+    // workspace (cache miss). Diff stats + file views fire alongside
+    // so the sidebar's +N/-N chips and saved-view bookkeeping seed
+    // when the workspace is first opened.
     effect(() => {
       const id = this.workspaceId();
-      this.watcherTick();
       if (!id) return;
       if (this.cachedChangedFiles() !== null) return;
       const capturedRevision = this.repos.treeRevisionFor(id);
@@ -412,8 +416,9 @@ export class FeatureWorkspaceFiles {
   }
 
   /** Flip the file's staged state via `git add` / `git reset HEAD`.
-   *  The ChangedFile row carries the current staged flag, so the toggle
-   *  direction is local; the FS watcher refreshes the list afterwards. */
+   *  Triggers the same soft-refresh path the FS-watcher uses so the
+   *  Changes pane reflects the new staged flag without waiting for
+   *  the watcher's debounce window. */
   protected async onToggleStaged(file: ChangedFile): Promise<void> {
     const id = this.workspaceId();
     if (!id) return;
@@ -423,7 +428,7 @@ export class FeatureWorkspaceFiles {
       } else {
         await this.repos.stageFile(id, file.path);
       }
-      this.watcherTick.update((n) => n + 1);
+      this.softRefreshAfterMutation(id);
     } catch (err) {
       console.warn('[ws-files] toggle staged failed:', err);
       toast.error('Could not change staged state', {
@@ -452,7 +457,7 @@ export class FeatureWorkspaceFiles {
       onConfirm: async () => {
         try {
           await this.repos.discardWorkspaceChanges(id);
-          this.watcherTick.update((n) => n + 1);
+          this.softRefreshAfterMutation(id);
         } catch (err) {
           toast.error('Could not discard changes', {
             description: err instanceof Error ? err.message : String(err),
@@ -461,6 +466,19 @@ export class FeatureWorkspaceFiles {
       },
     };
     this.dialogService.open(UiConfirmDiscardChangesDialog, { context });
+  }
+
+  /** Shared post-mutation refresh: covers the case where the user's
+   *  click on Stage / Discard produces UI updates faster than the
+   *  FS-watcher's debounce window. Mirrors the watcher callback so
+   *  both code paths converge on the same cache state. */
+  private softRefreshAfterMutation(workspaceId: string): void {
+    void this.repos.refreshTreeInBackground(workspaceId);
+    void this.repos.refreshChangedFilesInBackground(workspaceId);
+    void this.workspaces.refreshDiffStats();
+    void this.fileViews.refresh(workspaceId).catch((err) => {
+      console.warn('[ws-files] refresh file views failed:', err);
+    });
   }
 
   private openFileFromAllFiles(path: string): void {
@@ -486,10 +504,26 @@ export class FeatureWorkspaceFiles {
   private async attachWatcher(workspaceId: string): Promise<void> {
     try {
       const unwatch = await this.repos.watch(workspaceId, () => {
-        if (this.workspaceId() === workspaceId) {
-          this.watcherTick.update((n) => n + 1);
-          this.repos.invalidateTreeCache(workspaceId);
-        }
+        if (this.workspaceId() !== workspaceId) return;
+        // Soft refresh: keep the old tree on screen, refetch in the
+        // background, swap the cache entry atomically when the new
+        // data lands. CdkTree's `trackBy: node.path` then reuses
+        // unchanged rows so a typical save (one file's status flips)
+        // never tears the tree down. The Rust-side cache was already
+        // invalidated by `spawn_watcher` before this callback fired,
+        // so the refetch goes straight to a real walk.
+        void this.repos.refreshTreeInBackground(workspaceId);
+        void this.repos.refreshChangedFilesInBackground(workspaceId);
+        // Project-wide diff badge counts + per-workspace file-view
+        // metadata. Previously fired indirectly via the
+        // `watcherTick` → cache-invalidation chain; now that the
+        // cache stays populated, trigger them directly so the
+        // sidebar's +N/-N chips and saved-view bookkeeping stay in
+        // step with FS changes.
+        void this.workspaces.refreshDiffStats();
+        void this.fileViews.refresh(workspaceId).catch((err) => {
+          console.warn('[ws-files] refresh file views failed:', err);
+        });
       });
       if (this.workspaceId() !== workspaceId) {
         try {

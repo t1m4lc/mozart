@@ -19,22 +19,25 @@ import type { ChangedFile } from './repositories.adapter';
 //   refetched on every workspace switch + every sub-tab toggle, leaving
 //   the previous workspace's data rendered while the new fetch was in
 //   flight. The cache flips that — once a slice has been fetched for a
-//   workspace it stays available instantly until a real FS-watcher
-//   event arrives.
+//   workspace it stays available instantly across subsequent visits.
 //
-// Freshness invariant:
-//   Each workspace carries a SINGLE monotonic `revision` counter shared
-//   across both slices. The aside owns the FS-watcher subscription per
-//   active workspace; on every debounced "changed" ping it bumps the
-//   revision via `bumpRevision()`, which invalidates BOTH the tree and
-//   the changed-files entry for that workspace in one shot. Cache
-//   reads compare the entry's captured revision against the current
-//   one; a mismatch yields null (forcing a refetch).
+// Refresh model — soft refresh (current):
+//   FS-watcher pings go through `RepositoriesFacade.refreshTreeInBackground`
+//   which awaits a new `loadTree` call (Rust drops its own cache before
+//   the event reaches us, so the call goes straight to a real walk),
+//   then writes the fresh tree on top of the existing cache entry via
+//   `cacheTree`. The entry is NEVER flipped to null mid-flight — the
+//   tree stays on screen the whole time, and CdkTree's `trackBy: path`
+//   reuses unchanged rows so a single-file save never tears the tree
+//   down. The same pattern applies to the changed-files list.
 //
-//   The invalidation source is the Rust-side FS-watcher event, NEVER
-//   a timer (see docs/specs/plan-mozart-dogfood-readiness.md §P1.2).
-//   Add no setInterval-style invalidation here without revising the
-//   plan first.
+// Revision counter — explicit-invalidation surface only:
+//   Each workspace carries a monotonic `revision` shared by both
+//   slices. `cacheTree` / `cacheChangedFiles` capture the revision at
+//   fetch-start; writes that land under a stale revision are silently
+//   dropped. `bumpRevision` is retained for explicit invalidation
+//   callers (e.g. an eventual workspace-deletion cleanup), not for
+//   FS-watcher events — those go through soft refresh now.
 
 export interface CachedFileTree {
   readonly tree: readonly FileNode[];
@@ -63,9 +66,10 @@ export interface CachedChangedFiles {
 interface State {
   byWorkspace: Record<string, CachedFileTree>;
   changedFilesByWorkspace: Record<string, CachedChangedFiles>;
-  // Current revision per workspace. Defaults to 0. Bumped on each
-  // FS-watcher event. Reads default to 0 for unknown ids so a first
-  // write with `revision: 0` is always considered current.
+  // Current revision per workspace. Defaults to 0. Bumped only by
+  // explicit `bumpRevision` calls. Reads default to 0 for unknown
+  // ids so a first write with `revision: 0` is always considered
+  // current.
   revisionByWorkspace: Record<string, number>;
 }
 
@@ -87,9 +91,11 @@ export const FileTreeCacheStore = signalStore(
       return store.revisionByWorkspace()[workspaceId] ?? 0;
     },
 
-    /** Bumps the workspace's revision counter. Called by the aside's
-     *  FS-watcher callback. Subsequent `cachedTreeFor` reads return
-     *  null until a fresh `cacheTree` lands with the new revision. */
+    /** Bumps the workspace's revision counter. Reserved for explicit
+     *  invalidation surfaces (e.g. workspace deletion). FS-watcher
+     *  pings no longer call this — they go through the facade's soft
+     *  refresh which leaves the cache populated and swaps trees
+     *  atomically. Kept for completeness and as a defensive surface. */
     bumpRevision(workspaceId: string): void {
       const current = store.revisionByWorkspace()[workspaceId] ?? 0;
       patchState(store, {

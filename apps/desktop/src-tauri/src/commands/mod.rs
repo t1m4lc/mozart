@@ -38,6 +38,7 @@ use crate::commit::{self, ChangedFile};
 use crate::staging;
 use crate::file_diff;
 use crate::file_tree::{self, FileNodeDto, FileTreeEvent};
+use crate::file_tree_cache::FileTreeCache;
 use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::github::{self, CreatedPr, GithubProbeResult};
 use crate::ide_launch::{self, DetectedIde};
@@ -1527,14 +1528,16 @@ pub async fn refresh_anthropic_connection() -> Result<ProbeResult, AppError> {
 #[specta::specta]
 pub async fn list_repository_tree(
     db: State<'_, DbState>,
+    cache: State<'_, std::sync::Arc<FileTreeCache>>,
     workspace_id: String,
     show_ignored: bool,
 ) -> Result<Vec<FileNodeDto>, AppError> {
-    list_repository_tree_impl(db.inner(), workspace_id, show_ignored).await
+    list_repository_tree_impl(db.inner(), cache.inner().as_ref(), workspace_id, show_ignored).await
 }
 
 pub(crate) async fn list_repository_tree_impl(
     db: &DbState,
+    cache: &FileTreeCache,
     workspace_id: String,
     show_ignored: bool,
 ) -> Result<Vec<FileNodeDto>, AppError> {
@@ -1542,12 +1545,26 @@ pub(crate) async fn list_repository_tree_impl(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
-    file_tree::list_tree(
+    // Capture *before* the cache lookup so a watcher event arriving
+    // mid-rebuild gets detected by `store` and dropped silently.
+    let captured = cache.current_revision(&workspace_id);
+    if let Some(tree) = cache.get(&workspace_id, show_ignored, &ws.base_branch) {
+        return Ok(tree);
+    }
+    let tree = file_tree::list_tree(
         std::path::Path::new(&ws.worktree_path),
         &ws.base_branch,
         show_ignored,
     )
-    .await
+    .await?;
+    cache.store(
+        &workspace_id,
+        show_ignored,
+        &ws.base_branch,
+        tree.clone(),
+        captured,
+    );
+    Ok(tree)
 }
 
 // ---------------------------------------------------------------------------
@@ -1563,6 +1580,7 @@ pub(crate) async fn list_repository_tree_impl(
 pub async fn watch_repository_tree(
     db: State<'_, DbState>,
     registry: State<'_, FileWatcherRegistry>,
+    cache: State<'_, std::sync::Arc<FileTreeCache>>,
     workspace_id: String,
     on_event: Channel<FileTreeEvent>,
 ) -> Result<(), AppError> {
@@ -1572,6 +1590,8 @@ pub async fn watch_repository_tree(
     };
     let debouncer = file_tree::spawn_watcher(
         std::path::PathBuf::from(&ws.worktree_path),
+        workspace_id.clone(),
+        std::sync::Arc::clone(cache.inner()),
         on_event,
     )?;
     registry.register(
