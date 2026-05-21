@@ -179,7 +179,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
               <ng-icon hlm name="lucidePanelRight" size="xs" />
             </button>
             <hlm-sheet-content
-              *brnSheetContent="let ctx"
+              *hlmSheetPortal="let ctx"
               side="right"
               class="w-[min(28rem,90vw)] p-0"
             >
