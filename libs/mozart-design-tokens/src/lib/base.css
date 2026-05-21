@@ -90,6 +90,17 @@
     --brand-subtle: 262 50% 70%;
     --ring: 262 70% 58%;
     --sidebar-ring: 262 70% 58%;
+
+    /* Diff semantic tokens — translucent backgrounds let the diff blend
+     * with whatever surface it's painted on; marker foregrounds carry
+     * the strong green/red signal in the +/− column. Consumed via
+     * `bg-[var(--diff-add-bg)]` / `text-[var(--diff-add-marker-fg)]`
+     * in mozart-ui/diff-view. */
+    --diff-add-bg: hsl(145 65% 50% / 0.08);
+    --diff-remove-bg: hsl(0 75% 55% / 0.08);
+    --diff-hunk-bg: hsl(210 80% 55% / 0.06);
+    --diff-add-marker-fg: hsl(145 60% 35%);
+    --diff-remove-marker-fg: hsl(0 70% 45%);
   }
 
   :root.dark {
@@ -97,6 +108,12 @@
     --brand-subtle: 262 45% 55%;
     --ring: 262 70% 68%;
     --sidebar-ring: 262 70% 68%;
+
+    --diff-add-bg: hsl(145 60% 55% / 0.10);
+    --diff-remove-bg: hsl(0 65% 60% / 0.10);
+    --diff-hunk-bg: hsl(210 75% 60% / 0.08);
+    --diff-add-marker-fg: hsl(145 60% 65%);
+    --diff-remove-marker-fg: hsl(0 70% 70%);
   }
   
   html,
