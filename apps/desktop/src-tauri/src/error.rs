@@ -56,6 +56,17 @@ pub enum AppError {
     // Carries the workspace-relative path so the banner can name it.
     #[error("file changed on disk: {0}")]
     StaleFile(String),
+
+    // Plan P0.1 S0.1.D — `validate_agent_path` rejected the canonical
+    // path because it falls outside the sandbox level's allowed roots.
+    // Distinct from `Validation` so the frontend can surface the level
+    // name and the offending canonical path in a security-aware toast
+    // (rather than the generic "invalid path"). Carries both for the
+    // log + toast — the canonical form is always derivable from the
+    // user-supplied input but spelling it out keeps the diagnostic
+    // clear when symlinks are involved.
+    #[error("path refused: {canonical} not in {level} sandbox")]
+    PathRefused { canonical: String, level: String },
 }
 
 impl From<rusqlite::Error> for AppError {

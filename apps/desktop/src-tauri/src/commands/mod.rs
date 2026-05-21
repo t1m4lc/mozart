@@ -43,7 +43,7 @@ use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::github::{self, CreatedPr, GithubProbeResult};
 use crate::ide_launch::{self, DetectedIde};
 use crate::merge::{self, MergeOutcome};
-use crate::path_guard::validate_workspace_relative_path;
+use crate::path_guard::{self, validate_workspace_relative_path};
 use crate::terminal::{self, TerminalEvent};
 use crate::terminal_registry::TerminalRegistry;
 use crate::workspace_run_registry::WorkspaceRunRegistry;
@@ -1651,7 +1651,21 @@ pub async fn read_workspace_file(
 
     validate_workspace_relative_path(&path)?;
 
-    let abs = std::path::Path::new(&ws.worktree_path).join(&path);
+    // P0.1 S0.1.D — canonicalize-and-confine. The cheap check above
+    // catches obvious garbage; this one closes the symlink-escape
+    // bypass (a symlink inside the worktree pointing at `/etc/hosts`
+    // would pass the regex but fail the canonical-prefix assertion).
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let abs = path_guard::validate_agent_path(
+        std::path::Path::new(&path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
+
     let body = tokio::fs::read_to_string(&abs)
         .await
         .map_err(|e| AppError::Io(format!("read {abs:?}: {e}")))?;
@@ -1702,7 +1716,21 @@ pub(crate) async fn file_save_impl(
 
     validate_workspace_relative_path(&path)?;
 
-    let abs = std::path::Path::new(&ws.worktree_path).join(&path);
+    // P0.1 S0.1.D — canonicalize-and-confine. The two-pass canonicalize
+    // in `validate_agent_path` handles file-to-be-created (parent
+    // exists, target does not) by canonicalizing the parent and
+    // appending the filename — exactly what file_save needs since the
+    // target may not exist yet on first save.
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let abs = path_guard::validate_agent_path(
+        std::path::Path::new(&path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
 
     // Stale check: compare expected (editor-side baseline) against the
     // current on-disk body. A missing file is treated as a divergence —
@@ -1784,6 +1812,24 @@ pub(crate) async fn get_file_diff_impl(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+
+    // P0.1 S0.1.D — canonicalize-and-confine. `file_diff::get_file_diff`
+    // doesn't itself touch the FS at the path arg (it shells git), but
+    // git's `--` separator does NOT block path traversal at the
+    // filesystem layer if the path resolves through a symlink. Gate
+    // here so the diff surface honors the same sandbox as read/save.
+    validate_workspace_relative_path(&path)?;
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let _canonical = path_guard::validate_agent_path(
+        std::path::Path::new(&path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
+
     file_diff::get_file_diff(
         std::path::Path::new(&ws.worktree_path),
         &ws.base_branch,
@@ -2048,7 +2094,9 @@ pub async fn commit_workspace(
 // Per-file staging (P2.5 Changes tab context menu)
 // ---------------------------------------------------------------------------
 
-/// `git add -- <path>` inside the workspace's worktree.
+/// `git add -- <path>` inside the workspace's worktree. P0.1 S0.1.D —
+/// gated by `path_guard::validate_agent_path` so a symlink-escape
+/// commit can't slip through staging.
 #[tauri::command]
 #[specta::specta]
 pub async fn stage_file(
@@ -2060,11 +2108,23 @@ pub async fn stage_file(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+    validate_workspace_relative_path(&path)?;
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let _canonical = path_guard::validate_agent_path(
+        std::path::Path::new(&path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
     staging::stage(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
 /// `git reset HEAD -- <path>` inside the workspace's worktree. Leaves
-/// the working-tree copy untouched.
+/// the working-tree copy untouched. P0.1 S0.1.D — same gate as
+/// `stage_file`.
 #[tauri::command]
 #[specta::specta]
 pub async fn unstage_file(
@@ -2076,11 +2136,22 @@ pub async fn unstage_file(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+    validate_workspace_relative_path(&path)?;
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let _canonical = path_guard::validate_agent_path(
+        std::path::Path::new(&path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
     staging::unstage(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
 /// `true` when the path has changes in the git index (X byte of
-/// porcelain status is non-space, non-`?`).
+/// porcelain status is non-space, non-`?`). P0.1 S0.1.D — same gate.
 #[tauri::command]
 #[specta::specta]
 pub async fn is_staged(
@@ -2092,6 +2163,17 @@ pub async fn is_staged(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+    validate_workspace_relative_path(&path)?;
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let _canonical = path_guard::validate_agent_path(
+        std::path::Path::new(&path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
     staging::is_staged(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
@@ -2154,6 +2236,20 @@ pub(crate) async fn mark_file_viewed_impl(
         workspaces::get(&conn, &workspace_id)?
     };
     validate_workspace_relative_path(&path)?;
+    // P0.1 S0.1.D — canonicalize-and-confine. The hash-on-disk path
+    // below follows symlinks via tokio::fs::read; without this gate a
+    // symlink could pin the Viewed marker to a file outside the
+    // sandbox.
+    let allowed_roots = {
+        let conn = db.lock();
+        path_guard::resolve_allowed_roots(&ws, &conn)?
+    };
+    let _canonical = path_guard::validate_agent_path(
+        std::path::Path::new(&path),
+        std::path::Path::new(&ws.worktree_path),
+        &allowed_roots,
+        &ws.sandbox_level,
+    )?;
     let hash = hash_workspace_file(std::path::Path::new(&ws.worktree_path), &path).await;
     let row = WorkspaceFileView {
         workspace_id,

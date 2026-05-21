@@ -344,24 +344,45 @@ Files: ~3 (sandbox_policy.rs new, runner.rs argv site, parser test).
 Tests: 6 unit tests in sandbox_policy_test.rs covering level → flag-set
 matrix.
 
-#### Atom S0.1.D — Rust path-canonicalize guard at IPC boundary
+#### Atom S0.1.D — Rust path-canonicalize guard at IPC boundary ✅ DONE 2026-05-21
 
-- [ ] New `path_guard.rs` exporting
+- [x] New `path_guard.rs` exporting
       `validate_agent_path(path: &Path, ws: &Workspace) -> Result<PathBuf,
 AppError>` that: 1. `canonicalize()` the input 2. Asserts the canonical form starts with the resolved canonical
       root (`canonical_worktrees_root()` for L1, project worktrees
       set for L2, single worktree for L3) 3. Rejects symlinks pointing outside via standard
       `fs::canonicalize` behavior (canonicalize resolves symlinks)
-- [ ] Every Tauri command that takes a path _originating from agent
+      _Shipped as two pieces: `resolve_allowed_roots(ws, conn)` does
+      the DB lookup + per-level canonicalize, and `validate_agent_path(
+      input, worktree, &allowed, level_label)` is the pure
+      canonical-prefix check. Two-pass canonicalize handles the
+      file-to-be-created case (canonicalize parent + join filename)
+      for the file_save flow._
+- [x] Every Tauri command that takes a path _originating from agent
       output_ threads it through this guard. Audit list (initial):
       `file_read`, `file_write`, `file_diff::*`, `commit::*`,
       `discard_changes_to`. Identified via `grep "tauri::command"`.
-- [ ] Returns `AppError::PathRefused { canonical, level }`.
-- [ ] **Manual checkpoint:** Write a Cargo test that crafts a path with
+      _Threaded through: `read_workspace_file`, `file_save_impl`,
+      `get_file_diff_impl`, `stage_file`, `unstage_file`, `is_staged`,
+      `mark_file_viewed_impl` (7 commands). `clear_file_view_impl`
+      kept on the v0 cheap check only — DB-key delete with no FS
+      touch, no canonicalize semantics apply._
+- [x] Returns `AppError::PathRefused { canonical, level }`.
+- [x] **Manual checkpoint:** Write a Cargo test that crafts a path with
       `..` traversal and a path that targets a symlink pointing outside
       the canonical root. Both must reject. Manually try via the agent:
       "edit ../../etc/hosts" — must surface the rejection in the
       timeline.
+      _Coverage: 8 unit tests in `path_guard::tests` —
+      `validate_agent_path_happy_path_nested_relative`,
+      `validate_agent_path_rejects_traversal_via_canonicalize`,
+      `validate_agent_path_rejects_symlink_escape` (the regression
+      case the v0 stub couldn't see), `validate_agent_path_rejects_
+      symlink_chain_to_outside`, `validate_agent_path_l3_rejects_
+      sibling_worktree`, `validate_agent_path_l2_accepts_sibling_
+      worktree`, `validate_agent_path_accepts_nonexistent_file_with_
+      existing_parent`, `validate_agent_path_rejects_etc_anywhere`.
+      Live `../../etc/hosts` agent probe to be exercised by author._
 
 Files: ~2 + audit edits across ~6 command sites. Tests: 8 cases (happy
 
