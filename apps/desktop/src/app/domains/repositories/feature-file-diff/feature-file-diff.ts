@@ -5,10 +5,12 @@ import {
   effect,
   inject,
   input,
+  output,
   signal,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { MzDiffView, type FetchContextLines } from '@mozart-ui/diff-view';
+import { type FetchContextLines } from '@mozart-ui/diff-view';
+import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
 import { MessageMarkdown } from '../../chat/ui-message-markdown/ui-message-markdown';
 import { RepositoriesFacade } from '../data/repositories.facade';
 
@@ -22,39 +24,43 @@ function isMarkdownPath(path: string | null): boolean {
   return MARKDOWN_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-// Smart wrapper around `MzDiffView` + `MessageMarkdown`. Picks the right
-// renderer for the selected file :
+// Smart wrapper around `MzFileDiffCard` + `MessageMarkdown`. Picks the
+// right renderer for the selected file :
 //
 //   - `.md` / `.markdown` / `.mdx` → defaults to **Preview** (rendered
 //     markdown). A header tab toggle exposes Diff for users who want
 //     the unified diff anyway.
-//   - everything else → MzDiffView only (no tab toggle).
+//   - everything else → MzFileDiffCard only (no tab toggle).
 //
 // `RepositoriesFacade.loadFile` fetches the raw content for preview ;
 // `loadFileDiff` is unchanged. Both calls are tagged with a monotonic
 // `fetchId` so out-of-order responses (user clicks foo then bar) never
 // clobber the visible content.
 //
-// `MzDiffView` also accepts a context-fetch callback so P2.3 expand
+// `MzFileDiffCard` accepts a context-fetch callback so P2.3 expand
 // bars can reveal unchanged lines between hunks. The callback lazy
 // loads the full file body the first time it's needed and slices the
 // requested range from a per-path cache; subsequent expansions on the
 // same file pay no Tauri round-trip.
 @Component({
   selector: 'app-feature-file-diff',
-  imports: [MzDiffView, MessageMarkdown, HlmButtonImports],
+  imports: [MzFileDiffCard, MessageMarkdown, HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
     @if (showTabs()) {
       <div
-        class="border-sidebar-border  flex h-8 shrink-0 items-center gap-1 border-b px-2"
+        class="border-sidebar-border flex h-8 shrink-0 items-center gap-1 border-b px-2"
       >
-        <span
-          class="text-muted-foreground min-w-0 flex-1 truncate text-[11px] font-medium"
-        >
-          {{ path() }}
-        </span>
+        @if (mode() === 'preview') {
+          <span
+            class="text-muted-foreground min-w-0 flex-1 truncate text-[11px] font-medium"
+          >
+            {{ path() }}
+          </span>
+        } @else {
+          <span class="flex-1"></span>
+        }
         <button
           hlmBtn
           variant="ghost"
@@ -103,14 +109,16 @@ function isMarkdownPath(path: string | null): boolean {
           }
         }
       } @else {
-        <mz-diff-view
-          class="block h-full w-full"
-          [path]="path()"
+        <mz-file-diff-card
+          [path]="path() ?? ''"
           [diffText]="diffText()"
           [loading]="loading()"
           [error]="error()"
           [fetchContext]="fetchContext"
           [fileLineCount]="fileLineCount()"
+          (refresh)="reload()"
+          (pathCopy)="pathCopy.emit($event)"
+          (copyError)="copyError.emit($event)"
         />
       }
     </div>
@@ -122,6 +130,9 @@ export class FeatureFileDiff {
   /** Bumped by the parent on FS-watcher pings; triggers a re-fetch
    *  even when workspaceId + path stay the same. */
   readonly refreshTick = input<number>(0);
+
+  readonly pathCopy = output<string>();
+  readonly copyError = output<Error>();
 
   private readonly repos = inject(RepositoriesFacade);
 
