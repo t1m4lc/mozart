@@ -59,14 +59,14 @@ pub enum AppError {
 
     // Plan P0.1 S0.1.D — `validate_agent_path` rejected the canonical
     // path because it falls outside the sandbox level's allowed roots.
-    // Distinct from `Validation` so the frontend can surface the level
-    // name and the offending canonical path in a security-aware toast
-    // (rather than the generic "invalid path"). Carries both for the
-    // log + toast — the canonical form is always derivable from the
-    // user-supplied input but spelling it out keeps the diagnostic
-    // clear when symlinks are involved.
-    #[error("path refused: {canonical} not in {level} sandbox")]
-    PathRefused { canonical: String, level: String },
+    // Distinct from `Validation` so the frontend can dispatch on
+    // `kind: "PathRefused"` for a security-aware toast (rather than
+    // the generic "invalid path"). The message string is formatted as
+    // `<canonical> not in <level> sandbox` — single TEXT field for
+    // wire-shape parity with the other AppError variants (the frontend
+    // `unwrap` expects `error: { message: string }` across the board).
+    #[error("path refused: {0}")]
+    PathRefused(String),
 }
 
 impl From<rusqlite::Error> for AppError {

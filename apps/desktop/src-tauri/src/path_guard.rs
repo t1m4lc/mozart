@@ -151,10 +151,11 @@ pub fn validate_agent_path(
     {
         Ok(canonical)
     } else {
-        Err(AppError::PathRefused {
-            canonical: canonical.display().to_string(),
-            level: level_label.to_string(),
-        })
+        Err(AppError::PathRefused(format!(
+            "{} not in {} sandbox",
+            canonical.display(),
+            level_label
+        )))
     }
 }
 
@@ -270,11 +271,15 @@ mod tests {
         )
         .unwrap_err();
         match err {
-            AppError::PathRefused { canonical, level } => {
-                assert_eq!(level, "L3Workspace");
+            AppError::PathRefused(msg) => {
                 assert!(
-                    canonical.starts_with(outside_canon.to_string_lossy().as_ref()),
-                    "canonical should resolve through the symlink, got: {canonical}"
+                    msg.contains("L3Workspace"),
+                    "message must name the level, got: {msg}"
+                );
+                let outside_str = outside_canon.to_string_lossy();
+                assert!(
+                    msg.contains(outside_str.as_ref()),
+                    "message must spell out the canonical target ({outside_str}), got: {msg}"
                 );
             }
             other => panic!("expected PathRefused, got {other:?}"),
