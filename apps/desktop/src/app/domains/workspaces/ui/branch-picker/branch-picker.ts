@@ -48,11 +48,12 @@ import {
         size="icon-xs"
         type="button"
         [hlmTooltip]="
-          disabled() ? 'Workspace is done — reopen to change target' : 'Target branch'
+          disabled()
+            ? 'Workspace is done — reopen to change target'
+            : 'Target branch'
         "
         position="bottom"
         class="size-7 shrink-0 rounded-md text-muted-foreground"
-        data-tauri-drag-region="false"
         [disabled]="disabled()"
       >
         <ng-icon hlm name="lucideGitPullRequestArrow" size="xs" />
@@ -79,8 +80,12 @@ import {
                   size="xs"
                   class="shrink-0 text-muted-foreground"
                 />
-                <span class="truncate font-mono font-semibold">{{ value() }}</span>
-                <span class="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+                <span class="truncate font-mono font-semibold">{{
+                  value()
+                }}</span>
+                <span
+                  class="ml-auto flex items-center gap-1 text-xs text-muted-foreground"
+                >
                   <span>target</span>
                   <kbd
                     hlmKbd

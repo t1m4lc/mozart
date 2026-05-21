@@ -29,7 +29,7 @@ const FIRST_OPEN_SETTLE_MS = 300;
   imports: [MzLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    class: 'block h-full w-full select-text',
+    class: 'block h-full w-full select-text bg-background',
     // Plan P0.2: visual cue that the terminal is read-only. The host
     // class drives a grey filter + hides xterm's cursor layer (see
     // styles below). disableStdin already blocks input; the host

@@ -5,117 +5,114 @@ import {
   effect,
   inject,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmSidebarImports } from '@mozart/ui/sidebar';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCircleStop, lucideGitMerge, lucidePlay } from '@ng-icons/lucide';
 import { OsService } from '@mozart/shared-util-os';
+import { HlmDialogService } from '@mozart/ui/dialog';
+import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { toast } from '@spartan-ng/brain/sonner';
+import { LayoutService } from '../core/layout.service';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
 import { ProfileFacade } from '../domains/profile';
 import { ProjectsFacade } from '../domains/projects';
-import { RunRegistry } from '../domains/runs';
-import { WorkspacesFacade, type MergeAction } from '../domains/workspaces';
-import { FeatureWorkspaceAside } from '../domains/workspaces/feature-workspace-aside/feature-workspace-aside';
+import {
+  FeatureWorkspaceAside,
+  WorkspacesFacade,
+  type MergeAction,
+} from '../domains/workspaces';
 import { MergeActionMenu } from '../domains/workspaces/ui/merge-action-menu/merge-action-menu';
+import { SHELL_RIGHT_PANEL_WIDTH } from './shell-panel.constants';
 
-// Right-aside shell. macOS traffic-light buttons live in the LEFT
-// sidebar header (per the user's preference). Non-mac controls render
-// here only when the OS chrome doesn't already provide them.
+// Right shell panel. Owns its own collapse behavior (width → 0px when
+// closed) AND the visibility gate (only shown when a workspace is
+// active). Hosts the merge-action header + the workspace aside body.
+//
+// Pulled out of `app-shell` so the root shell stays a thin composer.
 @Component({
-  selector: 'app-shell-aside',
+  selector: 'app-shell-right',
   imports: [
-    HlmButtonImports,
-    HlmIconImports,
     HlmSidebarImports,
-    HlmTooltipImports,
-    NgIcon,
     NonMacWindowControls,
     FeatureWorkspaceAside,
     MergeActionMenu,
   ],
-  providers: [provideIcons({ lucideCircleStop, lucideGitMerge, lucidePlay })],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    // `max-lg:hidden` collapses the inline right pane on viewports
+    // below Tailwind's `lg` breakpoint (1024px) — matches the
+    // `LayoutService.isCompact` query. Below that, the toolbar's
+    // toggle button switches to a sheet trigger (handled in
+    // workspace-toolbar) so the content stays reachable.
+    class:
+      'relative block shrink-0 overflow-hidden max-lg:hidden transition-[width] duration-200 ease-out',
+    '[style.width]': '_width()',
+  },
   template: `
-    <hlm-sidebar
-      side="right"
-      collapsible="none"
-      class="h-full w-full bg-transparent"
+    <!-- Inner panel anchored to the host's RIGHT edge with a fixed
+         width. border-l lives ON this inner panel (not the host), so
+         overflow-hidden clips both the content AND the border together
+         when the host shrinks to 0 — no orphan border line stays. -->
+    <div
+      class="absolute inset-y-0 right-0 border-l border-sidebar-border"
+      [style.width]="_fullWidth"
     >
-      <div
-        hlmSidebarHeader
-        data-tauri-drag-region
-        class="h-9 flex-row items-center justify-end gap-1 bg-sidebar px-1 border-b border-sidebar-border"
+      <hlm-sidebar
+        side="right"
+        collapsible="none"
+        class="h-full w-full bg-transparent"
       >
-        <span class="flex-1" data-tauri-drag-region></span>
-        @if (workspaces.activeId()) {
-          @if (runStatus() === 'running') {
-            <button
-              type="button"
-              hlmTooltip="Stop the run"
-              position="bottom"
-              class="inline-flex h-6 items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-2 text-xs text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              data-tauri-drag-region="false"
-              (click)="onStopRun()"
-            >
-              <ng-icon hlm name="lucideCircleStop" size="xs" />
-              <span>Stop</span>
-            </button>
-          } @else {
-            <button
-              type="button"
-              hlmTooltip="Run the configured command"
-              position="bottom"
-              class="inline-flex h-6 items-center gap-1.5 rounded-md border border-border bg-muted px-2 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-40"
-              [disabled]="!hasRunCommand()"
-              data-tauri-drag-region="false"
-              (click)="onRun()"
-            >
-              <ng-icon hlm name="lucidePlay" size="xs" />
-              <span>Run</span>
-            </button>
+        <div
+          hlmSidebarHeader
+          data-tauri-drag-region
+          class="h-10 flex-row items-center justify-end gap-1 bg-sidebar px-1 border-b border-sidebar-border"
+        >
+          <span class="flex-1" data-tauri-drag-region></span>
+          <div class="flex gap-2">
+            @if (workspaces.activeId()) {
+              <app-merge-action-menu
+                [primaryAction]="mergePrimaryAction()"
+                [githubConnected]="profile.githubConnected()"
+                (pick)="onMergeActionPick($event)"
+              />
+            }
+            @if (!isMac) {
+              <app-non-mac-window-controls />
+            }
+          </div>
+        </div>
+        <div hlmSidebarContent class="min-h-0 flex-1 bg-transparent p-0">
+          <!-- On compact viewports the inline shell-right is CSS-hidden
+               AND its feature-workspace-aside is NOT mounted, so the
+               sheet-mounted copy is the only consumer of the terminal
+               registry. Avoids the xterm element being yanked between
+               two simultaneous mounts. -->
+          @if (!layout.isCompact()) {
+            <app-feature-workspace-aside class="h-full w-full" />
           }
-
-          <app-merge-action-menu
-            [primaryAction]="mergePrimaryAction()"
-            [githubConnected]="profile.githubConnected()"
-            (pick)="onMergeActionPick($event)"
-          />
-        }
-        @if (!isMac) {
-          <app-non-mac-window-controls />
-        }
-      </div>
-      <div hlmSidebarContent class="min-h-0 flex-1 bg-transparent p-0">
-        <app-feature-workspace-aside class="h-full w-full" />
-      </div>
-    </hlm-sidebar>
+        </div>
+      </hlm-sidebar>
+    </div>
   `,
 })
-export class ShellAside {
+export class ShellRight {
   protected readonly isMac = inject(OsService).isMac();
   protected readonly workspaces = inject(WorkspacesFacade);
   protected readonly profile = inject(ProfileFacade);
+  protected readonly layout = inject(LayoutService);
   private readonly projects = inject(ProjectsFacade);
-  private readonly runs = inject(RunRegistry);
   private readonly dialog = inject(HlmDialogService);
 
-  protected readonly runStatus = computed(() => {
-    const id = this.workspaces.activeId();
-    if (!id) return 'idle' as const;
-    return this.runs.ensureEntry(id).status();
-  });
+  // Right pane is only meaningful inside a workspace context, and the
+  // user can additionally toggle it via the workspace toolbar.
+  private readonly _visible = computed(
+    () => this.workspaces.activeId() !== null && this.layout.rightPanelOpen(),
+  );
 
-  protected readonly hasRunCommand = computed(() => {
-    const id = this.workspaces.activeId();
-    if (!id) return false;
-    const ws = this.workspaces.workspaceById(id)();
-    if (!ws) return false;
-    return !!this.projects.byId(ws.projectId)()?.runCommand;
-  });
+  // Inner panel keeps a constant width — only the host's width animates
+  // (0 ↔ SHELL_RIGHT_PANEL_WIDTH). overflow-hidden does the reveal/hide
+  // via clipping; the inner stays anchored to the host's right edge.
+  protected readonly _fullWidth = SHELL_RIGHT_PANEL_WIDTH;
+  protected readonly _width = computed(() =>
+    this._visible() ? SHELL_RIGHT_PANEL_WIDTH : '0px',
+  );
 
   // AD-02 routing: workspace.lastMergeAction → project.mergeMode →
   // default 'pr'. `mergeModeFor` returns null until ensureMergeMode has
@@ -142,33 +139,13 @@ export class ShellAside {
     });
   }
 
-  protected async onRun(): Promise<void> {
-    const id = this.workspaces.activeId();
-    if (!id) return;
-    try {
-      await this.runs.start(id);
-    } catch (err) {
-      console.warn('[shell-aside] run start failed:', err);
-    }
-  }
-
-  protected async onStopRun(): Promise<void> {
-    const id = this.workspaces.activeId();
-    if (!id) return;
-    try {
-      await this.runs.stop(id);
-    } catch (err) {
-      console.warn('[shell-aside] run stop failed:', err);
-    }
-  }
-
   protected async onMergeActionPick(action: MergeAction): Promise<void> {
     const id = this.workspaces.activeId();
     if (!id) return;
     // AD-02 — persist the click outcome-independently so the label
     // sticks even on a precondition failure.
     void this.workspaces.setLastMergeAction(id, action).catch((err) => {
-      console.warn('[shell-aside] persist last merge action failed:', err);
+      console.warn('[shell-right] persist last merge action failed:', err);
     });
     if (action === 'pr') {
       await this.openCreatePrDialog(id);
@@ -219,7 +196,7 @@ export class ShellAside {
         toast.error('This workspace is read-only.');
         return;
       }
-      console.warn('[shell-aside] merge failed:', err);
+      console.warn('[shell-right] merge failed:', err);
       toast.error('Merge failed.', {
         description: err instanceof Error ? err.message : String(err),
       });

@@ -69,7 +69,7 @@ const ROW_BY_LEVEL: Record<EffortLevel, EffortRow> = EFFORT_ROWS.reduce(
       <hlm-select-trigger
         size="auto"
         hlmTooltip="Adjust effort"
-        class="h-6 w-auto gap-1 rounded-md border-transparent px-1.5 py-0 text-xs shadow-none [&>ng-icon:last-child]:text-xs"
+        class="h-6 w-auto gap-1 rounded-md border-transparent px-2.5 py-0 text-xs shadow-none [&>ng-icon:last-child]:text-xs [&>ng-icon:last-child]:transition-transform [&>ng-icon:last-child]:duration-150 [&[aria-expanded=true]>ng-icon:last-child]:rotate-180"
       >
         <ng-icon hlm [name]="_currentRow().icon" size="xs" />
         <span class="text-xs">{{ _currentRow().label }}</span>

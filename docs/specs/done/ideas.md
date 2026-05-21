@@ -25,37 +25,14 @@ stop at its Manual checkpoint, wait for my OK before committing.
 
 ---
 
-Prompt C — Quick taste decisions
-
-Deux choses sont déjà décidées mais pas encore traduites en code :
-
-- TODO-011 (ask-mode mute le freeze) — bloquée par la livraison de P0.1.C, donc rien à
-  faire avant.
-- Le user header note dans le plan (« reopen workspace … its not reactive ») — à
-  vérifier au runbook P0.2.D ; si confirmé encore présent, mini-fix dans
-  WorkspacesFacade.reopen().
-
 - timeline moche à revoir
-- diff moche à revoir inspiration github
 - revoir file view car header moche
-- composer: bouton enter round, placeholder,
-- terminal tab break, add resizable et remet en haut. ajouter bouton run et enlever celui du haut.
-  add run tabcontent, btn to run (lauch run command from .mozart/run.json, if run show console like commande from npm for instance.
-  add settings tabcontent, btn to run (lauch run command from .mozart/run.json, if run show console like commande from npm for instance.
 
-- onboarding create a parent to wrap steper to dont have steper jump between setps maybe use ngcontent
-  <app-stepper>step detail</app-stepper>
-- Fix sidebar resizable car celui de droite influence celui de gauche, pas bon
-- Créer un variante du dot loader, variante simple plus petite, copye du CLI dot loader de codex et utiliser variante simple pour tab et workspace menu.
+- improve workspace status icons use
 
-- All files tree issue: Il y a toujours le problème suivant, c'est-à-dire que quand je suis sur un workspace et que je clique sur un autre workspace qui contient un filetree, un gros filetree, du coup quand je clique, ça ne route pas, ça attend que le filetree soit résolu et ensuite ça route. Ça, c'est vraiment pas beau, il faut router. Il faut que du coup l'utilisateur route vers le workspace et qu'après seulement le filetree soit résolu. Donc je ne sais pas, c'est peut-être lié au cache. il n'y a pas, je ne pense pas qu'il y ait de résolveur, ça doit être lié au cache qui attend d'être résolu avant que la route navigue bien. Donc ça, c'est vraiment pas bon. Il faut que, il faut Il faut creuser ça. Déjà un quick win, on va dire, ça serait d'inverser les tables all files et change, de les inverser pour que par défaut, ça soit la table change qui soit montrée par défaut, mais ça ne règle pas le problème parce que du coup, on a de la persistence sur les tables. Il suffit que l'utilisateur euh et cliqué sur all files, la table all file, donc du coup, il y a le trick qui est bien chargé. Et du coup ensuite il navigue sur un autre workspace, ensuite il décide de revenir sur le workspace avec le gros filetree et là on a le problème. ET une amélioration serai de rendre l'aétat du file tree persistent entre les changement de workspace.
-
-- change cursor in texte edit et ajoute si possible un background leger un peu different sur la ligne selectionner ancien qu'un leger brand color sur le chiffre de la ligne actif
-
-- fix terminal is light when dark theme, change background.
-
-- improve workspace status icons
 - je trouve que l'ensemble du texte en general est un peu trop petit et les icon aussi peut tu faire des proposition pour rendre l'UI un peu plus accessible.
+
+- All files tree issue: Il y a toujours le problème suivant, c'est-à-dire que quand je suis sur un workspace et que je clique sur un autre workspace qui contient un filetree, un gros filetree, du coup quand je clique, ça ne route pas, ça attend que le filetree soit résolu et ensuite ça route. Ça, c'est vraiment pas beau, il faut router. Il faut que du coup l'utilisateur route vers le workspace et qu'après seulement le filetree soit résolu. Donc je ne sais pas, c'est peut-être lié au cache. il n'y a pas, je ne pense pas qu'il y ait de résolveur, ça doit être lié au cache qui attend d'être résolu avant que la route navigue bien. Donc ça, c'est vraiment pas bon. Il faut que, il faut Il faut creuser ça. Déjà un quick win, on va dire, ça serait d'inverser les tables all files et change, de les inverser pour que par défaut, ça soit la table change qui soit montrée par défaut, mais ça ne règle pas le problème parce que du coup, on a de la persistence sur les tables. Il suffit que l'utilisateur euh et cliqué sur all files, la table all file, donc du coup, il y a le trick qui est bien chargé. Et du coup ensuite il navigue sur un autre workspace, ensuite il décide de revenir sur le workspace avec le gros filetree et là on a le problème. ET une amélioration serai de rendre l'aétat du file tree persistent entre les changement de workspace. Maybe you can improve with rust layer ??
 
 # Todo
 

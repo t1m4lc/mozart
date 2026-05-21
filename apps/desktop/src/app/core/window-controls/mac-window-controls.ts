@@ -13,7 +13,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
       <button
         type="button"
         aria-label="Close window"
-        data-tauri-drag-region="false"
         (click)="close()"
         class="relative size-3 rounded-full border border-black/10 bg-[#ff5f57]
            before:absolute before:inset-0 before:flex before:items-center before:justify-center
@@ -24,7 +23,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
       <button
         type="button"
         aria-label="Minimize window"
-        data-tauri-drag-region="false"
         (click)="minimize()"
         class="relative size-3 rounded-full border border-black/10 bg-[#ffbd2e]
            before:absolute before:inset-0 before:flex before:items-center before:justify-center
@@ -36,7 +34,6 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
         type="button"
         (click)="toggleMaximize()"
         aria-label="Toggle fullscreen"
-        data-tauri-drag-region="false"
         class="relative size-3 rounded-full border border-black/10 bg-[#28c840]"
       >
         <span

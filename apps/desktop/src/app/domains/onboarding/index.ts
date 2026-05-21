@@ -27,6 +27,7 @@ export {
 export { onboardingGuard } from './onboarding.guard';
 export { notOnboardedGuard } from './not-onboarded.guard';
 export { UiOnboardingStepShell } from './ui-onboarding-step-shell';
+export { UiOnboardingStepper } from './ui-onboarding-stepper';
 export { UiDisclosureCard } from './ui-disclosure-card';
 export { FeatureOnboardingStepWelcome } from './feature-onboarding-step-welcome';
 export { FeatureOnboardingStepGit } from './feature-onboarding-step-git';

@@ -7,8 +7,10 @@ import {
   effect,
   inject,
   input,
+  output,
   viewChild,
 } from '@angular/core';
+import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmEmptyImports } from '@mozart/ui/empty';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -18,26 +20,42 @@ import type { RunStatus } from '../data/run-status.model';
 
 @Component({
   selector: 'app-feature-workspace-run',
-  imports: [NgIcon, HlmEmptyImports, HlmIconImports],
+  imports: [NgIcon, HlmButtonImports, HlmEmptyImports, HlmIconImports],
   providers: [provideIcons({ lucidePlay })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
     @if (status() === 'idle' && !mounted) {
-      <!-- IMP — until the user fires the run, surface a quiet empty
-           state. Run config lives in Mozart settings (future); the
-           panel surfaces the result once a run is in flight. -->
-      <div hlmEmpty class="border-0 p-6 text-muted-foreground">
-        <hlm-empty-media variant="icon">
-          <ng-icon hlm name="lucidePlay" size="md" />
-        </hlm-empty-media>
-        <p hlmEmptyTitle class="text-sm font-medium text-foreground">
-          No run yet
-        </p>
-        <p hlmEmptyDescription class="text-xs text-muted-foreground">
-          Trigger the workspace run from the toolbar to see logs, ports, and
-          exit status here.
-        </p>
+      <!-- Empty state with an inline "Run workspace" CTA. The host
+           emits (requestStart) which the parent (workspace-aside)
+           wires to the run registry — keeps this component free of
+           run-orchestration knowledge. -->
+      <div
+        class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
+      >
+        <ng-icon
+          hlm
+          name="lucidePlay"
+          size="md"
+          class="text-muted-foreground/60"
+        />
+        <div class="space-y-1">
+          <p class="text-sm font-medium text-foreground">Run your workspace</p>
+          <p class="text-xs text-muted-foreground">
+            Start the configured run command to see logs, ports, and exit
+            status streamed here.
+          </p>
+        </div>
+        <button
+          hlmBtn
+          type="button"
+          size="sm"
+          class="rounded"
+          (click)="requestStart.emit()"
+        >
+          <ng-icon hlm name="lucidePlay" size="xs" />
+          Run workspace
+        </button>
       </div>
     }
     <div
@@ -52,6 +70,8 @@ export class FeatureWorkspaceRun {
   /** True when the Run tab is the active tab — defers xterm attach to
    *  avoid sizing against a hidden host. */
   readonly active = input<boolean>(false);
+  /** User clicked the empty-state CTA. Parent hooks this to RunRegistry. */
+  readonly requestStart = output<void>();
 
   private readonly host =
     viewChild.required<ElementRef<HTMLDivElement>>('host');

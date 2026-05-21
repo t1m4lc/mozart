@@ -20,7 +20,7 @@ export {
 
 export { WorkspaceDetailPage } from './feature-detail/workspace-detail.page';
 export { FeatureChatTabBar } from './feature-chat-tab-bar/feature-chat-tab-bar';
-export { FeatureWorkspaceAside } from './feature-workspace-aside/feature-workspace-aside';
+export { FeatureWorkspaceAside } from './feature-workspace-aside';
 export { FeatureWorkspaceMiddle } from './feature-workspace-middle/feature-workspace-middle';
 export { FeatureFileContent } from './feature-file-content/feature-file-content';
 export {

@@ -5,6 +5,7 @@ import {
   ElementRef,
   TemplateRef,
   effect,
+  inject,
   input,
   output,
   signal,
@@ -13,8 +14,10 @@ import {
 import { HlmBreadcrumbImports } from '@mozart/ui/breadcrumb';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
-import { MzLoader } from '@mozart-ui/loader';
+import { HlmSheetImports } from '@mozart/ui/sheet';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { LayoutService } from '../../../../core/layout.service';
+import { FeatureWorkspaceAside } from '../../feature-workspace-aside';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleStop,
@@ -24,6 +27,7 @@ import {
   lucidePanelRight,
   lucidePlay,
 } from '@ng-icons/lucide';
+import { ShellTopBar } from '../../../../shell/shell-top-bar';
 import type { RunStatus } from '../../../runs';
 import type { OpenInTool } from '../../data/open-in-tools';
 import { BranchPicker } from '../branch-picker/branch-picker';
@@ -36,11 +40,13 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
     NgTemplateOutlet,
     BranchPicker,
     OpenInMenu,
+    ShellTopBar,
     HlmBreadcrumbImports,
     HlmButtonImports,
     HlmIconImports,
+    HlmSheetImports,
     HlmTooltipImports,
-    MzLoader,
+    FeatureWorkspaceAside,
   ],
   providers: [
     provideIcons({
@@ -55,10 +61,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div
-      data-tauri-drag-region
-      class="flex h-9 items-center gap-1 border-b border-sidebar-border bg-sidebar px-1"
-    >
+    <app-shell-top-bar>
       @if (leadingSlot()) {
         <ng-container [ngTemplateOutlet]="leadingSlot()!" />
       }
@@ -68,6 +71,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
           hlmBreadcrumb
           aria-label="Workspace"
           class="min-w-0 overflow-hidden"
+          data-tauri-drag-region="false"
         >
           <ol hlmBreadcrumbList>
             <li hlmBreadcrumbItem class="shrink-0">
@@ -84,7 +88,6 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
               <span
                 hlmBreadcrumbPage
                 class="flex min-w-0 items-center gap-1 text-sm font-normal"
-                data-tauri-drag-region="false"
               >
                 <ng-icon
                   hlm
@@ -114,37 +117,19 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
                   </span>
                 }
               </span>
+              <app-branch-picker
+                [value]="targetBranch()"
+                [currentBranch]="currentBranch()"
+                [branches]="selectableBranches()"
+                [disabled]="frozen() || isStreaming()"
+                (valueChange)="targetBranchChange.emit($event)"
+              />
             </li>
           </ol>
         </nav>
-
-        <app-branch-picker
-          [value]="targetBranch()"
-          [currentBranch]="currentBranch()"
-          [branches]="selectableBranches()"
-          [disabled]="frozen()"
-          (valueChange)="targetBranchChange.emit($event)"
-        />
-
-        @if (isStreaming()) {
-          <mz-loader
-            size="xs"
-            class="shrink-0 text-brand"
-            hlmTooltip="Agent is running"
-            position="bottom"
-          />
-        }
       </div>
 
-      <div
-        class="flex shrink-0 items-center gap-1"
-        data-tauri-drag-region="false"
-      >
-        <!-- Action buttons (Commit / Open in IDE) only render once
-             the workspace identity has resolved. Empty title is the
-             proxy for "data not ready yet". Create PR + Run live on
-             the right-aside header now, so they're not duplicated
-             here. -->
+      <div class="flex shrink-0 items-center gap-1">
         @if (workspaceTitle()) {
           <button
             hlmBtn
@@ -175,24 +160,55 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
           }
         }
 
-        <button
-          hlmBtn
-          variant="ghost"
-          size="icon-xs"
-          type="button"
-          hlmTooltip="Toggle right sidebar"
-          position="bottom"
-          class="size-7 rounded-md text-muted-foreground"
-          data-tauri-drag-region="false"
-          (click)="toggleRightPanel.emit(); $any($event.currentTarget).blur()"
-        >
-          <ng-icon hlm name="lucidePanelRight" size="xs" />
-        </button>
+        @if (layout.isCompact()) {
+          <!-- Narrow viewport: open the right pane content in a sheet
+               overlay. feature-workspace-aside mounts lazily inside the
+               sheet via @if so it's not double-mounted alongside the
+               inline shell-right (which CSS-hides at this breakpoint). -->
+          <hlm-sheet #rightSheet>
+            <button
+              hlmBtn
+              variant="ghost"
+              size="icon-xs"
+              type="button"
+              brnSheetTrigger
+              hlmTooltip="Open workspace panel"
+              position="bottom"
+              class="size-7 rounded-md text-muted-foreground"
+            >
+              <ng-icon hlm name="lucidePanelRight" size="xs" />
+            </button>
+            <hlm-sheet-content
+              *brnSheetContent="let ctx"
+              side="right"
+              class="w-[min(28rem,90vw)] p-0"
+            >
+              @if (ctx.state() === 'open') {
+                <app-feature-workspace-aside class="h-full w-full" />
+              }
+            </hlm-sheet-content>
+          </hlm-sheet>
+        } @else {
+          <button
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
+            type="button"
+            hlmTooltip="Toggle right sidebar"
+            position="bottom"
+            class="size-7 rounded-md text-muted-foreground"
+            (click)="toggleRightPanel.emit(); $any($event.currentTarget).blur()"
+          >
+            <ng-icon hlm name="lucidePanelRight" size="xs" />
+          </button>
+        }
       </div>
-    </div>
+    </app-shell-top-bar>
   `,
 })
 export class WorkspaceToolbar {
+  protected readonly layout = inject(LayoutService);
+
   readonly projectIcon = input.required<string | null>();
   readonly projectName = input.required<string>();
   readonly workspaceTitle = input.required<string>();

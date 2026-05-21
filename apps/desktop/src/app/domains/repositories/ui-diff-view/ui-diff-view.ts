@@ -23,12 +23,26 @@ import {
   type DiffLineKind,
 } from '../util-diff-parser/util-diff-parser';
 
+// GitHub-style row classes. Backgrounds are translucent so the diff
+// blends with whatever surface it's painted onto; text colors stay
+// muted because the marker column (rendered separately) carries the
+// strong green/red signal.
 const LINE_CLASS: Record<DiffLineKind, string> = {
-  add: 'bg-green-500/10 text-green-700 dark:text-green-400',
-  remove: 'bg-red-500/10 text-red-700 dark:text-red-400',
-  hunk: 'bg-muted/60 text-muted-foreground',
+  add: 'bg-emerald-500/[0.08] text-foreground dark:bg-emerald-400/[0.10]',
+  remove: 'bg-rose-500/[0.08] text-foreground dark:bg-rose-400/[0.10]',
+  hunk: 'bg-sky-500/[0.06] text-muted-foreground dark:bg-sky-400/[0.08]',
   meta: 'text-muted-foreground/70',
   context: 'text-foreground/80',
+};
+
+// Marker column styling — bold +/- glyph for added/removed rows; blank
+// (but reserved width) on context rows so the body column stays aligned.
+const MARKER_CLASS: Record<DiffLineKind, string> = {
+  add: 'text-emerald-600 dark:text-emerald-400',
+  remove: 'text-rose-600 dark:text-rose-400',
+  context: 'text-muted-foreground/40',
+  hunk: 'text-muted-foreground/0',
+  meta: 'text-muted-foreground/0',
 };
 
 /** Callback the renderer invokes to reveal more context lines. Lines
@@ -135,13 +149,20 @@ type RenderItem =
                 />
               }
               @case ('hunk-header') {
-                <span [class]="hunkClass" class="block px-2">{{ item.text }}</span>
+                <span [class]="hunkClass" class="block px-2 py-0.5">{{ item.text }}</span>
               }
               @default {
                 <span
                   [class]="lineClass(item.line.kind)"
-                  class="block px-2"
-                >{{ item.line.text || nbsp }}</span>
+                  class="flex items-start"
+                >
+                  <span
+                    [class]="markerClass(item.line.kind)"
+                    class="select-none shrink-0 w-5 text-center font-bold"
+                    aria-hidden="true"
+                  >{{ markerGlyph(item.line.kind) }}</span>
+                  <span class="min-w-0 flex-1 pr-2">{{ lineBody(item.line.text) || nbsp }}</span>
+                </span>
               }
             }
           }
@@ -197,6 +218,35 @@ export class DiffView {
 
   protected lineClass(kind: DiffLineKind): string {
     return LINE_CLASS[kind];
+  }
+
+  protected markerClass(kind: DiffLineKind): string {
+    return MARKER_CLASS[kind];
+  }
+
+  // The marker column draws +/- (or a centered dot for context) so the
+  // body column can render the line content without the prefix char.
+  // Hunk/meta rows render the marker as a non-breaking space at zero
+  // opacity to keep the body column aligned with line rows above/below.
+  protected markerGlyph(kind: DiffLineKind): string {
+    if (kind === 'add') return '+';
+    if (kind === 'remove') return '−';
+    return this.nbsp;
+  }
+
+  // Strip the leading +/-/space marker emitted by unified-diff. Context
+  // lines are stored with a leading space; add/remove with +/-. Removing
+  // it here keeps the body column visually aligned with the marker
+  // column. Empty input passes through as empty (no nbsp injection — the
+  // caller adds nbsp when the resulting body is empty so the line keeps
+  // its height).
+  protected lineBody(text: string): string {
+    if (!text) return '';
+    const first = text[0];
+    if (first === '+' || first === '-' || first === ' ') {
+      return text.slice(1);
+    }
+    return text;
   }
 
   protected onExpand(gapIndex: number, event: HunkExpandEvent): void {

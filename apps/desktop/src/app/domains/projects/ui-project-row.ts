@@ -28,11 +28,14 @@ import type { Project } from './data/project.model';
     <button
       type="button"
       tabindex="-1"
+      [attr.aria-current]="active() ? 'true' : null"
       (mouseenter)="hoverChange.emit(true)"
       (mouseleave)="hoverChange.emit(false)"
       (click)="toggleExpanded.emit()"
       class="flex h-full w-full items-center gap-1.5 rounded-md pl-0 pr-12 text-sm outline-none
-             hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+             hover:bg-sidebar-accent hover:text-sidebar-accent-foreground
+             aria-[current=true]:text-brand
+             aria-[current=true]:[--ng-icon__stroke-width:1.75]"
     >
       @if (hovered()) {
         <span class="flex size-5 shrink-0 items-center justify-center">
@@ -104,6 +107,9 @@ export class ProjectRow {
   readonly workspaceCount = input<number>(0);
   readonly hovered = input<boolean>(false);
   readonly expanded = input<boolean>(false);
+  /** True when this project owns the currently-active workspace.
+   *  Drives the brand-tinted aria-current styling. */
+  readonly active = input<boolean>(false);
 
   readonly toggleExpanded = output<void>();
   readonly hoverChange = output<boolean>();

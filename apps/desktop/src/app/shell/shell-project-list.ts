@@ -168,6 +168,7 @@ import {
               [workspaceCount]="workspacesByProject()(project.id).length"
               [hovered]="projects.hoveredId() === project.id"
               [expanded]="projects.isExpanded(project.id)"
+              [active]="activeProjectId() === project.id"
               [hlmContextMenuTrigger]="projectCtxMenuTpl"
               [hlmContextMenuTriggerData]="{ $implicit: project }"
               (toggleExpanded)="projects.toggleExpanded(project.id)"
@@ -325,6 +326,15 @@ export class ShellProjectList {
 
   protected readonly editingWorkspaceId = signal<string | null>(null);
   protected readonly visibleProjects = this.projects.visible;
+
+  // Project id that owns the currently-active workspace. Drives the
+  // brand-tinted "active project" row in the sidebar. Null when no
+  // workspace is open (dashboard / settings routes).
+  protected readonly activeProjectId = computed(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return null;
+    return this.workspaces.workspaceById(id)()?.projectId ?? null;
+  });
 
   // Curried lookup so the template can read workspacesByProject()(id) in
   // both the project-row count and the nested @for loop without re-running

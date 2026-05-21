@@ -1,9 +1,17 @@
-// Resizable panel sizes as percentages of the viewport width. We
-// hand these directly to hlm-resizable, which speaks in percentages —
-// no runtime conversion needed.
-//
-// Anchored to a 1440px reference viewport:
-//   Left  : 256px ≈ 18 %  (matches the Settings shell sidebar w-64)
-//   Right : 320px ≈ 22 %  (Phase-4 Files+Terminal aside)
-export const SHELL_LEFT_PANEL_PCT = { default: 18, min: 14, max: 32 } as const;
-export const SHELL_RIGHT_PANEL_PCT = { default: 22, min: 17, max: 50 } as const;
+// Shell-level layout dimensions. All values are CSS strings so they can
+// flow straight into `[style.width]` / `[style.height]` bindings without
+// runtime conversion. Centralizing them here keeps the right-aside
+// constraint (panel ≈ square against the right-pane width, capped at
+// 30vh) visibly tied to the right-pane width formula.
+
+/** Left shell panel width — projects sidebar. */
+export const SHELL_LEFT_PANEL_WIDTH = 'max(16rem, 20vw)';
+
+/** Right shell panel width — files + workspace processes aside. */
+export const SHELL_RIGHT_PANEL_WIDTH = 'max(20rem, 25vw)';
+
+/** Workspace processes panel height — Setup / Run / Terminal body.
+ *  Floor at 20rem, target 25vw so it reads roughly square against the
+ *  right pane, hard-capped at 30vh so it never dominates the viewport
+ *  vertically on tall windows. */
+export const WORKSPACE_PROCESSES_PANEL_HEIGHT = 'min(max(20rem, 25vw), 30vh)';

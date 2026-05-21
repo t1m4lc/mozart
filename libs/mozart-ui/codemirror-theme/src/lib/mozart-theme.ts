@@ -12,11 +12,14 @@ const lightPalette = {
   muted: '#71717a',
   gutterBg: 'transparent',
   gutterFg: '#a1a1aa',
-  gutterActiveFg: '#52525b',
-  activeLine: 'rgba(15, 15, 17, 0.04)',
+  // Active line number — brand-tinted so the eye snaps to the
+  // current line at a glance.
+  gutterActiveFg: '#7c3aed',
+  gutterActiveBg: 'rgba(124, 58, 237, 0.06)',
+  activeLine: 'rgba(15, 15, 17, 0.05)',
   selection: 'rgba(96, 165, 250, 0.20)',
   selectionMatch: 'rgba(96, 165, 250, 0.14)',
-  cursor: '#1f1f23',
+  cursor: '#7c3aed',
   brand: '#7c3aed',
   keyword: '#7c3aed',
   type: '#0e7490',
@@ -34,11 +37,12 @@ const darkPalette = {
   muted: '#a1a1aa',
   gutterBg: 'transparent',
   gutterFg: '#52525b',
-  gutterActiveFg: '#a1a1aa',
-  activeLine: 'rgba(244, 244, 245, 0.05)',
+  gutterActiveFg: '#a78bfa',
+  gutterActiveBg: 'rgba(167, 139, 250, 0.08)',
+  activeLine: 'rgba(244, 244, 245, 0.06)',
   selection: 'rgba(96, 165, 250, 0.22)',
   selectionMatch: 'rgba(96, 165, 250, 0.16)',
-  cursor: '#e4e4e7',
+  cursor: '#a78bfa',
   brand: '#a78bfa',
   keyword: '#c4b5fd',
   type: '#67e8f9',
@@ -70,8 +74,13 @@ function buildEditorTheme(p: Palette, dark: boolean) {
         caretColor: p.cursor,
         padding: '8px 0',
       },
+      // Brand-tinted beam cursor — slightly wider than the CodeMirror
+      // default (1px) so it reads against syntax-highlighted text
+      // without looking obtrusive. !important wins against
+      // EditorView.theme's default cursor specificity.
       '.cm-cursor, .cm-dropCursor': {
         borderLeftColor: p.cursor,
+        borderLeftWidth: '1.5px',
       },
       '&.cm-focused > .cm-scroller > .cm-selectionLayer .cm-selectionBackground, ::selection':
         {
@@ -87,8 +96,9 @@ function buildEditorTheme(p: Palette, dark: boolean) {
         backgroundColor: p.activeLine,
       },
       '.cm-activeLineGutter': {
-        backgroundColor: 'transparent',
+        backgroundColor: p.gutterActiveBg,
         color: p.gutterActiveFg,
+        fontWeight: '500',
       },
       '.cm-gutters': {
         backgroundColor: p.gutterBg,
