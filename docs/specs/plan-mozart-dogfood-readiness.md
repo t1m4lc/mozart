@@ -287,18 +287,21 @@ Both are still in scope for P0.1.
 Outcome shaped P0.1 framing: the urgency is no longer "fix silent
 deny + add layering," it is "wall off a wide-open agent."
 
-#### Atom S0.1.B — `SandboxLevel` enum + default plumbing
+#### Atom S0.1.B — `SandboxLevel` enum + default plumbing ✅ DONE 2026-05-21
 
-- [ ] New Rust type `SandboxLevel { L1Mozart, L2Project, L3Workspace }`
+- [x] New Rust type `SandboxLevel { L1Mozart, L2Project, L3Workspace }`
       in `claude_cli/sandbox_policy.rs` (new file alongside `runner.rs`).
-- [ ] DB migration: add `sandbox_level TEXT NOT NULL DEFAULT
+- [x] DB migration: add `sandbox_level TEXT NOT NULL DEFAULT
 'L2Project'` to `workspaces` table.
-- [ ] Workspaces start at L2Project. UI surface for switching the
+- [x] Workspaces start at L2Project. UI surface for switching the
       level is deferred (see S0.1.E and TODO-008) — P0 just wires the
       data + Tauri command.
-- [ ] **Manual checkpoint:** Open SQLite browser, verify new column,
+- [x] **Manual checkpoint:** Open SQLite browser, verify new column,
       verify existing workspaces backfilled to `L2Project`. App boots
-      without runtime error.
+      without runtime error. _Covered by `init_creates_all_10_tables`
+      (schema reaches v10), `sandbox_level_round_trips` (all three
+      values), and `sandbox_level_default_backfills_via_patch`
+      (legacy row missing the column self-heals to `'L2Project'`)._
 
 Files: ~5 (migration, models.rs, schema mirror, facade, store).
 

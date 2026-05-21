@@ -7,16 +7,16 @@ use crate::error::AppError;
 
 pub fn create(conn: &Connection, ws: &Workspace) -> Result<(), AppError> {
     conn.execute(
-        "INSERT INTO workspaces(workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
-        params![ws.workspace_id, ws.task_id, ws.name, ws.worktree_path, ws.branch_name, ws.base_branch, ws.status, ws.pinned, ws.unread, ws.created_at, ws.deletion_intent, ws.ui_status, ws.last_merge_action],
+        "INSERT INTO workspaces(workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
+        params![ws.workspace_id, ws.task_id, ws.name, ws.worktree_path, ws.branch_name, ws.base_branch, ws.status, ws.pinned, ws.unread, ws.created_at, ws.deletion_intent, ws.ui_status, ws.last_merge_action, ws.sandbox_level],
     )?;
     Ok(())
 }
 
 pub fn get(conn: &Connection, workspace_id: &str) -> Result<Workspace, AppError> {
     conn.query_row(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level
          FROM workspaces WHERE workspace_id = ?1",
         [workspace_id],
         row_to_workspace,
@@ -31,7 +31,7 @@ pub fn get(conn: &Connection, workspace_id: &str) -> Result<Workspace, AppError>
 
 pub fn list_by_task(conn: &Connection, task_id: &str) -> Result<Vec<Workspace>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level
          FROM workspaces WHERE task_id = ?1 ORDER BY created_at DESC",
     )?;
     let rows = stmt.query_map([task_id], row_to_workspace)?;
@@ -42,7 +42,7 @@ pub fn list_by_task(conn: &Connection, task_id: &str) -> Result<Vec<Workspace>, 
 
 pub fn list_all(conn: &Connection) -> Result<Vec<Workspace>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level
          FROM workspaces ORDER BY created_at DESC",
     )?;
     let rows = stmt.query_map([], row_to_workspace)?;
@@ -132,6 +132,7 @@ fn row_to_workspace(row: &rusqlite::Row<'_>) -> rusqlite::Result<Workspace> {
         deletion_intent: row.get(10)?,
         ui_status: row.get(11)?,
         last_merge_action: row.get(12)?,
+        sandbox_level: row.get(13)?,
     })
 }
 
@@ -246,6 +247,7 @@ mod tests {
             deletion_intent: 0,
             ui_status: "backlog".into(),
             last_merge_action: None,
+            sandbox_level: "L2Project".into(),
         }
     }
 
@@ -443,6 +445,39 @@ mod tests {
         let conn = db.lock();
         let err = set_last_merge_action(&conn, "no-such-ws", "pr").unwrap_err();
         assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    #[test]
+    fn sandbox_level_round_trips() {
+        // Atom S0.1.B regression: the new column reads back exactly
+        // what was inserted, including all three valid PascalCase
+        // values that `SandboxLevel::from_str` accepts.
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        for level in ["L1Mozart", "L2Project", "L3Workspace"] {
+            let mut ws = make_ws(&task_id, level);
+            ws.sandbox_level = level.into();
+            create(&conn, &ws).unwrap();
+            assert_eq!(get(&conn, &ws.workspace_id).unwrap().sandbox_level, level);
+        }
+    }
+
+    #[test]
+    fn sandbox_level_default_backfills_via_patch() {
+        // Pre-existing dev DB rows must self-heal to 'L2Project' via
+        // `patch_workspaces_columns`. Simulate by inserting through a
+        // raw SQL path that omits the new column entirely.
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        let id = new_id();
+        conn.execute(
+            "INSERT INTO workspaces(workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action)
+             VALUES (?1, ?2, 'legacy', '/wt-legacy', 'agent/wip-legacy', 'main', 'initializing', 0, 0, ?3, 0, 'backlog', NULL)",
+            params![id, task_id, now_ms()],
+        ).unwrap();
+        assert_eq!(get(&conn, &id).unwrap().sandbox_level, "L2Project");
     }
 
     #[test]

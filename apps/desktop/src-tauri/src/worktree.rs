@@ -507,6 +507,7 @@ mod tests {
                 deletion_intent: 1, // archived
                 ui_status: "backlog".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             };
             workspaces::create(&conn, &archived).unwrap();
         }
@@ -768,6 +769,7 @@ mod tests {
                 deletion_intent: 0,
             ui_status: "backlog".into(),
             last_merge_action: None,
+            sandbox_level: "L2Project".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
         }
@@ -846,6 +848,7 @@ mod tests {
                     deletion_intent: 0,
                     ui_status: "backlog".into(),
                     last_merge_action: None,
+                    sandbox_level: "L2Project".into(),
                 };
                 workspaces::create(&conn, &ws).unwrap();
             }

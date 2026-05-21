@@ -52,6 +52,13 @@ pub struct Workspace {
     /// `'pr'` | `'local'` | `None` (no prior choice → fall back to
     /// project_local_config.merge_mode, then remote auto-detect).
     pub last_merge_action: Option<String>,
+    /// P0.1 atom S0.1.B — agent sandbox isolation tier. Stored as the
+    /// PascalCase string matching [`crate::claude_cli::sandbox_policy::SandboxLevel`]
+    /// (`"L1Mozart"` / `"L2Project"` / `"L3Workspace"`); parsed via
+    /// `SandboxLevel::from_str` at use sites. Migration 010 backfills
+    /// `'L2Project'` for existing rows; new workspaces inherit the
+    /// same default. UI toggle is deferred to TODO-008.
+    pub sandbox_level: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

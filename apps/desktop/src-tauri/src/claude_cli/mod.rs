@@ -9,6 +9,7 @@ use serde::{Deserialize, Serialize};
 pub mod install;
 pub mod parser;
 pub mod runner;
+pub mod sandbox_policy;
 pub mod session;
 
 pub use runner::{spawn_run, RunHandle};
