@@ -1,4 +1,5 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, inject, signal } from '@angular/core';
+import { ScrollPositionService } from '../../../core/scroll-position.service';
 import { FILE_TAB_CAP } from '../ui/workspace-tab-bar/workspace-tab.model';
 
 // Per-workspace file tabs in the central shell. Each workspace owns a
@@ -19,6 +20,7 @@ export class FileTabsService {
   private readonly _activeByWorkspace = signal<
     ReadonlyMap<string, string | null>
   >(new Map());
+  private readonly scrollPosition = inject(ScrollPositionService);
 
   readonly openByWorkspace = this._openByWorkspace.asReadonly();
   readonly activeByWorkspace = this._activeByWorkspace.asReadonly();
@@ -59,7 +61,10 @@ export class FileTabsService {
   }
 
   /** Close the tab for `path` in `workspaceId`. If the closed tab was
-   *  active, falls back to the previous file tab (or null = chat). */
+   *  active, falls back to the previous file tab (or null = chat).
+   *  Also forgets the file's stored scroll position — keeps the
+   *  in-memory ScrollPositionService map from growing unbounded as
+   *  the user opens and closes file tabs throughout a session. */
   closeFor(workspaceId: string, path: string): void {
     const wasActive = this.peekActive(workspaceId) === path;
     let prevNeighbour: string | null = null;
@@ -74,6 +79,7 @@ export class FileTabsService {
       else next.set(workspaceId, filtered);
       return next;
     });
+    this.scrollPosition.forgetFile(workspaceId, path);
     if (wasActive) {
       this.setActiveFor(workspaceId, prevNeighbour);
     }

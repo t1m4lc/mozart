@@ -1,6 +1,10 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
+  ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   effect,
   inject,
@@ -17,6 +21,10 @@ import {
   lucideFileDiff,
   lucideFilePen,
 } from '@ng-icons/lucide';
+import {
+  ScrollPositionService,
+  fileTabKey,
+} from '../../../core/scroll-position.service';
 import {
   FeatureFileDiff,
   FeatureFileToolbar,
@@ -218,6 +226,10 @@ export class FeatureFileContent {
   private readonly fileViews = inject(FileViewsFacade);
   private readonly themeService = inject(ThemeService);
   private readonly uiState = inject(UiStateFacade);
+  private readonly scrollPosition = inject(ScrollPositionService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly injector = inject(Injector);
 
   private readonly fileViewState = this.uiState.fileViewStateFor(
     this.workspaceId,
@@ -290,6 +302,54 @@ export class FeatureFileContent {
       this.saveError.set(null);
       this.loadError.set(null);
     });
+
+    // Diff-mode scroll persistence. The actual scroll surface is the
+    // `<mz-diff-view>` host (in libs/mozart-ui/diff-view, marked
+    // `overflow-auto`). We snapshot its scrollTop on cleanup, restore
+    // on activate via afterNextRender. The edit-mode editor owns its
+    // own scroll (CodeMirror's scrollDOM) and is intentionally NOT
+    // persisted here — captured as a follow-up in TODOS.md.
+    effect((onCleanup) => {
+      const ws = this.workspaceId();
+      const p = this.filePath();
+      const m = this.mode();
+      if (m !== 'diff' || !ws || !p) return;
+
+      const key = fileTabKey(ws, p);
+
+      afterNextRender(
+        () => {
+          const el = this.findDiffScrollEl();
+          if (!el) return;
+          const stored = this.scrollPosition.recall(key);
+          el.scrollTop = stored ?? 0;
+        },
+        { injector: this.injector },
+      );
+
+      onCleanup(() => {
+        const el = this.findDiffScrollEl();
+        if (el) this.scrollPosition.remember(key, el.scrollTop);
+      });
+    });
+
+    // Final snapshot on component destroy — covers chat-tab-switch
+    // and route-navigate cases where the effect's cleanup didn't run.
+    this.destroyRef.onDestroy(() => {
+      const ws = this.workspaceId();
+      const p = this.filePath();
+      if (this.mode() !== 'diff' || !ws || !p) return;
+      const el = this.findDiffScrollEl();
+      if (el) this.scrollPosition.remember(fileTabKey(ws, p), el.scrollTop);
+    });
+  }
+
+  // The `<mz-diff-view>` element is the diff's scroll surface. Its host
+  // carries `overflow-auto`. Returns null when the diff view isn't
+  // mounted (e.g., in edit mode, during a re-render, or on first
+  // mount before afterNextRender fires).
+  private findDiffScrollEl(): HTMLElement | null {
+    return this.hostEl.nativeElement.querySelector('mz-diff-view');
   }
 
   protected setMode(value: string): void {
