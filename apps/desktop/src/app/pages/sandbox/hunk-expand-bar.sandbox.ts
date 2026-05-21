@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import {
-  UiHunkExpandBar,
+  MzHunkExpandBar,
   type HunkExpandEvent,
-} from '../../domains/repositories';
+} from '@mozart-ui/hunk-expand-bar';
 
 interface LogEntry {
   readonly at: number;
@@ -10,18 +10,18 @@ interface LogEntry {
   readonly event: HunkExpandEvent;
 }
 
-// Dev-only dogfooding surface for `app-hunk-expand-bar`. Exercises the
+// Dev-only dogfooding surface for `mz-hunk-expand-bar`. Exercises the
 // three direction variants plus shift-click doubling so the visual +
 // keyboard story can be eyeballed in isolation.
 @Component({
   selector: 'app-hunk-expand-bar-sandbox',
-  imports: [UiHunkExpandBar],
+  imports: [MzHunkExpandBar],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block p-8' },
   template: `
     <section class="flex max-w-2xl flex-col gap-8">
       <header class="flex flex-col gap-1">
-        <h1 class="text-xl font-semibold">UiHunkExpandBar</h1>
+        <h1 class="text-xl font-semibold">MzHunkExpandBar</h1>
         <p class="text-sm text-muted-foreground">
           P2.3 expand bar shown between diff hunks. Click an arrow to
           emit; shift-click doubles the step.
@@ -33,7 +33,7 @@ interface LogEntry {
           <p class="mb-1 text-[11px] text-muted-foreground">
             direction = "up" (above first hunk)
           </p>
-          <app-hunk-expand-bar
+          <mz-hunk-expand-bar
             direction="up"
             [linesAvailable]="43"
             (expand)="log('above-first', $event)"
@@ -44,7 +44,7 @@ interface LogEntry {
           <p class="mb-1 text-[11px] text-muted-foreground">
             direction = "both" (between hunks)
           </p>
-          <app-hunk-expand-bar
+          <mz-hunk-expand-bar
             direction="both"
             [linesAvailable]="73"
             (expand)="log('between', $event)"
@@ -55,7 +55,7 @@ interface LogEntry {
           <p class="mb-1 text-[11px] text-muted-foreground">
             direction = "down" (below last hunk)
           </p>
-          <app-hunk-expand-bar
+          <mz-hunk-expand-bar
             direction="down"
             [linesAvailable]="120"
             (expand)="log('below-last', $event)"
@@ -66,7 +66,7 @@ interface LogEntry {
           <p class="mb-1 text-[11px] text-muted-foreground">
             direction = "both", only 4 lines available (cap kicks in)
           </p>
-          <app-hunk-expand-bar
+          <mz-hunk-expand-bar
             direction="both"
             [linesAvailable]="4"
             (expand)="log('small-gap', $event)"
@@ -77,7 +77,7 @@ interface LogEntry {
           <p class="mb-1 text-[11px] text-muted-foreground">
             direction = "both", 0 lines available (buttons disabled)
           </p>
-          <app-hunk-expand-bar
+          <mz-hunk-expand-bar
             direction="both"
             [linesAvailable]="0"
             (expand)="log('empty', $event)"

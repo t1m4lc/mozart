@@ -26,7 +26,7 @@ const DEFAULT_STEP = 10;
 // state — emits a typed event so the renderer decides where the new
 // context lands. Shift-click on either arrow doubles the step.
 @Component({
-  selector: 'app-hunk-expand-bar',
+  selector: 'mz-hunk-expand-bar',
   imports: [NgIcon, HlmIconImports, HlmTooltipImports],
   providers: [provideIcons({ lucideChevronUp, lucideChevronDown })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -37,12 +37,12 @@ const DEFAULT_STEP = 10;
     'aria-orientation': 'horizontal',
   },
   template: `
-    @if (showUp()) {
+    @if (_showUp()) {
       <button
         type="button"
         class="flex h-4 w-5 items-center justify-center rounded-sm hover:bg-muted/80 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-        [attr.aria-label]="upAriaLabel()"
-        [hlmTooltip]="hint()"
+        [attr.aria-label]="_upAriaLabel()"
+        [hlmTooltip]="_hint()"
         [disabled]="linesAvailable() <= 0"
         (click)="emit($event, 'up')"
       >
@@ -64,12 +64,12 @@ const DEFAULT_STEP = 10;
       }
     </span>
 
-    @if (showDown()) {
+    @if (_showDown()) {
       <button
         type="button"
         class="flex h-4 w-5 items-center justify-center rounded-sm hover:bg-muted/80 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent"
-        [attr.aria-label]="downAriaLabel()"
-        [hlmTooltip]="hint()"
+        [attr.aria-label]="_downAriaLabel()"
+        [hlmTooltip]="_hint()"
         [disabled]="linesAvailable() <= 0"
         (click)="emit($event, 'down')"
       >
@@ -80,7 +80,7 @@ const DEFAULT_STEP = 10;
     }
   `,
 })
-export class UiHunkExpandBar {
+export class MzHunkExpandBar {
   readonly direction = input<HunkExpandDirection>('both');
   /** Number of unchanged lines hidden in the gap this bar covers.
    *  When 0 the bar is purely decorative (and buttons are disabled). */
@@ -90,23 +90,23 @@ export class UiHunkExpandBar {
 
   readonly expand = output<HunkExpandEvent>();
 
-  protected readonly showUp = computed(() => {
+  protected readonly _showUp = computed(() => {
     const d = this.direction();
     return d === 'up' || d === 'both';
   });
 
-  protected readonly showDown = computed(() => {
+  protected readonly _showDown = computed(() => {
     const d = this.direction();
     return d === 'down' || d === 'both';
   });
 
-  protected readonly upAriaLabel = computed(
+  protected readonly _upAriaLabel = computed(
     () => `Show ${this.step()} more lines above`,
   );
-  protected readonly downAriaLabel = computed(
+  protected readonly _downAriaLabel = computed(
     () => `Show ${this.step()} more lines below`,
   );
-  protected readonly hint = computed(
+  protected readonly _hint = computed(
     () =>
       `Show ${this.step()} more lines — shift-click for ${this.step() * 2}`,
   );

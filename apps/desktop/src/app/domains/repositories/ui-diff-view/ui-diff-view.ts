@@ -12,10 +12,10 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideRefreshCw } from '@ng-icons/lucide';
 import {
-  UiHunkExpandBar,
+  MzHunkExpandBar,
   type HunkExpandDirection,
   type HunkExpandEvent,
-} from '../ui-hunk-expand-bar/ui-hunk-expand-bar';
+} from '@mozart-ui/hunk-expand-bar';
 import {
   parseGroupedDiff,
   type DiffHunk,
@@ -89,7 +89,7 @@ type RenderItem =
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
-    UiHunkExpandBar,
+    MzHunkExpandBar,
   ],
   providers: [provideIcons({ lucideRefreshCw })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -142,7 +142,7 @@ type RenderItem =
           @for (item of renderItems(); track item.key) {
             @switch (item.kind) {
               @case ('expand') {
-                <app-hunk-expand-bar
+                <mz-hunk-expand-bar
                   [direction]="item.direction"
                   [linesAvailable]="item.linesAvailable"
                   (expand)="onExpand(item.gapIndex, $event)"

@@ -43,11 +43,6 @@ export {
 } from './feature-create-pr-dialog/feature-create-pr-dialog';
 export { UiChangesContextMenu } from './ui-changes-context-menu/ui-changes-context-menu';
 export {
-  UiHunkExpandBar,
-  type HunkExpandDirection,
-  type HunkExpandEvent,
-} from './ui-hunk-expand-bar/ui-hunk-expand-bar';
-export {
   UiConfirmDiscardChangesDialog,
   type ConfirmDiscardChangesContext,
 } from './ui-confirm-discard-changes-dialog/ui-confirm-discard-changes-dialog';

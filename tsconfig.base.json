@@ -223,6 +223,9 @@
       "@mozart-ui/highlight-overlay": [
         "./libs/mozart-ui/highlight-overlay/src/index.ts"
       ],
+      "@mozart-ui/hunk-expand-bar": [
+        "./libs/mozart-ui/hunk-expand-bar/src/index.ts"
+      ],
       "@mozart-ui/review-progress": [
         "./libs/mozart-ui/review-progress/src/index.ts"
       ],

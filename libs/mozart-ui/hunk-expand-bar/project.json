@@ -1,0 +1,22 @@
+{
+  "name": "hunk-expand-bar",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-ui/hunk-expand-bar/src",
+  "prefix": "mz",
+  "projectType": "library",
+  "tags": [
+    "scope:mozart-ui"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/mozart-ui/hunk-expand-bar/tsconfig.spec.json"
+      }
+    }
+  }
+}
