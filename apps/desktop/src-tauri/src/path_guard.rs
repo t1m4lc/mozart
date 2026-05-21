@@ -25,9 +25,9 @@ use std::str::FromStr;
 
 use rusqlite::Connection;
 
-use crate::claude_cli::sandbox_policy::SandboxLevel;
+use crate::claude_cli::sandbox_policy::{SandboxLevel, L2_SIBLING_CAP};
 use crate::db::models::Workspace;
-use crate::db::{tasks, workspaces};
+use crate::db::{workspaces, DbState};
 use crate::error::AppError;
 use crate::sandbox;
 
@@ -81,19 +81,10 @@ pub fn resolve_allowed_roots(
             sandbox::canonical_worktrees_root()?,
             sandbox::canonical_projects_root()?,
         ],
-        SandboxLevel::L2Project => {
-            let task = tasks::get(conn, &workspace.task_id)?;
-            let mut siblings =
-                workspaces::list_active_siblings_for_project(conn, &task.repo_id, 20)?;
-            if !siblings
-                .iter()
-                .any(|w| w.workspace_id == workspace.workspace_id)
-            {
-                siblings.insert(0, workspace.clone());
-                siblings.truncate(20);
-            }
-            siblings.into_iter().map(|w| PathBuf::from(w.worktree_path)).collect()
-        }
+        SandboxLevel::L2Project => workspaces::enumerate_l2_siblings(conn, workspace, L2_SIBLING_CAP)?
+            .into_iter()
+            .map(|w| PathBuf::from(w.worktree_path))
+            .collect(),
         SandboxLevel::L3Workspace => vec![PathBuf::from(&workspace.worktree_path)],
     };
     Ok(raw
@@ -157,6 +148,55 @@ pub fn validate_agent_path(
             level_label
         )))
     }
+}
+
+/// Tauri-command convenience: cheap v0 pre-check + DB-backed root
+/// lookup + canonicalize-and-confine in one call. Returns the
+/// canonical absolute path on success so callers can use it directly
+/// for `tokio::fs::read`/`write`.
+///
+/// Used by every FS-touching Tauri command (`read_workspace_file`,
+/// `file_save`, `get_file_diff`, `stage_file`, `unstage_file`,
+/// `is_staged`, `mark_file_viewed`). Without this helper each
+/// command would repeat the same 5-line ceremony.
+pub fn guard_agent_relative_path(
+    db: &DbState,
+    workspace: &Workspace,
+    path: &str,
+) -> Result<PathBuf, AppError> {
+    validate_workspace_relative_path(path)?;
+    let allowed = {
+        let conn = db.0.lock().expect("db mutex poisoned");
+        resolve_allowed_roots(workspace, &conn)?
+    };
+    validate_agent_path(
+        Path::new(path),
+        Path::new(&workspace.worktree_path),
+        &allowed,
+        &workspace.sandbox_level,
+    )
+}
+
+/// Atom 6 convenience: validate that a workspace's own `worktree_path`
+/// canonicalizes inside the sandbox roots. Used at the PTY spawn
+/// sites (`open_terminal`, `start_workspace_run_impl`) to refuse
+/// opening a shell whose initial `cwd` would escape the sandbox
+/// (e.g. a corrupted DB row pointing at `/etc`).
+pub fn guard_workspace_worktree(
+    db: &DbState,
+    workspace: &Workspace,
+) -> Result<(), AppError> {
+    let allowed = {
+        let conn = db.0.lock().expect("db mutex poisoned");
+        resolve_allowed_roots(workspace, &conn)?
+    };
+    validate_agent_path(
+        Path::new(&workspace.worktree_path),
+        Path::new(&workspace.worktree_path),
+        &allowed,
+        &workspace.sandbox_level,
+    )?;
+    Ok(())
 }
 
 #[cfg(test)]

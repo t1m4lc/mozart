@@ -54,21 +54,13 @@ use tokio::process::Command;
 use tokio::task::JoinHandle;
 
 use crate::claude_cli::parser::{parse_line, ParserState};
-use crate::claude_cli::sandbox_policy::{build_sandbox_flags, SandboxLevel};
+use crate::claude_cli::sandbox_policy::{build_sandbox_flags, SandboxLevel, L2_SIBLING_CAP};
 use crate::claude_cli::{AgentRunTerminated, StreamEvent};
 use crate::credentials::keyring_store;
 use crate::db::models::{AgentRun, Workspace, WorkspaceChange};
-use crate::db::{agent_events, agent_runs, now_ms, tasks, workspace_changes, workspaces, DbState};
+use crate::db::{agent_events, agent_runs, now_ms, workspace_changes, workspaces, DbState};
 use crate::error::AppError;
 use crate::sandbox;
-
-/// CG-1 defense — cap the L2 sibling set so very-large projects do not
-/// blow past the ~128KB argv ceiling on most Unixes. 20 workspaces ×
-/// 2 args/workspace (`--add-dir <path>`) × ~150 bytes/path ≈ 6KB, well
-/// inside the ceiling and big enough that "active siblings" is
-/// representative. See plan-mozart-dogfood-readiness.md § "Critical
-/// gaps → CG-1".
-const L2_SIBLING_CAP: usize = 20;
 
 /// Handle returned by [`spawn_run`]. Owns the JoinHandle of the
 /// supervisor task and a `cancelled` flag the supervisor reads after
@@ -180,20 +172,10 @@ fn resolve_sandbox_roots(
             ],
         )),
         SandboxLevel::L2Project => {
-            let conn = db.0.lock().expect("db mutex poisoned");
-            let task = tasks::get(&conn, &workspace.task_id)?;
-            let mut siblings = workspaces::list_active_siblings_for_project(
-                &conn,
-                &task.repo_id,
-                L2_SIBLING_CAP,
-            )?;
-            if !siblings
-                .iter()
-                .any(|w| w.workspace_id == workspace.workspace_id)
-            {
-                siblings.insert(0, workspace.clone());
-                siblings.truncate(L2_SIBLING_CAP);
-            }
+            let siblings = {
+                let conn = db.0.lock().expect("db mutex poisoned");
+                workspaces::enumerate_l2_siblings(&conn, workspace, L2_SIBLING_CAP)?
+            };
             let paths = siblings.into_iter().map(|w| w.worktree_path).collect();
             Ok((paths, Vec::new()))
         }

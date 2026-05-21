@@ -1674,8 +1674,9 @@ pub async fn get_file_diff(
 /// Read a file's raw contents from a workspace's worktree. Used by the
 /// markdown preview, the CodeMirror Edit pane (P2.1) and any other
 /// component that needs file content rather than a diff. Path validation
-/// goes through `path_guard::validate_workspace_relative_path` so the
-/// read and save paths cannot drift.
+/// goes through `path_guard::guard_agent_relative_path` so the read,
+/// save, diff, and staging paths all share the same sandbox check
+/// and cannot drift.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_workspace_file(
@@ -1689,22 +1690,12 @@ pub async fn read_workspace_file(
         workspaces::get(&conn, &workspace_id)?
     };
 
-    validate_workspace_relative_path(&path)?;
-
-    // P0.1 S0.1.D — canonicalize-and-confine. The cheap check above
-    // catches obvious garbage; this one closes the symlink-escape
+    // P0.1 S0.1.D — cheap v0 pre-check + canonicalize-and-confine
+    // against the workspace's sandbox roots. The cheap step catches
+    // obvious garbage; the canonical step closes the symlink-escape
     // bypass (a symlink inside the worktree pointing at `/etc/hosts`
-    // would pass the regex but fail the canonical-prefix assertion).
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let abs = path_guard::validate_agent_path(
-        std::path::Path::new(&path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    // would pass the regex but fail the prefix assertion).
+    let abs = path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
 
     let body = tokio::fs::read_to_string(&abs)
         .await
@@ -1754,23 +1745,12 @@ pub(crate) async fn file_save_impl(
         workspaces::get(&conn, &workspace_id)?
     };
 
-    validate_workspace_relative_path(&path)?;
-
-    // P0.1 S0.1.D — canonicalize-and-confine. The two-pass canonicalize
-    // in `validate_agent_path` handles file-to-be-created (parent
-    // exists, target does not) by canonicalizing the parent and
-    // appending the filename — exactly what file_save needs since the
-    // target may not exist yet on first save.
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let abs = path_guard::validate_agent_path(
-        std::path::Path::new(&path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    // P0.1 S0.1.D — guard handles cheap pre-check + canonicalize-and-
+    // confine. The two-pass canonicalize inside `validate_agent_path`
+    // accepts files-to-be-created (parent exists, target does not),
+    // which is what file_save needs since the target may not exist
+    // on first save.
+    let abs = path_guard::guard_agent_relative_path(db, &ws, &path)?;
 
     // Stale check: compare expected (editor-side baseline) against the
     // current on-disk body. A missing file is treated as a divergence —
@@ -1853,22 +1833,12 @@ pub(crate) async fn get_file_diff_impl(
         workspaces::get(&conn, &workspace_id)?
     };
 
-    // P0.1 S0.1.D — canonicalize-and-confine. `file_diff::get_file_diff`
-    // doesn't itself touch the FS at the path arg (it shells git), but
-    // git's `--` separator does NOT block path traversal at the
-    // filesystem layer if the path resolves through a symlink. Gate
-    // here so the diff surface honors the same sandbox as read/save.
-    validate_workspace_relative_path(&path)?;
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let _canonical = path_guard::validate_agent_path(
-        std::path::Path::new(&path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    // P0.1 S0.1.D — `file_diff::get_file_diff` doesn't itself touch
+    // the FS at the path arg (it shells git), but git's `--`
+    // separator does NOT block path traversal if the path resolves
+    // through a symlink. Gate so the diff surface honors the same
+    // sandbox as read/save.
+    path_guard::guard_agent_relative_path(db, &ws, &path)?;
 
     file_diff::get_file_diff(
         std::path::Path::new(&ws.worktree_path),
@@ -1903,25 +1873,13 @@ pub async fn open_terminal(
         workspaces::get(&conn, &workspace_id)?
     };
 
-    // Atom 6 (user-added) — assert the worktree path lives inside
-    // this workspace's sandbox roots before opening the PTY. The
-    // worktree is set by Mozart at workspace-create time so this is
-    // mostly defensive; a corrupted DB row pointing at /etc would
-    // otherwise spawn a shell with $HOME-wide access from
-    // /etc/. The OS-level fence (TODO-001 / P4 sandbox-exec) is
+    // Atom 6 (user-added) — refuse to open a PTY whose initial cwd
+    // is outside the workspace's sandbox roots (defensive against a
+    // corrupted DB row pointing at /etc). The OS-level fence
+    // (TODO-001 / TODOS.md "real OS-level filesystem fence") is
     // still the only thing that prevents `cd ~/.ssh` after the
-    // shell is live; this gate just refuses to OPEN a shell whose
-    // initial cwd is outside scope.
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let _canonical = path_guard::validate_agent_path(
-        std::path::Path::new(&ws.worktree_path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    // shell is live.
+    path_guard::guard_workspace_worktree(db.inner(), &ws)?;
 
     // Drop any prior PTY before spawning a new one (kills child).
     registry.cancel(&workspace_id);
@@ -2060,19 +2018,8 @@ pub(crate) async fn start_workspace_run_impl(
 
     // Atom 6 (user-added) — same PTY sandbox-root assertion as
     // `open_terminal`. The Run-tab PTY also inherits the user's
-    // shell environment but starts at the workspace worktree; refuse
-    // to launch it if the worktree falls outside the workspace's
-    // sandbox roots.
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let _canonical = path_guard::validate_agent_path(
-        std::path::Path::new(&ws.worktree_path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    // shell environment but starts at the workspace worktree.
+    path_guard::guard_workspace_worktree(db, &ws)?;
 
     let worktree_path = ws.worktree_path;
     registry.cancel(&workspace_id);
@@ -2174,7 +2121,7 @@ pub async fn commit_workspace(
 // ---------------------------------------------------------------------------
 
 /// `git add -- <path>` inside the workspace's worktree. P0.1 S0.1.D —
-/// gated by `path_guard::validate_agent_path` so a symlink-escape
+/// gated by `path_guard::guard_agent_relative_path` so a symlink-escape
 /// commit can't slip through staging.
 #[tauri::command]
 #[specta::specta]
@@ -2187,17 +2134,7 @@ pub async fn stage_file(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
-    validate_workspace_relative_path(&path)?;
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let _canonical = path_guard::validate_agent_path(
-        std::path::Path::new(&path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
     staging::stage(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
@@ -2215,17 +2152,7 @@ pub async fn unstage_file(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
-    validate_workspace_relative_path(&path)?;
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let _canonical = path_guard::validate_agent_path(
-        std::path::Path::new(&path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
     staging::unstage(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
@@ -2242,17 +2169,7 @@ pub async fn is_staged(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
-    validate_workspace_relative_path(&path)?;
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let _canonical = path_guard::validate_agent_path(
-        std::path::Path::new(&path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
     staging::is_staged(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
@@ -2314,21 +2231,10 @@ pub(crate) async fn mark_file_viewed_impl(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
-    validate_workspace_relative_path(&path)?;
-    // P0.1 S0.1.D — canonicalize-and-confine. The hash-on-disk path
-    // below follows symlinks via tokio::fs::read; without this gate a
-    // symlink could pin the Viewed marker to a file outside the
-    // sandbox.
-    let allowed_roots = {
-        let conn = db.lock();
-        path_guard::resolve_allowed_roots(&ws, &conn)?
-    };
-    let _canonical = path_guard::validate_agent_path(
-        std::path::Path::new(&path),
-        std::path::Path::new(&ws.worktree_path),
-        &allowed_roots,
-        &ws.sandbox_level,
-    )?;
+    // P0.1 S0.1.D — `hash_workspace_file` below follows symlinks via
+    // tokio::fs::read; without this gate a symlink could pin the
+    // Viewed marker to a file outside the sandbox.
+    path_guard::guard_agent_relative_path(db, &ws, &path)?;
     let hash = hash_workspace_file(std::path::Path::new(&ws.worktree_path), &path).await;
     let row = WorkspaceFileView {
         workspace_id,

@@ -57,12 +57,12 @@ pub fn list_all(conn: &Connection) -> Result<Vec<Workspace>, AppError> {
 /// `created_at` as the fallback for workspaces that have never run).
 /// Excludes rows with `deletion_intent > 0`.
 ///
-/// Used by [`crate::claude_cli::runner::spawn_run`] to compute the
-/// `--add-dir` set for an L2 run; the limit defends against the CG-1
-/// argv-length blow-up flagged in the plan (~128 KB argv ceiling on
-/// most Unixes). The active workspace is NOT force-included here —
-/// callers that need that guarantee should re-insert it after the
-/// query (the runner does this).
+/// Lower-level helper for the L2 enumeration: see
+/// [`enumerate_l2_siblings`] for the wrapped version that callers
+/// (runner + path-guard) actually use — it force-includes the active
+/// workspace and applies the [`crate::claude_cli::sandbox_policy::L2_SIBLING_CAP`]
+/// cap. The CG-1 argv-length guard depends on the wrapped version,
+/// not this raw query.
 ///
 /// `project_id` matches `tasks.repo_id` (Mozart vocabulary maps
 /// project → repo at the storage layer).
@@ -91,6 +91,33 @@ pub fn list_active_siblings_for_project(
         out.push(r?);
     }
     Ok(out)
+}
+
+/// P0.1 — wrap [`list_active_siblings_for_project`] with the "always
+/// include the active workspace" guarantee both the argv builder and
+/// the path-guard rely on. Shared between
+/// [`crate::claude_cli::runner::resolve_sandbox_roots`] and
+/// [`crate::path_guard::resolve_allowed_roots`] so the two layers
+/// can never drift on which siblings are in scope.
+///
+/// Without the force-include, an idle workspace could be pushed out
+/// of the result set by `cap` more-recently-active siblings — and
+/// then spawn an agent that can't see its own worktree.
+pub fn enumerate_l2_siblings(
+    conn: &Connection,
+    workspace: &Workspace,
+    cap: usize,
+) -> Result<Vec<Workspace>, AppError> {
+    let task = crate::db::tasks::get(conn, &workspace.task_id)?;
+    let mut siblings = list_active_siblings_for_project(conn, &task.repo_id, cap)?;
+    if !siblings
+        .iter()
+        .any(|w| w.workspace_id == workspace.workspace_id)
+    {
+        siblings.insert(0, workspace.clone());
+        siblings.truncate(cap);
+    }
+    Ok(siblings)
 }
 
 pub fn update_status(conn: &Connection, workspace_id: &str, status: &str) -> Result<(), AppError> {

@@ -57,6 +57,17 @@ impl SandboxLevel {
     pub const DEFAULT: Self = SandboxLevel::L2Project;
 }
 
+/// CG-1 defense — cap the L2 sibling set so very-large projects do not
+/// blow past the ~128KB argv ceiling on most Unixes. Used by:
+///   - `claude_cli::runner::resolve_sandbox_roots` for the argv set
+///   - `path_guard::resolve_allowed_roots` for the IPC validation set
+///
+/// 20 workspaces × 2 args/workspace (`--add-dir <path>`) × ~150
+/// bytes/path ≈ 6KB, well inside the ceiling and big enough that
+/// "active siblings" is representative. See
+/// plan-mozart-dogfood-readiness.md § "Critical gaps → CG-1".
+pub const L2_SIBLING_CAP: usize = 20;
+
 impl fmt::Display for SandboxLevel {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.write_str(match self {

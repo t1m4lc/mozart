@@ -21,6 +21,7 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 **What:** `/privacy` and `/terms` ship with placeholder banner + `<meta robots noindex,nofollow>`. Production launch must replace with real legal copy from counsel.
 
 **Why:** "Placeholder — not final legal text" is fine for preview but cannot ship publicly. Once real copy lands:
+
 1. Remove the placeholder banner.
 2. Remove the `noindex,nofollow` meta tag.
 3. Add `/privacy` and `/terms` to `sitemap.xml` (currently excluded by Phase 12).
@@ -108,6 +109,7 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 **What:** Today `apps/desktop/src-tauri/src/lib.rs` only configures WebKit scroll on Linux (disable smooth-scrolling, force GPU compositing) because that's the only platform where Tauri's webview engine (WebKitGTK) feels noticeably slower than Chromium for wheel scrolling. If users on macOS or Windows report a similar slowness, evaluate platform-specific tweaks.
 
 **Why:** Tauri uses a different webview engine per platform:
+
 - Linux → WebKitGTK 4.1 (the fixed-here case)
 - macOS → WKWebView (Apple's WebKit). Scroll behavior is OS-native via NSScrollView; expected to feel like every other macOS app. Usually fine.
 - Windows → WebView2 (Chromium-based). Scroll feel matches Chrome/Edge.
@@ -115,6 +117,7 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 We applied the Linux fix because the slowness was reported there. macOS and Windows haven't been reported yet but could surface as we get more cross-platform usage.
 
 **How to apply:** Reproduce the complaint on the target platform first. Then:
+
 - macOS: WKWebView doesn't expose an equivalent `enable-smooth-scrolling` setting. Investigate `WKPreferences` and `NSScrollView` properties via `tauri::WebviewWindow::with_webview` + the wry crate's macOS extensions. Many "fixes" here are at the OS preferences layer, not the app.
 - Windows: WebView2 settings are exposed via `tauri::WebviewWindow::with_webview` and the wry Windows extensions. Look at `CoreWebView2Settings` and any high-precision-input flags.
 
@@ -131,5 +134,51 @@ We applied the Linux fix because the slowness was reported there. macOS and Wind
 **How to apply:** Find the chat-delete and workspace-delete code paths (likely in `ChatFacade` and `WorkspacesFacade`). On delete, inject `ScrollPositionService` and call `forgetChat(workspaceId, chatId)` / `forgetWorkspace(workspaceId)`. Mirror the pattern used in `FileTabsService.closeFor`. Add a regression spec.
 
 **Depends on:** Knowing the exact delete code paths — small investigation needed.
+
+## Sandbox — real OS-level filesystem fence for the Claude subprocess (load-bearing)
+
+**What:** Wrap the `claude` subprocess in an OS-level sandbox so its `Read`/`Bash` tools physically cannot reach paths outside `~/.mozart/worktrees/<scope>`. Linux first via `bubblewrap`, then macOS via `sandbox-exec`, then Windows via `AppContainer`.
+
+**Why:** Empirically falsified 2026-05-21 — Claude CLI's `--add-dir` is **contextual, not enforced**. The probe (MOZART_CLAUDE_BIN shim) confirmed Mozart sends the correct argv (`--add-dir`, `--permission-mode=acceptEdits`, `--allowedTools`, `--append-system-prompt` clamp) but the agent still reads any OS-readable path because nothing blocks the syscall. The Atom 7 system-prompt clamp now makes the agent refuse politely, but a jailbreak prompt would bypass it. The OS fence is the only real boundary.
+
+The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_sandbox_level` Tauri command, IPC path guard, terminal PTY guard) is all still useful — the OS fence layers on top by reading the workspace's `sandbox_level` and picking the right binding profile.
+
+**How to apply (Linux first):**
+
+1. Detect `bwrap` on PATH at app start; degrade gracefully (warn + run unwrapped) if missing or kernel `unprivileged_userns_clone` is disabled.
+2. In `apps/desktop/src-tauri/src/claude_cli/runner.rs::spawn_run`, wrap `Command::new(resolve_claude_bin())` in `Command::new("bwrap")` with:
+   - `--ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64` (libs)
+   - `--ro-bind /etc/ssl /etc/ssl --ro-bind /etc/resolv.conf /etc/resolv.conf` (TLS + DNS)
+   - `--ro-bind $HOME/.claude $HOME/.claude` (auth/session — needed for the API key in keyring fallback)
+   - `--bind <each --add-dir target> <same path>` (the actual workspace + L2 siblings)
+   - `--tmpfs /tmp --proc /proc --dev /dev` (minimum runtime)
+   - `--share-net --chdir <workspace_worktree>` (network for WebFetch, working dir)
+3. Expect iteration: claude may shell out to other binaries; each missing one needs an additional `--ro-bind`. Run with the strictest profile and add binds as they break.
+4. Skip wrapping in tests (the `MOZART_CLAUDE_BIN` test seam shim doesn't need a sandbox).
+5. macOS: `sandbox-exec -p <profile>` with a `.sb` file that allows file-read/file-write on the workspace paths only. Deprecated but functional.
+6. Windows: `AppContainer` is non-trivial and probably waits for a later milestone.
+
+**Probe to validate after implementing:** run the same dogfood test that surfaced the gap — `read /home/<user>/Documents/test.txt` in agent mode. With OS fence active, the read should fail at the syscall layer (`ENOENT` or `EACCES`), not just by polite agent refusal.
+
+**Footnote:** if Anthropic ships an upstream `--restrict-fs` / `--sandbox` flag that actually enforces, re-probe and drop the OS-fence dependency for the typical dogfood case. The fence then becomes belt-and-braces rather than the only layer.
+
+**Depends on:** P0.1 atoms landed (✅ `wt-security-sandbox`); user-namespace cloning enabled on the user's kernel (check `/proc/sys/kernel/unprivileged_userns_clone` on Debian/Ubuntu).
+
+---
+
+## Sandbox — surface agent refusals + permission-denied events in the chat timeline
+
+**What:** When the agent refuses a tool call (because the system-prompt clamp told it to, or because `--allowedTools` excludes the tool) the natural-language refusal arrives as `stream_event.content_block_delta.text_delta` events. The Rust parser maps them correctly to `StreamEvent::StreamToken` (`apps/desktop/src-tauri/src/claude_cli/parser.rs:144-153`), but the chat timeline either swallows them or renders them with no visible delineation from a normal reply.
+
+**Why:** Dogfood report 2026-05-21 — user prompted `read /home/.../test.txt`, the Atom 7 clamp worked (agent refused), but the user saw nothing in the chat after the spinner finished. Without a visible refusal the user cannot distinguish (a) the agent succeeded silently, (b) the agent refused, (c) the runtime errored. Each has very different security implications.
+
+**How to apply:**
+
+1. Reproduce: prompt a refusal in agent mode and capture the raw stream-json via the `MOZART_CLAUDE_BIN=…` shim. Confirm whether `text_delta` events arrive at all.
+2. If yes: the issue is the frontend timeline component swallowing short messages. Look at where `StreamEvent::StreamToken` is rendered in the chat domain and trace what filters/conditions might hide a short final response.
+3. If no: the agent emits a `tool_use` block targeting a tool not in `--allowedTools` and Claude CLI rejects it silently. In that case extend `parser.rs::handle_user_message` to surface those rejections as a new `StreamEvent::ToolRefused { tool, path }` variant, and add a card kind to the timeline UI. Regenerate `_bindings.ts`.
+4. Either way, the timeline should render refusal events with a distinct visual treatment (subtle red/amber chip, "sandbox refused this") so the security boundary is visible.
+
+**Depends on:** Nothing — independent fix. Surfaced during Atom 7 dogfood.
 
 ---
