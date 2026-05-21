@@ -214,6 +214,9 @@
       "@mozart-ui/composer": [
         "./libs/mozart-ui/composer/src/index.ts"
       ],
+      "@mozart-ui/diff-parser": [
+        "./libs/mozart-ui/diff-parser/src/index.ts"
+      ],
       "@mozart-ui/diff-stats": [
         "./libs/mozart-ui/diff-stats/src/index.ts"
       ],

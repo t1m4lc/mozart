@@ -21,7 +21,7 @@ import {
   type DiffHunk,
   type DiffLine,
   type DiffLineKind,
-} from '../util-diff-parser/util-diff-parser';
+} from '@mozart-ui/diff-parser';
 
 // GitHub-style row classes. Backgrounds are translucent so the diff
 // blends with whatever surface it's painted onto; text colors stay

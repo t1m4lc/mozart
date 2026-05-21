@@ -41,14 +41,6 @@ export {
   FeatureCreatePrDialog,
   type CreatePrDialogContext,
 } from './feature-create-pr-dialog/feature-create-pr-dialog';
-export {
-  parseGroupedDiff,
-  parseUnifiedDiff,
-  type DiffHunk,
-  type DiffLine,
-  type DiffLineKind,
-  type ParsedDiff,
-} from './util-diff-parser/util-diff-parser';
 export { UiChangesContextMenu } from './ui-changes-context-menu/ui-changes-context-menu';
 export {
   UiHunkExpandBar,

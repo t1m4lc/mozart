@@ -1,0 +1,22 @@
+{
+  "name": "diff-parser",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-ui/diff-parser/src",
+  "prefix": "mz",
+  "projectType": "library",
+  "tags": [
+    "scope:mozart-ui"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/mozart-ui/diff-parser/tsconfig.spec.json"
+      }
+    }
+  }
+}

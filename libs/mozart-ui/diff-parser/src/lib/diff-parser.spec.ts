@@ -2,7 +2,7 @@ import {
   parseGroupedDiff,
   parseUnifiedDiff,
   type DiffHunk,
-} from './util-diff-parser';
+} from './diff-parser';
 
 // Fixture A — two hunks, default 3 lines of context each.
 // Mirrors `git diff base -- foo.ts` output shape.
