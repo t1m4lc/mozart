@@ -46,4 +46,3 @@ export {
   UiConfirmDiscardChangesDialog,
   type ConfirmDiscardChangesContext,
 } from './ui-confirm-discard-changes-dialog/ui-confirm-discard-changes-dialog';
-export { UiDiffStats } from './ui-diff-stats';

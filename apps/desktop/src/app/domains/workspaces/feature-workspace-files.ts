@@ -20,12 +20,12 @@ import {
 } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { events } from '../../core/_bindings';
+import { MzDiffStats } from '@mozart-ui/diff-stats';
 import {
   FeatureFileTree,
   FileViewsFacade,
   RepositoriesFacade,
   UiConfirmDiscardChangesDialog,
-  UiDiffStats,
   type ChangedFile,
   type ConfirmDiscardChangesContext,
   type FileNode,
@@ -53,7 +53,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
     HlmKbdImports,
     HlmTabsImports,
     FeatureFileTree,
-    UiDiffStats,
+    MzDiffStats,
   ],
   providers: [
     provideIcons({
@@ -216,7 +216,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
             {{ statusLetter(file.status) }}
           </span>
           <span class="min-w-0 flex-1 truncate font-mono">{{ file.path }}</span>
-          <app-ui-diff-stats
+          <mz-diff-stats
             class="ml-auto"
             [added]="file.added"
             [removed]="file.removed"

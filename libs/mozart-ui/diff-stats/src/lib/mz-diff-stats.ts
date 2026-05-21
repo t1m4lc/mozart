@@ -12,6 +12,7 @@ import {
     class:
       'flex items-center gap-1 font-mono text-[10px] tracking-widest tabular-nums',
     '[hidden]': '!_hasDiff()',
+    '[attr.aria-label]': '_ariaLabel()',
   },
   template: `
     @if (added() > 0) {
@@ -29,4 +30,13 @@ export class MzDiffStats {
   protected readonly _hasDiff = computed(
     () => this.added() > 0 || this.removed() > 0,
   );
+
+  protected readonly _ariaLabel = computed(() => {
+    const a = this.added();
+    const r = this.removed();
+    const parts: string[] = [];
+    if (a > 0) parts.push(`${a} added`);
+    if (r > 0) parts.push(`${r} removed`);
+    return parts.length === 0 ? null : parts.join(', ');
+  });
 }

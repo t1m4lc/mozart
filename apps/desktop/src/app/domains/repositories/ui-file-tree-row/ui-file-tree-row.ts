@@ -16,12 +16,12 @@ import {
   lucideFolderOpen,
 } from '@ng-icons/lucide';
 import type { FileNode } from '../data/file-node.model';
-import { UiDiffStats } from '../ui-diff-stats';
+import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { statusBadge } from '../util-status-badge/util-status-badge';
 
 @Component({
   selector: 'app-file-tree-row',
-  imports: [NgIcon, HlmBadgeImports, HlmIconImports, UiDiffStats],
+  imports: [NgIcon, HlmBadgeImports, HlmIconImports, MzDiffStats],
   providers: [
     provideIcons({
       lucideChevronDown,
@@ -66,7 +66,7 @@ import { statusBadge } from '../util-status-badge/util-status-badge';
       }
       <span class="min-w-0 flex-1 truncate">{{ node().name }}</span>
       @if (_hasDiff()) {
-        <app-ui-diff-stats
+        <mz-diff-stats
           class="ml-auto"
           [added]="node().added ?? 0"
           [removed]="node().removed ?? 0"
