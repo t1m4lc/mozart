@@ -6,6 +6,10 @@
 @source "../../../libs/mozart-ui/code-editor";
 @source "../../../libs/mozart-ui/codemirror-theme";
 @source "../../../libs/mozart-ui/composer";
+@source "../../../libs/mozart-ui/diff-parser";
+@source "../../../libs/mozart-ui/diff-stats";
+@source "../../../libs/mozart-ui/diff-view";
+@source "../../../libs/mozart-ui/file-diff-card";
 @source "../../../libs/mozart-ui/hunk-expand-bar";
 @source "../../../libs/mozart-ui/review-progress";
 @source "../../../libs/shared-util-theme";

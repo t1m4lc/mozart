@@ -42,6 +42,11 @@ import { HlmButtonImports } from '@mozart/ui/button';
             MzHunkExpandBar →
           </a>
         </li>
+        <li>
+          <a hlmBtn variant="outline" routerLink="/file-diff-card">
+            MzFileDiffCard →
+          </a>
+        </li>
       </ul>
     </section>
   `,

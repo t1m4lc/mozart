@@ -29,4 +29,9 @@ export const appRoutes: Route[] = [
     loadComponent: () =>
       import('./hunk-expand-bar.sandbox').then((m) => m.HunkExpandBarSandbox),
   },
+  {
+    path: 'file-diff-card',
+    loadComponent: () =>
+      import('./file-diff-card.sandbox').then((m) => m.FileDiffCardSandbox),
+  },
 ];
