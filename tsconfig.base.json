@@ -220,6 +220,9 @@
       "@mozart-ui/diff-stats": [
         "./libs/mozart-ui/diff-stats/src/index.ts"
       ],
+      "@mozart-ui/diff-view": [
+        "./libs/mozart-ui/diff-view/src/index.ts"
+      ],
       "@mozart-ui/highlight-overlay": [
         "./libs/mozart-ui/highlight-overlay/src/index.ts"
       ],
