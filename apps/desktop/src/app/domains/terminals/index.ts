@@ -9,4 +9,4 @@ export {
   type TerminalsAdapter,
 } from './data/terminals.adapter';
 export { TerminalRegistry } from './data/terminal-registry.service';
-export { FeatureWorkspaceTerminal } from './feature-workspace-terminal/feature-workspace-terminal';
+export { FeatureWorkspaceTerminal } from './feature-workspace-terminal';

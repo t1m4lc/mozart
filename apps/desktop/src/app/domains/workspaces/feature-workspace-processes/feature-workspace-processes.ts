@@ -13,7 +13,7 @@ import { FeatureWorkspaceRun, RunRegistry } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
 import { UiStateFacade, type WorkspaceAsideBottomTab } from '../../ui-state';
 import { WorkspacesFacade } from '../data/workspace.facade';
-import { RunActionMenu } from '../ui/run-action-menu/run-action-menu';
+import { RunActionMenu } from '../ui/run-action-menu';
 import { FeatureWorkspaceSetup } from './feature-workspace-setup';
 
 // Bottom half of the workspace aside: Setup / Run / Terminal tabs +

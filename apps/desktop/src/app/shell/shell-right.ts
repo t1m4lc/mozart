@@ -150,7 +150,7 @@ export class ShellRight {
   private async openCreatePrDialog(workspaceId: string): Promise<void> {
     const ws = this.workspaces.workspaceById(workspaceId)();
     const { FeatureCreatePrDialog } = await import(
-      '../domains/repositories/feature-create-pr-dialog/feature-create-pr-dialog'
+      '../domains/repositories/feature-create-pr-dialog'
     );
     this.dialog.open(FeatureCreatePrDialog, {
       context: { workspaceId, defaultTitle: ws?.name ?? '' },

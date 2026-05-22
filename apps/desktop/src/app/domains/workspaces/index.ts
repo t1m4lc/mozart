@@ -19,10 +19,10 @@ export {
 } from './data/workspaces.adapter';
 
 export { WorkspaceDetailPage } from './feature-detail/workspace-detail.page';
-export { FeatureChatTabBar } from './feature-chat-tab-bar/feature-chat-tab-bar';
+export { FeatureChatTabBar } from './feature-chat-tab-bar';
 export { FeatureWorkspaceAside } from './feature-workspace-aside';
-export { FeatureWorkspaceMiddle } from './feature-workspace-middle/feature-workspace-middle';
-export { FeatureFileContent } from './feature-file-content/feature-file-content';
+export { FeatureWorkspaceMiddle } from './feature-workspace-middle';
+export { FeatureFileContent } from './feature-file-content';
 export {
   ConfirmReopenWorkspaceDialog,
   type ConfirmReopenWorkspaceContext,
@@ -32,7 +32,7 @@ export {
 // cross-domain composer). Kept out of consumer features inside this
 // domain — they're sidebar/toolbar surfaces, not feature-detail
 // components — but they ARE part of the public API.
-export { WorkspaceRow } from './ui/workspace-row/workspace-row';
-export { WorkspaceContextMenu } from './feature-workspace-context-menu/workspace-context-menu';
-export { WorkspaceEmptyState } from './ui/workspace-empty-state/workspace-empty-state';
-export { MergeActionMenu } from './ui/merge-action-menu/merge-action-menu';
+export { WorkspaceRow } from './ui/workspace-row';
+export { WorkspaceContextMenu } from './feature-workspace-context-menu';
+export { WorkspaceEmptyState } from './ui/workspace-empty-state';
+export { MergeActionMenu } from './ui/merge-action-menu';

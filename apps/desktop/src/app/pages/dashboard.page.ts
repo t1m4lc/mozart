@@ -10,7 +10,7 @@ import {
   lucidePanelLeft,
   lucideZap,
 } from '@ng-icons/lucide';
-import { AddProjectFlow } from '../shell/flows/add-project.flow';
+import { AddProjectFlow } from '../shell/add-project.flow';
 import { LayoutService } from '../core/layout.service';
 import { WorkspacesFacade } from '../domains/workspaces';
 

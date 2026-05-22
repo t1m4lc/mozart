@@ -12,7 +12,7 @@ import {
   lucidePanelLeft,
   lucideSettings,
 } from '@ng-icons/lucide';
-import { AddProjectFlow } from './flows/add-project.flow';
+import { AddProjectFlow } from './add-project.flow';
 import { FeatureFlagsService } from '../core/feature-flags';
 import { LayoutService } from '../core/layout.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';

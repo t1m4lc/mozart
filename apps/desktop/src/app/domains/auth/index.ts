@@ -14,5 +14,5 @@ export {
   isDevAuthBypassActive,
   isRunningInTauri,
 } from './dev-bypass';
-export { FeatureWelcome } from './feature-welcome/feature-welcome';
+export { FeatureWelcome } from './feature-welcome';
 export { UiWelcomeCard } from './ui-welcome-card';

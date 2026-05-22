@@ -14,5 +14,5 @@ export {
   type MessagesAdapter,
 } from './data/chats.adapter';
 export { chatFromDto, messageFromDto, turnStateToJson } from './data/chat.dto-mapper';
-export { FeatureChatList } from './feature-chat-list/feature-chat-list';
-export { FeatureChatContent } from './feature-chat-content/feature-chat-content';
+export { FeatureChatList } from './feature-chat-list';
+export { FeatureChatContent } from './feature-chat-content';

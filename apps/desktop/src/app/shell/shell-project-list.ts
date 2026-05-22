@@ -29,7 +29,7 @@ import {
   ProjectsFacade,
   type Project,
 } from '../domains/projects';
-import { AddProjectFlow } from './flows/add-project.flow';
+import { AddProjectFlow } from './add-project.flow';
 import { ChatFacade } from '../domains/chat';
 import {
   UI_WORKSPACE_STATUSES,
