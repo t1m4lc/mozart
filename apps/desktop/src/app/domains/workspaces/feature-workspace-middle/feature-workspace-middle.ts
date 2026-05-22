@@ -38,12 +38,6 @@ import { WorkspacesFacade } from '../data/workspace.facade';
 // it's detached (the user has scrolled up to read history).
 const AT_BOTTOM_THRESHOLD_PX = 50;
 
-// Where the just-sent user message lands as a fraction of viewport
-// height from the top of `<main>`. 0.5 = vertical center of the
-// visible chat area. `scrollBy` clamps to the valid range, so for
-// short chats with no scroll room the message stays at its natural
-// position (top) instead of forcing visible empty padding below it.
-const USER_MESSAGE_TOP_FRACTION = 0.5;
 
 @Component({
   selector: 'app-feature-workspace-middle',
@@ -317,19 +311,14 @@ export class FeatureWorkspaceMiddle {
     //     microtask scrollTo, so a chat-switch overrides whatever
     //     this effect sets and lands the user at the stored position.
     //
-    // We skip the auto-follow when the last message is from the user
-    // — onSend handles that case by smooth-scrolling the user's prompt
-    // toward 1/5 from top (when there's enough history above to make
-    // that scroll possible). Once the agent's placeholder/response
-    // message arrives, role flips to 'assistant' and normal
-    // auto-follow resumes.
-    //
-    // The scroll target is the bottom of the MESSAGE-LIST and the
-    // scroll only moves DOWNWARD — never yank the user up to "follow"
-    // the agent. Together those guarantee the 1/5-from-top positioning
-    // isn't undone the moment the agent placeholder appears.
+    // Standard auto-follow during streaming: while attached, keep
+    // the bottom of the chat content pinned to the viewport bottom
+    // on every messages-signal fire (which includes per-token
+    // updates because the store creates a new array each token).
+    // Target scrollHeight directly — the browser clamps so when
+    // content fits in the viewport this is a no-op.
     effect(() => {
-      const msgs = this._messages();
+      this._messages();
       const chatId = this._activeChatId();
       const inFileMode = this.fileContent() !== undefined;
       const main = this.mainEl;
@@ -337,26 +326,8 @@ export class FeatureWorkspaceMiddle {
       if (!chatId || inFileMode || !main) return;
       if (!this.scroll.isAttached(chatId)) return;
 
-      const lastMsg = msgs.at(-1);
-      if (lastMsg?.role === 'user') return;
-
       queueMicrotask(() => {
-        const msgList = main.querySelector('app-message-list');
-        if (!msgList) {
-          main.scrollTop = main.scrollHeight;
-          return;
-        }
-        const listRect = msgList.getBoundingClientRect();
-        const mainRect = main.getBoundingClientRect();
-        const listBottomInContent =
-          listRect.bottom - mainRect.top + main.scrollTop;
-        const targetScrollTop = listBottomInContent - main.clientHeight;
-        // Scroll only DOWNWARD — never yank the user up to "follow"
-        // the agent, otherwise the 1/5-from-top positioning at Send
-        // would be undone the moment the placeholder appears.
-        if (targetScrollTop > main.scrollTop) {
-          main.scrollTop = targetScrollTop;
-        }
+        main.scrollTop = main.scrollHeight;
       });
     });
   }
@@ -368,17 +339,9 @@ export class FeatureWorkspaceMiddle {
     // see the assistant's reply land.
     const chatId = this._activeChatId();
     if (chatId) this.scroll.setAttached(chatId);
+    this.scrollMainToBottom(true);
     void this.facade.sendUserMessage(id, event.text, event.mode);
     this.value.set('');
-
-    // After the user message renders, position it at 1/5 from <main>'s
-    // viewport top so the agent's response has room to fill below
-    // (ChatGPT-style). The messages-effect skip on role 'user'
-    // prevents an interim scroll-to-bottom from fighting this.
-    afterNextRender(
-      () => this.scrollLastUserMessageToTopFraction(),
-      { injector: this.injector },
-    );
   }
 
   protected onStop(): void {
@@ -439,38 +402,6 @@ export class FeatureWorkspaceMiddle {
     });
   }
 
-  // Positions the last user-message element at USER_MESSAGE_TOP_FRACTION
-  // of `<main>`'s viewport height from the top, smooth-scrolling
-  // there. Falls back to scroll-to-bottom if no user message is
-  // found in the DOM. Opens the programmatic-scroll grace window so
-  // the partway scroll events during the animation don't flip the
-  // chat to detached.
-  private scrollLastUserMessageToTopFraction(): void {
-    const main = this.mainEl;
-    if (!main) return;
-    const userEls = main.querySelectorAll('app-user-message');
-    const lastUser = userEls[userEls.length - 1] as
-      | HTMLElement
-      | undefined;
-    if (!lastUser) {
-      this.scrollMainToBottom(true);
-      return;
-    }
-    const userRect = lastUser.getBoundingClientRect();
-    const mainRect = main.getBoundingClientRect();
-    const currentOffset = userRect.top - mainRect.top;
-    const targetOffset = main.clientHeight * USER_MESSAGE_TOP_FRACTION;
-    const delta = currentOffset - targetOffset;
-    if (Math.abs(delta) < 1) return;
-    const reduced =
-      typeof matchMedia !== 'undefined' &&
-      matchMedia('(prefers-reduced-motion: reduce)').matches;
-    this._programmaticScrollUntil = performance.now() + 700;
-    main.scrollBy({
-      top: delta,
-      behavior: reduced ? 'auto' : 'smooth',
-    });
-  }
 }
 
 // Walks up the DOM looking for the first ancestor whose computed
