@@ -1,4 +1,8 @@
-import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import {
+  DeferBlockState,
+  TestBed,
+  type ComponentFixture,
+} from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideTheme } from '@mozart/shared-util-theme';
 import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
@@ -85,6 +89,14 @@ async function mountWith(
 async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
   await fixture.whenStable();
   fixture.detectChanges();
+  await fixture.whenStable();
+  // @defer (on viewport) wraps <mz-file-diff-card> in production for bundle
+  // size. jsdom never fires viewport triggers, so render every pending
+  // defer block to Complete so the tests see the real card instead of the
+  // placeholder.
+  for (const block of await fixture.getDeferBlocks()) {
+    await block.render(DeferBlockState.Complete);
+  }
   await fixture.whenStable();
 }
 
