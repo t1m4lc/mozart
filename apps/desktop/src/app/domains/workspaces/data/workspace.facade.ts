@@ -303,10 +303,22 @@ export class WorkspacesFacade {
     if (this.uiState.activeWorkspaceId() === id) {
       this.uiState.setActiveWorkspace(null);
     }
+    this.uiState.pruneWorkspace(id);
   }
 
   removeForProject(projectId: string): void {
+    // Capture the workspace ids before the store drops them so the
+    // ui-state per-workspace maps can be pruned alongside the entity
+    // collection. Without this, deleting a project leaves orphaned
+    // file-view + aside entries in localStorage indefinitely.
+    const orphanedIds = this.store
+      .workspaces()
+      .filter((w) => w.projectId === projectId)
+      .map((w) => w.id);
     this.store.removeForProject(projectId);
+    for (const id of orphanedIds) {
+      this.uiState.pruneWorkspace(id);
+    }
   }
 
   async setStatus(id: string, status: UiWorkspaceStatus): Promise<void> {

@@ -132,4 +132,11 @@ export class UiStateFacade {
   setTreeExpanded(workspaceId: string, paths: readonly string[]): void {
     this.store.setTreeExpanded(workspaceId, paths);
   }
+
+  // Drop every per-workspace entry for `workspaceId` from the persisted
+  // ui-state. Called by WorkspacesFacade on archive / project removal so
+  // localStorage and the in-memory maps stay bounded.
+  pruneWorkspace(workspaceId: string): void {
+    this.store.pruneWorkspace(workspaceId);
+  }
 }
