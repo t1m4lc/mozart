@@ -815,8 +815,9 @@ export const commands = {
    * Read a file's raw contents from a workspace's worktree. Used by the
    * markdown preview, the CodeMirror Edit pane (P2.1) and any other
    * component that needs file content rather than a diff. Path validation
-   * goes through `path_guard::validate_workspace_relative_path` so the
-   * read and save paths cannot drift.
+   * goes through `path_guard::guard_agent_relative_path` so the read,
+   * save, diff, and staging paths all share the same sandbox check
+   * and cannot drift.
    */
   async readWorkspaceFile(
     workspaceId: string,
@@ -1092,7 +1093,7 @@ export const commands = {
   },
   /**
    * `git add -- <path>` inside the workspace's worktree. P0.1 S0.1.D —
-   * gated by `path_guard::validate_agent_path` so a symlink-escape
+   * gated by `path_guard::guard_agent_relative_path` so a symlink-escape
    * commit can't slip through staging.
    */
   async stageFile(

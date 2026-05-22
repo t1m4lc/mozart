@@ -1,19 +1,28 @@
-import { DomSanitizer, type SafeHtml } from '@angular/platform-browser';
 import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  inject,
   input,
 } from '@angular/core';
 import { marked } from 'marked';
 
-// Chat-scoped markdown renderer. Takes a raw markdown string, runs it through
-// `marked` (GitHub Flavored Markdown), and injects the resulting HTML
-// into a styled container. Trusted-content only — the source is the
-// workspace file system, not arbitrary user input, so we don't pull
-// DOMPurify in. If/when Mozart starts rendering remote markdown
-// (issue bodies, PR descriptions, …) wire DOMPurify here.
+// Chat-scoped markdown renderer. Takes a raw markdown string, runs it
+// through `marked` (GitHub Flavored Markdown), and lets Angular's
+// built-in `[innerHTML]` sanitizer strip anything dangerous before the
+// browser sees it.
+//
+// Threat model: any file body Mozart preview-renders is potentially
+// agent-controlled — the agent has the `Write` tool in agent mode and
+// can produce arbitrary markdown into the workspace. An earlier
+// version of this file wrapped the output in `bypassSecurityTrustHtml`
+// and claimed "trusted content only — workspace files are trusted."
+// That assumption was wrong: the agent writes those files. Letting
+// Angular sanitize closes the prompt-injection → DOM-XSS path
+// (`<img src=x onerror=...>`, `<script>`, `javascript:` URIs, etc.).
+// The legitimate markdown tags (`<h1-6>`, `<p>`, `<ul>`, `<ol>`,
+// `<code>`, `<pre>`, `<blockquote>`, `<a href>`, `<table>`, …) are
+// all on Angular's allowlist, so the visual output is unchanged for
+// any non-malicious file.
 //
 // Styling : Tailwind utilities applied to descendant tags via
 // `:where()` selectors so a single class wraps every common element.
@@ -135,14 +144,13 @@ import { marked } from 'marked';
 export class MessageMarkdown {
   readonly source = input<string>('');
 
-  private readonly sanitizer = inject(DomSanitizer);
-
-  protected readonly html = computed<SafeHtml>(() => {
+  // String binding (not SafeHtml) — Angular runs its built-in
+  // sanitizer on the value before injecting it into the DOM.
+  protected readonly html = computed<string>(() => {
     const raw = this.source();
-    if (!raw) return this.sanitizer.bypassSecurityTrustHtml('');
+    if (!raw) return '';
     // `marked.parse` is async-capable but the sync overload returns a
     // string for plain markdown ; we don't use any async extensions.
-    const result = marked.parse(raw, { async: false }) as string;
-    return this.sanitizer.bypassSecurityTrustHtml(result);
+    return marked.parse(raw, { async: false }) as string;
   });
 }

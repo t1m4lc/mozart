@@ -143,7 +143,7 @@ We applied the Linux fix because the slowness was reported there. macOS and Wind
 
 **Why:** Two surfaces, same gap.
 
-1. **Claude subprocess:** empirically falsified 2026-05-21 — Claude CLI's `--add-dir` is **contextual, not enforced**. The probe (MOZART_CLAUDE_BIN shim) confirmed Mozart sends the correct argv (`--add-dir`, `--permission-mode=acceptEdits`, `--allowedTools`, `--append-system-prompt` clamp) but the agent still reads any OS-readable path because nothing blocks the syscall. The Atom 7 system-prompt clamp now makes the agent refuse politely, but a jailbreak prompt would bypass it.
+1. **Claude subprocess:** empirically falsified 2026-05-21 — Claude CLI's `--add-dir` is **contextual, not enforced**. Re-falsified 2026-05-22 for `--allowedTools` as well: an `ask`-mode prompt (argv carries `--allowedTools=Read,Glob,Grep`) successfully edited a file, proving the agent's Write tool fires regardless of the allowlist. The probe (MOZART_CLAUDE_BIN shim) confirmed Mozart sends the correct argv (`--add-dir`, `--permission-mode=acceptEdits`, `--allowedTools`, `--append-system-prompt` clamp) but the agent still reads any OS-readable path AND still writes outside the allowlist because nothing blocks the syscall. Conclusion: **both `--add-dir` and `--allowedTools` are contextual**, not enforced. The Atom 7 system-prompt clamp now makes the agent refuse politely, but a jailbreak prompt would bypass it. As a hardening step until this lands, the IPC freeze guard no longer skips `ask` mode (2026-05-22 — see `start_agent_run_impl`): a frozen workspace refuses every agent run, mode notwithstanding.
 
 2. **Terminal PTY:** the `path_guard::guard_workspace_worktree` check at the spawn site (`open_terminal`, `start_workspace_run_impl`) only validates the **initial `cwd`** before launching the shell. Once the shell is alive it inherits the user's full environment — a user (or anything driving the terminal) can `cd ~/.ssh && cat id_rsa` and there is **no** OS-level constraint stopping it. Same root cause as the Claude case: no syscall fence.
 
@@ -194,5 +194,46 @@ The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_san
 4. Either way, the timeline should render refusal events with a distinct visual treatment (subtle red/amber chip, "sandbox refused this") so the security boundary is visible.
 
 **Depends on:** Nothing — independent fix. Surfaced during Atom 7 dogfood.
+
+---
+
+## Sandbox — re-probe Claude CLI permission flags when Anthropic updates the CLI
+
+**What:** Periodically re-check whether Claude CLI's `--allowedTools` and `--permission-mode=plan` are actually enforced or just contextual. Today (2026-05-22, claude CLI v2.1.144) `--allowedTools` is empirically falsified — the agent writes despite `--allowedTools=Read,Glob,Grep`. Mozart now ALSO sets `--permission-mode=plan` for ask/plan modes as a stronger CLI-level enforcement primitive; whether THAT enforces is the open question this probe answers.
+
+**Why:** Mozart's ask/plan-mode security currently depends on `--permission-mode=plan` actually preventing writes. If the dogfood probe (your live test) confirms it works, this TODO becomes a periodic re-check. If it doesn't work either, both ask and plan modes need either:
+- the IPC freeze tightening extended to active workspaces too (composer disables ask/plan entirely until OS fence ships), OR
+- an honest UI relabel ("agent may still write")
+
+**How to apply (run after each Claude CLI upgrade):**
+
+1. In a scratch directory, run: `claude --permission-mode=plan -p "create test-file.txt containing the word hello" --output-format=stream-json --include-partial-messages`
+2. Check whether `test-file.txt` was created.
+3. Same probe with `--allowedTools=Read,Glob,Grep` instead of `--permission-mode=plan`.
+4. Record CLI version + outcome in this entry.
+
+**Current findings (2026-05-22, CLI v2.1.144):**
+- `--allowedTools=Read,Glob,Grep` → **falsified** (file gets created)
+- `--permission-mode=plan` → **needs probe** (just wired, not yet dogfood-confirmed)
+
+**Depends on:** Nothing — independent re-probe, ~30 seconds of work.
+
+---
+
+## Sandbox — review hardening from /review 2026-05-22 (followups for the OS-fence work)
+
+**What:** Three follow-ups identified by `/review` on the security-sandbox branch. None are blockers for landing the branch but they should be tracked alongside the OS-fence work.
+
+1. **TOCTOU between `path_guard::validate_agent_path` and the FS operation it gates.** An agent with `Write` can swap a file at the returned canonical path for a symlink between the guard call and `tokio::fs::*`. v0 path guard does the best it can in userspace; the OS-level fence (TODO-001) is the load-bearing fix because the kernel won't follow a symlink out of a bind mount. The threat model is documented in `path_guard::validate_agent_path` doc-comment.
+
+2. **Sync `std::fs::canonicalize` inside async Tauri command handlers.** `path_guard::validate_agent_path` calls sync canonicalize from inside `async fn` Tauri handlers (`read_workspace_file`, `file_save_impl`, `get_file_diff_impl`, `stage_file`, `unstage_file`, `is_staged`, `mark_file_viewed_impl`). For local SSD this is fine; on a slow filesystem (autofs, network mount, sleeping disk) it blocks the tokio reactor thread for the duration. Swap to `tokio::fs::canonicalize` and `.await` it, OR wrap in `tokio::task::spawn_blocking`.
+
+3. **L2 sibling cap (20) silently truncates.** `list_active_siblings_for_project` returns at most 20 rows; sibling #21 (least-recently-active) silently disappears from the allowed roots. Users with many active workspaces will see "agent can't read sibling X" with no path to debug. When `enumerate_l2_siblings` returns exactly `cap` rows AND the raw query had more, surface a single `log::info!` per run AND mention "Sandbox capped at N sibling workspaces" in the system_info entry R0.3.E plans to write.
+
+**Why:** Each is an honest engineering trade-off, not a missed requirement. TOCTOU is a known userspace-guard limitation; sync canonicalize is unlikely to bite on local disk; the L2 cap is a defensible argv-length guard whose silent failure mode is just a UX gap.
+
+**How to apply:** See per-item notes above. Items 1 and 2 layer naturally on top of the OS-fence work; item 3 is a 10-line UX fix that can ship independently.
+
+**Depends on:** Items 1 and 2 partially absorbed by TODO-001 (OS fence); item 3 standalone.
 
 ---

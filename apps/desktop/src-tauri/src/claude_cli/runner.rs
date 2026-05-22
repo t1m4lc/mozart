@@ -158,6 +158,17 @@ fn inject_anthropic_key_env(cmd: &mut Command, key: Option<&str>) {
 /// more-recently-active siblings exist). Without that guarantee an
 /// idle workspace could spawn an agent that can't see its own
 /// worktree.
+///
+/// Paths are **canonicalized here** so the strings the agent receives
+/// via `--add-dir` and `--append-system-prompt` match the strings the
+/// IPC guard (`path_guard::resolve_allowed_roots`) compares against.
+/// On macOS `/tmp → /private/tmp`, on Linux any symlinked root
+/// (NFS, autofs) would otherwise produce two views — Claude told one
+/// path, the guard expecting another — and the user's own files would
+/// get false-refused. Sibling worktrees that fail to canonicalize are
+/// dropped with a warning; **the active workspace's own worktree
+/// failing to canonicalize is a hard error** (spawning an agent that
+/// can't see its own files is worse than failing the spawn cleanly).
 fn resolve_sandbox_roots(
     workspace: &Workspace,
     level: SandboxLevel,
@@ -176,7 +187,27 @@ fn resolve_sandbox_roots(
                 let conn = db.0.lock().expect("db mutex poisoned");
                 workspaces::enumerate_l2_siblings(&conn, workspace, L2_SIBLING_CAP)?
             };
-            let paths = siblings.into_iter().map(|w| w.worktree_path).collect();
+            let active_id = workspace.workspace_id.clone();
+            let mut paths: Vec<String> = Vec::with_capacity(siblings.len());
+            for ws in siblings {
+                match std::fs::canonicalize(&ws.worktree_path) {
+                    Ok(p) => paths.push(p.display().to_string()),
+                    Err(e) if ws.workspace_id == active_id => {
+                        // Fail closed: spawning an agent whose own
+                        // worktree isn't reachable produces a worse UX
+                        // (every tool call refused) than a clear
+                        // spawn-time error.
+                        return Err(AppError::AgentSpawn(format!(
+                            "active worktree {:?} not canonicalizable: {e}",
+                            ws.worktree_path
+                        )));
+                    }
+                    Err(e) => log::warn!(
+                        "sandbox sibling worktree {:?} dropped from L2 set: {e}",
+                        ws.worktree_path
+                    ),
+                }
+            }
             Ok((paths, Vec::new()))
         }
         SandboxLevel::L3Workspace => Ok((Vec::new(), Vec::new())),
@@ -291,10 +322,27 @@ where
     // widens the agent's reach.
     let level = SandboxLevel::from_str(&workspace.sandbox_level)
         .unwrap_or(SandboxLevel::DEFAULT);
-    let (project_siblings, l1_roots) = resolve_sandbox_roots(workspace, level, db)?;
+
+    // Canonicalize the active worktree once so the L1/L3 `--add-dir`
+    // flag, the `--append-system-prompt` clamp, and the child's
+    // `current_dir` all use the same string the IPC guard
+    // (path_guard::resolve_allowed_roots) compares against. Without
+    // this, `/tmp/wt-x` on macOS goes to Claude raw but the guard
+    // sees `/private/tmp/wt-x` and the two views drift. Fail closed
+    // if the active worktree can't be canonicalized — spawning an
+    // agent that can't see its own files is worse than a clear error.
+    let canonical_worktree = std::fs::canonicalize(&workspace.worktree_path)
+        .map_err(|e| AppError::AgentSpawn(format!(
+            "active worktree {:?} not canonicalizable: {e}",
+            workspace.worktree_path
+        )))?;
+    let mut canonical_workspace = workspace.clone();
+    canonical_workspace.worktree_path = canonical_worktree.display().to_string();
+
+    let (project_siblings, l1_roots) = resolve_sandbox_roots(&canonical_workspace, level, db)?;
     let argv = production_argv(
         &run.prompt,
-        workspace,
+        &canonical_workspace,
         chat_mode,
         level,
         &project_siblings,
@@ -305,7 +353,7 @@ where
     // the workspace's worktree, persist it onto `agent_runs.checkpoint_sha`,
     // and remember the sha for the post-exit diff. Failure aborts spawn.
     let checkpoint_sha =
-        sandbox::git_checkpoint(Path::new(&workspace.worktree_path)).await?;
+        sandbox::git_checkpoint(Path::new(&canonical_workspace.worktree_path)).await?;
     {
         let conn = db.0.lock().expect("db mutex poisoned");
         agent_runs::update_checkpoint_sha(&conn, &run.run_id, &checkpoint_sha)?;
@@ -313,7 +361,7 @@ where
 
     let mut cmd = Command::new(&bin);
     cmd.args(&argv)
-        .current_dir(&workspace.worktree_path)
+        .current_dir(&canonical_workspace.worktree_path)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
@@ -432,8 +480,8 @@ where
     // ----- supervisor task: poll for cancel, wait for exit, mark_ended -----
     // Clones for the post-exit reach-back (S1.5.4): the supervisor `move`s
     // these into its async block so it can compute and persist the diff.
-    let workspace_path_for_supervisor = workspace.worktree_path.clone();
-    let workspace_id_for_supervisor = workspace.workspace_id.clone();
+    let workspace_path_for_supervisor = canonical_workspace.worktree_path.clone();
+    let workspace_id_for_supervisor = canonical_workspace.workspace_id.clone();
     let checkpoint_sha_for_supervisor = checkpoint_sha.clone();
     let supervisor: JoinHandle<()> = {
         let cancelled = cancelled.clone();

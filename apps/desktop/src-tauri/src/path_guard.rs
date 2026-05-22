@@ -105,6 +105,26 @@ pub fn resolve_allowed_roots(
 /// `level_label` is included in the [`AppError::PathRefused`] payload
 /// so the frontend toast can name the sandbox level. Callers pass
 /// `workspace.sandbox_level` straight through.
+///
+/// # Known TOCTOU window
+///
+/// There is a small race between this function returning a canonical
+/// path and the caller performing the actual `tokio::fs::*` operation
+/// on that path. An attacker with write access inside the workspace
+/// (any agent in `agent` mode) can in principle swap a file at the
+/// returned canonical path for a symlink between the two calls — the
+/// subsequent `read_to_string` / `write` would then follow the swapped
+/// target. Re-canonicalizing post-operation only narrows the window,
+/// it does not close it.
+///
+/// The load-bearing mitigation is the OS-level filesystem fence
+/// (bubblewrap on Linux, sandbox-exec on macOS, AppContainer on
+/// Windows) tracked in `TODOS.md` (TODO-001 / planned Atom 8). Once
+/// the agent's syscalls are confined by the kernel, a symlink swap
+/// cannot escape the bind mounts regardless of what userspace path
+/// guards do. This function is the v0 best-effort guard; it stops
+/// the obvious symlink-escape on the FIRST call but cannot defend
+/// against a concurrent in-workspace attacker.
 pub fn validate_agent_path(
     input: &Path,
     workspace_worktree: &Path,

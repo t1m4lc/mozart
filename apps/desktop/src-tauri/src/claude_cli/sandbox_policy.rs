@@ -94,16 +94,17 @@ impl FromStr for SandboxLevel {
 }
 
 /// Chat-mode → tool allowlist mapping (S0.1.C + TODO-011). The
-/// `--allowedTools` flag is the CLI-level enforcement of Mozart's
-/// agent / plan / ask split; it fires regardless of any UI gate.
+/// `--allowedTools` flag is one of three CLI knobs Mozart sets per
+/// run; on its own it is contextual (dogfood-falsified 2026-05-22 —
+/// the agent still wrote in ask mode), so it pairs with
+/// [`permission_mode_for_chat_mode`] for actual enforcement.
 ///
 /// - `agent` — full toolset: `Read,Write,Edit,Bash,Glob,Grep,WebFetch`.
 ///   The user wants the agent to act on the workspace.
 /// - `plan`  — write/exec-free: `Read,Glob,Grep,WebFetch`. Lets the
 ///   agent draft a plan with research but never mutate.
-/// - `ask`   — provably read-only: `Read,Glob,Grep`. This closes
-///   TODO-011 (the freeze bypass that lets ask through the freeze
-///   guard is safe only because Write/Edit/Bash are excluded here).
+/// - `ask`   — read-only intent: `Read,Glob,Grep`. Paired with
+///   `--permission-mode=plan` below for CLI-level enforcement.
 ///
 /// Unknown modes fall through to the `ask` allowlist — refuse to
 /// widen on input we don't recognise.
@@ -112,6 +113,30 @@ pub fn allowed_tools_for_mode(mode: &str) -> &'static str {
         "agent" => "Read,Write,Edit,Bash,Glob,Grep,WebFetch",
         "plan" => "Read,Glob,Grep,WebFetch",
         _ => "Read,Glob,Grep",
+    }
+}
+
+/// Chat-mode → Claude CLI `--permission-mode` mapping. The CLI's
+/// `plan` permission-mode is documented as "planning mode — no
+/// execution"; if that doc is honest, it's a stronger enforcement
+/// primitive than `--allowedTools` (which was empirically falsified
+/// 2026-05-22 — the agent still wrote in ask mode despite the
+/// allowlist).
+///
+/// - `agent` → `acceptEdits` — tools fire without per-call prompts
+///   since the user explicitly asked the agent to act.
+/// - `plan`  → `plan`        — CLI-level read-only mode.
+/// - `ask`   → `plan`        — strongest available read-only mode.
+///   `ask` and `plan` differ in Mozart's tool allowlist + UI affordance,
+///   but at the CLI permission layer they want the same "no execution"
+///   contract.
+///
+/// Unknown modes fall through to `plan` — refuse to widen on input
+/// we don't recognise.
+pub fn permission_mode_for_chat_mode(mode: &str) -> &'static str {
+    match mode {
+        "agent" => "acceptEdits",
+        _ => "plan",
     }
 }
 
@@ -166,8 +191,10 @@ pub fn build_system_prompt_clamp(
 ///    - `L1Mozart`   → each entry in `l1_roots`
 ///    - `L2Project`  → each entry in `project_siblings`
 ///    - `L3Workspace`→ exactly `workspace_worktree`
-/// 2. `--permission-mode=acceptEdits` (always; tools fire without per-
-///    call prompts since the CLI is acting on the user's behalf)
+/// 2. `--permission-mode=<mode>` from [`permission_mode_for_chat_mode`]
+///    (`acceptEdits` for `agent`; `plan` for `ask` / `plan` — the
+///    latter is the CLI-level enforcement of read-only intent now
+///    that `--allowedTools` has been falsified)
 /// 3. `--allowedTools=<csv>` from [`allowed_tools_for_mode`]
 /// 4. `--append-system-prompt <text>` from [`build_system_prompt_clamp`]
 ///    (Atom 7 — defense in depth; `--add-dir` is contextual, not
@@ -203,7 +230,10 @@ pub fn build_sandbox_flags(
             argv.push(workspace_worktree.to_string());
         }
     }
-    argv.push("--permission-mode=acceptEdits".to_string());
+    argv.push(format!(
+        "--permission-mode={}",
+        permission_mode_for_chat_mode(chat_mode)
+    ));
     argv.push(format!(
         "--allowedTools={}",
         allowed_tools_for_mode(chat_mode)
@@ -296,16 +326,19 @@ mod tests {
     }
 
     #[test]
-    fn ask_mode_is_provably_read_only_regression_for_todo_011() {
-        // TODO-011 regression: ask mode used to skip the freeze guard
-        // but Claude was still able to fire Edit/Write/Bash because no
-        // CLI-level enforcement existed. Now the allowlist itself is
-        // the enforcement — Write/Edit/Bash/WebFetch must all be out.
+    fn ask_mode_argv_omits_write_edit_bash_webfetch() {
+        // Asserts the argv VALUE only — Mozart sends the right flag.
+        // Does NOT prove Claude CLI honors it: dogfood 2026-05-22
+        // confirmed `--allowedTools` is contextual, not enforced,
+        // and the agent still wrote in ask mode despite this allowlist.
+        // The IPC freeze guard now refuses ask mode on frozen
+        // workspaces as the actual workaround; this test pins the
+        // argv shape so a regression on OUR side is still caught.
         let tools = allowed_tools_for_mode("ask");
         for forbidden in ["Write", "Edit", "Bash", "WebFetch"] {
             assert!(
                 !tools.contains(forbidden),
-                "ask must NOT include {forbidden} (TODO-011 regression), got: {tools}"
+                "ask argv must NOT carry {forbidden}, got: {tools}"
             );
         }
         // And the read surface stays open.
@@ -393,7 +426,7 @@ mod tests {
     }
 
     #[test]
-    fn build_sandbox_flags_always_emits_permission_mode_accept_edits() {
+    fn build_sandbox_flags_agent_mode_emits_accept_edits() {
         for level in [
             SandboxLevel::L1Mozart,
             SandboxLevel::L2Project,
@@ -408,9 +441,42 @@ mod tests {
             );
             assert!(
                 argv.iter().any(|s| s == "--permission-mode=acceptEdits"),
-                "permission-mode must be set for {level:?}, argv: {argv:?}"
+                "agent mode must set permission-mode=acceptEdits for {level:?}, argv: {argv:?}"
             );
         }
+    }
+
+    #[test]
+    fn build_sandbox_flags_ask_and_plan_emit_permission_mode_plan() {
+        // Mozart's stronger CLI-level read-only enforcement (after the
+        // 2026-05-22 falsification of --allowedTools). `ask` and
+        // `plan` both ride this; `agent` keeps acceptEdits.
+        for mode in ["ask", "plan"] {
+            let argv = build_sandbox_flags(
+                "/ws",
+                mode,
+                SandboxLevel::L2Project,
+                &["/sib".into()],
+                &[],
+            );
+            assert!(
+                argv.iter().any(|s| s == "--permission-mode=plan"),
+                "{mode} mode must set permission-mode=plan, argv: {argv:?}"
+            );
+            assert!(
+                !argv.iter().any(|s| s == "--permission-mode=acceptEdits"),
+                "{mode} mode must NOT set acceptEdits, argv: {argv:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn permission_mode_unknown_falls_through_to_plan() {
+        // Defense-in-depth: unknown modes (typo, deprecated value)
+        // get the read-only permission mode, mirroring the
+        // allowed_tools_for_mode fallthrough.
+        assert_eq!(permission_mode_for_chat_mode("evil"), "plan");
+        assert_eq!(permission_mode_for_chat_mode(""), "plan");
     }
 
     #[test]

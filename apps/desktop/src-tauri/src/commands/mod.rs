@@ -874,17 +874,24 @@ where
     E: Fn(AgentRunTerminated) + Send + Sync + 'static,
 {
     // D20: 1:1 workspace -> thread traversal. Plan P0.2: refuse on
-    // frozen workspaces before doing any further work, EXCEPT in `ask`
-    // mode — read-only inquiry stays allowed even after the workspace
-    // is done/canceled. KNOWN GAP (TODO-010): `ask` is not yet provably
-    // read-only at the agent layer, so a determined user can still
-    // request writes in ask mode and Claude may comply. The freeze
-    // banner UI honestly overpromises until that TODO lands.
+    // frozen workspaces — ALL modes, including `ask`.
+    //
+    // Earlier design (and TODO-010 / TODO-011) let `ask` mode bypass
+    // the freeze guard on the theory that `--allowedTools=Read,Glob,Grep`
+    // would prove the run is read-only at the agent layer. Dogfood
+    // probe 2026-05-22 falsified that: with the correct argv in place,
+    // an `ask`-mode prompt still successfully edited a workspace file.
+    // Conclusion: `--allowedTools` is contextual, not enforced — same
+    // surprise as `--add-dir` (see AD-01). Until the OS fence
+    // (TODO-001) ships, `ask` mode cannot be treated as provably
+    // read-only and must respect the freeze.
+    //
+    // UX trade-off: users can no longer ask questions about a done
+    // workspace without reopening it first. Honest > convenient — the
+    // alternative is a "read-only" banner that lies.
     let (ws, thread) = {
         let conn = db.lock();
-        if mode != "ask" {
-            workspaces::assert_workspace_active(&conn, &workspace_id)?;
-        }
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
         (
             workspaces::get(&conn, &workspace_id)?,
             threads::get_by_workspace(&conn, &workspace_id)?,
@@ -4272,32 +4279,20 @@ mod tests {
         assert_frozen(result, &ws_id);
     }
 
-    // `ask` is the read-only mode; users keep being able to query the
-    // workspace even after it's marked done. The freeze guard skips
-    // this mode at the IPC layer. KNOWN GAP (TODO-010): the agent
-    // itself is not yet sandboxed read-only in `ask`, so a determined
-    // prompt can still cause writes. This test pins the IPC bypass;
-    // when TODO-010 lands and `ask` is provably read-only end-to-end,
-    // this stays green.
+    // Dogfood 2026-05-22 falsified the "`ask` is provably read-only"
+    // assumption — even with `--allowedTools=Read,Glob,Grep` in the
+    // argv, the agent successfully edited a file when asked. So `ask`
+    // mode no longer bypasses the IPC freeze guard: a frozen workspace
+    // refuses every `start_agent_run`, mode notwithstanding. When
+    // TODO-001 (OS-level fence) lands, the bypass can be reconsidered.
     #[tokio::test]
-    async fn start_agent_run_allows_ask_mode_on_frozen_workspace() {
-        if !sandbox::git_available() {
-            eprintln!("SKIP start_agent_run_allows_ask_mode_on_frozen_workspace: git not on PATH");
-            return;
-        }
-        let tmp = tempfile::tempdir().unwrap();
-        let repo = tmp.path().join("repo");
-        std::fs::create_dir_all(&repo).unwrap();
-        init_repo_with_main(&repo);
+    async fn start_agent_run_refuses_ask_mode_on_frozen_workspace() {
         let db = init_db_memory().unwrap();
-        let repo_id = seed_repo_row(&db, repo.to_string_lossy().as_ref());
+        let registry = RunRegistry::new();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-ask");
         let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
         mark_workspace_done(&db, &ws_id);
 
-        let registry = RunRegistry::new();
-        // The guard short-circuits before any worktree work; we accept
-        // any non-Frozen outcome (Ok or another downstream error from
-        // the minimal seeded workspace).
         let result = start_agent_run_impl(
             &db,
             &registry,
@@ -4308,8 +4303,10 @@ mod tests {
             |_| {},
         )
         .await;
-        if let Err(AppError::Frozen(id)) = &result {
-            panic!("ask-mode must bypass the freeze guard, but got Frozen({id})");
+        match result {
+            Err(AppError::Frozen(_)) => {} // expected
+            Ok(_) => panic!("ask mode must NOT bypass freeze: got Ok"),
+            Err(other) => panic!("expected Frozen, got {other:?}"),
         }
     }
 
