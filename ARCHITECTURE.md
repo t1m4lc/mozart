@@ -91,5 +91,5 @@ across `apps/desktop/src/app/**/*.html` for
 anti-regression gate.
 
 Standalone components + signals + zoneless CD + OnPush everywhere are
-the Angular 22 stance — see `docs/conventions/phase-7-refactor-conventions.md`
-for the long form.
+the Angular 22 stance — historical context in
+`docs/archive/conventions/phase-7-refactor-conventions.md`.
