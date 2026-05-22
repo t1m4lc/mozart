@@ -249,6 +249,9 @@
       ],
       "@mozart-ui/message-markdown": [
         "./libs/mozart-ui/message-markdown/src/index.ts"
+      ],
+      "@mozart/desktop-tasks-data-access": [
+        "./libs/desktop-tasks-data-access/src/index.ts"
       ]
     }
   }

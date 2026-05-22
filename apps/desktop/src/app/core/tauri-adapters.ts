@@ -45,7 +45,7 @@ import {
   TASKS_ADAPTER,
   taskFromDto,
   type TasksAdapter,
-} from '../domains/tasks';
+} from '@mozart/desktop-tasks-data-access';
 import { RUNS_ADAPTER, type RunsAdapter } from '../domains/runs';
 import {
   TERMINALS_ADAPTER,
