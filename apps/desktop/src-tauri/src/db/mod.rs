@@ -14,7 +14,9 @@ use rusqlite::Connection;
 use crate::error::AppError;
 
 pub mod agent_events;
+pub mod agent_run_envelopes;
 pub mod agent_runs;
+pub mod agent_turn_summaries;
 pub mod chats;
 pub mod config;
 pub mod messages;

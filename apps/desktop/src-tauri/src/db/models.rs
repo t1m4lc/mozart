@@ -131,6 +131,43 @@ pub struct Chat {
     pub created_at: i64,
 }
 
+/// Per-run rendered envelope snapshot for traceability + audit.
+/// Persisted by the post-spawn writer with `insert_with_retention`, which
+/// keeps the latest N envelopes per chat (D2 safety net) inside a single
+/// transaction. `chat_id` is denormalized from `agent_runs -> threads ->
+/// chats` so retention prune is a single indexed lookup.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct AgentRunEnvelope {
+    pub run_id: String,
+    pub chat_id: String,
+    pub envelope_json: String,
+    pub rendered_text: String,
+    pub provider: String,
+    pub nonce: String,
+    pub char_count: i64,
+    pub est_tokens: i64,
+    pub created_at: i64,
+}
+
+/// Compact deterministic per-assistant-turn summary used by future
+/// `build_envelope` calls to populate `operational_summaries`. Written
+/// once by the post-run hook from `timeline_json` + `agent_events` for
+/// the just-finished assistant turn. v1 builder is deterministic; an
+/// LLM-driven compressor is a deferred follow-up.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct AgentTurnSummary {
+    pub summary_id: String,
+    pub run_id: String,
+    pub message_id: String,
+    pub chat_id: String,
+    pub files_read_json: Option<String>,
+    pub files_edited_json: Option<String>,
+    pub commands_run_json: Option<String>,
+    pub key_results_json: Option<String>,
+    pub text_summary: String,
+    pub created_at: i64,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 pub struct Message {
     pub message_id: String,
