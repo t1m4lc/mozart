@@ -12,9 +12,9 @@ Current target: v0.1.0-beta.1 (first non-public beta release; `v0.1.0` is reserv
 ## Sources
 
 - Product plan: `docs/specs/plan-v0.1.0-beta.1.md`
-- Design: `docs/DESIGN.md`
 - Product architecture vision: `docs/specs/mozart-product-architecture-specs.md`
-- TODO: `docs/TODO.md`
+- Active backlogs/TODOs: `docs/plans/`
+- Docs index: `docs/README.md` (canonical paths; do NOT read `docs/archive/**` by default)
 - Agent rules: `CLAUDE.md`
 
 ## Repo map

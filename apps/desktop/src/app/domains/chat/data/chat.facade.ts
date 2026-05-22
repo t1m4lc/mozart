@@ -10,6 +10,7 @@ import {
   type TurnState,
 } from '../../llm-model';
 import { WorkspacesFacade } from '../../workspaces';
+import { CHAT_TAB_CAP } from '../../workspaces/ui/workspace-tab-bar/workspace-tab.model';
 import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,
@@ -291,7 +292,7 @@ export class ChatFacade {
     title = 'Untitled',
   ): Promise<Chat | null> {
     const existing = this.store.chatsByWorkspace().get(workspaceId) ?? [];
-    if (existing.length >= 4) return null;
+    if (existing.length >= CHAT_TAB_CAP) return null;
     try {
       const chat = await this.chats.create(workspaceId, title);
       this.store.upsertChat(chat);
@@ -415,7 +416,7 @@ export class ChatFacade {
       return;
     }
 
-    await this._persistAndAddMessage({
+    const userMsg = await this._persistAndAddMessage({
       chatId: chat.id,
       role: 'user',
       content: trimmed,
@@ -423,7 +424,7 @@ export class ChatFacade {
       status: 'done',
     });
 
-    await this._runAssistantTurn(workspaceId, chat.id, mode);
+    await this._runAssistantTurn(workspaceId, chat.id, mode, userMsg.id);
   }
 
   cancelActive(workspaceId: string): void {
@@ -541,6 +542,7 @@ export class ChatFacade {
     workspaceId: string,
     chatId: string,
     mode: ChatMode,
+    currentUserMessageId: string,
   ): Promise<void> {
     const startedAt = Date.now();
     const initialState = EMPTY_TURN_STATE(startedAt);
@@ -553,8 +555,12 @@ export class ChatFacade {
       turnState: initialState,
     });
 
-    const history = this.store.messagesByChat().get(chatId) ?? [];
-    const handle = this.llm.stream({ workspaceId, history, mode });
+    const handle = this.llm.stream({
+      workspaceId,
+      chatId,
+      currentUserMessageId,
+      mode,
+    });
     this.activeRuns.set(assistantMsg.id, handle);
     this.activeByWorkspace.update((m) => {
       const next = new Map(m);
@@ -685,7 +691,12 @@ export class ChatFacade {
     void this.messages
       .updateStatus(queued.id, 'done')
       .catch((err) => console.warn('persist queued promotion failed', err));
-    await this._runAssistantTurn(workspaceId, chatId, queued.mode ?? 'agent');
+    await this._runAssistantTurn(
+      workspaceId,
+      chatId,
+      queued.mode ?? 'agent',
+      queued.id,
+    );
   }
 
   // ---- chat mutators (mode / effort / model / read-marker) -----------

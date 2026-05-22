@@ -11,8 +11,10 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMessageSquare, lucidePlus } from '@ng-icons/lucide';
-import type { Chat } from './data/chat.model';
+import dayjs from 'dayjs';
+import { WorkspacesFacade, workspaceRouteCommands } from '../workspaces';
 import { ChatFacade } from './data/chat.facade';
+import type { Chat } from './data/chat.model';
 
 type Bucket = 'today' | 'yesterday' | 'this_week' | 'older';
 
@@ -36,28 +38,16 @@ const BUCKET_LABELS: Record<Bucket, string> = {
   older: 'Older',
 };
 
-function startOfDay(ms: number): number {
-  const d = new Date(ms);
-  d.setHours(0, 0, 0, 0);
-  return d.getTime();
-}
-
 function bucketFor(createdAt: number, now: number): Bucket {
-  const dayMs = 24 * 60 * 60 * 1000;
-  const startOfToday = startOfDay(now);
-  const startOfYesterday = startOfToday - dayMs;
-  const startOfWeek = startOfToday - 6 * dayMs;
-  if (createdAt >= startOfToday) return 'today';
-  if (createdAt >= startOfYesterday) return 'yesterday';
-  if (createdAt >= startOfWeek) return 'this_week';
+  const days = dayjs(now)
+    .startOf('day')
+    .diff(dayjs(createdAt).startOf('day'), 'day');
+  if (days <= 0) return 'today';
+  if (days === 1) return 'yesterday';
+  if (days < 7) return 'this_week';
   return 'older';
 }
 
-// Sidebar Chats group. Renders every open chat across every workspace,
-// grouped chronologically (Today / Yesterday / This week / Older).
-// Click a row -> navigate to /workspaces/<workspaceId>. The "+ New ask
-// chat" affordance is disabled in Phase 1 with a tooltip — true
-// non-contextualised chats land in Phase 2 with a system workspace.
 @Component({
   selector: 'app-feature-chat-list',
   imports: [
@@ -114,7 +104,7 @@ function bucketFor(createdAt: number, now: number): Bucket {
                 variant="ghost"
                 size="sm"
                 class="relative h-7 w-full justify-start gap-2 truncate px-2 text-sm font-normal text-foreground"
-                [routerLink]="['/workspaces', chat.workspaceId]"
+                [routerLink]="chatRoute(chat.workspaceId)"
                 routerLinkActive="bg-brand/15 text-foreground before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-r-full before:bg-brand before:shadow-[0_0_10px_hsl(var(--brand)/0.7)] [&_ng-icon]:text-brand!"
               >
                 <ng-icon
@@ -134,6 +124,7 @@ function bucketFor(createdAt: number, now: number): Bucket {
 })
 export class FeatureChatList {
   private readonly facade = inject(ChatFacade);
+  private readonly workspaces = inject(WorkspacesFacade);
 
   protected readonly groups = computed<readonly BucketGroup[]>(() => {
     const now = Date.now();
@@ -153,4 +144,10 @@ export class FeatureChatList {
     }
     return result;
   });
+
+  protected chatRoute(workspaceId: string): readonly string[] {
+    const workspace = this.workspaces.workspaceById(workspaceId)();
+    if (!workspace) return ['/'];
+    return workspaceRouteCommands(workspace.projectId, workspace.id);
+  }
 }

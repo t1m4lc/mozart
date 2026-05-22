@@ -36,6 +36,7 @@ import {
   WorkspaceContextMenu,
   WorkspaceRow,
   WorkspacesFacade,
+  workspaceRouteCommands,
   type ConfirmReopenWorkspaceContext,
   type UiWorkspaceStatus,
   type UiWorkspaceStatusMeta,
@@ -333,7 +334,7 @@ export class ShellProjectList {
   protected async createWorkspace(projectId: string): Promise<void> {
     try {
       const id = await this.workspaces.createForPrompt({ projectId });
-      void this._router.navigate(['/workspaces', id]);
+      void this._router.navigate(workspaceRouteCommands(projectId, id));
     } catch (err) {
       toast.error('Could not create workspace', {
         description: errorMessage(err),

@@ -885,6 +885,7 @@ mod seed {
                 exit_code: Some(0),
                 error_message: None,
                 checkpoint_sha: Some("a1b2c3d4e5f60718293a4b5c6d7e8f9001020304".into()),
+                prompt_source: "message_content".into(),
             },
             AgentRun {
                 run_id: ids::RUN_FILE_TREE_A_RUNNING.into(),
@@ -896,6 +897,7 @@ mod seed {
                 exit_code: None,
                 error_message: None,
                 checkpoint_sha: Some("b2c3d4e5f60718293a4b5c6d7e8f900102030405".into()),
+                prompt_source: "message_content".into(),
             },
             AgentRun {
                 run_id: ids::RUN_FILE_TREE_B_DONE.into(),
@@ -907,6 +909,7 @@ mod seed {
                 exit_code: Some(0),
                 error_message: None,
                 checkpoint_sha: Some("c3d4e5f60718293a4b5c6d7e8f90010203040506".into()),
+                prompt_source: "message_content".into(),
             },
             AgentRun {
                 run_id: ids::RUN_DIFF_VIEW_INIT.into(),
@@ -918,6 +921,7 @@ mod seed {
                 exit_code: None,
                 error_message: None,
                 checkpoint_sha: None,
+                prompt_source: "message_content".into(),
             },
             AgentRun {
                 run_id: ids::RUN_RUN_TAB_STOPPED.into(),
@@ -929,6 +933,7 @@ mod seed {
                 exit_code: None,
                 error_message: Some("user cancelled".into()),
                 checkpoint_sha: Some("d4e5f60718293a4b5c6d7e8f9001020304050607".into()),
+                prompt_source: "message_content".into(),
             },
             AgentRun {
                 run_id: ids::RUN_RELEASE_NOTES_DONE.into(),
@@ -940,6 +945,7 @@ mod seed {
                 exit_code: Some(0),
                 error_message: None,
                 checkpoint_sha: Some("e5f60718293a4b5c6d7e8f900102030405060708".into()),
+                prompt_source: "message_content".into(),
             },
             AgentRun {
                 run_id: ids::RUN_LLMS_TXT_DONE.into(),
@@ -951,6 +957,7 @@ mod seed {
                 exit_code: Some(0),
                 error_message: None,
                 checkpoint_sha: Some("f60718293a4b5c6d7e8f90010203040506070809".into()),
+                prompt_source: "message_content".into(),
             },
             AgentRun {
                 run_id: ids::RUN_RLS_DONE.into(),
@@ -962,6 +969,7 @@ mod seed {
                 exit_code: Some(0),
                 error_message: None,
                 checkpoint_sha: Some("0718293a4b5c6d7e8f9001020304050607080910".into()),
+                prompt_source: "message_content".into(),
             },
             AgentRun {
                 run_id: ids::RUN_LEGACY_CRASHED.into(),
@@ -973,6 +981,7 @@ mod seed {
                 exit_code: Some(139),
                 error_message: Some("agent process exited with SIGSEGV".into()),
                 checkpoint_sha: None,
+                prompt_source: "message_content".into(),
             },
         ];
         for r in &rows {

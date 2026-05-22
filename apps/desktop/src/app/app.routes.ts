@@ -1,7 +1,10 @@
 import { Route } from '@angular/router';
 import { authGuard } from './domains/auth';
 import { notOnboardedGuard, onboardingGuard } from './domains/onboarding';
-import { sandboxRoutes } from './sandbox.routes';
+import {
+  tabMatcher,
+  workspaceTabCanActivate,
+} from './domains/workspaces/feature-detail/workspace-tab-routes';
 import { AppShell } from './shell/app-shell';
 import { SettingsShell } from './shell/settings-shell';
 
@@ -20,8 +23,7 @@ export const appRoutes: Route[] = [
   {
     path: 'tour',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./pages/tour.page').then((m) => m.TourPage),
+    loadComponent: () => import('./pages/tour.page').then((m) => m.TourPage),
   },
   {
     path: '',
@@ -36,9 +38,20 @@ export const appRoutes: Route[] = [
       },
       { path: 'workspaces', pathMatch: 'full', redirectTo: '' },
       {
-        path: 'workspaces/:id',
+        path: 'project/:projectId/workspace/:workspaceId',
         loadComponent: () =>
           import('./domains/workspaces').then((m) => m.WorkspaceDetailPage),
+        children: [
+          { path: '', pathMatch: 'full', redirectTo: 'tab/default' },
+          {
+            matcher: tabMatcher,
+            canActivate: [workspaceTabCanActivate],
+            loadComponent: () =>
+              import(
+                './domains/workspaces/feature-detail/workspace-tab-content'
+              ).then((m) => m.WorkspaceTabContent),
+          },
+        ],
       },
     ],
   },
@@ -54,5 +67,4 @@ export const appRoutes: Route[] = [
       },
     ],
   },
-  ...sandboxRoutes,
 ];

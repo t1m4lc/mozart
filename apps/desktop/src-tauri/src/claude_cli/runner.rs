@@ -49,16 +49,20 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use tauri::ipc::Channel;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::task::JoinHandle;
 
 use crate::claude_cli::parser::{parse_line, ParserState};
 use crate::claude_cli::sandbox_policy::{build_sandbox_flags, SandboxLevel, L2_SIBLING_CAP};
+use crate::claude_cli::summary_builder;
 use crate::claude_cli::{AgentRunTerminated, StreamEvent};
 use crate::credentials::keyring_store;
-use crate::db::models::{AgentRun, Workspace, WorkspaceChange};
-use crate::db::{agent_events, agent_runs, now_ms, workspace_changes, workspaces, DbState};
+use crate::db::models::{AgentRun, AgentTurnSummary, Workspace, WorkspaceChange};
+use crate::db::{
+    agent_events, agent_runs, agent_turn_summaries, messages, new_id, now_ms, workspace_changes,
+    workspaces, DbState,
+};
 use crate::error::AppError;
 use crate::sandbox;
 
@@ -250,16 +254,22 @@ fn resolve_sandbox_roots(
 /// and `l1_roots`, which keeps this function synchronously testable
 /// without DB access or filesystem touches.
 pub(crate) fn production_argv(
-    prompt: &str,
     workspace: &Workspace,
     chat_mode: &str,
     level: SandboxLevel,
     project_siblings: &[String],
     l1_roots: &[PathBuf],
 ) -> Vec<String> {
+    // ContextCompiler v1 (T5) — the prompt no longer rides on argv;
+    // the rendered envelope is piped to claude via stdin and `-p`
+    // alone tells the CLI to print to stdout in non-interactive
+    // (stream-json) mode. T0 spike verified the pattern against
+    // claude CLI v2.1.148. Argv used to have `prompt.to_string()`
+    // at position 1; that slot is gone now, defending against
+    // ARG_MAX for long envelopes and avoiding leaking the user
+    // message into process listings.
     let mut argv = vec![
         "-p".to_string(),
-        prompt.to_string(),
         "--output-format=stream-json".to_string(),
         "--include-partial-messages".to_string(),
         "--verbose".to_string(),
@@ -304,6 +314,7 @@ pub(crate) fn production_argv(
 pub async fn spawn_run<E>(
     workspace: &Workspace,
     run: &AgentRun,
+    prompt_bytes: &str,
     chat_mode: &str,
     channel: Channel<StreamEvent>,
     db: &DbState,
@@ -341,7 +352,6 @@ where
 
     let (project_siblings, l1_roots) = resolve_sandbox_roots(&canonical_workspace, level, db)?;
     let argv = production_argv(
-        &run.prompt,
         &canonical_workspace,
         chat_mode,
         level,
@@ -362,6 +372,7 @@ where
     let mut cmd = Command::new(&bin);
     cmd.args(&argv)
         .current_dir(&canonical_workspace.worktree_path)
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
@@ -371,6 +382,16 @@ where
         .spawn()
         .map_err(|e| AppError::AgentSpawn(format!("spawn claude: {e}")))?;
 
+    // Take all three pipe handles up-front. We MUST spawn the drain
+    // tasks before writing stdin: large envelopes (>OS pipe buffer,
+    // ~64KB on Linux) plus chatty child startup deadlock the
+    // parent-writes-stdin-then-spawns-drains shape because the child
+    // blocks on its full stdout while the parent blocks on a full
+    // stdin pipe. Per Codex review 2026-05-22.
+    let stdin_handle = child
+        .stdin
+        .take()
+        .ok_or_else(|| AppError::AgentSpawn("stdin not piped on child".into()))?;
     let stdout = child.stdout.take().expect("stdout piped");
     let stderr = child.stderr.take().expect("stderr piped");
 
@@ -476,6 +497,30 @@ where
             }
         })
     };
+
+    // ContextCompiler v1 transport (T5) — pipe the rendered envelope
+    // via stdin and then close the write side so claude sees EOF on
+    // its prompt input. Default `--input-format text` reads stdin
+    // when the positional prompt arg is omitted (T0 spike verified
+    // 2026-05-22). Broken pipe / write failure surfaces as
+    // `AppError::AgentSpawn` and the chat shows a visible error.
+    //
+    // Order matters: stdout/stderr drain tasks were spawned above so
+    // they're already consuming child output by the time we start
+    // writing the envelope. Pre-fix order (write stdin first, then
+    // spawn drains) deadlocked under envelopes larger than the OS
+    // pipe buffer — Codex review 2026-05-22.
+    {
+        let mut stdin = stdin_handle;
+        stdin
+            .write_all(prompt_bytes.as_bytes())
+            .await
+            .map_err(|e| AppError::AgentSpawn(format!("stdin write_all: {e}")))?;
+        stdin
+            .shutdown()
+            .await
+            .map_err(|e| AppError::AgentSpawn(format!("stdin shutdown: {e}")))?;
+    }
 
     // ----- supervisor task: poll for cancel, wait for exit, mark_ended -----
     // Clones for the post-exit reach-back (S1.5.4): the supervisor `move`s
@@ -595,6 +640,72 @@ where
                 status: status_str.to_string(),
                 workspace_id: workspace_id_for_supervisor.clone(),
             });
+
+            // Post-run summary hook (T7): on any terminal status that
+            // produced a tracked assistant message, distill the
+            // `agent_events` rows into one compact `agent_turn_summaries`
+            // entry. The ContextCompiler folds this into the next turn's
+            // `operational_summaries` layer so the agent sees a working
+            // recap instead of relying on raw event replay. `crashed`
+            // runs (signal kills, OOM, segfault) are included so any
+            // tool activity that ran before the kill still surfaces in
+            // the next turn; the hook fail-softs on a missing assistant
+            // message via the `summary_skip` log (T8), so this is safe
+            // even when the frontend never finalized the assistant row.
+            if matches!(status_str, "done" | "error" | "stopped" | "crashed") {
+                let conn = match db_arc.lock() {
+                    Ok(c) => c,
+                    Err(_) => {
+                        log::warn!("agent_turn_summaries: db mutex poisoned");
+                        return;
+                    }
+                };
+                let assistant_msg = match messages::find_assistant_by_run(&conn, &run_id) {
+                    Ok(opt) => opt,
+                    Err(e) => {
+                        log::warn!("messages::find_assistant_by_run failed: {e}");
+                        None
+                    }
+                };
+                if let Some(msg) = assistant_msg {
+                    let events = agent_events::list_by_run(&conn, &run_id).unwrap_or_default();
+                    let digest = summary_builder::build_summary(&events);
+                    let (read_n, edit_n, cmd_n, key_n) = (
+                        digest.files_read.len(),
+                        digest.files_edited.len(),
+                        digest.commands_run.len(),
+                        digest.key_results.len(),
+                    );
+                    let summary = AgentTurnSummary {
+                        summary_id: new_id(),
+                        run_id: run_id.clone(),
+                        message_id: msg.message_id,
+                        chat_id: msg.chat_id,
+                        files_read_json: serde_json::to_string(&digest.files_read).ok(),
+                        files_edited_json: serde_json::to_string(&digest.files_edited).ok(),
+                        commands_run_json: serde_json::to_string(&digest.commands_run).ok(),
+                        key_results_json: serde_json::to_string(&digest.key_results).ok(),
+                        text_summary: digest.text_summary,
+                        created_at: now_ms(),
+                    };
+                    match agent_turn_summaries::insert(&conn, &summary) {
+                        Ok(()) => log::debug!(
+                            "summary_built: run_id={} status={status_str} \
+                             files_read={read_n} files_edited={edit_n} \
+                             commands={cmd_n} key_results={key_n} events={}",
+                            run_id,
+                            events.len(),
+                        ),
+                        Err(e) => log::warn!("agent_turn_summaries::insert failed: {e}"),
+                    }
+                } else {
+                    log::debug!(
+                        "summary_skip: run_id={} status={status_str} \
+                         reason=no_assistant_message",
+                        run_id,
+                    );
+                }
+            }
 
             // Post-exit reach-back (S1.5.4 / D1.5-I): on success only,
             // capture a diff vs the checkpoint and insert one
@@ -735,7 +846,6 @@ mod tests {
         //   - --dangerously-skip-permissions still absent (regression)
         let ws = argv_test_workspace("/wt-fixture");
         let argv = production_argv(
-            "hi",
             &ws,
             "agent",
             SandboxLevel::L2Project,
@@ -743,17 +853,32 @@ mod tests {
             &[],
         );
 
-        // 1. Locked prefix is byte-stable.
+        // 1. Locked prefix is byte-stable — T5 dropped the positional
+        //    prompt slot (envelope now flows via stdin), so the prefix
+        //    is one shorter.
         assert_eq!(
-            &argv[..5],
+            &argv[..4],
             &[
                 "-p".to_string(),
-                "hi".to_string(),
                 "--output-format=stream-json".to_string(),
                 "--include-partial-messages".to_string(),
                 "--verbose".to_string(),
             ],
-            "first five argv slots must be the locked output-format prefix"
+            "first four argv slots must be the locked output-format prefix"
+        );
+        // 1b. IRON RULE regression (architecture doc test plan) — the
+        //     slot immediately after `-p` must be another flag, never
+        //     the user prompt. Catches `argv.insert(1, prompt)` style
+        //     regressions without false-positiving on legitimate flag
+        //     bodies like the `--append-system-prompt` text.
+        let p_idx = argv
+            .iter()
+            .position(|s| s == "-p")
+            .expect("argv must contain -p");
+        let after_p = &argv[p_idx + 1];
+        assert!(
+            after_p.starts_with("--"),
+            "slot after -p must be another flag, got {after_p:?} — T5 forbids inline prompt"
         );
 
         // 2. Sandbox tail flags must all be present.
@@ -784,7 +909,6 @@ mod tests {
 
         // 4. ask mode regression (TODO-011): no Write/Edit/Bash.
         let ask_argv = production_argv(
-            "hi",
             &ws,
             "ask",
             SandboxLevel::L2Project,
@@ -935,6 +1059,7 @@ mod tests {
                 exit_code: None,
                 error_message: None,
                 checkpoint_sha: None,
+                prompt_source: "message_content".into(),
             };
             agent_runs::create(&conn, &run).unwrap();
             drop(conn);
@@ -978,7 +1103,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // ≥ 1 stream_token row from the text_delta in the fixture.
@@ -1027,7 +1152,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // The fixture exercises the full tool round-trip: an
@@ -1124,7 +1249,7 @@ mod tests {
             std::env::set_var("MOZART_MOCK_FIXTURE", &slow);
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
             // Give the child a moment to actually start before cancelling.
             tokio::time::sleep(Duration::from_millis(100)).await;
             handle.cancel().await.unwrap();
@@ -1161,7 +1286,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             let got = agent_runs::get(&db.lock(), &run.run_id).unwrap();
@@ -1187,6 +1312,97 @@ mod tests {
                 count_workspace_changes(&db, &run.run_id),
                 0,
                 "non-'done' status must not insert a workspace_changes row"
+            );
+
+            std::env::remove_var("MOZART_CLAUDE_BIN");
+            std::env::remove_var("MOZART_MOCK_FIXTURE");
+            std::env::remove_var("MOZART_WORKTREES_ROOT");
+        }
+
+        // T7 — post-run summary hook end-to-end. Seeds a chat + an
+        // assistant message bound to the run, spawns against the
+        // tool-use fixture so the digest has something to extract,
+        // then asserts that exactly one `agent_turn_summaries` row
+        // was inserted with the assistant message linked.
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn integration_post_run_summary_hook_writes_row() {
+            use crate::db::models::{Chat, Message};
+            use crate::db::{chats, messages};
+
+            if !sandbox::git_available() {
+                eprintln!(
+                    "SKIP integration_post_run_summary_hook_writes_row: `git` binary not on PATH"
+                );
+                return;
+            }
+            let _g = sandbox::test_env_gate()
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
+
+            let db = init_db_memory().unwrap();
+            let (ws, run, _root, _wt_dir) = seed(&db);
+
+            // Add the chat + assistant message that the summary hook
+            // links the row against. Without these, the hook silently
+            // skips (covered by the other integration tests).
+            let (chat_id, msg_id) = {
+                let conn = db.lock();
+                let chat = Chat {
+                    chat_id: new_id(),
+                    workspace_id: ws.workspace_id.clone(),
+                    title: "c".into(),
+                    llm_id: None,
+                    mode: "agent".into(),
+                    effort: "medium".into(),
+                    last_read_message_id: None,
+                    closed_at: None,
+                    created_at: now_ms(),
+                };
+                chats::create(&conn, &chat).unwrap();
+                let msg = Message {
+                    message_id: new_id(),
+                    chat_id: chat.chat_id.clone(),
+                    run_id: Some(run.run_id.clone()),
+                    role: "assistant".into(),
+                    content: String::new(),
+                    mode: Some("agent".into()),
+                    status: "streaming".into(),
+                    timeline_json: None,
+                    created_at: now_ms(),
+                };
+                messages::insert(&conn, &msg).unwrap();
+                (chat.chat_id, msg.message_id)
+            };
+
+            std::env::set_var("MOZART_CLAUDE_BIN", mock_bin());
+            std::env::set_var(
+                "MOZART_MOCK_FIXTURE",
+                fixtures_dir().join("streams/with-tool-use.jsonl"),
+            );
+            std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
+
+            let handle = spawn_run(
+                &ws,
+                &run,
+                "rendered-envelope-bytes-for-test",
+                "agent",
+                noop_channel(),
+                &db,
+                |_| (),
+            )
+            .await
+            .unwrap();
+            handle.await_complete().await.unwrap();
+
+            let conn = db.lock();
+            let summary = agent_turn_summaries::get_by_run(&conn, &run.run_id)
+                .unwrap()
+                .expect("post-run hook should have written a summary row");
+            assert_eq!(summary.message_id, msg_id);
+            assert_eq!(summary.chat_id, chat_id);
+            assert!(
+                !summary.text_summary.is_empty(),
+                "text_summary should never be empty post-builder"
             );
 
             std::env::remove_var("MOZART_CLAUDE_BIN");

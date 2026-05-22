@@ -79,6 +79,13 @@ pub struct AgentRun {
     pub exit_code: Option<i64>,
     pub error_message: Option<String>,
     pub checkpoint_sha: Option<String>,
+    /// ContextCompiler v1 D5 — distinguishes pre-fix rows from
+    /// post-fix rows. `'frontend_collapsed'` (migration 011 default)
+    /// = `lastUserPrompt` from the Angular store; `'message_content'`
+    /// = `messages.content` looked up by `current_user_message_id`
+    /// (the source of truth post-T5). Audit tooling reads this column
+    /// to interpret old `agent_runs.prompt` values correctly.
+    pub prompt_source: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
@@ -128,6 +135,43 @@ pub struct Chat {
     pub effort: String, // low | medium | high | xhigh | max
     pub last_read_message_id: Option<String>,
     pub closed_at: Option<i64>,
+    pub created_at: i64,
+}
+
+/// Per-run rendered envelope snapshot for traceability + audit.
+/// Persisted by the post-spawn writer with `insert_with_retention`, which
+/// keeps the latest N envelopes per chat (D2 safety net) inside a single
+/// transaction. `chat_id` is denormalized from `agent_runs -> threads ->
+/// chats` so retention prune is a single indexed lookup.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct AgentRunEnvelope {
+    pub run_id: String,
+    pub chat_id: String,
+    pub envelope_json: String,
+    pub rendered_text: String,
+    pub provider: String,
+    pub nonce: String,
+    pub char_count: i64,
+    pub est_tokens: i64,
+    pub created_at: i64,
+}
+
+/// Compact deterministic per-assistant-turn summary used by future
+/// `build_envelope` calls to populate `operational_summaries`. Written
+/// once by the post-run hook from `timeline_json` + `agent_events` for
+/// the just-finished assistant turn. v1 builder is deterministic; an
+/// LLM-driven compressor is a deferred follow-up.
+#[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
+pub struct AgentTurnSummary {
+    pub summary_id: String,
+    pub run_id: String,
+    pub message_id: String,
+    pub chat_id: String,
+    pub files_read_json: Option<String>,
+    pub files_edited_json: Option<String>,
+    pub commands_run_json: Option<String>,
+    pub key_results_json: Option<String>,
+    pub text_summary: String,
     pub created_at: i64,
 }
 

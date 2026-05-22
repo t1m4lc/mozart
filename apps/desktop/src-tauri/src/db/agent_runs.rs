@@ -7,11 +7,12 @@ use crate::error::AppError;
 
 pub fn create(conn: &Connection, run: &AgentRun) -> Result<(), AppError> {
     conn.execute(
-        "INSERT INTO agent_runs(run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO agent_runs(run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha, prompt_source)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             run.run_id, run.thread_id, run.prompt, run.status,
             run.started_at, run.ended_at, run.exit_code, run.error_message, run.checkpoint_sha,
+            run.prompt_source,
         ],
     )?;
     Ok(())
@@ -66,7 +67,7 @@ pub fn mark_ended(
 
 pub fn get(conn: &Connection, run_id: &str) -> Result<AgentRun, AppError> {
     conn.query_row(
-        "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha
+        "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha, prompt_source
          FROM agent_runs WHERE run_id = ?1",
         [run_id],
         row_to_run,
@@ -79,7 +80,7 @@ pub fn get(conn: &Connection, run_id: &str) -> Result<AgentRun, AppError> {
 
 pub fn list_by_thread(conn: &Connection, thread_id: &str) -> Result<Vec<AgentRun>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha
+        "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha, prompt_source
          FROM agent_runs WHERE thread_id = ?1 ORDER BY started_at ASC",
     )?;
     let rows = stmt.query_map([thread_id], row_to_run)?;
@@ -99,6 +100,7 @@ fn row_to_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentRun> {
         exit_code: row.get(6)?,
         error_message: row.get(7)?,
         checkpoint_sha: row.get(8)?,
+        prompt_source: row.get(9)?,
     })
 }
 
@@ -139,6 +141,7 @@ mod tests {
             exit_code: None,
             error_message: None,
             checkpoint_sha: Some("abc1234".into()),
+            prompt_source: "message_content".into(),
         }
     }
 
@@ -194,6 +197,55 @@ mod tests {
             AppError::NotFound(_) => {}
             other => panic!("expected NotFound, got {other:?}"),
         }
+    }
+
+    // T9: prompt_source round-trips for both legacy ('frontend_collapsed')
+    // and post-T5 ('message_content') values. Regression guard against a
+    // future column rename or accidental column drop.
+    #[test]
+    fn prompt_source_round_trips_both_legacy_and_current_values() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let th = seed_thread(&conn);
+
+        let mut legacy = make_run(&th);
+        legacy.prompt_source = "frontend_collapsed".into();
+        create(&conn, &legacy).unwrap();
+        let got_legacy = get(&conn, &legacy.run_id).unwrap();
+        assert_eq!(got_legacy.prompt_source, "frontend_collapsed");
+
+        let mut current = make_run(&th);
+        current.prompt_source = "message_content".into();
+        create(&conn, &current).unwrap();
+        let got_current = get(&conn, &current.run_id).unwrap();
+        assert_eq!(got_current.prompt_source, "message_content");
+    }
+
+    // T9: migration 011's DEFAULT 'frontend_collapsed' is what makes the
+    // semantic shift safe for upgrade — old rows that predate the column
+    // get a stable label rather than NULL. A raw INSERT omitting
+    // prompt_source must surface that default on read.
+    #[test]
+    fn prompt_source_default_backfills_legacy_rows() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let th = seed_thread(&conn);
+
+        // Raw INSERT skipping prompt_source — mirrors how pre-migration
+        // rows look once migration 011 runs (the ALTER's DEFAULT applies
+        // to both existing rows and any INSERT that omits the column).
+        let run_id = new_id();
+        conn.execute(
+            "INSERT INTO agent_runs(run_id, thread_id, prompt, status, started_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![run_id, th, "p", "done", now_ms()],
+        )
+        .unwrap();
+        let got = get(&conn, &run_id).unwrap();
+        assert_eq!(
+            got.prompt_source, "frontend_collapsed",
+            "migration 011 DEFAULT must backfill prompt_source for rows that predate the column"
+        );
     }
 
     #[test]

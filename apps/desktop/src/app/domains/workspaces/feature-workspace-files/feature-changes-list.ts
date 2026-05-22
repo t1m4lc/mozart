@@ -5,6 +5,7 @@ import {
   computed,
   inject,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -20,6 +21,10 @@ import {
 } from '../../repositories';
 import { UiStateFacade } from '../../ui-state';
 import { FileTabsService } from '../data/file-tabs.service';
+import {
+  WorkspaceTabRegistry,
+  workspaceTabRouteCommands,
+} from '../data/workspace-tab-registry';
 import { WorkspacesFacade } from '../data/workspace.facade';
 
 // Shared empty array — keeps `changedFiles` reference-stable on cache
@@ -155,6 +160,8 @@ export class FeatureChangesList {
   private readonly repos = inject(RepositoriesFacade);
   private readonly fileViews = inject(FileViewsFacade);
   private readonly fileTabs = inject(FileTabsService);
+  private readonly tabs = inject(WorkspaceTabRegistry);
+  private readonly router = inject(Router);
   private readonly dialogService = inject(HlmDialogService);
   private readonly uiState = inject(UiStateFacade);
 
@@ -295,10 +302,17 @@ export class FeatureChangesList {
   private openFileFromChanges(path: string): void {
     const id = this.workspaceId();
     if (!id) return;
+    const workspace = this.workspaces.workspaceById(id)();
+    if (!workspace) return;
+    const tabId = this.tabs.fileTabId(path);
+    if (!tabId) return;
+
     this.uiState.openWorkspaceFile(id, path, {
       mode: 'diff',
       source: 'changes',
     });
-    this.fileTabs.openFor(id, path);
+    void this.router.navigate(
+      workspaceTabRouteCommands(workspace.projectId, id, tabId),
+    );
   }
 }

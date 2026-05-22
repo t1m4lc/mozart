@@ -66,6 +66,7 @@ mod tests {
             run_id: new_id(), thread_id: th.thread_id, prompt: "p".into(),
             status: "running".into(), started_at: now_ms(),
             ended_at: None, exit_code: None, error_message: None, checkpoint_sha: None,
+            prompt_source: "message_content".into(),
         };
         agent_runs::create(conn, &run).unwrap();
         run.run_id

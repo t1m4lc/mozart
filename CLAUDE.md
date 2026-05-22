@@ -6,11 +6,23 @@ Read this file as behavioral rules, not project documentation.
 
 ## Source of truth
 
-Open only the relevant section when needed:
+Open only the relevant section when needed.
+
+**Canonical (read these for current state):**
 
 - Product plan: `docs/specs/plan-v0.1.0-beta.1.md` (first non-public beta; `v0.1.0` is reserved for the first public release)
-- Design: `docs/DESIGN.md`
 - Product architecture vision: `docs/specs/mozart-product-architecture-specs.md`
+- Architecture & versioning: `docs/specs/mozart-architecture.md`
+- Other in-flight specs and plans: `docs/specs/*.md`
+- Functional test scenarios: `docs/test/`
+- Active operational backlogs/TODOs: `docs/plans/`
+- Landing deploy reference: `docs/landing/`
+- Developer setup guides: `docs/guides/`
+- Design tokens (live source): `libs/mozart-design-tokens/`
+
+**Do NOT read by default:**
+
+- `docs/archive/**` — historical / deprecated material (v0.0.1-era audits and plans, completed phase prompts, superseded UI plans, finished spec/done items, legacy test scenarios). Kept only for historical context and MUST NOT be treated as source of truth. Only open when explicitly asked "why did we do X back then?".
 
 ## Stack
 

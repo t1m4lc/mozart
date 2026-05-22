@@ -6,6 +6,7 @@ import {
   effect,
   inject,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmKbdImports } from '@mozart/ui/kbd';
 import { HlmTabsImports } from '@mozart/ui/tabs';
@@ -24,6 +25,10 @@ import {
 } from '../../repositories';
 import { UiStateFacade } from '../../ui-state';
 import { FileTabsService } from '../data/file-tabs.service';
+import {
+  WorkspaceTabRegistry,
+  workspaceTabRouteCommands,
+} from '../data/workspace-tab-registry';
 import { WorkspacesFacade } from '../data/workspace.facade';
 import { FeatureChangesList } from './feature-changes-list';
 
@@ -130,6 +135,8 @@ export class FeatureWorkspaceFiles {
   private readonly fileViews = inject(FileViewsFacade);
   private readonly destroyRef = inject(DestroyRef);
   private readonly fileTabs = inject(FileTabsService);
+  private readonly tabs = inject(WorkspaceTabRegistry);
+  private readonly router = inject(Router);
   private readonly uiState = inject(UiStateFacade);
 
   protected readonly workspaceId = this.workspaces.activeId;
@@ -269,11 +276,18 @@ export class FeatureWorkspaceFiles {
   private openFileFromAllFiles(path: string): void {
     const id = this.workspaceId();
     if (!id) return;
+    const workspace = this.workspaces.workspaceById(id)();
+    if (!workspace) return;
+    const tabId = this.tabs.fileTabId(path);
+    if (!tabId) return;
+
     this.uiState.openWorkspaceFile(id, path, {
       mode: 'edit',
       source: 'all-files',
     });
-    this.fileTabs.openFor(id, path);
+    void this.router.navigate(
+      workspaceTabRouteCommands(workspace.projectId, id, tabId),
+    );
   }
 
   private async attachWatcher(workspaceId: string): Promise<void> {

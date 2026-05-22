@@ -15,6 +15,7 @@ import { MzLoader } from '@mozart-ui/loader';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucideLoader, lucidePin } from '@ng-icons/lucide';
+import { workspaceRouteCommands } from '../data/workspace-tab-registry';
 import type { Workspace } from '../data/workspace.model';
 import { relativeTime } from '../util-relative-time';
 
@@ -108,7 +109,7 @@ function statusLabel(status: string): string {
           hlmHoverCardTrigger
           [showDelay]="800"
           align="right"
-          [routerLink]="['/workspaces', workspace().id]"
+          [routerLink]="workspaceLink()"
           routerLinkActive="bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
           class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
         >
@@ -196,6 +197,11 @@ export class WorkspaceRow {
   readonly diffStats = input<{ added: number; removed: number } | null>(null);
   readonly renameCommit = output<string>();
   readonly renameCancel = output<void>();
+
+  protected workspaceLink(): readonly string[] {
+    const ws = this.workspace();
+    return workspaceRouteCommands(ws.projectId, ws.id);
+  }
 
   // Last meaningful activity timestamp for the hover popover. Falls
   // back to workspace.createdAt when no later activity is tracked.

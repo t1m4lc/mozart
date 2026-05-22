@@ -10,12 +10,12 @@ import {
   type InitProjectContext,
   ProjectsFacade,
 } from '../domains/projects';
-import { WorkspacesFacade } from '../domains/workspaces';
+import { WorkspacesFacade, workspaceRouteCommands } from '../domains/workspaces';
 
 // Unified add-project flow used by Phase 1's three dashboard cards and
 // the sidebar "+ Add a project" affordance. All entry points converge
 // here so the resulting state is identical: project row inserted, first
-// workspace + chat created eagerly, route advanced to /workspaces/:id.
+// workspace + chat created eagerly, route advanced to /project/:projectId/workspace/:workspaceId.
 //
 // Idempotency: if the picked folder is already a registered project and
 // already has a workspace, navigates to the existing workspace instead
@@ -106,7 +106,9 @@ export class AddProjectFlow {
     // system_info entry land here. hydrate() is idempotent.
     await this.chat.hydrate(result.firstWorkspaceId);
 
-    await this.router.navigate(['/workspaces', result.firstWorkspaceId]);
+    await this.router.navigate(
+      workspaceRouteCommands(result.project.id, result.firstWorkspaceId),
+    );
     // Track install progress on the setup_progress chat-timeline entry
     // (planted by the backend in the running state). Fire-and-forget so
     // navigation doesn't block on a long install, but `await` inside the

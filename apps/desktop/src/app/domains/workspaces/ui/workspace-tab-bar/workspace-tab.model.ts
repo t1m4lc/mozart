@@ -4,6 +4,7 @@
 export type TabKind = 'chat' | 'file';
 
 export interface ChatTab {
+  // Opaque typed route id: `chat:<chatId>`.
   id: string;
   kind: 'chat';
   title: string;
@@ -13,6 +14,7 @@ export interface ChatTab {
 }
 
 export interface FileTab {
+  // Opaque typed route id: `file:<base64urlPath>`.
   id: string;
   kind: 'file';
   title: string;
