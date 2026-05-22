@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { TerminalEvent } from './terminal-event.model';
+import type { TerminalEvent } from '@mozart/desktop-terminals-util';
 
 /**
  * IO port for the `terminals` domain. The Tauri implementation lives

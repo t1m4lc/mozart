@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import type { TerminalEvent } from './terminal-event.model';
+import type { TerminalEvent } from '@mozart/desktop-terminals-util';
 import { TERMINALS_ADAPTER } from './terminals.adapter';
 
 /** Public facade for the `terminals` domain. Thin pass-through over

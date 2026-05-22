@@ -291,6 +291,15 @@
       ],
       "@mozart/desktop-profile-feature": [
         "./libs/desktop-profile-feature/src/index.ts"
+      ],
+      "@mozart/desktop-core-util": [
+        "./libs/desktop-core-util/src/index.ts"
+      ],
+      "@mozart/desktop-terminals-util": [
+        "./libs/desktop-terminals-util/src/index.ts"
+      ],
+      "@mozart/desktop-terminals-data-access": [
+        "./libs/desktop-terminals-data-access/src/index.ts"
       ]
     }
   }

@@ -50,9 +50,9 @@ import {
 import { RUNS_ADAPTER, type RunsAdapter } from '../domains/runs';
 import {
   TERMINALS_ADAPTER,
-  type TerminalEvent as TerminalEventModel,
   type TerminalsAdapter,
-} from '../domains/terminals';
+} from '@mozart/desktop-terminals-data-access';
+import type { TerminalEvent as TerminalEventModel } from '@mozart/desktop-terminals-util';
 import {
   WORKSPACES_ADAPTER,
   WorkspacesFacade,

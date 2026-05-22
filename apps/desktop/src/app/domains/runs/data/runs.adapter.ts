@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { TerminalEvent } from '../../terminals';
+import type { TerminalEvent } from '@mozart/desktop-terminals-util';
 
 /**
  * IO port for the `runs` domain. Spawns / stops the project's

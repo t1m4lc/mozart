@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { TerminalEvent } from '../../terminals';
+import type { TerminalEvent } from '@mozart/desktop-terminals-util';
 
 // Port for the onboarding wizard's Claude Code login flow. Wraps the
 // `spawn_claude_login` + `write_terminal` / `resize_terminal` /

@@ -10,6 +10,7 @@
 @source "../../../libs/desktop-auth-ui";
 @source "../../../libs/desktop-auth-util";
 @source "../../../libs/desktop-core-data-access";
+@source "../../../libs/desktop-core-util";
 @source "../../../libs/desktop-llm-model-data-access";
 @source "../../../libs/desktop-llm-model-util";
 @source "../../../libs/desktop-profile-data-access";
@@ -17,6 +18,8 @@
 @source "../../../libs/desktop-profile-ui";
 @source "../../../libs/desktop-profile-util";
 @source "../../../libs/desktop-tasks-data-access";
+@source "../../../libs/desktop-terminals-data-access";
+@source "../../../libs/desktop-terminals-util";
 @source "../../../libs/desktop-ui-state-data-access";
 @source "../../../libs/desktop-ui-state-util";
 @source "../../../libs/mozart-ui/code-editor";

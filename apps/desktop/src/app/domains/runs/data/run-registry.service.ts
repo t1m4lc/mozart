@@ -1,7 +1,7 @@
 import { Injectable, WritableSignal, inject, signal } from '@angular/core';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
-import { createXterm } from '../../../core/util-xterm';
+import { createXterm } from '@mozart/desktop-core-util';
 import { RunsFacade } from './runs.facade';
 import type { RunStatus } from './run-status.model';
 

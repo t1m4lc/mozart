@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import type { TerminalEvent } from '../../terminals';
+import type { TerminalEvent } from '@mozart/desktop-terminals-util';
 import { RUNS_ADAPTER } from './runs.adapter';
 
 /** Public facade for the `runs` domain. Thin pass-through over the

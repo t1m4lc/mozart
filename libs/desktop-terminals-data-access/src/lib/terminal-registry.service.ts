@@ -2,7 +2,7 @@ import { Injectable, effect, inject } from '@angular/core';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { ThemeService } from '@mozart/shared-util-theme';
-import { createXterm, loadXterm } from '../../../core/util-xterm';
+import { createXterm, loadXterm } from '@mozart/desktop-core-util';
 import { TerminalsFacade } from './terminals.facade';
 
 /** xterm.js + addons + Rust unsubscribe handle for one workspace. */

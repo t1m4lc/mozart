@@ -10,7 +10,7 @@ import { HlmTabsImports } from '@mozart/ui/tabs';
 import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '../../../shell';
 import { ProjectsFacade } from '../../projects';
 import { FeatureWorkspaceRun, RunRegistry } from '../../runs';
-import { FeatureWorkspaceTerminal } from '../../terminals';
+import { FeatureWorkspaceTerminal } from '../../terminals/feature-workspace-terminal';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { WorkspaceAsideBottomTab } from '@mozart/desktop-ui-state-util';
 import { WorkspacesFacade } from '../data/workspace.facade';

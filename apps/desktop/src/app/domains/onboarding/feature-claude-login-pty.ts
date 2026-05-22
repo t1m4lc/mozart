@@ -13,7 +13,7 @@ import {
 import { HlmButtonImports } from '@mozart/ui/button';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
-import { loadXterm } from '../../core/util-xterm';
+import { loadXterm } from '@mozart/desktop-core-util';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { PROVIDER_SETUP_ADAPTER } from './data/provider-setup.adapter';
 

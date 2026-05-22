@@ -15,7 +15,7 @@ import { WorkspacesFacade } from '../workspaces';
 import {
   TerminalRegistry,
   type TerminalEntry,
-} from './data/terminal-registry.service';
+} from '@mozart/desktop-terminals-data-access';
 
 // Window the host stays hidden behind a loader on first mount of a
 // workspace's terminal. Just enough for the shell to consume the

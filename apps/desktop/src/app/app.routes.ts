@@ -1,5 +1,5 @@
 import { Route, type CanActivateFn } from '@angular/router';
-import { loadXterm } from './core/util-xterm';
+import { loadXterm } from '@mozart/desktop-core-util';
 import { authGuard } from '@mozart/desktop-auth-data-access';
 import { notOnboardedGuard, onboardingGuard } from './domains/onboarding';
 import {

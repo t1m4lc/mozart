@@ -1,6 +1,6 @@
 import { Channel } from '@tauri-apps/api/core';
 import { commands, type TerminalEvent as TerminalEventDto } from '../../../core/_bindings';
-import type { TerminalEvent } from '../../terminals';
+import type { TerminalEvent } from '@mozart/desktop-terminals-util';
 import type { ProviderSetupAdapter } from './provider-setup.adapter';
 
 function unwrap<T>(
