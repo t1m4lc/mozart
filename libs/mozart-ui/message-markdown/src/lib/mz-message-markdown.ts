@@ -6,7 +6,7 @@ import {
 } from '@angular/core';
 import { marked } from 'marked';
 
-// Chat-scoped markdown renderer. Takes a raw markdown string, runs it
+// Sandbox-safe markdown renderer. Takes a raw markdown string, runs it
 // through `marked` (GitHub Flavored Markdown), and lets Angular's
 // built-in `[innerHTML]` sanitizer strip anything dangerous before the
 // browser sees it.
@@ -14,21 +14,21 @@ import { marked } from 'marked';
 // Threat model: any file body Mozart preview-renders is potentially
 // agent-controlled — the agent has the `Write` tool in agent mode and
 // can produce arbitrary markdown into the workspace. An earlier
-// version of this file wrapped the output in `bypassSecurityTrustHtml`
-// and claimed "trusted content only — workspace files are trusted."
-// That assumption was wrong: the agent writes those files. Letting
-// Angular sanitize closes the prompt-injection → DOM-XSS path
-// (`<img src=x onerror=...>`, `<script>`, `javascript:` URIs, etc.).
-// The legitimate markdown tags (`<h1-6>`, `<p>`, `<ul>`, `<ol>`,
-// `<code>`, `<pre>`, `<blockquote>`, `<a href>`, `<table>`, …) are
-// all on Angular's allowlist, so the visual output is unchanged for
-// any non-malicious file.
+// version of this component wrapped the output in
+// `bypassSecurityTrustHtml` and claimed "trusted content only —
+// workspace files are trusted." That assumption was wrong: the agent
+// writes those files. Letting Angular sanitize closes the
+// prompt-injection → DOM-XSS path (`<img src=x onerror=...>`,
+// `<script>`, `javascript:` URIs, etc.). The legitimate markdown tags
+// (`<h1-6>`, `<p>`, `<ul>`, `<ol>`, `<code>`, `<pre>`, `<blockquote>`,
+// `<a href>`, `<table>`, …) are all on Angular's allowlist, so the
+// visual output is unchanged for any non-malicious file.
 //
-// Styling : Tailwind utilities applied to descendant tags via
+// Styling: Tailwind utilities applied to descendant tags via
 // `:where()` selectors so a single class wraps every common element.
 // Avoids depending on `@tailwindcss/typography` for one component.
 @Component({
-  selector: 'app-message-markdown',
+  selector: 'mz-message-markdown',
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full w-full overflow-auto select-text' },
   styles: [
@@ -141,7 +141,7 @@ import { marked } from 'marked';
     ></article>
   `,
 })
-export class MessageMarkdown {
+export class MzMessageMarkdown {
   readonly source = input<string>('');
 
   // String binding (not SafeHtml) — Angular runs its built-in

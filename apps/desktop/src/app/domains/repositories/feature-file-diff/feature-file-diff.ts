@@ -11,7 +11,7 @@ import {
 import { HlmButtonImports } from '@mozart/ui/button';
 import { type FetchContextLines } from '@mozart-ui/diff-view';
 import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
-import { MessageMarkdown } from '../../chat/ui-message-markdown/ui-message-markdown';
+import { MzMessageMarkdown } from '@mozart-ui/message-markdown';
 import { RepositoriesFacade } from '../data/repositories.facade';
 
 type ViewMode = 'diff' | 'preview';
@@ -24,8 +24,8 @@ function isMarkdownPath(path: string | null): boolean {
   return MARKDOWN_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-// Smart wrapper around `MzFileDiffCard` + `MessageMarkdown`. Picks the
-// right renderer for the selected file :
+// Smart wrapper around `MzFileDiffCard` + `MzMessageMarkdown`. Picks
+// the right renderer for the selected file :
 //
 //   - `.md` / `.markdown` / `.mdx` → defaults to **Preview** (rendered
 //     markdown). A header tab toggle exposes Diff for users who want
@@ -44,7 +44,7 @@ function isMarkdownPath(path: string | null): boolean {
 // same file pay no Tauri round-trip.
 @Component({
   selector: 'app-feature-file-diff',
-  imports: [MzFileDiffCard, MessageMarkdown, HlmButtonImports],
+  imports: [MzFileDiffCard, MzMessageMarkdown, HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
@@ -101,7 +101,7 @@ function isMarkdownPath(path: string | null): boolean {
                only needed for .md / .mdx previews. With @defer it
                lands in its own chunk, loaded on first preview. -->
           @defer (on viewport) {
-            <app-message-markdown [source]="previewText()" />
+            <mz-message-markdown [source]="previewText()" />
           } @placeholder {
             <p class="text-muted-foreground px-3 py-3 text-xs">
               Loading preview…

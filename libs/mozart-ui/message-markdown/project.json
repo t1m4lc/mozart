@@ -1,0 +1,13 @@
+{
+  "name": "mozart-message-markdown",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-ui/message-markdown/src",
+  "prefix": "mz",
+  "projectType": "library",
+  "tags": ["scope:mozart-ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}
