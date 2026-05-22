@@ -436,6 +436,30 @@ mod tests {
         assert_eq!(fks, 1);
     }
 
+    // T11: WAL must actually be active after a file-backed init. The
+    // in-memory smoke test above can't verify WAL because in-memory
+    // SQLite reports journal_mode="memory". This test opens a real file,
+    // boots through `init_db` (the same path the desktop app takes), and
+    // asserts the post-init PRAGMA reports "wal". Regression guard
+    // against a silent failure inside `apply_pragmas` — without WAL the
+    // ContextCompiler's `BEGIN DEFERRED` reads would race the supervisor
+    // task's event writes.
+    #[test]
+    fn wal_journal_mode_active_after_file_backed_init() {
+        let tmp = tempfile::tempdir().unwrap();
+        let path = tmp.path().join("wal-startup.db");
+        let db = init_db(&path).unwrap();
+        let conn = db.lock();
+        let mode: String = conn
+            .query_row("PRAGMA journal_mode", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            mode.to_ascii_lowercase(),
+            "wal",
+            "init_db must leave journal_mode='wal' after apply_pragmas"
+        );
+    }
+
     #[test]
     fn idempotent_init_via_file_path() {
         // Run init_db twice on the same file path — second call must skip migrations.
