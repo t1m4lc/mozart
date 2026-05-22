@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
-import { isDevAuthBypassActive } from '../auth/dev-bypass';
+import { isDevAuthBypassActive } from '../auth';
 import { OnboardingFacade } from './data/onboarding.facade';
 
 // Onboarding gate. When `onboarding_completed === false`, every guarded

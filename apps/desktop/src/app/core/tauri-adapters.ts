@@ -54,6 +54,7 @@ import {
 } from '../domains/terminals';
 import {
   WORKSPACES_ADAPTER,
+  WorkspacesFacade,
   type OpenInToolId as OpenInToolIdAlias,
   type WorkspacesAdapter,
 } from '../domains/workspaces';
@@ -103,7 +104,9 @@ function provideProviderSetupAdapter(): Provider {
 function provideGetStartedProjectAdapter(): Provider {
   return {
     provide: GET_STARTED_PROJECT_ADAPTER,
-    useFactory: () => tauriGetStartedProjectAdapter(),
+    useFactory: (workspaces: WorkspacesFacade) =>
+      tauriGetStartedProjectAdapter(workspaces),
+    deps: [WorkspacesFacade],
   };
 }
 

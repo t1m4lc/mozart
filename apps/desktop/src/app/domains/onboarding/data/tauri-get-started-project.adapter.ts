@@ -1,6 +1,6 @@
 import { commands } from '../../../core/_bindings';
 import { projectFromDto } from '../../projects';
-import { workspaceFromDto } from '../../workspaces/data/workspace.adapter';
+import { WorkspacesFacade } from '../../workspaces';
 import type { GetStartedProjectAdapter } from './get-started-project.adapter';
 
 function unwrap<T>(
@@ -14,14 +14,20 @@ function unwrap<T>(
 
 // Tauri-backed GetStartedProjectAdapter. Idempotent — repeated calls
 // resolve to the same Project + Workspace IDs.
-export function tauriGetStartedProjectAdapter(): GetStartedProjectAdapter {
+//
+// The workspace DTO ↔ model mapping goes through
+// `WorkspacesFacade.fromBootstrapPayload(...)` so this adapter doesn't
+// reach into `workspaces/data/*` internals.
+export function tauriGetStartedProjectAdapter(
+  workspaces: WorkspacesFacade,
+): GetStartedProjectAdapter {
   return {
     async ensure() {
       const dto = unwrap(await commands.createGetStartedProject());
       const project = projectFromDto(dto.repo);
       return {
         project,
-        workspace: workspaceFromDto(dto.workspace, project.id),
+        workspace: workspaces.fromBootstrapPayload(dto.workspace, project.id),
       };
     },
   };
