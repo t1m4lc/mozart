@@ -292,5 +292,23 @@ export const UiStateStore = signalStore(
       }
       patchState(store, { treeExpandedByWorkspace: next });
     },
+
+    // Drop every per-workspace entry this store owns for `workspaceId`.
+    // Called when a workspace is archived or its parent project is
+    // removed — without this, the three maps (and their localStorage
+    // mirror) would accumulate stale entries indefinitely.
+    pruneWorkspace(workspaceId: string): void {
+      const aside = { ...store.asideStateByWorkspace() };
+      const fileView = { ...store.fileViewStateByWorkspace() };
+      const treeExpanded = { ...store.treeExpandedByWorkspace() };
+      delete aside[workspaceId];
+      delete fileView[workspaceId];
+      delete treeExpanded[workspaceId];
+      patchState(store, {
+        asideStateByWorkspace: aside,
+        fileViewStateByWorkspace: fileView,
+        treeExpandedByWorkspace: treeExpanded,
+      });
+    },
   })),
 );

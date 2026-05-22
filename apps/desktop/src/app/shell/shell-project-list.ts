@@ -25,24 +25,23 @@ import { toast } from '@spartan-ng/brain/sonner';
 import {
   type ConfirmDeleteProjectContext,
   ProjectContextMenu,
-  ProjectRow,
   ProjectsEmptyState,
   ProjectsFacade,
   type Project,
 } from '../domains/projects';
-import { AddProjectFlow } from '../core/add-project.flow';
+import { AddProjectFlow } from './add-project.flow';
 import { ChatFacade } from '../domains/chat';
-import type { ConfirmReopenWorkspaceContext } from '../domains/workspaces';
-import { WorkspaceContextMenu } from '../domains/workspaces/ui/workspace-context-menu/workspace-context-menu';
-import { WorkspaceEmptyState } from '../domains/workspaces/ui/workspace-empty-state/workspace-empty-state';
-import { WorkspaceRow } from '../domains/workspaces/ui/workspace-row/workspace-row';
-import { WorkspacesFacade } from '../domains/workspaces/data/workspace.facade';
-import type { Workspace } from '../domains/workspaces/data/workspace.model';
 import {
   UI_WORKSPACE_STATUSES,
+  WorkspaceContextMenu,
+  WorkspaceRow,
+  WorkspacesFacade,
+  type ConfirmReopenWorkspaceContext,
   type UiWorkspaceStatus,
   type UiWorkspaceStatusMeta,
-} from '../domains/workspaces/data/workspace-status';
+  type Workspace,
+} from '../domains/workspaces';
+import { ShellProjectRow } from './shell-project-row';
 
 // Cross-domain composer for the left sidebar. This is the only place
 // where the projects and workspaces facades meet — per Convention #2
@@ -57,12 +56,11 @@ import {
     HlmIconImports,
     HlmSidebarImports,
     NgIcon,
-    ProjectRow,
     WorkspaceRow,
     ProjectContextMenu,
     WorkspaceContextMenu,
-    WorkspaceEmptyState,
     ProjectsEmptyState,
+    ShellProjectRow,
   ],
   providers: [
     provideIcons({
@@ -163,61 +161,15 @@ import {
       >
         @for (project of visibleProjects(); track project.id) {
           <li hlmSidebarMenuItem cdkDrag [cdkDragData]="project">
-            <app-project-row
+            <app-shell-project-row
               [project]="project"
-              [workspaceCount]="workspacesByProject()(project.id).length"
-              [hovered]="projects.hoveredId() === project.id"
-              [expanded]="projects.isExpanded(project.id)"
-              [active]="activeProjectId() === project.id"
-              [hlmContextMenuTrigger]="projectCtxMenuTpl"
-              [hlmContextMenuTriggerData]="{ $implicit: project }"
-              (toggleExpanded)="projects.toggleExpanded(project.id)"
-              (hoverChange)="projects.setHovered($event ? project.id : null)"
-              (newWorkspace)="createWorkspace(project.id)"
+              [projectCtxMenu]="projectCtxMenuTpl"
+              [workspaceCtxMenu]="workspaceCtxMenuTpl"
+              [emptyWorkspacesCtxMenu]="emptyWorkspacesCtxMenuTpl"
+              [(editingWorkspaceId)]="editingWorkspaceId"
+              (createWorkspace)="createWorkspace($event)"
+              (renameCommit)="onRenameCommit($event.id, $event.name)"
             />
-
-            @if (projects.isExpanded(project.id)) {
-              <ul
-                class="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
-              >
-                @let projectWorkspaces = workspacesByProject()(project.id);
-                @if (projectWorkspaces.length === 0) {
-                  <li class="px-1 py-2">
-                    <app-workspace-empty-state
-                      [hlmContextMenuTrigger]="emptyWorkspacesCtxMenuTpl"
-                      [hlmContextMenuTriggerData]="{ $implicit: project.id }"
-                      (create)="createWorkspace(project.id)"
-                    />
-                  </li>
-                }
-                @for (
-                  workspace of sortPinned(projectWorkspaces);
-                  track workspace.id
-                ) {
-                  <li
-                    hlmSidebarMenuItem
-                    [attr.data-tour]="
-                      workspaces.activeId() === workspace.id
-                        ? 'workspace-row-active'
-                        : null
-                    "
-                    [hlmContextMenuTrigger]="workspaceCtxMenuTpl"
-                    [hlmContextMenuTriggerData]="{ $implicit: workspace }"
-                  >
-                    <app-workspace-row
-                      [workspace]="workspace"
-                      [editing]="editingWorkspaceId() === workspace.id"
-                      [isStreaming]="streamingIds().has(workspace.id)"
-                      [chatTitle]="chatTitleFor(workspace.id)"
-                      [lastActivity]="lastActivityFor(workspace.id)"
-                      [diffStats]="diffStatsFor(workspace.id)"
-                      (renameCommit)="onRenameCommit(workspace.id, $event)"
-                      (renameCancel)="editingWorkspaceId.set(null)"
-                    />
-                  </li>
-                }
-              </ul>
-            }
           </li>
         }
       </ul>
@@ -326,30 +278,6 @@ export class ShellProjectList {
 
   protected readonly editingWorkspaceId = signal<string | null>(null);
   protected readonly visibleProjects = this.projects.visible;
-
-  // Project id that owns the currently-active workspace. Drives the
-  // brand-tinted "active project" row in the sidebar. Null when no
-  // workspace is open (dashboard / settings routes).
-  protected readonly activeProjectId = computed(() => {
-    const id = this.workspaces.activeId();
-    if (!id) return null;
-    return this.workspaces.workspaceById(id)()?.projectId ?? null;
-  });
-
-  // Curried lookup so the template can read workspacesByProject()(id) in
-  // both the project-row count and the nested @for loop without re-running
-  // the map per access.
-  protected readonly workspacesByProject = computed(() => {
-    const all = this.workspaces.all();
-    const byId = new Map<string, Workspace[]>();
-    for (const w of all) {
-      const list = byId.get(w.projectId);
-      if (list) list.push(w);
-      else byId.set(w.projectId, [w]);
-    }
-    return (projectId: string): readonly Workspace[] =>
-      byId.get(projectId) ?? [];
-  });
 
   // Group-by-Status render: one section per non-empty status, ordered
   // by the canonical UI_WORKSPACE_STATUSES list. Only workspaces whose

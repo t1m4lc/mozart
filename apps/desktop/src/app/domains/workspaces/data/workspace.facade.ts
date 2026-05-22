@@ -6,7 +6,8 @@ import { generateWorkspaceName } from '../util-workspace-name';
 import { IdeDetectionService } from './ide-detection.service';
 import type { OpenInToolId } from './open-in-tools';
 import type { UiWorkspaceStatus } from './workspace-status';
-import { workspaceFromDto } from './workspace.adapter';
+import { workspaceFromDto } from './workspace.dto-mapper';
+import type { WorkspaceDto } from './workspace.dto';
 import type { MergeAction, Workspace } from './workspace.model';
 import { WorkspaceStore } from './workspace.store';
 import {
@@ -126,6 +127,18 @@ export class WorkspacesFacade {
 
   setActive(id: string | null): void {
     this.uiState.setActiveWorkspace(id);
+  }
+
+  /**
+   * Map a workspace DTO returned by a one-shot bootstrap command
+   * (currently: the `/tour` "Get started" project flow) into the
+   * domain's `Workspace` model. Cross-domain callers (e.g.
+   * `tauri-get-started-project.adapter.ts`) use this instead of
+   * reaching into the private `workspaceFromDto` helper — keeps the
+   * DTO ↔ model contract on the facade.
+   */
+  fromBootstrapPayload(dto: WorkspaceDto, projectId: string): Workspace {
+    return workspaceFromDto(dto, projectId);
   }
 
   // ---- v0.1.0-beta.1 wiring -------------------------------------------------
@@ -290,10 +303,22 @@ export class WorkspacesFacade {
     if (this.uiState.activeWorkspaceId() === id) {
       this.uiState.setActiveWorkspace(null);
     }
+    this.uiState.pruneWorkspace(id);
   }
 
   removeForProject(projectId: string): void {
+    // Capture the workspace ids before the store drops them so the
+    // ui-state per-workspace maps can be pruned alongside the entity
+    // collection. Without this, deleting a project leaves orphaned
+    // file-view + aside entries in localStorage indefinitely.
+    const orphanedIds = this.store
+      .workspaces()
+      .filter((w) => w.projectId === projectId)
+      .map((w) => w.id);
     this.store.removeForProject(projectId);
+    for (const id of orphanedIds) {
+      this.uiState.pruneWorkspace(id);
+    }
   }
 
   async setStatus(id: string, status: UiWorkspaceStatus): Promise<void> {

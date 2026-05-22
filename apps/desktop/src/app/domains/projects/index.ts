@@ -11,7 +11,7 @@ export {
   type MergeMode,
   type ProjectsAdapter,
 } from './data/projects.adapter';
-export { projectFromDto } from './data/project.adapter';
+export { projectFromDto } from './data/project.dto-mapper';
 
 export { FeatureAddProject } from './feature-add-project';
 export { ProjectRow } from './ui-project-row';

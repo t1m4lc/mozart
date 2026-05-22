@@ -1,11 +1,9 @@
 import { Injectable, WritableSignal, inject, signal } from '@angular/core';
-import { FitAddon } from '@xterm/addon-fit';
-import { Terminal } from '@xterm/xterm';
+import type { FitAddon } from '@xterm/addon-fit';
+import type { Terminal } from '@xterm/xterm';
+import { createXterm } from '../../../core/util-xterm';
 import { RunsFacade } from './runs.facade';
 import type { RunStatus } from './run-status.model';
-
-const DEFAULT_COLS = 80;
-const DEFAULT_ROWS = 24;
 
 export interface RunEntry {
   readonly term: Terminal;
@@ -26,20 +24,7 @@ export class RunRegistry {
   ensureEntry(workspaceId: string): RunEntry {
     let entry = this.entries.get(workspaceId);
     if (entry) return entry;
-    const term = new Terminal({
-      cols: DEFAULT_COLS,
-      rows: DEFAULT_ROWS,
-      cursorBlink: false,
-      disableStdin: true,
-      convertEol: true,
-      fontFamily:
-        'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace',
-      fontSize: 12,
-      scrollback: 5000,
-      allowProposedApi: true,
-    });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
+    const { term, fit } = createXterm({ readOnly: true });
     entry = { term, fit, status: signal<RunStatus>('idle') };
     this.entries.set(workspaceId, entry);
     return entry;

@@ -8,41 +8,36 @@ export type {
   FileNode,
   FileNodeKind,
 } from './data/file-node.model';
-export { fileNodeFromDto } from './data/file-node.adapter';
+export { fileNodeFromDto } from './data/file-node.dto-mapper';
 export { RepositoriesFacade } from './data/repositories.facade';
 export {
   FileViewsFacade,
   type ReviewProgressCounts,
 } from './data/file-views.facade';
 export {
-  FileViewsStore,
-  type FileViewEntry,
-  type FileViewState,
-} from './data/file-views.store';
-export {
   REPOSITORIES_ADAPTER,
   type ChangedFile,
   type FileViewEntry as FileViewAdapterEntry,
   type RepositoriesAdapter,
 } from './data/repositories.adapter';
-export { FeatureFileTree } from './feature-file-tree/feature-file-tree';
-export { FeatureFileDiff } from './feature-file-diff/feature-file-diff';
+export { FeatureFileTree } from './feature-file-tree';
+export { FeatureFileDiff } from './feature-file-diff';
 export {
   FeatureFileToolbar,
   type DiffMode,
   type FileMode,
   type FileViewedState,
-} from './feature-file-toolbar/feature-file-toolbar';
+} from './feature-file-toolbar';
 export {
   FeatureCommitDialog,
   type CommitDialogContext,
-} from './feature-commit-dialog/feature-commit-dialog';
+} from './feature-commit-dialog';
 export {
   FeatureCreatePrDialog,
   type CreatePrDialogContext,
-} from './feature-create-pr-dialog/feature-create-pr-dialog';
-export { UiChangesContextMenu } from './ui-changes-context-menu/ui-changes-context-menu';
+} from './feature-create-pr-dialog';
+export { UiChangesContextMenu } from './ui-changes-context-menu';
 export {
   UiConfirmDiscardChangesDialog,
   type ConfirmDiscardChangesContext,
-} from './ui-confirm-discard-changes-dialog/ui-confirm-discard-changes-dialog';
+} from './ui-confirm-discard-changes-dialog';

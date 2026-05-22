@@ -7,13 +7,13 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HlmTabsImports } from '@mozart/ui/tabs';
-import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '../../../shell/shell-panel.constants';
+import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '../../../shell';
 import { ProjectsFacade } from '../../projects';
 import { FeatureWorkspaceRun, RunRegistry } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
 import { UiStateFacade, type WorkspaceAsideBottomTab } from '../../ui-state';
 import { WorkspacesFacade } from '../data/workspace.facade';
-import { RunActionMenu } from '../ui/run-action-menu/run-action-menu';
+import { RunActionMenu } from '../ui/run-action-menu';
 import { FeatureWorkspaceSetup } from './feature-workspace-setup';
 
 // Bottom half of the workspace aside: Setup / Run / Terminal tabs +

@@ -243,6 +243,9 @@
       ],
       "@mozart-ui/loader": [
         "./libs/mozart-ui/loader/src/index.ts"
+      ],
+      "@mozart-ui/message-markdown": [
+        "./libs/mozart-ui/message-markdown/src/index.ts"
       ]
     }
   }

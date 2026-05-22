@@ -265,4 +265,35 @@ describe('UiStateStore — right-aside per-workspace state', () => {
       expect(next.treeExpandedByWorkspace()[wsA]).toEqual(['src', 'src/util']);
     });
   });
+
+  describe('pruneWorkspace', () => {
+    it('drops every per-workspace entry for the given id', () => {
+      const store = TestBed.inject(UiStateStore);
+      store.updateWorkspaceAsideState(wsA, { bottomTab: 'terminal' });
+      store.openWorkspaceFile(wsA, 'src/app.ts', {
+        mode: 'edit',
+        source: 'all-files',
+      });
+      store.setTreeExpanded(wsA, ['src']);
+      store.updateWorkspaceAsideState(wsB, { bottomTab: 'run' });
+
+      store.pruneWorkspace(wsA);
+
+      expect(store.asideStateByWorkspace()[wsA]).toBeUndefined();
+      expect(store.fileViewStateByWorkspace()[wsA]).toBeUndefined();
+      expect(store.treeExpandedByWorkspace()[wsA]).toBeUndefined();
+      // Untouched siblings survive.
+      expect(store.asideStateByWorkspace()[wsB]?.bottomTab).toBe('run');
+    });
+
+    it('flushes the removal through to localStorage', () => {
+      const store = TestBed.inject(UiStateStore);
+      store.updateWorkspaceAsideState(wsA, { bottomTab: 'terminal' });
+      store.setTreeExpanded(wsA, ['src']);
+
+      store.pruneWorkspace(wsA);
+
+      expect(readSlice()[wsA]).toBeUndefined();
+    });
+  });
 });

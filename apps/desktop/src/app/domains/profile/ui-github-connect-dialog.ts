@@ -12,7 +12,7 @@ import { HlmSeparatorImports } from '@mozart/ui/separator';
 import { BrnDialogRef } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideExternalLink, lucideGithub } from '@ng-icons/lucide';
-import { ShellService } from '../../core/shell.service';
+import { ExternalLinkService } from '../../core/external-link.service';
 import { ProfileFacade } from './data/profile.facade';
 
 // PAT-creation URL prefilled with the scopes Mozart needs.
@@ -22,7 +22,7 @@ import { ProfileFacade } from './data/profile.facade';
 const GITHUB_TOKEN_NEW_URL =
   'https://github.com/settings/tokens/new?scopes=repo,workflow&description=Mozart';
 
-// IMP-008 — two paths to a GitHub credential:
+// Two paths to a GitHub credential:
 //   1. Sign in with GitHub : opens the browser to the PAT-creation
 //      page with the right scopes prefilled (the "guided" path). User
 //      pastes the resulting token back here.
@@ -121,7 +121,7 @@ const GITHUB_TOKEN_NEW_URL =
 export class UiGithubConnectDialog {
   private readonly ref = inject(BrnDialogRef);
   private readonly facade = inject(ProfileFacade);
-  private readonly shell = inject(ShellService);
+  private readonly externalLink = inject(ExternalLinkService);
 
   protected readonly token = signal('');
   protected readonly busy = signal(false);
@@ -137,7 +137,7 @@ export class UiGithubConnectDialog {
   }
 
   protected onOpenGithub(): void {
-    void this.shell.openExternal(GITHUB_TOKEN_NEW_URL);
+    void this.externalLink.openExternal(GITHUB_TOKEN_NEW_URL);
   }
 
   protected async onConnect(): Promise<void> {

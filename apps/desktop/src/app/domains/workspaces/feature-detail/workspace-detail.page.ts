@@ -29,11 +29,11 @@ import { FileTabsService } from '../data/file-tabs.service';
 import { IdeDetectionService } from '../data/ide-detection.service';
 import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';
-import { FeatureChatTabBar } from '../feature-chat-tab-bar/feature-chat-tab-bar';
-import { FeatureFileContent } from '../feature-file-content/feature-file-content';
-import { FeatureWorkspaceMiddle } from '../feature-workspace-middle/feature-workspace-middle';
-import { ChatEmptyState } from '../ui/chat-empty-state/chat-empty-state';
-import { WorkspaceToolbar } from '../ui/workspace-toolbar/workspace-toolbar';
+import { FeatureChatTabBar } from '../feature-chat-tab-bar';
+import { FeatureFileContent } from '../feature-file-content';
+import { FeatureWorkspaceMiddle } from '../feature-workspace-middle';
+import { ChatEmptyState } from '../ui/chat-empty-state';
+import { WorkspaceToolbar } from '../ui/workspace-toolbar';
 import { WorkspaceDetailStore } from './workspace-detail.store';
 
 @Component({
@@ -322,7 +322,7 @@ export class WorkspaceDetailPage {
       workspaceId: id,
     };
     const { FeatureCommitDialog } = await import(
-      '../../repositories/feature-commit-dialog/feature-commit-dialog'
+      '../../repositories/feature-commit-dialog'
     );
     this.dialog.open(FeatureCommitDialog, { context });
   }
@@ -356,7 +356,7 @@ export class WorkspaceDetailPage {
       defaultTitle: ws?.name ?? '',
     };
     const { FeatureCreatePrDialog } = await import(
-      '../../repositories/feature-create-pr-dialog/feature-create-pr-dialog'
+      '../../repositories/feature-create-pr-dialog'
     );
     this.dialog.open(FeatureCreatePrDialog, { context });
   }
