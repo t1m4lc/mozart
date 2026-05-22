@@ -208,6 +208,60 @@ The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_san
 
 ---
 
+## Agent context — per-call ROnly read connection for ContextCompiler (D4)
+
+**What:** `claude_cli::context_compiler::build_envelope` currently runs over the shared mutexed `DbState` connection. The ContextCompiler v1 architecture (`docs/agent-context-architecture.md`) called for opening a dedicated `SQLITE_OPEN_READ_ONLY` connection per build, so envelope-build reads never contend with the primary connection's writers (event ingest, message persistence, summary insert).
+
+**Why:** Functionally correct today — `BEGIN DEFERRED` inside `build_envelope` gives consistent reads under WAL, and the mutex serializes the request fairly. But under heavy concurrent agent activity (multi-workspace, multi-turn) the build can briefly block the runner supervisor's event-insert path. Mostly a latency concern, not a correctness one.
+
+**How to apply:** Extend `DbState` to retain the underlying `db_path` (currently a `Arc<Mutex<Connection>>` tuple struct — adding the path breaks 5 call sites that destructure it). Add `DbState::open_readonly(&self) -> Result<Connection, AppError>` that opens a fresh `SQLITE_OPEN_READ_ONLY` connection at the stored path with the same pragmas (`busy_timeout`, `foreign_keys`). Plumb it into `commands::start_agent_run_impl` so `build_envelope` reads through the ROnly conn while the primary mutex stays free for the inserting half of the transaction. In-memory tests (`init_db_memory`) need a parallel `open_readonly_memory` that shares the underlying `:memory:` via `Connection::open_with_flags(":memory:", SHARED_CACHE)` or accepts the test gap.
+
+**Depends on:** `DbState` shape refactor — 5 call sites, mechanical. Not blocking; the TODO marker is already in `commands/mod.rs::start_agent_run_impl` next to the shared-mutex `build_envelope` call.
+
+---
+
+## Agent context — workspace archival cleanup (envelope + summary residue)
+
+**What:** When a workspace is closed/archived, its `agent_run_envelopes` and `agent_turn_summaries` rows remain in SQLite forever. The latest-50-per-chat retention prune only fires on NEW envelope writes, so an archived chat with 50 envelopes never gets cleaned up.
+
+**Why:** Heavy users who archive many workspaces will accumulate unbounded envelope + summary data. Per-row size is modest (one envelope ≈ 5-50KB rendered_text + envelope_json), but at scale this is the kind of growth that surprises users — "why is mozart.db 2GB?". Same shape as the workspace_changes growth question, which the existing v0.1.0-beta.1 doesn't address either.
+
+**How to apply:** Two complementary moves:
+
+1. **Active cleanup**: when `chats::close` runs (chat archival), delete the chat's `agent_run_envelopes` and `agent_turn_summaries` rows in the same transaction. This is the highest-signal: once a chat is closed, the user has explicitly signaled it's done.
+
+2. **Background sweep**: a periodic startup task that deletes envelope + summary rows for chats whose `closed_at` is older than N days (e.g. 90). Same pattern as the FileTabsService cleanup TODO.
+
+The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged — it's the *per-active-chat* cap; archival cleanup is the *cross-chat* cap.
+
+**Depends on:** A product decision on retention policy (delete-on-close vs delete-after-N-days vs both). Eng work is small (a delete query + a startup task). Not blocking v0.1.0-beta.1.
+
+---
+
+## Agent context — LLM-driven summary distillation (replaces deterministic v1)
+
+**What:** `claude_cli::summary_builder::build_summary` is deterministic v1 — walks `agent_events`, extracts tool calls + results, produces a short prose recap like "Read 1 file, edited 2 files, ran 1 command." It captures *what happened* but loses *why it mattered*: a 50-line Bash command and a 1-line one both count as "1 command"; a Read of `src/main.rs` and a Read of `README.md` both count as "1 file". For long sessions the operational_summaries layer becomes thin compared to the raw turn it replaced.
+
+**Why:** The architecture doc accepted v1's determinism as a deliberate cost: no LLM-in-loop dependency for the post-run hook means the hook can't fail because of a model outage, and it's reproducible. An LLM-driven distiller would produce richer text_summary and could honor things like "highlight the key result of this turn for the next agent" — but adds a second model dependency and a latency cost (post-run blocks on a model call before the summary lands).
+
+**How to apply:** Build a `SummaryDistiller` trait alongside `EnvelopeRenderer` (cleanly mirroring T4's D3 split). Default implementation = today's deterministic builder. An optional `LlmSummaryDistiller` calls a cheap Haiku-class model with the events as context and a tight prompt: "summarize this assistant turn in ≤200 chars covering the key intent and outcome." Wire selection via an env flag or settings toggle; default off until proven worth the dependency. The pure builder stays in place as the always-available fallback when the distiller errors.
+
+**Depends on:** Decision on which model to use + cost budget. Not blocking; v1 builder is already in production.
+
+---
+
+## Agent context — composer token-meter UI (deferred from CEO review)
+
+**What:** The architecture's `EnvelopeStats { char_count, est_tokens, budget_hit }` is computed per turn and persisted into `agent_run_envelopes`. The composer doesn't currently surface this — a user typing a long message has no idea how close they are to displacing older turns into operational_summaries.
+
+**Why:** CEO review D5 deferred the UI affordance: "kill-switch / token meter" was skipped because the architecture-level invariants (budget displacement, retention prune) handle the failure mode automatically. But power users dogfooding multi-turn chats would benefit from a circular fill indicator on the composer ("you're at 78% of the context budget for this chat") so they can pre-emptively start a new chat instead of silently losing older turn detail.
+
+**How to apply:** Add a Tauri command that returns the latest `EnvelopeStats` for a chat (`get_chat_token_estimate(chat_id) -> EnvelopeStats`). Composer subscribes via a small effect, renders a circular progress around the send button. Update on each message send (post-stream completion). Defer hard-error UI when `budget_hit=true` — the displacement is automatic, the meter is informational only.
+
+**Depends on:** Nothing — independent UI work. Wait for a real complaint or a power-user signal before building.
+
+---
+
 ## Sandbox — review hardening from /review 2026-05-22 (followups for the OS-fence work)
 
 **What:** Three follow-ups identified by `/review` on the security-sandbox branch. None are blockers for landing the branch but they should be tracked alongside the OS-fence work.
