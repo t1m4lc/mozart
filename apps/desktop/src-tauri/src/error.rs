@@ -67,6 +67,18 @@ pub enum AppError {
     // `unwrap` expects `error: { message: string }` across the board).
     #[error("path refused: {0}")]
     PathRefused(String),
+
+    // ContextCompiler v1 (docs/agent-context-architecture.md, T3) —
+    // fail-closed for essential context: current-message lookup,
+    // cross-entity validation (`message.chat_id == chat_id`,
+    // `chat.workspace_id == workspace_id`), history load. Surfaced to
+    // the chat as a visible "context unavailable for this turn"
+    // affordance instead of silently spawning a context-free agent.
+    // Spoofed IDs land here too — so this variant carries a
+    // diagnostic string suitable for logs, not for the user-facing
+    // toast verbatim (the frontend renders its own fixed copy).
+    #[error("context unavailable: {0}")]
+    ContextLoad(String),
 }
 
 impl From<rusqlite::Error> for AppError {

@@ -6,6 +6,8 @@
 
 use serde::{Deserialize, Serialize};
 
+pub mod context_compiler;
+pub mod envelope;
 pub mod install;
 pub mod parser;
 pub mod runner;
