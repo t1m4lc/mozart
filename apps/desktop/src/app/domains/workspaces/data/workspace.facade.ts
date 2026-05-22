@@ -1,7 +1,7 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { ProjectsFacade } from '../../projects';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
-import { UiStateFacade } from '../../ui-state';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { generateWorkspaceName } from '../util-workspace-name';
 import { IdeDetectionService } from './ide-detection.service';
 import type { OpenInToolId } from './open-in-tools';

@@ -13,7 +13,7 @@ import {
   signal,
 } from '@angular/core';
 import { memoize } from '../../core/util-memoize';
-import { UiStateFacade } from '../ui-state';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { FileNode } from './data/file-node.model';
 import { RepositoriesFacade } from './data/repositories.facade';
 import { FileTreeRow } from './ui-file-tree-row';

@@ -2,10 +2,10 @@ import { TestBed } from '@angular/core/testing';
 import {
   DEFAULT_WORKSPACE_ASIDE_STATE,
   DEFAULT_WORKSPACE_FILE_VIEW_STATE,
-  UiStateStore,
   type WorkspaceAsideState,
   type WorkspaceFileViewState,
-} from './ui-state.store';
+} from '@mozart/desktop-ui-state-util';
+import { UiStateStore } from './ui-state.store';
 
 // Regression test for the P1.1 bug: switching workspaces leaked the
 // previously-selected bottom tab (and other right-aside UI choices)

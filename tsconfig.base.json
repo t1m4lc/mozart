@@ -264,6 +264,12 @@
       ],
       "@mozart/desktop-auth-util": [
         "./libs/desktop-auth-util/src/index.ts"
+      ],
+      "@mozart/desktop-ui-state-util": [
+        "./libs/desktop-ui-state-util/src/index.ts"
+      ],
+      "@mozart/desktop-ui-state-data-access": [
+        "./libs/desktop-ui-state-data-access/src/index.ts"
       ]
     }
   }

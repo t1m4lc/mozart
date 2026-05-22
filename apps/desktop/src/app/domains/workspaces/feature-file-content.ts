@@ -38,7 +38,8 @@ import {
   type DiffMode,
   type FileViewedState,
 } from '../repositories';
-import { UiStateFacade, type WorkspaceFileContentMode } from '../ui-state';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
+import type { WorkspaceFileContentMode } from '@mozart/desktop-ui-state-util';
 
 type FileContentMode = WorkspaceFileContentMode;
 

@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { UiStateFacade } from '../../ui-state';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 // Deep import: workspaces -> projects already exists (WorkspacesFacade
 // depends on ProjectsFacade). Going through workspaces/index.ts would
 // close that loop on a value import. workspace-status.ts is leaf

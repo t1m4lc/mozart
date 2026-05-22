@@ -19,7 +19,7 @@ import {
   type ChangedFile,
   type ConfirmDiscardChangesContext,
 } from '../../repositories';
-import { UiStateFacade } from '../../ui-state';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { FileTabsService } from '../data/file-tabs.service';
 import {
   WorkspaceTabRegistry,

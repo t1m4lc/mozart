@@ -10,6 +10,8 @@
 @source "../../../libs/desktop-auth-ui";
 @source "../../../libs/desktop-auth-util";
 @source "../../../libs/desktop-tasks-data-access";
+@source "../../../libs/desktop-ui-state-data-access";
+@source "../../../libs/desktop-ui-state-util";
 @source "../../../libs/mozart-ui/code-editor";
 @source "../../../libs/mozart-ui/codemirror-theme";
 @source "../../../libs/mozart-ui/composer";

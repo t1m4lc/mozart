@@ -2,12 +2,12 @@ import { Injectable, Signal, computed, inject } from '@angular/core';
 import {
   DEFAULT_WORKSPACE_ASIDE_STATE,
   DEFAULT_WORKSPACE_FILE_VIEW_STATE,
-  UiStateStore,
   type WorkspaceAsideState,
   type WorkspaceFileFlowState,
   type WorkspaceFileOpenOptions,
   type WorkspaceFileViewState,
-} from './ui-state.store';
+} from '@mozart/desktop-ui-state-util';
+import { UiStateStore } from './ui-state.store';
 
 // Public surface for ui-state. The two existing domain facades
 // (WorkspacesFacade, ProjectsFacade) delegate to this store so that
