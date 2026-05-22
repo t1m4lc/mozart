@@ -8,8 +8,7 @@ import {
   TemplateRef,
   viewChild,
 } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { ActivatedRoute, NavigationEnd, Router, RouterOutlet } from '@angular/router';
+import { RouterOutlet } from '@angular/router';
 import { OsService } from '@mozart/shared-util-os';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
@@ -17,7 +16,6 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePanelLeft } from '@ng-icons/lucide';
-import { filter, map, startWith } from 'rxjs/operators';
 import { LayoutService } from '../../../core/layout.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
 import { ChatFacade } from '../../chat';
@@ -28,12 +26,9 @@ import {
   type CreatePrDialogContext,
 } from '../../repositories';
 import { RunRegistry } from '../../runs';
-import { FileTabsService } from '../data/file-tabs.service';
 import { IdeDetectionService } from '../data/ide-detection.service';
 import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
-import { WorkspaceTabRegistry } from '../data/workspace-tab-registry';
 import { WorkspacesFacade } from '../data/workspace.facade';
-import { FeatureChatTabBar } from '../feature-chat-tab-bar';
 import { WorkspaceToolbar } from '../ui/workspace-toolbar';
 import { WorkspaceDetailStore } from './workspace-detail.store';
 
@@ -44,7 +39,6 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
     NgIcon,
     MacWindowControls,
     WorkspaceToolbar,
-    FeatureChatTabBar,
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
@@ -80,13 +74,6 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
       (stopRun)="onStopRun()"
     />
 
-    <app-feature-chat-tab-bar
-      class="sticky top-10 z-20"
-      [projectId]="projectId() ?? null"
-      [workspaceId]="store.workspaceId()"
-      [activeTabId]="activeTabId()"
-    />
-
     <section class="flex min-h-0 flex-1 flex-col">
       <router-outlet />
     </section>
@@ -119,27 +106,12 @@ export class WorkspaceDetailPage {
   protected readonly isMac = inject(OsService).isMac();
   protected readonly profile = inject(ProfileFacade);
 
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly projects = inject(ProjectsFacade);
   private readonly ides = inject(IdeDetectionService);
   private readonly dialog = inject(HlmDialogService);
-  private readonly fileTabs = inject(FileTabsService);
   private readonly runs = inject(RunRegistry);
   private readonly chatFacade = inject(ChatFacade);
-  private readonly tabRegistry = inject(WorkspaceTabRegistry);
-
-  protected readonly activeTabId = toSignal(
-    this.router.events.pipe(
-      filter((event): event is NavigationEnd => event instanceof NavigationEnd),
-      map(() => this.readTabId()),
-      startWith(this.readTabId()),
-    ),
-    { initialValue: this.readTabId() },
-  );
-
-  private readonly workspaceSignal = computed(() => this.workspaceId() ?? null);
 
   protected readonly availableTools = this.ides.availableTools;
 
@@ -165,7 +137,7 @@ export class WorkspaceDetailPage {
   protected readonly workspaceName = computed(() => this.workspace()?.name ?? '');
 
   protected readonly isStreaming = this.chatFacade.isStreaming(
-    this.workspaceSignal,
+    computed(() => this.workspaceId() ?? null),
   );
 
   protected readonly runStatus = computed(() => {
@@ -211,21 +183,6 @@ export class WorkspaceDetailPage {
         .catch((err) => {
           console.warn('list branches failed', err);
         });
-    });
-
-    effect(() => {
-      const workspaceId = this.workspaceId();
-      const tabId = this.activeTabId();
-      if (!workspaceId || !tabId) return;
-      const tab = this.tabRegistry.parse(tabId);
-      if (!tab) return;
-
-      if (tab.kind === 'chat') {
-        this.fileTabs.setActiveFor(workspaceId, null);
-        void this.chatFacade.setActiveChat(workspaceId, tab.chatId);
-      } else if (tab.kind === 'file') {
-        this.fileTabs.openFor(workspaceId, tab.path);
-      }
     });
   }
 
@@ -294,10 +251,5 @@ export class WorkspaceDetailPage {
       '../../repositories/feature-create-pr-dialog'
     );
     this.dialog.open(FeatureCreatePrDialog, { context });
-  }
-
-  private readTabId(): string {
-    const child = this.route.firstChild;
-    return child?.snapshot.paramMap.get('tabId') ?? '';
   }
 }

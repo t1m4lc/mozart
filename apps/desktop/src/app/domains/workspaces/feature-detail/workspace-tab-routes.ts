@@ -29,16 +29,21 @@ export const tabMatcher: UrlMatcher = (segments: UrlSegment[]) => {
 };
 
 export const workspaceTabCanActivate: CanActivateFn = async (route) => {
+  // Resolve everything that needs the injection context synchronously,
+  // BEFORE any await — the context is lost across microtasks and
+  // `inject()` would throw NG0203 if called after `await`.
+  const router = inject(Router);
+  const resolver = inject(WorkspaceTabResolver);
+
   const parent = route.parent;
   const projectId = parent?.paramMap.get('projectId');
   const workspaceId = parent?.paramMap.get('workspaceId');
   const tabId = route.paramMap.get('tabId');
 
   if (!projectId || !workspaceId) {
-    return inject(Router).createUrlTree(['/']);
+    return router.createUrlTree(['/']);
   }
 
-  const resolver = inject(WorkspaceTabResolver);
   const result = await resolver.resolve({
     projectId,
     workspaceId,
@@ -47,9 +52,9 @@ export const workspaceTabCanActivate: CanActivateFn = async (route) => {
 
   if (result.kind === 'resolved') return true;
   if (result.kind === 'redirect') {
-    return inject(Router).createUrlTree(
+    return router.createUrlTree(
       workspaceTabRouteCommands(projectId, workspaceId, result.tabId),
     );
   }
-  return inject(Router).createUrlTree(['/']);
+  return router.createUrlTree(['/']);
 };
