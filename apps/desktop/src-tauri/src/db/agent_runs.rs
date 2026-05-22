@@ -199,6 +199,55 @@ mod tests {
         }
     }
 
+    // T9: prompt_source round-trips for both legacy ('frontend_collapsed')
+    // and post-T5 ('message_content') values. Regression guard against a
+    // future column rename or accidental column drop.
+    #[test]
+    fn prompt_source_round_trips_both_legacy_and_current_values() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let th = seed_thread(&conn);
+
+        let mut legacy = make_run(&th);
+        legacy.prompt_source = "frontend_collapsed".into();
+        create(&conn, &legacy).unwrap();
+        let got_legacy = get(&conn, &legacy.run_id).unwrap();
+        assert_eq!(got_legacy.prompt_source, "frontend_collapsed");
+
+        let mut current = make_run(&th);
+        current.prompt_source = "message_content".into();
+        create(&conn, &current).unwrap();
+        let got_current = get(&conn, &current.run_id).unwrap();
+        assert_eq!(got_current.prompt_source, "message_content");
+    }
+
+    // T9: migration 011's DEFAULT 'frontend_collapsed' is what makes the
+    // semantic shift safe for upgrade — old rows that predate the column
+    // get a stable label rather than NULL. A raw INSERT omitting
+    // prompt_source must surface that default on read.
+    #[test]
+    fn prompt_source_default_backfills_legacy_rows() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let th = seed_thread(&conn);
+
+        // Raw INSERT skipping prompt_source — mirrors how pre-migration
+        // rows look once migration 011 runs (the ALTER's DEFAULT applies
+        // to both existing rows and any INSERT that omits the column).
+        let run_id = new_id();
+        conn.execute(
+            "INSERT INTO agent_runs(run_id, thread_id, prompt, status, started_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![run_id, th, "p", "done", now_ms()],
+        )
+        .unwrap();
+        let got = get(&conn, &run_id).unwrap();
+        assert_eq!(
+            got.prompt_source, "frontend_collapsed",
+            "migration 011 DEFAULT must backfill prompt_source for rows that predate the column"
+        );
+    }
+
     #[test]
     fn list_by_thread_orders_by_started_at_asc() {
         let db = init_db_memory().unwrap();

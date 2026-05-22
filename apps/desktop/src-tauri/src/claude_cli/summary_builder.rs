@@ -417,6 +417,36 @@ mod tests {
         );
     }
 
+    // T9: a ToolResult that arrives before its matching ToolCall (events
+    // out-of-order) should still record the result, just without the
+    // tool-name prefix. Order-of-arrival is best-effort by the stream
+    // parser; the digest must not drop signal when ordering is broken.
+    #[test]
+    fn tool_result_before_tool_call_records_result_unprefixed() {
+        let result = serialize(&StreamEvent::ToolResult {
+            id: "toolu_z".into(),
+            ok: true,
+            summary: Some("orphan-result".into()),
+        });
+        let call = serialize(&StreamEvent::ToolCall {
+            id: "toolu_z".into(),
+            name: "Bash".into(),
+            args_json: r#"{"command":"ls"}"#.into(),
+        });
+        // Result first, then the call that should have preceded it.
+        let events = vec![
+            ev(1, "r", "tool_result", &result, 100),
+            ev(2, "r", "tool_call", &call, 110),
+        ];
+        let out = build_summary(&events);
+        assert_eq!(
+            out.key_results,
+            vec!["orphan-result"],
+            "result must survive even when its call hasn't been seen yet"
+        );
+        assert_eq!(out.commands_run, vec!["ls"]);
+    }
+
     #[test]
     fn stream_token_and_thinking_events_do_not_contribute() {
         let tok = serialize(&StreamEvent::StreamToken {
