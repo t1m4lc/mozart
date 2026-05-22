@@ -44,6 +44,8 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (8, include_str!("../../migrations/008_workspaces_last_merge_action.sql")),
     (9, include_str!("../../migrations/009_workspace_file_views.sql")),
     (10, include_str!("../../migrations/010_workspace_sandbox_level.sql")),
+    (11, include_str!("../../migrations/011_agent_run_envelopes.sql")),
+    (12, include_str!("../../migrations/012_agent_turn_summaries.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.
@@ -319,6 +321,105 @@ mod tests {
                 "expected project_local_config.{col} after v7, got cols={cols:?}"
             );
         }
+    }
+
+    fn table_columns(conn: &Connection, table: &str) -> Vec<String> {
+        let mut stmt = conn
+            .prepare(&format!("PRAGMA table_info({table})"))
+            .unwrap();
+        stmt.query_map([], |r| r.get::<_, String>(1))
+            .unwrap()
+            .collect::<rusqlite::Result<Vec<_>>>()
+            .unwrap()
+    }
+
+    #[test]
+    fn agent_run_envelopes_table_exists_after_v11() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='agent_run_envelopes'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1);
+        let cols = table_columns(&conn, "agent_run_envelopes");
+        for col in [
+            "run_id", "chat_id", "envelope_json", "rendered_text",
+            "provider", "nonce", "char_count", "est_tokens", "created_at",
+        ] {
+            assert!(
+                cols.iter().any(|c| c == col),
+                "expected agent_run_envelopes.{col} after v11, got cols={cols:?}"
+            );
+        }
+        let idx: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_agent_run_envelopes_chat_created'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(idx, 1, "retention prune index missing");
+    }
+
+    #[test]
+    fn agent_runs_prompt_source_default_after_v11() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let cols = table_columns(&conn, "agent_runs");
+        assert!(
+            cols.iter().any(|c| c == "prompt_source"),
+            "agent_runs.prompt_source missing after v11, got cols={cols:?}"
+        );
+        // Verify the column default is the backfill value for existing rows.
+        let default: Option<String> = conn
+            .query_row(
+                "SELECT dflt_value FROM pragma_table_info('agent_runs') WHERE name='prompt_source'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            default.as_deref(),
+            Some("'frontend_collapsed'"),
+            "prompt_source default should backfill existing rows"
+        );
+    }
+
+    #[test]
+    fn agent_turn_summaries_table_exists_after_v12() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let n: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name='agent_turn_summaries'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(n, 1);
+        let cols = table_columns(&conn, "agent_turn_summaries");
+        for col in [
+            "summary_id", "run_id", "message_id", "chat_id",
+            "files_read_json", "files_edited_json", "commands_run_json",
+            "key_results_json", "text_summary", "created_at",
+        ] {
+            assert!(
+                cols.iter().any(|c| c == col),
+                "expected agent_turn_summaries.{col} after v12, got cols={cols:?}"
+            );
+        }
+        let idx: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='index' AND name='idx_agent_turn_summaries_chat'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(idx, 1, "chat,created_at index missing");
     }
 
     #[test]
