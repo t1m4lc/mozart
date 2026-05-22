@@ -10,6 +10,9 @@
   "targets": {
     "build": {
       "executor": "@angular/build:application",
+      "syncGenerators": [
+        "@juristr/nx-tailwind-sync:source-directives"
+      ],
       "outputs": [
         "{options.outputPath}"
       ],
