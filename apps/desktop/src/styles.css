@@ -5,6 +5,10 @@
 @import "@xterm/xterm/css/xterm.css";
 
 /* nx-tailwind-sources:start */
+@source "../../../libs/desktop-auth-data-access";
+@source "../../../libs/desktop-auth-feature";
+@source "../../../libs/desktop-auth-ui";
+@source "../../../libs/desktop-auth-util";
 @source "../../../libs/desktop-tasks-data-access";
 @source "../../../libs/mozart-ui/code-editor";
 @source "../../../libs/mozart-ui/codemirror-theme";

@@ -1,10 +1,15 @@
 import { open as openExternal } from '@tauri-apps/plugin-shell';
 import { Observable, ReplaySubject } from 'rxjs';
-import { commands, events } from '../../../core/_bindings';
-import { parseDeepLink } from '../util-parse-deep-link';
-import type { AuthAdapter } from './auth.adapter';
-import { sessionFromDto, sessionToDto } from './auth.dto';
-import type { DeepLinkPayload } from './auth.model';
+import {
+  type AuthAdapter,
+  sessionFromDto,
+  sessionToDto,
+} from '@mozart/desktop-auth-data-access';
+import {
+  type DeepLinkPayload,
+  parseDeepLink,
+} from '@mozart/desktop-auth-util';
+import { commands, events } from './_bindings';
 
 // Tauri-backed AuthAdapter.
 //

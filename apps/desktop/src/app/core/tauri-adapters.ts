@@ -2,8 +2,8 @@ import { Provider } from '@angular/core';
 import { Channel } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import { AUTH_ADAPTER } from '../domains/auth';
-import { tauriAuthAdapter } from '../domains/auth/data/tauri-auth.adapter';
+import { AUTH_ADAPTER } from '@mozart/desktop-auth-data-access';
+import { tauriAuthAdapter } from './tauri-auth.adapter';
 import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,

@@ -1,14 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import type { Subscription } from 'rxjs';
-import { buildSignInUrl } from '../util-clerk-url';
-import { decodeJwt } from '../util-decode-jwt';
+import {
+  buildSignInUrl,
+  decodeJwt,
+  type AuthSession,
+  type DeepLinkPayload,
+  type WelcomeState,
+} from '@mozart/desktop-auth-util';
 import { AUTH_ADAPTER } from './auth.adapter';
-import type {
-  AuthSession,
-  DeepLinkPayload,
-  WelcomeState,
-} from './auth.model';
 
 // User-facing timeout : if the deep-link doesn't arrive within 5 min
 // after clicking Sign in, the welcome screen flips to a "timed-out"

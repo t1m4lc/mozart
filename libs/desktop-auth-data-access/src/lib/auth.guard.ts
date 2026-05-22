@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { Router, type CanActivateFn } from '@angular/router';
-import { AuthFacade } from './data/auth.facade';
+import { AuthFacade } from './auth.facade';
 import { isDevAuthBypassActive } from './dev-bypass';
 
 // Functional route guard. `/welcome` is the only route that does NOT

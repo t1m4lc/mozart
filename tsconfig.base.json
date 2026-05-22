@@ -252,6 +252,18 @@
       ],
       "@mozart/desktop-tasks-data-access": [
         "./libs/desktop-tasks-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-auth-data-access": [
+        "./libs/desktop-auth-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-auth-ui": [
+        "./libs/desktop-auth-ui/src/index.ts"
+      ],
+      "@mozart/desktop-auth-feature": [
+        "./libs/desktop-auth-feature/src/index.ts"
+      ],
+      "@mozart/desktop-auth-util": [
+        "./libs/desktop-auth-util/src/index.ts"
       ]
     }
   }

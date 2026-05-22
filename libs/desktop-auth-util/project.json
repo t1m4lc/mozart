@@ -1,0 +1,24 @@
+{
+  "name": "desktop-auth-util",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-auth-util/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": [
+    "app:desktop",
+    "domain:auth",
+    "type:util"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/desktop-auth-util/tsconfig.spec.json"
+      }
+    }
+  }
+}

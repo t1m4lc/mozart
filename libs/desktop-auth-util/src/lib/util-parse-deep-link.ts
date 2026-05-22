@@ -1,4 +1,4 @@
-import type { DeepLinkPayload } from './data/auth.model';
+import type { DeepLinkPayload } from './auth.model';
 
 // Pure helper. Parses `mozart://auth?token=...&state=...` into the
 // typed payload. Returns `null` for any malformed input — wrong scheme,

@@ -1,13 +1,16 @@
 import { InjectionToken } from '@angular/core';
 import type { Observable } from 'rxjs';
-import type { AuthSession, DeepLinkPayload } from './auth.model';
+import type { AuthSession, DeepLinkPayload } from '@mozart/desktop-auth-util';
 
 // Auth-IO port. The concrete impl is bound in `app.config.ts`. In Atom 1
 // the binding is `fakeAuthAdapter` (fully in-memory) ; from Atom 2 onward
 // a Tauri-backed impl gradually replaces it.
 //
-// No file under `domains/auth/` outside `*-auth.adapter.ts` may import
-// from `@tauri-apps/*` or `core/_bindings` directly (Convention #2).
+// No file in `desktop-auth-data-access` / `desktop-auth-ui` /
+// `desktop-auth-feature` / `desktop-auth-util` may import from
+// `@tauri-apps/*` or `core/_bindings`. The Tauri-backed impl lives in
+// `apps/desktop/src/app/core/tauri-auth.adapter.ts` — the only file
+// permitted to bridge this port to Tauri (Convention #2).
 export interface AuthAdapter {
   /** Read the persisted session at boot. Returns null when none. */
   loadSession(): Promise<AuthSession | null>;

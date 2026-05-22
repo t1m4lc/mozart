@@ -92,6 +92,8 @@ The `@nx/enforce-module-boundaries` ESLint rule enforces:
 
 Run `bash tools/verify-scope-tags.sh` after adding a new project — a missing tag silently exempts the project from the boundary rule.
 
+Before changing Nx library structure, imports, or project boundaries, use the Nx MCP / project graph to inspect affected projects and dependency rules.
+
 ## Commit discipline
 
 1. **Always ask before committing.** Never commit without explicit human approval, even when the work looks complete, even after a manual checkpoint passed, even for a one-liner. The user reviews the diff and says "commit" before any `git commit` runs.

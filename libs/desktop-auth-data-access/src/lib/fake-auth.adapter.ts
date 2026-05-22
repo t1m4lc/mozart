@@ -1,6 +1,6 @@
 import { Subject } from 'rxjs';
 import type { AuthAdapter } from './auth.adapter';
-import type { AuthSession, DeepLinkPayload } from './auth.model';
+import type { AuthSession, DeepLinkPayload } from '@mozart/desktop-auth-util';
 
 // Fully in-memory AuthAdapter for Atom 1. Holds a single session in
 // closure state ; clicking Sign in schedules a fake deep-link after a

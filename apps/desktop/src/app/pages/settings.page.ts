@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { ExternalLinkService } from '../core/external-link.service';
-import { AuthFacade } from '../domains/auth';
+import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { FeatureGitStatus, OnboardingFacade } from '../domains/onboarding';
 import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile';
 

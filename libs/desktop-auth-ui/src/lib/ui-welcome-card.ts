@@ -8,7 +8,7 @@ import { HlmAlertImports } from '@mozart/ui/alert';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmEmptyImports } from '@mozart/ui/empty';
 import { HlmTypographyImports } from '@mozart/ui/typography';
-import type { WelcomeState } from './data/auth.model';
+import type { WelcomeState } from '@mozart/desktop-auth-util';
 
 // Dumb presentational component for /welcome. Mirrors the layout in
 // docs/specs/onboarding-and-auth.md §2.2 : logo, heading, subtitle,

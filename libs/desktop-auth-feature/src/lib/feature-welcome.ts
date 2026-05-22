@@ -4,9 +4,12 @@ import {
   inject,
   isDevMode,
 } from '@angular/core';
-import { AuthFacade } from './data/auth.facade';
-import { enableDevAuthBypassAndReload, isRunningInTauri } from './dev-bypass';
-import { UiWelcomeCard } from './ui-welcome-card';
+import {
+  AuthFacade,
+  enableDevAuthBypassAndReload,
+  isRunningInTauri,
+} from '@mozart/desktop-auth-data-access';
+import { UiWelcomeCard } from '@mozart/desktop-auth-ui';
 
 // Smart component for /welcome. Wires the AuthFacade to the dumb
 // UiWelcomeCard ; owns no presentation of its own beyond the
