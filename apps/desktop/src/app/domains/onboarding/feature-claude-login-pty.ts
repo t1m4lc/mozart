@@ -11,8 +11,9 @@ import {
   viewChild,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { FitAddon } from '@xterm/addon-fit';
-import { Terminal } from '@xterm/xterm';
+import type { FitAddon } from '@xterm/addon-fit';
+import type { Terminal } from '@xterm/xterm';
+import { loadXterm } from '../../core/util-xterm';
 import { ProfileFacade } from '../profile';
 import { PROVIDER_SETUP_ADAPTER } from './data/provider-setup.adapter';
 
@@ -115,7 +116,11 @@ export class FeatureClaudeLoginPty {
     this.mounted = true;
     this.state.set('connecting');
 
-    const term = new Terminal({
+    // Load xterm.js dynamically — keeps the ~290 kB chunk out of the
+    // eager shell bundle. The onboarding flow can afford the extra
+    // network round-trip on first paint of this sub-step.
+    const xtermModules = await loadXterm();
+    const term = new xtermModules.xterm.Terminal({
       cols: 80,
       rows: 24,
       cursorBlink: true,
@@ -126,7 +131,7 @@ export class FeatureClaudeLoginPty {
       scrollback: 5000,
       allowProposedApi: true,
     });
-    const fit = new FitAddon();
+    const fit = new xtermModules.fit.FitAddon();
     term.loadAddon(fit);
     term.open(this.host().nativeElement);
     queueMicrotask(() => {

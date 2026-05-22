@@ -1,5 +1,5 @@
-import { FitAddon } from '@xterm/addon-fit';
-import { Terminal, type ITheme } from '@xterm/xterm';
+import type { FitAddon } from '@xterm/addon-fit';
+import type { Terminal, ITheme } from '@xterm/xterm';
 
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
@@ -16,17 +16,55 @@ export interface CreateXtermOptions {
   theme?: ITheme;
 }
 
+type XtermModule = typeof import('@xterm/xterm');
+type FitAddonModule = typeof import('@xterm/addon-fit');
+
+// Type-only imports above + dynamic-import below pull xterm.js (~290 kB)
+// into its own chunk instead of joining the eager shell. Callers must
+// `await loadXterm()` once before invoking `createXterm()` — registries
+// do this through their own preload paths so their public APIs stay sync.
+let cached: { xterm: XtermModule; fit: FitAddonModule } | null = null;
+let inFlight: Promise<{ xterm: XtermModule; fit: FitAddonModule }> | null =
+  null;
+
+export function loadXterm(): Promise<{
+  xterm: XtermModule;
+  fit: FitAddonModule;
+}> {
+  if (cached) return Promise.resolve(cached);
+  if (inFlight) return inFlight;
+  inFlight = Promise.all([
+    import('@xterm/xterm'),
+    import('@xterm/addon-fit'),
+  ]).then(([xterm, fit]) => {
+    cached = { xterm, fit };
+    inFlight = null;
+    return cached;
+  });
+  return inFlight;
+}
+
 // Shared xterm.js Terminal construction for the `runs` and `terminals`
 // domains. Defaults (cols, rows, font, scrollback, fit addon) are
 // identical between read-only run output and interactive user shells;
 // only `cursorBlink` / `disableStdin` (driven by `readOnly`) and the
 // optional palette differ. Domain-specific wiring (onData, onResize,
 // status signals, theme reactivity) stays in the caller.
+//
+// Synchronous on purpose so RunRegistry.ensureEntry — called from
+// computed signals — does not have to become async. The route guard
+// on the workspace-detail page awaits loadXterm() before mounting,
+// so by the time any computed reads ensureEntry() the cache is warm.
 export function createXterm(options: CreateXtermOptions): {
   term: Terminal;
   fit: FitAddon;
 } {
-  const term = new Terminal({
+  if (!cached) {
+    throw new Error(
+      'createXterm() called before loadXterm() resolved. Did the route guard run?',
+    );
+  }
+  const term = new cached.xterm.Terminal({
     cols: DEFAULT_COLS,
     rows: DEFAULT_ROWS,
     cursorBlink: !options.readOnly,
@@ -38,7 +76,7 @@ export function createXterm(options: CreateXtermOptions): {
     allowProposedApi: true,
     theme: options.theme,
   });
-  const fit = new FitAddon();
+  const fit = new cached.fit.FitAddon();
   term.loadAddon(fit);
   return { term, fit };
 }

@@ -2,7 +2,7 @@ import { Injectable, effect, inject } from '@angular/core';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { ThemeService } from '@mozart/shared-util-theme';
-import { createXterm } from '../../../core/util-xterm';
+import { createXterm, loadXterm } from '../../../core/util-xterm';
 import { TerminalsFacade } from './terminals.facade';
 
 /** xterm.js + addons + Rust unsubscribe handle for one workspace. */
@@ -54,6 +54,12 @@ export class TerminalRegistry {
   ): Promise<TerminalEntry> {
     const existing = this.entries.get(workspaceId);
     if (existing) return existing;
+
+    // Make sure the xterm.js chunk is loaded. The workspace-detail
+    // route guard normally warms the cache before we get here, but
+    // calling it directly is the source of truth — and a no-op once
+    // resolved.
+    await loadXterm();
 
     // Match the surrounding `bg-sidebar` palette so the terminal doesn't
     // punch a black rectangle through the polished UI. CSS variables are
