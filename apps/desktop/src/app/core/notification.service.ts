@@ -53,7 +53,14 @@ export class NotificationService {
     const prefs = this._prefs();
     if (prefs.desktop) {
       const impl = await loadImpl();
-      void impl.sendDesktopNotification(opts);
+      // Always attach a catch so any rejection escaping the inner
+      // try/catch (e.g., a Tauri capability error that the IPC
+      // layer raises synchronously around the await boundary)
+      // doesn't surface as an unhandled-promise-rejection in the
+      // webview console.
+      impl.sendDesktopNotification(opts).catch((err) => {
+        console.warn('[notification] sendDesktopNotification rejected', err);
+      });
     }
     if (prefs.sound) {
       this._playSound();

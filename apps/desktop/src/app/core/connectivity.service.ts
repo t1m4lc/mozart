@@ -12,7 +12,13 @@ import { fromEvent, merge } from 'rxjs';
 // authoritative endpoint for the Anthropic API users actually need.
 // A failure here can be DNS / firewall / outage / wifi-down — any of
 // which mean "non-local LLM unreachable" from the user's machine.
-const PROBE_URL = 'https://api.anthropic.com/v1';
+//
+// We probe the bare root (matches the Rust-side probe in
+// `src-tauri/src/credentials/anthropic_probe.rs`). The root replies
+// quickly without a 404 ; `/v1` HEAD used to return 404 which the
+// browser logged as a noisy "Failed to load resource" in DevTools
+// even though `no-cors` masked the body.
+const PROBE_URL = 'https://api.anthropic.com/';
 const PROBE_INTERVAL_MS = 30_000;
 const PROBE_TIMEOUT_MS = 5_000;
 

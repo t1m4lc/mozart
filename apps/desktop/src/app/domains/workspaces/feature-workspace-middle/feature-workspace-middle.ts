@@ -39,9 +39,11 @@ import { WorkspacesFacade } from '../data/workspace.facade';
 const AT_BOTTOM_THRESHOLD_PX = 50;
 
 // Where the just-sent user message lands as a fraction of viewport
-// height from the top of `<main>`. 0.2 = 1/5 from top, leaving 4/5
-// below for the agent's response (ChatGPT-style).
-const USER_MESSAGE_TOP_FRACTION = 0.2;
+// height from the top of `<main>`. 0.5 = vertical center of the
+// visible chat area. `scrollBy` clamps to the valid range, so for
+// short chats with no scroll room the message stays at its natural
+// position (top) instead of forcing visible empty padding below it.
+const USER_MESSAGE_TOP_FRACTION = 0.5;
 
 @Component({
   selector: 'app-feature-workspace-middle',
