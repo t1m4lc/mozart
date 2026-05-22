@@ -21,7 +21,10 @@ import {
   lucideChevronDown,
   lucideChevronRight,
   lucideCopy,
+  lucideFoldVertical,
   lucideRefreshCw,
+  lucideSquare,
+  lucideSquareCheck,
   lucideUnfoldVertical,
 } from '@ng-icons/lucide';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
@@ -96,7 +99,10 @@ interface PathDisplay {
       lucideChevronDown,
       lucideChevronRight,
       lucideCopy,
+      lucideFoldVertical,
       lucideRefreshCw,
+      lucideSquare,
+      lucideSquareCheck,
       lucideUnfoldVertical,
     }),
   ],
@@ -118,7 +124,7 @@ interface PathDisplay {
           variant="ghost"
           size="xs"
           type="button"
-          class="text-muted-foreground hover:text-foreground -ml-1 h-6 w-6 p-0"
+          class="text-muted-foreground hover:text-foreground -ml-1 h-6 w-6 shrink-0 p-0"
           [attr.aria-expanded]="!_collapsed()"
           [attr.aria-label]="_collapsed() ? 'Expand file' : 'Collapse file'"
           (click)="_toggle()"
@@ -149,21 +155,6 @@ interface PathDisplay {
           }
         </div>
 
-        <mz-diff-stats
-          class="shrink-0"
-          [added]="additions()"
-          [removed]="deletions()"
-        />
-
-        <span
-          hlmBadge
-          variant="outline"
-          class="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wider"
-          [class]="_badgeToneClass()"
-          [attr.aria-label]="'Status: ' + _badge().label"
-          data-slot="status-badge"
-        >{{ _badge().label }}</span>
-
         <button
           hlmBtn
           variant="ghost"
@@ -191,15 +182,37 @@ interface PathDisplay {
             size="xs"
             type="button"
             class="text-muted-foreground hover:text-foreground h-6 w-6 shrink-0 p-0"
-            hlmTooltip="Expand all hidden lines"
-            aria-label="Expand all hidden lines"
+            [hlmTooltip]="_expandAllTooltip()"
+            [attr.aria-label]="_expandAllTooltip()"
+            [attr.aria-pressed]="_allExpanded()"
             data-slot="expand-all-button"
             [disabled]="!fetchContext()"
-            (click)="expandAll()"
+            (click)="_toggleExpandAll()"
           >
-            <ng-icon hlm name="lucideUnfoldVertical" size="xs" />
+            <ng-icon
+              hlm
+              [name]="
+                _allExpanded() ? 'lucideFoldVertical' : 'lucideUnfoldVertical'
+              "
+              size="xs"
+            />
           </button>
         }
+
+        <mz-diff-stats
+          class="shrink-0"
+          [added]="additions()"
+          [removed]="deletions()"
+        />
+
+        <span
+          hlmBadge
+          variant="outline"
+          class="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wider"
+          [class]="_badgeToneClass()"
+          [attr.aria-label]="'Status: ' + _badge().label"
+          data-slot="status-badge"
+        >{{ _badge().label }}</span>
 
         <button
           hlmBtn
@@ -212,7 +225,33 @@ interface PathDisplay {
           data-slot="refresh-button"
           (click)="refresh.emit()"
         >
-          <ng-icon hlm name="lucideRefreshCw" size="xs" />
+          <ng-icon
+            hlm
+            name="lucideRefreshCw"
+            size="xs"
+            [class.animate-spin]="loading()"
+          />
+        </button>
+
+        <button
+          hlmBtn
+          variant="ghost"
+          size="xs"
+          type="button"
+          class="text-muted-foreground hover:text-foreground h-6 shrink-0 gap-1 px-2 text-[11px]"
+          [class.text-foreground]="_viewed()"
+          [hlmTooltip]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
+          [attr.aria-pressed]="_viewed()"
+          [attr.aria-label]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
+          data-slot="viewed-button"
+          (click)="_toggleViewed()"
+        >
+          <ng-icon
+            hlm
+            [name]="_viewed() ? 'lucideSquareCheck' : 'lucideSquare'"
+            size="xs"
+          />
+          Viewed
         </button>
       </header>
 
@@ -288,6 +327,7 @@ export class MzFileDiffCard {
 
   readonly defaultCollapsed = input<boolean>(false);
   readonly active = input<boolean>(false);
+  readonly viewed = input<boolean>(false);
 
   readonly refresh = output<void>();
   // Plan §5.3 named this `copy`, but Angular flags `copy` as a DOM event
@@ -297,11 +337,21 @@ export class MzFileDiffCard {
   readonly copyError = output<Error>();
   readonly showAnyway = output<void>();
   readonly toggleCollapsed = output<boolean>();
+  readonly viewedChange = output<boolean>();
 
   // linkedSignal seeds from defaultCollapsed and resyncs if the caller
   // changes it — but local _toggle() updates take precedence in between.
   protected readonly _collapsed = linkedSignal(() => this.defaultCollapsed());
+  // viewed mirrors the input but the in-card button can flip it locally;
+  // each local toggle emits viewedChange so a host can persist + reorder.
+  protected readonly _viewed = linkedSignal(() => this.viewed());
   protected readonly _copyState = signal<CopyState>('idle');
+  // Tracks whether the user clicked expand-all. Resets when the path
+  // changes so a sibling file doesn't inherit the prior state.
+  protected readonly _allExpanded = linkedSignal(() => {
+    this.path();
+    return false;
+  });
 
   protected readonly _bodyMode = computed<BodyMode>(() =>
     statusBodyMode(this.status()),
@@ -338,6 +388,10 @@ export class MzFileDiffCard {
     }
   });
 
+  protected readonly _expandAllTooltip = computed(() =>
+    this._allExpanded() ? 'Collapse all hidden lines' : 'Expand all hidden lines',
+  );
+
   // viewChild returns a Signal — undefined when the diff body isn't
   // mounted (binary/too-large/no-diff/collapsed).
   private readonly _diffView = viewChild(MzDiffView);
@@ -355,17 +409,44 @@ export class MzFileDiffCard {
     });
   }
 
-  /** Reveal every still-hidden context line across every gap. Forwards to
-   *  the mounted `MzDiffView`. No-op when the diff body isn't mounted
-   *  (e.g. status=binary, collapsed). */
+  /** Reveal every still-hidden context line across every gap. Forwards
+   *  to the mounted `MzDiffView`. No-op when the diff body isn't
+   *  mounted (e.g. status=binary, collapsed). */
   expandAll(): void {
     this._diffView()?.expandAll();
+    this._allExpanded.set(true);
+  }
+
+  /** Inverse of expandAll(). Drops every revealed context line for the
+   *  current path. No-op when the diff body isn't mounted. */
+  collapseAll(): void {
+    this._diffView()?.collapseAll();
+    this._allExpanded.set(false);
+  }
+
+  protected _toggleExpandAll(): void {
+    if (this._allExpanded()) {
+      this.collapseAll();
+    } else {
+      this.expandAll();
+    }
   }
 
   protected _toggle(): void {
     const next = !this._collapsed();
     this._collapsed.set(next);
     this.toggleCollapsed.emit(next);
+  }
+
+  protected _toggleViewed(): void {
+    const next = !this._viewed();
+    this._viewed.set(next);
+    this.viewedChange.emit(next);
+    // Marking-as-viewed implies the reviewer is done with this card —
+    // auto-collapse so the file list stays scannable. Unmarking does NOT
+    // auto-expand: if the host moved the card elsewhere or the reviewer
+    // wants to revisit, they'll click the chevron themselves.
+    if (next) this._collapsed.set(true);
   }
 
   protected async _copyPath(): Promise<void> {

@@ -303,6 +303,35 @@ describe('MzDiffView component', () => {
     expect(fetchContext).not.toHaveBeenCalled();
   });
 
+  it('collapseAll drops every revealed line and re-renders the original gaps', async () => {
+    const fetchContext = vi.fn(async (from: number, to: number) => {
+      const out: string[] = [];
+      for (let i = from; i <= to; i++) out.push(`line${i}`);
+      return out;
+    });
+
+    const fixture = mountComponent({
+      diffText: diffWithTwoHunks(),
+      fetchContext,
+      fileLineCount: 60,
+    });
+
+    fixture.componentInstance.expandAll();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const expandedItems = fixture.componentInstance['_renderItems']();
+    // After expandAll, every gap's context is revealed so the line count
+    // exceeds what the bare diff would emit.
+    expect(expandedItems.length).toBeGreaterThan(10);
+
+    fixture.componentInstance.collapseAll();
+    fixture.detectChanges();
+    const collapsedItems = fixture.componentInstance['_renderItems']();
+    // collapseAll wipes the per-path state — we're back to the bare
+    // diff's render items, which is strictly fewer.
+    expect(collapsedItems.length).toBeLessThan(expandedItems.length);
+  });
+
   it('renders a retry strip when the context fetch rejects, and re-invokes on retry', async () => {
     let shouldReject = true;
     const fetchContext = vi.fn(async (from: number, to: number) => {

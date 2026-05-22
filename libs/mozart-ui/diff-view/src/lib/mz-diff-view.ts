@@ -289,6 +289,21 @@ export class MzDiffView {
     }
   }
 
+  /** Reset every revealed context line for the current path. Inverse of
+   *  expandAll() — drops the path's expansion/cache/error state so the
+   *  diff renders the way it did before any expand-bar click. No-op if
+   *  the path was never expanded. */
+  collapseAll(): void {
+    const p = this.path();
+    if (!p) return;
+    this.stateByPath.update((prev) => {
+      if (!prev.has(p)) return prev;
+      const next = new Map(prev);
+      next.delete(p);
+      return next;
+    });
+  }
+
   protected onExpand(gapIndex: number, event: HunkExpandEvent): void {
     const fetcher = this.fetchContext();
     if (!fetcher) return;

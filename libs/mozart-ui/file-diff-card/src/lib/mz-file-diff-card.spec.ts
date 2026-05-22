@@ -10,12 +10,14 @@ interface MountOpts {
   readonly additions?: number;
   readonly deletions?: number;
   readonly diffText?: string;
+  readonly loading?: boolean;
   readonly fetchContext?:
     | ((from: number, to: number) => Promise<readonly string[]>)
     | null;
   readonly fileLineCount?: number | null;
   readonly defaultCollapsed?: boolean;
   readonly active?: boolean;
+  readonly viewed?: boolean;
 }
 
 function mount(opts: MountOpts = {}): ComponentFixture<MzFileDiffCard> {
@@ -29,6 +31,7 @@ function mount(opts: MountOpts = {}): ComponentFixture<MzFileDiffCard> {
   fixture.componentRef.setInput('additions', opts.additions ?? 0);
   fixture.componentRef.setInput('deletions', opts.deletions ?? 0);
   fixture.componentRef.setInput('diffText', opts.diffText ?? '');
+  fixture.componentRef.setInput('loading', opts.loading ?? false);
   fixture.componentRef.setInput('fetchContext', opts.fetchContext ?? null);
   fixture.componentRef.setInput('fileLineCount', opts.fileLineCount ?? null);
   fixture.componentRef.setInput(
@@ -36,6 +39,7 @@ function mount(opts: MountOpts = {}): ComponentFixture<MzFileDiffCard> {
     opts.defaultCollapsed ?? false,
   );
   fixture.componentRef.setInput('active', opts.active ?? false);
+  fixture.componentRef.setInput('viewed', opts.viewed ?? false);
   fixture.detectChanges();
   return fixture;
 }
@@ -377,5 +381,155 @@ describe('MzFileDiffCard — refresh output', () => {
     expect(btn).toBeTruthy();
     btn.click();
     expect(count).toBe(1);
+  });
+
+  it('spins the refresh icon while loading=true', () => {
+    const fixture = mount({ loading: true });
+    const btn = findBySlot(fixture, 'refresh-button');
+    if (!btn) throw new Error('expected refresh button');
+    const icon = btn.querySelector('ng-icon');
+    if (!icon) throw new Error('expected ng-icon in refresh button');
+    expect(icon.classList).toContain('animate-spin');
+  });
+
+  it('does not spin the refresh icon when loading=false', () => {
+    const fixture = mount({ loading: false });
+    const btn = findBySlot(fixture, 'refresh-button');
+    if (!btn) throw new Error('expected refresh button');
+    const icon = btn.querySelector('ng-icon');
+    if (!icon) throw new Error('expected ng-icon in refresh button');
+    expect(icon.classList).not.toContain('animate-spin');
+  });
+});
+
+describe('MzFileDiffCard — viewed button', () => {
+  it('reflects the viewed input on initial render', () => {
+    const fixture = mount({ viewed: true });
+    const btn = findBySlot(fixture, 'viewed-button') as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
+    expect(btn.getAttribute('aria-label')).toBe('Mark unviewed');
+  });
+
+  it('emits viewedChange and auto-collapses the card on click', () => {
+    const fixture = mount();
+    const card = fixture.componentInstance;
+    const emitted: boolean[] = [];
+    card.viewedChange.subscribe((v) => emitted.push(v));
+
+    // Body is expanded before the click.
+    expect(fixture.debugElement.query(By.css('mz-diff-view'))).toBeTruthy();
+
+    const btn = findBySlot(fixture, 'viewed-button') as HTMLButtonElement;
+    btn.click();
+    fixture.detectChanges();
+
+    expect(emitted).toEqual([true]);
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
+    // Auto-collapse drops the body.
+    expect(fixture.debugElement.query(By.css('mz-diff-view'))).toBeNull();
+  });
+
+  it('toggles back to unviewed without re-expanding the card', () => {
+    const fixture = mount({ viewed: true, defaultCollapsed: true });
+    const card = fixture.componentInstance;
+    const emitted: boolean[] = [];
+    card.viewedChange.subscribe((v) => emitted.push(v));
+
+    const btn = findBySlot(fixture, 'viewed-button') as HTMLButtonElement;
+    btn.click();
+    fixture.detectChanges();
+
+    expect(emitted).toEqual([false]);
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+    // Body stays collapsed — un-marking viewed must not auto-expand.
+    expect(fixture.debugElement.query(By.css('mz-diff-view'))).toBeNull();
+  });
+});
+
+describe('MzFileDiffCard — expand-all toggle', () => {
+  const TWO_GAP_DIFF = [
+    'diff --git a/big.ts b/big.ts',
+    '--- a/big.ts',
+    '+++ b/big.ts',
+    '@@ -10,3 +10,3 @@',
+    ' line10',
+    '-old11',
+    '+new11',
+    ' line12',
+  ].join('\n');
+
+  it('first click reveals all hidden lines and flips the tooltip', async () => {
+    const fetchContext = vi.fn(async (from: number, to: number) => {
+      const out: string[] = [];
+      for (let i = from; i <= to; i++) out.push(`line${i}`);
+      return out;
+    });
+    const fixture = mount({
+      status: 'modified',
+      diffText: TWO_GAP_DIFF,
+      fetchContext,
+      fileLineCount: 30,
+    });
+
+    const btn = findBySlot(fixture, 'expand-all-button') as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    expect(btn.getAttribute('aria-label')).toBe('Expand all hidden lines');
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+
+    btn.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(fetchContext).toHaveBeenCalled();
+    expect(btn.getAttribute('aria-label')).toBe('Collapse all hidden lines');
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
+  });
+
+  it('second click collapses everything and the tooltip flips back', async () => {
+    const fetchContext = vi.fn(async (from: number, to: number) => {
+      const out: string[] = [];
+      for (let i = from; i <= to; i++) out.push(`line${i}`);
+      return out;
+    });
+    const fixture = mount({
+      status: 'modified',
+      diffText: TWO_GAP_DIFF,
+      fetchContext,
+      fileLineCount: 30,
+    });
+    const btn = findBySlot(fixture, 'expand-all-button') as HTMLButtonElement;
+
+    // Expand
+    btn.click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    // Collapse
+    btn.click();
+    fixture.detectChanges();
+
+    expect(btn.getAttribute('aria-label')).toBe('Expand all hidden lines');
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('switching paths resets the expand-all state', () => {
+    const fixture = mount({
+      status: 'modified',
+      diffText: TWO_GAP_DIFF,
+      fetchContext: vi.fn(async () => []),
+      fileLineCount: 30,
+    });
+    const card = fixture.componentInstance;
+    card.expandAll();
+    fixture.detectChanges();
+    const btn = findBySlot(fixture, 'expand-all-button') as HTMLButtonElement;
+    expect(btn.getAttribute('aria-pressed')).toBe('true');
+
+    fixture.componentRef.setInput('path', 'other.ts');
+    fixture.detectChanges();
+    expect(btn.getAttribute('aria-pressed')).toBe('false');
   });
 });
