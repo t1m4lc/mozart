@@ -1,11 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { ExternalLinkService } from '../core/external-link.service';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { FeatureGitStatus, OnboardingFacade } from '../domains/onboarding';
-import { FeatureConnections } from '../domains/profile/feature-connections';
-import { FeatureNotificationPrefs } from '../domains/profile/feature-notification-prefs';
+import {
+  FeatureConnections,
+  FeatureNotificationPrefs,
+} from '@mozart/desktop-profile-feature';
 
 // Web account URL. Mirrors `buildSignInUrl` — same dev origin, just a
 // different path. Production deploy will swap this to app.mozart.build.

@@ -12,7 +12,7 @@ import { HlmSeparatorImports } from '@mozart/ui/separator';
 import { BrnDialogRef } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideExternalLink, lucideGithub } from '@ng-icons/lucide';
-import { ExternalLinkService } from '../../core/external-link.service';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 
 // PAT-creation URL prefilled with the scopes Mozart needs.

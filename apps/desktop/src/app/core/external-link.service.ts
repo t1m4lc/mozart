@@ -1,11 +1,14 @@
 import { Injectable } from '@angular/core';
 import { open as openExternal } from '@tauri-apps/plugin-shell';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 
-// Thin wrapper over `@tauri-apps/plugin-shell` so feature components
-// don't import Tauri APIs directly. Lives in `core/` per the project's
-// boundary rules (Tauri imports allowed under `core/` and `data/`).
+// Tauri-bound impl of the abstract `ExternalLinkService` declared in
+// `desktop-core-data-access`. Bound via
+// `{ provide: ExternalLinkService, useExisting: TauriExternalLinkService }`
+// in app.config so libs can `inject(ExternalLinkService)` without
+// dragging `@tauri-apps/*` into their build graph.
 @Injectable({ providedIn: 'root' })
-export class ExternalLinkService {
+export class TauriExternalLinkService extends ExternalLinkService {
   async openExternal(url: string): Promise<void> {
     try {
       await openExternal(url);

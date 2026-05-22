@@ -7,6 +7,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { fromEvent, merge } from 'rxjs';
+import { ConnectivityService } from '@mozart/desktop-core-data-access';
 
 import { commands } from './_bindings';
 
@@ -17,28 +18,28 @@ import { commands } from './_bindings';
 const PROBE_INTERVAL_MS = 30_000;
 
 /**
- * Tracks browser online/offline state plus a periodic reachability
- * probe against the Anthropic API. Surfaces:
- *   - `online`: the browser thinks it has a network (navigator.onLine)
- *   - `apiReachable`: last probe round-tripped
- *   - `connected`: both of the above; what UIs gate "non-local LLM
- *     available" on.
+ * Tauri-bound impl of the abstract `ConnectivityService` declared in
+ * `desktop-core-data-access`. Tracks browser online/offline state
+ * plus a periodic reachability probe against the Anthropic API.
  *
- * Singleton via `providedIn: 'root'`. Starts probing immediately and
- * piggy-backs on the browser's online/offline events to force-refresh.
+ * Singleton via `providedIn: 'root'`. Bound to the abstract via
+ * `{ useExisting: TauriConnectivityService }` in app.config.
  */
 @Injectable({ providedIn: 'root' })
-export class ConnectivityService {
+export class TauriConnectivityService extends ConnectivityService {
   private readonly _online = signal<boolean>(
     typeof navigator !== 'undefined' ? navigator.onLine : true,
   );
   private readonly _apiReachable = signal<boolean>(true);
 
-  readonly online = this._online.asReadonly();
-  readonly apiReachable = this._apiReachable.asReadonly();
-  readonly connected = computed(() => this._online() && this._apiReachable());
+  override readonly online = this._online.asReadonly();
+  override readonly apiReachable = this._apiReachable.asReadonly();
+  override readonly connected = computed(
+    () => this._online() && this._apiReachable(),
+  );
 
   constructor() {
+    super();
     if (typeof window === 'undefined') return;
 
     merge(fromEvent(window, 'online'), fromEvent(window, 'offline'))
@@ -58,7 +59,7 @@ export class ConnectivityService {
   }
 
   /** Force a probe now. Returns the new `connected` value. */
-  async refresh(): Promise<boolean> {
+  override async refresh(): Promise<boolean> {
     await this.probe();
     return this.connected();
   }

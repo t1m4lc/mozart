@@ -1,5 +1,5 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
-import { NotificationService } from '../../../core/notification.service';
+import { NotificationService } from '@mozart/desktop-core-data-access';
 import { WindowFocusService } from '../../../core/window-focus.service';
 import {
   LLM_ADAPTER,

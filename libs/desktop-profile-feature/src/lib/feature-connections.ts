@@ -3,11 +3,13 @@ import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideWifiOff } from '@ng-icons/lucide';
-import { ConnectivityService } from '../../core/connectivity.service';
+import { ConnectivityService } from '@mozart/desktop-core-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import {
   type ConfirmDisconnectContext,
+  UiConfirmDisconnectDialog,
   UiConnectionCard,
+  UiConnectionHelpDialog,
   UiGithubCard,
 } from '@mozart/desktop-profile-ui';
 
@@ -100,9 +102,6 @@ export class FeatureConnections {
         void this.facade.disconnect();
       },
     };
-    const { UiConfirmDisconnectDialog } = await import(
-      '@mozart/desktop-profile-ui'
-    );
     this.dialogService.open(UiConfirmDisconnectDialog, { context });
   }
 
@@ -110,10 +109,7 @@ export class FeatureConnections {
     void this.facade.testConnection();
   }
 
-  protected async onHelp(): Promise<void> {
-    const { UiConnectionHelpDialog } = await import(
-      '@mozart/desktop-profile-ui'
-    );
+  protected onHelp(): void {
     this.dialogService.open(UiConnectionHelpDialog, {});
   }
 

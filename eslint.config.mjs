@@ -63,8 +63,9 @@ export default [
             //   ui      → ui | util
             //   data-access → data-access | util
             //   util    → util
-            // Stops UI components from reaching into stores and keeps
-            // util libs at the bottom of the dependency graph.
+            // Plus a passthrough for the legacy scope:* tree so libs in
+            // any layer can keep consuming shared Hlm / Spartan / util
+            // libraries that aren't yet on the layer axis.
             {
               sourceTag: 'type:feature',
               onlyDependOnLibsWithTags: [
@@ -72,19 +73,32 @@ export default [
                 'type:ui',
                 'type:data-access',
                 'type:util',
+                'scope:mozart-ui',
+                'scope:spartan',
+                'scope:shared',
               ],
             },
             {
               sourceTag: 'type:ui',
-              onlyDependOnLibsWithTags: ['type:ui', 'type:util'],
+              onlyDependOnLibsWithTags: [
+                'type:ui',
+                'type:util',
+                'scope:mozart-ui',
+                'scope:spartan',
+                'scope:shared',
+              ],
             },
             {
               sourceTag: 'type:data-access',
-              onlyDependOnLibsWithTags: ['type:data-access', 'type:util'],
+              onlyDependOnLibsWithTags: [
+                'type:data-access',
+                'type:util',
+                'scope:shared',
+              ],
             },
             {
               sourceTag: 'type:util',
-              onlyDependOnLibsWithTags: ['type:util'],
+              onlyDependOnLibsWithTags: ['type:util', 'scope:shared'],
             },
           ],
         },

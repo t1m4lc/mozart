@@ -9,9 +9,11 @@
 @source "../../../libs/desktop-auth-feature";
 @source "../../../libs/desktop-auth-ui";
 @source "../../../libs/desktop-auth-util";
+@source "../../../libs/desktop-core-data-access";
 @source "../../../libs/desktop-llm-model-data-access";
 @source "../../../libs/desktop-llm-model-util";
 @source "../../../libs/desktop-profile-data-access";
+@source "../../../libs/desktop-profile-feature";
 @source "../../../libs/desktop-profile-ui";
 @source "../../../libs/desktop-profile-util";
 @source "../../../libs/desktop-tasks-data-access";

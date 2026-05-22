@@ -10,7 +10,7 @@ import { HlmSwitchImports } from '@mozart/ui/switch';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { lucideVolume2 } from '@ng-icons/lucide';
-import { NotificationService } from '../../core/notification.service';
+import { NotificationService } from '@mozart/desktop-core-data-access';
 import {
   NOTIFICATION_PREFS_ADAPTER,
   type NotificationPreferences,

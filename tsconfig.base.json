@@ -285,6 +285,12 @@
       ],
       "@mozart/desktop-profile-ui": [
         "./libs/desktop-profile-ui/src/index.ts"
+      ],
+      "@mozart/desktop-core-data-access": [
+        "./libs/desktop-core-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-profile-feature": [
+        "./libs/desktop-profile-feature/src/index.ts"
       ]
     }
   }

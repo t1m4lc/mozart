@@ -133,7 +133,7 @@ export class FeatureOnboardingStepGithub {
 
   protected async onConnect(): Promise<void> {
     const { UiGithubConnectDialog } = await import(
-      '../profile/ui-github-connect-dialog'
+      '@mozart/desktop-profile-feature'
     );
     this.dialog.open(UiGithubConnectDialog, {});
   }

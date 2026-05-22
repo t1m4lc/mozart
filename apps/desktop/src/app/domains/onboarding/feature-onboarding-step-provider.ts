@@ -317,7 +317,9 @@ export class FeatureOnboardingStepProvider {
 
   protected async onUseApiKey(): Promise<void> {
     this.showPty.set(false);
-    const { UiConnectDialog } = await import('../profile/ui-connect-dialog');
+    const { UiConnectDialog } = await import(
+      '@mozart/desktop-profile-feature'
+    );
     this.dialog.open(UiConnectDialog, {});
   }
 }
