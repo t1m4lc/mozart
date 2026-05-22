@@ -32,17 +32,17 @@ import {
 } from '../domains/projects';
 import { AddProjectFlow } from '../core/add-project.flow';
 import { ChatFacade } from '../domains/chat';
-import type { ConfirmReopenWorkspaceContext } from '../domains/workspaces';
-import { WorkspaceContextMenu } from '../domains/workspaces/ui/workspace-context-menu/workspace-context-menu';
-import { WorkspaceEmptyState } from '../domains/workspaces/ui/workspace-empty-state/workspace-empty-state';
-import { WorkspaceRow } from '../domains/workspaces/ui/workspace-row/workspace-row';
-import { WorkspacesFacade } from '../domains/workspaces/data/workspace.facade';
-import type { Workspace } from '../domains/workspaces/data/workspace.model';
 import {
   UI_WORKSPACE_STATUSES,
+  WorkspaceContextMenu,
+  WorkspaceEmptyState,
+  WorkspaceRow,
+  WorkspacesFacade,
+  type ConfirmReopenWorkspaceContext,
   type UiWorkspaceStatus,
   type UiWorkspaceStatusMeta,
-} from '../domains/workspaces/data/workspace-status';
+  type Workspace,
+} from '../domains/workspaces';
 
 // Cross-domain composer for the left sidebar. This is the only place
 // where the projects and workspaces facades meet — per Convention #2

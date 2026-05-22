@@ -15,10 +15,10 @@ import { ProfileFacade } from '../domains/profile';
 import { ProjectsFacade } from '../domains/projects';
 import {
   FeatureWorkspaceAside,
+  MergeActionMenu,
   WorkspacesFacade,
   type MergeAction,
 } from '../domains/workspaces';
-import { MergeActionMenu } from '../domains/workspaces/ui/merge-action-menu/merge-action-menu';
 import { SHELL_RIGHT_PANEL_WIDTH } from './shell-panel.constants';
 import { ShellSidePanel } from './shell-side-panel';
 
