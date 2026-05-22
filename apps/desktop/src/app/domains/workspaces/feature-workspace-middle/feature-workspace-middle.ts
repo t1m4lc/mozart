@@ -53,18 +53,8 @@ const USER_MESSAGE_TOP_FRACTION = 0.2;
          app-shell.ts). Owner of all scroll behavior for chat lives in
          this component — see the orchestration in the constructor.
          The content area stays flex-1 so the composer sits at viewport
-         bottom on short conversations.
-
-         padding-bottom — when the user has just sent a prompt and the
-         agent hasn't started responding yet, we reserve 80vh of scroll
-         room below the messages so the just-sent message can be
-         scrolled up to 1/5 from <main>'s viewport top (ChatGPT-style
-         room for the upcoming response). The padding releases as soon
-         as an assistant message appears in the array. -->
-    <div
-      class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5"
-      [style.padding-bottom]="_pendingPromptPadding()"
-    >
+         bottom on short conversations. -->
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5">
       <ng-content />
     </div>
 
@@ -134,23 +124,6 @@ export class FeatureWorkspaceMiddle {
     const chatId = this._activeChatId();
     if (!chatId) return true;
     return this.scroll.followModeFor(chatId)() === 'attached';
-  });
-
-  // Reserves scroll room below the messages so the just-sent user
-  // message can slide to 1/5 from <main>'s viewport top, leaving 4/5
-  // of viewport empty for the agent's response to fill. The padding
-  // stays present for the full streaming turn (user-just-sent OR
-  // agent currently streaming) so the user's prompt holds its
-  // position while tokens fill below it (ChatGPT-style). Padding
-  // releases on the next idle tick once the stream completes.
-  protected readonly _pendingPromptPadding = computed<string | null>(() => {
-    if (this.fileContent()) return null;
-    const msgs = this._messages();
-    const last = msgs.at(-1);
-    if (!last) return null;
-    if (last.role === 'user') return '80vh';
-    if (last.role === 'assistant' && this.isStreaming()) return '80vh';
-    return null;
   });
 
   protected readonly hasNextUnreadInProject =
@@ -343,20 +316,16 @@ export class FeatureWorkspaceMiddle {
     //     this effect sets and lands the user at the stored position.
     //
     // We skip the auto-follow when the last message is from the user
-    // — onSend handles that case by positioning the user's prompt at
-    // 1/5 from top to leave room for the agent's response. Once the
-    // agent's placeholder/response message arrives, role flips to
-    // 'assistant' and normal auto-follow resumes.
+    // — onSend handles that case by smooth-scrolling the user's prompt
+    // toward 1/5 from top (when there's enough history above to make
+    // that scroll possible). Once the agent's placeholder/response
+    // message arrives, role flips to 'assistant' and normal
+    // auto-follow resumes.
     //
-    // The scroll target is the BOTTOM OF THE MESSAGE-LIST, not
-    // scrollHeight. While `_pendingPromptPadding` is present (during
-    // streaming) scrollHeight includes the 80vh of empty space, and
-    // targeting that would scroll past the agent's response into
-    // empty padding. Targeting the message-list's bottom keeps the
-    // newest token at viewport bottom regardless of padding. The
-    // scroll also only moves DOWNWARD — when the response still fits
-    // in the empty space, no scroll fires (the user's prompt holds
-    // at 1/5 from top until the response overflows).
+    // The scroll target is the bottom of the MESSAGE-LIST and the
+    // scroll only moves DOWNWARD — never yank the user up to "follow"
+    // the agent. Together those guarantee the 1/5-from-top positioning
+    // isn't undone the moment the agent placeholder appears.
     effect(() => {
       const msgs = this._messages();
       const chatId = this._activeChatId();

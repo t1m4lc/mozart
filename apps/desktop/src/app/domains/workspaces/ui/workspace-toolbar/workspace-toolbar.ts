@@ -171,7 +171,7 @@ import { OpenInMenu } from '../open-in-menu/open-in-menu';
               variant="ghost"
               size="icon-xs"
               type="button"
-              brnSheetTrigger
+              hlmSheetTrigger
               hlmTooltip="Open workspace panel"
               position="bottom"
               class="size-7 rounded-md text-muted-foreground"
