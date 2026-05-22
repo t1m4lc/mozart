@@ -31,8 +31,8 @@ export class TerminalRegistry {
     // light mode keep their light palette after the user flips to
     // dark — which is exactly the "terminal stays light" complaint.
     effect(() => {
-      // Subscribe to both signals so a theme swap (mozart ↔ zinc) or
-      // mode swap (light ↔ dark) triggers a re-apply.
+      // Subscribe to both signals so a theme swap or mode swap
+      // (light ↔ dark) triggers a re-apply.
       this.theme.isDark();
       this.theme.activeTheme();
       const next = resolveXtermTheme();
