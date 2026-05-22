@@ -322,7 +322,8 @@ export const commands = {
   },
   async startAgentRun(
     workspaceId: string,
-    prompt: string,
+    chatId: string,
+    currentUserMessageId: string,
     mode: string,
     onEvent: TAURI_CHANNEL<StreamEvent>,
   ): Promise<Result<AgentRun, AppError>> {
@@ -331,7 +332,8 @@ export const commands = {
         status: 'ok',
         data: await TAURI_INVOKE('start_agent_run', {
           workspaceId,
-          prompt,
+          chatId,
+          currentUserMessageId,
           mode,
           onEvent,
         }),
@@ -1735,6 +1737,7 @@ export type AgentRun = {
   exit_code: number | null;
   error_message: string | null;
   checkpoint_sha: string | null;
+  prompt_source: string;
 };
 /**
  * Fired once per `agent_runs` row when the supervisor task reaches a
@@ -1768,7 +1771,8 @@ export type AppError =
   | { kind: 'MergeDirtyTree'; message: string }
   | { kind: 'MergeBaseAhead'; message: string }
   | { kind: 'StaleFile'; message: string }
-  | { kind: 'PathRefused'; message: string };
+  | { kind: 'PathRefused'; message: string }
+  | { kind: 'ContextLoad'; message: string };
 /**
  * Wire shape persisted in the OS keyring (JSON-encoded). The `Date`
  * fields are normalized to epoch-ms numbers on the Angular side so the

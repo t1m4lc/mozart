@@ -49,7 +49,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use tauri::ipc::Channel;
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::task::JoinHandle;
 
@@ -250,16 +250,22 @@ fn resolve_sandbox_roots(
 /// and `l1_roots`, which keeps this function synchronously testable
 /// without DB access or filesystem touches.
 pub(crate) fn production_argv(
-    prompt: &str,
     workspace: &Workspace,
     chat_mode: &str,
     level: SandboxLevel,
     project_siblings: &[String],
     l1_roots: &[PathBuf],
 ) -> Vec<String> {
+    // ContextCompiler v1 (T5) — the prompt no longer rides on argv;
+    // the rendered envelope is piped to claude via stdin and `-p`
+    // alone tells the CLI to print to stdout in non-interactive
+    // (stream-json) mode. T0 spike verified the pattern against
+    // claude CLI v2.1.148. Argv used to have `prompt.to_string()`
+    // at position 1; that slot is gone now, defending against
+    // ARG_MAX for long envelopes and avoiding leaking the user
+    // message into process listings.
     let mut argv = vec![
         "-p".to_string(),
-        prompt.to_string(),
         "--output-format=stream-json".to_string(),
         "--include-partial-messages".to_string(),
         "--verbose".to_string(),
@@ -304,6 +310,7 @@ pub(crate) fn production_argv(
 pub async fn spawn_run<E>(
     workspace: &Workspace,
     run: &AgentRun,
+    prompt_bytes: &str,
     chat_mode: &str,
     channel: Channel<StreamEvent>,
     db: &DbState,
@@ -341,7 +348,6 @@ where
 
     let (project_siblings, l1_roots) = resolve_sandbox_roots(&canonical_workspace, level, db)?;
     let argv = production_argv(
-        &run.prompt,
         &canonical_workspace,
         chat_mode,
         level,
@@ -362,6 +368,7 @@ where
     let mut cmd = Command::new(&bin);
     cmd.args(&argv)
         .current_dir(&canonical_workspace.worktree_path)
+        .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
@@ -370,6 +377,27 @@ where
     let mut child = cmd
         .spawn()
         .map_err(|e| AppError::AgentSpawn(format!("spawn claude: {e}")))?;
+
+    // ContextCompiler v1 transport (T5) — pipe the rendered envelope
+    // via stdin and then close the write side so claude sees EOF on
+    // its prompt input. Default `--input-format text` reads stdin
+    // when the positional prompt arg is omitted (T0 spike verified
+    // 2026-05-22). Broken pipe / write failure surfaces as
+    // `AppError::AgentSpawn` and the chat shows a visible error.
+    {
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| AppError::AgentSpawn("stdin not piped on child".into()))?;
+        stdin
+            .write_all(prompt_bytes.as_bytes())
+            .await
+            .map_err(|e| AppError::AgentSpawn(format!("stdin write_all: {e}")))?;
+        stdin
+            .shutdown()
+            .await
+            .map_err(|e| AppError::AgentSpawn(format!("stdin shutdown: {e}")))?;
+    }
 
     let stdout = child.stdout.take().expect("stdout piped");
     let stderr = child.stderr.take().expect("stderr piped");
@@ -735,7 +763,6 @@ mod tests {
         //   - --dangerously-skip-permissions still absent (regression)
         let ws = argv_test_workspace("/wt-fixture");
         let argv = production_argv(
-            "hi",
             &ws,
             "agent",
             SandboxLevel::L2Project,
@@ -743,17 +770,32 @@ mod tests {
             &[],
         );
 
-        // 1. Locked prefix is byte-stable.
+        // 1. Locked prefix is byte-stable — T5 dropped the positional
+        //    prompt slot (envelope now flows via stdin), so the prefix
+        //    is one shorter.
         assert_eq!(
-            &argv[..5],
+            &argv[..4],
             &[
                 "-p".to_string(),
-                "hi".to_string(),
                 "--output-format=stream-json".to_string(),
                 "--include-partial-messages".to_string(),
                 "--verbose".to_string(),
             ],
-            "first five argv slots must be the locked output-format prefix"
+            "first four argv slots must be the locked output-format prefix"
+        );
+        // 1b. IRON RULE regression (architecture doc test plan) — the
+        //     slot immediately after `-p` must be another flag, never
+        //     the user prompt. Catches `argv.insert(1, prompt)` style
+        //     regressions without false-positiving on legitimate flag
+        //     bodies like the `--append-system-prompt` text.
+        let p_idx = argv
+            .iter()
+            .position(|s| s == "-p")
+            .expect("argv must contain -p");
+        let after_p = &argv[p_idx + 1];
+        assert!(
+            after_p.starts_with("--"),
+            "slot after -p must be another flag, got {after_p:?} — T5 forbids inline prompt"
         );
 
         // 2. Sandbox tail flags must all be present.
@@ -784,7 +826,6 @@ mod tests {
 
         // 4. ask mode regression (TODO-011): no Write/Edit/Bash.
         let ask_argv = production_argv(
-            "hi",
             &ws,
             "ask",
             SandboxLevel::L2Project,
@@ -935,6 +976,7 @@ mod tests {
                 exit_code: None,
                 error_message: None,
                 checkpoint_sha: None,
+                prompt_source: "message_content".into(),
             };
             agent_runs::create(&conn, &run).unwrap();
             drop(conn);
@@ -978,7 +1020,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // ≥ 1 stream_token row from the text_delta in the fixture.
@@ -1027,7 +1069,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // The fixture exercises the full tool round-trip: an
@@ -1124,7 +1166,7 @@ mod tests {
             std::env::set_var("MOZART_MOCK_FIXTURE", &slow);
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
             // Give the child a moment to actually start before cancelling.
             tokio::time::sleep(Duration::from_millis(100)).await;
             handle.cancel().await.unwrap();
@@ -1161,7 +1203,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             let got = agent_runs::get(&db.lock(), &run.run_id).unwrap();

@@ -7,11 +7,12 @@ use crate::error::AppError;
 
 pub fn create(conn: &Connection, run: &AgentRun) -> Result<(), AppError> {
     conn.execute(
-        "INSERT INTO agent_runs(run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+        "INSERT INTO agent_runs(run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha, prompt_source)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
         params![
             run.run_id, run.thread_id, run.prompt, run.status,
             run.started_at, run.ended_at, run.exit_code, run.error_message, run.checkpoint_sha,
+            run.prompt_source,
         ],
     )?;
     Ok(())
@@ -66,7 +67,7 @@ pub fn mark_ended(
 
 pub fn get(conn: &Connection, run_id: &str) -> Result<AgentRun, AppError> {
     conn.query_row(
-        "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha
+        "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha, prompt_source
          FROM agent_runs WHERE run_id = ?1",
         [run_id],
         row_to_run,
@@ -79,7 +80,7 @@ pub fn get(conn: &Connection, run_id: &str) -> Result<AgentRun, AppError> {
 
 pub fn list_by_thread(conn: &Connection, thread_id: &str) -> Result<Vec<AgentRun>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha
+        "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha, prompt_source
          FROM agent_runs WHERE thread_id = ?1 ORDER BY started_at ASC",
     )?;
     let rows = stmt.query_map([thread_id], row_to_run)?;
@@ -99,6 +100,7 @@ fn row_to_run(row: &rusqlite::Row<'_>) -> rusqlite::Result<AgentRun> {
         exit_code: row.get(6)?,
         error_message: row.get(7)?,
         checkpoint_sha: row.get(8)?,
+        prompt_source: row.get(9)?,
     })
 }
 
@@ -139,6 +141,7 @@ mod tests {
             exit_code: None,
             error_message: None,
             checkpoint_sha: Some("abc1234".into()),
+            prompt_source: "message_content".into(),
         }
     }
 

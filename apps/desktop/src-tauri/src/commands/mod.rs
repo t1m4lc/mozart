@@ -21,15 +21,18 @@ use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::auth::keyring_store::{self as auth_store, AuthSessionDto};
+use crate::claude_cli::context_compiler;
 use crate::claude_cli::install::{self, ClaudeInstall};
+use crate::claude_cli::providers::{ClaudeCliRenderer, EnvelopeRenderer};
 use crate::claude_cli::session;
 use crate::claude_cli::{spawn_run, AgentRunTerminated, StreamEvent};
 use crate::credentials::anthropic_probe::{self, ProbeResult};
 use crate::credentials::keyring_store;
-use crate::db::models::{AgentRun, Chat, Message, Repo, Task, Workspace, WorkspaceChange};
+use crate::db::agent_run_envelopes::ENVELOPE_RETENTION_PER_CHAT;
+use crate::db::models::{AgentRun, AgentRunEnvelope, Chat, Message, Repo, Task, Workspace, WorkspaceChange};
 use crate::db::{
-    agent_runs, chats, config, messages, new_id, now_ms, repos, tasks, threads,
-    workspace_active_chat, workspace_changes, workspace_file_views, workspaces,
+    agent_run_envelopes, agent_runs, chats, config, messages, new_id, now_ms, repos, tasks,
+    threads, workspace_active_chat, workspace_changes, workspace_file_views, workspaces,
 };
 use crate::db::workspace_file_views::WorkspaceFileView;
 use crate::db::DbState;
@@ -834,7 +837,8 @@ pub async fn start_agent_run(
     registry: State<'_, RunRegistry>,
     app: tauri::AppHandle,
     workspace_id: String,
-    prompt: String,
+    chat_id: String,
+    current_user_message_id: String,
     mode: String,
     on_event: Channel<StreamEvent>,
 ) -> Result<AgentRun, AppError> {
@@ -845,7 +849,8 @@ pub async fn start_agent_run(
         db.inner(),
         registry.inner(),
         workspace_id,
-        prompt,
+        chat_id,
+        current_user_message_id,
         mode,
         on_event,
         move |ev| {
@@ -865,7 +870,8 @@ pub(crate) async fn start_agent_run_impl<E>(
     db: &DbState,
     registry: &RunRegistry,
     workspace_id: String,
-    prompt: String,
+    chat_id: String,
+    current_user_message_id: String,
     mode: String,
     on_event: Channel<StreamEvent>,
     emit_terminated: E,
@@ -874,21 +880,8 @@ where
     E: Fn(AgentRunTerminated) + Send + Sync + 'static,
 {
     // D20: 1:1 workspace -> thread traversal. Plan P0.2: refuse on
-    // frozen workspaces — ALL modes, including `ask`.
-    //
-    // Earlier design (and TODO-010 / TODO-011) let `ask` mode bypass
-    // the freeze guard on the theory that `--allowedTools=Read,Glob,Grep`
-    // would prove the run is read-only at the agent layer. Dogfood
-    // probe 2026-05-22 falsified that: with the correct argv in place,
-    // an `ask`-mode prompt still successfully edited a workspace file.
-    // Conclusion: `--allowedTools` is contextual, not enforced — same
-    // surprise as `--add-dir` (see AD-01). Until the OS fence
-    // (TODO-001) ships, `ask` mode cannot be treated as provably
-    // read-only and must respect the freeze.
-    //
-    // UX trade-off: users can no longer ask questions about a done
-    // workspace without reopening it first. Honest > convenient — the
-    // alternative is a "read-only" banner that lies.
+    // frozen workspaces — ALL modes, including `ask`. (See full
+    // rationale in the prior comment block.)
     let (ws, thread) = {
         let conn = db.lock();
         workspaces::assert_workspace_active(&conn, &workspace_id)?;
@@ -897,22 +890,82 @@ where
             threads::get_by_workspace(&conn, &workspace_id)?,
         )
     };
+
+    // ContextCompiler v1 (T5) — build the structured envelope from
+    // SQLite + render it for the Claude CLI provider. Fail-closed on
+    // context errors: spawning a context-free agent is worse than a
+    // visible "context unavailable" affordance in chat.
+    //
+    // TODO(D4): build_envelope currently runs over the shared mutexed
+    // connection. The architecture calls for a per-call ROnly read
+    // connection (`SQLITE_OPEN_READ_ONLY`) so the primary mutex stays
+    // free during context builds. Deferred until DbState retains the
+    // db_path — that's a small follow-up refactor.
+    let build_result = {
+        let conn = db.lock();
+        context_compiler::build_envelope(
+            &conn,
+            &workspace_id,
+            &chat_id,
+            &current_user_message_id,
+        )?
+    };
+    let envelope = build_result.envelope;
+    let stats = build_result.stats;
+    let prompt_text = envelope.current_user_message.content.clone();
+
+    let renderer = ClaudeCliRenderer::default();
+    let rendered = renderer.render(&envelope);
+
     let run = AgentRun {
         run_id: new_id(),
         thread_id: thread.thread_id,
-        prompt,
+        // `agent_runs.prompt` is the bare user input now — same string
+        // the user typed. The rendered envelope is a separate audit
+        // artifact in `agent_run_envelopes.rendered_text`.
+        prompt: prompt_text,
         status: "running".into(),
         started_at: now_ms(),
         ended_at: None,
         exit_code: None,
         error_message: None,
         checkpoint_sha: None,
+        prompt_source: "message_content".into(),
+    };
+    let envelope_row = AgentRunEnvelope {
+        run_id: run.run_id.clone(),
+        chat_id: chat_id.clone(),
+        envelope_json: serde_json::to_string(&envelope).unwrap_or_else(|e| {
+            log::warn!("envelope_json serialize failed: {e}");
+            String::new()
+        }),
+        rendered_text: rendered.bytes.clone(),
+        provider: rendered.provider.clone(),
+        nonce: rendered.nonce.clone(),
+        char_count: rendered.char_count as i64,
+        est_tokens: rendered.est_tokens as i64,
+        created_at: now_ms(),
     };
     {
-        let conn = db.lock();
+        let mut conn = db.lock();
         agent_runs::create(&conn, &run)?;
+        agent_run_envelopes::insert_with_retention(
+            &mut conn,
+            &envelope_row,
+            ENVELOPE_RETENTION_PER_CHAT,
+        )?;
     }
-    let handle = spawn_run(&ws, &run, &mode, on_event, db, emit_terminated).await?;
+    log::debug!(
+        "agent_run spawn: run_id={} chat_id={} recent={} summaries={} chars={} est_tokens={} budget_hit={}",
+        run.run_id,
+        chat_id,
+        stats.messages_count_recent,
+        stats.summaries_count,
+        stats.char_count,
+        stats.est_tokens,
+        stats.budget_hit
+    );
+    let handle = spawn_run(&ws, &run, &rendered.bytes, &mode, on_event, db, emit_terminated).await?;
     registry.register(run.run_id.clone(), Arc::new(handle));
     Ok(run)
 }
@@ -3022,6 +3075,44 @@ mod tests {
 
     /// Seed Task + Workspace + Thread for a given repo_id.
     /// Returns (workspace_id, thread_id).
+    /// Helper for ContextCompiler-aware tests (post-T5): seed a chat in
+    /// the given workspace and insert one user message in it. Returns
+    /// `(chat_id, message_id)`. Tests that exercise `start_agent_run_impl`
+    /// past the freeze guard need this so `build_envelope` can find the
+    /// current_user_message_id.
+    fn seed_chat_with_user_message(
+        db: &DbState,
+        workspace_id: &str,
+        content: &str,
+    ) -> (String, String) {
+        let conn = db.lock();
+        let chat = Chat {
+            chat_id: new_id(),
+            workspace_id: workspace_id.into(),
+            title: "Untitled".into(),
+            llm_id: None,
+            mode: "agent".into(),
+            effort: "medium".into(),
+            last_read_message_id: None,
+            closed_at: None,
+            created_at: now_ms(),
+        };
+        chats::create(&conn, &chat).unwrap();
+        let msg = Message {
+            message_id: new_id(),
+            chat_id: chat.chat_id.clone(),
+            run_id: None,
+            role: "user".into(),
+            content: content.into(),
+            mode: Some("agent".into()),
+            status: "done".into(),
+            timeline_json: None,
+            created_at: now_ms(),
+        };
+        messages::insert(&conn, &msg).unwrap();
+        (chat.chat_id, msg.message_id)
+    }
+
     fn seed_workspace_chain(db: &DbState, repo_id: &str) -> (String, String) {
         let conn = db.lock();
         let t = Task {
@@ -3592,11 +3683,14 @@ mod tests {
         std::env::set_var("MOZART_WORKTREES_ROOT", root.path());
 
         let registry = RunRegistry::new();
+        let (chat_id, msg_id) =
+            seed_chat_with_user_message(&db, &ws_id, "do the thing");
         let run = start_agent_run_impl(
             &db,
             &registry,
             ws_id,
-            "do the thing".into(),
+            chat_id,
+            msg_id,
             "agent".into(),
             noop_channel(),
             |_| (),
@@ -3692,11 +3786,13 @@ mod tests {
         std::env::set_var("MOZART_WORKTREES_ROOT", root.path());
 
         let registry = RunRegistry::new();
+        let (chat_id, msg_id) = seed_chat_with_user_message(&db, &ws_id, "do");
         let run = start_agent_run_impl(
             &db,
             &registry,
             ws_id,
-            "do".into(),
+            chat_id,
+            msg_id,
             "agent".into(),
             noop_channel(),
             |_| (),
@@ -3745,6 +3841,7 @@ mod tests {
                     exit_code: None,
                     error_message: None,
                     checkpoint_sha: None,
+                    prompt_source: "message_content".into(),
                 };
                 agent_runs::create(&conn, &r).unwrap();
             }
@@ -4033,11 +4130,13 @@ mod tests {
         let captured_for_closure = captured.clone();
 
         let registry = RunRegistry::new();
+        let (chat_id, msg_id) = seed_chat_with_user_message(&db, &ws_id, "do");
         let run = start_agent_run_impl(
             &db,
             &registry,
             ws_id,
-            "do".into(),
+            chat_id,
+            msg_id,
             "agent".into(),
             noop_channel(),
             move |ev| {
@@ -4165,11 +4264,13 @@ mod tests {
         let captured_for_closure = captured.clone();
 
         let registry = RunRegistry::new();
+        let (chat_id, msg_id) = seed_chat_with_user_message(&db, &ws_id, "do");
         let run = start_agent_run_impl(
             &db,
             &registry,
             ws_id,
-            "do".into(),
+            chat_id,
+            msg_id,
             "agent".into(),
             noop_channel(),
             move |ev| {
@@ -4270,7 +4371,8 @@ mod tests {
             &db,
             &registry,
             ws_id.clone(),
-            "ignored".into(),
+            "dummy-chat-id".into(),
+            "dummy-msg-id".into(),
             "agent".into(),
             noop_channel(),
             |_| {},
@@ -4297,7 +4399,8 @@ mod tests {
             &db,
             &registry,
             ws_id.clone(),
-            "what does this codebase do?".into(),
+            "dummy-chat-id".into(),
+            "dummy-msg-id".into(),
             "ask".into(),
             noop_channel(),
             |_| {},
@@ -4327,7 +4430,8 @@ mod tests {
             &db,
             &registry,
             ws_id.clone(),
-            "ignored".into(),
+            "dummy-chat-id".into(),
+            "dummy-msg-id".into(),
             "agent".into(),
             noop_channel(),
             |_| {},

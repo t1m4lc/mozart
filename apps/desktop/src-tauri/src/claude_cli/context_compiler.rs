@@ -786,6 +786,7 @@ mod tests {
             exit_code: Some(0),
             error_message: None,
             checkpoint_sha: None,
+            prompt_source: "message_content".into(),
         };
         agent_runs::create(&conn, &run).unwrap();
         let summary = AgentTurnSummary {

@@ -79,6 +79,13 @@ pub struct AgentRun {
     pub exit_code: Option<i64>,
     pub error_message: Option<String>,
     pub checkpoint_sha: Option<String>,
+    /// ContextCompiler v1 D5 — distinguishes pre-fix rows from
+    /// post-fix rows. `'frontend_collapsed'` (migration 011 default)
+    /// = `lastUserPrompt` from the Angular store; `'message_content'`
+    /// = `messages.content` looked up by `current_user_message_id`
+    /// (the source of truth post-T5). Audit tooling reads this column
+    /// to interpret old `agent_runs.prompt` values correctly.
+    pub prompt_source: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
