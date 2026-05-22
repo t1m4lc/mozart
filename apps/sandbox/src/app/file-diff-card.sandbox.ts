@@ -1,7 +1,10 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { type FetchContextLines } from '@mozart-ui/diff-view';
-import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
+import {
+  MzFileDiffCard,
+  type FileDiffStatus,
+} from '@mozart-ui/file-diff-card';
 import { HlmButtonImports } from '@mozart/ui/button';
 
 interface LogEntry {
@@ -9,6 +12,16 @@ interface LogEntry {
   readonly source: string;
   readonly kind: string;
   readonly detail?: string;
+}
+
+interface StackedItem {
+  readonly id: string;
+  readonly path: string;
+  readonly status: FileDiffStatus;
+  readonly additions: number;
+  readonly deletions: number;
+  readonly diff: string;
+  readonly viewed: boolean;
 }
 
 // A short modified diff: 1 hunk, 1 add + 1 remove, surrounded by
@@ -157,6 +170,18 @@ const LONG_DIFF = [
           [diffText]="SHORT_DIFF"
         />
 
+        <p class="text-xs font-medium">Variant: viewed = true (starts collapsed)</p>
+        <mz-file-diff-card
+          path="src/app/already-viewed.ts"
+          status="modified"
+          [viewed]="true"
+          [defaultCollapsed]="true"
+          [additions]="1"
+          [deletions]="1"
+          [diffText]="SHORT_DIFF"
+          (viewedChange)="log('viewed-initial', 'viewedChange', String($event))"
+        />
+
         <p class="text-xs font-medium">
           Long diff (2 hunks, expand bars; click ⤡ to reveal hidden lines)
         </p>
@@ -171,17 +196,22 @@ const LONG_DIFF = [
           (refresh)="log('long-diff', 'refresh')"
         />
 
-        <p class="text-xs font-medium">List of 5 cards (review-feed shape)</p>
+        <p class="text-xs font-medium">
+          List of 5 cards (review-feed shape) — mark Viewed to move a
+          card to the bottom; un-mark to move it back up
+        </p>
         <div class="flex flex-col gap-2">
-          @for (item of stackedFiles; track item.path) {
+          @for (item of stackedFiles(); track item.id) {
             <mz-file-diff-card
               [path]="item.path"
               [status]="item.status"
               [additions]="item.additions"
               [deletions]="item.deletions"
               [diffText]="item.diff"
-              [defaultCollapsed]="item.collapsed"
+              [viewed]="item.viewed"
+              [defaultCollapsed]="item.viewed"
               (pathCopy)="log('stack', 'pathCopy', $event)"
+              (viewedChange)="onItemViewed(item.id, $event)"
             />
           }
         </div>
@@ -211,48 +241,56 @@ export class FileDiffCardSandbox {
   protected readonly String = String;
   protected readonly events = signal<readonly LogEntry[]>([]);
 
-  protected readonly stackedFiles = [
+  // Signal-backed so `(viewedChange)` can reorder the array — viewed
+  // items sink to the bottom, un-viewing brings the card back above the
+  // viewed group. Relative order within each group is preserved.
+  protected readonly stackedFiles = signal<readonly StackedItem[]>([
     {
+      id: 's1',
       path: 'src/lib/router.ts',
-      status: 'modified' as const,
+      status: 'modified',
       additions: 7,
       deletions: 3,
       diff: SHORT_DIFF,
-      collapsed: false,
+      viewed: false,
     },
     {
+      id: 's2',
       path: 'src/lib/cache.ts',
-      status: 'added' as const,
+      status: 'added',
       additions: 56,
       deletions: 0,
       diff: SHORT_DIFF,
-      collapsed: true,
+      viewed: false,
     },
     {
+      id: 's3',
       path: 'src/lib/legacy.ts',
-      status: 'deleted' as const,
+      status: 'deleted',
       additions: 0,
       deletions: 124,
       diff: SHORT_DIFF,
-      collapsed: true,
+      viewed: false,
     },
     {
+      id: 's4',
       path: 'assets/sprite.svg',
-      status: 'binary' as const,
+      status: 'binary',
       additions: 0,
       deletions: 0,
       diff: '',
-      collapsed: false,
+      viewed: false,
     },
     {
+      id: 's5',
       path: 'src/lib/index.ts',
-      status: 'no-diff' as const,
+      status: 'no-diff',
       additions: 0,
       deletions: 0,
       diff: '',
-      collapsed: false,
+      viewed: true,
     },
-  ];
+  ]);
 
   // Mock context-fetcher that returns synthetic line text. Lets the
   // long-diff card actually reveal expanded lines instead of erroring.
@@ -261,6 +299,16 @@ export class FileDiffCardSandbox {
     for (let i = from; i <= to; i++) out.push(`line ${i} (synthesized)`);
     return out;
   };
+
+  protected onItemViewed(id: string, viewed: boolean): void {
+    this.stackedFiles.update((prev) => {
+      const updated = prev.map((i) => (i.id === id ? { ...i, viewed } : i));
+      const unviewed = updated.filter((i) => !i.viewed);
+      const viewedItems = updated.filter((i) => i.viewed);
+      return [...unviewed, ...viewedItems];
+    });
+    this.log('stack', 'viewedChange', `${id}=${viewed}`);
+  }
 
   protected log(source: string, kind: string, detail?: string): void {
     const next: LogEntry = { at: Date.now(), source, kind, detail };
