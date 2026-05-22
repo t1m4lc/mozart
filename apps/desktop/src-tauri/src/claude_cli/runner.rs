@@ -382,27 +382,16 @@ where
         .spawn()
         .map_err(|e| AppError::AgentSpawn(format!("spawn claude: {e}")))?;
 
-    // ContextCompiler v1 transport (T5) — pipe the rendered envelope
-    // via stdin and then close the write side so claude sees EOF on
-    // its prompt input. Default `--input-format text` reads stdin
-    // when the positional prompt arg is omitted (T0 spike verified
-    // 2026-05-22). Broken pipe / write failure surfaces as
-    // `AppError::AgentSpawn` and the chat shows a visible error.
-    {
-        let mut stdin = child
-            .stdin
-            .take()
-            .ok_or_else(|| AppError::AgentSpawn("stdin not piped on child".into()))?;
-        stdin
-            .write_all(prompt_bytes.as_bytes())
-            .await
-            .map_err(|e| AppError::AgentSpawn(format!("stdin write_all: {e}")))?;
-        stdin
-            .shutdown()
-            .await
-            .map_err(|e| AppError::AgentSpawn(format!("stdin shutdown: {e}")))?;
-    }
-
+    // Take all three pipe handles up-front. We MUST spawn the drain
+    // tasks before writing stdin: large envelopes (>OS pipe buffer,
+    // ~64KB on Linux) plus chatty child startup deadlock the
+    // parent-writes-stdin-then-spawns-drains shape because the child
+    // blocks on its full stdout while the parent blocks on a full
+    // stdin pipe. Per Codex review 2026-05-22.
+    let stdin_handle = child
+        .stdin
+        .take()
+        .ok_or_else(|| AppError::AgentSpawn("stdin not piped on child".into()))?;
     let stdout = child.stdout.take().expect("stdout piped");
     let stderr = child.stderr.take().expect("stderr piped");
 
@@ -508,6 +497,30 @@ where
             }
         })
     };
+
+    // ContextCompiler v1 transport (T5) — pipe the rendered envelope
+    // via stdin and then close the write side so claude sees EOF on
+    // its prompt input. Default `--input-format text` reads stdin
+    // when the positional prompt arg is omitted (T0 spike verified
+    // 2026-05-22). Broken pipe / write failure surfaces as
+    // `AppError::AgentSpawn` and the chat shows a visible error.
+    //
+    // Order matters: stdout/stderr drain tasks were spawned above so
+    // they're already consuming child output by the time we start
+    // writing the envelope. Pre-fix order (write stdin first, then
+    // spawn drains) deadlocked under envelopes larger than the OS
+    // pipe buffer — Codex review 2026-05-22.
+    {
+        let mut stdin = stdin_handle;
+        stdin
+            .write_all(prompt_bytes.as_bytes())
+            .await
+            .map_err(|e| AppError::AgentSpawn(format!("stdin write_all: {e}")))?;
+        stdin
+            .shutdown()
+            .await
+            .map_err(|e| AppError::AgentSpawn(format!("stdin shutdown: {e}")))?;
+    }
 
     // ----- supervisor task: poll for cancel, wait for exit, mark_ended -----
     // Clones for the post-exit reach-back (S1.5.4): the supervisor `move`s

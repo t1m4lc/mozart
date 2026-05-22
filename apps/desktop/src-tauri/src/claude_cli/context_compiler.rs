@@ -204,11 +204,17 @@ pub fn build_envelope_with_budget(
 
     // Budget: trim oldest prior turns out of recent_conversation
     // until total chars are within budget, OR cap at
-    // RECENT_TURNS_TARGET if budget isn't a constraint.
-    let (recent_turns, displaced) =
-        apply_budget(prior_turns, &current_user_message, budget_tokens);
-
+    // RECENT_TURNS_TARGET if budget isn't a constraint. The budget
+    // includes operational_summaries char cost so a chat with a long
+    // summary backlog can't bypass the cap.
     let mut summaries = parsed_summaries;
+    let (recent_turns, displaced) = apply_budget(
+        prior_turns,
+        &current_user_message,
+        &mut summaries,
+        budget_tokens,
+    );
+
     let budget_hit = !displaced.is_empty();
     if budget_hit {
         log::warn!(
@@ -242,6 +248,21 @@ pub fn build_envelope_with_budget(
                 .cmp(&b.created_at)
                 .then_with(|| a.message_id.cmp(&b.message_id))
         });
+
+        // Second pass: synthesized placeholders just expanded summaries.
+        // If they pushed total back over budget, drop oldest summaries
+        // until we're under. `recent_turns` is unchanged from pass 1.
+        loop {
+            let est = estimate_tokens(approx_char_cost(
+                &recent_turns,
+                &current_user_message,
+                &summaries,
+            ));
+            if est <= budget_tokens || summaries.is_empty() {
+                break;
+            }
+            summaries.remove(0);
+        }
     }
 
     let envelope = LLMEnvelope {
@@ -312,9 +333,17 @@ fn truncate_for_summary(s: &str, max: usize) -> String {
 /// Returns `(kept_recent, displaced_oldest_first)`. `displaced`
 /// holds turns we removed from `recent_conversation` because the
 /// budget was over; callers fold these into `operational_summaries`.
+///
+/// Budget covers `recent_conversation` AND `operational_summaries` so
+/// a chat with a large summary backlog can't bypass the token cap.
+/// Policy: displace oldest recent_turn first (they're verbose). Only
+/// drop oldest summaries once `kept` is empty — summaries are the
+/// lowest-bit-rate signal we have for older context, so we keep them
+/// until the cheaper option is exhausted.
 fn apply_budget(
     prior_turns: Vec<ConversationTurn>,
     current: &CurrentUserMessage,
+    summaries: &mut Vec<OperationalSummary>,
     budget_tokens: usize,
 ) -> (Vec<ConversationTurn>, Vec<ConversationTurn>) {
     let mut kept = prior_turns;
@@ -328,18 +357,45 @@ fn apply_budget(
     // Then trim by token budget. Approximate current envelope cost
     // each loop iteration; cheap because we sum char counts.
     loop {
-        let est = estimate_tokens(approx_char_cost(&kept, current));
-        if est <= budget_tokens || kept.is_empty() {
+        let est = estimate_tokens(approx_char_cost(&kept, current, summaries));
+        if est <= budget_tokens {
             break;
         }
-        displaced.push(kept.remove(0));
+        if !kept.is_empty() {
+            displaced.push(kept.remove(0));
+        } else if !summaries.is_empty() {
+            summaries.remove(0);
+        } else {
+            // Even with no recent + no summaries left, the current
+            // user message still ships. Break — `current` is never
+            // displaced.
+            break;
+        }
     }
 
     (kept, displaced)
 }
 
-fn approx_char_cost(kept: &[ConversationTurn], current: &CurrentUserMessage) -> usize {
-    kept.iter().map(|t| t.content.len() + t.role.len()).sum::<usize>() + current.content.len()
+fn approx_char_cost(
+    kept: &[ConversationTurn],
+    current: &CurrentUserMessage,
+    summaries: &[OperationalSummary],
+) -> usize {
+    let turn_chars: usize = kept
+        .iter()
+        .map(|t| t.content.len() + t.role.len())
+        .sum();
+    let summary_chars: usize = summaries
+        .iter()
+        .map(|s| {
+            s.text_summary.len()
+                + s.files_read.iter().map(String::len).sum::<usize>()
+                + s.files_edited.iter().map(String::len).sum::<usize>()
+                + s.commands_run.iter().map(String::len).sum::<usize>()
+                + s.key_results.iter().map(String::len).sum::<usize>()
+        })
+        .sum();
+    turn_chars + summary_chars + current.content.len()
 }
 
 fn char_count_envelope(env: &LLMEnvelope) -> usize {
@@ -763,6 +819,85 @@ mod tests {
         );
         // Displaced turns appear as synthesized summaries.
         assert!(!res.envelope.operational_summaries.summaries.is_empty());
+    }
+
+    // Regression guard for the budget-bypass bug Codex flagged
+    // 2026-05-22. Before the fix, apply_budget only counted
+    // recent_conversation + current_user_message; operational_summaries
+    // grew unbounded as a chat accumulated summary rows. A 200-turn
+    // chat with ~200 summaries would render an envelope tens of KB
+    // over the 100k token budget. This test seeds many large
+    // summaries and asserts the envelope stays within budget.
+    #[test]
+    fn large_summary_backlog_does_not_bypass_budget() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let s = seed(&conn);
+        let _u1 = insert_msg(&conn, &s.chat_id, "user", "u1", 1);
+        let a1 = insert_msg(&conn, &s.chat_id, "assistant", "a1", 2);
+
+        // Seed one agent_run we can attach all summaries to. The summary
+        // rows themselves are what matters for the budget test.
+        let run = AgentRun {
+            run_id: new_id(),
+            thread_id: s.thread_id.clone(),
+            prompt: "p".into(),
+            status: "done".into(),
+            started_at: now_ms(),
+            ended_at: Some(now_ms()),
+            exit_code: Some(0),
+            error_message: None,
+            checkpoint_sha: None,
+            prompt_source: "message_content".into(),
+        };
+        agent_runs::create(&conn, &run).unwrap();
+
+        // 20 summaries × ~600 chars each ≈ 12k chars of summaries
+        // alone. With a 500-token (≈ 1750-char) budget, even one
+        // summary blows past it; we should see the loop drop oldest
+        // summaries to stay under.
+        let big_summary_text: String = "y".repeat(600);
+        for i in 0..20 {
+            let summary = AgentTurnSummary {
+                summary_id: new_id(),
+                run_id: run.run_id.clone(),
+                message_id: a1.clone(),
+                chat_id: s.chat_id.clone(),
+                files_read_json: None,
+                files_edited_json: None,
+                commands_run_json: None,
+                key_results_json: None,
+                text_summary: big_summary_text.clone(),
+                created_at: 100 + i,
+            };
+            agent_turn_summaries::insert(&conn, &summary).unwrap();
+        }
+
+        let current = insert_msg(&conn, &s.chat_id, "user", "current", 1000);
+        let budget_tokens = 500_usize;
+        let res = build_envelope_with_budget(
+            &conn,
+            &s.workspace_id,
+            &s.chat_id,
+            &current,
+            budget_tokens,
+        )
+        .unwrap();
+
+        // The whole point: post-budget envelope must be within budget.
+        // Pre-fix, est_tokens would be ~3400+ on a 500 budget.
+        assert!(
+            res.stats.est_tokens <= budget_tokens + (RECENT_TURNS_TARGET * 30),
+            "envelope est_tokens {} exceeded budget {budget_tokens} \
+             — operational_summaries bypassed the cap",
+            res.stats.est_tokens
+        );
+        // Summaries should have been pruned, not all 20 kept.
+        assert!(
+            res.envelope.operational_summaries.summaries.len() < 20,
+            "expected pruning, but all 20 summaries survived (got {})",
+            res.envelope.operational_summaries.summaries.len()
+        );
     }
 
     #[test]

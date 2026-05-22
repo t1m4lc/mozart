@@ -965,7 +965,34 @@ where
         stats.est_tokens,
         stats.budget_hit
     );
-    let handle = spawn_run(&ws, &run, &rendered.bytes, &mode, on_event, db, emit_terminated).await?;
+    // Compensating cleanup on pre-stream spawn failure: agent_runs::create
+    // ran above with status='running'. If spawn_run errors (binary missing,
+    // stdin write/shutdown failed, git_checkpoint blew up), the supervisor
+    // task never started so emit_terminated will never fire. Without this
+    // flip, the run sits at 'running' forever in DB and the UI shows a
+    // phantom spinner. Mark it 'error' so the next hydrate sees it and the
+    // interrupted-message recovery path can finalize.
+    let handle =
+        match spawn_run(&ws, &run, &rendered.bytes, &mode, on_event, db, emit_terminated).await {
+            Ok(h) => h,
+            Err(e) => {
+                let conn = db.lock();
+                let err_msg = e.to_string();
+                if let Err(cleanup_err) = agent_runs::mark_ended(
+                    &conn,
+                    &run.run_id,
+                    "error",
+                    now_ms(),
+                    None,
+                    Some(&format!("spawn failed: {err_msg}")),
+                ) {
+                    log::warn!(
+                        "agent_runs::mark_ended after spawn failure failed: {cleanup_err}"
+                    );
+                }
+                return Err(e);
+            }
+        };
     registry.register(run.run_id.clone(), Arc::new(handle));
     Ok(run)
 }

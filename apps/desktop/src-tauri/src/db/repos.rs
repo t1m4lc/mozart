@@ -137,6 +137,29 @@ pub fn delete(conn: &mut Connection, repo_id: &str) -> Result<(), AppError> {
         )",
         [repo_id],
     )?;
+    // 1b. agent_run_envelopes (migration 011) — FK to agent_runs(run_id)
+    //     and chats(chat_id). Must delete before agent_runs/chats below.
+    tx.execute(
+        "DELETE FROM agent_run_envelopes WHERE chat_id IN (
+            SELECT c.chat_id FROM chats c
+            JOIN workspaces ws ON ws.workspace_id = c.workspace_id
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
+    // 1c. agent_turn_summaries (migration 012) — FK to agent_runs(run_id),
+    //     messages(message_id), and chats(chat_id). Must delete before
+    //     agent_runs/messages/chats below.
+    tx.execute(
+        "DELETE FROM agent_turn_summaries WHERE chat_id IN (
+            SELECT c.chat_id FROM chats c
+            JOIN workspaces ws ON ws.workspace_id = c.workspace_id
+            JOIN tasks t ON t.task_id = ws.task_id
+            WHERE t.repo_id = ?1
+        )",
+        [repo_id],
+    )?;
     // 2. agent_runs
     tx.execute(
         "DELETE FROM agent_runs WHERE thread_id IN (
@@ -465,6 +488,140 @@ mod tests {
             (n_msg, n_chat, n_th, n_ws, n_t, n_r),
             (0, 0, 0, 0, 0, 0),
             "expected full cascade"
+        );
+    }
+
+    // Regression guard for the FK-cascade gap Codex flagged 2026-05-22.
+    // Migrations 011 + 012 added `agent_run_envelopes` and
+    // `agent_turn_summaries` that reference agent_runs/chats/messages
+    // WITHOUT `ON DELETE CASCADE`. Pre-fix, deleting a repo whose
+    // workspaces had run any agent turns would fail with an FK
+    // constraint violation. This test exercises the full hierarchy
+    // with envelope + summary rows attached and asserts repo deletion
+    // succeeds and leaves both tables empty.
+    #[test]
+    fn delete_cascades_through_agent_run_envelopes_and_summaries() {
+        use crate::db::models::{
+            AgentRun, AgentRunEnvelope, AgentTurnSummary, Chat, Message, Task, Thread,
+            Workspace,
+        };
+        use crate::db::{
+            agent_run_envelopes, agent_runs, agent_turn_summaries, chats, messages, tasks,
+            threads, workspaces,
+        };
+
+        let db = init_db_memory().unwrap();
+        let mut conn = db.lock();
+        let r = sample("/cascade-envelopes");
+        create(&conn, &r).unwrap();
+        let t = Task {
+            task_id: new_id(),
+            repo_id: r.repo_id.clone(),
+            title: "t".into(),
+            task_text: "t".into(),
+            status: "active".into(),
+            created_at: now_ms(),
+        };
+        tasks::create(&conn, &t).unwrap();
+        let ws = Workspace {
+            workspace_id: new_id(),
+            task_id: t.task_id.clone(),
+            name: "ws".into(),
+            worktree_path: format!("/wt-{}", new_id()),
+            branch_name: "agent/wip".into(),
+            base_branch: "main".into(),
+            status: "ready".into(),
+            pinned: false,
+            unread: false,
+            created_at: now_ms(),
+            deletion_intent: 0,
+            ui_status: "backlog".into(),
+            last_merge_action: None,
+            sandbox_level: "L2Project".into(),
+        };
+        workspaces::create(&conn, &ws).unwrap();
+        let th = Thread {
+            thread_id: new_id(),
+            workspace_id: ws.workspace_id.clone(),
+            created_at: now_ms(),
+        };
+        threads::create(&conn, &th).unwrap();
+        let c = Chat {
+            chat_id: new_id(),
+            workspace_id: ws.workspace_id.clone(),
+            title: "Untitled".into(),
+            llm_id: None,
+            mode: "agent".into(),
+            effort: "medium".into(),
+            last_read_message_id: None,
+            closed_at: None,
+            created_at: now_ms(),
+        };
+        chats::create(&conn, &c).unwrap();
+        let m = Message {
+            message_id: new_id(),
+            chat_id: c.chat_id.clone(),
+            run_id: None,
+            role: "assistant".into(),
+            content: "hi".into(),
+            mode: None,
+            status: "done".into(),
+            timeline_json: None,
+            created_at: now_ms(),
+        };
+        messages::insert(&conn, &m).unwrap();
+        let run = AgentRun {
+            run_id: new_id(),
+            thread_id: th.thread_id.clone(),
+            prompt: "p".into(),
+            status: "done".into(),
+            started_at: now_ms(),
+            ended_at: Some(now_ms()),
+            exit_code: Some(0),
+            error_message: None,
+            checkpoint_sha: None,
+            prompt_source: "message_content".into(),
+        };
+        agent_runs::create(&conn, &run).unwrap();
+        let envelope = AgentRunEnvelope {
+            run_id: run.run_id.clone(),
+            chat_id: c.chat_id.clone(),
+            envelope_json: "{}".into(),
+            rendered_text: "rendered".into(),
+            provider: "claude_cli".into(),
+            nonce: "deadbeef".into(),
+            char_count: 100,
+            est_tokens: 28,
+            created_at: now_ms(),
+        };
+        agent_run_envelopes::insert_with_retention(&mut conn, &envelope, 50).unwrap();
+        let summary = AgentTurnSummary {
+            summary_id: new_id(),
+            run_id: run.run_id.clone(),
+            message_id: m.message_id.clone(),
+            chat_id: c.chat_id.clone(),
+            files_read_json: None,
+            files_edited_json: None,
+            commands_run_json: None,
+            key_results_json: None,
+            text_summary: "did a thing".into(),
+            created_at: now_ms(),
+        };
+        agent_turn_summaries::insert(&conn, &summary).unwrap();
+
+        // Pre-fix this would error with `FOREIGN KEY constraint failed`.
+        delete(&mut conn, &r.repo_id).unwrap();
+
+        let n_env: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agent_run_envelopes", [], |row| row.get(0))
+            .unwrap();
+        let n_sum: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agent_turn_summaries", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!(
+            (n_env, n_sum),
+            (0, 0),
+            "envelope and summary rows must be deleted alongside their parent repo"
         );
     }
 }
