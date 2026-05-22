@@ -4327,6 +4327,175 @@ mod tests {
         std::env::remove_var("MOZART_WORKTREES_ROOT");
     }
 
+    // T10 — Two-turn recall: turn 1's user message must appear in
+    // turn 2's persisted envelope. This is the headline invariant of
+    // the ContextCompiler v1 architecture; failure here means the
+    // agent-amnesia bug has regressed. The test runs both turns
+    // end-to-end through `start_agent_run_impl` against the mock
+    // claude, then reads `agent_run_envelopes.rendered_text` for
+    // turn 2 and asserts it carries turn 1's content inside the
+    // RECENT_CONVERSATION layer.
+    #[cfg(unix)]
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn integration_two_turn_recall_envelope_contains_prior_turn() {
+        use crate::db::agent_run_envelopes;
+
+        if !sandbox::git_available() {
+            eprintln!("SKIP integration_two_turn_recall: git not on PATH");
+            return;
+        }
+        let _g = sandbox::test_env_gate()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+
+        let root = tempfile::tempdir().unwrap();
+        let wt = tempfile::tempdir_in(root.path()).unwrap();
+        init_repo_with_main(wt.path());
+
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/two-turn");
+        let ws_id = {
+            let conn = db.lock();
+            let t = Task {
+                task_id: new_id(),
+                repo_id: repo_id.clone(),
+                title: "t".into(),
+                task_text: "t".into(),
+                status: "active".into(),
+                created_at: now_ms(),
+            };
+            tasks::create(&conn, &t).unwrap();
+            let ws = Workspace {
+                workspace_id: new_id(),
+                task_id: t.task_id.clone(),
+                name: "ws-x".into(),
+                worktree_path: wt.path().to_string_lossy().into_owned(),
+                branch_name: "agent/wip-x".into(),
+                base_branch: "main".into(),
+                status: "ready".into(),
+                pinned: false,
+                unread: false,
+                created_at: now_ms(),
+                deletion_intent: 0,
+                ui_status: "backlog".into(),
+                last_merge_action: None,
+                sandbox_level: "L2Project".into(),
+            };
+            workspaces::create(&conn, &ws).unwrap();
+            let th = Thread {
+                thread_id: new_id(),
+                workspace_id: ws.workspace_id.clone(),
+                created_at: now_ms(),
+            };
+            threads::create(&conn, &th).unwrap();
+            ws.workspace_id
+        };
+
+        let fixtures = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("tests/fixtures");
+        std::env::set_var("MOZART_CLAUDE_BIN", fixtures.join("mock-claude.sh"));
+        std::env::set_var(
+            "MOZART_MOCK_FIXTURE",
+            fixtures.join("streams/happy-text.jsonl"),
+        );
+        std::env::set_var("MOZART_WORKTREES_ROOT", root.path());
+
+        let registry = RunRegistry::new();
+
+        // ---- Turn 1: distinctive user message that must reappear in
+        // turn 2's envelope. The string is unique-enough that a substring
+        // search won't false-positive against the static SYSTEM_RULES
+        // sandbox clamp.
+        const TURN1_TEXT: &str = "MOZART_T10_TURN1_NEEDLE remember: alpha-delta-bravo";
+        let (chat_id, msg1_id) =
+            seed_chat_with_user_message(&db, &ws_id, TURN1_TEXT);
+        let turn1 = start_agent_run_impl(
+            &db,
+            &registry,
+            ws_id.clone(),
+            chat_id.clone(),
+            msg1_id.clone(),
+            "agent".into(),
+            noop_channel(),
+            |_| (),
+        )
+        .await
+        .expect("turn 1 start_agent_run_impl ok");
+
+        // Wait for turn 1's supervisor to mark done. happy-text completes
+        // well under 800ms; we poll for status='done' as a robust signal.
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+        loop {
+            let status = agent_runs::get(&db.lock(), &turn1.run_id)
+                .map(|r| r.status)
+                .unwrap_or_default();
+            if status == "done" || status == "error" {
+                break;
+            }
+            if std::time::Instant::now() >= deadline {
+                panic!("turn 1 never reached terminal status (got '{status}')");
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+        }
+
+        // ---- Turn 2: a second user message in the same chat. The
+        // ContextCompiler should pull msg1 into RECENT_CONVERSATION on
+        // this build.
+        let msg2_id = {
+            let conn = db.lock();
+            let m = Message {
+                message_id: new_id(),
+                chat_id: chat_id.clone(),
+                run_id: None,
+                role: "user".into(),
+                content: "second turn".into(),
+                mode: Some("agent".into()),
+                status: "done".into(),
+                timeline_json: None,
+                created_at: now_ms() + 1, // strictly after msg1
+            };
+            messages::insert(&conn, &m).unwrap();
+            m.message_id
+        };
+
+        let turn2 = start_agent_run_impl(
+            &db,
+            &registry,
+            ws_id.clone(),
+            chat_id.clone(),
+            msg2_id,
+            "agent".into(),
+            noop_channel(),
+            |_| (),
+        )
+        .await
+        .expect("turn 2 start_agent_run_impl ok");
+
+        // The IPC writes the envelope row synchronously before returning,
+        // so turn 2's envelope is on disk by the time we get here.
+        let env2 = agent_run_envelopes::get_by_run(&db.lock(), &turn2.run_id)
+            .expect("agent_run_envelopes row for turn 2 exists");
+
+        assert!(
+            env2.rendered_text.contains("MOZART_T10_TURN1_NEEDLE"),
+            "turn 2's envelope must include turn 1's user content — \
+             this is the agent-amnesia regression guard"
+        );
+        assert!(
+            env2.rendered_text.contains("MOZART_LAYER_RECENT_CONVERSATION_"),
+            "turn 2's envelope must include the RECENT_CONVERSATION layer"
+        );
+        assert_eq!(
+            env2.chat_id, chat_id,
+            "envelope row must be scoped to the right chat"
+        );
+
+        std::env::remove_var("MOZART_CLAUDE_BIN");
+        std::env::remove_var("MOZART_MOCK_FIXTURE");
+        std::env::remove_var("MOZART_WORKTREES_ROOT");
+    }
+
     // =================================================================
     // P0.2 — Freeze enforcement: each guarded command returns
     // `AppError::Frozen(workspace_id)` when ui_status == "done".
