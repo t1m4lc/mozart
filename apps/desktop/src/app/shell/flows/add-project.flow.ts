@@ -2,15 +2,15 @@ import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { toast } from '@spartan-ng/brain/sonner';
-import { ChatFacade } from '../domains/chat';
+import { ChatFacade } from '../../domains/chat';
 import {
   type CloneRepoContext,
   type CreateProjectContext,
   DIALOG_ADAPTER,
   type InitProjectContext,
   ProjectsFacade,
-} from '../domains/projects';
-import { WorkspacesFacade } from '../domains/workspaces';
+} from '../../domains/projects';
+import { WorkspacesFacade } from '../../domains/workspaces';
 
 // Unified add-project flow used by Phase 1's three dashboard cards and
 // the sidebar "+ Add a project" affordance. All entry points converge
@@ -49,7 +49,7 @@ export class AddProjectFlow {
       },
     };
     const { CloneRepoDialog } = await import(
-      '../domains/projects/ui-clone-repo-dialog'
+      '../../domains/projects/ui-clone-repo-dialog'
     );
     this.dialogService.open(CloneRepoDialog, { context });
   }
@@ -68,7 +68,7 @@ export class AddProjectFlow {
       },
     };
     const { CreateProjectDialog } = await import(
-      '../domains/projects/ui-create-project-dialog'
+      '../../domains/projects/ui-create-project-dialog'
     );
     this.dialogService.open(CreateProjectDialog, { context });
   }
@@ -163,7 +163,7 @@ export class AddProjectFlow {
       },
     };
     const { InitProjectDialog } = await import(
-      '../domains/projects/ui-init-project-dialog'
+      '../../domains/projects/ui-init-project-dialog'
     );
     this.dialogService.open(InitProjectDialog, { context });
   }
