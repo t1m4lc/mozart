@@ -1,10 +1,11 @@
 {
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "includeCoAuthoredBy": false,
   "permissions": {
     "allow": [
       "Read",
       "Edit",
       "Write",
-
       "Bash(pwd)",
       "Bash(ls:*)",
       "Bash(find:*)",
@@ -16,44 +17,38 @@
       "Bash(head:*)",
       "Bash(tail:*)",
       "Bash(tree:*)",
-
       "Bash(git commit:*)",
       "Bash(git status:*)",
+      "Bash(git fetch:*)",
       "Bash(git diff:*)",
       "Bash(git log:*)",
       "Bash(git show:*)",
       "Bash(git branch:*)",
       "Bash(git worktree list:*)",
       "Bash(git remote:*)",
-
-      "Bash(git add:*)",
-      "Bash(git restore --staged:*)"
+      "Bash(git add:*)"
     ],
     "deny": [
       "Read(.env)",
       "Read(.env.*)",
       "Read(**/.env)",
       "Read(**/.env.*)",
-
       "Read(env.ts)",
       "Read(env.*.ts)",
       "Read(**/env.ts)",
       "Read(**/env.*.ts)",
       "Read(**/environment.ts)",
       "Read(**/environment.*.ts)",
-
       "Read(secrets/**)",
       "Read(**/secrets/**)",
       "Read(.ssh/**)",
       "Read(**/.ssh/**)",
-
       "Bash(sudo:*)",
       "Bash(rm -rf:*)",
       "Bash(chmod:*)",
       "Bash(chown:*)",
       "Bash(wget:*)",
       "Bash(ssh:*)",
-
       "Bash(git reset:*)",
       "Bash(git revert:*)",
       "Bash(git checkout:*)",
@@ -63,14 +58,12 @@
       "Bash(git cherry-pick:*)",
       "Bash(git push:*)",
       "Bash(git pull:*)",
-      "Bash(git fetch:*)",
       "Bash(git clean:*)",
       "Bash(git stash:*)",
       "Bash(git tag:*)",
       "Bash(git worktree add:*)",
       "Bash(git worktree remove:*)",
       "Bash(git worktree prune:*)",
-
       "Read(docs/archived/**)",
       "Edit(docs/archived/**)",
       "Write(docs/archived/**)",
@@ -79,8 +72,6 @@
       "Write(docs/specs/legacy/**)"
     ]
   },
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "includeCoAuthoredBy": false,
   "hooks": {
     "PreToolUse": [
       {
@@ -94,6 +85,11 @@
       }
     ]
   },
+  "enabledPlugins": {
+    "nx@nx-claude-plugins": true,
+    "rust-analyzer-lsp@claude-plugins-official": true,
+    "typescript-lsp@claude-plugins-official": true
+  },
   "extraKnownMarketplaces": {
     "nx-claude-plugins": {
       "source": {
@@ -101,10 +97,5 @@
         "repo": "nrwl/nx-ai-agents-config"
       }
     }
-  },
-  "enabledPlugins": {
-    "nx@nx-claude-plugins": true,
-    "rust-analyzer-lsp@claude-plugins-official": true,
-    "typescript-lsp@claude-plugins-official": true
   }
 }

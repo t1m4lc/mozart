@@ -4,28 +4,23 @@ import {
   Component,
   computed,
   DestroyRef,
-  ElementRef,
   effect,
+  ElementRef,
   inject,
   input,
   signal,
   viewChild,
 } from '@angular/core';
-import { ThemeService } from '@mozart/shared-util-theme';
 import {
-  Compartment,
-  EditorState,
-  type Extension,
-} from '@codemirror/state';
+  defaultHighlightStyle,
+  syntaxHighlighting,
+} from '@codemirror/language';
+import { Compartment, EditorState, type Extension } from '@codemirror/state';
 import {
-  EditorView,
   drawSelection,
+  EditorView,
   highlightActiveLine,
 } from '@codemirror/view';
-import {
-  syntaxHighlighting,
-  defaultHighlightStyle,
-} from '@codemirror/language';
 import { mozartThemeFor } from '@mozart-ui/codemirror-theme';
 import {
   parseGroupedDiff,
@@ -37,6 +32,7 @@ import type {
   HunkExpandDirection,
   HunkExpandEvent,
 } from '@mozart-ui/hunk-expand-bar';
+import { ThemeService } from '@mozart/shared-util-theme';
 import {
   buildDocPlan,
   buildLineDecorations,
@@ -90,7 +86,17 @@ const EMPTY_PATH_STATE: PathState = {
 
 export type RenderItem =
   | { readonly kind: 'line'; readonly line: DiffLine; readonly key: string }
-  | { readonly kind: 'hunk-header'; readonly text: string; readonly key: string }
+  | {
+      readonly kind: 'hunk-header';
+      readonly text: string;
+      readonly key: string;
+      /** Gap above this hunk header; used by the inline "expand 20 lines
+       *  up" gutter button on the hunk's own row. */
+      readonly gapIndex: number;
+      /** Number of still-hidden context lines in the gap above. 0 hides
+       *  the gutter button (no more lines to expand). */
+      readonly linesAvailable: number;
+    }
   | {
       readonly kind: 'expand';
       readonly key: string;
@@ -123,7 +129,10 @@ export type RenderItem =
     } @else if (_isEmpty()) {
       <p class="text-muted-foreground px-3 py-3 text-xs">No changes.</p>
     } @else {
-      <div #host class="mz-diff-cm-host h-full w-full min-h-0 select-text"></div>
+      <div
+        #host
+        class="mz-diff-cm-host h-full w-full min-h-0 select-text"
+      ></div>
     }
   `,
 })
@@ -143,8 +152,7 @@ export class MzDiffView {
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly theme = inject(ThemeService);
-  private readonly hostRef =
-    viewChild<ElementRef<HTMLDivElement>>('host');
+  private readonly hostRef = viewChild<ElementRef<HTMLDivElement>>('host');
 
   // Per-path state — survives diffText input changes for the same path
   // and across switching to another file and back.
@@ -180,7 +188,7 @@ export class MzDiffView {
   // specs). Recomputed whenever the render items or fileLineCount
   // change; pushed into the editor via reconfigureCmState below.
   private readonly _docPlan = computed(() =>
-    buildDocPlan(this._renderItems()),
+    buildDocPlan(this._renderItems(), this.parsedDiff().hunks.length),
   );
 
   private view: EditorView | null = null;
@@ -335,11 +343,38 @@ export class MzDiffView {
     this.currentLineMeta = plan.lineMeta;
 
     const extensions: Extension[] = [
-      oldLineGutter(getMeta),
+      oldLineGutter(getMeta, (gi, ev) => this.onExpand(gi, ev)),
       newLineGutter(getMeta),
       drawSelection(),
       highlightActiveLine(),
       syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      // GitHub-style: zero gap between the gutters and the code so the
+      // colored line/gutter bands butt up against each other. The
+      // active-line treatment is a brightness filter on the existing
+      // line background, so context/hunk lines retain their tint and
+      // diff lines just go a touch darker.
+      EditorView.theme({
+        '.cm-gutters': {
+          borderRight: 'none',
+          backgroundColor: 'transparent',
+          // Let the hunk-row button overflow OLD's right edge onto
+          // the NEW gutter so its centerline lands on the seam.
+          overflow: 'visible',
+        },
+        '.cm-gutter': { overflow: 'visible' },
+        '.cm-gutterElement': { padding: '0', overflow: 'visible' },
+        '.cm-lineNumbers .cm-gutterElement': { padding: '0' },
+        '.cm-content': { paddingLeft: '0' },
+        '.cm-line': { paddingLeft: '0.5ch' },
+        '.cm-activeLine': {
+          backgroundColor: 'transparent',
+          filter: 'brightness(0.9)',
+        },
+        '.cm-activeLineGutter': {
+          backgroundColor: 'transparent',
+          filter: 'brightness(0.9)',
+        },
+      }),
       EditorView.lineWrapping,
       this.themeCompartment.of(
         mozartThemeFor(this.theme.isDark() ? 'dark' : 'light'),
@@ -363,7 +398,10 @@ export class MzDiffView {
     void this.applyLanguage(languageFromPath(this.path()));
   }
 
-  private applyPlan(view: EditorView, plan: ReturnType<typeof buildDocPlan>): void {
+  private applyPlan(
+    view: EditorView,
+    plan: ReturnType<typeof buildDocPlan>,
+  ): void {
     // Replace the entire doc; for diff-view the doc is small and full
     // replacement is simpler than a structural diff.
     const currentDoc = view.state.doc.toString();
@@ -492,7 +530,9 @@ export function computeExpandRange(
     const cursor = gapStart + state.belowPrev;
     const upperBound = gapEndKnown ?? cursor + rawCount - 1;
     const remaining =
-      gapEndKnown !== null ? gapEndKnown - cursor - state.aboveNext + 1 : rawCount;
+      gapEndKnown !== null
+        ? gapEndKnown - cursor - state.aboveNext + 1
+        : rawCount;
     if (remaining <= 0) return null;
     const count = Math.min(rawCount, remaining);
     const from = cursor;
@@ -505,7 +545,8 @@ export function computeExpandRange(
   // the up button shouldn't be rendered there.
   if (gapEndKnown === null) return null;
   const cursor = gapEndKnown - state.aboveNext;
-  const remaining = gapEndKnown - gapStart + 1 - state.belowPrev - state.aboveNext;
+  const remaining =
+    gapEndKnown - gapStart + 1 - state.belowPrev - state.aboveNext;
   if (remaining <= 0) return null;
   const count = Math.min(rawCount, remaining);
   const to = cursor;
@@ -534,6 +575,8 @@ export function buildRenderItems(
       items.push({
         kind: 'hunk-header',
         text: hunk.header,
+        gapIndex: gi,
+        linesAvailable: gapRemaining(gi, hunks, state, fileLineCount),
         key: `h${gi}:hdr`,
       });
       for (let li = 0; li < hunk.lines.length; li++) {
@@ -546,6 +589,23 @@ export function buildRenderItems(
     }
   }
   return items;
+}
+
+function gapRemaining(
+  gapIndex: number,
+  hunks: readonly DiffHunk[],
+  state: PathState,
+  fileLineCount: number | null,
+): number {
+  const isFirst = gapIndex === 0;
+  const isLast = gapIndex === hunks.length;
+  const gapStart = isFirst ? 1 : hunks[gapIndex - 1].endLine + 1;
+  const gapEnd = isLast ? fileLineCount : hunks[gapIndex].startLine - 1;
+  if (gapEnd === null) return 0;
+  if (gapEnd < gapStart) return 0;
+  const known = gapEnd - gapStart + 1;
+  const exp = state.expansions.get(gapIndex) ?? EMPTY_EXPANSION;
+  return Math.max(0, known - exp.belowPrev - exp.aboveNext);
 }
 
 function appendGap(

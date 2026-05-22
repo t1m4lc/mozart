@@ -96,11 +96,19 @@
      * the strong green/red signal in the +/− column. Consumed via
      * `bg-[var(--diff-add-bg)]` / `text-[var(--diff-add-marker-fg)]`
      * in mozart-ui/diff-view. */
-    --diff-add-bg: hsl(145 65% 50% / 0.08);
-    --diff-remove-bg: hsl(0 75% 55% / 0.08);
-    --diff-hunk-bg: hsl(210 80% 55% / 0.06);
-    --diff-add-marker-fg: hsl(145 60% 35%);
-    --diff-remove-marker-fg: hsl(0 70% 45%);
+    /* Two-tier diff backgrounds: the soft variant tints the line body
+     * (≈ tailwind green-100/red-100/blue-100) and the strong variant
+     * paints the gutter columns next to it (≈ green-200/red-200/
+     * blue-200). The column shade reads as a label band, the line
+     * shade keeps the code legible. */
+    --diff-add-bg: hsl(149 80% 90%);
+    --diff-add-bg-strong: hsl(149 80% 83%);
+    --diff-remove-bg: hsl(0 86% 94%);
+    --diff-remove-bg-strong: hsl(0 96% 89%);
+    --diff-hunk-bg: hsl(214 95% 93%);
+    --diff-hunk-bg-strong: hsl(214 97% 87%);
+    --diff-add-marker-fg: hsl(145 60% 30%);
+    --diff-remove-marker-fg: hsl(0 70% 40%);
   }
 
   :root.dark {
@@ -109,11 +117,14 @@
     --ring: 262 70% 68%;
     --sidebar-ring: 262 70% 68%;
 
-    --diff-add-bg: hsl(145 60% 55% / 0.10);
-    --diff-remove-bg: hsl(0 65% 60% / 0.10);
-    --diff-hunk-bg: hsl(210 75% 60% / 0.08);
-    --diff-add-marker-fg: hsl(145 60% 65%);
-    --diff-remove-marker-fg: hsl(0 70% 70%);
+    --diff-add-bg: hsl(149 30% 18%);
+    --diff-add-bg-strong: hsl(149 40% 25%);
+    --diff-remove-bg: hsl(0 35% 22%);
+    --diff-remove-bg-strong: hsl(0 45% 29%);
+    --diff-hunk-bg: hsl(214 40% 22%);
+    --diff-hunk-bg-strong: hsl(214 50% 29%);
+    --diff-add-marker-fg: hsl(145 60% 70%);
+    --diff-remove-marker-fg: hsl(0 70% 75%);
   }
   
   html,
