@@ -43,6 +43,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (7, include_str!("../../migrations/007_project_local_config.sql")),
     (8, include_str!("../../migrations/008_workspaces_last_merge_action.sql")),
     (9, include_str!("../../migrations/009_workspace_file_views.sql")),
+    (10, include_str!("../../migrations/010_workspace_sandbox_level.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.
@@ -146,6 +147,11 @@ fn patch_workspaces_columns(conn: &Connection) -> Result<(), AppError> {
     }
     if !cols.iter().any(|c| c == "last_merge_action") {
         conn.execute_batch("ALTER TABLE workspaces ADD COLUMN last_merge_action TEXT")?;
+    }
+    if !cols.iter().any(|c| c == "sandbox_level") {
+        conn.execute_batch(
+            "ALTER TABLE workspaces ADD COLUMN sandbox_level TEXT NOT NULL DEFAULT 'L2Project'",
+        )?;
     }
     Ok(())
 }

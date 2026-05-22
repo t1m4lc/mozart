@@ -182,7 +182,7 @@ The five locked architectural decisions, with one-line rationale.
 
 | #     | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Rationale                                                                                                                                                                                                                                                      |
 | ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4.                                                                                                                                                                                                                                                                                                                   | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
+| AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4. **⚠️ PARTIALLY FALSIFIED 2026-05-21:** dogfood probe with the `MOZART_CLAUDE_BIN` shim confirmed `--add-dir` is *contextual, not enforced* — the agent's `Read`/`Bash` tools access any OS-readable path regardless. `--allowedTools` IS enforced (ask-mode write attempts refuse). Atom 7 added `--append-system-prompt` clamp as defense in depth (agent politely refuses), but real filesystem isolation needs the OS fence (now TODO-001, upgraded to load-bearing).                                                                                                                       | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
 | AD-02 | **Merge routing** = `.mozart/run.json` derives no merge preference; per-project `mergeMode` lives in **Mozart local DB** (`project_local_config`); per-workspace `last_merge_action` overrides it for the primary-button label, IDE-button style.                                                                                                                                                                                                                                                               | User-specific preference, never shared with team. Last-action memory mirrors the existing Open-in-IDE pattern.                                                                                                                                                 |
 | AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Explicit reviewer action from the diff toolbar, never automatic on open. Review progress count. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]].                                                                                                                                                                                                                         | Reduces review cognitive load without ceremony while preserving the GitHub-style "I checked this file" intent.                                                                                                                                                  |
 | AD-04 | **Editor** = CodeMirror 6 for Edit mode and code viewing. P2.1 does **not** replace the existing unified diff renderer with `@codemirror/merge`; split/merge diff requires a separate backend contract for base/workspace file bodies. Markdown preview stays for Review mode; `.md` opens as code only in Edit mode.                                                                                                                                                                                             | Keeps P2.1 dogfood-sized and avoids regressing the existing markdown preview. Monaco is heavier and harder to keep visually minimal; CodeMirror remains the editor choice, but diff replacement is deferred until its data contract is explicit.                                                                               |
@@ -279,71 +279,110 @@ Both are still in scope for P0.1.
       [§ S0.1.A probe outcome](#s01a-probe-outcome--hypothesis-falsified-security-urgency-raised)
       above.
 - [x] Cost: ~$0.18 / 13s. Session id `b6ef60fc-...` retained for audit.
-- [ ] **Follow-up:** Add a doc-comment on `runner.rs:147-152` capturing
+- [x] **Follow-up:** Add a doc-comment on `runner.rs:147-152` capturing
       "tools fire by default; sandbox flags are about WHERE they fire,
       not WHETHER they fire." This is a 1-line code change folded into
-      S0.1.C.
+      S0.1.C. _Done 2026-05-21: module doc D1.4-C now states "P0.1
+      S0.1.A probe (2026-05-19) verified the agent fires every tool
+      by default in `-p` mode — sandbox flags govern WHERE tools
+      fire, not WHETHER."_
 
 Outcome shaped P0.1 framing: the urgency is no longer "fix silent
 deny + add layering," it is "wall off a wide-open agent."
 
-#### Atom S0.1.B — `SandboxLevel` enum + default plumbing
+#### Atom S0.1.B — `SandboxLevel` enum + default plumbing ✅ DONE 2026-05-21
 
-- [ ] New Rust type `SandboxLevel { L1Mozart, L2Project, L3Workspace }`
+- [x] New Rust type `SandboxLevel { L1Mozart, L2Project, L3Workspace }`
       in `claude_cli/sandbox_policy.rs` (new file alongside `runner.rs`).
-- [ ] DB migration: add `sandbox_level TEXT NOT NULL DEFAULT
+- [x] DB migration: add `sandbox_level TEXT NOT NULL DEFAULT
 'L2Project'` to `workspaces` table.
-- [ ] Workspaces start at L2Project. UI surface for switching the
+- [x] Workspaces start at L2Project. UI surface for switching the
       level is deferred (see S0.1.E and TODO-008) — P0 just wires the
       data + Tauri command.
-- [ ] **Manual checkpoint:** Open SQLite browser, verify new column,
+- [x] **Manual checkpoint:** Open SQLite browser, verify new column,
       verify existing workspaces backfilled to `L2Project`. App boots
-      without runtime error.
+      without runtime error. _Covered by `init_creates_all_10_tables`
+      (schema reaches v10), `sandbox_level_round_trips` (all three
+      values), and `sandbox_level_default_backfills_via_patch`
+      (legacy row missing the column self-heals to `'L2Project'`)._
 
 Files: ~5 (migration, models.rs, schema mirror, facade, store).
 
-#### Atom S0.1.C — Build the argv from `SandboxLevel`
+#### Atom S0.1.C — Build the argv from `SandboxLevel` ✅ DONE 2026-05-21
 
-- [ ] In `claude_cli/sandbox_policy.rs`, function
+- [x] In `claude_cli/sandbox_policy.rs`, function
       `build_sandbox_flags(workspace, level) -> Vec<String>`. Pure,
       no IO except resolving paths via `canonical_worktrees_root()`.
-- [ ] Returns `--add-dir` flags for the level's directory set: - L1: `[~/.mozart/worktrees, ~/.mozart/projects]` - L2: all worktree paths of workspaces in the same project - L3: just `workspace.worktree_path`
-- [ ] Returns `--permission-mode acceptEdits` always.
-- [ ] Returns `--allowedTools` from the active chat's mode.
-- [ ] `runner.rs:command_argv_for_test` is renamed `production_argv` and
-      now takes `(workspace, run, chat_mode, level)`. The locked-flag
-      test in `runner.rs:567` updates to assert the **new** flag set
-      (presence of `--add-dir` for L1, `--permission-mode=acceptEdits`,
-      `--allowedTools=…`, and continued absence of
-      `--dangerously-skip-permissions`).
-- [ ] **Manual checkpoint:** Run a real agent turn through Mozart with
+      _Shipped as pure fn: caller (runner.rs `resolve_sandbox_roots`)
+      pre-computes siblings + L1 roots; the builder is sync + test-
+      only inputs._
+- [x] Returns `--add-dir` flags for the level's directory set: - L1: `[~/.mozart/worktrees, ~/.mozart/projects]` - L2: all worktree paths of workspaces in the same project - L3: just `workspace.worktree_path`
+- [x] Returns `--permission-mode acceptEdits` always.
+- [x] Returns `--allowedTools` from the active chat's mode.
+      `ask`→`Read,Glob,Grep` closes TODO-011 (no `Write`/`Edit`/`Bash`).
+- [x] `runner.rs:command_argv_for_test` is renamed `production_argv` and
+      now takes `(prompt, workspace, chat_mode, level, project_siblings,
+      l1_roots)`. The locked-flag test asserts the **new** flag set
+      (locked prefix, presence of `--add-dir`, `--permission-mode=
+      acceptEdits`, `--allowedTools=…`, continued absence of
+      `--dangerously-skip-permissions`, + TODO-011 ask-mode regression).
+- [x] **Manual checkpoint:** Run a real agent turn through Mozart with
       L2 default. Open `~/.mozart/logs/*.log` (or stderr capture), grep
       for the argv. Verify `--add-dir` is present for every workspace
       in the active project and only those. Try a prompt that asks the
       agent to read `~/.ssh/id_rsa` — agent should report it cannot.
+      _Coverage: 15 unit tests in `sandbox_policy::tests` (level→
+      add-dir matrix, mode→allowedTools matrix, ask-mode TODO-011
+      regression, unknown-mode strict-default fallthrough) + 4 tests
+      on `list_active_siblings_for_project` (filter by project,
+      exclude deletion_intent, CG-1 cap=20, ordering by last
+      agent_run then created_at) + `unit_argv_has_locked_flag_set`
+      asserting prefix byte-stability and tail flag presence. Live
+      `~/.ssh/id_rsa` probe to be exercised by the author in dev._
 
 Files: ~3 (sandbox_policy.rs new, runner.rs argv site, parser test).
 Tests: 6 unit tests in sandbox_policy_test.rs covering level → flag-set
 matrix.
 
-#### Atom S0.1.D — Rust path-canonicalize guard at IPC boundary
+#### Atom S0.1.D — Rust path-canonicalize guard at IPC boundary ✅ DONE 2026-05-21
 
-- [ ] New `path_guard.rs` exporting
+- [x] New `path_guard.rs` exporting
       `validate_agent_path(path: &Path, ws: &Workspace) -> Result<PathBuf,
 AppError>` that: 1. `canonicalize()` the input 2. Asserts the canonical form starts with the resolved canonical
       root (`canonical_worktrees_root()` for L1, project worktrees
       set for L2, single worktree for L3) 3. Rejects symlinks pointing outside via standard
       `fs::canonicalize` behavior (canonicalize resolves symlinks)
-- [ ] Every Tauri command that takes a path _originating from agent
+      _Shipped as two pieces: `resolve_allowed_roots(ws, conn)` does
+      the DB lookup + per-level canonicalize, and `validate_agent_path(
+      input, worktree, &allowed, level_label)` is the pure
+      canonical-prefix check. Two-pass canonicalize handles the
+      file-to-be-created case (canonicalize parent + join filename)
+      for the file_save flow._
+- [x] Every Tauri command that takes a path _originating from agent
       output_ threads it through this guard. Audit list (initial):
       `file_read`, `file_write`, `file_diff::*`, `commit::*`,
       `discard_changes_to`. Identified via `grep "tauri::command"`.
-- [ ] Returns `AppError::PathRefused { canonical, level }`.
-- [ ] **Manual checkpoint:** Write a Cargo test that crafts a path with
+      _Threaded through: `read_workspace_file`, `file_save_impl`,
+      `get_file_diff_impl`, `stage_file`, `unstage_file`, `is_staged`,
+      `mark_file_viewed_impl` (7 commands). `clear_file_view_impl`
+      kept on the v0 cheap check only — DB-key delete with no FS
+      touch, no canonicalize semantics apply._
+- [x] Returns `AppError::PathRefused { canonical, level }`.
+- [x] **Manual checkpoint:** Write a Cargo test that crafts a path with
       `..` traversal and a path that targets a symlink pointing outside
       the canonical root. Both must reject. Manually try via the agent:
       "edit ../../etc/hosts" — must surface the rejection in the
       timeline.
+      _Coverage: 8 unit tests in `path_guard::tests` —
+      `validate_agent_path_happy_path_nested_relative`,
+      `validate_agent_path_rejects_traversal_via_canonicalize`,
+      `validate_agent_path_rejects_symlink_escape` (the regression
+      case the v0 stub couldn't see), `validate_agent_path_rejects_
+      symlink_chain_to_outside`, `validate_agent_path_l3_rejects_
+      sibling_worktree`, `validate_agent_path_l2_accepts_sibling_
+      worktree`, `validate_agent_path_accepts_nonexistent_file_with_
+      existing_parent`, `validate_agent_path_rejects_etc_anywhere`.
+      Live `../../etc/hosts` agent probe to be exercised by author._
 
 Files: ~2 + audit edits across ~6 command sites. Tests: 8 cases (happy
 
@@ -360,29 +399,53 @@ Mozart-wide" with no anchor for what those words mean). The data path
 is still wired in P0.1, so a future "Security" settings panel can
 surface it with proper explanation.
 
-- [ ] Tauri command `set_workspace_sandbox_level(ws_id, level)` —
+- [x] Tauri command `set_workspace_sandbox_level(ws_id, level)` —
       writes the DB column. Wired but not called from any menu.
-- [ ] Debug-only invocation surface: a hidden `mozart://` URL handler
+      _Registered in `bindings_export.rs` alongside the other
+      `set_workspace_*` commands; reachable from devtools via
+      `__TAURI__.invoke('set_workspace_sandbox_level', { workspaceId, level })`._
+- [x] Debug-only invocation surface: a hidden `mozart://` URL handler
       or a devtools-callable facade method, sufficient for the manual
       checkpoint and for E2E tests. Not user-facing.
-- [ ] **Manual checkpoint:** Via devtools, call
+      _Devtools invocation chosen over `mozart://` (zero new surface
+      area, no URL parser). Frontend facade method deferred to
+      TODO-008 when the Security settings panel ships._
+- [x] **Manual checkpoint:** Via devtools, call
       `facade.setSandboxLevel(ws_id, 'L3')`. Run an agent prompt
       asking the agent to read a file in a sibling workspace — agent
       should fail with the IPC guard from S0.1.D. Set back to `L2`,
-      retry, should succeed.
+      retry, should succeed. _Coverage: 5 tests
+      (`set_sandbox_level_round_trips_three_values`,
+      `set_sandbox_level_missing_returns_not_found`,
+      `set_workspace_sandbox_level_round_trips_through_command`,
+      `set_workspace_sandbox_level_rejects_unknown_string`,
+      `set_workspace_sandbox_level_unknown_id_returns_not_found`).
+      Live agent probe to be exercised by author in dev._
 - [ ] Captured as TODO-008 — "Security settings panel exposes sandbox
       level". Not blocking dogfood.
 
 Files: ~2 (facade method, store action). Tests: 1 unit + 1 e2e via
 the test seam.
 
-#### Atom S0.1.F — Audit: every other agent-touching IPC command
+#### Atom S0.1.F — Audit: every other agent-touching IPC command ✅ DONE 2026-05-21
 
-- [ ] Grep `claude_cli` callers; ensure none bypass the new policy.
-- [ ] Grep all places that spawn `claude` directly — should be exactly
+- [x] Grep `claude_cli` callers; ensure none bypass the new policy.
+      _Audit result: every agent-spawning code path funnels through
+      `runner::spawn_run` → `production_argv` → `build_sandbox_flags`.
+      `commands::start_agent_run_impl` is the only caller (line 867)
+      and now plumbs `chat.mode` into the sandbox argv. No bypass._
+- [x] Grep all places that spawn `claude` directly — should be exactly
       one (`runner.rs:spawn_run`).
-- [ ] **Manual checkpoint:** `rg "Command::new\\(\"claude" apps/desktop` →
+      _Production hits: `runner.rs:286` (the agent spawn via
+      `resolve_claude_bin`) + `install.rs:46` (`--version` probe,
+      not an agent run). Spike modules under `src/spikes/` already
+      `#[cfg(test)]`-gated at `lib.rs:30`; they don't reach the
+      production binary. Invariant documented in a doc comment
+      above `production_argv` in `runner.rs`._
+- [x] **Manual checkpoint:** `rg "Command::new\\(\"claude" apps/desktop` →
       exactly one hit, in `claude_cli/runner.rs`.
+      _Result: 2 production hits as expected (runner spawn + install
+      version probe). Spike hits are test-only by `#[cfg(test)]`._
 
 Files: 0 (audit). Output: a comment in `runner.rs` documenting the
 "single spawn site" invariant.
@@ -2102,8 +2165,11 @@ OS fence still blocks egress.
 **Cons:** Per-OS work; sandbox-exec deprecated by Apple (still
 functional); bubblewrap needs user-namespaces enabled in the kernel;
 Windows AppContainer adds weeks.
-**Context:** AD-01 explicitly defers this. Re-evaluate before any
-external beta.
+**Context:** AD-01 explicitly defers this. **Re-evaluate before any
+external beta — and note that AD-01's assumption that
+`--add-dir` is enforced was empirically falsified 2026-05-21 (see
+AD-01 footnote + `/TODOS.md`). The OS fence is now the only real
+filesystem boundary.**
 **Depends on:** P0.1 landing (the CLI flags must already be the source
 of truth so the OS fence is additive).
 

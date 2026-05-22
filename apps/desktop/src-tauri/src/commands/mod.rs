@@ -43,7 +43,7 @@ use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::github::{self, CreatedPr, GithubProbeResult};
 use crate::ide_launch::{self, DetectedIde};
 use crate::merge::{self, MergeOutcome};
-use crate::path_guard::validate_workspace_relative_path;
+use crate::path_guard::{self, validate_workspace_relative_path};
 use crate::terminal::{self, TerminalEvent};
 use crate::terminal_registry::TerminalRegistry;
 use crate::workspace_run_registry::WorkspaceRunRegistry;
@@ -784,6 +784,46 @@ pub async fn set_workspace_last_merge_action(
 }
 
 // ---------------------------------------------------------------------------
+// set_workspace_sandbox_level (P0.1 S0.1.E — debug-only)
+// ---------------------------------------------------------------------------
+
+/// Change a workspace's [`SandboxLevel`]. Validated against
+/// `SandboxLevel::from_str` before writing — an unknown string
+/// surfaces as `AppError::Validation` rather than silently widening
+/// the agent's reach via a bogus DB row.
+///
+/// **No UI in v0.** The toggle UI ships with the Security settings
+/// panel (TODO-008). For now this command is reachable only via the
+/// devtools (`__TAURI__.invoke('set_workspace_sandbox_level', …)`) and
+/// from E2E tests; that's intentional per /plan-devex-review
+/// 2026-05-19 (first-run users have no context to interpret a
+/// "Mozart-wide / project / workspace-only" choice without a security
+/// surface around it).
+#[tauri::command]
+#[specta::specta]
+pub async fn set_workspace_sandbox_level(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    level: String,
+) -> Result<(), AppError> {
+    set_workspace_sandbox_level_impl(db.inner(), workspace_id, level).await
+}
+
+pub(crate) async fn set_workspace_sandbox_level_impl(
+    db: &DbState,
+    workspace_id: String,
+    level: String,
+) -> Result<(), AppError> {
+    use std::str::FromStr;
+    // Parse before touching the DB — refuse to write anything that
+    // wouldn't round-trip back through `SandboxLevel::from_str` later.
+    let parsed = crate::claude_cli::sandbox_policy::SandboxLevel::from_str(&level)?;
+    let canonical = parsed.to_string();
+    let conn = db.lock();
+    workspaces::set_sandbox_level(&conn, &workspace_id, &canonical)
+}
+
+// ---------------------------------------------------------------------------
 // start_agent_run
 // ---------------------------------------------------------------------------
 
@@ -834,17 +874,24 @@ where
     E: Fn(AgentRunTerminated) + Send + Sync + 'static,
 {
     // D20: 1:1 workspace -> thread traversal. Plan P0.2: refuse on
-    // frozen workspaces before doing any further work, EXCEPT in `ask`
-    // mode — read-only inquiry stays allowed even after the workspace
-    // is done/canceled. KNOWN GAP (TODO-010): `ask` is not yet provably
-    // read-only at the agent layer, so a determined user can still
-    // request writes in ask mode and Claude may comply. The freeze
-    // banner UI honestly overpromises until that TODO lands.
+    // frozen workspaces — ALL modes, including `ask`.
+    //
+    // Earlier design (and TODO-010 / TODO-011) let `ask` mode bypass
+    // the freeze guard on the theory that `--allowedTools=Read,Glob,Grep`
+    // would prove the run is read-only at the agent layer. Dogfood
+    // probe 2026-05-22 falsified that: with the correct argv in place,
+    // an `ask`-mode prompt still successfully edited a workspace file.
+    // Conclusion: `--allowedTools` is contextual, not enforced — same
+    // surprise as `--add-dir` (see AD-01). Until the OS fence
+    // (TODO-001) ships, `ask` mode cannot be treated as provably
+    // read-only and must respect the freeze.
+    //
+    // UX trade-off: users can no longer ask questions about a done
+    // workspace without reopening it first. Honest > convenient — the
+    // alternative is a "read-only" banner that lies.
     let (ws, thread) = {
         let conn = db.lock();
-        if mode != "ask" {
-            workspaces::assert_workspace_active(&conn, &workspace_id)?;
-        }
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
         (
             workspaces::get(&conn, &workspace_id)?,
             threads::get_by_workspace(&conn, &workspace_id)?,
@@ -865,7 +912,7 @@ where
         let conn = db.lock();
         agent_runs::create(&conn, &run)?;
     }
-    let handle = spawn_run(&ws, &run, on_event, db, emit_terminated).await?;
+    let handle = spawn_run(&ws, &run, &mode, on_event, db, emit_terminated).await?;
     registry.register(run.run_id.clone(), Arc::new(handle));
     Ok(run)
 }
@@ -1634,8 +1681,9 @@ pub async fn get_file_diff(
 /// Read a file's raw contents from a workspace's worktree. Used by the
 /// markdown preview, the CodeMirror Edit pane (P2.1) and any other
 /// component that needs file content rather than a diff. Path validation
-/// goes through `path_guard::validate_workspace_relative_path` so the
-/// read and save paths cannot drift.
+/// goes through `path_guard::guard_agent_relative_path` so the read,
+/// save, diff, and staging paths all share the same sandbox check
+/// and cannot drift.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_workspace_file(
@@ -1649,9 +1697,13 @@ pub async fn read_workspace_file(
         workspaces::get(&conn, &workspace_id)?
     };
 
-    validate_workspace_relative_path(&path)?;
+    // P0.1 S0.1.D — cheap v0 pre-check + canonicalize-and-confine
+    // against the workspace's sandbox roots. The cheap step catches
+    // obvious garbage; the canonical step closes the symlink-escape
+    // bypass (a symlink inside the worktree pointing at `/etc/hosts`
+    // would pass the regex but fail the prefix assertion).
+    let abs = path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
 
-    let abs = std::path::Path::new(&ws.worktree_path).join(&path);
     let body = tokio::fs::read_to_string(&abs)
         .await
         .map_err(|e| AppError::Io(format!("read {abs:?}: {e}")))?;
@@ -1700,9 +1752,12 @@ pub(crate) async fn file_save_impl(
         workspaces::get(&conn, &workspace_id)?
     };
 
-    validate_workspace_relative_path(&path)?;
-
-    let abs = std::path::Path::new(&ws.worktree_path).join(&path);
+    // P0.1 S0.1.D — guard handles cheap pre-check + canonicalize-and-
+    // confine. The two-pass canonicalize inside `validate_agent_path`
+    // accepts files-to-be-created (parent exists, target does not),
+    // which is what file_save needs since the target may not exist
+    // on first save.
+    let abs = path_guard::guard_agent_relative_path(db, &ws, &path)?;
 
     // Stale check: compare expected (editor-side baseline) against the
     // current on-disk body. A missing file is treated as a divergence —
@@ -1784,6 +1839,14 @@ pub(crate) async fn get_file_diff_impl(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+
+    // P0.1 S0.1.D — `file_diff::get_file_diff` doesn't itself touch
+    // the FS at the path arg (it shells git), but git's `--`
+    // separator does NOT block path traversal if the path resolves
+    // through a symlink. Gate so the diff surface honors the same
+    // sandbox as read/save.
+    path_guard::guard_agent_relative_path(db, &ws, &path)?;
+
     file_diff::get_file_diff(
         std::path::Path::new(&ws.worktree_path),
         &ws.base_branch,
@@ -1816,6 +1879,15 @@ pub async fn open_terminal(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+
+    // Atom 6 (user-added) — refuse to open a PTY whose initial cwd
+    // is outside the workspace's sandbox roots (defensive against a
+    // corrupted DB row pointing at /etc). The OS-level fence
+    // (TODO-001 / TODOS.md "real OS-level filesystem fence") is
+    // still the only thing that prevents `cd ~/.ssh` after the
+    // shell is live.
+    path_guard::guard_workspace_worktree(db.inner(), &ws)?;
+
     // Drop any prior PTY before spawning a new one (kills child).
     registry.cancel(&workspace_id);
     let handle = terminal::spawn(
@@ -1936,7 +2008,7 @@ pub(crate) async fn start_workspace_run_impl(
     rows: u16,
     on_event: Channel<TerminalEvent>,
 ) -> Result<(), AppError> {
-    let (worktree_path, command) = {
+    let (ws, command) = {
         let conn = db.lock();
         // Plan P0.2 — block run-script launches on frozen workspaces.
         workspaces::assert_workspace_active(&conn, &workspace_id)?;
@@ -1948,8 +2020,15 @@ pub(crate) async fn start_workspace_run_impl(
                 "no run_command configured for this project".into(),
             )
         })?;
-        (ws.worktree_path, cmd)
+        (ws, cmd)
     };
+
+    // Atom 6 (user-added) — same PTY sandbox-root assertion as
+    // `open_terminal`. The Run-tab PTY also inherits the user's
+    // shell environment but starts at the workspace worktree.
+    path_guard::guard_workspace_worktree(db, &ws)?;
+
+    let worktree_path = ws.worktree_path;
     registry.cancel(&workspace_id);
     let handle = terminal::spawn_command(
         std::path::Path::new(&worktree_path),
@@ -2048,7 +2127,9 @@ pub async fn commit_workspace(
 // Per-file staging (P2.5 Changes tab context menu)
 // ---------------------------------------------------------------------------
 
-/// `git add -- <path>` inside the workspace's worktree.
+/// `git add -- <path>` inside the workspace's worktree. P0.1 S0.1.D —
+/// gated by `path_guard::guard_agent_relative_path` so a symlink-escape
+/// commit can't slip through staging.
 #[tauri::command]
 #[specta::specta]
 pub async fn stage_file(
@@ -2060,11 +2141,13 @@ pub async fn stage_file(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+    path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
     staging::stage(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
 /// `git reset HEAD -- <path>` inside the workspace's worktree. Leaves
-/// the working-tree copy untouched.
+/// the working-tree copy untouched. P0.1 S0.1.D — same gate as
+/// `stage_file`.
 #[tauri::command]
 #[specta::specta]
 pub async fn unstage_file(
@@ -2076,11 +2159,12 @@ pub async fn unstage_file(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+    path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
     staging::unstage(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
 /// `true` when the path has changes in the git index (X byte of
-/// porcelain status is non-space, non-`?`).
+/// porcelain status is non-space, non-`?`). P0.1 S0.1.D — same gate.
 #[tauri::command]
 #[specta::specta]
 pub async fn is_staged(
@@ -2092,6 +2176,7 @@ pub async fn is_staged(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
+    path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
     staging::is_staged(std::path::Path::new(&ws.worktree_path), &path).await
 }
 
@@ -2153,7 +2238,10 @@ pub(crate) async fn mark_file_viewed_impl(
         let conn = db.lock();
         workspaces::get(&conn, &workspace_id)?
     };
-    validate_workspace_relative_path(&path)?;
+    // P0.1 S0.1.D — `hash_workspace_file` below follows symlinks via
+    // tokio::fs::read; without this gate a symlink could pin the
+    // Viewed marker to a file outside the sandbox.
+    path_guard::guard_agent_relative_path(db, &ws, &path)?;
     let hash = hash_workspace_file(std::path::Path::new(&ws.worktree_path), &path).await;
     let row = WorkspaceFileView {
         workspace_id,
@@ -2959,6 +3047,7 @@ mod tests {
             deletion_intent: 0,
             ui_status: "backlog".into(),
             last_merge_action: None,
+            sandbox_level: "L2Project".into(),
         };
         workspaces::create(&conn, &ws).unwrap();
         let th = Thread {
@@ -3373,6 +3462,66 @@ mod tests {
     }
 
     // -------------------------------------------------------------------
+    // 7c. set_workspace_sandbox_level (P0.1 S0.1.E)
+    // -------------------------------------------------------------------
+
+    #[tokio::test]
+    async fn set_workspace_sandbox_level_round_trips_through_command() {
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/sbx");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        // Default is L2Project (migration 010); confirm we can flip
+        // to L3 and back through the Tauri command layer, not just
+        // the raw DB mutator.
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().sandbox_level,
+            "L2Project"
+        );
+        set_workspace_sandbox_level_impl(&db, ws_id.clone(), "L3Workspace".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().sandbox_level,
+            "L3Workspace"
+        );
+        set_workspace_sandbox_level_impl(&db, ws_id.clone(), "L1Mozart".into())
+            .await
+            .unwrap();
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().sandbox_level,
+            "L1Mozart"
+        );
+    }
+
+    #[tokio::test]
+    async fn set_workspace_sandbox_level_rejects_unknown_string() {
+        // The DB column is TEXT so the SQL layer would happily accept
+        // garbage; the parse step in the command rejects it instead so
+        // a corrupted row never widens agent reach.
+        let db = init_db_memory().unwrap();
+        let repo_id = seed_repo_row(&db, "/tmp/sbxr");
+        let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+        let err = set_workspace_sandbox_level_impl(&db, ws_id.clone(), "L4Cosmic".into())
+            .await
+            .expect_err("unknown level must be rejected");
+        assert!(matches!(err, AppError::Validation(_)));
+        // DB row must be untouched on parse failure.
+        assert_eq!(
+            workspaces::get(&db.lock(), &ws_id).unwrap().sandbox_level,
+            "L2Project"
+        );
+    }
+
+    #[tokio::test]
+    async fn set_workspace_sandbox_level_unknown_id_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let err = set_workspace_sandbox_level_impl(&db, "no-such-ws".into(), "L3Workspace".into())
+            .await
+            .expect_err("unknown workspace must error");
+        assert!(matches!(err, AppError::NotFound(_)));
+    }
+
+    // -------------------------------------------------------------------
     // 8. start_agent_run — happy path (unix + git only)
     // -------------------------------------------------------------------
 
@@ -3422,6 +3571,7 @@ mod tests {
                 deletion_intent: 0,
             ui_status: "backlog".into(),
             last_merge_action: None,
+            sandbox_level: "L2Project".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -3526,6 +3676,7 @@ mod tests {
                 deletion_intent: 0,
             ui_status: "backlog".into(),
             last_merge_action: None,
+            sandbox_level: "L2Project".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -3854,6 +4005,7 @@ mod tests {
                 deletion_intent: 0,
             ui_status: "backlog".into(),
             last_merge_action: None,
+            sandbox_level: "L2Project".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -3985,6 +4137,7 @@ mod tests {
                 deletion_intent: 0,
             ui_status: "backlog".into(),
             last_merge_action: None,
+            sandbox_level: "L2Project".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -4126,32 +4279,20 @@ mod tests {
         assert_frozen(result, &ws_id);
     }
 
-    // `ask` is the read-only mode; users keep being able to query the
-    // workspace even after it's marked done. The freeze guard skips
-    // this mode at the IPC layer. KNOWN GAP (TODO-010): the agent
-    // itself is not yet sandboxed read-only in `ask`, so a determined
-    // prompt can still cause writes. This test pins the IPC bypass;
-    // when TODO-010 lands and `ask` is provably read-only end-to-end,
-    // this stays green.
+    // Dogfood 2026-05-22 falsified the "`ask` is provably read-only"
+    // assumption — even with `--allowedTools=Read,Glob,Grep` in the
+    // argv, the agent successfully edited a file when asked. So `ask`
+    // mode no longer bypasses the IPC freeze guard: a frozen workspace
+    // refuses every `start_agent_run`, mode notwithstanding. When
+    // TODO-001 (OS-level fence) lands, the bypass can be reconsidered.
     #[tokio::test]
-    async fn start_agent_run_allows_ask_mode_on_frozen_workspace() {
-        if !sandbox::git_available() {
-            eprintln!("SKIP start_agent_run_allows_ask_mode_on_frozen_workspace: git not on PATH");
-            return;
-        }
-        let tmp = tempfile::tempdir().unwrap();
-        let repo = tmp.path().join("repo");
-        std::fs::create_dir_all(&repo).unwrap();
-        init_repo_with_main(&repo);
+    async fn start_agent_run_refuses_ask_mode_on_frozen_workspace() {
         let db = init_db_memory().unwrap();
-        let repo_id = seed_repo_row(&db, repo.to_string_lossy().as_ref());
+        let registry = RunRegistry::new();
+        let repo_id = seed_repo_row(&db, "/tmp/freeze-ask");
         let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
         mark_workspace_done(&db, &ws_id);
 
-        let registry = RunRegistry::new();
-        // The guard short-circuits before any worktree work; we accept
-        // any non-Frozen outcome (Ok or another downstream error from
-        // the minimal seeded workspace).
         let result = start_agent_run_impl(
             &db,
             &registry,
@@ -4162,8 +4303,10 @@ mod tests {
             |_| {},
         )
         .await;
-        if let Err(AppError::Frozen(id)) = &result {
-            panic!("ask-mode must bypass the freeze guard, but got Frozen({id})");
+        match result {
+            Err(AppError::Frozen(_)) => {} // expected
+            Ok(_) => panic!("ask mode must NOT bypass freeze: got Ok"),
+            Err(other) => panic!("expected Frozen, got {other:?}"),
         }
     }
 
@@ -4352,6 +4495,7 @@ mod tests {
                 deletion_intent: 0,
                 ui_status: "backlog".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             };
             workspaces::create(&conn, &ws).unwrap();
             ws.workspace_id

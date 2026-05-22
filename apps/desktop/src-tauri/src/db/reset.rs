@@ -431,6 +431,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "in_review".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_DESKTOP_FILE_TREE_B.into(),
@@ -446,6 +447,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "in_progress".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_DESKTOP_DIFF_VIEW.into(),
@@ -461,6 +463,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "in_progress".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_DESKTOP_RUN_TAB.into(),
@@ -476,6 +479,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "backlog".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_DOCS_RELEASE_NOTES.into(),
@@ -491,6 +495,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "done".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_DOCS_PROMPT_LIBRARY.into(),
@@ -506,6 +511,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "in_progress".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_LANDING_LLMS_TXT.into(),
@@ -521,6 +527,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "done".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_LANDING_PRICING.into(),
@@ -536,6 +543,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "backlog".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_RLS_AUDIT.into(),
@@ -551,6 +559,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "done".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_LEGACY_MIGRATION.into(),
@@ -566,6 +575,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "canceled".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_AI_LLAMACPP.into(),
@@ -581,6 +591,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "canceled".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
             Workspace {
                 workspace_id: ids::WS_AI_EXPERIMENT_PAUSED.into(),
@@ -596,6 +607,7 @@ mod seed {
                 deletion_intent: 0,
                 ui_status: "in_review".into(),
                 last_merge_action: None,
+                sandbox_level: "L2Project".into(),
             },
         ];
         for w in &rows {

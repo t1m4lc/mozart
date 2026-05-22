@@ -21,6 +21,7 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 **What:** `/privacy` and `/terms` ship with placeholder banner + `<meta robots noindex,nofollow>`. Production launch must replace with real legal copy from counsel.
 
 **Why:** "Placeholder — not final legal text" is fine for preview but cannot ship publicly. Once real copy lands:
+
 1. Remove the placeholder banner.
 2. Remove the `noindex,nofollow` meta tag.
 3. Add `/privacy` and `/terms` to `sitemap.xml` (currently excluded by Phase 12).
@@ -108,6 +109,7 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 **What:** Today `apps/desktop/src-tauri/src/lib.rs` only configures WebKit scroll on Linux (disable smooth-scrolling, force GPU compositing) because that's the only platform where Tauri's webview engine (WebKitGTK) feels noticeably slower than Chromium for wheel scrolling. If users on macOS or Windows report a similar slowness, evaluate platform-specific tweaks.
 
 **Why:** Tauri uses a different webview engine per platform:
+
 - Linux → WebKitGTK 4.1 (the fixed-here case)
 - macOS → WKWebView (Apple's WebKit). Scroll behavior is OS-native via NSScrollView; expected to feel like every other macOS app. Usually fine.
 - Windows → WebView2 (Chromium-based). Scroll feel matches Chrome/Edge.
@@ -115,6 +117,7 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 We applied the Linux fix because the slowness was reported there. macOS and Windows haven't been reported yet but could surface as we get more cross-platform usage.
 
 **How to apply:** Reproduce the complaint on the target platform first. Then:
+
 - macOS: WKWebView doesn't expose an equivalent `enable-smooth-scrolling` setting. Investigate `WKPreferences` and `NSScrollView` properties via `tauri::WebviewWindow::with_webview` + the wry crate's macOS extensions. Many "fixes" here are at the OS preferences layer, not the app.
 - Windows: WebView2 settings are exposed via `tauri::WebviewWindow::with_webview` and the wry Windows extensions. Look at `CoreWebView2Settings` and any high-precision-input flags.
 
@@ -131,5 +134,106 @@ We applied the Linux fix because the slowness was reported there. macOS and Wind
 **How to apply:** Find the chat-delete and workspace-delete code paths (likely in `ChatFacade` and `WorkspacesFacade`). On delete, inject `ScrollPositionService` and call `forgetChat(workspaceId, chatId)` / `forgetWorkspace(workspaceId)`. Mirror the pattern used in `FileTabsService.closeFor`. Add a regression spec.
 
 **Depends on:** Knowing the exact delete code paths — small investigation needed.
+
+## Sandbox — real OS-level filesystem fence for the Claude subprocess (load-bearing)
+
+## Sandbox — real OS-level filesystem fence for the Claude subprocess AND the terminal PTY (load-bearing)
+
+**What:** Wrap **both** the `claude` subprocess and the in-app terminal PTY in an OS-level sandbox so neither can reach paths outside `~/.mozart/worktrees/<scope>`. Linux first via `bubblewrap`, then macOS via `sandbox-exec`, then Windows via `AppContainer`.
+
+**Why:** Two surfaces, same gap.
+
+1. **Claude subprocess:** empirically falsified 2026-05-21 — Claude CLI's `--add-dir` is **contextual, not enforced**. Re-falsified 2026-05-22 for `--allowedTools` as well: an `ask`-mode prompt (argv carries `--allowedTools=Read,Glob,Grep`) successfully edited a file, proving the agent's Write tool fires regardless of the allowlist. The probe (MOZART_CLAUDE_BIN shim) confirmed Mozart sends the correct argv (`--add-dir`, `--permission-mode=acceptEdits`, `--allowedTools`, `--append-system-prompt` clamp) but the agent still reads any OS-readable path AND still writes outside the allowlist because nothing blocks the syscall. Conclusion: **both `--add-dir` and `--allowedTools` are contextual**, not enforced. The Atom 7 system-prompt clamp now makes the agent refuse politely, but a jailbreak prompt would bypass it. As a hardening step until this lands, the IPC freeze guard no longer skips `ask` mode (2026-05-22 — see `start_agent_run_impl`): a frozen workspace refuses every agent run, mode notwithstanding.
+
+2. **Terminal PTY:** the `path_guard::guard_workspace_worktree` check at the spawn site (`open_terminal`, `start_workspace_run_impl`) only validates the **initial `cwd`** before launching the shell. Once the shell is alive it inherits the user's full environment — a user (or anything driving the terminal) can `cd ~/.ssh && cat id_rsa` and there is **no** OS-level constraint stopping it. Same root cause as the Claude case: no syscall fence.
+
+The OS fence is the only real boundary for either surface.
+
+The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_sandbox_level` Tauri command, IPC path guard, terminal PTY spawn-cwd check) is all still useful — the OS fence layers on top by reading the workspace's `sandbox_level` and picking the right binding profile for both the agent spawn and the PTY spawn.
+
+**How to apply (Linux first):**
+
+1. Detect `bwrap` on PATH at app start; degrade gracefully (warn + run unwrapped) if missing or kernel `unprivileged_userns_clone` is disabled.
+2. Single helper, called from both spawn sites:
+   - `claude_cli::runner::spawn_run` — wrap `Command::new(resolve_claude_bin())` in `Command::new("bwrap") --args …`.
+   - `terminal::spawn_inner` (or its callers in `commands/mod.rs`: `open_terminal`, `start_workspace_run_impl`) — same wrap around the shell spawn.
+3. Bindings template:
+   - `--ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64` (libs)
+   - `--ro-bind /etc/ssl /etc/ssl --ro-bind /etc/resolv.conf /etc/resolv.conf` (TLS + DNS)
+   - `--ro-bind $HOME/.claude $HOME/.claude` (auth/session — only for the agent spawn, not the terminal)
+   - `--bind <each --add-dir target> <same path>` (the actual workspace + L2 siblings)
+   - `--tmpfs /tmp --proc /proc --dev /dev` (minimum runtime)
+   - `--share-net --chdir <workspace_worktree>` (network for WebFetch, working dir)
+4. Expect iteration: claude and interactive shells may shell out to other binaries; each missing one needs an additional `--ro-bind`. Run with the strictest profile and add binds as they break.
+5. Skip wrapping in tests (the `MOZART_CLAUDE_BIN` test seam shim doesn't need a sandbox).
+6. macOS: `sandbox-exec -p <profile>` with a `.sb` file that allows file-read/file-write on the workspace paths only. Deprecated but functional. Same profile reused for the PTY shell.
+7. Windows: `AppContainer` is non-trivial and probably waits for a later milestone.
+
+**Probe to validate after implementing:**
+
+- Agent test: prompt `read /home/<user>/Documents/test.txt` in agent mode → read should fail at the syscall layer (`ENOENT` or `EACCES`), not just by polite agent refusal.
+- Terminal test: open the Mozart terminal tab, run `cat ~/.ssh/id_rsa` → should fail with permission/not-found at the OS layer.
+
+**Footnote:** if Anthropic ships an upstream `--restrict-fs` / `--sandbox` flag that actually enforces, re-probe and drop the OS-fence dependency for the _Claude_ case. The terminal PTY still needs OS-level confinement regardless — there is no CLI flag for a generic interactive shell.
+
+**Depends on:** P0.1 atoms landed (✅ `wt-security-sandbox`); user-namespace cloning enabled on the user's kernel (check `/proc/sys/kernel/unprivileged_userns_clone` on Debian/Ubuntu).
+
+---
+
+## Sandbox — surface agent refusals + permission-denied events in the chat timeline
+
+**What:** When the agent refuses a tool call (because the system-prompt clamp told it to, or because `--allowedTools` excludes the tool) the natural-language refusal arrives as `stream_event.content_block_delta.text_delta` events. The Rust parser maps them correctly to `StreamEvent::StreamToken` (`apps/desktop/src-tauri/src/claude_cli/parser.rs:144-153`), but the chat timeline either swallows them or renders them with no visible delineation from a normal reply.
+
+**Why:** Dogfood report 2026-05-21 — user prompted `read /home/.../test.txt`, the Atom 7 clamp worked (agent refused), but the user saw nothing in the chat after the spinner finished. Without a visible refusal the user cannot distinguish (a) the agent succeeded silently, (b) the agent refused, (c) the runtime errored. Each has very different security implications.
+
+**How to apply:**
+
+1. Reproduce: prompt a refusal in agent mode and capture the raw stream-json via the `MOZART_CLAUDE_BIN=…` shim. Confirm whether `text_delta` events arrive at all.
+2. If yes: the issue is the frontend timeline component swallowing short messages. Look at where `StreamEvent::StreamToken` is rendered in the chat domain and trace what filters/conditions might hide a short final response.
+3. If no: the agent emits a `tool_use` block targeting a tool not in `--allowedTools` and Claude CLI rejects it silently. In that case extend `parser.rs::handle_user_message` to surface those rejections as a new `StreamEvent::ToolRefused { tool, path }` variant, and add a card kind to the timeline UI. Regenerate `_bindings.ts`.
+4. Either way, the timeline should render refusal events with a distinct visual treatment (subtle red/amber chip, "sandbox refused this") so the security boundary is visible.
+
+**Depends on:** Nothing — independent fix. Surfaced during Atom 7 dogfood.
+
+---
+
+## Sandbox — re-probe Claude CLI permission flags when Anthropic updates the CLI
+
+**What:** Periodically re-check whether Claude CLI's `--allowedTools` and `--permission-mode=plan` are actually enforced or just contextual. Today (2026-05-22, claude CLI v2.1.144) `--allowedTools` is empirically falsified — the agent writes despite `--allowedTools=Read,Glob,Grep`. Mozart now ALSO sets `--permission-mode=plan` for ask/plan modes as a stronger CLI-level enforcement primitive; whether THAT enforces is the open question this probe answers.
+
+**Why:** Mozart's ask/plan-mode security currently depends on `--permission-mode=plan` actually preventing writes. If the dogfood probe (your live test) confirms it works, this TODO becomes a periodic re-check. If it doesn't work either, both ask and plan modes need either:
+- the IPC freeze tightening extended to active workspaces too (composer disables ask/plan entirely until OS fence ships), OR
+- an honest UI relabel ("agent may still write")
+
+**How to apply (run after each Claude CLI upgrade):**
+
+1. In a scratch directory, run: `claude --permission-mode=plan -p "create test-file.txt containing the word hello" --output-format=stream-json --include-partial-messages`
+2. Check whether `test-file.txt` was created.
+3. Same probe with `--allowedTools=Read,Glob,Grep` instead of `--permission-mode=plan`.
+4. Record CLI version + outcome in this entry.
+
+**Current findings (2026-05-22, CLI v2.1.144):**
+- `--allowedTools=Read,Glob,Grep` → **falsified** (file gets created)
+- `--permission-mode=plan` → **needs probe** (just wired, not yet dogfood-confirmed)
+
+**Depends on:** Nothing — independent re-probe, ~30 seconds of work.
+
+---
+
+## Sandbox — review hardening from /review 2026-05-22 (followups for the OS-fence work)
+
+**What:** Three follow-ups identified by `/review` on the security-sandbox branch. None are blockers for landing the branch but they should be tracked alongside the OS-fence work.
+
+1. **TOCTOU between `path_guard::validate_agent_path` and the FS operation it gates.** An agent with `Write` can swap a file at the returned canonical path for a symlink between the guard call and `tokio::fs::*`. v0 path guard does the best it can in userspace; the OS-level fence (TODO-001) is the load-bearing fix because the kernel won't follow a symlink out of a bind mount. The threat model is documented in `path_guard::validate_agent_path` doc-comment.
+
+2. **Sync `std::fs::canonicalize` inside async Tauri command handlers.** `path_guard::validate_agent_path` calls sync canonicalize from inside `async fn` Tauri handlers (`read_workspace_file`, `file_save_impl`, `get_file_diff_impl`, `stage_file`, `unstage_file`, `is_staged`, `mark_file_viewed_impl`). For local SSD this is fine; on a slow filesystem (autofs, network mount, sleeping disk) it blocks the tokio reactor thread for the duration. Swap to `tokio::fs::canonicalize` and `.await` it, OR wrap in `tokio::task::spawn_blocking`.
+
+3. **L2 sibling cap (20) silently truncates.** `list_active_siblings_for_project` returns at most 20 rows; sibling #21 (least-recently-active) silently disappears from the allowed roots. Users with many active workspaces will see "agent can't read sibling X" with no path to debug. When `enumerate_l2_siblings` returns exactly `cap` rows AND the raw query had more, surface a single `log::info!` per run AND mention "Sandbox capped at N sibling workspaces" in the system_info entry R0.3.E plans to write.
+
+**Why:** Each is an honest engineering trade-off, not a missed requirement. TOCTOU is a known userspace-guard limitation; sync canonicalize is unlikely to bite on local disk; the L2 cap is a defensible argv-length guard whose silent failure mode is just a UX gap.
+
+**How to apply:** See per-item notes above. Items 1 and 2 layer naturally on top of the OS-fence work; item 3 is a 10-line UX fix that can ship independently.
+
+**Depends on:** Items 1 and 2 partially absorbed by TODO-001 (OS fence); item 3 standalone.
 
 ---

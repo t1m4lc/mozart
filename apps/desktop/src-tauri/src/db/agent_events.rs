@@ -57,6 +57,7 @@ mod tests {
             status: "ready".into(), pinned: false, unread: false,
             created_at: now_ms(), deletion_intent: 0, ui_status: "backlog".into(),
  last_merge_action: None,
+ sandbox_level: "L2Project".into(),
         };
         workspaces::create(conn, &ws).unwrap();
         let th = Thread { thread_id: new_id(), workspace_id: ws.workspace_id, created_at: now_ms() };

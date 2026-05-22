@@ -815,8 +815,9 @@ export const commands = {
    * Read a file's raw contents from a workspace's worktree. Used by the
    * markdown preview, the CodeMirror Edit pane (P2.1) and any other
    * component that needs file content rather than a diff. Path validation
-   * goes through `path_guard::validate_workspace_relative_path` so the
-   * read and save paths cannot drift.
+   * goes through `path_guard::guard_agent_relative_path` so the read,
+   * save, diff, and staging paths all share the same sandbox check
+   * and cannot drift.
    */
   async readWorkspaceFile(
     workspaceId: string,
@@ -1091,7 +1092,9 @@ export const commands = {
     }
   },
   /**
-   * `git add -- <path>` inside the workspace's worktree.
+   * `git add -- <path>` inside the workspace's worktree. P0.1 S0.1.D —
+   * gated by `path_guard::guard_agent_relative_path` so a symlink-escape
+   * commit can't slip through staging.
    */
   async stageFile(
     workspaceId: string,
@@ -1109,7 +1112,8 @@ export const commands = {
   },
   /**
    * `git reset HEAD -- <path>` inside the workspace's worktree. Leaves
-   * the working-tree copy untouched.
+   * the working-tree copy untouched. P0.1 S0.1.D — same gate as
+   * `stage_file`.
    */
   async unstageFile(
     workspaceId: string,
@@ -1127,7 +1131,7 @@ export const commands = {
   },
   /**
    * `true` when the path has changes in the git index (X byte of
-   * porcelain status is non-space, non-`?`).
+   * porcelain status is non-space, non-`?`). P0.1 S0.1.D — same gate.
    */
   async isStaged(
     workspaceId: string,
@@ -1346,6 +1350,37 @@ export const commands = {
         data: await TAURI_INVOKE('set_workspace_last_merge_action', {
           workspaceId,
           action,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Change a workspace's [`SandboxLevel`]. Validated against
+   * `SandboxLevel::from_str` before writing — an unknown string
+   * surfaces as `AppError::Validation` rather than silently widening
+   * the agent's reach via a bogus DB row.
+   *
+   * **No UI in v0.** The toggle UI ships with the Security settings
+   * panel (TODO-008). For now this command is reachable only via the
+   * devtools (`__TAURI__.invoke('set_workspace_sandbox_level', …)`) and
+   * from E2E tests; that's intentional per /plan-devex-review
+   * 2026-05-19 (first-run users have no context to interpret a
+   * "Mozart-wide / project / workspace-only" choice without a security
+   * surface around it).
+   */
+  async setWorkspaceSandboxLevel(
+    workspaceId: string,
+    level: string,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('set_workspace_sandbox_level', {
+          workspaceId,
+          level,
         }),
       };
     } catch (e) {
@@ -1732,7 +1767,8 @@ export type AppError =
   | { kind: 'Frozen'; message: string }
   | { kind: 'MergeDirtyTree'; message: string }
   | { kind: 'MergeBaseAhead'; message: string }
-  | { kind: 'StaleFile'; message: string };
+  | { kind: 'StaleFile'; message: string }
+  | { kind: 'PathRefused'; message: string };
 /**
  * Wire shape persisted in the OS keyring (JSON-encoded). The `Date`
  * fields are normalized to epoch-ms numbers on the Angular side so the
@@ -2078,6 +2114,15 @@ export type Workspace = {
    * project_local_config.merge_mode, then remote auto-detect).
    */
   last_merge_action: string | null;
+  /**
+   * P0.1 atom S0.1.B — agent sandbox isolation tier. Stored as the
+   * PascalCase string matching [`crate::claude_cli::sandbox_policy::SandboxLevel`]
+   * (`"L1Mozart"` / `"L2Project"` / `"L3Workspace"`); parsed via
+   * `SandboxLevel::from_str` at use sites. Migration 010 backfills
+   * `'L2Project'` for existing rows; new workspaces inherit the
+   * same default. UI toggle is deferred to TODO-008.
+   */
+  sandbox_level: string;
 };
 export type WorkspaceChange = {
   change_id: number;
