@@ -235,6 +235,9 @@
       "@mozart-ui/review-progress": [
         "./libs/mozart-ui/review-progress/src/index.ts"
       ],
+      "@mozart-ui/status-icon": [
+        "./libs/mozart-ui/status-icon/src/index.ts"
+      ],
       "@mozart-ui/theme-toggle": [
         "./libs/mozart-ui/theme-toggle/src/index.ts"
       ],

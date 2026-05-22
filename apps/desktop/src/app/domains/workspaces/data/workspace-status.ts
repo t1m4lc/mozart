@@ -13,16 +13,14 @@ export type UiWorkspaceStatus =
 export interface UiWorkspaceStatusMeta {
   readonly id: UiWorkspaceStatus;
   readonly label: string;
-  readonly icon: string;
-  readonly colorClass: string;
 }
 
 export const UI_WORKSPACE_STATUSES: readonly UiWorkspaceStatusMeta[] = [
-  { id: 'backlog', label: 'Backlog', icon: 'lucideCircleDashed', colorClass: '' },
-  { id: 'in_progress', label: 'In Progress', icon: 'lucideTimer', colorClass: 'text-amber-500' },
-  { id: 'in_review', label: 'In Review', icon: 'lucideEye', colorClass: 'text-blue-500' },
-  { id: 'done', label: 'Done', icon: 'lucideCircleCheck', colorClass: 'text-green-500' },
-  { id: 'canceled', label: 'Canceled', icon: 'lucideCircleX', colorClass: 'text-red-500' },
+  { id: 'backlog', label: 'Backlog' },
+  { id: 'in_progress', label: 'In Progress' },
+  { id: 'in_review', label: 'In Review' },
+  { id: 'done', label: 'Done' },
+  { id: 'canceled', label: 'Canceled' },
 ] as const;
 
 const STATUS_BY_ID: Record<UiWorkspaceStatus, UiWorkspaceStatusMeta> =

@@ -12,36 +12,17 @@ import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { HlmHoverCardImports } from '@mozart/ui/hover-card';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { MzLoader } from '@mozart-ui/loader';
+import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucideLoader, lucidePin } from '@ng-icons/lucide';
 import { workspaceRouteCommands } from '../data/workspace-tab-registry';
+import { getUiStatusMeta } from '../data/workspace-status';
 import type { Workspace } from '../data/workspace.model';
 import { relativeTime } from '../util-relative-time';
 
-// Maps a UI workspace status to the dot color in the hover popover.
-const STATUS_COLOR: Record<string, string> = {
-  backlog: 'bg-muted-foreground/40',
-  in_progress: 'bg-brand',
-  in_review: 'bg-amber-500',
-  done: 'bg-emerald-500',
-  canceled: 'bg-muted-foreground/30',
-};
-
-const STATUS_LABEL: Record<string, string> = {
-  backlog: 'Backlog',
-  in_progress: 'In progress',
-  in_review: 'In review',
-  done: 'Done',
-  canceled: 'Canceled',
-};
-
-function statusDotColor(status: string): string {
-  return STATUS_COLOR[status] ?? STATUS_COLOR['backlog'];
-}
-
-function statusLabel(status: string): string {
-  return STATUS_LABEL[status] ?? STATUS_LABEL['backlog'];
+function statusLabel(status: Workspace['status']): string {
+  return getUiStatusMeta(status).label;
 }
 
 @Component({
@@ -55,6 +36,7 @@ function statusLabel(status: string): string {
     HlmIconImports,
     MzLoader,
     MzDiffStats,
+    MzStatusIcon,
   ],
   providers: [provideIcons({ lucideGitBranch, lucideLoader, lucidePin })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -148,13 +130,7 @@ function statusLabel(status: string): string {
         <ng-template hlmHoverCardPortal>
           <div hlmHoverCardContent class="w-64">
             <div class="flex items-center gap-2">
-              <span
-                aria-hidden="true"
-                [class]="
-                  'inline-block size-2 rounded-full ' +
-                  statusDotColor(workspace().status)
-                "
-              ></span>
+              <mz-status-icon [status]="workspace().status" [size]="12" />
               <span class="text-sm font-medium">{{ workspace().name }}</span>
               <span
                 class="ml-auto text-[10px] uppercase tracking-wide text-muted-foreground"
@@ -217,7 +193,6 @@ export class WorkspaceRow {
     return this.workspace().name;
   }
 
-  protected statusDotColor = statusDotColor;
   protected statusLabel = statusLabel;
   protected relativeTime = relativeTime;
 
