@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { FeatureWorkspaceFiles } from './feature-workspace-files';
+import { FeatureWorkspaceFiles } from './feature-workspace-files/feature-workspace-files';
 import { FeatureWorkspaceProcesses } from './feature-workspace-processes/feature-workspace-processes';
 
 // Right-aside composer. Pure layout: stacks the two halves vertically.
