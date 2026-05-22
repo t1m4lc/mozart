@@ -1,0 +1,17 @@
+{
+  "name": "desktop-profile-util",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-profile-util/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": [
+    "app:desktop",
+    "domain:profile",
+    "type:util"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

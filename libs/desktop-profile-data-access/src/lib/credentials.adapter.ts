@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { ProbeResult } from './connection.model';
+import type { ProbeResult } from '@mozart/desktop-profile-util';
 
 // Tauri-backed credentials port. Concrete impl is bound in app.config.ts
 // (wraps has_anthropic_key / connect_anthropic / disconnect_anthropic /

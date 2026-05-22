@@ -1,5 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import type { Connection, ProbeResult } from './connection.model';
+import type { Connection, ProbeResult } from '@mozart/desktop-profile-util';
 import { CREDENTIALS_ADAPTER, type GithubProbe } from './credentials.adapter';
 import { ProfileStore } from './profile.store';
 

@@ -16,7 +16,7 @@ import {
   lucideKey,
   lucideRefreshCw,
 } from '@ng-icons/lucide';
-import { ProfileFacade } from '../profile';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { OnboardingFacade } from './data/onboarding.facade';
 
 // Step 4 of the onboarding wizard. Optional GitHub connection — reuses

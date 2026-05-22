@@ -13,7 +13,7 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmSelectImports } from '@mozart/ui/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideInfo, lucideLock, lucideRefreshCw } from '@ng-icons/lucide';
-import { ProfileFacade } from '../profile';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { OnboardingFacade } from './data/onboarding.facade';
 import { FeatureClaudeLoginPty } from './feature-claude-login-pty';
 

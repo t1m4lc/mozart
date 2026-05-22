@@ -4,7 +4,8 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { ExternalLinkService } from '../core/external-link.service';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { FeatureGitStatus, OnboardingFacade } from '../domains/onboarding';
-import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile';
+import { FeatureConnections } from '../domains/profile/feature-connections';
+import { FeatureNotificationPrefs } from '../domains/profile/feature-notification-prefs';
 
 // Web account URL. Mirrors `buildSignInUrl` — same dev origin, just a
 // different path. Production deploy will swap this to app.mozart.build.

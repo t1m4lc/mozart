@@ -14,7 +14,7 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { loadXterm } from '../../core/util-xterm';
-import { ProfileFacade } from '../profile';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { PROVIDER_SETUP_ADAPTER } from './data/provider-setup.adapter';
 
 // Sub-step opened when the user clicks "Configure Claude Code". Mounts

@@ -14,7 +14,7 @@ import { HlmInputImports } from '@mozart/ui/input';
 import { HlmLabelImports } from '@mozart/ui/label';
 import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { BrnDialogRef } from '@spartan-ng/brain/dialog';
-import { ProfileFacade } from './data/profile.facade';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 
 // Connect-to-Claude dialog. Probe-before-persist: the backend only writes
 // to the OS keyring when the probe returns `connected`. On `invalid` /

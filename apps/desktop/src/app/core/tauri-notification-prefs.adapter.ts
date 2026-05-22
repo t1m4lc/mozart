@@ -1,8 +1,8 @@
-import { commands } from '../../../core/_bindings';
 import type {
   NotificationPrefsAdapter,
   NotificationPreferences,
-} from './notification-prefs.adapter';
+} from '@mozart/desktop-profile-data-access';
+import { commands } from './_bindings';
 
 function unwrap<T>(
   r:

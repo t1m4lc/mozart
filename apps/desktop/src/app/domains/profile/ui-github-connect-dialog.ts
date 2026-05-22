@@ -13,7 +13,7 @@ import { BrnDialogRef } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideExternalLink, lucideGithub } from '@ng-icons/lucide';
 import { ExternalLinkService } from '../../core/external-link.service';
-import { ProfileFacade } from './data/profile.facade';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 
 // PAT-creation URL prefilled with the scopes Mozart needs.
 // `repo` covers all classic-PAT repo operations + private push/PR;

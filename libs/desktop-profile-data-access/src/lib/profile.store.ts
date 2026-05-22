@@ -5,7 +5,7 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import type { ConnectionStatus } from './connection.model';
+import type { ConnectionStatus } from '@mozart/desktop-profile-util';
 
 interface State {
   status: ConnectionStatus;

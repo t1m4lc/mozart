@@ -14,7 +14,7 @@ import { NotificationService } from '../../core/notification.service';
 import {
   NOTIFICATION_PREFS_ADAPTER,
   type NotificationPreferences,
-} from './data/notification-prefs.adapter';
+} from '@mozart/desktop-profile-data-access';
 
 // Settings card for notifications + sound. Two switches + a Test
 // button that fires the same emit path as a real message-end event.

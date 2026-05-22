@@ -1,0 +1,17 @@
+{
+  "name": "desktop-profile-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-profile-ui/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": [
+    "app:desktop",
+    "domain:profile",
+    "type:ui"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

@@ -15,7 +15,7 @@ import { lucideCheck, lucideCircleHelp, lucideSparkles } from '@ng-icons/lucide'
 import type {
   Connection,
   ConnectionStatus,
-} from './data/connection.model';
+} from '@mozart/desktop-profile-util';
 
 type BadgeVariant = 'default' | 'secondary' | 'destructive';
 

@@ -11,7 +11,7 @@ import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { toast } from '@spartan-ng/brain/sonner';
 import { LayoutService } from '../core/layout.service';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
-import { ProfileFacade } from '../domains/profile';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '../domains/projects';
 import {
   FeatureWorkspaceAside,

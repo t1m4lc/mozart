@@ -19,7 +19,7 @@ import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
 import { ChatFacade } from '../../chat';
-import { ProfileFacade } from '../../profile';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '../../projects';
 import {
   type CommitDialogContext,

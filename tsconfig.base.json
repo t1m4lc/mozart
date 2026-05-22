@@ -276,6 +276,15 @@
       ],
       "@mozart/desktop-llm-model-data-access": [
         "./libs/desktop-llm-model-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-profile-util": [
+        "./libs/desktop-profile-util/src/index.ts"
+      ],
+      "@mozart/desktop-profile-data-access": [
+        "./libs/desktop-profile-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-profile-ui": [
+        "./libs/desktop-profile-ui/src/index.ts"
       ]
     }
   }

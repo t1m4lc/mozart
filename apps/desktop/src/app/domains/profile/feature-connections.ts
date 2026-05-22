@@ -4,10 +4,12 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideWifiOff } from '@ng-icons/lucide';
 import { ConnectivityService } from '../../core/connectivity.service';
-import { ProfileFacade } from './data/profile.facade';
-import type { ConfirmDisconnectContext } from './ui-confirm-disconnect-dialog';
-import { UiConnectionCard } from './ui-connection-card';
-import { UiGithubCard } from './ui-github-card';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import {
+  type ConfirmDisconnectContext,
+  UiConnectionCard,
+  UiGithubCard,
+} from '@mozart/desktop-profile-ui';
 
 // Composes the `/settings` connection list. v0.1.0-beta.1 ships one live card
 // (Anthropic) and a disabled placeholder (GitHub). v0.1.0 turns the
@@ -99,7 +101,7 @@ export class FeatureConnections {
       },
     };
     const { UiConfirmDisconnectDialog } = await import(
-      './ui-confirm-disconnect-dialog'
+      '@mozart/desktop-profile-ui'
     );
     this.dialogService.open(UiConfirmDisconnectDialog, { context });
   }
@@ -109,7 +111,9 @@ export class FeatureConnections {
   }
 
   protected async onHelp(): Promise<void> {
-    const { UiConnectionHelpDialog } = await import('./ui-connection-help-dialog');
+    const { UiConnectionHelpDialog } = await import(
+      '@mozart/desktop-profile-ui'
+    );
     this.dialogService.open(UiConnectionHelpDialog, {});
   }
 

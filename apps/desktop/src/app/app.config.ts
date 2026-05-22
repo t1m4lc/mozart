@@ -16,7 +16,7 @@ import { provideTauriAdapters } from './core/tauri-adapters';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { ChatFacade } from './domains/chat';
 import { OnboardingFacade } from './domains/onboarding';
-import { ProfileFacade } from './domains/profile';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from './domains/projects';
 import { WorkspacesFacade } from './domains/workspaces';
 

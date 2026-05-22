@@ -29,8 +29,8 @@ import {
   CREDENTIALS_ADAPTER,
   NOTIFICATION_PREFS_ADAPTER,
   type CredentialsAdapter,
-} from '../domains/profile';
-import { tauriNotificationPrefsAdapter } from '../domains/profile/data/tauri-notification-prefs.adapter';
+} from '@mozart/desktop-profile-data-access';
+import { tauriNotificationPrefsAdapter } from './tauri-notification-prefs.adapter';
 import {
   DIALOG_ADAPTER,
   PROJECTS_ADAPTER,
