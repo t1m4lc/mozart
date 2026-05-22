@@ -6,15 +6,15 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { GET_STARTED_PROJECT_ADAPTER } from '../domains/onboarding/data/get-started-project.adapter';
+import { GET_STARTED_PROJECT_ADAPTER } from '../domains/onboarding';
 import { ProjectsFacade } from '../domains/projects';
 import { WorkspacesFacade } from '../domains/workspaces';
 
-// Phase 6 / Atoms 6-7 — `/tour` route. Bootstraps the bundled
-// "Get started" project, then redirects to
-// `/workspaces/<welcome-1.id>?tour=on`. The AppShell sees the
-// `?tour=on` query param and mounts `<app-feature-tour>` (the
-// highlight overlay) on top of the live workspace UI.
+// `/tour` route. Bootstraps the bundled "Get started" project,
+// then redirects to `/workspaces/<welcome-1.id>?tour=on`. The
+// AppShell sees the `?tour=on` query param and mounts
+// `<app-feature-tour>` (the highlight overlay) on top of the live
+// workspace UI.
 @Component({
   selector: 'app-tour-page',
   imports: [HlmButtonImports],
