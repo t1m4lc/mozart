@@ -634,10 +634,12 @@ where
             // entry. The ContextCompiler folds this into the next turn's
             // `operational_summaries` layer so the agent sees a working
             // recap instead of relying on raw event replay. `crashed`
-            // runs are skipped — they reflect process loss, not real
-            // tool activity, and there's likely no assistant message
-            // to link to anyway.
-            if matches!(status_str, "done" | "error" | "stopped") {
+            // runs (signal kills, OOM, segfault) are included so any
+            // tool activity that ran before the kill still surfaces in
+            // the next turn; the hook fail-softs on a missing assistant
+            // message via the `summary_skip` log (T8), so this is safe
+            // even when the frontend never finalized the assistant row.
+            if matches!(status_str, "done" | "error" | "stopped" | "crashed") {
                 let conn = match db_arc.lock() {
                     Ok(c) => c,
                     Err(_) => {

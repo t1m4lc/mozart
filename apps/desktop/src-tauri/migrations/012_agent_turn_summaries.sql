@@ -24,8 +24,8 @@ CREATE TABLE agent_turn_summaries (
   chat_id           TEXT NOT NULL REFERENCES chats(chat_id),
   files_read_json   TEXT,                -- JSON array of paths; NULL = none
   files_edited_json TEXT,                -- JSON array of paths; NULL = none
-  commands_run_json TEXT,                -- JSON array of {cmd, exit_code}; NULL = none
-  key_results_json  TEXT,                -- JSON array of {type, text}; NULL = none
+  commands_run_json TEXT,                -- JSON array of command strings (truncated to 200 chars); NULL = none
+  key_results_json  TEXT,                -- JSON array of "ToolName: result-summary" strings; NULL = none
   text_summary      TEXT NOT NULL,       -- prose summary rendered into the envelope
   created_at        INTEGER NOT NULL
 );
