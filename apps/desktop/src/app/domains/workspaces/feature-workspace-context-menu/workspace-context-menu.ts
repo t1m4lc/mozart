@@ -16,10 +16,10 @@ import {
   lucidePinOff,
   lucideTag,
 } from '@ng-icons/lucide';
-import type { UiWorkspaceStatus } from '../../data/workspace-status';
-import type { Workspace } from '../../data/workspace.model';
-import { WorkspacesFacade } from '../../data/workspace.facade';
-import { WorkspaceStatusMenu } from '../workspace-status-menu/workspace-status-menu';
+import type { UiWorkspaceStatus } from '../data/workspace-status';
+import type { Workspace } from '../data/workspace.model';
+import { WorkspacesFacade } from '../data/workspace.facade';
+import { WorkspaceStatusMenu } from '../ui/workspace-status-menu/workspace-status-menu';
 
 @Component({
   selector: 'app-workspace-context-menu',

@@ -33,6 +33,6 @@ export {
 // domain — they're sidebar/toolbar surfaces, not feature-detail
 // components — but they ARE part of the public API.
 export { WorkspaceRow } from './ui/workspace-row/workspace-row';
-export { WorkspaceContextMenu } from './ui/workspace-context-menu/workspace-context-menu';
+export { WorkspaceContextMenu } from './feature-workspace-context-menu/workspace-context-menu';
 export { WorkspaceEmptyState } from './ui/workspace-empty-state/workspace-empty-state';
 export { MergeActionMenu } from './ui/merge-action-menu/merge-action-menu';
