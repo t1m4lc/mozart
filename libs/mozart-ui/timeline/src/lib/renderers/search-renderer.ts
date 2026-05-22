@@ -2,9 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   computed,
-  effect,
   input,
-  signal,
+  linkedSignal,
 } from '@angular/core';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { provideIcons } from '@ng-icons/core';
@@ -90,14 +89,10 @@ export class SearchRenderer {
     return 'text-muted-foreground';
   });
 
-  protected readonly _expanded = signal(false);
-
-  constructor() {
-    effect(() => {
-      const def = this.item().defaultExpanded;
-      if (def !== undefined) this._expanded.set(def);
-    });
-  }
+  protected readonly _expanded = linkedSignal<TurnItem, boolean>({
+    source: () => this.item(),
+    computation: (item, prev) => item.defaultExpanded ?? prev?.value ?? false,
+  });
 
   protected _toggle(): void {
     if (!this._hasBody()) return;

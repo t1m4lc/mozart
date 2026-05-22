@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   output,
   signal,
 } from '@angular/core';
@@ -148,7 +149,11 @@ export class FeatureFileDiff {
    *  toggle visibility + initial view mode. */
   private readonly isMarkdown = computed(() => isMarkdownPath(this.path()));
   protected readonly showTabs = computed(() => this.isMarkdown());
-  protected readonly mode = signal<ViewMode>('diff');
+  // Defaults to preview for markdown, diff for everything else. Writable
+  // so the header tab toggle can override the default.
+  protected readonly mode = linkedSignal<ViewMode>(() =>
+    this.isMarkdown() ? 'preview' : 'diff',
+  );
 
   // Tracks the most recent fetch identifier per channel so out-of-order
   // responses don't clobber the visible content.
@@ -170,12 +175,6 @@ export class FeatureFileDiff {
     this.loadContextLines(from, to);
 
   constructor() {
-    // Reset mode when the file changes — markdown default is preview,
-    // everything else stays on diff.
-    effect(() => {
-      this.mode.set(this.isMarkdown() ? 'preview' : 'diff');
-    });
-
     // Re-fetch diff whenever workspace, path, or watcher tick changes.
     effect(() => {
       const id = this.workspaceId();
@@ -205,8 +204,9 @@ export class FeatureFileDiff {
       void this.fetchPreview(id, p);
     });
 
-    // Invalidate the per-file body cache on FS-watcher ping. Hunks
-    // shift; the cached lines would be stale.
+    // FS-watcher invalidation: clear the imperative per-file body cache
+    // (Maps, not signals) when the watcher tick bumps. Hunks shift on
+    // edit; the cached lines would be stale.
     effect(() => {
       this.refreshTick();
       this.fileBodies.clear();

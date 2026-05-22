@@ -113,9 +113,11 @@ export class FeatureOnboardingStepGithub {
 
   constructor() {
     void this.profile.initializeGithub();
-    // Keep facade's step-status mirror in sync. The Finish button is
-    // always enabled — if the user hasn't connected GitHub, clicking
-    // Finish implicitly skips this step (see `onFinish` below).
+    // Mirror `profile.githubConnected()` into the facade's step-status
+    // map. Effect form is used because `markStep` is also called
+    // imperatively from the Skip handler — see TODO.md (signals
+    // cleanup) for the deferred facade refactor that would let this
+    // become a reactive binding.
     effect(() => {
       this.facade.markStep(
         'github',

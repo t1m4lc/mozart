@@ -167,6 +167,11 @@ export class WorkspaceDetailPage {
       }
     });
 
+    // Mirror workspace branch fields into the detail store on workspace
+    // change. Effect form is used because the store's setters are also
+    // called imperatively (e.g., the branch picker writes targetBranch
+    // directly). See TODO.md (signals cleanup) for the deferred store
+    // refactor that would let this become a reactive binding.
     effect(() => {
       const ws = this.workspace();
       if (!ws) return;

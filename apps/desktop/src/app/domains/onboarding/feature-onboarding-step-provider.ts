@@ -276,6 +276,10 @@ export class FeatureOnboardingStepProvider {
 
   constructor() {
     void this.profile.initialize();
+    // Mirror `providerReady()` into the facade's step-status map.
+    // Effect form is used because `markStep` is also called imperatively
+    // — see TODO.md (signals cleanup) for the deferred facade refactor
+    // that would let this become a reactive binding.
     effect(() => {
       this.facade.markStep(
         'provider',

@@ -5,6 +5,7 @@ import {
   computed,
   effect,
   input,
+  linkedSignal,
   signal,
   viewChild,
 } from '@angular/core';
@@ -108,7 +109,10 @@ export class ThinkingRenderer {
     return 'text-muted-foreground';
   });
 
-  protected readonly _expanded = signal(false);
+  protected readonly _expanded = linkedSignal<TurnItem, boolean>({
+    source: () => this.item(),
+    computation: (item, prev) => item.defaultExpanded ?? prev?.value ?? false,
+  });
   protected readonly _overflows = signal(false);
 
   // Cap expanded height at EXPANDED_PX initially; promote to the
@@ -122,12 +126,6 @@ export class ThinkingRenderer {
   private readonly _bodyEl = viewChild<ElementRef<HTMLDivElement>>('body');
 
   constructor() {
-    // Initialize collapsed/expanded from the item's default if set.
-    effect(() => {
-      const def = this.item().defaultExpanded;
-      if (def !== undefined) this._expanded.set(def);
-    });
-
     // Measure overflow whenever the body content changes. Re-runs on
     // each text delta during streaming (cheap; just reads
     // scrollHeight after a microtask).

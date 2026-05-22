@@ -131,3 +131,9 @@ Run `bash tools/verify-scope-tags.sh` after adding a new project — a missing t
 - The `nx-generate` skill handles generator discovery internally - don't call nx_docs just to look up generator syntax
 
 <!-- nx configuration end-->
+
+## Angular Signals
+
+Prefer `computed()` and `linkedSignal()` over `effect()`.
+
+Use `effect()` only for imperative external side effects. Do not use it to copy signal state, reset UI state, or derive values.

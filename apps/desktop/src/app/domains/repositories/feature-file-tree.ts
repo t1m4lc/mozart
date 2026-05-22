@@ -8,6 +8,7 @@ import {
   inject,
   Injector,
   input,
+  linkedSignal,
   output,
   signal,
 } from '@angular/core';
@@ -140,7 +141,10 @@ export class FeatureFileTree {
   // Locally-fetched fallback for when neither cache has a hit. Stays
   // in sync with whatever was last written; reset to [] when
   // workspaceId changes so the previous tree never lingers on screen.
-  private readonly localTree = signal<readonly FileNode[]>([]);
+  private readonly localTree = linkedSignal<readonly FileNode[]>(() => {
+    this.workspaceId();
+    return [];
+  });
 
   // CdkTree's `dataSource` is typed `T[]`, but we never mutate it —
   // the cache and local store are readonly. Returning the upstream
@@ -158,8 +162,14 @@ export class FeatureFileTree {
     return this.localTree() as FileNode[];
   });
 
-  protected readonly loading = signal(false);
-  protected readonly error = signal<string | null>(null);
+  protected readonly loading = linkedSignal<boolean>(() => {
+    this.workspaceId();
+    return false;
+  });
+  protected readonly error = linkedSignal<string | null>(() => {
+    this.workspaceId();
+    return null;
+  });
 
   /** True when no tree at all is available yet (own cache empty AND
    *  no sibling fallback) AND a fetch is in flight. Sibling-tree hits
@@ -237,21 +247,6 @@ export class FeatureFileTree {
   }
 
   constructor() {
-    // Drop the previous workspace's local tree the instant the active
-    // workspace id changes — keeps stale data from rendering during
-    // the cross-fade. Cache hits for the new id will repopulate
-    // `nodes()` via `cachedTree`; misses fall through to the fetch
-    // effect below and the skeleton. Expansion state is persisted
-    // per workspace via UiStateStore and read reactively from
-    // `expandedPaths`, so we don't reset it here — the workspace's
-    // previously-expanded folders are restored on return.
-    effect(() => {
-      const id = this.workspaceId();
-      this.localTree.set([]);
-      this.error.set(null);
-      if (!id) this.loading.set(false);
-    });
-
     // Fetch effect — fires on workspace switch / showIgnored toggle
     // when no fresh entry exists in the cache. The actual fetch is
     // deferred to `afterNextRender` so the workspace layout from the

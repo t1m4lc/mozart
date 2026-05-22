@@ -9,6 +9,7 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   signal,
 } from '@angular/core';
 import { MzCodeEditorImports } from '@mozart-ui/code-editor';
@@ -261,13 +262,34 @@ export class FeatureFileContent {
     return entry.state;
   });
 
-  private readonly baseline = signal<string>('');
-  private readonly baselineHash = signal<string>('');
-  protected readonly editorValue = signal<string>('');
+  // Key for resetting per-file edit state. Reading this in a linkedSignal
+  // computation makes baseline/editorValue/etc. snap back to defaults when
+  // the workspace or file changes.
+  private readonly resetKey = computed(
+    () => `${this.workspaceId() ?? ''}|${this.filePath() ?? ''}`,
+  );
+  private readonly baseline = linkedSignal<string>(() => {
+    this.resetKey();
+    return '';
+  });
+  private readonly baselineHash = linkedSignal<string>(() => {
+    this.resetKey();
+    return '';
+  });
+  protected readonly editorValue = linkedSignal<string>(() => {
+    this.resetKey();
+    return '';
+  });
   protected readonly loading = signal(false);
-  protected readonly loadError = signal<string | null>(null);
+  protected readonly loadError = linkedSignal<string | null>(() => {
+    this.resetKey();
+    return null;
+  });
   protected readonly saving = signal(false);
-  protected readonly saveError = signal<SaveError | null>(null);
+  protected readonly saveError = linkedSignal<SaveError | null>(() => {
+    this.resetKey();
+    return null;
+  });
   protected readonly dirty = computed(
     () => this.editorValue() !== this.baseline(),
   );
@@ -276,7 +298,10 @@ export class FeatureFileContent {
   );
 
   private loadFetchId = 0;
-  private loadedEditKey: string | null = null;
+  private readonly loadedEditKey = linkedSignal<string | null>(() => {
+    this.resetKey();
+    return null;
+  });
 
   constructor() {
     effect(() => {
@@ -288,19 +313,8 @@ export class FeatureFileContent {
       }
 
       const key = fileStateKey(ws, p);
-      if (this.loadedEditKey === key) return;
+      if (this.loadedEditKey() === key) return;
       void this.loadFile(ws, p);
-    });
-
-    effect(() => {
-      this.workspaceId();
-      this.filePath();
-      this.loadedEditKey = null;
-      this.baseline.set('');
-      this.baselineHash.set('');
-      this.editorValue.set('');
-      this.saveError.set(null);
-      this.loadError.set(null);
     });
 
     // Diff-mode scroll persistence. The actual scroll surface is the
@@ -476,7 +490,7 @@ export class FeatureFileContent {
       const hash = await sha256Hex(text);
       if (myId !== this.loadFetchId) return;
 
-      this.loadedEditKey = fileStateKey(workspaceId, path);
+      this.loadedEditKey.set(fileStateKey(workspaceId, path));
       this.baseline.set(text);
       this.baselineHash.set(hash);
       this.editorValue.set(text);
