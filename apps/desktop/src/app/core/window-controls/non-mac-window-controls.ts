@@ -11,43 +11,32 @@ import { getCurrentWindow } from '@tauri-apps/api/window';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'inline-flex items-center' },
   template: `
-    <!-- Windows / Linux: VS Code-style compact controls. Smaller hit
-         targets than Chrome, sharp (not rounded). All three buttons
-         share the same neutral accent hover — the red close button
-         read as too aggressive on a dark UI. -->
-    <span
-      class="inline-flex items-center"
-      data-tauri-drag-region="false"
-      aria-label="Window controls"
-    >
+    <div class="inline-flex items-center" aria-label="Window controls">
       <button
         type="button"
-        class="inline-flex h-7 w-10 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
+        class="inline-flex size-7 rounded cursor-pointer items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Minimize"
-        data-tauri-drag-region="false"
         (click)="minimize()"
       >
-        <ng-icon hlm name="lucideMinus" size="xs" />
+        <ng-icon hlm name="lucideMinus" size="xs" class="mt-1.5" />
       </button>
       <button
         type="button"
-        class="inline-flex h-7 w-10 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
+        class="inline-flex size-7 rounded cursor-pointer items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Maximize"
-        data-tauri-drag-region="false"
         (click)="toggleMaximize()"
       >
         <ng-icon hlm name="lucideSquare" size="xs" />
       </button>
       <button
         type="button"
-        class="inline-flex h-7 w-10 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
+        class="inline-flex size-7 rounded cursor-pointer items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
         aria-label="Close"
-        data-tauri-drag-region="false"
         (click)="close()"
       >
         <ng-icon hlm name="lucideX" size="xs" />
       </button>
-    </span>
+    </div>
   `,
 })
 export class NonMacWindowControls {

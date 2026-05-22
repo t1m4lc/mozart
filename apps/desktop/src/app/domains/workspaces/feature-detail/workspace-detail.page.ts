@@ -8,6 +8,7 @@ import {
   TemplateRef,
   viewChild,
 } from '@angular/core';
+import { OsService } from '@mozart/shared-util-os';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmIconImports } from '@mozart/ui/icon';
@@ -15,11 +16,10 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
-import { OsService } from '@mozart/shared-util-os';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
 import { ChatFacade, FeatureChatContent } from '../../chat';
-import { ProjectsFacade } from '../../projects';
 import { ProfileFacade } from '../../profile';
+import { ProjectsFacade } from '../../projects';
 import {
   type CommitDialogContext,
   type CreatePrDialogContext,
@@ -53,9 +53,10 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
   ],
   providers: [provideIcons({ lucidePanelLeft })],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex flex-col h-full' },
+  host: { class: 'flex flex-col min-h-full' },
   template: `
     <app-workspace-toolbar
+      class="sticky top-0 z-30"
       [projectIcon]="projectIcon()"
       [projectName]="projectName()"
       [workspaceTitle]="workspaceName()"
@@ -83,17 +84,12 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
 
     <app-feature-chat-tab-bar
       #tabBar
+      class="sticky top-10 z-20"
       [workspaceId]="store.workspaceId()"
     />
 
-    <!-- Frame always mounts — composer stays pinned across chat / file
-         tab switches. The active tab path picks the projected content:
-         feature-file-content for file tabs (Edit / Diff / Split
-         scaffolding inside), feature-chat-content for chat tabs
-         (messages + empty state). -->
     <app-feature-workspace-middle
-      #middle
-      class="flex-1 min-h-0"
+      class="flex flex-1 flex-col"
       [workspaceId]="store.workspaceId()"
       [frozen]="frozen()"
     >
@@ -134,7 +130,6 @@ import { WorkspaceDetailStore } from './workspace-detail.store';
         hlmTooltip="Toggle left sidebar"
         position="bottom"
         class="size-7 rounded-md text-muted-foreground"
-        data-tauri-drag-region="false"
         (click)="layout.toggleLeftPanel(); $any($event.currentTarget).blur()"
       >
         <ng-icon hlm name="lucidePanelLeft" size="xs" />
@@ -240,7 +235,7 @@ export class WorkspaceDetailPage {
     const id = this.id();
     return id
       ? this.workspaces.installFor(id)
-      : ({ state: 'idle' as const, manager: '' });
+      : { state: 'idle' as const, manager: '' };
   });
 
   protected readonly sidebarHeader =

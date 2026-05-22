@@ -91,9 +91,10 @@ export class RepositoriesFacade {
     return this.adapter.discardWorkspaceChanges(workspaceId);
   }
   // ── File-tree cache surface (P1.2) ───────────────────────────────
-  // Read = signal that flips between the cached tree and null on
-  // FS-watcher events; Write = `cacheTree` + `invalidateTreeCache`
-  // called by the aside's watcher callback.
+  // Read = signal that returns the cached tree or null until the
+  // first fetch lands. Write = `cacheTree` on resolve; FS-watcher
+  // pings go through `refreshTreeInBackground` which writes a fresh
+  // tree on top of the existing entry without flipping it to null.
 
   /** Reactive accessor for the cached tree. Returns null until a
    *  fetched tree has been stored for the given workspace + showIgnored
@@ -173,12 +174,50 @@ export class RepositoriesFacade {
     );
   }
 
-  /** Bump the workspace's revision counter. Called by the aside's
-   *  single FS-watcher subscription on every debounced "changed"
-   *  ping — never on a timer. Invalidates BOTH the cached tree AND
-   *  the cached changed-files list for the workspace in one shot.  */
-  invalidateTreeCache(workspaceId: string): void {
-    this.fileTreeCache.bumpRevision(workspaceId);
+  /** Background refresh of the cached tree triggered by an FS-watcher
+   *  event. Unlike `invalidateTreeCache`, this does NOT flip the
+   *  cache to null first — the existing tree stays on screen while
+   *  the new fetch is in flight, then the cache entry is swapped
+   *  atomically when the response lands. CdkTree's `trackBy: path`
+   *  keeps unchanged rows stable, so the swap is invisible to the
+   *  user when nothing of structural significance changed.
+   *
+   *  No-op when there's no existing entry — the lazy fetch from
+   *  `FeatureFileTree` will populate the cache when the user actually
+   *  opens the `All files` tab. */
+  async refreshTreeInBackground(workspaceId: string): Promise<void> {
+    const existing = this.fileTreeCache.byWorkspace()[workspaceId];
+    if (!existing) return;
+    const captured = this.fileTreeCache.revisionFor(workspaceId);
+    try {
+      const tree = await this.loadTree(workspaceId, existing.showIgnored);
+      this.fileTreeCache.cacheTree(
+        workspaceId,
+        existing.projectId,
+        tree,
+        captured,
+        existing.showIgnored,
+      );
+    } catch (err) {
+      console.warn('[repos] background tree refresh failed:', err);
+    }
+  }
+
+  /** Background refresh of the cached changed-files list. Same
+   *  contract as `refreshTreeInBackground`: keeps the old list on
+   *  screen until the fresh fetch completes, then swaps atomically.
+   *  No-op when there's no existing entry. */
+  async refreshChangedFilesInBackground(workspaceId: string): Promise<void> {
+    const existing =
+      this.fileTreeCache.changedFilesByWorkspace()[workspaceId];
+    if (!existing) return;
+    const captured = this.fileTreeCache.revisionFor(workspaceId);
+    try {
+      const files = await this.listChangedFiles(workspaceId);
+      this.fileTreeCache.cacheChangedFiles(workspaceId, files, captured);
+    } catch (err) {
+      console.warn('[repos] background changed-files refresh failed:', err);
+    }
   }
 
   // ── Changed-files cache surface (P1.2) ───────────────────────────

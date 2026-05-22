@@ -1,6 +1,7 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, effect, inject } from '@angular/core';
 import { FitAddon } from '@xterm/addon-fit';
 import { Terminal } from '@xterm/xterm';
+import { ThemeService } from '@mozart/shared-util-theme';
 import { TerminalsFacade } from './terminals.facade';
 
 /** xterm.js + addons + Rust unsubscribe handle for one workspace. */
@@ -23,7 +24,25 @@ const DEFAULT_ROWS = 24;
 @Injectable({ providedIn: 'root' })
 export class TerminalRegistry {
   private readonly facade = inject(TerminalsFacade);
+  private readonly theme = inject(ThemeService);
   private readonly entries = new Map<string, TerminalEntry>();
+
+  constructor() {
+    // Re-apply the xterm theme to every live terminal whenever the
+    // active theme/mode changes. Without this, terminals created in
+    // light mode keep their light palette after the user flips to
+    // dark — which is exactly the "terminal stays light" complaint.
+    effect(() => {
+      // Subscribe to both signals so a theme swap (mozart ↔ zinc) or
+      // mode swap (light ↔ dark) triggers a re-apply.
+      this.theme.isDark();
+      this.theme.activeTheme();
+      const next = resolveXtermTheme();
+      for (const entry of this.entries.values()) {
+        entry.term.options.theme = next;
+      }
+    });
+  }
 
   /** Idempotent: returns the existing entry for `workspaceId`, or
    *  creates one (instantiates xterm.js + opens the PTY). The
@@ -126,21 +145,29 @@ export class TerminalRegistry {
   }
 }
 
-// Resolves the active theme's `--sidebar` / `--foreground` HSL triples
-// from :root and returns an xterm-compatible theme object. xterm wants
-// actual color strings, not CSS vars, so we read them at terminal
-// instantiation. The values are HSL triples like "0 0% 100%"; wrapping
-// in `hsl(...)` yields valid CSS color strings.
+// Resolves the active theme's `--background` / `--foreground` HSL triples
+// and returns an xterm-compatible theme object. xterm wants actual color
+// strings, not CSS vars, so we read them at terminal instantiation. The
+// values are HSL triples like "0 0% 100%"; wrapping in `hsl(...)` yields
+// valid CSS color strings.
+//
+// CRITICAL: read from `document.body`, NOT `documentElement`. The theme
+// CSS selector is `:root .theme-mozart { --background: …; }` — the
+// `.theme-mozart` class lives on <body>, so `--background` is only
+// defined on <body> and its descendants. Reading from <html> returns an
+// empty string and falls back to white, which is exactly the
+// "terminal stays light in dark mode" bug.
 function resolveXtermTheme(): {
   background: string;
   foreground: string;
   cursor: string;
 } {
-  const root = getComputedStyle(document.documentElement);
-  const sidebar = root.getPropertyValue('--sidebar').trim() || '0 0% 100%';
-  const fg = root.getPropertyValue('--foreground').trim() || '0 0% 0%';
+  const source = document.body ?? document.documentElement;
+  const styles = getComputedStyle(source);
+  const bg = styles.getPropertyValue('--background').trim() || '0 0% 100%';
+  const fg = styles.getPropertyValue('--foreground').trim() || '0 0% 0%';
   return {
-    background: `hsl(${sidebar})`,
+    background: `hsl(${bg})`,
     foreground: `hsl(${fg})`,
     cursor: `hsl(${fg})`,
   };

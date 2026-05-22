@@ -26,7 +26,7 @@ import type { WorkspaceTab } from './workspace-tab.model';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class:
-      'group/tab relative flex h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 first:pl-1 transition-[width,background-color] duration-150 text-muted-foreground hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground',
+      'group/tab relative flex h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 first:pl-2 transition-[width,background-color] duration-150 text-muted-foreground hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground',
     '[class.w-36]': '!renaming()',
     '[class.w-56]': 'renaming()',
     '[class.pr-2]': "renaming() || (tab().kind !== 'chat')",
@@ -38,7 +38,7 @@ import type { WorkspaceTab } from './workspace-tab.model';
   template: `
     @if (tab().kind === 'chat') {
       @if ($any(tab()).isStreaming) {
-        <mz-loader size="xs" class="text-brand" />
+        <mz-loader size="xs" variant="simple" class="text-brand" />
       } @else {
         <app-llm-icon [llmId]="$any(tab()).llmId" />
       }

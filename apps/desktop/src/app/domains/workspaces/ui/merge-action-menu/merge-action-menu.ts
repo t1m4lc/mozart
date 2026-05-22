@@ -55,7 +55,6 @@ import type { MergeAction } from '../../data/workspace.model';
         position="bottom"
         class="h-7 rounded-r-none rounded-l-md border-r-0 px-2 text-xs font-normal"
         [disabled]="primaryDisabled()"
-        data-tauri-drag-region="false"
         (click)="primary()"
       >
         <ng-icon hlm [name]="primaryIcon()" size="xs" />
@@ -72,7 +71,6 @@ import type { MergeAction } from '../../data/workspace.model';
         align="end"
         side="bottom"
         class="h-7 rounded-l-none rounded-r-md px-1.5"
-        data-tauri-drag-region="false"
       >
         <ng-icon hlm name="lucideChevronDown" size="xs" />
       </button>

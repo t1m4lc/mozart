@@ -1,15 +1,18 @@
 import { CdkTreeModule } from '@angular/cdk/tree';
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
   effect,
   inject,
+  Injector,
   input,
   output,
   signal,
 } from '@angular/core';
 import { memoize } from '../../../core/util-memoize';
+import { UiStateFacade } from '../../ui-state';
 import type { FileNode } from '../data/file-node.model';
 import { RepositoriesFacade } from '../data/repositories.facade';
 import { FileTreeRow } from '../ui-file-tree-row/ui-file-tree-row';
@@ -73,12 +76,20 @@ import { UiFileTreeSkeleton } from '../ui-file-tree-skeleton/ui-file-tree-skelet
               [expanded]="isExpanded(node)"
               (folderToggle)="toggle(node)"
             />
-            <div
-              class="ml-3 border-l border-border/50 pl-1"
-              [class.hidden]="!isExpanded(node)"
-            >
-              <ng-container cdkTreeNodeOutlet />
-            </div>
+            <!-- Only instantiate the children outlet when the folder
+                 is expanded. The previous class.hidden variant left
+                 every descendant row mounted in the DOM, which turned
+                 a workspace switch into an O(file_count) synchronous
+                 teardown of app-file-tree-row instances — the actual
+                 blocking step the user perceives as a stall before
+                 the route flips. With @if, collapsed folders cost
+                 zero. Trade-off: expanding now mounts children on
+                 demand (one-shot cost, hidden behind the user click). -->
+            @if (isExpanded(node)) {
+              <div class="ml-3 border-l border-border/50 pl-1">
+                <ng-container cdkTreeNodeOutlet />
+              </div>
+            }
           </cdk-nested-tree-node>
         </cdk-tree>
       }
@@ -91,17 +102,17 @@ export class FeatureFileTree {
    *  fallback tree shown during the brief fetch window when this
    *  workspace has never been opened before but a sibling has. */
   readonly projectId = input<string | null>(null);
-  /** Bumped by the parent on FS-watcher pings; the cache revision is
-   *  the canonical invalidation signal but we still re-fetch on this
-   *  tick so the in-flight loading UI feels responsive. The aside owns
-   *  the single watcher subscription per workspace. */
-  readonly refreshTick = input<number>(0);
   /** Path of the file currently active in the central shell — rows
    *  matching this path render with brand tint. */
   readonly activePath = input<string | null>(null);
   readonly fileSelected = output<FileNode>();
 
   private readonly repos = inject(RepositoriesFacade);
+  private readonly uiState = inject(UiStateFacade);
+  // Captured at construction so the fetch effect — whose callback
+  // runs outside an injection context — can still schedule work via
+  // `afterNextRender` (it requires an explicit injector then).
+  private readonly injector = inject(Injector);
 
   // Ignored files (gitignored, etc.) stay hidden in the polished UI.
   // Wrapped in a signal so the cache accessor (which takes a Signal)
@@ -160,10 +171,21 @@ export class FeatureFileTree {
       this.loading(),
   );
 
-  // Expansion state keyed by node.path. CdkTree's new childrenAccessor
-  // API leaves expansion to the consumer ; we re-implement the same
-  // toggle semantics here with a signal so OnPush re-renders kick in.
-  private readonly expanded = signal<ReadonlySet<string>>(new Set());
+  // Expansion state keyed by node.path. CdkTree's `childrenAccessor`
+  // API leaves expansion to the consumer; we persist the list of
+  // expanded paths per workspace via UiStateStore so returning to a
+  // previously-explored workspace restores the tree in the same
+  // shape the user left it. The list is read reactively, so the
+  // workspaceId input flip on navigation auto-flips this signal.
+  private readonly expandedPaths = this.uiState.treeExpandedFor(
+    this.workspaceId,
+  );
+
+  // Derived Set view for O(1) `.has()` checks in `isExpanded`.
+  // Recomputed when `expandedPaths` changes.
+  private readonly expandedSet = computed<ReadonlySet<string>>(
+    () => new Set(this.expandedPaths()),
+  );
 
   /** Children accessor for CdkTree. CdkTree calls this without
    *  binding, so we keep an arrow property as the public surface and
@@ -202,16 +224,16 @@ export class FeatureFileTree {
     node.path;
 
   protected isExpanded(node: FileNode): boolean {
-    return this.expanded().has(node.path);
+    return this.expandedSet().has(node.path);
   }
 
   protected toggle(node: FileNode): void {
-    this.expanded.update((set) => {
-      const next = new Set(set);
-      if (next.has(node.path)) next.delete(node.path);
-      else next.add(node.path);
-      return next;
-    });
+    const id = this.workspaceId();
+    if (!id) return;
+    const next = new Set(this.expandedPaths());
+    if (next.has(node.path)) next.delete(node.path);
+    else next.add(node.path);
+    this.uiState.setTreeExpanded(id, Array.from(next));
   }
 
   constructor() {
@@ -219,30 +241,41 @@ export class FeatureFileTree {
     // workspace id changes — keeps stale data from rendering during
     // the cross-fade. Cache hits for the new id will repopulate
     // `nodes()` via `cachedTree`; misses fall through to the fetch
-    // effect below and the skeleton.
+    // effect below and the skeleton. Expansion state is persisted
+    // per workspace via UiStateStore and read reactively from
+    // `expandedPaths`, so we don't reset it here — the workspace's
+    // previously-expanded folders are restored on return.
     effect(() => {
       const id = this.workspaceId();
       this.localTree.set([]);
-      this.expanded.set(new Set());
       this.error.set(null);
       if (!id) this.loading.set(false);
     });
 
-    // Fetch effect — runs when workspaceId / showIgnored / refreshTick
-    // changes AND the cache currently has no fresh entry for that
-    // combination. On resolve, writes to the cache so the next
-    // workspace switch back here is instant.
+    // Fetch effect — fires on workspace switch / showIgnored toggle
+    // when no fresh entry exists in the cache. The actual fetch is
+    // deferred to `afterNextRender` so the workspace layout from the
+    // navigation paints first; we re-check both guards inside the
+    // hook because workspaceId can flip between the effect firing
+    // and the next render (rapid workspace clicks).
+    //
+    // FS-watcher events do NOT route through this effect anymore;
+    // they go through `RepositoriesFacade.refreshTreeInBackground`,
+    // which writes a fresh tree on top of the existing cache entry
+    // without invalidating it (no skeleton flash on every save).
     effect(() => {
       const id = this.workspaceId();
       const showIgnored = this.showIgnored();
-      // Read refreshTick so each watcher ping retriggers the fetch
-      // even when the cache invalidation hasn't yet been observed by
-      // this effect (belt-and-braces; the cache flip is the canonical
-      // signal but tick keeps the loading UI snappy).
-      this.refreshTick();
       if (!id) return;
       if (this.cachedTree() !== null) return;
-      void this.fetch(id, showIgnored);
+      afterNextRender(
+        () => {
+          if (this.workspaceId() !== id) return;
+          if (this.cachedTree() !== null) return;
+          void this.fetch(id, showIgnored);
+        },
+        { injector: this.injector },
+      );
     });
   }
 

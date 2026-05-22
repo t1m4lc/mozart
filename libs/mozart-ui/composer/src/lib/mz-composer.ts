@@ -20,8 +20,8 @@ import {
   type ProviderId,
   type ProviderInfo,
 } from './mz-composer-model-select';
-import { ComposerScrollOverlay } from './mz-composer-scroll-overlay';
 import { HlmComposerPlusMenu } from './mz-composer-plus-menu';
+import { ComposerScrollOverlay } from './mz-composer-scroll-overlay';
 
 export type ChatMode = 'agent' | 'plan' | 'ask';
 /** @deprecated Use `ChatMode`. Kept as an alias during Phase 2 rename. */
@@ -130,11 +130,11 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
             @case ('stop') {
               <button
                 hlmBtn
-                variant="destructive"
+                variant="default"
                 size="icon-xs"
                 type="button"
                 hlmTooltip="Stop"
-                class="size-7 rounded-md"
+                class="h-7 rounded px-3"
                 (click)="_emitStop()"
                 aria-label="Stop current run"
               >
@@ -147,7 +147,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
                 variant="default"
                 size="icon-xs"
                 type="submit"
-                class="size-7 rounded-md"
+                class="h-7 rounded px-3"
                 [disabled]="!_canSubmit()"
                 hlmTooltip="Send to queue — current run keeps going"
                 aria-label="Queue message"
@@ -161,7 +161,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
                 variant="default"
                 size="icon-xs"
                 type="submit"
-                class="size-7 rounded-md"
+                class="h-7 rounded px-3"
                 [disabled]="!_canSubmit()"
                 hlmTooltip="Send"
                 [attr.aria-label]="

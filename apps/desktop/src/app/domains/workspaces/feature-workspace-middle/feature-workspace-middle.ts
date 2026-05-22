@@ -2,6 +2,8 @@ import {
   ChangeDetectionStrategy,
   Component,
   ElementRef,
+  Injector,
+  afterNextRender,
   computed,
   contentChild,
   effect,
@@ -25,65 +27,51 @@ import {
 } from '../../llm-model';
 import { WorkspacesFacade } from '../data/workspace.facade';
 
-// Workspace middle shell — frame shared between chat and file content.
-// Hosts the composer pinned to the bottom and a `[middle-content]`
-// projection slot for the active tab's content.
-//
-// The composer drives the chat facade unconditionally (mode / effort /
-// model / send / stop) so chat-driven typing keeps working even when a
-// file tab is visible. Auto-follow + scroll-to-bottom are gated on a
-// projected `FeatureChatContent` ; when no chat content is in the slot
-// (file tab active) the composer's scroll-to-bottom button hides and
-// scroll wires no-op.
 @Component({
   selector: 'app-feature-workspace-middle',
   imports: [HlmComposer],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex flex-col h-full w-full' },
+  host: { class: 'flex w-full flex-col' },
   template: `
-    <div class="flex-1 min-h-0">
-      <ng-content select="[middle-content]" />
+    <!-- Native browser scroll: the scroll happens on the shell's
+         <main> overflow-y-auto. No internal scroll container here.
+         The chat/file content area is flex-1 so that on short
+         conversations the composer naturally sits at the bottom of
+         the viewport (where its sticky offset takes over). -->
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5">
+      <ng-content />
     </div>
 
-    <div class="relative px-4 pb-3 pt-0" data-tour="composer-mode">
-      <!-- Soft fade where the scrolling content meets the composer.
-           One absolute layer, pointer-events-none. Tight: 4px gradient
-           so content disappears behind the composer's top edge instead
-           of leaving a visible gap. -->
-      <div
-        class="pointer-events-none absolute inset-x-0 -top-4 h-4 bg-gradient-to-t from-background to-transparent dark:from-background"
-        aria-hidden="true"
-      ></div>
-      @if (frozen()) {
-        <!-- Vocabulary lock (plan P0.2): exact banner copy required. -->
+    <!-- Composer pinned at the bottom via position: sticky. The
+         <main> overflow ancestor is its sticky context, so it stays
+         at viewport bottom while the chat scrolls behind it. -->
+    <div class="sticky bottom-0 z-20 bg-background" data-tour="composer-mode">
+      <div class="relative mx-auto w-full max-w-5xl px-3 pb-3">
         <div
-          role="status"
-          aria-live="polite"
-          class="mb-2 rounded-md border border-border bg-muted/60 px-3 py-2 text-xs font-normal text-muted-foreground"
-        >
-          This workspace is done and read-only
-        </div>
-      }
-      <mz-composer
-        #composerEl
-        [(value)]="value"
-        [mode]="currentMode()"
-        (modeChange)="onModeChange($event)"
-        [effort]="currentEffort()"
-        (effortChange)="onEffortChange($event)"
-        [models]="catalog"
-        [providers]="providers"
-        [selectedModelId]="currentModelId()"
-        (modelChange)="onModelChange($event)"
-        [isRunning]="isStreaming()"
-        [askOnly]="frozen()"
-        [autoFollowChat]="autoFollowChat()"
-        [hasNextUnreadInProject]="hasNextUnreadInProject()"
-        (send)="onSend($event)"
-        (stop)="onStop()"
-        (scrollToBottom)="onScrollToBottom()"
-        (nextUnreadWorkspace)="onNextUnreadWorkspace()"
-      />
+          class="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-linear-to-t from-background to-transparent dark:from-background"
+          aria-hidden="true"
+        ></div>
+        <mz-composer
+          #composerEl
+          [(value)]="value"
+          [mode]="currentMode()"
+          (modeChange)="onModeChange($event)"
+          [effort]="currentEffort()"
+          (effortChange)="onEffortChange($event)"
+          [models]="catalog"
+          [providers]="providers"
+          [selectedModelId]="currentModelId()"
+          (modelChange)="onModelChange($event)"
+          [isRunning]="isStreaming()"
+          [askOnly]="frozen()"
+          [autoFollowChat]="autoFollowChat()"
+          [hasNextUnreadInProject]="hasNextUnreadInProject()"
+          (send)="onSend($event)"
+          (stop)="onStop()"
+          (scrollToBottom)="onScrollToBottom()"
+          (nextUnreadWorkspace)="onNextUnreadWorkspace()"
+        />
+      </div>
     </div>
   `,
 })
@@ -94,6 +82,7 @@ export class FeatureWorkspaceMiddle {
   private readonly facade = inject(ChatFacade);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly router = inject(Router);
+  private readonly injector = inject(Injector);
 
   // The chat content sits in the `[middle-content]` slot — querying it
   // as content (light DOM) keeps the frame agnostic of what's inside.
@@ -141,11 +130,22 @@ export class FeatureWorkspaceMiddle {
     () => this._activeChat()?.modelId ?? DEFAULT_MODEL_ID,
   );
 
+  // Default focus → composer textarea. afterNextRender is the
+  // reliable hook: when this runs on a workspaceId change, the
+  // composer's textarea may not yet be in the DOM (viewChild ref
+  // populates after the current CD pass). Scheduling on the next
+  // render guarantees the textarea is present when we call .focus().
+  // CDK has no standalone "auto-focus" directive — `cdkFocusInitial`
+  // only fires inside a `cdkTrapFocus` region — so we drive this
+  // directly via `afterNextRender`.
   focusComposer(): void {
-    queueMicrotask(() => {
-      const ta = this.composerEl()?.nativeElement.querySelector('textarea');
-      ta?.focus();
-    });
+    afterNextRender(
+      () => {
+        const ta = this.composerEl()?.nativeElement.querySelector('textarea');
+        ta?.focus();
+      },
+      { injector: this.injector },
+    );
   }
 
   constructor() {

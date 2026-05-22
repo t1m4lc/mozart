@@ -113,7 +113,7 @@ function statusLabel(status: string): string {
           class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
         >
           @if (isStreaming()) {
-            <mz-loader size="xs" class="text-brand" />
+            <mz-loader size="xs" variant="simple" class="text-brand" />
           } @else {
             @if (workspace().pinned) {
               <ng-icon

@@ -1,238 +1,51 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
-  effect,
   inject,
-  viewChild,
 } from '@angular/core';
-import { ActivatedRoute, RouterLink, RouterOutlet } from '@angular/router';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { map } from 'rxjs/operators';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmContextMenuImports } from '@mozart/ui/context-menu';
+import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmResizableImports, HlmResizablePanel } from '@mozart/ui/resizable';
-import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { HlmToasterImports } from '@mozart/ui/sonner';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideCircleQuestionMark,
-  lucidePanelLeft,
-  lucideSettings,
-  lucideWifiOff,
-} from '@ng-icons/lucide';
-import { AddProjectFlow } from '../core/add-project.flow';
+import { lucideWifiOff } from '@ng-icons/lucide';
+import { map } from 'rxjs/operators';
 import { ConnectivityService } from '../core/connectivity.service';
-import { FeatureFlagsService } from '../core/feature-flags';
-import { LayoutService } from '../core/layout.service';
-import { OsService } from '@mozart/shared-util-os';
 import { ReturnRouteService } from '../core/return-route.service';
-import { MacWindowControls } from '../core/window-controls/mac-window-controls';
-import { FeatureChatList } from '../domains/chat';
 import { FeatureTour } from '../domains/onboarding';
-import {
-  FeatureAddProject,
-  GroupByFilter,
-  ProjectsFacade,
-  ProjectsHeaderContextMenu,
-} from '../domains/projects';
-import { WorkspacesFacade } from '../domains/workspaces';
-import { ShellAside } from './shell-aside';
-import {
-  SHELL_LEFT_PANEL_PCT,
-  SHELL_RIGHT_PANEL_PCT,
-} from './shell-panel.constants';
-import { ShellProjectList } from './shell-project-list';
+import { ShellLeft } from './shell-left';
+import { ShellRight } from './shell-right';
 
+// Root shell composer. Owns the 3-pane horizontal layout
+// (left | main | right), the global toaster, the offline notice, and
+// the tour overlay gate. Each side panel manages its own collapse +
+// content; `<main>` flexes to absorb all remaining width.
 @Component({
   selector: 'app-shell',
   imports: [
-    RouterLink,
     RouterOutlet,
     NgIcon,
-    MacWindowControls,
-    HlmButtonImports,
-    HlmContextMenuImports,
     HlmIconImports,
-    HlmResizableImports,
-    HlmSidebarImports,
     HlmToasterImports,
-    HlmTooltipImports,
-    FeatureAddProject,
-    FeatureChatList,
     FeatureTour,
-    GroupByFilter,
-    ProjectsHeaderContextMenu,
-    ShellAside,
-    ShellProjectList,
+    ShellLeft,
+    ShellRight,
   ],
-  providers: [
-    provideIcons({
-      lucideCircleQuestionMark,
-      lucidePanelLeft,
-      lucideSettings,
-      lucideWifiOff,
-    }),
-  ],
+  providers: [provideIcons({ lucideWifiOff })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class:
       'block h-screen w-screen select-none bg-background text-foreground [&_.cm-editor]:select-text [&_.xterm]:select-text [&_input]:select-text [&_textarea]:select-text',
   },
   template: `
-    <div hlmResizableGroup direction="horizontal" class="flex h-full">
-      <div
-        hlmResizablePanel
-        #leftPanel="hlmResizablePanel"
-        [defaultSize]="leftPanelDefault()"
-        [minSize]="layout.leftPanelOpen() ? leftPanel_.min : 0"
-        [maxSize]="leftPanel_.max"
-        class="overflow-hidden border-r border-sidebar-border transition-[flex] duration-200 ease-out"
-      >
-        <hlm-sidebar side="left" collapsible="none" class="h-full w-full">
-          <div
-            hlmSidebarHeader
-            data-tauri-drag-region
-            class="h-9 flex-row items-center gap-1 border-b border-sidebar-border px-2 py-1"
-          >
-            @if (isMac) {
-              <app-mac-window-controls />
-            } @else {
-              <img
-                src="/assets/shared/logos/mozart-logo.svg"
-                alt=""
-                class="size-4 shrink-0"
-                data-tauri-drag-region
-              />
-            }
-            <span class="flex-1" data-tauri-drag-region></span>
-            <button
-              hlmBtn
-              variant="ghost"
-              size="icon-xs"
-              type="button"
-              hlmTooltip="Toggle left sidebar"
-              position="bottom"
-              class="size-7 rounded-md text-muted-foreground"
-              data-tauri-drag-region="false"
-              (click)="
-                layout.toggleLeftPanel(); $any($event.currentTarget).blur()
-              "
-            >
-              <ng-icon hlm name="lucidePanelLeft" size="xs" />
-            </button>
-          </div>
+    <div class="flex h-full">
+      <app-shell-left />
 
-          <div hlmSidebarContent>
-            <div hlmSidebarGroup class="px-2 py-1">
-              <div
-                class="flex h-8 items-center gap-0.5"
-                [hlmContextMenuTrigger]="projectsHeaderCtxMenu"
-              >
-                <span
-                  class="text-sidebar-foreground/70 flex-1 text-xs font-medium"
-                >
-                  Projects
-                </span>
-                <app-group-by-filter
-                  #filter
-                  [groupBy]="projects.groupBy()"
-                  (groupByChange)="projects.setGroupBy($event)"
-                  [class.hidden]="projects.visible().length === 0"
-                />
-                <app-feature-add-project
-                  (openProject)="addProjectFlow.openPickerAndOpen()"
-                  (openGithubProject)="addProjectFlow.openCloneDialog()"
-                  (quickStart)="addProjectFlow.openCreateDialog()"
-                />
-              </div>
-
-              <ng-template #projectsHeaderCtxMenu>
-                <app-projects-header-context-menu
-                  (expandAll)="projects.expandAll()"
-                  (collapseAll)="projects.collapseAll()"
-                  (openFilter)="filter.open()"
-                  (openProject)="addProjectFlow.openPickerAndOpen()"
-                  (openGithubProject)="addProjectFlow.openCloneDialog()"
-                  (quickStart)="addProjectFlow.openCreateDialog()"
-                />
-              </ng-template>
-
-              <div hlmSidebarGroupContent>
-                <app-shell-project-list />
-              </div>
-            </div>
-
-            <!-- IMP-007 flag gate. @defer was removed to keep the
-                 sidebar render synchronous — the chat-list chunk was
-                 forcing a re-render the moment the flag flipped. -->
-            @if (flags.chat()) {
-              <div hlmSidebarGroup class="px-2 py-1">
-                <app-feature-chat-list />
-              </div>
-            }
-          </div>
-
-          <div
-            hlmSidebarFooter
-            class="flex-row justify-end border-t border-sidebar-border"
-          >
-            <button
-              disabled
-              hlmBtn
-              variant="ghost"
-              size="icon-xs"
-              type="button"
-              aria-label="Help"
-              class="size-7 rounded-md text-muted-foreground"
-              hlmTooltip="Help"
-              position="top"
-            >
-              <ng-icon hlm name="lucideCircleQuestionMark" size="xs" />
-            </button>
-            <button
-              hlmBtn
-              variant="ghost"
-              size="icon-xs"
-              type="button"
-              routerLink="/settings"
-              aria-label="Settings"
-              class="size-7 rounded-md text-muted-foreground"
-              hlmTooltip="Settings"
-              position="top"
-            >
-              <ng-icon hlm name="lucideSettings" size="xs" />
-            </button>
-          </div>
-        </hlm-sidebar>
-      </div>
-
-      <hlm-resizable-handle
-        [class.hidden]="!layout.leftPanelOpen()"
-        (dblclick)="resetLeftPanel()"
-      />
-
-      <main hlmResizablePanel class="min-w-0 overflow-auto">
+      <main class="min-w-[30rem] flex-1 overflow-auto">
         <router-outlet />
       </main>
 
-      <hlm-resizable-handle
-        [class.hidden]="!showRightAside()"
-        (dblclick)="resetRightPanel()"
-      />
-
-      <div
-        hlmResizablePanel
-        #rightPanel="hlmResizablePanel"
-        [defaultSize]="rightPanelDefault()"
-        [minSize]="showRightAside() ? rightPanel_.min : 0"
-        [maxSize]="rightPanel_.max"
-        class="transition-[flex] duration-200 ease-out"
-      >
-        <app-shell-aside class="h-full w-full" />
-      </div>
+      <app-shell-right />
     </div>
 
     <hlm-toaster position="bottom-right" [style]="toasterStyle" />
@@ -263,16 +76,7 @@ import { ShellProjectList } from './shell-project-list';
   `,
 })
 export class AppShell {
-  private readonly _leftPanelRef = viewChild<HlmResizablePanel>('leftPanel');
-  private readonly _rightPanelRef = viewChild<HlmResizablePanel>('rightPanel');
-
-  protected readonly isMac = inject(OsService).isMac();
-  protected readonly layout = inject(LayoutService);
-  protected readonly projects = inject(ProjectsFacade);
-  protected readonly addProjectFlow = inject(AddProjectFlow);
   protected readonly connectivity = inject(ConnectivityService);
-  protected readonly flags = inject(FeatureFlagsService);
-  private readonly workspaces = inject(WorkspacesFacade);
   private readonly route = inject(ActivatedRoute);
   // Eagerly construct so it subscribes to NavigationEnd from the
   // first paint — Settings reads its `previous()` to power Back-to-app.
@@ -283,29 +87,6 @@ export class AppShell {
   protected readonly tourActive = toSignal(
     this.route.queryParamMap.pipe(map((q) => q.get('tour') === 'on')),
     { initialValue: false },
-  );
-
-  // Right aside is only meaningful inside a workspace context. Hidden
-  // on the dashboard and any non-workspace route. Combines with the
-  // user's manual toggle so closing it in a workspace is still respected.
-  protected readonly showRightAside = computed(
-    () => this.workspaces.activeId() !== null && this.layout.rightPanelOpen(),
-  );
-
-  // Default-size binding. Brn applies defaultSize at panel init and
-  // ignores subsequent imperative setSize when it conflicts with the
-  // group's first layout pass — driving defaultSize off the same signal
-  // keeps initial render in sync with the showRightAside state.
-  protected readonly rightPanelDefault = computed(() =>
-    this.workspaces.activeId() !== null ? SHELL_RIGHT_PANEL_PCT.default : 0,
-  );
-
-  // Same pattern as rightPanelDefault — defaultSize drives the first
-  // layout pass; the constructor effect imperatively sets size to 0
-  // when the left panel is toggled off so the resizable group hands
-  // its share over to main.
-  protected readonly leftPanelDefault = computed(() =>
-    this.layout.leftPanelOpen() ? SHELL_LEFT_PANEL_PCT.default : 0,
   );
 
   // HlmToaster's default userStyle feeds the sonner CSS variables raw
@@ -320,32 +101,4 @@ export class AppShell {
     '--normal-border': 'hsl(var(--border))',
     '--border-radius': 'var(--radius)',
   };
-
-  protected readonly leftPanel_ = SHELL_LEFT_PANEL_PCT;
-  protected readonly rightPanel_ = SHELL_RIGHT_PANEL_PCT;
-
-  constructor() {
-    effect(() => {
-      const open = this.layout.leftPanelOpen();
-      const panel = this._leftPanelRef();
-      if (panel) {
-        panel.setSize(open ? SHELL_LEFT_PANEL_PCT.default : 0);
-      }
-    });
-    effect(() => {
-      const open = this.showRightAside();
-      const panel = this._rightPanelRef();
-      if (panel) {
-        panel.setSize(open ? SHELL_RIGHT_PANEL_PCT.default : 0);
-      }
-    });
-  }
-
-  protected resetLeftPanel(): void {
-    this._leftPanelRef()?.setSize(SHELL_LEFT_PANEL_PCT.default);
-  }
-
-  protected resetRightPanel(): void {
-    this._rightPanelRef()?.setSize(SHELL_RIGHT_PANEL_PCT.default);
-  }
 }
