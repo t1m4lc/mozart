@@ -80,18 +80,6 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 
 ---
 
-## Codebase hygiene — rename `core/shell.service.ts`
-
-**What:** `apps/desktop/src/app/core/shell.service.ts` wraps `@tauri-apps/plugin-shell` for `openExternal`. It is NOT related to the UI shell (`apps/desktop/src/app/shell/`). With the shell folder getting cleaned up via the new `shell-side-panel` primitive, the name collision becomes more confusing for new readers.
-
-**Why:** Future-you opens `shell.service.ts` expecting UI-shell logic and finds Tauri openExternal instead. Code-search for "shell" returns mixed results.
-
-**How to apply:** Rename to `ExternalLinkService` (preferred) or `TauriShellService`. Move to `apps/desktop/src/app/core/external-link.service.ts`. Update all call sites (`grep -r ShellService apps/desktop/src --include="*.ts"`). One PR, low risk.
-
-**Depends on:** Nothing. Standalone refactor — anyone can do it.
-
----
-
 ## Scroll — handle file path identity changes
 
 **What:** `ScrollPositionService` keys for files use `file:${workspaceId}:${path}`. Renames, moves, case changes, and symlinks all produce different keys for what is logically the same file, breaking restore.

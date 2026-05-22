@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { ShellService } from '../core/shell.service';
+import { ExternalLinkService } from '../core/external-link.service';
 import { AuthFacade } from '../domains/auth';
 import { FeatureGitStatus, OnboardingFacade } from '../domains/onboarding';
 import { FeatureConnections, FeatureNotificationPrefs } from '../domains/profile';
@@ -102,7 +102,7 @@ export class SettingsPage {
   private readonly router = inject(Router);
   private readonly auth = inject(AuthFacade);
   private readonly onboarding = inject(OnboardingFacade);
-  private readonly shell = inject(ShellService);
+  private readonly externalLink = inject(ExternalLinkService);
 
   protected onRevisitTour(): void {
     // Reset doesn't actually re-arm the wizard here ; we just navigate
@@ -120,6 +120,6 @@ export class SettingsPage {
   }
 
   protected onOpenAccount(): void {
-    void this.shell.openExternal(WEB_ACCOUNT_URL);
+    void this.externalLink.openExternal(WEB_ACCOUNT_URL);
   }
 }

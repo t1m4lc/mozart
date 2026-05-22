@@ -5,12 +5,12 @@ import { open as openExternal } from '@tauri-apps/plugin-shell';
 // don't import Tauri APIs directly. Lives in `core/` per the project's
 // boundary rules (Tauri imports allowed under `core/` and `data/`).
 @Injectable({ providedIn: 'root' })
-export class ShellService {
+export class ExternalLinkService {
   async openExternal(url: string): Promise<void> {
     try {
       await openExternal(url);
     } catch (err) {
-      console.warn('[shell] open external failed:', err);
+      console.warn('[external-link] open failed:', err);
       throw err;
     }
   }
