@@ -12,7 +12,11 @@ import {
   linkedSignal,
   signal,
 } from '@angular/core';
-import { MzCodeEditorImports } from '@mozart-ui/code-editor';
+// Direct symbol import (not via the *Imports array) so Angular's
+// @defer analyzer can tell mz-code-editor is referenced only inside a
+// @defer block and split it (with its CodeMirror deps) into a lazy
+// chunk.
+import { MzCodeEditor } from '@mozart-ui/code-editor';
 import { ThemeService } from '@mozart/shared-util-theme';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmTabsImports } from '@mozart/ui/tabs';
@@ -52,7 +56,7 @@ const TEXT_ENCODER = new TextEncoder();
     HlmButtonImports,
     FeatureFileDiff,
     FeatureFileToolbar,
-    MzCodeEditorImports,
+    MzCodeEditor,
   ],
   providers: [provideIcons({ lucideFileDiff, lucideFilePen, lucideColumns2 })],
   changeDetection: ChangeDetectionStrategy.OnPush,

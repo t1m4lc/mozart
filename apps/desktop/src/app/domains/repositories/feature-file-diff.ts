@@ -110,17 +110,24 @@ function isMarkdownPath(path: string | null): boolean {
           }
         }
       } @else {
-        <mz-file-diff-card
-          [path]="path() ?? ''"
-          [diffText]="diffText()"
-          [loading]="loading()"
-          [error]="error()"
-          [fetchContext]="fetchContext"
-          [fileLineCount]="fileLineCount()"
-          (refresh)="reload()"
-          (pathCopy)="pathCopy.emit($event)"
-          (copyError)="copyError.emit($event)"
-        />
+        <!-- @defer (on viewport) so the CodeMirror chunk (~270 kB)
+             stays out of the eager bundle. The diff card only renders
+             once the workspace tab actually scrolls it into view. -->
+        @defer (on viewport) {
+          <mz-file-diff-card
+            [path]="path() ?? ''"
+            [diffText]="diffText()"
+            [loading]="loading()"
+            [error]="error()"
+            [fetchContext]="fetchContext"
+            [fileLineCount]="fileLineCount()"
+            (refresh)="reload()"
+            (pathCopy)="pathCopy.emit($event)"
+            (copyError)="copyError.emit($event)"
+          />
+        } @placeholder {
+          <p class="text-muted-foreground px-3 py-3 text-xs">Loading diff…</p>
+        }
       }
     </div>
   `,
