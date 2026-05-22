@@ -6,7 +6,6 @@ import {
   Injector,
   afterNextRender,
   computed,
-  contentChild,
   effect,
   inject,
   input,
@@ -30,7 +29,7 @@ import {
   LLM_MODEL_CATALOG,
   PROVIDERS,
 } from '../llm-model';
-import { FeatureFileContent } from './feature-file-content';
+import { workspaceRouteCommands } from './data/workspace-tab-registry';
 import { WorkspacesFacade } from './data/workspace.facade';
 
 // Distance-from-bottom threshold (px) for the at-bottom detector. Under
@@ -99,11 +98,6 @@ export class FeatureWorkspaceMiddle {
   private readonly destroyRef = inject(DestroyRef);
   private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  // File-content probe — when a file tab is projected, autoFollowChat
-  // short-circuits and chat scroll orchestration goes inactive. The
-  // chat-content side is implicit (no fileContent → chat mode).
-  private readonly fileContent = contentChild(FeatureFileContent);
-
   private readonly composerEl = viewChild('composerEl', {
     read: ElementRef<HTMLElement>,
   });
@@ -116,7 +110,6 @@ export class FeatureWorkspaceMiddle {
   // to true on the file tab so the scroll-to-bottom overlay stays
   // hidden in that mode.
   protected readonly autoFollowChat = computed(() => {
-    if (this.fileContent()) return true;
     const chatId = this._activeChatId();
     if (!chatId) return true;
     return this.scroll.followModeFor(chatId)() === 'attached';
@@ -169,7 +162,6 @@ export class FeatureWorkspaceMiddle {
   //   - file tab is active (the file's own [mzScrollPersist] directive
   //     owns scroll persistence for that surface)
   private readonly _chatTabKey = computed(() => {
-    if (this.fileContent()) return null;
     const ws = this.workspaceId();
     const chatId = this._activeChatId();
     if (!ws || !chatId) return null;
@@ -246,7 +238,6 @@ export class FeatureWorkspaceMiddle {
           }
           const chatId = this._activeChatId();
           if (!chatId) return;
-          if (this.fileContent()) return;
 
           const distance =
             main.scrollHeight - main.scrollTop - main.clientHeight;
@@ -321,10 +312,9 @@ export class FeatureWorkspaceMiddle {
     effect(() => {
       this._messages();
       const chatId = this._activeChatId();
-      const inFileMode = this.fileContent() !== undefined;
       const main = this.mainEl;
 
-      if (!chatId || inFileMode || !main) return;
+      if (!chatId || !main) return;
       if (!this.scroll.isAttached(chatId)) return;
 
       queueMicrotask(() => {
@@ -378,7 +368,11 @@ export class FeatureWorkspaceMiddle {
   protected onNextUnreadWorkspace(): void {
     const target = this.workspaces.nextUnreadInProject(this.workspaceId());
     if (!target) return;
-    void this.router.navigate(['/workspaces', target]);
+    const workspace = this.workspaces.workspaceById(target)();
+    if (!workspace) return;
+    void this.router.navigate(
+      workspaceRouteCommands(workspace.projectId, target),
+    );
   }
 
   // Reads prefers-reduced-motion and applies smooth vs auto. `smooth`

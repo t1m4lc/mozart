@@ -5,30 +5,26 @@ import {
   inject,
   input,
 } from '@angular/core';
+import { Router } from '@angular/router';
 import { ChatFacade } from '../chat';
+import {
+  WorkspaceTabRegistry,
+  workspaceRouteCommands,
+  workspaceTabRouteCommands,
+} from './data/workspace-tab-registry';
 import { FileTabsService } from './data/file-tabs.service';
 import {
   WorkspaceTabBar,
   type TabRenameEvent,
 } from './ui/workspace-tab-bar/workspace-tab-bar';
 import {
+  CHAT_TAB_CAP,
   NEW_CHAT_TITLE,
   type ChatTab,
   type FileTab,
   type WorkspaceTab,
 } from './ui/workspace-tab-bar/workspace-tab.model';
 
-// File-tab IDs are derived from the path with this prefix so they
-// never collide with chat ids (UUIDs).
-const FILE_TAB_ID_PREFIX = 'file:';
-
-/**
- * Smart wrapper around the dumb `WorkspaceTabBar`. The strip mixes
- * chat tabs (from the chat facade) and file tabs (from the
- * FileTabsService — opened by the Files slot's Changes list). Chats
- * are renderable, file tabs are not ; activating a file tab causes
- * the workspace detail page to swap the chat panel for a diff view.
- */
 @Component({
   selector: 'app-feature-chat-tab-bar',
   imports: [WorkspaceTabBar],
@@ -46,83 +42,132 @@ const FILE_TAB_ID_PREFIX = 'file:';
   `,
 })
 export class FeatureChatTabBar {
+  readonly projectId = input.required<string | null>();
   readonly workspaceId = input.required<string | null>();
+  readonly activeTabId = input<string>('');
 
   private readonly facade = inject(ChatFacade);
   private readonly fileTabs = inject(FileTabsService);
+  private readonly tabsRegistry = inject(WorkspaceTabRegistry);
+  private readonly router = inject(Router);
 
   protected readonly tabs = computed<readonly WorkspaceTab[]>(() => {
     const ws = this.workspaceId();
     if (!ws) return [];
+
     const chats = this.facade.chatsByWorkspace().get(ws) ?? [];
     const streaming = this.facade.streamingChatIds();
     const messagesByChat = this.facade.messagesByChat();
-    const chatTabs = chats.slice(0, 4).map<ChatTab>((c) => ({
-      id: c.id,
+
+    const chatTabs = chats.slice(0, CHAT_TAB_CAP).map<ChatTab>((c) => ({
+      id: this.tabsRegistry.chatTabId(c.id),
       kind: 'chat',
       title: c.title || NEW_CHAT_TITLE,
       llmId: c.modelId ?? null,
       isStreaming: streaming.has(c.id),
       hasMessages: (messagesByChat.get(c.id)?.length ?? 0) > 0,
     }));
-    const fileTabs = (this.fileTabs.openByWorkspace().get(ws) ?? []).map<FileTab>(
-      (path) => ({
-        id: FILE_TAB_ID_PREFIX + path,
-        kind: 'file',
-        title: basename(path),
-        filePath: path,
-      }),
-    );
+
+    const fileTabs = (this.fileTabs.openByWorkspace().get(ws) ?? [])
+      .map((path): FileTab | null => {
+        const tabId = this.tabsRegistry.fileTabId(path);
+        if (!tabId) return null;
+        return {
+          id: tabId,
+          kind: 'file',
+          title: basename(path),
+          filePath: path,
+        };
+      })
+      .filter((tab): tab is FileTab => tab !== null);
+
     return [...chatTabs, ...fileTabs];
   });
 
-  protected readonly activeTabId = computed(() => {
-    const ws = this.workspaceId();
-    if (!ws) return '';
-    // File active wins over chat active — the workspace detail page
-    // hides the chat panel whenever a file path is the active tab.
-    const activeFile = this.fileTabs.activeByWorkspace().get(ws);
-    if (activeFile) return FILE_TAB_ID_PREFIX + activeFile;
-    const persistedChat = this.facade.activeChatIdFor(ws);
-    if (persistedChat) return persistedChat;
-    const list = this.tabs();
-    return list[0]?.id ?? '';
-  });
-
   protected onActivate(tabId: string): void {
-    const ws = this.workspaceId();
-    if (!ws) return;
-    if (tabId.startsWith(FILE_TAB_ID_PREFIX)) {
-      this.fileTabs.setActiveFor(ws, tabId.slice(FILE_TAB_ID_PREFIX.length));
-      return;
-    }
-    // Activating a chat tab clears any active file so the chat panel
-    // takes over the central content area.
-    this.fileTabs.setActiveFor(ws, null);
-    void this.facade.setActiveChat(ws, tabId);
+    void this.navigateToTab(tabId);
   }
 
-  protected onClose(tabId: string): void {
+  protected async onClose(tabId: string): Promise<void> {
     const ws = this.workspaceId();
     if (!ws) return;
-    if (tabId.startsWith(FILE_TAB_ID_PREFIX)) {
-      this.fileTabs.closeFor(ws, tabId.slice(FILE_TAB_ID_PREFIX.length));
+
+    const parsed = this.tabsRegistry.parse(tabId);
+    if (!parsed) return;
+
+    const closingActive = this.activeTabId() === tabId;
+    const fallback = this.fallbackTabIdAfterClose(tabId);
+
+    if (parsed.kind === 'file') {
+      if (closingActive) {
+        const navigated = fallback
+          ? await this.navigateToTab(fallback)
+          : await this.navigateToWorkspace();
+        if (!navigated) return;
+      }
+      this.fileTabs.closeFor(ws, parsed.path);
       return;
     }
-    void this.facade.closeChat(tabId);
+
+    if (parsed.kind !== 'chat') return;
+
+    if (!closingActive) {
+      await this.facade.closeChat(parsed.chatId);
+      return;
+    }
+
+    if (fallback) {
+      const navigated = await this.navigateToTab(fallback);
+      if (!navigated) return;
+      await this.facade.closeChat(parsed.chatId);
+      return;
+    }
+
+    await this.facade.closeChat(parsed.chatId);
+
+    const nextActiveChatId = this.facade.activeChatIdFor(ws);
+    if (nextActiveChatId) {
+      await this.navigateToTab(this.tabsRegistry.chatTabId(nextActiveChatId));
+      return;
+    }
+
+    await this.navigateToWorkspace();
   }
 
   protected onRename(event: TabRenameEvent): void {
-    // File tabs are not renamable — the underlying TabItem only
-    // surfaces the rename affordance for chat tabs.
-    if (event.tabId.startsWith(FILE_TAB_ID_PREFIX)) return;
-    void this.facade.renameChat(event.tabId, event.title);
+    const parsed = this.tabsRegistry.parse(event.tabId);
+    if (!parsed || parsed.kind !== 'chat') return;
+    void this.facade.renameChat(parsed.chatId, event.title);
   }
 
   protected onCreate(): void {
     const ws = this.workspaceId();
     if (!ws) return;
-    void this.facade.createChat(ws, NEW_CHAT_TITLE);
+    void this.facade.createChat(ws, NEW_CHAT_TITLE).then((chat) => {
+      if (!chat) return;
+      void this.navigateToTab(this.tabsRegistry.chatTabId(chat.id));
+    });
+  }
+
+  private navigateToTab(tabId: string): Promise<boolean> {
+    const ws = this.workspaceId();
+    const project = this.projectId();
+    if (!project || !ws) return Promise.resolve(false);
+    return this.router.navigate(workspaceTabRouteCommands(project, ws, tabId));
+  }
+
+  private navigateToWorkspace(): Promise<boolean> {
+    const ws = this.workspaceId();
+    const project = this.projectId();
+    if (!project || !ws) return Promise.resolve(false);
+    return this.router.navigate(workspaceRouteCommands(project, ws));
+  }
+
+  private fallbackTabIdAfterClose(closingId: string): string | null {
+    const list = this.tabs();
+    const idx = list.findIndex((tab) => tab.id === closingId);
+    if (idx === -1) return null;
+    return list[idx - 1]?.id ?? list[idx + 1]?.id ?? null;
   }
 }
 

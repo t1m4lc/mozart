@@ -8,10 +8,10 @@ import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { GET_STARTED_PROJECT_ADAPTER } from '../domains/onboarding';
 import { ProjectsFacade } from '../domains/projects';
-import { WorkspacesFacade } from '../domains/workspaces';
+import { WorkspacesFacade, workspaceRouteCommands } from '../domains/workspaces';
 
 // `/tour` route. Bootstraps the bundled "Get started" project,
-// then redirects to `/workspaces/<welcome-1.id>?tour=on`. The
+// then redirects to `/project/<projectId>/workspace/<workspaceId>?tour=on`. The
 // AppShell sees the `?tour=on` query param and mounts
 // `<app-feature-tour>` (the highlight overlay) on top of the live
 // workspace UI.
@@ -71,9 +71,10 @@ export class TourPage {
       this.workspaces.setActive(result.workspace.id);
       // Redirect into the workspace with the tour query param ; the
       // AppShell mounts the overlay when it sees `?tour=on`.
-      void this.router.navigate(['/workspaces', result.workspace.id], {
-        queryParams: { tour: 'on' },
-      });
+      void this.router.navigate(
+        workspaceRouteCommands(result.workspace.projectId, result.workspace.id),
+        { queryParams: { tour: 'on' } },
+      );
     } catch (err) {
       console.error('[tour] bootstrap failed:', err);
       this.error.set(err instanceof Error ? err.message : String(err));

@@ -1,7 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ProjectsFacade } from '../../projects';
-import { WorkspacesFacade } from '../../workspaces';
+import { WorkspacesFacade, workspaceRouteCommands } from '../../workspaces';
 import { GET_STARTED_PROJECT_ADAPTER } from './get-started-project.adapter';
 import { ONBOARDING_ADAPTER } from './onboarding.adapter';
 import {
@@ -118,7 +118,9 @@ export class OnboardingFacade {
       await this.projects.loadAll();
       await this.workspaces.loadAll();
       this.workspaces.setActive(result.workspace.id);
-      void this.router.navigate(['/workspaces', result.workspace.id]);
+      void this.router.navigate(
+        workspaceRouteCommands(result.workspace.projectId, result.workspace.id),
+      );
     } catch (err) {
       console.error('[onboarding] get-started bootstrap failed:', err);
       // Fall back to the dashboard rather than getting stuck —

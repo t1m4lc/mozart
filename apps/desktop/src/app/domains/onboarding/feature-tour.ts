@@ -107,7 +107,7 @@ export class FeatureTour {
 
   /** Strip the `tour=on` query param so the AppShell unmounts the
    *  overlay. The user stays on the current workspace ; no navigation
-   *  away from `/workspaces/:id`. */
+   *  away from `/project/:projectId/workspace/:workspaceId`. */
   private dismissTour(): void {
     void this.router.navigate([], {
       relativeTo: this.route,

@@ -10,6 +10,7 @@ import {
   type TurnState,
 } from '../../llm-model';
 import { WorkspacesFacade } from '../../workspaces';
+import { CHAT_TAB_CAP } from '../../workspaces/ui/workspace-tab-bar/workspace-tab.model';
 import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,
@@ -291,7 +292,7 @@ export class ChatFacade {
     title = 'Untitled',
   ): Promise<Chat | null> {
     const existing = this.store.chatsByWorkspace().get(workspaceId) ?? [];
-    if (existing.length >= 4) return null;
+    if (existing.length >= CHAT_TAB_CAP) return null;
     try {
       const chat = await this.chats.create(workspaceId, title);
       this.store.upsertChat(chat);

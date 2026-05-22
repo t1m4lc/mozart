@@ -14,6 +14,10 @@ export type { OpenInTool, OpenInToolId } from './data/open-in-tools';
 export { IdeDetectionService } from './data/ide-detection.service';
 export { WorkspacesFacade } from './data/workspace.facade';
 export {
+  workspaceRouteCommands,
+  workspaceTabRouteCommands,
+} from './data/workspace-tab-registry';
+export {
   WORKSPACES_ADAPTER,
   type WorkspacesAdapter,
 } from './data/workspaces.adapter';
