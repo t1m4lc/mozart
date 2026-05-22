@@ -8,6 +8,7 @@ import {
   provideRouter,
   withComponentInputBinding,
   withHashLocation,
+  withRouterConfig,
 } from '@angular/router';
 import { provideTheme } from '@mozart/shared-util-theme';
 import { appRoutes } from './app.routes';
@@ -22,7 +23,18 @@ import { WorkspacesFacade } from './domains/workspaces';
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
-    provideRouter(appRoutes, withHashLocation(), withComponentInputBinding()),
+    // `paramsInheritanceStrategy: 'always'` lets child routes inherit
+    // parent route params (e.g. `:workspaceId` on the detail page is
+    // surfaced as a route param on the nested tab matcher route). Without
+    // this, `withComponentInputBinding()` only binds own-segment params,
+    // leaving `WorkspaceTabContent.workspaceId` undefined and silently
+    // breaking the composer's Send action.
+    provideRouter(
+      appRoutes,
+      withHashLocation(),
+      withComponentInputBinding(),
+      withRouterConfig({ paramsInheritanceStrategy: 'always' }),
+    ),
     provideTheme(),
     provideTauriAdapters(),
     provideAppInitializer(async () => {
