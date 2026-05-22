@@ -1,9 +1,9 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import type { Message } from '../../data/message.model';
-import { AgentMessage } from '../agent-message/agent-message';
-import { SetupProgressMessage } from '../setup-progress-message/setup-progress-message';
-import { SystemInfoMessage } from '../system-info-message/system-info-message';
-import { UserMessage } from '../user-message/user-message';
+import type { Message } from './data/message.model';
+import { AgentMessage } from './ui-agent-message';
+import { SetupProgressMessage } from './ui-setup-progress-message';
+import { SystemInfoMessage } from './ui-system-info-message';
+import { UserMessage } from './ui-user-message';
 
 // Pure presentational @for over messages, switching on role. Owns no
 // scroll behavior — chat scroll is orchestrated from

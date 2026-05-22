@@ -8,7 +8,7 @@ import { MessageBody, TurnContainer } from '@mozart-ui/timeline';
 import type { TurnFileChipEvent } from '@mozart-ui/timeline';
 import { toast } from '@spartan-ng/brain/sonner';
 import { MzLoader } from '@mozart-ui/loader';
-import type { Message } from '../../data/message.model';
+import type { Message } from './data/message.model';
 
 @Component({
   selector: 'app-agent-message',

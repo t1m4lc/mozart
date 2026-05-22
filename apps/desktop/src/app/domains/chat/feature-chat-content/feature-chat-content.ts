@@ -5,7 +5,7 @@ import {
   input,
 } from '@angular/core';
 import { ChatFacade } from '../data/chat.facade';
-import { MessageList } from '../ui/message-list/message-list';
+import { MessageList } from '../ui-message-list';
 
 /**
  * Chat-only content for the middle shell — owns the message-list /

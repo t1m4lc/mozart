@@ -5,7 +5,7 @@ import {
   input,
 } from '@angular/core';
 import { HlmSpinnerImports } from '@mozart/ui/spinner';
-import type { Message } from '../../data/message.model';
+import type { Message } from './data/message.model';
 
 @Component({
   selector: 'app-user-message',
