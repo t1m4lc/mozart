@@ -84,7 +84,9 @@ export class ScrollPositionService {
     // invoke forgetChat() per id when they delete chats.
   }
 
-  /** Drop every key tied to a chat — both its scrollTop and follow mode. */
+  /** Drop every key tied to a chat — its scrollTop, follow mode, AND
+   *  the cached `followModeFor` signal (otherwise the cache grows
+   *  unbounded across long sessions that visit many chats). */
   forgetChat(workspaceId: string, chatId: string): void {
     this.forget(chatTabKey(workspaceId, chatId));
     this._followModeByChat.update((current) => {
@@ -93,6 +95,7 @@ export class ScrollPositionService {
       next.delete(chatId);
       return next;
     });
+    this._followModeSignalCache.delete(chatId);
   }
 
   /** Drop the file tab's scrollTop. Call when the tab closes. */

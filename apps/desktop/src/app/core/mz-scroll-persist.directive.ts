@@ -73,7 +73,10 @@ export class MzScrollPersist {
         { injector: this.injector },
       );
 
-      // Effect re-runs when `key` (or `defaultPosition`) changes. The
+      // Effect re-runs when `key` changes (the only signal read in the
+      // effect body — `defaultPosition()` is read inside the
+      // afterNextRender callback, outside the reactive context, so it
+      // does NOT re-trigger; it's effectively a static input). The
       // cleanup snapshots the PRIOR key's scrollTop before the next
       // afterNextRender restores the new key — order matters.
       onCleanup(() => {

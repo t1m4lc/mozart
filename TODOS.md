@@ -121,3 +121,15 @@ We applied the Linux fix because the slowness was reported there. macOS and Wind
 **Depends on:** A real complaint on a non-Linux platform. Don't speculate-fix.
 
 ---
+
+## Scroll — wire `forgetChat` / `forgetWorkspace` call sites
+
+**What:** `ScrollPositionService.forgetChat(workspaceId, chatId)` and `forgetWorkspace(workspaceId)` are implemented and tested but never called from the rest of the app. The only similar wiring that exists is `forgetFile` from `FileTabsService.closeFor`. Chat deletion + workspace deletion currently leak their scroll positions + per-chat follow modes until the app relaunches.
+
+**Why:** Today's blast radius is small — in-memory maps capped by a session's chat/workspace count. But the API is misleading: a dev reading `forgetChat` and assuming "OK so deleting a chat cleans up" would be wrong. And on long sessions with many created/deleted chats, the maps grow.
+
+**How to apply:** Find the chat-delete and workspace-delete code paths (likely in `ChatFacade` and `WorkspacesFacade`). On delete, inject `ScrollPositionService` and call `forgetChat(workspaceId, chatId)` / `forgetWorkspace(workspaceId)`. Mirror the pattern used in `FileTabsService.closeFor`. Add a regression spec.
+
+**Depends on:** Knowing the exact delete code paths — small investigation needed.
+
+---

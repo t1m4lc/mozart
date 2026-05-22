@@ -24,7 +24,7 @@ import {
   ScrollPositionService,
   chatTabKey,
 } from '../../../core/scroll-position.service';
-import { ChatFacade, FeatureChatContent } from '../../chat';
+import { ChatFacade } from '../../chat';
 import {
   DEFAULT_MODEL_ID,
   LLM_MODEL_CATALOG,
@@ -99,9 +99,9 @@ export class FeatureWorkspaceMiddle {
   private readonly destroyRef = inject(DestroyRef);
   private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  // Projected content probes — distinguish chat mode from file mode
-  // without coupling to the parent's activeFileTabPath signal.
-  private readonly chatContent = contentChild(FeatureChatContent);
+  // File-content probe — when a file tab is projected, autoFollowChat
+  // short-circuits and chat scroll orchestration goes inactive. The
+  // chat-content side is implicit (no fileContent → chat mode).
   private readonly fileContent = contentChild(FeatureFileContent);
 
   private readonly composerEl = viewChild('composerEl', {
@@ -158,7 +158,8 @@ export class FeatureWorkspaceMiddle {
   // Messages for the workspace's active chat. The signal recomputes
   // when activeChatId changes (chat A → chat B) AND when the active
   // chat's message array changes (new token / new message). The
-  // auto-follow effect distinguishes these two via _lastSyncedChatId.
+  // auto-follow effect targets scrollHeight directly and lets the
+  // tab-key effect's afterNextRender override on chat-switch.
   private readonly _messages = this.facade.messagesForWorkspace(
     this.workspaceId,
   );
