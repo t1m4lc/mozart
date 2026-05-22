@@ -77,6 +77,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::connect_anthropic,
                 commands::disconnect_anthropic,
                 commands::refresh_anthropic_connection,
+                commands::probe_anthropic_reachability,
                 commands::list_repository_tree,
                 commands::watch_repository_tree,
                 commands::unwatch_repository_tree,
