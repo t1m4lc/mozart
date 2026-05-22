@@ -8,7 +8,7 @@ export type {
   FileNode,
   FileNodeKind,
 } from './data/file-node.model';
-export { fileNodeFromDto } from './data/file-node.adapter';
+export { fileNodeFromDto } from './data/file-node.dto-mapper';
 export { RepositoriesFacade } from './data/repositories.facade';
 export {
   FileViewsFacade,

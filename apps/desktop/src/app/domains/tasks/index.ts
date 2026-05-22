@@ -4,4 +4,4 @@
 export type { Task, TaskStatus } from './data/task.model';
 export { TasksFacade } from './data/task.facade';
 export { TASKS_ADAPTER, type TasksAdapter } from './data/tasks.adapter';
-export { taskFromDto } from './data/task.adapter';
+export { taskFromDto } from './data/task.dto-mapper';

@@ -6,7 +6,7 @@ import { generateWorkspaceName } from '../util-workspace-name';
 import { IdeDetectionService } from './ide-detection.service';
 import type { OpenInToolId } from './open-in-tools';
 import type { UiWorkspaceStatus } from './workspace-status';
-import { workspaceFromDto } from './workspace.adapter';
+import { workspaceFromDto } from './workspace.dto-mapper';
 import type { WorkspaceDto } from './workspace.dto';
 import type { MergeAction, Workspace } from './workspace.model';
 import { WorkspaceStore } from './workspace.store';
