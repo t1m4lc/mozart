@@ -1,11 +1,11 @@
 import { InjectionToken } from '@angular/core';
 import type { ChatMode } from '@mozart-ui/composer';
-import type { Message } from '../../chat';
 import type { AgentEvent } from './stream/event.types';
 
 export interface LlmStreamInput {
   readonly workspaceId: string;
-  readonly history: readonly Message[];
+  readonly chatId: string;
+  readonly currentUserMessageId: string;
   readonly mode: ChatMode;
 }
 

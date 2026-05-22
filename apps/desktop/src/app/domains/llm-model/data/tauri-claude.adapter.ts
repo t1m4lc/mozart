@@ -42,8 +42,6 @@ export class TauriClaudeAdapter implements LlmAdapter {
       if (mapped !== null) queue.push(mapped);
     };
 
-    const lastPrompt = lastUserPrompt(input.history) ?? '';
-
     // Register the terminated listener BEFORE startAgentRun, so we
     // can't lose a fast terminal. We filter by run_id once it
     // resolves; events received before runId is set are kept in a
@@ -65,7 +63,13 @@ export class TauriClaudeAdapter implements LlmAdapter {
       });
 
     const startPromise = commands
-      .startAgentRun(input.workspaceId, lastPrompt, input.mode, channel)
+      .startAgentRun(
+        input.workspaceId,
+        input.chatId,
+        input.currentUserMessageId,
+        input.mode,
+        channel,
+      )
       .then((r) => {
         if (r.status === 'error') {
           throw new Error(r.error.message);
@@ -118,16 +122,6 @@ export class TauriClaudeAdapter implements LlmAdapter {
       },
     };
   }
-}
-
-function lastUserPrompt(
-  history: LlmStreamInput['history'],
-): string | undefined {
-  for (let i = history.length - 1; i >= 0; i--) {
-    const m = history[i];
-    if (m?.role === 'user') return m.content;
-  }
-  return undefined;
 }
 
 // Single-producer / single-consumer async queue. Resolves shift()
