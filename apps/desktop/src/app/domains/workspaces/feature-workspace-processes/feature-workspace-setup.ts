@@ -9,7 +9,7 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideListTree, lucidePlay } from '@ng-icons/lucide';
 import { ProjectsFacade } from '../../projects';
-import { RunRegistry } from '../../runs';
+import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { WorkspacesFacade } from '../data/workspace.facade';
 
 // Setup tab — empty-state card with a CTA that runs the configured

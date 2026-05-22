@@ -17,6 +17,9 @@
 @source "../../../libs/desktop-profile-feature";
 @source "../../../libs/desktop-profile-ui";
 @source "../../../libs/desktop-profile-util";
+@source "../../../libs/desktop-runs-data-access";
+@source "../../../libs/desktop-runs-feature";
+@source "../../../libs/desktop-runs-util";
 @source "../../../libs/desktop-tasks-data-access";
 @source "../../../libs/desktop-terminals-data-access";
 @source "../../../libs/desktop-terminals-util";

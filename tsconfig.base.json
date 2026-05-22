@@ -300,6 +300,15 @@
       ],
       "@mozart/desktop-terminals-data-access": [
         "./libs/desktop-terminals-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-runs-util": [
+        "./libs/desktop-runs-util/src/index.ts"
+      ],
+      "@mozart/desktop-runs-data-access": [
+        "./libs/desktop-runs-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-runs-feature": [
+        "./libs/desktop-runs-feature/src/index.ts"
       ]
     }
   }

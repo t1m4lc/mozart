@@ -25,7 +25,7 @@ import {
   type CommitDialogContext,
   type CreatePrDialogContext,
 } from '../../repositories';
-import { RunRegistry } from '../../runs';
+import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { IdeDetectionService } from '../data/ide-detection.service';
 import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
 import { WorkspacesFacade } from '../data/workspace.facade';

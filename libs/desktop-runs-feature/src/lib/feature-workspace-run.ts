@@ -15,8 +15,8 @@ import { HlmEmptyImports } from '@mozart/ui/empty';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay } from '@ng-icons/lucide';
-import { RunRegistry } from './data/run-registry.service';
-import type { RunStatus } from './data/run-status.model';
+import { RunRegistry } from '@mozart/desktop-runs-data-access';
+import type { RunStatus } from '@mozart/desktop-runs-util';
 
 @Component({
   selector: 'app-feature-workspace-run',

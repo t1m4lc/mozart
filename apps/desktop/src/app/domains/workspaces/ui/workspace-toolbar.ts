@@ -28,7 +28,7 @@ import {
   lucidePlay,
 } from '@ng-icons/lucide';
 import { ShellTopBar } from '../../../shell';
-import type { RunStatus } from '../../runs';
+import type { RunStatus } from '@mozart/desktop-runs-util';
 import type { OpenInTool } from '../data/open-in-tools';
 import { BranchPicker } from './branch-picker';
 import { OpenInMenu } from './open-in-menu';
