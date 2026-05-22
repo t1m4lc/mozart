@@ -27,7 +27,7 @@ import {
   lucidePanelRight,
   lucidePlay,
 } from '@ng-icons/lucide';
-import { ShellTopBar } from '../../../../shell/shell-top-bar';
+import { ShellTopBar } from '../../../../shell';
 import type { RunStatus } from '../../../runs';
 import type { OpenInTool } from '../../data/open-in-tools';
 import { BranchPicker } from '../branch-picker/branch-picker';
@@ -220,16 +220,16 @@ export class WorkspaceToolbar {
   // + sidebar toggle when the left panel is collapsed).
   readonly leadingSlot = input<TemplateRef<unknown> | null>(null);
 
-  // IMP-004 — Open in IDE / Commit / Create PR moved here from the
-  // right-aside header. Placeholder Lucide icons today; real IDE
+  // Open in IDE / Commit / Create PR live on the toolbar (moved off
+  // the right-aside header). Placeholder Lucide icons today; real IDE
   // brand icons land via the OpenInTool catalog.
   readonly availableTools = input<readonly OpenInTool[]>([]);
   readonly lastUsedTool = input<OpenInTool | null>(null);
   readonly githubConnected = input<boolean>(false);
   readonly runStatus = input<RunStatus>('idle');
   readonly hasRunCommand = input<boolean>(false);
-  // Plan P0.2 — toolbar-level read-only state. Disables Commit, locks
-  // the BranchPicker, and refuses to enter rename mode. Open in IDE
+  // Toolbar-level read-only state. Disables Commit, locks the
+  // BranchPicker, and refuses to enter rename mode. Open in IDE
   // stays enabled (read-only browsing in an external editor is fine).
   readonly frozen = input<boolean>(false);
 

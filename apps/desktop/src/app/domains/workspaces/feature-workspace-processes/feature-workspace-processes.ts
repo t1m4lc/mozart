@@ -7,7 +7,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { HlmTabsImports } from '@mozart/ui/tabs';
-import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '../../../shell/shell-panel.constants';
+import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '../../../shell';
 import { ProjectsFacade } from '../../projects';
 import { FeatureWorkspaceRun, RunRegistry } from '../../runs';
 import { FeatureWorkspaceTerminal } from '../../terminals';
