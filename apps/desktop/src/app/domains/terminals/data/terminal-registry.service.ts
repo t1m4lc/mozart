@@ -1,7 +1,8 @@
 import { Injectable, effect, inject } from '@angular/core';
-import { FitAddon } from '@xterm/addon-fit';
-import { Terminal } from '@xterm/xterm';
+import type { FitAddon } from '@xterm/addon-fit';
+import type { Terminal } from '@xterm/xterm';
 import { ThemeService } from '@mozart/shared-util-theme';
+import { createXterm } from '../../../core/util-xterm';
 import { TerminalsFacade } from './terminals.facade';
 
 /** xterm.js + addons + Rust unsubscribe handle for one workspace. */
@@ -10,9 +11,6 @@ export interface TerminalEntry {
   readonly fit: FitAddon;
   readonly close: () => Promise<void>;
 }
-
-const DEFAULT_COLS = 80;
-const DEFAULT_ROWS = 24;
 
 /**
  * Per-workspace xterm.js + PTY lifetime manager. Lives at app scope so
@@ -57,25 +55,14 @@ export class TerminalRegistry {
     const existing = this.entries.get(workspaceId);
     if (existing) return existing;
 
-    const term = new Terminal({
-      cols: DEFAULT_COLS,
-      rows: DEFAULT_ROWS,
-      cursorBlink: true,
-      convertEol: true,
-      // Match the surrounding `bg-sidebar` palette so the terminal
-      // doesn't punch a black rectangle through the polished UI. We
-      // resolve the CSS variables on the document root once at
-      // instantiation; theme switches reload xterm's container so
-      // the colors track the active theme.
+    // Match the surrounding `bg-sidebar` palette so the terminal doesn't
+    // punch a black rectangle through the polished UI. CSS variables are
+    // resolved once at instantiation; theme switches re-apply colors via
+    // the effect in the constructor.
+    const { term, fit } = createXterm({
+      readOnly: false,
       theme: resolveXtermTheme(),
-      fontFamily:
-        'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, "Cascadia Code", "Roboto Mono", Consolas, monospace',
-      fontSize: 12,
-      scrollback: 5000,
-      allowProposedApi: true,
     });
-    const fit = new FitAddon();
-    term.loadAddon(fit);
 
     // Pipe user keystrokes to the PTY.
     term.onData((data) => {
