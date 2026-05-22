@@ -14,6 +14,7 @@ pub mod providers;
 pub mod runner;
 pub mod sandbox_policy;
 pub mod session;
+pub mod summary_builder;
 
 pub use runner::{spawn_run, RunHandle};
 

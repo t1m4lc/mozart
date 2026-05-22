@@ -69,6 +69,32 @@ pub fn update_status(
     Ok(())
 }
 
+/// The assistant message bound to this run, if any. Used by the
+/// post-run hook in `claude_cli::runner` to attach a summary row to
+/// the correct message. Returns `Ok(None)` (not `NotFound`) when no
+/// match — runs that failed before the assistant row was persisted
+/// have no message to link to, and the hook just skips the summary.
+pub fn find_assistant_by_run(
+    conn: &Connection,
+    run_id: &str,
+) -> Result<Option<Message>, AppError> {
+    let res = conn.query_row(
+        &format!(
+            "SELECT {COLS} FROM messages \
+             WHERE run_id = ?1 AND role = 'assistant' \
+             ORDER BY created_at ASC, message_id ASC \
+             LIMIT 1"
+        ),
+        [run_id],
+        row_to_message,
+    );
+    match res {
+        Ok(m) => Ok(Some(m)),
+        Err(rusqlite::Error::QueryReturnedNoRows) => Ok(None),
+        Err(other) => Err(other.into()),
+    }
+}
+
 pub fn update_timeline(
     conn: &Connection,
     message_id: &str,

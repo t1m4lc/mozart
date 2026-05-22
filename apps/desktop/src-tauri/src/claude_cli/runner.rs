@@ -55,10 +55,14 @@ use tokio::task::JoinHandle;
 
 use crate::claude_cli::parser::{parse_line, ParserState};
 use crate::claude_cli::sandbox_policy::{build_sandbox_flags, SandboxLevel, L2_SIBLING_CAP};
+use crate::claude_cli::summary_builder;
 use crate::claude_cli::{AgentRunTerminated, StreamEvent};
 use crate::credentials::keyring_store;
-use crate::db::models::{AgentRun, Workspace, WorkspaceChange};
-use crate::db::{agent_events, agent_runs, now_ms, workspace_changes, workspaces, DbState};
+use crate::db::models::{AgentRun, AgentTurnSummary, Workspace, WorkspaceChange};
+use crate::db::{
+    agent_events, agent_runs, agent_turn_summaries, messages, new_id, now_ms, workspace_changes,
+    workspaces, DbState,
+};
 use crate::error::AppError;
 use crate::sandbox;
 
@@ -623,6 +627,51 @@ where
                 status: status_str.to_string(),
                 workspace_id: workspace_id_for_supervisor.clone(),
             });
+
+            // Post-run summary hook (T7): on any terminal status that
+            // produced a tracked assistant message, distill the
+            // `agent_events` rows into one compact `agent_turn_summaries`
+            // entry. The ContextCompiler folds this into the next turn's
+            // `operational_summaries` layer so the agent sees a working
+            // recap instead of relying on raw event replay. `crashed`
+            // runs are skipped — they reflect process loss, not real
+            // tool activity, and there's likely no assistant message
+            // to link to anyway.
+            if matches!(status_str, "done" | "error" | "stopped") {
+                let conn = match db_arc.lock() {
+                    Ok(c) => c,
+                    Err(_) => {
+                        log::warn!("agent_turn_summaries: db mutex poisoned");
+                        return;
+                    }
+                };
+                let assistant_msg = match messages::find_assistant_by_run(&conn, &run_id) {
+                    Ok(opt) => opt,
+                    Err(e) => {
+                        log::warn!("messages::find_assistant_by_run failed: {e}");
+                        None
+                    }
+                };
+                if let Some(msg) = assistant_msg {
+                    let events = agent_events::list_by_run(&conn, &run_id).unwrap_or_default();
+                    let digest = summary_builder::build_summary(&events);
+                    let summary = AgentTurnSummary {
+                        summary_id: new_id(),
+                        run_id: run_id.clone(),
+                        message_id: msg.message_id,
+                        chat_id: msg.chat_id,
+                        files_read_json: serde_json::to_string(&digest.files_read).ok(),
+                        files_edited_json: serde_json::to_string(&digest.files_edited).ok(),
+                        commands_run_json: serde_json::to_string(&digest.commands_run).ok(),
+                        key_results_json: serde_json::to_string(&digest.key_results).ok(),
+                        text_summary: digest.text_summary,
+                        created_at: now_ms(),
+                    };
+                    if let Err(e) = agent_turn_summaries::insert(&conn, &summary) {
+                        log::warn!("agent_turn_summaries::insert failed: {e}");
+                    }
+                }
+            }
 
             // Post-exit reach-back (S1.5.4 / D1.5-I): on success only,
             // capture a diff vs the checkpoint and insert one
@@ -1229,6 +1278,97 @@ mod tests {
                 count_workspace_changes(&db, &run.run_id),
                 0,
                 "non-'done' status must not insert a workspace_changes row"
+            );
+
+            std::env::remove_var("MOZART_CLAUDE_BIN");
+            std::env::remove_var("MOZART_MOCK_FIXTURE");
+            std::env::remove_var("MOZART_WORKTREES_ROOT");
+        }
+
+        // T7 — post-run summary hook end-to-end. Seeds a chat + an
+        // assistant message bound to the run, spawns against the
+        // tool-use fixture so the digest has something to extract,
+        // then asserts that exactly one `agent_turn_summaries` row
+        // was inserted with the assistant message linked.
+        #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+        async fn integration_post_run_summary_hook_writes_row() {
+            use crate::db::models::{Chat, Message};
+            use crate::db::{chats, messages};
+
+            if !sandbox::git_available() {
+                eprintln!(
+                    "SKIP integration_post_run_summary_hook_writes_row: `git` binary not on PATH"
+                );
+                return;
+            }
+            let _g = sandbox::test_env_gate()
+                .lock()
+                .unwrap_or_else(|p| p.into_inner());
+
+            let db = init_db_memory().unwrap();
+            let (ws, run, _root, _wt_dir) = seed(&db);
+
+            // Add the chat + assistant message that the summary hook
+            // links the row against. Without these, the hook silently
+            // skips (covered by the other integration tests).
+            let (chat_id, msg_id) = {
+                let conn = db.lock();
+                let chat = Chat {
+                    chat_id: new_id(),
+                    workspace_id: ws.workspace_id.clone(),
+                    title: "c".into(),
+                    llm_id: None,
+                    mode: "agent".into(),
+                    effort: "medium".into(),
+                    last_read_message_id: None,
+                    closed_at: None,
+                    created_at: now_ms(),
+                };
+                chats::create(&conn, &chat).unwrap();
+                let msg = Message {
+                    message_id: new_id(),
+                    chat_id: chat.chat_id.clone(),
+                    run_id: Some(run.run_id.clone()),
+                    role: "assistant".into(),
+                    content: String::new(),
+                    mode: Some("agent".into()),
+                    status: "streaming".into(),
+                    timeline_json: None,
+                    created_at: now_ms(),
+                };
+                messages::insert(&conn, &msg).unwrap();
+                (chat.chat_id, msg.message_id)
+            };
+
+            std::env::set_var("MOZART_CLAUDE_BIN", mock_bin());
+            std::env::set_var(
+                "MOZART_MOCK_FIXTURE",
+                fixtures_dir().join("streams/with-tool-use.jsonl"),
+            );
+            std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
+
+            let handle = spawn_run(
+                &ws,
+                &run,
+                "rendered-envelope-bytes-for-test",
+                "agent",
+                noop_channel(),
+                &db,
+                |_| (),
+            )
+            .await
+            .unwrap();
+            handle.await_complete().await.unwrap();
+
+            let conn = db.lock();
+            let summary = agent_turn_summaries::get_by_run(&conn, &run.run_id)
+                .unwrap()
+                .expect("post-run hook should have written a summary row");
+            assert_eq!(summary.message_id, msg_id);
+            assert_eq!(summary.chat_id, chat_id);
+            assert!(
+                !summary.text_summary.is_empty(),
+                "text_summary should never be empty post-builder"
             );
 
             std::env::remove_var("MOZART_CLAUDE_BIN");
