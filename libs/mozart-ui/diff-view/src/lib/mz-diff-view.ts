@@ -1,48 +1,51 @@
 import {
+  afterNextRender,
   ChangeDetectionStrategy,
   Component,
   computed,
+  DestroyRef,
+  ElementRef,
+  effect,
+  inject,
   input,
   signal,
+  viewChild,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideRefreshCw } from '@ng-icons/lucide';
+import { ThemeService } from '@mozart/shared-util-theme';
 import {
-  MzHunkExpandBar,
-  type HunkExpandDirection,
-  type HunkExpandEvent,
-} from '@mozart-ui/hunk-expand-bar';
+  Compartment,
+  EditorState,
+  type Extension,
+} from '@codemirror/state';
+import {
+  EditorView,
+  drawSelection,
+  highlightActiveLine,
+} from '@codemirror/view';
+import {
+  syntaxHighlighting,
+  defaultHighlightStyle,
+} from '@codemirror/language';
+import { mozartThemeFor } from '@mozart-ui/codemirror-theme';
 import {
   parseGroupedDiff,
   type DiffHunk,
   type DiffLine,
   type DiffLineKind,
 } from '@mozart-ui/diff-parser';
-
-// GitHub-style row classes. Backgrounds are translucent so the diff
-// blends with whatever surface it's painted onto; text colors stay
-// muted because the marker column (rendered separately) carries the
-// strong green/red signal. Light/dark variants live in design-tokens
-// (--diff-*-bg flips on `:root.dark`), so no dark: variant here.
-const LINE_CLASS: Record<DiffLineKind, string> = {
-  add: 'bg-[var(--diff-add-bg)] text-foreground',
-  remove: 'bg-[var(--diff-remove-bg)] text-foreground',
-  hunk: 'bg-[var(--diff-hunk-bg)] text-muted-foreground',
-  meta: 'text-muted-foreground/70',
-  context: 'text-foreground/80',
-};
-
-// Marker column styling — bold +/- glyph for added/removed rows; blank
-// (but reserved width) on context rows so the body column stays aligned.
-const MARKER_CLASS: Record<DiffLineKind, string> = {
-  add: 'text-[var(--diff-add-marker-fg)]',
-  remove: 'text-[var(--diff-remove-marker-fg)]',
-  context: 'text-muted-foreground/40',
-  hunk: 'text-muted-foreground/0',
-  meta: 'text-muted-foreground/0',
-};
+import type {
+  HunkExpandDirection,
+  HunkExpandEvent,
+} from '@mozart-ui/hunk-expand-bar';
+import {
+  buildDocPlan,
+  buildLineDecorations,
+  buildWidgetDecorations,
+  newLineGutter,
+  oldLineGutter,
+  type LineMeta,
+} from './cm-diff-extensions';
+import { languageFromPath, loadLanguageExtension } from './language';
 
 /** Callback the renderer invokes to reveal more context lines. Lines
  *  are 1-based and inclusive on both ends. Resolves with the raw line
@@ -104,86 +107,27 @@ export type RenderItem =
 
 @Component({
   selector: 'mz-diff-view',
-  imports: [NgIcon, HlmButtonImports, HlmIconImports, MzHunkExpandBar],
-  providers: [provideIcons({ lucideRefreshCw })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full w-full overflow-auto' },
   template: `
     @if (!path()) {
-      <p class="px-3 py-3 text-xs text-muted-foreground">
+      <p class="text-muted-foreground px-3 py-3 text-xs">
         Select a file to see its changes.
       </p>
-    } @else if (loading() && _renderItems().length === 0) {
-      <p class="px-3 py-3 text-xs text-muted-foreground">Loading…</p>
+    } @else if (loading() && _isEmpty()) {
+      <p class="text-muted-foreground px-3 py-3 text-xs">Loading…</p>
     } @else if (error(); as err) {
-      <p class="px-3 py-3 text-xs text-destructive">
+      <p class="text-destructive px-3 py-3 text-xs">
         Failed to load diff: {{ err }}
       </p>
-    } @else if (_renderItems().length === 0) {
-      <p class="px-3 py-3 text-xs text-muted-foreground">No changes.</p>
+    } @else if (_isEmpty()) {
+      <p class="text-muted-foreground px-3 py-3 text-xs">No changes.</p>
     } @else {
-      <div
-        class="m-0 font-mono text-[11px] leading-snug whitespace-pre-wrap break-all"
-      >
-        @for (item of _renderItems(); track item.key) {
-          @switch (item.kind) {
-            @case ('expand') {
-              <mz-hunk-expand-bar
-                [direction]="item.direction"
-                [linesAvailable]="item.linesAvailable"
-                (expand)="onExpand(item.gapIndex, $event)"
-              />
-            }
-            @case ('expand-error') {
-              <div
-                class="flex items-center justify-between gap-2 border-y border-destructive/20 bg-destructive/5 px-3 py-1 text-[11px] text-destructive"
-                role="alert"
-              >
-                <span class="min-w-0 truncate" [title]="item.message">
-                  Failed to load context: {{ item.message }}
-                </span>
-                <button
-                  hlmBtn
-                  variant="ghost"
-                  size="xs"
-                  type="button"
-                  class="h-5 shrink-0 gap-1 px-2 text-[11px] text-destructive hover:text-destructive"
-                  (click)="onRetry(item.gapIndex)"
-                >
-                  <ng-icon hlm name="lucideRefreshCw" size="xs" />
-                  Retry
-                </button>
-              </div>
-            }
-            @case ('hunk-header') {
-              <span [class]="_hunkClass" class="block px-2 py-0.5">{{ item.text }}</span>
-            }
-            @default {
-              <span
-                [class]="lineClass(item.line.kind)"
-                class="flex items-start"
-              >
-                <span
-                  [class]="markerClass(item.line.kind)"
-                  class="select-none shrink-0 w-5 text-center font-bold"
-                  aria-hidden="true"
-                >{{ markerGlyph(item.line.kind) }}</span>
-                <span class="min-w-0 flex-1 pr-2">{{ lineBody(item.line.text) || _nbsp }}</span>
-              </span>
-            }
-          }
-        }
-      </div>
+      <div #host class="mz-diff-cm-host h-full w-full min-h-0 select-text"></div>
     }
   `,
 })
 export class MzDiffView {
-  // U+00A0 NBSP — preserves line height on empty diff lines. Lifted
-  // out of the template because angular-eslint flags NBSP literals
-  // in templates as "irregular whitespace".
-  protected readonly _nbsp = ' ';
-  protected readonly _hunkClass = LINE_CLASS.hunk;
-
   readonly path = input<string | null>(null);
   readonly diffText = input<string>('');
   readonly loading = input<boolean>(false);
@@ -196,6 +140,11 @@ export class MzDiffView {
    *  bar and the bar's linesAvailable indicator. Null hides the
    *  below-last-hunk bar. */
   readonly fileLineCount = input<number | null>(null);
+
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly theme = inject(ThemeService);
+  private readonly hostRef =
+    viewChild<ElementRef<HTMLDivElement>>('host');
 
   // Per-path state — survives diffText input changes for the same path
   // and across switching to another file and back.
@@ -220,37 +169,63 @@ export class MzDiffView {
     return buildRenderItems(parsed.preamble, parsed.hunks, state, fileLines);
   });
 
-  protected lineClass(kind: DiffLineKind): string {
-    return LINE_CLASS[kind];
-  }
+  // Empty when there's nothing renderable — either no hunks AND no
+  // preamble lines, or a path is set but the input diff is blank.
+  protected readonly _isEmpty = computed(() => {
+    const parsed = this.parsedDiff();
+    return parsed.preamble.length === 0 && parsed.hunks.length === 0;
+  });
 
-  protected markerClass(kind: DiffLineKind): string {
-    return MARKER_CLASS[kind];
-  }
+  // The flattened CodeMirror plan (doc text + per-line meta + widget
+  // specs). Recomputed whenever the render items or fileLineCount
+  // change; pushed into the editor via reconfigureCmState below.
+  private readonly _docPlan = computed(() =>
+    buildDocPlan(this._renderItems()),
+  );
 
-  // The marker column draws +/- (or a centered dot for context) so the
-  // body column can render the line content without the prefix char.
-  // Hunk/meta rows render the marker as a non-breaking space at zero
-  // opacity to keep the body column aligned with line rows above/below.
-  protected markerGlyph(kind: DiffLineKind): string {
-    if (kind === 'add') return '+';
-    if (kind === 'remove') return '−';
-    return this._nbsp;
-  }
+  private view: EditorView | null = null;
+  private currentLineMeta: readonly LineMeta[] = [];
+  private readonly themeCompartment = new Compartment();
+  private readonly languageCompartment = new Compartment();
+  private readonly decorationsCompartment = new Compartment();
+  private readonly readOnlyCompartment = new Compartment();
+  private currentLanguageRequest = 0;
 
-  // Strip the leading +/-/space marker emitted by unified-diff. Context
-  // lines are stored with a leading space; add/remove with +/-. Removing
-  // it here keeps the body column visually aligned with the marker
-  // column. Empty input passes through as empty (no nbsp injection — the
-  // caller adds nbsp when the resulting body is empty so the line keeps
-  // its height).
-  protected lineBody(text: string): string {
-    if (!text) return '';
-    const first = text[0];
-    if (first === '+' || first === '-' || first === ' ') {
-      return text.slice(1);
-    }
-    return text;
+  constructor() {
+    afterNextRender(() => this.initEditor());
+
+    // Rebuild doc + decorations whenever the plan changes. The effect
+    // is created in the constructor so it ticks on first render too.
+    effect(() => {
+      const plan = this._docPlan();
+      const v = this.view;
+      if (!v) return;
+      this.applyPlan(v, plan);
+    });
+
+    // Theme follows ThemeService (mozart's `.dark` class on <html>).
+    effect(() => {
+      const isDark = this.theme.isDark();
+      const v = this.view;
+      if (!v) return;
+      v.dispatch({
+        effects: this.themeCompartment.reconfigure(
+          mozartThemeFor(isDark ? 'dark' : 'light'),
+        ),
+      });
+    });
+
+    // Language extension follows the file path. Async-loaded so we
+    // dispatch a reconfigure once the dynamic import resolves.
+    effect(() => {
+      const lang = languageFromPath(this.path());
+      void this.applyLanguage(lang);
+    });
+
+    this.destroyRef.onDestroy(() => {
+      this.view?.destroy();
+      this.view = null;
+    });
   }
 
   /** Reveal every still-hidden context line across every gap in the
@@ -320,32 +295,18 @@ export class MzDiffView {
       this.fileLineCount(),
       this.stateByPath().get(p)?.expansions.get(gapIndex) ?? EMPTY_EXPANSION,
     );
-    if (!range) return;
+    if (range === null) return;
 
-    // Retry semantics: clicking the bar (or the retry strip) clears any
-    // prior failure on this gap before we attempt again.
-    this.clearError(p, gapIndex);
-
-    // Bump counters optimistically so a second click queues correctly
-    // against the new (visible) state. The fetch fills the cache; any
-    // gap line missing from the cache renders as an empty row until
-    // the fetch resolves.
+    // Optimistic local bump so the user gets immediate feedback while
+    // the fetch is in flight; rolled back on failure.
     this.bumpExpansion(p, gapIndex, event.direction, range.count);
+    this.clearError(p, gapIndex);
 
     void fetcher(range.from, range.to).then(
       (lines) => {
-        // Path may have changed under us — only apply to the path the
-        // request was made for.
         this.mergeCache(p, range.from, lines);
       },
       (err) => {
-        console.warn(
-          `[diff-view] context fetch failed (${p} ${range.from}-${range.to}):`,
-          err,
-        );
-        // Revert the optimistic bump so the gap collapses back to its
-        // pre-click state, then surface the retry strip in place of
-        // the expand bar.
         this.bumpExpansion(p, gapIndex, event.direction, -range.count);
         this.setError(p, gapIndex, {
           message: err instanceof Error ? err.message : String(err),
@@ -362,6 +323,84 @@ export class MzDiffView {
     const err = this.stateByPath().get(p)?.errors.get(gapIndex);
     if (!err) return;
     this.onExpand(gapIndex, { direction: err.direction, count: err.count });
+  }
+
+  private initEditor(): void {
+    const host = this.hostRef()?.nativeElement;
+    if (!host) return;
+
+    const plan = this._docPlan();
+    const getMeta = (line: number): LineMeta | undefined =>
+      this.currentLineMeta[line - 1];
+    this.currentLineMeta = plan.lineMeta;
+
+    const extensions: Extension[] = [
+      oldLineGutter(getMeta),
+      newLineGutter(getMeta),
+      drawSelection(),
+      highlightActiveLine(),
+      syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+      EditorView.lineWrapping,
+      this.themeCompartment.of(
+        mozartThemeFor(this.theme.isDark() ? 'dark' : 'light'),
+      ),
+      this.languageCompartment.of([]),
+      this.decorationsCompartment.of([]),
+      this.readOnlyCompartment.of(EditorState.readOnly.of(true)),
+    ];
+
+    const state = EditorState.create({
+      doc: plan.doc,
+      extensions,
+    });
+    this.view = new EditorView({ state, parent: host });
+
+    // Decorations need the EditorView to compute line positions, so we
+    // can't include them in the initial extension set — push them in a
+    // follow-up transaction once the view exists.
+    this.applyPlan(this.view, plan);
+
+    void this.applyLanguage(languageFromPath(this.path()));
+  }
+
+  private applyPlan(view: EditorView, plan: ReturnType<typeof buildDocPlan>): void {
+    // Replace the entire doc; for diff-view the doc is small and full
+    // replacement is simpler than a structural diff.
+    const currentDoc = view.state.doc.toString();
+    if (currentDoc !== plan.doc) {
+      view.dispatch({
+        changes: { from: 0, to: currentDoc.length, insert: plan.doc },
+      });
+    }
+
+    this.currentLineMeta = plan.lineMeta;
+
+    const lineDeco = buildLineDecorations(view, plan.lineMeta);
+    const widgetDeco = buildWidgetDecorations(plan.widgets, {
+      onExpand: (gi, ev) => this.onExpand(gi, ev),
+      onRetry: (gi) => this.onRetry(gi),
+    });
+    // Two RangeSets in a flat extension list so both get applied; the
+    // newer compartment reconfigure clobbers the previous one cleanly.
+    view.dispatch({
+      effects: this.decorationsCompartment.reconfigure([
+        EditorView.decorations.of(lineDeco),
+        EditorView.decorations.of(widgetDeco),
+      ]),
+    });
+  }
+
+  private async applyLanguage(
+    language: ReturnType<typeof languageFromPath>,
+  ): Promise<void> {
+    const requestId = ++this.currentLanguageRequest;
+    const ext = await loadLanguageExtension(language);
+    if (requestId !== this.currentLanguageRequest) return;
+    const v = this.view;
+    if (!v) return;
+    v.dispatch({
+      effects: this.languageCompartment.reconfigure(ext ?? []),
+    });
   }
 
   private bumpExpansion(
@@ -593,3 +632,7 @@ function synthContextLine(newLineNumber: number, text: string): DiffLine {
     newLineNumber,
   };
 }
+
+// Re-exported here so spec fixtures that pin to the kind union can
+// type their assertions without reaching into @mozart-ui/diff-parser.
+export type { DiffLineKind };

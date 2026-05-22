@@ -1,4 +1,24 @@
 import { provideZonelessChangeDetection } from '@angular/core';
+import { provideTheme } from '@mozart/shared-util-theme';
+
+// jsdom doesn't implement matchMedia; ThemeService (transitively
+// injected by MzDiffView for CodeMirror theme syncing) calls it during
+// construction. Stub once before any test creates the component.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+}
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import type { DiffHunk, DiffLine } from '@mozart-ui/diff-parser';
@@ -44,15 +64,6 @@ function makeHunk(
   };
 }
 
-function makeContextLine(newLineNumber: number, text: string): DiffLine {
-  return {
-    kind: 'context',
-    text: ' ' + text,
-    oldLineNumber: newLineNumber,
-    newLineNumber,
-  };
-}
-
 function diffWithTwoHunks(): string {
   // Hunk 1 covers lines 10-12 on the new side; hunk 2 covers 50-51.
   return [
@@ -78,7 +89,7 @@ function mountComponent(opts: {
   fileLineCount?: number | null;
 }): ComponentFixture<MzDiffView> {
   TestBed.configureTestingModule({
-    providers: [provideZonelessChangeDetection()],
+    providers: [provideZonelessChangeDetection(), provideTheme()],
   });
   const fixture = TestBed.createComponent(MzDiffView);
   fixture.componentRef.setInput('path', opts.path ?? 'foo.ts');
@@ -228,10 +239,15 @@ describe('MzDiffView component', () => {
     fixture.componentRef.setInput('diffText', diffWithTwoHunks());
     fixture.detectChanges();
 
-    // Pull internal state through the rendered DOM: there should be
-    // context rows synthesized from the cached lines.
-    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
-    expect(text).toContain('line1'); // a revealed line from the first gap
+    // Pull internal state via the computed render items — DOM text in
+    // a CodeMirror view lives inside .cm-content and isn't reliably
+    // present in jsdom's textContent. Render items are derived from
+    // the same per-path state we're verifying.
+    const items = fixture.componentInstance['_renderItems']();
+    const synthesized = items.filter(
+      (it) => it.kind === 'line' && it.line.text.includes('line'),
+    );
+    expect(synthesized.length).toBeGreaterThan(0);
   });
 
   it('expandAll is a no-op when fetchContext is null', () => {
@@ -347,22 +363,28 @@ describe('MzDiffView component', () => {
       fileLineCount: 60,
     });
 
-    // Click the first expand bar — triggers a fetch that rejects.
-    const bar = fixture.debugElement.query(By.css('mz-hunk-expand-bar'));
-    expect(bar).toBeTruthy();
-    // Invoke onExpand directly via the component's handler — simpler
-    // than clicking through the bar's internal button. The first bar
-    // in the diff is gap 0 (direction='up').
+    // Render items should start with an expand-bar item for gap 0.
+    const initialItems = fixture.componentInstance['_renderItems']();
+    expect(
+      initialItems.some((it) => it.kind === 'expand' && it.gapIndex === 0),
+    ).toBe(true);
+
+    // Invoke onExpand directly. The first bar in the diff is gap 0
+    // (direction='up').
     fixture.componentInstance['onExpand'](0, { direction: 'up', count: 5 });
     await fixture.whenStable();
     fixture.detectChanges();
 
-    // The retry strip should now be rendered in place of the bar.
-    const retryStrip = fixture.debugElement.query(By.css('[role="alert"]'));
-    expect(retryStrip).toBeTruthy();
-    expect((retryStrip.nativeElement as HTMLElement).textContent).toMatch(
-      /Failed to load context/,
+    // The rejected fetch surfaces as an expand-error render item that
+    // the CodeMirror widget renders as a retry strip with role=alert.
+    const afterError = fixture.componentInstance['_renderItems']();
+    const errorItem = afterError.find(
+      (it) => it.kind === 'expand-error' && it.gapIndex === 0,
     );
+    expect(errorItem).toBeTruthy();
+    if (errorItem && errorItem.kind === 'expand-error') {
+      expect(errorItem.message).toMatch(/network down/);
+    }
 
     // Now succeed on retry.
     shouldReject = false;
@@ -372,9 +394,11 @@ describe('MzDiffView component', () => {
     fixture.detectChanges();
 
     expect(fetchContext.mock.calls.length).toBeGreaterThan(callsBefore);
-    // Retry strip should be gone after success.
-    const retryAfter = fixture.debugElement.query(By.css('[role="alert"]'));
-    expect(retryAfter).toBeNull();
+    // Render items no longer carry an expand-error for gap 0.
+    const afterSuccess = fixture.componentInstance['_renderItems']();
+    expect(
+      afterSuccess.some((it) => it.kind === 'expand-error' && it.gapIndex === 0),
+    ).toBe(false);
   });
 });
 

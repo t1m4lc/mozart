@@ -1,7 +1,27 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { provideTheme } from '@mozart/shared-util-theme';
 import { MzFileDiffCard, type FileDiffStatus } from './mz-file-diff-card';
+
+// jsdom doesn't implement matchMedia; ThemeService (injected by the
+// MzDiffView living inside MzFileDiffCard for CodeMirror theme sync)
+// calls it during construction. Stub once before any TestBed mount.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+}
 
 interface MountOpts {
   readonly path?: string;
@@ -22,7 +42,7 @@ interface MountOpts {
 
 function mount(opts: MountOpts = {}): ComponentFixture<MzFileDiffCard> {
   TestBed.configureTestingModule({
-    providers: [provideZonelessChangeDetection()],
+    providers: [provideZonelessChangeDetection(), provideTheme()],
   });
   const fixture = TestBed.createComponent(MzFileDiffCard);
   fixture.componentRef.setInput('path', opts.path ?? 'foo.ts');

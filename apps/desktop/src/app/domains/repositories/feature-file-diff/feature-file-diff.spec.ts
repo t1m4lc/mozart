@@ -1,9 +1,29 @@
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
+import { provideTheme } from '@mozart/shared-util-theme';
 import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
 import { describe, expect, it, vi } from 'vitest';
 import { RepositoriesFacade } from '../data/repositories.facade';
 import { FeatureFileDiff } from './feature-file-diff';
+
+// jsdom doesn't implement matchMedia; ThemeService (injected by
+// MzDiffView for CodeMirror theme sync) calls it during construction.
+// Stub once before any TestBed mount.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+}
 
 // Regression suite for the FeatureFileDiff host. Verifies that the
 // migration to <mz-file-diff-card> preserves the lifecycle behavior
@@ -49,7 +69,10 @@ async function mountWith(
   // @angular/build:unit-test executor wires up correctly.
   await TestBed.configureTestingModule({
     imports: [FeatureFileDiff],
-    providers: [{ provide: RepositoriesFacade, useValue: facade }],
+    providers: [
+      { provide: RepositoriesFacade, useValue: facade },
+      provideTheme(),
+    ],
   }).compileComponents();
   const fixture = TestBed.createComponent(FeatureFileDiff);
   fixture.componentRef.setInput('workspaceId', opts.workspaceId ?? 'ws1');
