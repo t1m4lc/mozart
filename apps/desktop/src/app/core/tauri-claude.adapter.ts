@@ -14,14 +14,18 @@
 
 import { Injectable } from '@angular/core';
 import { Channel } from '@tauri-apps/api/core';
-import { commands, events } from '../../../core/_bindings';
-import type { LlmAdapter, LlmRunHandle, LlmStreamInput } from './llm.adapter';
+import type {
+  LlmAdapter,
+  LlmRunHandle,
+  LlmStreamInput,
+} from '@mozart/desktop-llm-model-data-access';
 import {
+  type AgentEvent,
   type ClaudeStreamEvent,
   terminalEvent,
   translate,
-} from './stream/anthropic.parser';
-import type { AgentEvent } from './stream/event.types';
+} from '@mozart/desktop-llm-model-util';
+import { commands, events } from './_bindings';
 
 // Synthetic terminator pushed into the queue when agentRunTerminated
 // fires for this run. Drives the iterator to completion.

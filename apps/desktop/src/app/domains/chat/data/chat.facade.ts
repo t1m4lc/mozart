@@ -2,13 +2,15 @@ import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { NotificationService } from '../../../core/notification.service';
 import { WindowFocusService } from '../../../core/window-focus.service';
 import {
-  EMPTY_TURN_STATE,
   LLM_ADAPTER,
-  applyAgentEvent,
   type LlmRunHandle,
+} from '@mozart/desktop-llm-model-data-access';
+import {
+  EMPTY_TURN_STATE,
+  applyAgentEvent,
   type TurnOutcome,
   type TurnState,
-} from '../../llm-model';
+} from '@mozart/desktop-llm-model-util';
 import { WorkspacesFacade } from '../../workspaces';
 import { CHAT_TAB_CAP } from '../../workspaces/ui/workspace-tab-bar/workspace-tab.model';
 import {

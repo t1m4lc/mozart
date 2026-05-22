@@ -1,4 +1,4 @@
-import type { TurnState } from '../../llm-model';
+import type { TurnState } from '@mozart/desktop-llm-model-util';
 import type { ChatDto, MessageDto } from './chat.dto';
 import type { Chat, ChatMode, EffortLevel } from './chat.model';
 import type {

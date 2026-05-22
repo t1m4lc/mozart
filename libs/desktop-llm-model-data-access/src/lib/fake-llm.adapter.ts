@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import type { AgentEvent } from './stream/event.types';
+import type { AgentEvent } from '@mozart/desktop-llm-model-util';
 import type { LlmAdapter, LlmRunHandle, LlmStreamInput } from './llm.adapter';
 
 interface ScriptStep {

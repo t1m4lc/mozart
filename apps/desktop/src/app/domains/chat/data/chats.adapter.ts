@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { TurnState } from '../../llm-model';
+import type { TurnState } from '@mozart/desktop-llm-model-util';
 import type { Chat, ChatMode, EffortLevel } from './chat.model';
 import type { Message, MessageStatus, SetupProgress } from './message.model';
 

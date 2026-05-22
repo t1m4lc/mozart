@@ -1,6 +1,8 @@
 import { InjectionToken } from '@angular/core';
-import type { ChatMode } from '@mozart-ui/composer';
-import type { AgentEvent } from './stream/event.types';
+import type {
+  AgentEvent,
+  ChatMode,
+} from '@mozart/desktop-llm-model-util';
 
 export interface LlmStreamInput {
   readonly workspaceId: string;
@@ -15,9 +17,12 @@ export interface LlmRunHandle {
   cancel(): void;
 }
 
-// Adapter contract for any LLM provider. Implementations live in
-// `llm-model/data/*.adapter.ts` ; the concrete one is wired in
-// `app.config.ts` against `LLM_ADAPTER`.
+// Adapter contract for any LLM provider. The Tauri-backed concrete
+// impl lives in apps/desktop/src/app/core/tauri-claude.adapter.ts —
+// the only file that may import `core/_bindings` for this port.
+// `app.config.ts` wires the impl against `LLM_ADAPTER`. A
+// type-contract test (`tauri-claude.adapter.spec.ts`) sits next to
+// this file to guard the LlmStreamInput shape against regressions.
 export interface LlmAdapter {
   stream(input: LlmStreamInput): LlmRunHandle;
 }

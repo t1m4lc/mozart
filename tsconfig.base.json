@@ -270,6 +270,12 @@
       ],
       "@mozart/desktop-ui-state-data-access": [
         "./libs/desktop-ui-state-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-llm-model-util": [
+        "./libs/desktop-llm-model-util/src/index.ts"
+      ],
+      "@mozart/desktop-llm-model-data-access": [
+        "./libs/desktop-llm-model-data-access/src/index.ts"
       ]
     }
   }

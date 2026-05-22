@@ -13,7 +13,8 @@ import {
   type ChatsAdapter,
   type MessagesAdapter,
 } from '../domains/chat';
-import { LLM_ADAPTER, TauriClaudeAdapter } from '../domains/llm-model';
+import { LLM_ADAPTER } from '@mozart/desktop-llm-model-data-access';
+import { TauriClaudeAdapter } from './tauri-claude.adapter';
 import {
   GET_STARTED_PROJECT_ADAPTER,
   GIT_CHECK_ADAPTER,

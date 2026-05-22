@@ -9,6 +9,8 @@
 @source "../../../libs/desktop-auth-feature";
 @source "../../../libs/desktop-auth-ui";
 @source "../../../libs/desktop-auth-util";
+@source "../../../libs/desktop-llm-model-data-access";
+@source "../../../libs/desktop-llm-model-util";
 @source "../../../libs/desktop-tasks-data-access";
 @source "../../../libs/desktop-ui-state-data-access";
 @source "../../../libs/desktop-ui-state-util";

@@ -28,7 +28,7 @@ import {
   DEFAULT_MODEL_ID,
   LLM_MODEL_CATALOG,
   PROVIDERS,
-} from '../llm-model';
+} from '@mozart/desktop-llm-model-util';
 import { workspaceRouteCommands } from './data/workspace-tab-registry';
 import { WorkspacesFacade } from './data/workspace.facade';
 

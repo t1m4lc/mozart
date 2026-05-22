@@ -1,4 +1,4 @@
-import type { TurnState } from '../../llm-model';
+import type { TurnState } from '@mozart/desktop-llm-model-util';
 import type { ChatMode } from './chat.model';
 
 export type MessageRole = 'user' | 'assistant' | 'system';
