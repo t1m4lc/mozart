@@ -15,11 +15,6 @@ export {
   type ReviewProgressCounts,
 } from './data/file-views.facade';
 export {
-  FileViewsStore,
-  type FileViewEntry,
-  type FileViewState,
-} from './data/file-views.store';
-export {
   REPOSITORIES_ADAPTER,
   type ChangedFile,
   type FileViewEntry as FileViewAdapterEntry,
