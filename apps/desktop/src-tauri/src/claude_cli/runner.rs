@@ -655,6 +655,12 @@ where
                 if let Some(msg) = assistant_msg {
                     let events = agent_events::list_by_run(&conn, &run_id).unwrap_or_default();
                     let digest = summary_builder::build_summary(&events);
+                    let (read_n, edit_n, cmd_n, key_n) = (
+                        digest.files_read.len(),
+                        digest.files_edited.len(),
+                        digest.commands_run.len(),
+                        digest.key_results.len(),
+                    );
                     let summary = AgentTurnSummary {
                         summary_id: new_id(),
                         run_id: run_id.clone(),
@@ -667,9 +673,22 @@ where
                         text_summary: digest.text_summary,
                         created_at: now_ms(),
                     };
-                    if let Err(e) = agent_turn_summaries::insert(&conn, &summary) {
-                        log::warn!("agent_turn_summaries::insert failed: {e}");
+                    match agent_turn_summaries::insert(&conn, &summary) {
+                        Ok(()) => log::debug!(
+                            "summary_built: run_id={} status={status_str} \
+                             files_read={read_n} files_edited={edit_n} \
+                             commands={cmd_n} key_results={key_n} events={}",
+                            run_id,
+                            events.len(),
+                        ),
+                        Err(e) => log::warn!("agent_turn_summaries::insert failed: {e}"),
                     }
+                } else {
+                    log::debug!(
+                        "summary_skip: run_id={} status={status_str} \
+                         reason=no_assistant_message",
+                        run_id,
+                    );
                 }
             }
 
