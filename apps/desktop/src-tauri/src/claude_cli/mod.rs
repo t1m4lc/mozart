@@ -10,6 +10,7 @@ pub mod context_compiler;
 pub mod envelope;
 pub mod install;
 pub mod parser;
+pub mod providers;
 pub mod runner;
 pub mod sandbox_policy;
 pub mod session;
