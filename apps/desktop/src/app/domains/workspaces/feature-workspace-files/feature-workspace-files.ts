@@ -16,13 +16,13 @@ import {
   lucideListTree,
 } from '@ng-icons/lucide';
 import { events } from '../../../core/_bindings';
+import { FeatureFileTree } from '@mozart/desktop-repositories-feature';
 import {
-  FeatureFileTree,
   FileViewsFacade,
   RepositoriesFacade,
   type ChangedFile,
-  type FileNode,
-} from '../../repositories';
+} from '@mozart/desktop-repositories-data-access';
+import type { FileNode } from '@mozart/desktop-repositories-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { FileTabsService } from '../data/file-tabs.service';
 import {

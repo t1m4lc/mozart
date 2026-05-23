@@ -8,3 +8,4 @@ export {
   createXterm,
   loadXterm,
 } from './lib/util-xterm';
+export { memoize } from './lib/util-memoize';

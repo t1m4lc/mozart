@@ -16,7 +16,7 @@ import {
   lucideEye,
   lucideTrash2,
 } from '@ng-icons/lucide';
-import { RepositoriesFacade } from './data/repositories.facade';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 
 // Context menu surfaced on right-click of a row in the Changes tab.
 // Item order is locked by product (P2.5): View / Staged / --- / Copy

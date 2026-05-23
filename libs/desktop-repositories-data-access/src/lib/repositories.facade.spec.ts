@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { signal } from '@angular/core';
-import type { FileNode } from './file-node.model';
+import type { FileNode } from '@mozart/desktop-repositories-util';
 import { FileTreeCacheStore } from './file-tree-cache.store';
 import { REPOSITORIES_ADAPTER } from './repositories.adapter';
 import { RepositoriesFacade } from './repositories.facade';

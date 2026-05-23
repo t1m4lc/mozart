@@ -15,10 +15,12 @@ import { MzDiffStats } from '@mozart-ui/diff-stats';
 import {
   FileViewsFacade,
   RepositoriesFacade,
-  UiConfirmDiscardChangesDialog,
   type ChangedFile,
+} from '@mozart/desktop-repositories-data-access';
+import {
+  UiConfirmDiscardChangesDialog,
   type ConfirmDiscardChangesContext,
-} from '../../repositories';
+} from '@mozart/desktop-repositories-ui';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { FileTabsService } from '../data/file-tabs.service';
 import {

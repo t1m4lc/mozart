@@ -1,5 +1,5 @@
 import type { BadgeVariants } from '@mozart/ui/badge';
-import type { FileChangeStatus } from './data/file-node.model';
+import type { FileChangeStatus } from '@mozart/desktop-repositories-util';
 
 export interface StatusBadge {
   readonly letter: 'A' | 'M' | 'D';

@@ -309,6 +309,18 @@
       ],
       "@mozart/desktop-runs-feature": [
         "./libs/desktop-runs-feature/src/index.ts"
+      ],
+      "@mozart/desktop-repositories-util": [
+        "./libs/desktop-repositories-util/src/index.ts"
+      ],
+      "@mozart/desktop-repositories-data-access": [
+        "./libs/desktop-repositories-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-repositories-ui": [
+        "./libs/desktop-repositories-ui/src/index.ts"
+      ],
+      "@mozart/desktop-repositories-feature": [
+        "./libs/desktop-repositories-feature/src/index.ts"
       ]
     }
   }

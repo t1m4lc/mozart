@@ -15,7 +15,7 @@ import {
   lucideFolder,
   lucideFolderOpen,
 } from '@ng-icons/lucide';
-import type { FileNode } from './data/file-node.model';
+import type { FileNode } from '@mozart/desktop-repositories-util';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { statusBadge } from './util-status-badge';
 

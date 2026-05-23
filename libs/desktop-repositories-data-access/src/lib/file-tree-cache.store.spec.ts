@@ -1,5 +1,5 @@
 import { TestBed } from '@angular/core/testing';
-import type { FileNode } from './file-node.model';
+import type { FileNode } from '@mozart/desktop-repositories-util';
 import { FileTreeCacheStore } from './file-tree-cache.store';
 
 // Regression spec for the P1.2 bug: every workspace switch re-fetched

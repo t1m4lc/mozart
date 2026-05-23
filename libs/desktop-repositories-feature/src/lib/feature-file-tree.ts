@@ -12,12 +12,12 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { memoize } from '../../core/util-memoize';
+import { memoize } from '@mozart/desktop-core-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
-import type { FileNode } from './data/file-node.model';
-import { RepositoriesFacade } from './data/repositories.facade';
-import { FileTreeRow } from './ui-file-tree-row';
-import { UiFileTreeSkeleton } from './ui-file-tree-skeleton';
+import type { FileNode } from '@mozart/desktop-repositories-util';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
+import { FileTreeRow } from '@mozart/desktop-repositories-ui';
+import { UiFileTreeSkeleton } from '@mozart/desktop-repositories-ui';
 
 // CdkTree migration note (perf-backlog): we use `childrenAccessor` +
 // internal expansion state rather than the deprecated `treeControl`.

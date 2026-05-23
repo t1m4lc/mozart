@@ -13,7 +13,7 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { type FetchContextLines } from '@mozart-ui/diff-view';
 import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
 import { MzMessageMarkdown } from '@mozart-ui/message-markdown';
-import { RepositoriesFacade } from './data/repositories.facade';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 
 type ViewMode = 'diff' | 'preview';
 

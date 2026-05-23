@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { FileNode } from './file-node.model';
+import type { FileNode } from '@mozart/desktop-repositories-util';
 
 /**
  * IO port for the `repositories` domain. The Tauri implementation lives

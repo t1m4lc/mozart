@@ -12,8 +12,8 @@ import { HlmInputImports } from '@mozart/ui/input';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitCommitVertical } from '@ng-icons/lucide';
-import { RepositoriesFacade } from './data/repositories.facade';
-import type { ChangedFile } from './data/repositories.adapter';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
+import type { ChangedFile } from '@mozart/desktop-repositories-data-access';
 
 export interface CommitDialogContext {
   readonly workspaceId: string;

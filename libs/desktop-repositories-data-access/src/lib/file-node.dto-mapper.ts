@@ -1,9 +1,23 @@
-import type { FileNodeDto } from '../../../core/_bindings';
 import type {
   FileChangeStatus,
   FileNode,
   FileNodeKind,
-} from './file-node.model';
+} from '@mozart/desktop-repositories-util';
+
+// Wire shape returned by the Tauri `list_tree` command. Declared
+// locally so this lib has no inbound dep on apps/_bindings — the
+// desktop app passes its generated `FileNodeDto` into the mapper
+// and TypeScript structural typing closes the bridge.
+export interface FileNodeDto {
+  readonly path: string;
+  readonly name: string;
+  readonly kind: string;
+  readonly status: string;
+  readonly ignored: boolean;
+  readonly children?: readonly FileNodeDto[] | null;
+  readonly added?: number | null;
+  readonly removed?: number | null;
+}
 
 const STATUS_BY_WIRE: Record<string, FileChangeStatus> = {
   added: 'added',

@@ -1,5 +1,5 @@
 import { Injectable, Signal, computed, inject } from '@angular/core';
-import type { FileNode } from './file-node.model';
+import type { FileNode } from '@mozart/desktop-repositories-util';
 import { FileTreeCacheStore } from './file-tree-cache.store';
 import { REPOSITORIES_ADAPTER, type ChangedFile } from './repositories.adapter';
 

@@ -5,7 +5,7 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import type { FileNode } from './file-node.model';
+import type { FileNode } from '@mozart/desktop-repositories-util';
 import type { ChangedFile } from './repositories.adapter';
 
 // Per-workspace repository-data cache. Holds two slices that the

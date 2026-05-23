@@ -1,13 +1,13 @@
 {
-  "name": "desktop-core-util",
+  "name": "desktop-repositories-data-access",
   "$schema": "../../node_modules/nx/schemas/project-schema.json",
-  "sourceRoot": "libs/desktop-core-util/src",
-  "prefix": "lib",
+  "sourceRoot": "libs/desktop-repositories-data-access/src",
+  "prefix": "app",
   "projectType": "library",
   "tags": [
     "app:desktop",
-    "domain:core",
-    "type:util"
+    "domain:repositories",
+    "type:data-access"
   ],
   "targets": {
     "lint": {
@@ -17,7 +17,7 @@
       "executor": "@angular/build:unit-test",
       "options": {
         "buildTarget": "desktop:build:development",
-        "tsConfig": "libs/desktop-core-util/tsconfig.spec.json"
+        "tsConfig": "libs/desktop-repositories-data-access/tsconfig.spec.json"
       }
     }
   }

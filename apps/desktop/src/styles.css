@@ -17,6 +17,10 @@
 @source "../../../libs/desktop-profile-feature";
 @source "../../../libs/desktop-profile-ui";
 @source "../../../libs/desktop-profile-util";
+@source "../../../libs/desktop-repositories-data-access";
+@source "../../../libs/desktop-repositories-feature";
+@source "../../../libs/desktop-repositories-ui";
+@source "../../../libs/desktop-repositories-util";
 @source "../../../libs/desktop-runs-data-access";
 @source "../../../libs/desktop-runs-feature";
 @source "../../../libs/desktop-runs-util";

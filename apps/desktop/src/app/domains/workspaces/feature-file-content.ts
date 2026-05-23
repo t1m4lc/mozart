@@ -33,11 +33,13 @@ import {
 import {
   FeatureFileDiff,
   FeatureFileToolbar,
-  FileViewsFacade,
-  RepositoriesFacade,
   type DiffMode,
   type FileViewedState,
-} from '../repositories';
+} from '@mozart/desktop-repositories-feature';
+import {
+  FileViewsFacade,
+  RepositoriesFacade,
+} from '@mozart/desktop-repositories-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { WorkspaceFileContentMode } from '@mozart/desktop-ui-state-util';
 

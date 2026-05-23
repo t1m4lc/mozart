@@ -41,7 +41,7 @@ import {
   REPOSITORIES_ADAPTER,
   fileNodeFromDto,
   type RepositoriesAdapter,
-} from '../domains/repositories';
+} from '@mozart/desktop-repositories-data-access';
 import {
   TASKS_ADAPTER,
   taskFromDto,

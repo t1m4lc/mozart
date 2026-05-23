@@ -22,9 +22,10 @@ import { ChatFacade } from '../../chat';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '../../projects';
 import {
+  FeatureCommitDialog,
   type CommitDialogContext,
-  type CreatePrDialogContext,
-} from '../../repositories';
+} from '@mozart/desktop-repositories-feature';
+import { type CreatePrDialogContext } from '../../repositories';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { IdeDetectionService } from '../data/ide-detection.service';
 import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
@@ -218,9 +219,6 @@ export class WorkspaceDetailPage {
     const context: CommitDialogContext = {
       workspaceId: id,
     };
-    const { FeatureCommitDialog } = await import(
-      '../../repositories/feature-commit-dialog'
-    );
     this.dialog.open(FeatureCommitDialog, { context });
   }
 

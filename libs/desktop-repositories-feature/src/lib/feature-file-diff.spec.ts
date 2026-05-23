@@ -7,7 +7,7 @@ import { By } from '@angular/platform-browser';
 import { provideTheme } from '@mozart/shared-util-theme';
 import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
 import { describe, expect, it, vi } from 'vitest';
-import { RepositoriesFacade } from './data/repositories.facade';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { FeatureFileDiff } from './feature-file-diff';
 
 // jsdom doesn't implement matchMedia; ThemeService (injected by
