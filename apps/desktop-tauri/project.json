@@ -1,0 +1,50 @@
+{
+  "name": "desktop-tauri",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "apps/desktop-tauri/src",
+  "tags": ["scope:app", "app:desktop"],
+  "implicitDependencies": ["desktop"],
+  "targets": {
+    "tauri-dev": {
+      "executor": "nx:run-commands",
+      "continuous": true,
+      "options": {
+        "command": "pnpm tauri dev --config '{\"app\":{\"withGlobalTauri\":true}}'",
+        "cwd": "apps/desktop-tauri"
+      }
+    },
+    "tauri-build": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default", "^production"],
+      "outputs": [
+        "{workspaceRoot}/dist/apps/desktop",
+        "{projectRoot}/target/release/bundle"
+      ],
+      "dependsOn": ["^build"],
+      "options": {
+        "command": "pnpm tauri build",
+        "cwd": "apps/desktop-tauri"
+      }
+    },
+    "cargo-check": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default"],
+      "options": {
+        "command": "cargo check",
+        "cwd": "apps/desktop-tauri"
+      }
+    },
+    "cargo-test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["default"],
+      "options": {
+        "command": "cargo build --tests",
+        "cwd": "apps/desktop-tauri"
+      }
+    }
+  }
+}

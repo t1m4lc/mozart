@@ -119,7 +119,7 @@ fn export_contains_all_commands_and_types() {
 /// explicitly:
 ///
 /// ```sh
-/// cargo test --manifest-path apps/desktop/src-tauri/Cargo.toml \
+/// cargo test --manifest-path apps/desktop-tauri/Cargo.toml \
 ///   -- --ignored regenerate_production_bindings
 /// ```
 ///

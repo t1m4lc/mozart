@@ -38,9 +38,9 @@ shell/              AppShell + project list (the only cross-domain
 ```
 
 Apps + libs:
-- `apps/desktop/` Angular 21 + Tauri v2 desktop app (this tree).
+- `apps/desktop/` Angular 21 frontend for the desktop app (this tree).
+- `apps/desktop-tauri/` Tauri v2 + Rust shell that hosts `apps/desktop`.
 - `apps/web/` Angular 21 sign-in / launch handoff (apps.mozart.build).
-- `apps/desktop/src-tauri/` Rust backend.
 - `libs/ui/` Spartan NG / Hlm dumb components. **Read-only** during
   desktop feature work.
 - `libs/shared-util-theme/` + `libs/mozart-design-tokens/` global theme.

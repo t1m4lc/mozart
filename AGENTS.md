@@ -20,7 +20,8 @@ Current target: v0.1.0-beta.1 (first non-public beta release; `v0.1.0` is reserv
 ## Repo map
 
 ```txt
-apps/desktop/              Angular + Tauri desktop app
+apps/desktop/              Angular frontend for the desktop app
+apps/desktop-tauri/        Rust + Tauri shell that hosts apps/desktop
 apps/web/                  future cloud UI
 apps/landing/              landing app, if present
 libs/ui/                   design system; see CLAUDE.md before touching
@@ -75,7 +76,7 @@ pnpm nx run-many -t lint test
 pnpm nx sync
 ```
 
-For Rust/Tauri, run from `apps/desktop/src-tauri` when needed:
+For Rust/Tauri, run from `apps/desktop-tauri` when needed:
 
 ```bash
 cargo test

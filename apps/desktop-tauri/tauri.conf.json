@@ -1,10 +1,10 @@
 {
-  "$schema": "../../../node_modules/@tauri-apps/cli/config.schema.json",
+  "$schema": "../../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "mozart",
   "version": "0.1.0-beta.1",
   "identifier": "build.mozart.desktop",
   "build": {
-    "frontendDist": "../../../dist/apps/desktop/browser",
+    "frontendDist": "../../dist/apps/desktop/browser",
     "devUrl": "http://localhost:4200",
     "beforeDevCommand": "pnpm nx serve desktop",
     "beforeBuildCommand": "pnpm nx build desktop"

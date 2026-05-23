@@ -237,7 +237,7 @@ fn resolve_sandbox_roots(
 /// `--allowedTools`), which is a security regression.
 ///
 /// Verify the invariant with:
-/// `rg "Command::new\(.*claude" apps/desktop/src-tauri/src` →
+/// `rg "Command::new\(.*claude" apps/desktop-tauri/src` →
 /// expected hits: runner.rs (this site) + install.rs (version probe).
 /// Spike files appear because they're physically in the tree but they
 /// don't compile into the production binary.
@@ -938,7 +938,7 @@ mod tests {
         use tempfile::TempDir;
 
         fn fixtures_dir() -> PathBuf {
-            // CARGO_MANIFEST_DIR points to apps/desktop/src-tauri.
+            // CARGO_MANIFEST_DIR points to apps/desktop-tauri.
             PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures")
         }
 

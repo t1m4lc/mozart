@@ -91,7 +91,7 @@ jobs:
       - uses: nrwl/nx-set-shas@v5
       - id: affected
         run: |
-          if pnpm nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" | grep -qx desktop; then
+          if pnpm nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" | grep -qx desktop-tauri; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
@@ -128,11 +128,11 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
         with:
-          workspaces: apps/desktop/src-tauri -> target
+          workspaces: apps/desktop-tauri -> target
 
       # Linux compiles tests too. macOS / Windows only do cargo-check to
-      # catch platform-cfg'd branches (see apps/desktop/src-tauri/src/ide_launch.rs).
+      # catch platform-cfg'd branches (see apps/desktop-tauri/src/ide_launch.rs).
       - if: matrix.os == 'ubuntu-latest'
-        run: pnpm nx run-many -t cargo-check cargo-test -p desktop
+        run: pnpm nx run-many -t cargo-check cargo-test -p desktop-tauri
       - if: matrix.os != 'ubuntu-latest'
-        run: pnpm nx run desktop:cargo-check
+        run: pnpm nx run desktop-tauri:cargo-check
