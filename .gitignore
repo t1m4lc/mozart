@@ -3,7 +3,12 @@
 # compiled output
 dist
 # tauri-specta generated bindings (regenerated on every debug build)
-apps/desktop/src/app/_bindings.ts
+apps/src/app/core/_bindings.ts
+apps/desktop/src/app/core/_bindings.ts
+
+# stale Rust build artifacts from the pre-refactor src-tauri location
+# (Tauri shell now lives at apps/desktop-tauri/, which has its own .gitignore)
+apps/desktop/src-tauri/
 tmp/*
 !tmp/ready-plans/
 !tmp/done-plans/
