@@ -6,8 +6,8 @@ import {
   inject,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronDown, lucideChevronUp } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';

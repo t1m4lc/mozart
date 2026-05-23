@@ -5,9 +5,9 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmBadgeImports } from '@mozart/ui/badge';
-import { HlmSelectImports } from '@mozart/ui/select';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmSelectImports } from '@spartan-ui/select';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
@@ -48,7 +48,7 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
 };
 
 /**
- * Private to `HlmComposer`. Grouped model picker. Trigger shows the
+ * Private to `MzComposer`. Grouped model picker. Trigger shows the
  * provider icon + model short name; the popover groups models by
  * provider and dims rows whose `enabled === false` with a "Coming
  * soon" badge.

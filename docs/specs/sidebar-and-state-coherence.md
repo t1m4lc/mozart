@@ -14,9 +14,9 @@
 >   (`pages/dashboard.page.ts`).
 > - The sidebar is the **shell-level** component
 >   (`shell/sidebar/`), composed of dumb components from
->   `libs/ui` where reusable and smart wrappers for state.
-> - The popover card is a dumb `libs/ui` component
->   (`libs/ui/workspace-card-popover.component.ts`).
+>   `libs/spartan-ui` where reusable and smart wrappers for state.
+> - The popover card is a dumb `libs/spartan-ui` component
+>   (`libs/spartan-ui/workspace-card-popover.component.ts`).
 > - State coherence is a **routing + layout concern** of the
 >   `AppShell` component, driven by `WorkspaceFacade.selected()`.
 >
@@ -155,11 +155,11 @@ first workspace"_
 5. Hand off to the standard add-project flow (auto-creates a
    workspace + chat and navigates).
 
-### 1.7 `RadioCard` (new dumb component in `libs/ui`)
+### 1.7 `RadioCard` (new dumb component in `libs/spartan-ui`)
 
 The Template selector uses a `RadioCard` pattern that doesn't
 exist in Spartan's primitives. New composed dumb component in
-`libs/ui/radio-card/` :
+`libs/spartan-ui/radio-card/` :
 
 - Each card : icon + title + subtitle + optional badge
   _"(SOON)"_, _"(BETA)"_, etc.
@@ -382,7 +382,7 @@ Triggered on hover on a workspace row in the sidebar (after a
 ### 4.3 Public surface
 
 Dumb component in
-`libs/ui/workspace-card-popover.component.ts` :
+`libs/spartan-ui/workspace-card-popover.component.ts` :
 
 ```ts
 type WorkspaceCardPopoverData = {
@@ -552,7 +552,7 @@ apps/desktop/src/app/
 ├── shell/
 │   ├── app-shell.ts                        # smart, state coherence
 │   ├── sidebar/
-│   │   ├── feature-sidebar.ts              # smart wrapper of libs/ui sidebar
+│   │   ├── feature-sidebar.ts              # smart wrapper of libs/spartan-ui sidebar
 │   │   ├── feature-project-list.ts         # smart : projects + workspaces tree
 │   │   ├── ui-project-row.ts               # dumb
 │   │   ├── ui-workspace-row.ts             # dumb, uses HoverCard for popover
@@ -566,7 +566,7 @@ apps/desktop/src/app/
     ├── projects/                            # add / list / context menu actions
     └── workspaces/                          # active workspace state
 
-libs/ui/
+libs/spartan-ui/
 ├── radio-card/                              # new for Quick start template
 ├── workspace-card-popover/                  # new for the hover card
 └── (existing : tab-bar, empty-state, composer, timeline)
@@ -588,7 +588,7 @@ apps/desktop/src/app/shell` returns zero matches (the group
    is post-MVP).
 4. **Dialogs use Signal Forms** : `grep -rn "FormGroup\|FormControl\|FormBuilder"`
    in the project / dashboard dialogs returns zero matches.
-5. **Popover via `HlmHoverCard`** : `libs/ui/workspace-card-popover`
+5. **Popover via `HlmHoverCard`** : `libs/spartan-ui/workspace-card-popover`
    imports `HlmHoverCardModule` or equivalent ; no custom hover
    plumbing.
 

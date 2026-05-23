@@ -9,7 +9,7 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 import { type FetchContextLines } from '@mozart-ui/diff-view';
 import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
 import { MzMessageMarkdown } from '@mozart-ui/message-markdown';

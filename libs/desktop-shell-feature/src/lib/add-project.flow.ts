@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmDialogService } from '@mozart/ui/dialog';
+import { HlmDialogService } from '@spartan-ui/dialog';
 import { toast } from '@spartan-ng/brain/sonner';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {

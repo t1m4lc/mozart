@@ -4,14 +4,14 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowDown, lucideArrowRight } from '@ng-icons/lucide';
 
 /**
- * Private to `HlmComposer`. Two absolute-positioned pill buttons that
+ * Private to `MzComposer`. Two absolute-positioned pill buttons that
  * sit above the composer top edge. Visibility is fully input-driven —
  * the host owns the scroll position + unread checks and just toggles
  * these flags.

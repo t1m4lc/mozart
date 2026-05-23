@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, output } from '@angular/core';
-import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideEyeOff,

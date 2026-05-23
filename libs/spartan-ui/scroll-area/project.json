@@ -1,0 +1,15 @@
+{
+  "name": "scroll-area",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/spartan-ui/scroll-area/src",
+  "prefix": "hlm",
+  "projectType": "library",
+  "tags": [
+    "scope:spartan"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

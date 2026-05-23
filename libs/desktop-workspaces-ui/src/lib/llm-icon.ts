@@ -4,7 +4,7 @@ import {
   computed,
   input,
 } from '@angular/core';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMessageSquare } from '@ng-icons/lucide';
 

@@ -5,8 +5,8 @@ import {
   inject,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { HlmButton } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideUserRound } from '@ng-icons/lucide';
 import { AuthFacade, FeatureLaunchMozart } from '../domains/auth';

@@ -41,7 +41,7 @@ Apps + libs:
 - `apps/desktop/` Angular 21 frontend for the desktop app (this tree).
 - `apps/desktop-tauri/` Tauri v2 + Rust shell that hosts `apps/desktop`.
 - `apps/web/` Angular 21 sign-in / launch handoff (apps.mozart.build).
-- `libs/ui/` Spartan NG / Hlm dumb components. **Read-only** during
+- `libs/spartan-ui/` Spartan NG / Hlm dumb components. **Read-only** during
   desktop feature work.
 - `libs/shared-util-theme/` + `libs/mozart-design-tokens/` global theme.
 
@@ -55,7 +55,7 @@ Each `domains/<name>/` exposes a small public surface via its
 `index.ts` — a facade + types. Reaching into a sibling's
 `data/`, `ui/`, or feature wrappers is a layering violation. The
 audit's restricted grep is the enforcement gate (`from '@mozart'`
-inside `libs/ui/**` returns zero; `inject(*Store|*ADAPTER` outside
+inside `libs/spartan-ui/**` returns zero; `inject(*Store|*ADAPTER` outside
 `data/` returns zero).
 
 The only legal cross-domain composer is `shell/` — that's where

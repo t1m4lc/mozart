@@ -11,11 +11,11 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { HlmBreadcrumbImports } from '@mozart/ui/breadcrumb';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmSheetImports } from '@mozart/ui/sheet';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmBreadcrumbImports } from '@spartan-ui/breadcrumb';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmSheetImports } from '@spartan-ui/sheet';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { FeatureWorkspaceAside } from './feature-workspace-aside';
 import { NgIcon, provideIcons } from '@ng-icons/core';

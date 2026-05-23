@@ -7,8 +7,8 @@ toggle-group, kbd, tooltip).
 Public surface :
 
 ```ts
-import { HlmComposer, type ChatMode, type EffortLevel, type ComposerSendEvent } from '@mozart-ui/composer';
+import { MzComposer, type ChatMode, type EffortLevel, type ComposerSendEvent } from '@mozart-ui/composer';
 ```
 
-See `libs/mozart-ui/composer/src/lib/hlm-composer.ts` for the signal-based
+See `libs/mozart-ui/composer/src/lib/mz-composer.ts` for the signal-based
 input / output contract.

@@ -14,7 +14,7 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import {
-  HlmComposer,
+  MzComposer,
   type ChatMode,
   type ComposerSendEvent,
   type EffortLevel,
@@ -40,7 +40,7 @@ const AT_BOTTOM_THRESHOLD_PX = 50;
 
 @Component({
   selector: 'app-feature-workspace-middle',
-  imports: [HlmComposer],
+  imports: [MzComposer],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex w-full flex-col' },
   template: `

@@ -5,8 +5,8 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmToasterImports } from '@mozart/ui/sonner';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmToasterImports } from '@spartan-ui/sonner';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideWifiOff } from '@ng-icons/lucide';
 import { map } from 'rxjs/operators';

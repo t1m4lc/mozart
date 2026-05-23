@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 
 @Component({
   selector: 'app-sandbox-page',
@@ -24,7 +24,7 @@ import { HlmButtonImports } from '@mozart/ui/button';
       <ul class="flex flex-col gap-2">
         <li>
           <a hlmBtn variant="outline" routerLink="/composer">
-            HlmComposer →
+            MzComposer →
           </a>
         </li>
         <li>

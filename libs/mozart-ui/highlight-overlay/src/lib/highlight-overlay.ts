@@ -12,7 +12,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 import type {
   HighlightGeometry,
   HighlightSide,
@@ -32,7 +32,7 @@ const TOOLTIP_FALLBACK_HEIGHT = 160;
 // underlying UI mid-tour.
 //
 // Pure presentational : zero `@mozart/*` domain imports beyond
-// `@mozart/ui/button` (a sibling primitive). Tracks the target via
+// `@spartan-ui/button` (a sibling primitive). Tracks the target via
 // `getBoundingClientRect()` + a ResizeObserver so the hole follows
 // layout changes.
 @Component({

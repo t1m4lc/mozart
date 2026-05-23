@@ -4,10 +4,10 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmAlertImports } from '@mozart/ui/alert';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmEmptyImports } from '@mozart/ui/empty';
-import { HlmTypographyImports } from '@mozart/ui/typography';
+import { HlmAlertImports } from '@spartan-ui/alert';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmEmptyImports } from '@spartan-ui/empty';
+import { HlmTypographyImports } from '@spartan-ui/typography';
 import type { WelcomeState } from '@mozart/desktop-auth-util';
 
 // Dumb presentational component for /welcome. Mirrors the layout in

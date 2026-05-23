@@ -21,7 +21,7 @@ Inspected on 2026-05-16 at `/home/timothy/accelerate_growth_with/mozart-landing/
 | AnalogJS          | **Not installed.** No `@analogjs/*` packages in `package.json` or `pnpm-lock.yaml`. Will need to be added. **Pin exact versions** (no caret) — Nx 22 + Angular 21 + Analog combo isn't in Analog's own compat matrix (Nx 22 row lists Angular ^20). A stray `pnpm update` could pull a breaking minor. |
 | TypeScript        | `~5.9.2`                                                                                                                                                                                                                                                                                               |
 | Tailwind          | **v4** via `@tailwindcss/postcss` (Tailwind v4 inline-config CSS, no `tailwind.config.js`); paired with `@juristr/nx-tailwind-sync` to keep `@source` directives in each app's `styles.css`                                                                                                            |
-| Component library | Spartan NG / Hlm under `libs/ui/<component>` (read-only per CLAUDE.md)                                                                                                                                                                                                                                 |
+| Component library | Spartan NG / Hlm under `libs/spartan-ui/<component>` (read-only per CLAUDE.md)                                                                                                                                                                                                                                 |
 | Lint              | flat-config ESLint (`eslint.config.mjs` per app) via `@nx/eslint/plugin`                                                                                                                                                                                                                               |
 
 ### Apps present
@@ -33,7 +33,7 @@ Inspected on 2026-05-16 at `/home/timothy/accelerate_growth_with/mozart-landing/
 
 ### Libs present
 
-- `libs/ui/**` — Spartan NG components (≈60 entry points exposed via `@mozart/ui/<component>`). **Read-only** during landing work per CLAUDE.md.
+- `libs/spartan-ui/**` — Spartan NG components (≈60 entry points exposed via `@spartan-ui/<component>`). **Read-only** during landing work per CLAUDE.md.
 - `libs/shared-styles-theme/` — Global CSS: `@angular/cdk/overlay-prebuilt.css`, `base.css`, theme variants (`themes/zinc.css`, `themes/stone.css`). Imported by each app's `styles.css`.
 - `libs/shared-util-theme/` — Exposes `provideTheme()` and `ThemeService` (signal-based, toggles `.dark` on `<html>` and `theme-<name>` on `<body>`, persists to `localStorage`).
 - `libs/clerk/` — Clerk SDK bootstrap (used by `apps/web` only; **not needed** for the public landing site).
@@ -60,7 +60,7 @@ Inspected on 2026-05-16 at `/home/timothy/accelerate_growth_with/mozart-landing/
 
 ### Other constraints (from `CLAUDE.md`)
 
-- `libs/ui/**` is read-only during feature work — landing must consume components, not modify them.
+- `libs/spartan-ui/**` is read-only during feature work — landing must consume components, not modify them.
 - Use Angular standalone components, signals, SignalStore where state is needed, Tailwind utilities only (no semantic class names, no arbitrary values, no `:host` — use `host:` modifier).
 - Never expose Git/worktree vocabulary in user-facing copy (`worktree`, `branch_name`, `HEAD~1`, `agent/wip-*`, etc.).
 - Vocabulary: Project, Task, Workspace, Thread, Agent Run, Changes.
@@ -151,7 +151,7 @@ Live under `apps/landing/src/app/shell/`:
 - `container.component.ts` — responsive max-width wrapper (`max-w-screen-xl` + `px-4 sm:px-6 lg:px-8`)
 - `prose.component.ts` (or a `prose` utility class layer) — typography for rendered markdown
 
-Reuse existing Spartan UI atoms where helpful (`@mozart/ui/button`, `@mozart/ui/separator`, `@mozart/ui/typography`, `@mozart/ui/icon`). Do not modify `libs/ui/**`.
+Reuse existing Spartan UI atoms where helpful (`@spartan-ui/button`, `@spartan-ui/separator`, `@spartan-ui/typography`, `@spartan-ui/icon`). Do not modify `libs/spartan-ui/**`.
 
 ### Shared theme integration
 
@@ -294,7 +294,7 @@ Do NOT:
 - implement the homepage layout, hero, header, or footer
 - create docs/blog/changelog content or routes
 - wire @mozart/shared-util-theme or @mozart/shared-styles-theme yet (Phase 2)
-- touch apps/desktop, apps/web, libs/ui/**, libs/clerk
+- touch apps/desktop, apps/web, libs/spartan-ui/**, libs/clerk
 - modify libs/shared-styles-theme or libs/shared-util-theme (Phase 2 will refactor ThemeService)
 - run `pnpm install` against unrelated dependency updates
 - commit or push
@@ -320,7 +320,7 @@ At the end, report:
 - [ ] `apps/landing/project.json` has `unitTestRunner: 'none'` (or no `test` target).
 - [ ] `apps/landing/project.json` declares initial bundle budgets: 200kb warn / 400kb error.
 - [ ] Every `@analogjs/*` and `@tailwindcss/vite` entry in `package.json` is an exact version (no `^`, no `~`).
-- [ ] No edits under `apps/desktop`, `apps/web`, `libs/ui`, `libs/clerk`, `libs/shared-styles-theme`, `libs/shared-util-theme`.
+- [ ] No edits under `apps/desktop`, `apps/web`, `libs/spartan-ui`, `libs/clerk`, `libs/shared-styles-theme`, `libs/shared-util-theme`.
 - [ ] `git status` shows only files inside `apps/landing/`, `package.json`, and `pnpm-lock.yaml`.
 
 #### Validation command
@@ -467,8 +467,8 @@ Use:
 - Angular standalone components
 - Tailwind utilities ONLY in templates (no arbitrary values, no semantic class names,
   no :host — use host: modifier if needed)
-- Existing @mozart/ui atoms (e.g. @mozart/ui/separator, @mozart/ui/icon,
-  @mozart/ui/button) where they fit. Do NOT modify libs/ui/**.
+- Existing @spartan-ui atoms (e.g. @spartan-ui/separator, @spartan-ui/icon,
+  @spartan-ui/button) where they fit. Do NOT modify libs/spartan-ui/**.
 
 Theme already wired in Phase 2 — the toggle calls ThemeService.toggleMode() (or
 equivalent existing API). Verify in browser: clicking flips `<html>.dark` and persists
@@ -565,7 +565,7 @@ Sections, in order:
    entries in a later phase if needed.
 
 Constraints:
-- Use only Tailwind utilities + @mozart/ui atoms.
+- Use only Tailwind utilities + @spartan-ui atoms.
 - No client-side animation libraries. Minimal hover states only.
 - Do NOT mention competitors anywhere.
 - Do NOT use "10x", "magic", "replace developers", "autonomous engineer".
@@ -576,7 +576,7 @@ Do NOT:
 - introduce docs/blog/changelog routes (those are Phase 5/7/9)
 - introduce content loading (no injectContent yet)
 - add forms, email signups, analytics scripts
-- modify libs/ui/**
+- modify libs/spartan-ui/**
 
 At the end, report:
 - files changed
@@ -641,7 +641,7 @@ Build the docs reading layout for apps/landing:
 3. Sidebar (apps/landing/src/app/pages/docs/_layout/docs-sidebar.component.ts):
    reuse the same injectContentFiles() list. Highlight the active route. Keep
    plain links (no collapsible sections — there is no nesting yet).
-4. Mobile behavior: collapse the sidebar behind a disclosure (use @mozart/ui/sheet
+4. Mobile behavior: collapse the sidebar behind a disclosure (use @spartan-ui/sheet
    or a simple <details> if sheet is heavier than needed). Default to open at md+.
 5. Prev/next (optional): if implemented, derive from the sorted sidebar list. Skip
    if it adds more than ~30 lines of code.
@@ -657,7 +657,7 @@ Do NOT:
 - write the real docs content (getting-started, concepts, workflow, local-first,
   settings) — that's Phase 6
 - touch blog or changelog routes
-- modify libs/ui/**
+- modify libs/spartan-ui/**
 
 At the end, report:
 - files changed
@@ -816,7 +816,7 @@ Execute Phase 7 only.
 Build the blog reading experience for apps/landing:
 1. /blog (index): list every blog post found via injectContentFiles<BlogAttributes>(),
    sorted by frontmatter `date` descending. Render each as a card (title, date,
-   description, "Read post →" link). Cards use existing @mozart/ui/card if it fits;
+   description, "Read post →" link). Cards use existing @spartan-ui/card if it fits;
    otherwise plain Tailwind.
 2. /blog/[slug]: render the matched markdown via injectContent<BlogAttributes>()
    inside a <div class="prose"> wrapper. Show a small header with title, date,
@@ -835,7 +835,7 @@ Do NOT:
 - author the real blog post — that's Phase 8
 - touch docs or changelog routes
 - add an RSS feed, tag system, or category filter
-- modify libs/ui/**
+- modify libs/spartan-ui/**
 
 At the end, report:
 - files changed
@@ -979,7 +979,7 @@ Do NOT:
 - author the real v0.1.0-beta.1 changelog — that's Phase 10
 - touch docs or blog
 - add a per-entry comment/reaction system
-- modify libs/ui/**
+- modify libs/spartan-ui/**
 
 At the end, report:
 - files changed
@@ -1106,7 +1106,7 @@ Create two pages:
 
 Each page must:
 - Render inside the same shell + container as the rest of the site.
-- Begin with a clearly visible banner / callout (use @mozart/ui/alert if it fits;
+- Begin with a clearly visible banner / callout (use @spartan-ui/alert if it fits;
   otherwise a plain Tailwind banner): "Placeholder — not final legal text. Will
   be replaced before public launch."
 - **Add `<meta name="robots" content="noindex,nofollow">` to BOTH pages while placeholder.**
@@ -1123,7 +1123,7 @@ Do NOT:
 - write actual legal language
 - promise specific data-handling behavior
 - mention specific jurisdictions
-- modify libs/ui/**
+- modify libs/spartan-ui/**
 
 At the end, report:
 - files changed
@@ -1226,7 +1226,7 @@ Add SEO + metadata to apps/landing:
 Do NOT:
 - implement analytics (out of scope per plan.md §7)
 - add structured data (JSON-LD schema.org) — out of scope for v1; can be a TODO
-- modify libs/ui/**
+- modify libs/spartan-ui/**
 
 At the end, report:
 - files changed
@@ -1337,7 +1337,7 @@ If any command fails:
 
 Do NOT:
 - begin Cloudflare work — that's Phase 14
-- modify libs/ui/**
+- modify libs/spartan-ui/**
 
 At the end, report:
 - every command run with exit code
@@ -1446,7 +1446,7 @@ Do NOT:
 - create a Cloudflare account on the user's behalf
 - run wrangler login or wrangler deploy
 - add a deploy GitHub Action (Cloudflare's GitHub App is the chosen path)
-- modify libs/ui/**
+- modify libs/spartan-ui/**
 
 At the end, report:
 - files changed
@@ -1584,7 +1584,7 @@ Do NOT:
 - implement the homepage layout, hero, header, or footer
 - create docs/blog/changelog content or routes
 - wire @mozart/shared-util-theme or @mozart/shared-styles-theme yet
-- touch apps/desktop, apps/web, libs/ui/**, libs/clerk
+- touch apps/desktop, apps/web, libs/spartan-ui/**, libs/clerk
 - modify libs/shared-styles-theme or libs/shared-util-theme
 - run `pnpm install` against unrelated dependency updates
 - commit or push

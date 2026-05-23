@@ -9,7 +9,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { provideIcons } from '@ng-icons/core';
 import { lucideClock } from '@ng-icons/lucide';
 import { SHIMMER_TEXT_STYLES } from '../_shimmer.styles';

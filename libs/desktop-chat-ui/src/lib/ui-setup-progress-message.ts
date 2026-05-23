@@ -4,7 +4,7 @@ import {
   computed,
   input,
 } from '@angular/core';
-import { HlmSpinnerImports } from '@mozart/ui/spinner';
+import { HlmSpinnerImports } from '@spartan-ui/spinner';
 import type { Message } from '@mozart/desktop-chat-util';
 
 /**

@@ -8,11 +8,11 @@ import {
   output,
   viewChild,
 } from '@angular/core';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmPopoverImports } from '@mozart/ui/popover';
-import { HlmSelectImports } from '@mozart/ui/select';
-import { HlmSeparatorImports } from '@mozart/ui/separator';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmPopoverImports } from '@spartan-ui/popover';
+import { HlmSelectImports } from '@spartan-ui/select';
+import { HlmSeparatorImports } from '@spartan-ui/separator';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideListFilter } from '@ng-icons/lucide';
 import { ProjectsFacade, type GroupBy } from '@mozart/desktop-projects-data-access';

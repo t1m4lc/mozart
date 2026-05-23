@@ -54,13 +54,13 @@ JWT claim is the seed.
 ### 1.2 HighlightOverlay — primitive location
 
 **Question** : where should the punch-hole-and-tooltip primitive
-live, given `libs/ui/**` is read-only by CLAUDE.md ?
+live, given `libs/spartan-ui/**` is read-only by CLAUDE.md ?
 
-**Decision** : **`libs/ui/highlight-overlay/`** (user-approved
+**Decision** : **`libs/spartan-ui/highlight-overlay/`** (user-approved
 touch).
 
 - Pure presentational dumb component. Zero `@mozart/*` domain
-  imports beyond the sibling `@mozart/ui/button`.
+  imports beyond the sibling `@spartan-ui/button`.
 - Inputs : `steps` (readonly `HighlightStep[]`), `currentIndex`.
 - Outputs : `(advance)`, `(skip)`, `(complete)`. `complete` fires
   when the last-step "Finish" button is clicked.
@@ -72,10 +72,10 @@ touch).
   layout changes via `requestAnimationFrame`.
 - `Esc` emits `(skip)` via a `@HostListener('document:keydown.escape')`.
 
-**Why** : the spec (§8.3) explicitly asks for a libs/ui primitive
+**Why** : the spec (§8.3) explicitly asks for a libs/spartan-ui primitive
 that future guided-tour content can reuse. A domain-local override
 would land the component in onboarding ; promoting it later would
-mean a breaking move. Doing it right once keeps libs/ui semantically
+mean a breaking move. Doing it right once keeps libs/spartan-ui semantically
 clean and matches the established pattern (cf. popover, sheet).
 
 **Note** : the rule blocks `finish` as an output name
@@ -131,7 +131,7 @@ on the v0.1.0-beta.1 path.
 | 2 | Welcome + Git check steps | `git_version` Rust command (argv form, no shell). `GitCheckAdapter` + Tauri impl. OS-specific install copy via a `Record<OS, GitInstallInstruction>` dictionary keyed by the existing `OsService`. |
 | 3 | LLM provider step + embedded `claude login` PTY | New `spawn_claude_login` command reusing `terminal::spawn_command` + the existing `TerminalRegistry` under a synthetic id. `ProviderSetupAdapter` + Tauri impl bridging the TerminalEvent DTO onto the front-end model. Continue gated on `ProfileFacade.connection().status === connected / connected_via_claude_code`. Fallback to existing `UiConnectDialog`. |
 | 4 | GitHub step + finish wiring | Reuses existing Phase 4f PAT dialog. Skip-for-now flips status to `skipped`. Finish calls `complete()` → sets flag + navigates `/tour`. |
-| 5 | `libs/ui/highlight-overlay/` primitive | Full-screen SVG mask + auto-positioned tooltip card. CDK-free (no overlay primitives needed — punch-hole is just SVG). Esc → skip. ResizeObserver tracks layout. |
+| 5 | `libs/spartan-ui/highlight-overlay/` primitive | Full-screen SVG mask + auto-positioned tooltip card. CDK-free (no overlay primitives needed — punch-hole is just SVG). Esc → skip. ResizeObserver tracks layout. |
 | 6 | `/tour` route + bundled Get started project | Rust : `get_started` module + `create_get_started_project` command. Angular : `GetStartedProjectAdapter` port + Tauri impl mapping the DTO to Project + Workspace models. TourPage bootstraps + redirects to `/workspaces/<welcome-1.id>?tour=on`. |
 | 7 | Tour content (5 steps + closing card) | `feature-tour` owns the step array + cursor. AppShell mounts `<app-feature-tour>` when `?tour=on`. Selectors point at `data-tour="..."` attributes added to existing sidebar / aside / composer-wrapper elements. Skip/Esc/Finish strip the query param. |
 | 8 | Settings entry points | Extended `pages/settings.page.ts` with Connections / Git / Notifications / Onboarding (Replay tour) / Account (Sign out) sections. `feature-git-status` reuses `GitCheckAdapter`. |
@@ -231,8 +231,8 @@ are post-MVP per `plan.md` §"Out of scope").
 - `domains/onboarding/index.ts` re-exports features + facade + adapter
   tokens only ; no internal store / util / DTO leak.
 - All new components declared with `ChangeDetectionStrategy.OnPush`.
-- `libs/ui/highlight-overlay/**` does not import `@mozart/*` domains
-  (only `@mozart/ui/button`).
+- `libs/spartan-ui/highlight-overlay/**` does not import `@mozart/*` domains
+  (only `@spartan-ui/button`).
 - New Tauri commands (`git_version`, `spawn_claude_login`,
   `create_get_started_project`, `get_onboarding_completed`,
   `set_onboarding_completed`, `get_notification_preferences`,

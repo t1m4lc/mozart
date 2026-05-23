@@ -5,9 +5,9 @@ import {
   signal,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { HlmButton } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideLogOut } from '@ng-icons/lucide';
 import { AuthFacade } from '../domains/auth';

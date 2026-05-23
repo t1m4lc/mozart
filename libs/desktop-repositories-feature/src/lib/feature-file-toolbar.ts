@@ -5,10 +5,10 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTabsImports } from '@mozart/ui/tabs';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTabsImports } from '@spartan-ui/tabs';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideColumns2,

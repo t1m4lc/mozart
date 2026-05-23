@@ -5,10 +5,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmSwitchImports } from '@mozart/ui/switch';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmSwitchImports } from '@spartan-ui/switch';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { lucideVolume2 } from '@ng-icons/lucide';
 import { NotificationService } from '@mozart/desktop-core-data-access';
 import {

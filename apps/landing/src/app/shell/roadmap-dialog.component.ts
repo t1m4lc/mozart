@@ -1,6 +1,6 @@
 import { NgClass } from '@angular/common';
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { HlmDialogImports } from '@mozart/ui/dialog';
+import { HlmDialogImports } from '@spartan-ui/dialog';
 
 type FeatureStatus = 'Now' | 'Next' | 'Vision';
 interface Feature {

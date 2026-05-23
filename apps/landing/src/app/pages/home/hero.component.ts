@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
-import { HlmButton } from '@mozart/ui/button';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {

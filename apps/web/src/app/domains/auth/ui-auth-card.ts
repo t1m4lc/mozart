@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { HlmEmptyImports } from '@mozart/ui/empty';
-import { HlmTypographyImports } from '@mozart/ui/typography';
+import { HlmEmptyImports } from '@spartan-ui/empty';
+import { HlmTypographyImports } from '@spartan-ui/typography';
 
 // Dumb component : centered logo + heading + slot for content. Used by
 // every apps/web page so they all share the same vertical rhythm.

@@ -8,7 +8,7 @@ import {
   inject,
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { HlmIcon } from '@mozart/ui/icon';
+import { HlmIcon } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowLeft } from '@ng-icons/lucide';
 import {

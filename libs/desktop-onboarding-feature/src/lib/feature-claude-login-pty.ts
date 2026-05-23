@@ -10,7 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { loadXterm } from '@mozart/desktop-core-util';

@@ -5,8 +5,8 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmSelectImports } from '@mozart/ui/select';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmSelectImports } from '@spartan-ui/select';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
@@ -41,7 +41,7 @@ const ROW_BY_LEVEL: Record<EffortLevel, EffortRow> = EFFORT_ROWS.reduce(
 );
 
 /**
- * Private to `HlmComposer`. Effort picker (low / medium / high / xhigh /
+ * Private to `MzComposer`. Effort picker (low / medium / high / xhigh /
  * max). Trigger shows a signal-bar icon matching the level + the level
  * label.
  */

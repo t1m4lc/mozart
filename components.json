@@ -1,6 +1,6 @@
 {
-  "componentsPath": "libs/ui",
+  "componentsPath": "libs/spartan-ui",
   "buildable": false,
   "generateAs": "library",
-  "importAlias": "@mozart/ui"
+  "importAlias": "@spartan-ui"
 }

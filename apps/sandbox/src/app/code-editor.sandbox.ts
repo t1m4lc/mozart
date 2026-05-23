@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 import {
   MzCodeEditorImports,
   type CodeEditorLanguage,

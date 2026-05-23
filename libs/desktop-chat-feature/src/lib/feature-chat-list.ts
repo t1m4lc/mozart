@@ -5,10 +5,10 @@ import {
   inject,
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmEmptyImports } from '@mozart/ui/empty';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmEmptyImports } from '@spartan-ui/empty';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMessageSquare, lucidePlus } from '@ng-icons/lucide';
 import dayjs from 'dayjs';

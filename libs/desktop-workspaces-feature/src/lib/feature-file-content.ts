@@ -18,8 +18,8 @@ import {
 // chunk.
 import { MzCodeEditor } from '@mozart-ui/code-editor';
 import { ThemeService } from '@mozart/shared-util-theme';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmTabsImports } from '@mozart/ui/tabs';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmTabsImports } from '@spartan-ui/tabs';
 import { provideIcons } from '@ng-icons/core';
 import {
   lucideColumns2,

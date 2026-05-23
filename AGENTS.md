@@ -24,7 +24,7 @@ apps/desktop/              Angular frontend for the desktop app
 apps/desktop-tauri/        Rust + Tauri shell that hosts apps/desktop
 apps/web/                  future cloud UI
 apps/landing/              landing app, if present
-libs/ui/                   design system; see CLAUDE.md before touching
+libs/spartan-ui/                   design system; see CLAUDE.md before touching
 libs/shared-util-theme/    theme utilities
 libs/mozart-design-tokens/ global theme styles + design tokens
 docs/                      specs, design, planning

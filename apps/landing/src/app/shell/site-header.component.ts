@@ -1,10 +1,10 @@
 import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmThemeToggle } from '@mozart-ui/theme-toggle';
-import { HlmButton } from '@mozart/ui/button';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {

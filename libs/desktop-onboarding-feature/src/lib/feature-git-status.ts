@@ -4,7 +4,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCheck, lucideCircleAlert } from '@ng-icons/lucide';
 import { GIT_CHECK_ADAPTER } from '@mozart/desktop-onboarding-data-access';

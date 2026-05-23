@@ -4,10 +4,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmSpinnerImports } from '@mozart/ui/spinner';
-import { HlmTypographyImports } from '@mozart/ui/typography';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmSpinnerImports } from '@spartan-ui/spinner';
+import { HlmTypographyImports } from '@spartan-ui/typography';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowRight,

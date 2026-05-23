@@ -5,8 +5,8 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmBadgeImports } from '@mozart/ui/badge';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronDown,

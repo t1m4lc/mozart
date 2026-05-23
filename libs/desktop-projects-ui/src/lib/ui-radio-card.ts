@@ -4,7 +4,7 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon } from '@ng-icons/core';
 
 // IMP-022 — RadioCard primitive. A radio-style card with an icon

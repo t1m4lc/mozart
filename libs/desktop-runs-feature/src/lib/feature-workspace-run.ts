@@ -10,9 +10,9 @@ import {
   output,
   viewChild,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmEmptyImports } from '@mozart/ui/empty';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmEmptyImports } from '@spartan-ui/empty';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlay } from '@ng-icons/lucide';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';

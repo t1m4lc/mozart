@@ -4,11 +4,11 @@
 @source "../../../libs/mozart-ui/theme-toggle";
 @source "../../../libs/shared-util-os";
 @source "../../../libs/shared-util-theme";
-@source "../../../libs/ui/button";
-@source "../../../libs/ui/dialog";
-@source "../../../libs/ui/icon";
-@source "../../../libs/ui/tooltip";
-@source "../../../libs/ui/utils";
+@source "../../../libs/spartan-ui/button";
+@source "../../../libs/spartan-ui/dialog";
+@source "../../../libs/spartan-ui/icon";
+@source "../../../libs/spartan-ui/tooltip";
+@source "../../../libs/spartan-ui/utils";
 /* nx-tailwind-sources:end */
 @source "../../../libs/{shared-util-theme,ui}/**/*.{html,ts}";
 @import "../../../libs/mozart-design-tokens/src/index.css";

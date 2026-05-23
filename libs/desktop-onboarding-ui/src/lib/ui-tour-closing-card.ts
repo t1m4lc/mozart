@@ -3,7 +3,7 @@ import {
   Component,
   output,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 
 // Final card surfaced after the 5th tour step. Pure dumb component —
 // emits `(finish)` on the Finish button click ; the parent

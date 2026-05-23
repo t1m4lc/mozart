@@ -9,11 +9,11 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
-import { HlmHoverCardImports } from '@mozart/ui/hover-card';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmHoverCardImports } from '@spartan-ui/hover-card';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { MzLoader } from '@mozart-ui/loader';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
-import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import { HlmSidebarImports } from '@spartan-ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucideLoader, lucidePin } from '@ng-icons/lucide';
 import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';

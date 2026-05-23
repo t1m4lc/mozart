@@ -6,7 +6,7 @@ import {
   inject,
   input,
 } from '@angular/core';
-import { HlmSkeletonImports } from '@mozart/ui/skeleton';
+import { HlmSkeletonImports } from '@spartan-ui/skeleton';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { FeatureChatContent } from '@mozart/desktop-chat-feature';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';

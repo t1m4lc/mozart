@@ -12,10 +12,10 @@ Each phase is :
 
 - **user-feature oriented** : something demoable lands at the end
 - **additive** : no phase breaks the previous ones
-- **faithful to the foundational conventions** below : `libs/ui`
+- **faithful to the foundational conventions** below : `libs/spartan-ui`
   composition, adapter / DTO discipline, intra-domain architecture
 - **respectful of existing code** : the codebase is partially built
-  (UI shell, `libs/ui` composed components like `WorkspaceTabBar`
+  (UI shell, `libs/spartan-ui` composed components like `WorkspaceTabBar`
   and `ChatEmptyState`, a draft Claude adapter, a draft Timeline).
   The plan **cleans + completes** what's there ; it does **not**
   rebuild unless the existing code is broken and unfixable.
@@ -57,7 +57,7 @@ level — domains, layers, conventions, file lists, DoD. It's **not** a
 ground-truth snapshot of the codebase at the moment you implement a
 given step. Between steps, the code evolves :
 
-- `libs/ui` gains new primitives **and composed dumb components**
+- `libs/spartan-ui` gains new primitives **and composed dumb components**
 - Adapter signatures and DTOs shift as the Tauri side adds commands
 - New conventions emerge in earlier steps that should propagate
 - `legacy/` may reveal patterns or quirks we want to preserve (or
@@ -71,11 +71,11 @@ Tauri actually exposes. Phase A prevents this.
 
 Before proposing anything, the agent must read and inventory :
 
-1. **`libs/ui`** — both **primitives** (Spartan wrappers : button,
+1. **`libs/spartan-ui`** — both **primitives** (Spartan wrappers : button,
    icon, dialog…) AND **composed dumb components** already built
    (cards, items, list rows, message bubbles, …). Rule : if it
    already exists, **use it**. Don't recreate a "project card" if
-   `libs/ui` already exposes one that fits.
+   `libs/spartan-ui` already exposes one that fits.
 2. **The Tauri side** for any IO this step touches. Inventory the
    actual command names, their parameter shapes, and their return
    types. Adapter signatures + DTOs are derived from **what Tauri
@@ -91,7 +91,7 @@ Output of Phase A : a short structured report :
 
 ```
 ### Already exists, will reuse
-- libs/ui : <component> for <purpose>
+- libs/spartan-ui : <component> for <purpose>
 - <existing facade / adapter / util>
 
 ### Tauri inventory
@@ -111,7 +111,7 @@ Output of Phase A : a short structured report :
 **Blockers must be surfaced**, not worked around. "I'll just write a
 custom dumb component because the existing one doesn't quite fit" is
 the wrong answer. The right answer is : "the existing dumb component
-is missing X — should I extend it in `libs/ui` first, or do you
+is missing X — should I extend it in `libs/spartan-ui` first, or do you
 accept a domain-local override for this step ?"
 
 ### Phase B — Plan (depth scales with the step)
@@ -151,16 +151,16 @@ the rules, or the constraints. They live here.
 
 ---
 
-## Foundational convention #1 — UI comes from `libs/ui`
+## Foundational convention #1 — UI comes from `libs/spartan-ui`
 
 **Hard rule** : every UI primitive AND every reusable dumb component
-is imported from `libs/ui`. Domain code composes what `libs/ui` already
+is imported from `libs/spartan-ui`. Domain code composes what `libs/spartan-ui` already
 exposes ; it never rebuilds a control, a card, or a list row that
 already lives there.
 
-### Two layers inside `libs/ui`
+### Two layers inside `libs/spartan-ui`
 
-`libs/ui` evolves continuously. It contains :
+`libs/spartan-ui` evolves continuously. It contains :
 
 1. **Primitives** — thin Spartan NG (shadcn-for-Angular) wrappers
    listed below. These are stable building blocks.
@@ -171,11 +171,11 @@ already lives there.
 
 **Phase A of every step (see Methodology) must inventory both layers.**
 If a composed component already exists for the use case, reuse it. If
-one almost fits but needs a tweak, extend it inside `libs/ui` —
+one almost fits but needs a tweak, extend it inside `libs/spartan-ui` —
 **don't fork it inside a domain**. A domain-local override is a last
 resort and must be flagged explicitly to the reviewer.
 
-### Available primitives in `libs/ui` (Spartan NG, stable layer)
+### Available primitives in `libs/spartan-ui` (Spartan NG, stable layer)
 
 ```
 Accordion        Alert            Alert Dialog     Aspect Ratio
@@ -197,18 +197,18 @@ Textarea         Toggle           Toggle Group     Tooltip
 Reference docs (upstream Spartan) : https://www.spartan.ng/components/<name>
 
 > Note : the exact exported symbols, selectors, and import paths in
-> `libs/ui` may not 1:1 mirror the upstream Spartan API. Phase A of
-> every step **must read `libs/ui` directly** to confirm.
+> `libs/spartan-ui` may not 1:1 mirror the upstream Spartan API. Phase A of
+> every step **must read `libs/spartan-ui` directly** to confirm.
 
-### Composed dumb components in `libs/ui` (evolving layer)
+### Composed dumb components in `libs/spartan-ui` (evolving layer)
 
 This layer is not enumerated here because it changes between steps.
-**Read `libs/ui` in Phase A of every step** to inventory what's
+**Read `libs/spartan-ui` in Phase A of every step** to inventory what's
 available. Typical citizens : list rows, icon cards, status pills,
 connection cards, toolbar buttons, etc. — anything pure
 presentational that's used in more than one place.
 
-**Currently known composed components in `libs/ui`** (non-exhaustive,
+**Currently known composed components in `libs/spartan-ui`** (non-exhaustive,
 verify in Phase A) :
 
 - **`WorkspaceTabBar`** — horizontal tab strip under the breadcrumb,
@@ -226,7 +226,7 @@ verify in Phase A) :
   script status).
 
 When a step needs UI that overlaps with these, **reuse them**. If a
-near-fit is missing a small variant, extend `libs/ui` rather than
+near-fit is missing a small variant, extend `libs/spartan-ui` rather than
 forking the component locally.
 
 ### For lower-level behavior, use Angular CDK
@@ -274,15 +274,15 @@ export class WorkspaceListItem {
 }
 ```
 
-The exact import paths depend on how `libs/ui` is structured ; treat the
+The exact import paths depend on how `libs/spartan-ui` is structured ; treat the
 above as illustrative of the **composition pattern**, not the exact API.
 
 ### When a primitive is missing
 
-If a step needs a primitive that doesn't exist yet in `libs/ui` :
+If a step needs a primitive that doesn't exist yet in `libs/spartan-ui` :
 
 1. Stop. Don't inline a custom one.
-2. Add the primitive to `libs/ui` first (wrap the Spartan source, or
+2. Add the primitive to `libs/spartan-ui` first (wrap the Spartan source, or
    wrap a CDK behavior) as a small standalone PR.
 3. Then consume it in the domain.
 
@@ -693,7 +693,7 @@ see "Methodology" above) and rely on the three foundational
 conventions. Each phase ends with a demoable milestone.
 
 > **Respect-the-existing rule.** A non-trivial codebase already
-> exists : `libs/ui` has shipped composed dumb components
+> exists : `libs/spartan-ui` has shipped composed dumb components
 > (`WorkspaceTabBar`, `ChatEmptyState`, a draft Composer, a draft
 > Timeline), the new Angular app is partially wired, the Tauri side
 > has a Claude adapter draft, and `legacy/` holds prior code. Every
@@ -968,7 +968,7 @@ Messages send, persist, and render. The agent doesn't reply yet
 
 ### Scope
 
-**Composer surface** (extends `libs/ui` `Composer` from prior
+**Composer surface** (extends `libs/spartan-ui` `Composer` from prior
 work) :
 
 - **Mode segmented control** : 3 options `Agent | Plan | Ask`,
@@ -1005,7 +1005,7 @@ max`. Tooltip _"Adjust effort"_.
   `unread > 0`. Click → navigate to that workspace's most recent
   unread chat.
 
-**Tab bar (existing `WorkspaceTabBar` from `libs/ui`)** :
+**Tab bar (existing `WorkspaceTabBar` from `libs/spartan-ui`)** :
 
 - Already implements : up to 4 chat tabs, rename via pen icon,
   close button, _New chat_ button at far right.
@@ -1050,7 +1050,7 @@ config that could be tampered with.
   `title` (generated)
 - `chat/data/chat.facade.ts` — `sendMessage(text, mode)`
 - `chat/feature-composer/` — smart wrapper around
-  `libs/ui` `Composer`
+  `libs/spartan-ui` `Composer`
 - `chat/feature-chat-tab-bar/` — smart wrapper around
   `WorkspaceTabBar`
 
@@ -1071,7 +1071,7 @@ ALTER TABLE chats ADD COLUMN last_read_message_id TEXT;      -- for unread
 ### Foundational invariants
 
 - **Convention #1** : composer + tab bar visuals come from
-  `libs/ui` ; smart wrappers stay thin.
+  `libs/spartan-ui` ; smart wrappers stay thin.
 - **Convention #2** : the chat `sendMessage` payload (text + mode
   - chatId) has a DTO matching the Tauri command shape.
 - **Convention #3** : `chat/` follows the facade pattern.
@@ -1152,7 +1152,7 @@ specifications of Claude.ai**. Brings back :
 - Done marker, error marker
 
 Phase 3b reuses the parser + reducer from 3a unchanged ; it only
-adds renderers in `libs/ui/timeline/` and a smart `feature-
+adds renderers in `libs/spartan-ui/timeline/` and a smart `feature-
 agent-message` wrapper. See `llm-stream-parser.md` and
 `composer-timeline-ui.md` for the full spec — note that those
 docs describe the **3b end state**, not the 3a starting point.
@@ -1228,7 +1228,7 @@ polish done with proper visual specs in hand.
 Defer the full spec to a dedicated prompt that bundles :
 
 - Claude.ai reference screenshots / specifications
-- The `libs/ui/timeline/` renderer family
+- The `libs/spartan-ui/timeline/` renderer family
 - The `feature-agent-message` upgrade to mount the Timeline
 - Reduced-motion handling
 - Plan mode UI (Approve / Cancel)
@@ -1244,7 +1244,7 @@ actual Claude.ai screenshots before implementing.
 - Tauri adapter : `domains/llm-model/data/tauri-claude.adapter.ts`
 - Chat wiring : `domains/chat/feature-agent-message/`
 - Scroll concern : owned by `domains/chat/feature-chat-area/`
-- Renderers (Phase 3b only) : `libs/ui/timeline/`
+- Renderers (Phase 3b only) : `libs/spartan-ui/timeline/`
 
 ### Foundational invariants
 
@@ -1561,7 +1561,7 @@ has a deliberate state. Non-exhaustive list :
 - Sidebar with no projects → _"Add a project to get started"_
 - Workspace area with no workspace selected → dashboard cards
   (covered in Phase 1)
-- Chat area with no messages → `ChatEmptyState` from `libs/ui`
+- Chat area with no messages → `ChatEmptyState` from `libs/spartan-ui`
   (covered in Phase 2)
 - Files tab with no changes → _"No changes yet"_ (Phase 4)
 - Terminal not yet opened → terminal auto-starts on tab open
@@ -1609,7 +1609,7 @@ Phase A confirms / catalogs ; Phase B prioritizes fixes :
 - Onboarding is **gated by auth** (Phase 5 token required).
 - Each step has explicit `Skip` / `Continue` / `Verify`
   affordances.
-- The `/tour` slides are dumb components in `libs/ui` (one
+- The `/tour` slides are dumb components in `libs/spartan-ui` (one
   composed component per slide if reused, otherwise inline in
   the feature).
 
@@ -1899,7 +1899,7 @@ Run these greps + assertions at the end of every phase :
 - **Adapter discipline** : `@tauri-apps/api` imports only in
   `tauri-*.adapter.ts` files
 - **Dumb component purity** : facade / store imports inside
-  `libs/ui/**` → zero
+  `libs/spartan-ui/**` → zero
 - **Public API hygiene** : domain `index.ts` files re-export only
   features / ui / facade / type — not stores, not adapter tokens
 - **OnPush coverage** : all components have

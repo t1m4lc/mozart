@@ -5,8 +5,8 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmSelectImports } from '@mozart/ui/select';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmSelectImports } from '@spartan-ui/select';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBot,
@@ -53,7 +53,7 @@ const ROW_BY_MODE: Record<ChatMode, ModeRow> = MODE_ROWS.reduce(
 );
 
 /**
- * Private to `HlmComposer`. Mode picker as a menu (matches the visual
+ * Private to `MzComposer`. Mode picker as a menu (matches the visual
  * pattern of effort/model selects). Single-select, non-nullable.
  */
 @Component({

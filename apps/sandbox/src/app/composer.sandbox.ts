@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 import {
-  HlmComposerImports,
+  MzComposerImports,
   type ChatMode,
   type ComposerSendEvent,
 } from '@mozart-ui/composer';
@@ -16,13 +16,13 @@ interface SandboxLogEntry {
 
 @Component({
   selector: 'app-composer-sandbox',
-  imports: [RouterLink, HlmButtonImports, HlmComposerImports],
+  imports: [RouterLink, HlmButtonImports, MzComposerImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full w-full' },
   template: `
     <section class="flex flex-col gap-4 max-w-3xl mx-auto p-6 h-full">
       <header class="flex items-center justify-between">
-        <h1 class="text-lg font-semibold">HlmComposer sandbox</h1>
+        <h1 class="text-lg font-semibold">MzComposer sandbox</h1>
         <a hlmBtn variant="ghost" size="sm" routerLink="/"> ← Back </a>
       </header>
 

@@ -7,12 +7,12 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { HlmAlertImports } from '@mozart/ui/alert';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDialogImports } from '@mozart/ui/dialog';
-import { HlmInputImports } from '@mozart/ui/input';
-import { HlmLabelImports } from '@mozart/ui/label';
-import { HlmSpinnerImports } from '@mozart/ui/spinner';
+import { HlmAlertImports } from '@spartan-ui/alert';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDialogImports } from '@spartan-ui/dialog';
+import { HlmInputImports } from '@spartan-ui/input';
+import { HlmLabelImports } from '@spartan-ui/label';
+import { HlmSpinnerImports } from '@spartan-ui/spinner';
 import { BrnDialogRef } from '@spartan-ng/brain/dialog';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 

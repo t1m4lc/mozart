@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';

@@ -1,0 +1,15 @@
+{
+  "name": "aspect-ratio",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/spartan-ui/aspect-ratio/src",
+  "prefix": "hlm",
+  "projectType": "library",
+  "tags": [
+    "scope:spartan"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

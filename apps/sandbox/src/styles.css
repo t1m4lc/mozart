@@ -13,15 +13,15 @@
 @source "../../../libs/mozart-ui/hunk-expand-bar";
 @source "../../../libs/mozart-ui/review-progress";
 @source "../../../libs/shared-util-theme";
-@source "../../../libs/ui/badge";
-@source "../../../libs/ui/button";
-@source "../../../libs/ui/collapsible";
-@source "../../../libs/ui/dropdown-menu";
-@source "../../../libs/ui/icon";
-@source "../../../libs/ui/progress";
-@source "../../../libs/ui/select";
-@source "../../../libs/ui/separator";
-@source "../../../libs/ui/textarea";
-@source "../../../libs/ui/tooltip";
-@source "../../../libs/ui/utils";
+@source "../../../libs/spartan-ui/badge";
+@source "../../../libs/spartan-ui/button";
+@source "../../../libs/spartan-ui/collapsible";
+@source "../../../libs/spartan-ui/dropdown-menu";
+@source "../../../libs/spartan-ui/icon";
+@source "../../../libs/spartan-ui/progress";
+@source "../../../libs/spartan-ui/select";
+@source "../../../libs/spartan-ui/separator";
+@source "../../../libs/spartan-ui/textarea";
+@source "../../../libs/spartan-ui/tooltip";
+@source "../../../libs/spartan-ui/utils";
 /* nx-tailwind-sources:end */

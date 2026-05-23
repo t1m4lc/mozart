@@ -3,9 +3,9 @@ import {
   Component,
   input,
 } from '@angular/core';
-import { HlmBadgeImports } from '@mozart/ui/badge';
-import { HlmCardImports } from '@mozart/ui/card';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmCardImports } from '@spartan-ui/card';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGithub } from '@ng-icons/lucide';
 

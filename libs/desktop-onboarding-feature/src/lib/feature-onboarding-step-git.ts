@@ -7,8 +7,8 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideRefreshCw } from '@ng-icons/lucide';
 import { OsService } from '@mozart/shared-util-os';

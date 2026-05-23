@@ -9,8 +9,8 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { MzLoader } from '@mozart-ui/loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFileCode, lucidePencil, lucideX } from '@ng-icons/lucide';

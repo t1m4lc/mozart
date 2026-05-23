@@ -7,10 +7,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmSelectImports } from '@mozart/ui/select';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmSelectImports } from '@spartan-ui/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideInfo, lucideLock, lucideRefreshCw } from '@ng-icons/lucide';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';

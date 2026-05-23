@@ -5,7 +5,7 @@ import {
   MzFileDiffCard,
   type FileDiffStatus,
 } from '@mozart-ui/file-diff-card';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 
 interface LogEntry {
   readonly at: number;

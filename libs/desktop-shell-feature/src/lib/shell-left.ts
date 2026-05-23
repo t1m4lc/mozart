@@ -1,11 +1,11 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { OsService } from '@mozart/shared-util-os';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmContextMenuImports } from '@mozart/ui/context-menu';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmSidebarImports } from '@mozart/ui/sidebar';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmContextMenuImports } from '@spartan-ui/context-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmSidebarImports } from '@spartan-ui/sidebar';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCircleQuestionMark,

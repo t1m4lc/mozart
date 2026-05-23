@@ -5,8 +5,8 @@ import {
   inject,
 } from '@angular/core';
 import { ThemeService } from '@mozart/shared-util-theme';
-import { HlmButton } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMoon, lucideSun } from '@ng-icons/lucide';
 

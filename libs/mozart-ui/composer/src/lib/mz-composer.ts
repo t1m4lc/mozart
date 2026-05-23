@@ -6,10 +6,10 @@ import {
   model,
   output,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTextareaImports } from '@mozart/ui/textarea';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTextareaImports } from '@spartan-ui/textarea';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowUp, lucideCircleStop, lucidePlus } from '@ng-icons/lucide';
 import { ComposerEffortSelect } from './mz-composer-effort-select';
@@ -20,7 +20,7 @@ import {
   type ProviderId,
   type ProviderInfo,
 } from './mz-composer-model-select';
-import { HlmComposerPlusMenu } from './mz-composer-plus-menu';
+import { MzComposerPlusMenu } from './mz-composer-plus-menu';
 import { ComposerScrollOverlay } from './mz-composer-scroll-overlay';
 
 export type ChatMode = 'agent' | 'plan' | 'ask';
@@ -54,7 +54,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
     HlmIconImports,
     HlmTextareaImports,
     HlmTooltipImports,
-    HlmComposerPlusMenu,
+    MzComposerPlusMenu,
     ComposerModeSelect,
     ComposerModelSelect,
     ComposerEffortSelect,
@@ -200,7 +200,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
     }
   `,
 })
-export class HlmComposer {
+export class MzComposer {
   readonly value = model('');
   readonly mode = model<ChatMode>('agent');
   readonly effort = model<EffortLevel>('medium');

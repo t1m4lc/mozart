@@ -4,7 +4,7 @@ import {
   HostListener,
   inject,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 
 // Step 1 of the onboarding wizard. Pure intro — Enter or click on the

@@ -6,7 +6,7 @@ import {
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HlmTabsImports } from '@mozart/ui/tabs';
+import { HlmTabsImports } from '@spartan-ui/tabs';
 import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '@mozart/desktop-workspaces-util';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { FeatureWorkspaceRun } from '@mozart/desktop-runs-feature';

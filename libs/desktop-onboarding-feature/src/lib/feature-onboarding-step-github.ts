@@ -5,9 +5,9 @@ import {
   effect,
   inject,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,

@@ -6,12 +6,12 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { HlmBadgeImports } from '@mozart/ui/badge';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmCollapsibleImports } from '@mozart/ui/collapsible';
-import { HlmProgressImports } from '@mozart/ui/progress';
-import { HlmSeparatorImports } from '@mozart/ui/separator';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmCollapsibleImports } from '@spartan-ui/collapsible';
+import { HlmProgressImports } from '@spartan-ui/progress';
+import { HlmSeparatorImports } from '@spartan-ui/separator';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronDown, lucideEye, lucideRotateCcw } from '@ng-icons/lucide';
 

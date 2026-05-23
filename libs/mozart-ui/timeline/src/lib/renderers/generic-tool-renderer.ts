@@ -4,7 +4,7 @@ import {
   computed,
   input,
 } from '@angular/core';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { provideIcons } from '@ng-icons/core';
 import { lucideWrench } from '@ng-icons/lucide';
 import { SHIMMER_TEXT_STYLES } from '../_shimmer.styles';

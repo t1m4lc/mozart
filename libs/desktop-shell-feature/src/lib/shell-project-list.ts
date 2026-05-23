@@ -7,11 +7,11 @@ import {
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmContextMenuImports } from '@mozart/ui/context-menu';
-import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import { HlmContextMenuImports } from '@spartan-ui/context-menu';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmSidebarImports } from '@spartan-ui/sidebar';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronRight } from '@ng-icons/lucide';

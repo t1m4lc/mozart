@@ -1,4 +1,4 @@
-import type { BadgeVariants } from '@mozart/ui/badge';
+import type { BadgeVariants } from '@spartan-ui/badge';
 import type { FileChangeStatus } from '@mozart/desktop-repositories-util';
 
 export interface StatusBadge {

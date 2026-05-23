@@ -5,7 +5,7 @@ import {
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmButtonImports } from '@mozart/ui/button';
+import { HlmButtonImports } from '@spartan-ui/button';
 import { GET_STARTED_PROJECT_ADAPTER } from '@mozart/desktop-onboarding-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';

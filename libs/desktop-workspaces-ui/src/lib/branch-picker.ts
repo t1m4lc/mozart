@@ -6,11 +6,11 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmComboboxImports } from '@mozart/ui/combobox';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmKbdImports } from '@mozart/ui/kbd';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmComboboxImports } from '@spartan-ui/combobox';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmKbdImports } from '@spartan-ui/kbd';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucideGitPullRequestArrow } from '@ng-icons/lucide';
 import {

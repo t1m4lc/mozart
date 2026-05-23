@@ -4,10 +4,10 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { HlmAvatarImports } from '@mozart/ui/avatar';
-import { HlmBadgeImports } from '@mozart/ui/badge';
-import { HlmCardImports } from '@mozart/ui/card';
-import { HlmTypographyImports } from '@mozart/ui/typography';
+import { HlmAvatarImports } from '@spartan-ui/avatar';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmCardImports } from '@spartan-ui/card';
+import { HlmTypographyImports } from '@spartan-ui/typography';
 import { AuthFacade } from '../domains/auth';
 import { WebTopBar } from '../shell/web-top-bar';
 

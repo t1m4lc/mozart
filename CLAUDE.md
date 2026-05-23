@@ -22,11 +22,11 @@ Nx monorepo + pnpm · Angular standalone + signals + SignalStore · Tailwind v4 
 
 ## Design system
 
-- `libs/ui/**` → **read-only** (Spartan/Hlm primitives). No edits without explicit approval.
+- `libs/spartan-ui/**` → **read-only** (Spartan/Hlm primitives). No edits without explicit approval.
 - `libs/mozart-ui/**` → editable Mozart components.
 
 ```ts
-import { ... } from '@mozart/ui/<component>';     // primitives
+import { ... } from '@spartan-ui/<component>';     // primitives
 import { ... } from '@mozart-ui/<component>';     // mozart-owned
 ```
 
@@ -37,7 +37,7 @@ import { ... } from '@mozart-ui/<component>';     // mozart-owned
 - `app:*` — per-app domain libs (e.g. `app:desktop`). May depend on `app:desktop`, `scope:mozart-ui`, `scope:spartan`, `scope:shared`.
 - `domain:*` — domain grouping (e.g. `domain:chat`). Advisory; not used by boundary rules.
 - `type:*` — layer axis. `feature → feature|ui|data-access|util`, `ui → ui|util`, `data-access → data-access|util`, `util → util` (all may also reach `scope:mozart-ui|spartan|shared`).
-- `scope:*` — legacy axis, still used by `libs/ui`, `libs/mozart-ui`, `libs/shared-*`, and `apps/*`. Each project carries at most one `scope:*` and at most one `app:*`.
+- `scope:*` — legacy axis, still used by `libs/spartan-ui`, `libs/mozart-ui`, `libs/shared-*`, and `apps/*`. Each project carries at most one `scope:*` and at most one `app:*`.
 
 Three domains keep their feature shell in `apps/desktop/src/app/domains/` for now: `repositories`, `terminals`, `workspaces`. Their util/data-access/ui layers live in libs.
 

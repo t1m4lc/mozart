@@ -91,7 +91,7 @@ Wave 4 and beyond: see "Worktree parallelization strategy" section.
 
 ### Anti-regression rules (DO NOT do these while implementing)
 
-- Do not edit `libs/ui/**` — vendored Spartan primitives, read-only
+- Do not edit `libs/spartan-ui/**` — vendored Spartan primitives, read-only
   per CLAUDE.md.
 - Do not expose `worktree`, `branch_name`, `HEAD`, `detached HEAD`,
   `agent/wip-*`, `checkpoint sha` in user-facing strings.
@@ -1347,7 +1347,7 @@ Files: ~2 + 4 tests.
 **Tabs implementation — use `<hlm-tabs>` with icon-only triggers:**
 Both `[Unified|Split]` and `[Diff|Edit]` are tablists, not toggles —
 each one switches the central panel between two render modes. Build
-them on top of `HlmTabsImports` (`@mozart/ui/tabs`) with `variant="line"`
+them on top of `HlmTabsImports` (`@spartan-ui/tabs`) with `variant="line"`
 and icon-only triggers, e.g.:
 
 ```html
@@ -1374,10 +1374,10 @@ pill, not an underlined tab.
 
 ### Spartan / Mozart UI component rule
 
-- Use Spartan primitives from `@mozart/ui/*` wherever they exist. Do not
+- Use Spartan primitives from `@spartan-ui/*` wherever they exist. Do not
   hand-roll disclosure, progress, badge, menu, tooltip, tabs, dialog,
   button, separator, or skeleton behavior.
-- Do not edit `libs/ui/**`; it is vendored Spartan. Compose Mozart-owned
+- Do not edit `libs/spartan-ui/**`; it is vendored Spartan. Compose Mozart-owned
   components in `libs/mozart-ui/**` or app-domain UI files.
 - Create a reusable `mz-review-progress` component in `libs/mozart-ui`
   for the review summary. It composes:
@@ -1492,7 +1492,7 @@ Files: ~3.
 - [x] Compose Spartan primitives only: `HlmProgressImports`,
       `HlmCollapsibleImports`, `HlmButtonImports`, `HlmBadgeImports`,
       `HlmTooltipImports`, and `HlmSeparatorImports` from
-      `@mozart/ui/*`. Reuse `mz-diff-stats` for line-count stats only
+      `@spartan-ui/*`. Reuse `mz-diff-stats` for line-count stats only
       when line additions/removals are displayed nearby.
 - [x] Outputs: `reviewRemaining`, `markAllViewed`. No data fetching or
       mutation inside the component.
@@ -1816,8 +1816,8 @@ Files: 3.
 ### Atom A3.2.A
 
 - [ ] Find the dot-loader component (likely `libs/mozart-ui/...` or
-      `libs/ui/...`). Trim the trailing two dots; keep the icon.
-- [ ] If it's in `libs/ui/`, do **not** modify per CLAUDE.md design-
+      `libs/spartan-ui/...`). Trim the trailing two dots; keep the icon.
+- [ ] If it's in `libs/spartan-ui/`, do **not** modify per CLAUDE.md design-
       system rule — instead wrap it in `libs/mozart-ui/` with the
       desired sizing.
 - [ ] **Manual checkpoint:** Storybook/sandbox visual check.
@@ -2136,7 +2136,7 @@ Reusable pieces the plan leans on (no rebuild):
   `asideStateByWorkspace` signal.
 - `HlmTabs`, `HlmDialog`, `HlmMenu`, `HlmSidebar`, `HlmTooltip` —
   every Spartan primitive needed for the new UI surfaces is already
-  vendored in `libs/ui/`.
+  vendored in `libs/spartan-ui/`.
 - `mz-composer` + the `mz-composer-*-select` primitives — the
   composer refactor is a parent extraction, not a composer change.
 - `lucideChevronDown`, `lucideGitMerge`, `lucideCircleStop`, `lucidePlay`

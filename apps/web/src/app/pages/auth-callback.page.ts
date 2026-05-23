@@ -6,8 +6,8 @@ import {
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmSpinnerImports } from '@mozart/ui/spinner';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmSpinnerImports } from '@spartan-ui/spinner';
 import { ClerkService } from '@mozart/clerk';
 import { AuthFacade } from '../domains/auth';
 import { UiAuthCard } from '../domains/auth/ui-auth-card';

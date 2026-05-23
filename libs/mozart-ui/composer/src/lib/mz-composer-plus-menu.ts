@@ -1,7 +1,7 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideHash,
@@ -102,4 +102,4 @@ import {
     </ng-template>
   `,
 })
-export class HlmComposerPlusMenu {}
+export class MzComposerPlusMenu {}

@@ -4,10 +4,10 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmBadgeImports } from '@mozart/ui/badge';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmTooltipImports } from '@mozart/ui/tooltip';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideGitBranch,

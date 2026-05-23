@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { HlmDialogService } from '@mozart/ui/dialog';
+import { HlmDialogService } from '@spartan-ui/dialog';
 import {
   ROADMAP_DIALOG_CLASS,
   RoadmapDialogComponent,

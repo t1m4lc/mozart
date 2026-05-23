@@ -1,14 +1,14 @@
 # Mozart — Composer & Timeline UI Specification (v2)
 
-> **Scope** : v0.1.0-beta.1 MVP — companion `libs/ui` task for Phase 2
+> **Scope** : v0.1.0-beta.1 MVP — companion `libs/spartan-ui` task for Phase 2
 > (Composer surface) and Phase 3 (Timeline + scroll plumbing).
 > **Purpose** : specify the chat **Composer** (textarea + mode
 > segmented control + model + effort + send + scroll-to-bottom +
 > next-unread) and the **Timeline** (raw text in 3a, full
 > Claude-style in 3b), both shipped as **dumb composed
-> components** in `libs/ui`.
+> components** in `libs/spartan-ui`.
 >
-> **Architectural placement** : both live in `libs/ui`. No facade
+> **Architectural placement** : both live in `libs/spartan-ui`. No facade
 > import, no store, no Tauri. Inputs in, outputs out. Smart
 > wrappers in domain steps (Phase 2 for the composer, Phase 3 for
 > the timeline) connect them to the chat facade.
@@ -25,7 +25,7 @@
 
 ---
 
-## 1. Why this is a dedicated `libs/ui` task
+## 1. Why this is a dedicated `libs/spartan-ui` task
 
 The Composer and the Timeline are rich UI surfaces with their own
 UX micro-decisions (keyboard handling, dropdown shapes, plan-mode
@@ -35,7 +35,7 @@ Building them inline with Phase 2 (persistence) or Phase 3
 down.
 
 Same pattern as `WorkspaceTabBar` and `ChatEmptyState`, already
-shipped to `libs/ui` : ship the dumb UI first ; domain steps
+shipped to `libs/spartan-ui` : ship the dumb UI first ; domain steps
 mount it later.
 
 Out of this task :
@@ -254,10 +254,10 @@ hasNextUnreadInProject: InputSignal<boolean>;        // drives next-unread btn
 ```
 
 Sub-components are **private** to `Composer` — they are not
-re-exported from `libs/ui`. They communicate via inputs / outputs
+re-exported from `libs/spartan-ui`. They communicate via inputs / outputs
 only ; no shared service inside `Composer`.
 
-### 2.8 Primitives used (from `libs/ui` + CDK)
+### 2.8 Primitives used (from `libs/spartan-ui` + CDK)
 
 - `HlmButton` (send / stop / scroll-to-bottom / next-unread)
 - `HlmSelect` (model + effort selectors)
@@ -458,7 +458,7 @@ visually broken (collapse arrows misaligned, ugly styling). Phase
 reducer in `domains/llm-model/data/stream/` — those are pure and
 reusable).
 
-Phase 3b rebuilds the Timeline UI cleanly in `libs/ui/timeline/`
+Phase 3b rebuilds the Timeline UI cleanly in `libs/spartan-ui/timeline/`
 per the structure below.
 
 ### 4.3 Public surface (Phase 3b)
@@ -517,7 +517,7 @@ The available renderers per `llm-stream-parser.md` §3.3 :
 - `DoneMarker` — check-circle, label _"Done"_
 - `ErrorMarker` — x-circle, label _"Error"_
 
-Adding a new renderer = one file in `libs/ui/timeline/renderers/`
+Adding a new renderer = one file in `libs/spartan-ui/timeline/renderers/`
 plus one line in `tool-renderers.registry.ts`. The parser is
 never touched.
 
@@ -560,7 +560,7 @@ from Claude.ai (via browser inspector) and paste them into
 `llm-stream-parser.md` v2 §6 before starting implementation. The
 reference resolves any ambiguity in the textual specs.
 
-### 4.9 Primitives used (from `libs/ui` + CDK)
+### 4.9 Primitives used (from `libs/spartan-ui` + CDK)
 
 - `HlmButton` (Approve / Cancel plan buttons)
 - `HlmCollapsible` (per-item expand / collapse)
@@ -572,10 +572,10 @@ reference resolves any ambiguity in the textual specs.
 
 ---
 
-## 5. File layout in `libs/ui`
+## 5. File layout in `libs/spartan-ui`
 
 ```
-libs/ui/
+libs/spartan-ui/
 ├── composer/
 │   ├── composer.component.ts                    # public
 │   ├── composer.types.ts                        # ChatMode, ModelOption, EffortLevel
@@ -608,7 +608,7 @@ libs/ui/
         └── tool-renderers.registry.ts
 ```
 
-Public exports from `libs/ui` :
+Public exports from `libs/spartan-ui` :
 
 - `Composer` and its types (`ChatMode`, `ModelOption`,
   `EffortLevel`)
@@ -624,7 +624,7 @@ All sub-components are **private** — not re-exported.
 Step 3.5's Definition-of-done requires a way to demonstrate both
 components with mock data, without any domain wiring. Pick one of :
 
-1. **Storybook setup in `libs/ui`** if not already configured.
+1. **Storybook setup in `libs/spartan-ui`** if not already configured.
 2. **A dev route** in the app (`/__sandbox/composer`,
    `/__sandbox/timeline`) gated to non-production builds. The
    route feeds mock `ModelOption[]` and mock `TurnState` to demo
@@ -648,10 +648,10 @@ The sandbox covers :
 ## 7. Anti-regression checks
 
 1. **No domain imports** : `grep -rn "from '@mozart/"
-libs/ui/composer libs/ui/timeline` returns only **type-only**
+libs/spartan-ui/composer libs/spartan-ui/timeline` returns only **type-only**
    imports of `TurnState` from `@mozart/llm-model`. No runtime
    imports from any `@mozart/` domain.
-2. **No Tauri** : `grep -rn "@tauri-apps/api" libs/ui` returns
+2. **No Tauri** : `grep -rn "@tauri-apps/api" libs/spartan-ui` returns
    zero matches.
 3. **Public surface stable** : Inputs and outputs of `Composer`
    and `TurnContainer` / `MessageBody` are signal-based (no
@@ -660,9 +660,9 @@ libs/ui/composer libs/ui/timeline` returns only **type-only**
    no shimmer, no pulses, no transitions ; expand / collapse
    stays functional (instantaneous).
 5. **Sub-components private** : only `Composer`, `MessageBody`,
-   `TurnContainer` are re-exported from `libs/ui`'s entry point.
+   `TurnContainer` are re-exported from `libs/spartan-ui`'s entry point.
 6. **Signal Forms only** : `grep -rn "FormGroup\|FormControl\|FormBuilder"
-libs/ui/composer` returns zero matches (Signal Forms per
+libs/spartan-ui/composer` returns zero matches (Signal Forms per
    `plan.md` tech conventions).
 7. **OnPush** : every component has
    `changeDetection: ChangeDetectionStrategy.OnPush`.
@@ -671,7 +671,7 @@ libs/ui/composer` returns zero matches (Signal Forms per
 
 ## 8. Out of scope (deferred per `plan.md` post-MVP)
 
-Recap of what's NOT in this `libs/ui` task :
+Recap of what's NOT in this `libs/spartan-ui` task :
 
 - `/` skills shortcut + chip rendering
 - `@` context shortcut + chip rendering

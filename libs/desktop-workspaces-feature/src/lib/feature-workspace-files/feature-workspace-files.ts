@@ -7,9 +7,9 @@ import {
   inject,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmKbdImports } from '@mozart/ui/kbd';
-import { HlmTabsImports } from '@mozart/ui/tabs';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmKbdImports } from '@spartan-ui/kbd';
+import { HlmTabsImports } from '@spartan-ui/tabs';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideGitCompareArrows,

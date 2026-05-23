@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { HlmSkeletonImports } from '@mozart/ui/skeleton';
+import { HlmSkeletonImports } from '@spartan-ui/skeleton';
 
 // Pure-presentational placeholder for `feature-file-tree`. Renders
 // seven shimmer rows of varied width so the eye reads "a list is

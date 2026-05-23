@@ -6,8 +6,8 @@ import {
   inject,
 } from '@angular/core';
 import { OsService } from '@mozart/shared-util-os';
-import { HlmDialogService } from '@mozart/ui/dialog';
-import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmSidebarImports } from '@spartan-ui/sidebar';
 import { toast } from '@spartan-ng/brain/sonner';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { NonMacWindowControls } from '@mozart/desktop-core-ui';

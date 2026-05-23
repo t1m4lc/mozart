@@ -5,10 +5,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDialogImports } from '@mozart/ui/dialog';
-import { HlmIconImports } from '@mozart/ui/icon';
-import { HlmInputImports } from '@mozart/ui/input';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDialogImports } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmInputImports } from '@spartan-ui/input';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitCommitVertical } from '@ng-icons/lucide';

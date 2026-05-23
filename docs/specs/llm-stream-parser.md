@@ -18,7 +18,7 @@
 >   `tauri-claude.adapter.ts` — the only file importing
 >   `@tauri-apps/api` for the LLM concern.
 > - **UI components** (turn container, timeline, renderers, file
->   chips, diff stats) live in `libs/ui/timeline/` as composed
+>   chips, diff stats) live in `libs/spartan-ui/timeline/` as composed
 >   dumb components using Spartan NG primitives.
 > - **Chat-side wiring** (subscribing to the stream, feeding the
 >   reducer, exposing `TurnState` to the renderers) lives in
@@ -38,7 +38,7 @@ Per `plan.md` Phase 3, this work ships in two sub-phases :
   `domains/llm-model/data/stream/`
 - Tauri adapter that feeds the parser
 - Chat facade subscribes to the stream and patches `TurnState`
-- UI : **only `<MessageBody>`** from `libs/ui/timeline/` is
+- UI : **only `<MessageBody>`** from `libs/spartan-ui/timeline/` is
   used in 3a — it renders `turnState.text` as a clean paragraph.
   No collapsible header, no timeline items, no shimmer, no plan
   mode UI.
@@ -621,7 +621,7 @@ apps/desktop/src/app/domains/llm-model/data/stream/
     ├── status-rotation.json            # new : §5.1 multi-status
     └── plan-proposal.json
 
-libs/ui/timeline/
+libs/spartan-ui/timeline/
 ├── turn-container.ts
 ├── turn-header.ts                      # collapsible summary + shimmer
 ├── message-body.ts                     # plain-prose renderer (used in 3a)
@@ -655,7 +655,7 @@ Rules :
 - The UI components are `OnPush` and consume state via signals fed
   by `reducer.ts`.
 - Adding a new tool renderer is a single-file change in
-  `libs/ui/timeline/renderers/` plus one line in the
+  `libs/spartan-ui/timeline/renderers/` plus one line in the
   registry.
 - Adding a new provider parser (OpenAI later) is a sibling file
   alongside `anthropic.parser.ts` — no other change.
@@ -739,7 +739,7 @@ classes) :
                 transition-opacity duration-100 w-8 text-accent-brand
                 inline-block overflow-hidden select-none">
       <svg viewBox="0 0 100 800">
-        <path d="m19.622 66.499 ..."/>   <!-- full path in libs/ui/assets/claude-hand.svg -->
+        <path d="m19.622 66.499 ..."/>   <!-- full path in libs/spartan-ui/assets/claude-hand.svg -->
       </svg>
     </div>
     <!-- On hover, the brand icon is replaced by a small X (close/collapse hint) -->
@@ -803,7 +803,7 @@ Mozart mapping :
 - `text-text-400` → `text-muted-foreground`
 - `text-text-300` / `text-text-200` → `text-foreground/70` and
   `text-foreground` on hover.
-- The Claude hand SVG is in `libs/ui/timeline/assets/agent-icon.svg`
+- The Claude hand SVG is in `libs/spartan-ui/timeline/assets/agent-icon.svg`
   (use the brand mark you pick — for Mozart, this is the small
   conductor's-baton glyph).
 - The hover-swap behavior is OPTIONAL. The Spartan NG simpler
@@ -1362,5 +1362,5 @@ has `align-items: center` instead of `flex-start`.
 ---
 
 *End of spec. Phase 3b implementation may begin once §A.1 is
-filled with a real Claude.ai share URL and a `libs/ui/timeline/`
+filled with a real Claude.ai share URL and a `libs/spartan-ui/timeline/`
 skeleton is committed with the file layout from §11.*

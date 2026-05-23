@@ -8,7 +8,7 @@ import {
   model,
   output,
 } from '@angular/core';
-import { HlmContextMenuImports } from '@mozart/ui/context-menu';
+import { HlmContextMenuImports } from '@spartan-ui/context-menu';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import type { Project } from '@mozart/desktop-projects-util';

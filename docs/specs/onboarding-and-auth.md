@@ -720,7 +720,7 @@ Plus a final closing card :
 
 ### 8.3 Highlight overlay primitive
 
-A new dumb component in `libs/ui/highlight-overlay/` :
+A new dumb component in `libs/spartan-ui/highlight-overlay/` :
 
 - Renders a full-screen `<div>` with a CSS background dim
   (`rgba(0,0,0,0.5)` adjusted).
@@ -794,7 +794,7 @@ apps/desktop/src/app/
         │   └── get-started-project.adapter.ts
         └── index.ts
 
-libs/ui/
+libs/spartan-ui/
 └── highlight-overlay/
     └── highlight-overlay.component.ts
 ```

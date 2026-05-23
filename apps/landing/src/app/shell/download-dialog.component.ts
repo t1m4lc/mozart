@@ -6,9 +6,9 @@ import {
   inject,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmButton } from '@mozart/ui/button';
-import { HlmDialogImports } from '@mozart/ui/dialog';
-import { HlmIconImports } from '@mozart/ui/icon';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmDialogImports } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';

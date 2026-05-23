@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { HlmButtonImports } from '@mozart/ui/button';
-import { HlmDialogImports } from '@mozart/ui/dialog';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDialogImports } from '@spartan-ui/dialog';
 
 // Help dialog opened by the (?) icon on the connection card. Explains
 // the two paths Mozart supports for talking to Claude. Pure content —

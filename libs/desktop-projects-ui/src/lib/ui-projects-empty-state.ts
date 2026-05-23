@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { HlmEmptyImports } from '@mozart/ui/empty';
+import { HlmEmptyImports } from '@spartan-ui/empty';
 
 @Component({
   selector: 'app-projects-empty-state',

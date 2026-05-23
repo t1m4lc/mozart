@@ -111,7 +111,7 @@ lib from `@nx/enforce-module-boundaries`.
 Allowed imports (per CLAUDE.md):
 - `scope:mozart-ui` → `scope:mozart-ui | scope:spartan | scope:shared`
 
-The 4 new libs only import from `libs/ui/*` (Spartan) and from each other.
+The 4 new libs only import from `libs/spartan-ui/*` (Spartan) and from each other.
 
 ### 5.3 Public API
 
