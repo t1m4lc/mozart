@@ -596,10 +596,6 @@ mod tests {
         assert!(matches!(err, AppError::NotFound(_)));
     }
 
-    // -----------------------------------------------------------------
-    // P0.1 S0.1.C — list_active_siblings_for_project
-    // -----------------------------------------------------------------
-
     /// Seed a fresh project (repo) + return its `repo_id`. Distinct from
     /// `seed_task` which produces a task under a fresh repo each call.
     fn seed_project(conn: &Connection) -> String {

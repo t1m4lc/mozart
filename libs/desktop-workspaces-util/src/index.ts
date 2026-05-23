@@ -1,6 +1,3 @@
-// Public surface of `desktop-workspaces-util`. Pure types + helpers
-// for the workspaces domain — no Angular DI, no Tauri imports.
-
 export type { MergeAction, Workspace } from './lib/workspace.model';
 export {
   UI_WORKSPACE_STATUSES,
@@ -33,7 +30,4 @@ export {
   workspaceRouteCommands,
   workspaceTabRouteCommands,
 } from './lib/workspace-route';
-export {
-  type InstallState,
-  type WorkspaceInstall,
-} from './lib/install-state';
+export { type InstallState, type WorkspaceInstall } from './lib/install-state';

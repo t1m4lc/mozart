@@ -223,10 +223,6 @@ pub fn guard_workspace_worktree(
 mod tests {
     use super::*;
 
-    // -----------------------------------------------------------------
-    // v0 (cheap regex) guard — unchanged from S0.1.B
-    // -----------------------------------------------------------------
-
     #[test]
     fn rejects_empty() {
         let err = validate_workspace_relative_path("").unwrap_err();
@@ -258,10 +254,6 @@ mod tests {
         validate_workspace_relative_path("src/app/file.ts").unwrap();
         validate_workspace_relative_path("file.txt").unwrap();
     }
-
-    // -----------------------------------------------------------------
-    // P0.1 S0.1.D — validate_agent_path
-    // -----------------------------------------------------------------
 
     use std::fs;
     use tempfile::TempDir;

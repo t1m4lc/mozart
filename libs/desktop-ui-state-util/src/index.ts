@@ -1,7 +1,3 @@
-// Public surface of `desktop-ui-state-util`. Shape + defaults for the
-// cross-domain UI state slices. No Angular DI, no signal store —
-// data-access owns those.
-
 export {
   DEFAULT_WORKSPACE_ASIDE_STATE,
   DEFAULT_WORKSPACE_FILE_VIEW_STATE,

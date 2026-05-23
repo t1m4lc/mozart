@@ -302,8 +302,6 @@ mod tests {
         assert_eq!(back, SandboxLevel::L3Workspace);
     }
 
-    // --- allowed_tools_for_mode -------------------------------------
-
     #[test]
     fn allowed_tools_agent_includes_write_edit_bash() {
         let tools = allowed_tools_for_mode("agent");
@@ -357,8 +355,6 @@ mod tests {
             allowed_tools_for_mode("ask"),
         );
     }
-
-    // --- build_sandbox_flags ----------------------------------------
 
     fn pb(p: &str) -> PathBuf {
         PathBuf::from(p)
@@ -496,8 +492,6 @@ mod tests {
             );
         }
     }
-
-    // --- system prompt clamp (Atom 7) -------------------------------
 
     #[test]
     fn system_prompt_clamp_lists_allowed_paths_for_l2() {

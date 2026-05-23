@@ -1,7 +1,3 @@
-// Public surface of `desktop-onboarding-data-access`. Facade + Tauri
-// ports for the onboarding flow. Tauri-bound concrete adapters live in
-// `apps/desktop/src/app/core/`.
-
 export { OnboardingFacade } from './lib/onboarding.facade';
 export {
   ONBOARDING_ADAPTER,

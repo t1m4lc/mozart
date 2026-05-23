@@ -168,8 +168,6 @@ mod tests {
         String::from_utf8_lossy(&s.stdout).trim().to_string()
     }
 
-    // ---- parse_numstat unit tests (no git) ---------------------------------
-
     #[test]
     fn parse_numstat_empty_returns_zeros() {
         assert_eq!(parse_numstat(""), (0, 0, 0));
@@ -253,8 +251,6 @@ mod tests {
         // A valid row mixed with a malformed one: only the valid row counts.
         assert_eq!(parse_numstat("bad\n3\t0\tfoo\n"), (1, 0, 0));
     }
-
-    // ---- integration tests (real git) --------------------------------------
 
     #[tokio::test]
     async fn happy_path_one_added_one_modified_one_deleted() {

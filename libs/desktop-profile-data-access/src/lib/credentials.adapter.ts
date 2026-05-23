@@ -24,7 +24,6 @@ export interface CredentialsAdapter {
   // stored (use `hasStoredKey` to gate).
   refresh(): Promise<ProbeResult>;
 
-  // ---------- GitHub (Phase 4f) ----------
   /** Cheap presence check on the OS keyring. Never returns the token. */
   hasGithubToken(): Promise<boolean>;
   /** Probe + store a personal-access token. On 'unauthorized' /

@@ -1,7 +1,3 @@
-// Public surface of `desktop-llm-model-util`. Stream event shapes,
-// reducer, Anthropic stream parser, providers config, and ChatMode.
-// Pure TypeScript — no Angular DI, no Tauri side effects.
-
 export type {
   AgentEvent,
   TurnFileChip,

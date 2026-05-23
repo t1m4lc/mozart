@@ -436,10 +436,6 @@ fn validate_open_path(path: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// init_project_repo_from_local — deferred surface for "Save config to repo"
-// ---------------------------------------------------------------------------
-
 /// Write the local fallback config out to `.mozart/run.json` (and a
 /// minimal `.mozart/settings.json`). Validates before writing, refuses
 /// to overwrite an existing `.mozart/*` file. Wired but not exposed in
@@ -489,10 +485,6 @@ pub async fn init_project_repo_from_local(
 
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// read_project_config — repo > local merge
-// ---------------------------------------------------------------------------
 
 /// Read the active config for `project_id`. If `.mozart/run.json` exists
 /// and validates, returns it with `source = "repo"`. Otherwise returns

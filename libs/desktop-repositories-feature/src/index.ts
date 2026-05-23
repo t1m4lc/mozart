@@ -1,7 +1,5 @@
-// Public surface of `desktop-repositories-feature`. Smart components
-// that combine the repositories data-access layer with UI primitives.
-// Feature-create-pr-dialog stays in `apps/desktop/src/app/domains/`
-// while the Tauri command bridge isn't libbed.
+// Feature-create-pr-dialog stays in `apps/desktop/src/app/domains/` while
+// the Tauri command bridge isn't libbed.
 
 export { FeatureFileTree } from './lib/feature-file-tree';
 export { FeatureFileDiff } from './lib/feature-file-diff';

@@ -191,8 +191,6 @@ export class ProjectsFacade {
     this.store.toggleProjectInFilter(id);
   }
 
-  // ---- Optimistic mutators ----------------------------------------
-
   // Hide and rollback on Tauri failure. The previous .hide() left the
   // flag in memory only — restart un-hid the project.
   async hide(id: string): Promise<void> {

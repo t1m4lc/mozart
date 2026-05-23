@@ -1,7 +1,3 @@
-// Public surface of `desktop-onboarding-feature`. Smart step shells +
-// guards. Routes thread through these to drive the welcome → git →
-// provider → github onboarding flow.
-
 export { FeatureOnboardingStepWelcome } from './lib/feature-onboarding-step-welcome';
 export { FeatureOnboardingStepGit } from './lib/feature-onboarding-step-git';
 export { FeatureOnboardingStepProvider } from './lib/feature-onboarding-step-provider';
