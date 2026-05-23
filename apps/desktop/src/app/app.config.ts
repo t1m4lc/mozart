@@ -29,7 +29,7 @@ import {
 import { OnboardingFacade } from './domains/onboarding';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
-import { WorkspacesFacade } from './domains/workspaces';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 export const appConfig: ApplicationConfig = {
   providers: [

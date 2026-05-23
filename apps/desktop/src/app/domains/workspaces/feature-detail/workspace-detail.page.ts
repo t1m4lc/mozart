@@ -27,9 +27,9 @@ import {
 } from '@mozart/desktop-repositories-feature';
 import { type CreatePrDialogContext } from '../../repositories';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
-import { IdeDetectionService } from '../data/ide-detection.service';
-import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
-import { WorkspacesFacade } from '../data/workspace.facade';
+import { IdeDetectionService } from '@mozart/desktop-workspaces-data-access';
+import { OPEN_IN_TOOLS, type OpenInTool } from '@mozart/desktop-workspaces-util';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { WorkspaceToolbar } from '../ui/workspace-toolbar';
 import { WorkspaceDetailStore } from './workspace-detail.store';
 

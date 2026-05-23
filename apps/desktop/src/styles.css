@@ -37,6 +37,9 @@
 @source "../../../libs/desktop-terminals-util";
 @source "../../../libs/desktop-ui-state-data-access";
 @source "../../../libs/desktop-ui-state-util";
+@source "../../../libs/desktop-workspaces-data-access";
+@source "../../../libs/desktop-workspaces-ui";
+@source "../../../libs/desktop-workspaces-util";
 @source "../../../libs/mozart-ui/code-editor";
 @source "../../../libs/mozart-ui/codemirror-theme";
 @source "../../../libs/mozart-ui/composer";
@@ -68,6 +71,7 @@
 @source "../../../libs/ui/input-group";
 @source "../../../libs/ui/kbd";
 @source "../../../libs/ui/label";
+@source "../../../libs/ui/popover";
 @source "../../../libs/ui/select";
 @source "../../../libs/ui/separator";
 @source "../../../libs/ui/sheet";

@@ -7,8 +7,8 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import type { UiWorkspaceStatus } from './workspace-status';
-import type { MergeAction, Workspace } from './workspace.model';
+import type { UiWorkspaceStatus } from '@mozart/desktop-workspaces-util';
+import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
 
 interface State {
   workspaces: Workspace[];

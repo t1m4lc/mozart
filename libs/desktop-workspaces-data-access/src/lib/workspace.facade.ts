@@ -2,32 +2,23 @@ import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
-import { generateWorkspaceName } from '../util-workspace-name';
+import { generateWorkspaceName } from '@mozart/desktop-workspaces-util';
 import { IdeDetectionService } from './ide-detection.service';
-import type { OpenInToolId } from './open-in-tools';
-import type { UiWorkspaceStatus } from './workspace-status';
-import { workspaceFromDto } from './workspace.dto-mapper';
-import type { WorkspaceDto } from './workspace.dto';
-import type { MergeAction, Workspace } from './workspace.model';
+import type { OpenInToolId } from '@mozart/desktop-workspaces-util';
+import type { UiWorkspaceStatus } from '@mozart/desktop-workspaces-util';
+import { workspaceFromDto, type WorkspaceDto } from './workspace.dto-mapper';
+import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
 import { WorkspaceStore } from './workspace.store';
 import {
   WORKSPACES_ADAPTER,
   type InstallPackagesResult,
 } from './workspaces.adapter';
 
-// Per-workspace package-manager install state, surfaced to the chat
-// empty-state checklist (step 4 — "Setup script completed.").
-export type InstallState =
-  | 'idle'
-  | 'running'
-  | 'success'
-  | 'failed'
-  | 'no_package';
-
-export interface WorkspaceInstall {
-  state: InstallState;
-  manager: string;
-}
+import type {
+  InstallState,
+  WorkspaceInstall,
+} from '@mozart/desktop-workspaces-util';
+export type { InstallState, WorkspaceInstall };
 
 const NO_INSTALL: WorkspaceInstall = { state: 'idle', manager: '' };
 

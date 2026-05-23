@@ -15,7 +15,7 @@ import {
   lucideGitMerge,
   lucideGitPullRequest,
 } from '@ng-icons/lucide';
-import type { MergeAction } from '../data/workspace.model';
+import type { MergeAction } from '@mozart/desktop-workspaces-util';
 
 // P2.6.C — split-button + dropdown for the merge action on the right-
 // aside header. Primary label routes off AD-02:

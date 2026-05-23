@@ -10,7 +10,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideListTree, lucidePlay } from '@ng-icons/lucide';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
-import { WorkspacesFacade } from '../data/workspace.facade';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 // Setup tab — empty-state card with a CTA that runs the configured
 // setup command. Pulled out of `feature-workspace-processes` so the

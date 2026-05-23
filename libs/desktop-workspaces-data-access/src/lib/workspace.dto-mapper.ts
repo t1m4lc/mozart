@@ -1,6 +1,27 @@
-import type { UiWorkspaceStatus } from './workspace-status';
-import type { WorkspaceDto } from './workspace.dto';
-import type { MergeAction, Workspace } from './workspace.model';
+import type {
+  MergeAction,
+  UiWorkspaceStatus,
+  Workspace,
+} from '@mozart/desktop-workspaces-util';
+
+// Wire shape returned by Tauri (`create_workspace`, `list_workspaces`).
+// Declared locally so this lib has no inbound dep on apps/_bindings —
+// the desktop app passes its generated `Workspace` DTO into the mapper
+// and TypeScript structural typing closes the bridge.
+export interface WorkspaceDto {
+  readonly workspace_id: string;
+  readonly task_id: string;
+  readonly name: string;
+  readonly branch_name: string;
+  readonly base_branch: string;
+  readonly status: string;
+  readonly ui_status: string;
+  readonly pinned: boolean;
+  readonly unread: boolean;
+  readonly created_at: number;
+  readonly deletion_intent: number;
+  readonly last_merge_action: string | null;
+}
 
 // DTO -> Model mapper. `projectId` is supplied by the caller — for
 // freshly-created workspaces the projectId is the input to the create

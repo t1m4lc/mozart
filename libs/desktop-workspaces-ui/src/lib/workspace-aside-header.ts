@@ -14,7 +14,7 @@ import {
   lucideGitCommitVertical,
   lucideGitPullRequest,
 } from '@ng-icons/lucide';
-import type { OpenInTool } from '../data/open-in-tools';
+import type { OpenInTool } from '@mozart/desktop-workspaces-util';
 import { OpenInMenu } from './open-in-menu';
 
 @Component({

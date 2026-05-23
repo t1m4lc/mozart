@@ -22,12 +22,12 @@ import {
   type ConfirmDiscardChangesContext,
 } from '@mozart/desktop-repositories-ui';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
-import { FileTabsService } from '../data/file-tabs.service';
 import {
+  FileTabsService,
+  WorkspacesFacade,
   WorkspaceTabRegistry,
-  workspaceTabRouteCommands,
-} from '../data/workspace-tab-registry';
-import { WorkspacesFacade } from '../data/workspace.facade';
+} from '@mozart/desktop-workspaces-data-access';
+import { workspaceTabRouteCommands } from '@mozart/desktop-workspaces-util';
 
 // Shared empty array — keeps `changedFiles` reference-stable on cache
 // miss so downstream filters (stagedFiles/unstagedFiles) don't re-run

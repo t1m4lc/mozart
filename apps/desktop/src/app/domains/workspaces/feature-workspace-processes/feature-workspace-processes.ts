@@ -14,8 +14,8 @@ import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { FeatureWorkspaceTerminal } from '../../terminals/feature-workspace-terminal';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { WorkspaceAsideBottomTab } from '@mozart/desktop-ui-state-util';
-import { WorkspacesFacade } from '../data/workspace.facade';
-import { RunActionMenu } from '../ui/run-action-menu';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { RunActionMenu } from '@mozart/desktop-workspaces-ui';
 import { FeatureWorkspaceSetup } from './feature-workspace-setup';
 
 // Bottom half of the workspace aside: Setup / Run / Terminal tabs +

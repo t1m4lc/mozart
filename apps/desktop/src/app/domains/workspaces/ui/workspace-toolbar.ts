@@ -29,9 +29,11 @@ import {
 } from '@ng-icons/lucide';
 import { ShellTopBar } from '../../../shell';
 import type { RunStatus } from '@mozart/desktop-runs-util';
-import type { OpenInTool } from '../data/open-in-tools';
-import { BranchPicker } from './branch-picker';
-import { OpenInMenu } from './open-in-menu';
+import type { OpenInTool } from '@mozart/desktop-workspaces-util';
+import {
+  BranchPicker,
+  OpenInMenu,
+} from '@mozart/desktop-workspaces-ui';
 
 @Component({
   selector: 'app-workspace-toolbar',

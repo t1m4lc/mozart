@@ -13,12 +13,10 @@ import { LayoutService } from '../core/layout.service';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
-import {
-  FeatureWorkspaceAside,
-  MergeActionMenu,
-  WorkspacesFacade,
-  type MergeAction,
-} from '../domains/workspaces';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import type { MergeAction } from '@mozart/desktop-workspaces-util';
+import { MergeActionMenu } from '@mozart/desktop-workspaces-ui';
+import { FeatureWorkspaceAside } from '../domains/workspaces';
 import { SHELL_RIGHT_PANEL_WIDTH } from './shell-panel.constants';
 import { ShellSidePanel } from './shell-side-panel';
 

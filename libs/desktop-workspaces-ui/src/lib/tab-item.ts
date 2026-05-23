@@ -15,7 +15,7 @@ import { MzLoader } from '@mozart-ui/loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFileCode, lucidePencil, lucideX } from '@ng-icons/lucide';
 import { LlmIcon } from './llm-icon';
-import type { WorkspaceTab } from './workspace-tab.model';
+import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
 
 // Renders one tab. Chat variant supports rename (dblclick on title or
 // pen icon) and close (✕); file variant is read-only.

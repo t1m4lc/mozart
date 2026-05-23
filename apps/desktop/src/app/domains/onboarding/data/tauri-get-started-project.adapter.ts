@@ -1,6 +1,6 @@
 import { commands } from '../../../core/_bindings';
 import { projectFromDto } from '@mozart/desktop-projects-data-access';
-import { WorkspacesFacade } from '../../workspaces';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import type { GetStartedProjectAdapter } from './get-started-project.adapter';
 
 function unwrap<T>(

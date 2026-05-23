@@ -59,9 +59,9 @@ import type { TerminalEvent as TerminalEventModel } from '@mozart/desktop-termin
 import {
   WORKSPACES_ADAPTER,
   WorkspacesFacade,
-  type OpenInToolId as OpenInToolIdAlias,
   type WorkspacesAdapter,
-} from '../domains/workspaces';
+} from '@mozart/desktop-workspaces-data-access';
+import type { OpenInToolId as OpenInToolIdAlias } from '@mozart/desktop-workspaces-util';
 import {
   commands,
   type FileTreeEvent,

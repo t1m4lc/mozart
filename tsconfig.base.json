@@ -186,6 +186,15 @@
       ],
       "@mozart/desktop-projects-feature": [
         "./libs/desktop-projects-feature/src/index.ts"
+      ],
+      "@mozart/desktop-workspaces-util": [
+        "./libs/desktop-workspaces-util/src/index.ts"
+      ],
+      "@mozart/desktop-workspaces-data-access": [
+        "./libs/desktop-workspaces-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-workspaces-ui": [
+        "./libs/desktop-workspaces-ui/src/index.ts"
       ]
     }
   }

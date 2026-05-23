@@ -16,7 +16,7 @@ import {
   lucideWind,
   lucideZap,
 } from '@ng-icons/lucide';
-import type { OpenInTool } from '../data/open-in-tools';
+import type { OpenInTool } from '@mozart/desktop-workspaces-util';
 
 @Component({
   selector: 'app-open-in-menu',

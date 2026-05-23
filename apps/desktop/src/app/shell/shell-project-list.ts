@@ -26,17 +26,20 @@ import {
 } from '@mozart/desktop-projects-ui';
 import { AddProjectFlow } from './add-project.flow';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import {
   UI_WORKSPACE_STATUSES,
-  WorkspaceContextMenu,
-  WorkspaceRow,
-  WorkspacesFacade,
   workspaceRouteCommands,
-  type ConfirmReopenWorkspaceContext,
   type UiWorkspaceStatus,
   type UiWorkspaceStatusMeta,
   type Workspace,
-} from '../domains/workspaces';
+} from '@mozart/desktop-workspaces-util';
+import {
+  ConfirmReopenWorkspaceDialog,
+  WorkspaceRow,
+  type ConfirmReopenWorkspaceContext,
+} from '@mozart/desktop-workspaces-ui';
+import { WorkspaceContextMenu } from '../domains/workspaces';
 import { ShellProjectRow } from './shell-project-row';
 
 // Cross-domain composer for the left sidebar. This is the only place
@@ -398,9 +401,6 @@ export class ShellProjectList {
           }
         },
       };
-      const { ConfirmReopenWorkspaceDialog } = await import(
-        '../domains/workspaces/ui-confirm-reopen-workspace-dialog'
-      );
       this._dialogService.open(ConfirmReopenWorkspaceDialog, { context });
       return;
     }

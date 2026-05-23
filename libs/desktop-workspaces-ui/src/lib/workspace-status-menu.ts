@@ -7,7 +7,7 @@ import { lucideCheck } from '@ng-icons/lucide';
 import {
   UI_WORKSPACE_STATUSES,
   type UiWorkspaceStatus,
-} from '../data/workspace-status';
+} from '@mozart/desktop-workspaces-util';
 
 @Component({
   selector: 'app-workspace-status-menu',

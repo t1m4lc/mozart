@@ -81,7 +81,9 @@ export class RunActionMenu {
   /** Disabled until a run command is configured for the project. */
   readonly hasCommand = input<boolean>(false);
 
+  // eslint-disable-next-line @angular-eslint/no-output-native
   readonly start = output<void>();
+  // eslint-disable-next-line @angular-eslint/no-output-native
   readonly stop = output<void>();
 
   protected readonly isRunning = computed(() => {

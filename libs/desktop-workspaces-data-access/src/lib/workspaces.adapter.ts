@@ -1,13 +1,26 @@
 import { InjectionToken } from '@angular/core';
-import type { InstallResult, MergeOutcome } from '../../../core/_bindings';
-import type { OpenInToolId } from './open-in-tools';
-import type { UiWorkspaceStatus } from './workspace-status';
-import type { WorkspaceDto } from './workspace.dto';
-import type { MergeAction } from './workspace.model';
+import type {
+  MergeAction,
+  OpenInToolId,
+  UiWorkspaceStatus,
+} from '@mozart/desktop-workspaces-util';
+import type { WorkspaceDto } from './workspace.dto-mapper';
 
-// Domain-level alias for the Tauri install command result. Re-exported
-// so features + facade don't need to reach into `core/_bindings`.
-export type InstallPackagesResult = InstallResult;
+// Wire shapes returned by the Tauri install + merge commands. Declared
+// locally so this lib has no inbound dep on apps/_bindings — the
+// desktop app passes its generated DTOs into the adapter and
+// TypeScript structural typing closes the bridge.
+export interface InstallPackagesResult {
+  readonly manager: string;
+  readonly ran: boolean;
+  readonly success: boolean;
+  readonly message: string;
+}
+
+export interface MergeOutcome {
+  readonly status: string;
+  readonly conflicting_files: readonly string[];
+}
 
 // Tauri-backed IO for the workspaces domain. Concrete impl bound in
 // app.config.ts. The adapter is the ONLY surface in the Angular tree

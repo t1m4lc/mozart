@@ -1,6 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { ScrollPositionService } from '../../../core/scroll-position.service';
-import { FILE_TAB_CAP } from '../ui/workspace-tab-bar/workspace-tab.model';
+import { ScrollPositionService } from './scroll-position.service';
+import { FILE_TAB_CAP } from '@mozart/desktop-workspaces-util';
 
 // Per-workspace file tabs in the central shell. Each workspace owns a
 // list of open file paths and one active path (or null = no file

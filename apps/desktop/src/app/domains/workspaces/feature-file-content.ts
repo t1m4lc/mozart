@@ -29,7 +29,7 @@ import {
 import {
   ScrollPositionService,
   fileTabKey,
-} from '../../core/scroll-position.service';
+} from '@mozart/desktop-workspaces-data-access';
 import {
   FeatureFileDiff,
   FeatureFileToolbar,

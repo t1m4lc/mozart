@@ -11,7 +11,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { MzLoader } from '@mozart-ui/loader';
-import { WorkspacesFacade } from '../workspaces';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import {
   TerminalRegistry,
   type TerminalEntry,

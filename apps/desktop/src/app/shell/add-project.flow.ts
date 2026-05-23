@@ -17,7 +17,8 @@ import {
   InitProjectDialog,
   type InitProjectContext,
 } from '@mozart/desktop-projects-ui';
-import { WorkspacesFacade, workspaceRouteCommands } from '../domains/workspaces';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
 
 // Unified add-project flow used by Phase 1's three dashboard cards and
 // the sidebar "+ Add a project" affordance. All entry points converge

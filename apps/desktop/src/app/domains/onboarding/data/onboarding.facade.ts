@@ -1,7 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
-import { WorkspacesFacade, workspaceRouteCommands } from '../../workspaces';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
 import { GET_STARTED_PROJECT_ADAPTER } from './get-started-project.adapter';
 import { ONBOARDING_ADAPTER } from './onboarding.adapter';
 import {

@@ -118,21 +118,6 @@ function normalizeWorkspaceRelativePath(path: string): string | null {
   return parts.join('/');
 }
 
-export function workspaceRouteCommands(
-  projectId: string,
-  workspaceId: string,
-): string[] {
-  return ['/project', projectId, 'workspace', workspaceId];
-}
-
-export function workspaceTabRouteCommands(
-  projectId: string,
-  workspaceId: string,
-  tabId: string,
-): string[] {
-  return ['/project', projectId, 'workspace', workspaceId, 'tab', tabId];
-}
-
 @Injectable({ providedIn: 'root' })
 export class WorkspaceTabRegistry {
   chatTabId(chatId: string): string {

@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { OPEN_IN_TOOLS, type OpenInTool, type OpenInToolId } from './open-in-tools';
+import { OPEN_IN_TOOLS, type OpenInTool, type OpenInToolId } from '@mozart/desktop-workspaces-util';
 
 /**
  * IDE detection cache. Probes via Tauri at boot (and on explicit

@@ -16,10 +16,10 @@ import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucideLoader, lucidePin } from '@ng-icons/lucide';
-import { workspaceRouteCommands } from '../data/workspace-tab-registry';
-import { getUiStatusMeta } from '../data/workspace-status';
-import type { Workspace } from '../data/workspace.model';
-import { relativeTime } from '../util-relative-time';
+import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
+import { getUiStatusMeta } from '@mozart/desktop-workspaces-util';
+import type { Workspace } from '@mozart/desktop-workspaces-util';
+import { relativeTime } from '@mozart/desktop-workspaces-util';
 
 function statusLabel(status: Workspace['status']): string {
   return getUiStatusMeta(status).label;

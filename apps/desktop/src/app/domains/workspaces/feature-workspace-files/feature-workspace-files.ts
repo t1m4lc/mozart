@@ -24,12 +24,12 @@ import {
 } from '@mozart/desktop-repositories-data-access';
 import type { FileNode } from '@mozart/desktop-repositories-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
-import { FileTabsService } from '../data/file-tabs.service';
 import {
+  FileTabsService,
+  WorkspacesFacade,
   WorkspaceTabRegistry,
-  workspaceTabRouteCommands,
-} from '../data/workspace-tab-registry';
-import { WorkspacesFacade } from '../data/workspace.facade';
+} from '@mozart/desktop-workspaces-data-access';
+import { workspaceTabRouteCommands } from '@mozart/desktop-workspaces-util';
 import { FeatureChangesList } from './feature-changes-list';
 
 // Shared empty array — returning the same reference on cache miss

@@ -1,6 +1,6 @@
 import { InjectionToken } from '@angular/core';
 import type { Project } from '@mozart/desktop-projects-util';
-import type { Workspace } from '../../workspaces';
+import type { Workspace } from '@mozart/desktop-workspaces-util';
 
 // Port for the tour's "Get started" project bootstrap. Wraps the
 // `create_get_started_project` Tauri command : returns the registered

@@ -13,12 +13,12 @@ import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import type { Project } from '@mozart/desktop-projects-util';
 import { ProjectRow } from '@mozart/desktop-projects-ui';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import type { Workspace } from '@mozart/desktop-workspaces-util';
 import {
   WorkspaceEmptyState,
   WorkspaceRow,
-  WorkspacesFacade,
-  type Workspace,
-} from '../domains/workspaces';
+} from '@mozart/desktop-workspaces-ui';
 
 // Per-project sidebar row + nested workspaces list. Owned by the shell
 // layer (the legal cross-domain composer). Reads its data straight off

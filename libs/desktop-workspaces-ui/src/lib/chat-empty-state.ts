@@ -7,7 +7,7 @@ import {
   lucideGitBranch,
   lucideSparkles,
 } from '@ng-icons/lucide';
-import type { InstallState } from '../data/workspace.facade';
+import type { InstallState } from '@mozart/desktop-workspaces-util';
 import { MzLoader } from '@mozart-ui/loader';
 
 // Step 4 copy lookup. Manager suffix is appended in the template when

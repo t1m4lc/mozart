@@ -11,7 +11,7 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePlus } from '@ng-icons/lucide';
 import { TabItem } from './tab-item';
-import { CHAT_TAB_CAP, type WorkspaceTab } from './workspace-tab.model';
+import { CHAT_TAB_CAP, type WorkspaceTab } from '@mozart/desktop-workspaces-util';
 
 export interface TabRenameEvent {
   readonly tabId: string;

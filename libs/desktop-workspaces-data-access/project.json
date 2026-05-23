@@ -1,0 +1,20 @@
+{
+  "name": "desktop-workspaces-data-access",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-workspaces-data-access/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": ["app:desktop", "domain:workspaces", "type:data-access"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/desktop-workspaces-data-access/tsconfig.spec.json"
+      }
+    }
+  }
+}
