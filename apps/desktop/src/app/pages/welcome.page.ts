@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
-import { TopBar } from '../core/window-controls/top-bar';
+import { TopBar } from '@mozart/desktop-core-ui';
 import { FeatureWelcome } from '@mozart/desktop-auth-feature';
 
 // Route-level wrapper for /welcome. Composes the shared `TopBar`

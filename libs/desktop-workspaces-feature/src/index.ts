@@ -1,0 +1,9 @@
+export { WorkspaceDetailPage } from './lib/feature-detail/workspace-detail.page';
+export { WorkspaceTabContent } from './lib/feature-detail/workspace-tab-content';
+export { FeatureWorkspaceAside } from './lib/feature-workspace-aside';
+export { FeatureWorkspaceMiddle } from './lib/feature-workspace-middle';
+export { FeatureFileContent } from './lib/feature-file-content';
+export { FeatureChatTabBar } from './lib/feature-chat-tab-bar';
+export { WorkspaceContextMenu } from './lib/feature-workspace-context-menu';
+export { WorkspaceToolbar } from './lib/workspace-toolbar';
+export { MzScrollPersist, type ScrollDefaultPosition } from './lib/mz-scroll-persist.directive';

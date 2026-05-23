@@ -6,9 +6,6 @@ export default [
   ...nx.configs['flat/angular-template'],
   ...baseConfig,
   {
-    ignores: ['**/_bindings.ts'],
-  },
-  {
     files: ['**/*.ts'],
     rules: {
       '@angular-eslint/directive-selector': [

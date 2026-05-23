@@ -1,0 +1,20 @@
+{
+  "name": "desktop-workspaces-feature",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-workspaces-feature/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": ["app:desktop", "domain:workspaces", "type:feature"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/desktop-workspaces-feature/tsconfig.spec.json"
+      }
+    }
+  }
+}

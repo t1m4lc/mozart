@@ -1,7 +1,3 @@
-// Smart toolbar / feature shells live in `apps/desktop/src/app/domains/workspaces/`
-// while their app-shell (LayoutService, FeatureWorkspaceAside, ShellTopBar)
-// hasn't been libbed.
-
 export { BranchPicker } from './lib/branch-picker';
 export { ChatEmptyState } from './lib/chat-empty-state';
 export { LlmIcon } from './lib/llm-icon';

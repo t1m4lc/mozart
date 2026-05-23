@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { TopBar } from '../core/window-controls/top-bar';
+import { TopBar } from '@mozart/desktop-core-ui';
 import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 import { UiOnboardingStepper } from '@mozart/desktop-onboarding-ui';
 import {

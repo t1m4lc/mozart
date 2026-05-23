@@ -1,0 +1,13 @@
+{
+  "name": "desktop-shell-feature",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-shell-feature/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": ["app:desktop", "domain:shell", "type:feature"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

@@ -31,3 +31,4 @@ export {
   workspaceTabRouteCommands,
 } from './lib/workspace-route';
 export { type InstallState, type WorkspaceInstall } from './lib/install-state';
+export { WORKSPACE_PROCESSES_PANEL_HEIGHT } from './lib/workspace-processes-panel.constants';

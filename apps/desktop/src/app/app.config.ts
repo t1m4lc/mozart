@@ -17,10 +17,12 @@ import {
   NotificationService,
 } from '@mozart/desktop-core-data-access';
 import { appRoutes } from './app.routes';
-import { provideTauriAdapters } from './core/tauri-adapters';
-import { TauriConnectivityService } from './core/connectivity.service';
-import { TauriExternalLinkService } from './core/external-link.service';
-import { TauriNotificationService } from './core/notification.service';
+import {
+  provideTauriAdapters,
+  TauriConnectivityService,
+  TauriExternalLinkService,
+  TauriNotificationService,
+} from '@mozart/desktop-core-tauri';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import {
   ChatFacade,
@@ -50,9 +52,9 @@ export const appConfig: ApplicationConfig = {
     provideTauriAdapters(),
     // Bind the abstract core-service ports (declared in
     // `desktop-core-data-access`) to their Tauri-bound concrete impls
-    // that live in `core/`. Lets feature libs inject the abstract
-    // class without dragging `@tauri-apps/*` or `core/_bindings` into
-    // their build graph.
+    // that live in `desktop-core-tauri`. Lets feature libs inject the
+    // abstract class without dragging `@tauri-apps/*` into their build
+    // graph.
     { provide: ConnectivityService, useExisting: TauriConnectivityService },
     { provide: ExternalLinkService, useExisting: TauriExternalLinkService },
     { provide: NotificationService, useExisting: TauriNotificationService },

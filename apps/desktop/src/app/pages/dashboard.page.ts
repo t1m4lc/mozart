@@ -10,8 +10,8 @@ import {
   lucidePanelLeft,
   lucideZap,
 } from '@ng-icons/lucide';
-import { AddProjectFlow } from '../shell/add-project.flow';
-import { LayoutService } from '../core/layout.service';
+import { AddProjectFlow } from '@mozart/desktop-shell-feature';
+import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 // Phase 1 dashboard. Renders when no workspace is selected (`/`).

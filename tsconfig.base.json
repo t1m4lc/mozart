@@ -76,7 +76,6 @@
       "@mozart/ui/utils": ["./libs/ui/utils/src/index.ts"],
       "@mozart/shared-util-os": ["./libs/shared-util-os/src/index.ts"],
       "@mozart/shared-util-theme": ["./libs/shared-util-theme/src/index.ts"],
-      "@mozart/*": ["./apps/desktop/src/app/domains/*"],
       "@mozart/clerk": ["./libs/clerk/src/index.ts"],
       "@mozart-ui/code-editor": ["./libs/mozart-ui/code-editor/src/index.ts"],
       "@mozart-ui/codemirror-theme": [
@@ -138,6 +137,8 @@
       "@mozart/desktop-core-data-access": [
         "./libs/desktop-core-data-access/src/index.ts"
       ],
+      "@mozart/desktop-core-ui": ["./libs/desktop-core-ui/src/index.ts"],
+      "@mozart/desktop-core-tauri": ["./libs/desktop-core-tauri/src/index.ts"],
       "@mozart/desktop-profile-feature": [
         "./libs/desktop-profile-feature/src/index.ts"
       ],
@@ -147,6 +148,9 @@
       ],
       "@mozart/desktop-terminals-data-access": [
         "./libs/desktop-terminals-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-terminals-feature": [
+        "./libs/desktop-terminals-feature/src/index.ts"
       ],
       "@mozart/desktop-runs-util": ["./libs/desktop-runs-util/src/index.ts"],
       "@mozart/desktop-runs-data-access": [
@@ -195,6 +199,12 @@
       ],
       "@mozart/desktop-workspaces-ui": [
         "./libs/desktop-workspaces-ui/src/index.ts"
+      ],
+      "@mozart/desktop-workspaces-feature": [
+        "./libs/desktop-workspaces-feature/src/index.ts"
+      ],
+      "@mozart/desktop-shell-feature": [
+        "./libs/desktop-shell-feature/src/index.ts"
       ],
       "@mozart/desktop-onboarding-util": [
         "./libs/desktop-onboarding-util/src/index.ts"

@@ -38,3 +38,8 @@ export {
   WorkspaceTabResolver,
   type WorkspaceTabResolution,
 } from './lib/workspace-tab-resolver.service';
+export { WorkspaceDetailStore } from './lib/workspace-detail.store';
+export {
+  tabMatcher,
+  workspaceTabCanActivate,
+} from './lib/workspace-tab-routes';

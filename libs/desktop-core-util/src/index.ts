@@ -7,3 +7,8 @@ export {
   loadXterm,
 } from './lib/util-xterm';
 export { memoize } from './lib/util-memoize';
+export {
+  FEATURE_FLAGS,
+  FeatureFlagsService,
+  type FeatureFlags,
+} from './lib/feature-flags';

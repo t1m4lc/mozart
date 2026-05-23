@@ -5,9 +5,8 @@ import { notOnboardedGuard, onboardingGuard } from '@mozart/desktop-onboarding-f
 import {
   tabMatcher,
   workspaceTabCanActivate,
-} from './domains/workspaces/feature-detail/workspace-tab-routes';
-import { AppShell } from './shell/app-shell';
-import { SettingsShell } from './shell/settings-shell';
+} from '@mozart/desktop-workspaces-data-access';
+import { AppShell, SettingsShell } from '@mozart/desktop-shell-feature';
 
 // Preload xterm.js modules before the workspace-detail route activates.
 // RunRegistry.ensureEntry() runs from computed signals on first render
@@ -51,16 +50,18 @@ export const appRoutes: Route[] = [
         path: 'project/:projectId/workspace/:workspaceId',
         canActivate: [xtermPreloadGuard],
         loadComponent: () =>
-          import('./domains/workspaces').then((m) => m.WorkspaceDetailPage),
+          import('@mozart/desktop-workspaces-feature').then(
+            (m) => m.WorkspaceDetailPage,
+          ),
         children: [
           { path: '', pathMatch: 'full', redirectTo: 'tab/default' },
           {
             matcher: tabMatcher,
             canActivate: [workspaceTabCanActivate],
             loadComponent: () =>
-              import(
-                './domains/workspaces/feature-detail/workspace-tab-content'
-              ).then((m) => m.WorkspaceTabContent),
+              import('@mozart/desktop-workspaces-feature').then(
+                (m) => m.WorkspaceTabContent,
+              ),
           },
         ],
       },
