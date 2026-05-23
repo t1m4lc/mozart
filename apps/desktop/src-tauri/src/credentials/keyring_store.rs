@@ -53,8 +53,6 @@ pub fn clear_anthropic_key() -> Result<(), AppError> {
     }
 }
 
-// ---------- GitHub Personal Access Token (Phase 4f) ----------
-
 pub fn has_github_token() -> Result<bool, AppError> {
     match github_entry()?.get_password() {
         Ok(_) => Ok(true),

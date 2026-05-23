@@ -403,7 +403,6 @@ where
     let run_id = run.run_id.clone();
     let db_arc = db.0.clone();
 
-    // ----- stdout drain task -----
     let stdout_task: JoinHandle<()> = {
         let channel = channel.clone();
         let db_arc = db_arc.clone();
@@ -449,7 +448,6 @@ where
         })
     };
 
-    // ----- stderr drain task -----
     let stderr_task: JoinHandle<()> = {
         let channel = channel.clone();
         let db_arc = db_arc.clone();
@@ -522,7 +520,6 @@ where
             .map_err(|e| AppError::AgentSpawn(format!("stdin shutdown: {e}")))?;
     }
 
-    // ----- supervisor task: poll for cancel, wait for exit, mark_ended -----
     // Clones for the post-exit reach-back (S1.5.4): the supervisor `move`s
     // these into its async block so it can compute and persist the diff.
     let workspace_path_for_supervisor = canonical_workspace.worktree_path.clone();
@@ -772,8 +769,6 @@ mod tests {
     use crate::db::models::{Repo, Task, Thread};
     use crate::db::{init_db_memory, new_id, repos, tasks, threads, workspaces};
 
-    // --- inject_anthropic_key_env unit tests (no keyring, no subprocess) ---
-
     /// Searches `cmd.as_std().get_envs()` for the named var, returning
     /// its value if set, `None` if explicitly removed, or panicking via
     /// `expect` if absent — caller decides the contract per assertion.
@@ -811,8 +806,6 @@ mod tests {
             "no ANTHROPIC_API_KEY override should be staged when key is None"
         );
     }
-
-    // --- argv unit test (no fixture, no subprocess) ---
 
     /// Test-only Workspace fixture for `production_argv` assertions. The
     /// argv only reads `worktree_path`; other fields are set to safe
@@ -926,8 +919,6 @@ mod tests {
             );
         }
     }
-
-    // --- integration tests (mock subprocess, all gated #[cfg(unix)]) ---
 
     #[cfg(unix)]
     // The env-var serialization Mutex is held across `.await` on purpose:

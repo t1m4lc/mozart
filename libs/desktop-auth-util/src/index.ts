@@ -1,8 +1,3 @@
-// Public surface of `desktop-auth-util`. Pure helpers and domain
-// model types — no Angular DI, no Tauri side effects. Lives at the
-// bottom of the layer graph: data-access, ui, and feature all import
-// from here.
-
 export type {
   AuthSession,
   DeepLinkPayload,

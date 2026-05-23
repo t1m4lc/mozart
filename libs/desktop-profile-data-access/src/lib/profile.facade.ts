@@ -82,7 +82,6 @@ export class ProfileFacade {
     this.store.setStatus('not_connected');
   }
 
-  // ---------- GitHub (Phase 4f) ----------
   // Minimal state: 'unknown' before the boot probe resolves, 'none' if
   // no token stored, 'connected' once a token is verified. The login
   // is held alongside for display in the settings card.
@@ -93,7 +92,9 @@ export class ProfileFacade {
   private readonly _githubLogin = signal<string | null>(null);
   readonly githubState = computed(() => this._githubState());
   readonly githubLogin = computed(() => this._githubLogin());
-  readonly githubConnected = computed(() => this._githubState() === 'connected');
+  readonly githubConnected = computed(
+    () => this._githubState() === 'connected',
+  );
 
   /** Idempotent boot probe: if a token is stored, mark connected. We
    *  don't re-validate against the GitHub API here — the user's first

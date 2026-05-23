@@ -521,13 +521,11 @@ describe('MzFileDiffCard — expand-all toggle', () => {
     });
     const btn = findBySlot(fixture, 'expand-all-button') as HTMLButtonElement;
 
-    // Expand
     btn.click();
     await fixture.whenStable();
     fixture.detectChanges();
     await fixture.whenStable();
 
-    // Collapse
     btn.click();
     fixture.detectChanges();
 

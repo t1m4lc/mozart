@@ -1,7 +1,3 @@
-// Public surface of `desktop-workspaces-data-access`. Facade, store,
-// Tauri ports + DTO mapper for the workspaces domain. Tauri-bound
-// concrete adapter lives in `apps/desktop/src/app/core/`.
-
 export {
   WorkspacesFacade,
   type InstallState,

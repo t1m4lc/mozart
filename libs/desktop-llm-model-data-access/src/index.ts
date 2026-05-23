@@ -1,9 +1,5 @@
-// Public surface of `desktop-llm-model-data-access`. Adapter port +
-// token + fake impl. The Tauri-backed impl lives in
-// apps/desktop/src/app/core/tauri-claude.adapter.ts because it must
-// import `core/_bindings` (Tauri-generated). Stream shapes, reducer,
-// parser, providers config, and ChatMode live in
-// `desktop-llm-model-util`.
+// The Tauri-backed impl lives in apps/desktop/src/app/core/tauri-claude.adapter.ts
+// because it must import `core/_bindings` (Tauri-generated).
 
 export {
   LLM_ADAPTER,

@@ -1,6 +1,3 @@
-// Public surface of `desktop-projects-feature`. Smart dialogs and
-// filter widgets that inject `ProjectsFacade` / `DIALOG_ADAPTER`.
-
 export {
   CreateProjectDialog,
   type CreateProjectContext,

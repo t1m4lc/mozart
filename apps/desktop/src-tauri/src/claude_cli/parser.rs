@@ -261,8 +261,6 @@ mod tests {
         parse_line(line, &mut ParserState::default())
     }
 
-    // ---- envelope: stream_event wrapping ----
-
     #[test]
     fn wrapped_text_delta_becomes_stream_token() {
         let line = r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}}"#;
@@ -304,8 +302,6 @@ mod tests {
             );
         }
     }
-
-    // ---- tool_use state machine ----
 
     #[test]
     fn tool_use_start_alone_emits_nothing() {
@@ -360,8 +356,6 @@ mod tests {
         assert!(parse_line(stop, &mut s).is_empty());
     }
 
-    // ---- thinking ----
-
     #[test]
     fn thinking_delta_becomes_thinking_event() {
         let line = r#"{"type":"stream_event","event":{"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let me see"}}}"#;
@@ -373,8 +367,6 @@ mod tests {
             other => panic!("expected Thinking, got {other:?}"),
         }
     }
-
-    // ---- tool_result from user message ----
 
     #[test]
     fn user_tool_result_string_content() {
@@ -425,8 +417,6 @@ mod tests {
         }
     }
 
-    // ---- fallback ----
-
     #[test]
     fn unknown_top_type_falls_back_to_cli_output() {
         let line = r#"{"type":"mystery","payload":42}"#;
@@ -463,8 +453,6 @@ mod tests {
             other => panic!("expected CliOutput, got {other:?}"),
         }
     }
-
-    // ---- event_type round-trip ----
 
     #[test]
     fn event_type_round_trip_all_variants() {
@@ -504,8 +492,6 @@ mod tests {
             assert_eq!(ev.event_type(), *expected);
         }
     }
-
-    // ---- wire shape (serde) ----
 
     #[test]
     fn stream_token_wire_shape() {

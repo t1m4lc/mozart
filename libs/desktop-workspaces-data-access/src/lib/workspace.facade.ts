@@ -44,9 +44,9 @@ export class WorkspacesFacade {
   // Per-workspace aggregate diff stats. Sidebar workspace rows read
   // their `+N` / `−N` from this map. Refreshed on hydrate + whenever a
   // workspace's FS watcher pings (driven from the aside).
-  private readonly _diffStats = signal<ReadonlyMap<string, { added: number; removed: number }>>(
-    new Map(),
-  );
+  private readonly _diffStats = signal<
+    ReadonlyMap<string, { added: number; removed: number }>
+  >(new Map());
   readonly diffStats = this._diffStats.asReadonly();
 
   diffStatsFor(workspaceId: string) {
@@ -93,9 +93,7 @@ export class WorkspacesFacade {
    * `workspaceId` has `unread === true`. Drives the composer's
    * next-unread overlay button.
    */
-  hasOtherUnreadInProject(
-    workspaceId: Signal<string | null>,
-  ): Signal<boolean> {
+  hasOtherUnreadInProject(workspaceId: Signal<string | null>): Signal<boolean> {
     return computed(() => this._nextUnreadId(workspaceId()) !== null);
   }
 
@@ -132,16 +130,12 @@ export class WorkspacesFacade {
     return workspaceFromDto(dto, projectId);
   }
 
-  // ---- v0.1.0-beta.1 wiring -------------------------------------------------
-
   // Hydrate from Tauri. Loads tasks-for-each-project first so the
   // workspace -> project join is resolvable client-side, then loads
   // workspaces and filters out rows the backend has marked for deletion.
   async loadAll(): Promise<void> {
     const projects = this.projects.all();
-    await Promise.all(
-      projects.map((p) => this.tasks.loadForProject(p.id)),
-    );
+    await Promise.all(projects.map((p) => this.tasks.loadForProject(p.id)));
     const dtos = await this.adapter.list();
     const workspaces: Workspace[] = dtos
       .filter((d) => d.deletion_intent === 0)
@@ -285,8 +279,6 @@ export class WorkspacesFacade {
     if (!project) return [];
     return this.adapter.listBranches(project.path);
   }
-
-  // ---- Mutators ------------------------------------------------------
 
   async archive(id: string): Promise<void> {
     await this.adapter.archive(id);

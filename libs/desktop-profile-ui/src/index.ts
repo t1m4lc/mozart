@@ -1,9 +1,7 @@
-// Public surface of `desktop-profile-ui`. Pure presentational
-// components. Smart dialogs that touch the facade (ui-connect-dialog,
-// ui-github-connect-dialog) stay in apps/desktop until a follow-up
-// extracts the core services they depend on (NotificationService,
-// ConnectivityService, ExternalLinkService) into shared libs — then
-// they migrate into `desktop-profile-feature`.
+// ui-connect-dialog / ui-github-connect-dialog stay in apps/desktop until
+// their core service deps (NotificationService, ConnectivityService,
+// ExternalLinkService) are extracted into shared libs — then they migrate
+// into `desktop-profile-feature`.
 
 export { UiComingSoonCard } from './lib/ui-coming-soon-card';
 export {

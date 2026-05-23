@@ -55,10 +55,6 @@ use crate::run_registry::RunRegistry;
 use crate::sandbox;
 use crate::workspace_service;
 
-// ---------------------------------------------------------------------------
-// list_repos
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn list_repos(db: State<'_, DbState>) -> Result<Vec<Repo>, AppError> {
@@ -69,10 +65,6 @@ pub(crate) async fn list_repos_impl(db: &DbState) -> Result<Vec<Repo>, AppError>
     let conn = db.lock();
     repos::list(&conn)
 }
-
-// ---------------------------------------------------------------------------
-// add_repo
-// ---------------------------------------------------------------------------
 
 #[tauri::command]
 #[specta::specta]
@@ -120,10 +112,6 @@ pub(crate) async fn add_repo_impl(db: &DbState, path: String) -> Result<Repo, Ap
     Ok(r)
 }
 
-// ---------------------------------------------------------------------------
-// init_repo
-// ---------------------------------------------------------------------------
-
 /// Run `git init --initial-branch=main` + identity config + an initial
 /// empty commit at `path` so the folder becomes a valid git repository
 /// Mozart can register. Called by the frontend after the user confirms
@@ -138,10 +126,6 @@ pub async fn init_repo(path: String) -> Result<(), AppError> {
 pub(crate) async fn init_repo_impl(path: String) -> Result<(), AppError> {
     git_query::init_repo(std::path::Path::new(&path)).await
 }
-
-// ---------------------------------------------------------------------------
-// install_workspace_packages
-// ---------------------------------------------------------------------------
 
 /// Outcome of an attempt to install package-manager dependencies for a
 /// workspace. `ran=false` means no `package.json` was found; the other
@@ -238,10 +222,6 @@ pub(crate) async fn install_workspace_packages_impl(
     })
 }
 
-// ---------------------------------------------------------------------------
-// create_project_folder
-// ---------------------------------------------------------------------------
-
 /// Create an empty directory `<parent>/<name>` for a fresh "Quick start"
 /// project. Validates inputs, refuses if the target already exists, and
 /// returns the canonicalised absolute path so the frontend can hand it
@@ -295,10 +275,6 @@ pub(crate) async fn create_project_folder_impl(
         .into_owned();
     Ok(canon)
 }
-
-// ---------------------------------------------------------------------------
-// clone_repo
-// ---------------------------------------------------------------------------
 
 /// Clone the git repository at `url` into `<dest_dir>/<name>`, where
 /// `name` is derived from the URL (last `/`-segment, trailing `.git`
@@ -422,10 +398,6 @@ mod derive_clone_repo_name_tests {
     }
 }
 
-// ---------------------------------------------------------------------------
-// remove_repo
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn remove_repo(db: State<'_, DbState>, repo_id: String) -> Result<(), AppError> {
@@ -436,10 +408,6 @@ pub(crate) async fn remove_repo_impl(db: &DbState, repo_id: String) -> Result<()
     let mut conn = db.lock();
     repos::delete(&mut conn, &repo_id)
 }
-
-// ---------------------------------------------------------------------------
-// set_repo_icon
-// ---------------------------------------------------------------------------
 
 #[tauri::command]
 #[specta::specta]
@@ -460,10 +428,6 @@ pub(crate) async fn set_repo_icon_impl(
     repos::set_icon(&conn, &repo_id, icon.as_deref())
 }
 
-// ---------------------------------------------------------------------------
-// set_repo_hidden
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn set_repo_hidden(
@@ -482,10 +446,6 @@ pub(crate) async fn set_repo_hidden_impl(
     let conn = db.lock();
     repos::set_hidden(&conn, &repo_id, hidden)
 }
-
-// ---------------------------------------------------------------------------
-// set_repo_sort
-// ---------------------------------------------------------------------------
 
 /// Apply a complete project ordering. `ordered_ids[i]` gets
 /// `sort_index = i`. The Angular store debounces drag bursts so this
@@ -507,19 +467,11 @@ pub(crate) async fn set_repo_sort_impl(
     repos::set_sort(&mut conn, &ordered_ids)
 }
 
-// ---------------------------------------------------------------------------
-// list_branches
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn list_branches(repo_path: String) -> Result<Vec<String>, AppError> {
     git_query::list_branches(std::path::Path::new(&repo_path)).await
 }
-
-// ---------------------------------------------------------------------------
-// create_workspace
-// ---------------------------------------------------------------------------
 
 #[tauri::command]
 #[specta::specta]
@@ -556,10 +508,6 @@ pub(crate) async fn create_workspace_impl(
     .await
 }
 
-// ---------------------------------------------------------------------------
-// list_workspaces
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn list_workspaces(db: State<'_, DbState>) -> Result<Vec<Workspace>, AppError> {
@@ -570,10 +518,6 @@ pub(crate) async fn list_workspaces_impl(db: &DbState) -> Result<Vec<Workspace>,
     let conn = db.lock();
     workspaces::list_all(&conn)
 }
-
-// ---------------------------------------------------------------------------
-// list_tasks
-// ---------------------------------------------------------------------------
 
 #[tauri::command]
 #[specta::specta]
@@ -591,10 +535,6 @@ pub(crate) async fn list_tasks_impl(
     let conn = db.lock();
     tasks::list_by_repo(&conn, &repo_id)
 }
-
-// ---------------------------------------------------------------------------
-// archive_workspace
-// ---------------------------------------------------------------------------
 
 #[tauri::command]
 #[specta::specta]
@@ -622,10 +562,6 @@ pub(crate) async fn archive_workspace_impl(
     workspaces::set_deletion_intent(&conn, &workspace_id, true)
 }
 
-// ---------------------------------------------------------------------------
-// rename_workspace
-// ---------------------------------------------------------------------------
-
 /// Rename the user-facing workspace title. Intentionally does NOT
 /// touch `branch_name` — the branch is derived from the original
 /// name at create time and never re-derived (vocabulary contract).
@@ -648,10 +584,6 @@ pub(crate) async fn rename_workspace_impl(
     workspaces::set_name(&conn, &workspace_id, &name)
 }
 
-// ---------------------------------------------------------------------------
-// set_workspace_ui_status
-// ---------------------------------------------------------------------------
-
 /// Set the kanban-lane label. The backend does not validate the value
 /// against an enum; the Angular side owns the closed-set of allowed
 /// `UiWorkspaceStatus` strings.
@@ -673,10 +605,6 @@ pub(crate) async fn set_workspace_ui_status_impl(
     let conn = db.lock();
     workspaces::set_ui_status(&conn, &workspace_id, &ui_status)
 }
-
-// ---------------------------------------------------------------------------
-// reopen_workspace (Plan P0.2.D)
-// ---------------------------------------------------------------------------
 
 /// Lift a workspace out of the frozen `done` UI state so the user can
 /// edit and run agents again. Flips `ui_status` to the caller-chosen
@@ -715,10 +643,6 @@ pub(crate) async fn reopen_workspace_impl(
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// set_workspace_pinned
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn set_workspace_pinned(
@@ -738,10 +662,6 @@ pub(crate) async fn set_workspace_pinned_impl(
     workspaces::set_pinned(&conn, &workspace_id, pinned)
 }
 
-// ---------------------------------------------------------------------------
-// set_workspace_unread
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn set_workspace_unread(
@@ -760,10 +680,6 @@ pub(crate) async fn set_workspace_unread_impl(
     let conn = db.lock();
     workspaces::set_unread(&conn, &workspace_id, unread)
 }
-
-// ---------------------------------------------------------------------------
-// set_workspace_last_merge_action (P2.6.C — AD-02 routing memory)
-// ---------------------------------------------------------------------------
 
 /// Persist the workspace's last merge-action choice (`'pr'` or `'local'`).
 /// The right-aside primary-button label routes off this column with
@@ -785,10 +701,6 @@ pub async fn set_workspace_last_merge_action(
     let conn = db.lock();
     workspaces::set_last_merge_action(&conn, &workspace_id, &action)
 }
-
-// ---------------------------------------------------------------------------
-// set_workspace_sandbox_level (P0.1 S0.1.E — debug-only)
-// ---------------------------------------------------------------------------
 
 /// Change a workspace's [`SandboxLevel`]. Validated against
 /// `SandboxLevel::from_str` before writing — an unknown string
@@ -825,10 +737,6 @@ pub(crate) async fn set_workspace_sandbox_level_impl(
     let conn = db.lock();
     workspaces::set_sandbox_level(&conn, &workspace_id, &canonical)
 }
-
-// ---------------------------------------------------------------------------
-// start_agent_run
-// ---------------------------------------------------------------------------
 
 #[tauri::command]
 #[specta::specta]
@@ -997,10 +905,6 @@ where
     Ok(run)
 }
 
-// ---------------------------------------------------------------------------
-// stop_agent_run
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn stop_agent_run(
@@ -1016,10 +920,6 @@ pub(crate) async fn stop_agent_run_impl(
 ) -> Result<(), AppError> {
     registry.cancel(&run_id).await
 }
-
-// ---------------------------------------------------------------------------
-// list_runs
-// ---------------------------------------------------------------------------
 
 #[tauri::command]
 #[specta::specta]
@@ -1039,10 +939,6 @@ pub(crate) async fn list_runs_impl(
     agent_runs::list_by_thread(&conn, &thread.thread_id)
 }
 
-// ---------------------------------------------------------------------------
-// get_workspace_diff
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn get_workspace_diff(
@@ -1060,9 +956,6 @@ pub(crate) async fn get_workspace_diff_impl(
     workspace_changes::latest_for_workspace(&conn, &workspace_id)
 }
 
-// ---------------------------------------------------------------------------
-// list_workspace_diff_stats — per-workspace aggregate {added, removed}
-// ---------------------------------------------------------------------------
 //
 // Powers the +N/-N chip on every workspace row in the sidebar. Sums
 // line counts from the same two numstat passes the file tree uses
@@ -1146,10 +1039,6 @@ async fn compute_aggregate_diff_stats(worktree_path: &str, base_branch: &str) ->
     (added, removed)
 }
 
-// ---------------------------------------------------------------------------
-// discard_workspace_changes
-// ---------------------------------------------------------------------------
-
 /// "Undo the last agent run." Resets the worktree to the most-recent
 /// `agent_runs.checkpoint_sha` for this workspace's thread. Only the
 /// latest run's diff is reverted; earlier-run diffs that were never
@@ -1193,7 +1082,6 @@ pub(crate) async fn discard_workspace_changes_impl(
 
 // ===========================================================================
 // Chat surface (S4.A)
-// ---------------------------------------------------------------------------
 // Tab bar + persistent messages. The Angular ChatFacade owns optimistic
 // store mutations; these commands persist and return the canonical row.
 // ===========================================================================
@@ -1260,10 +1148,6 @@ pub(crate) async fn create_chat_impl(
     chats::create(&conn, &c)?;
     Ok(c)
 }
-
-// ---------------------------------------------------------------------------
-// Phase 2 chat mutators — mode / effort / model / read-marker
-// ---------------------------------------------------------------------------
 
 const VALID_MODES: &[&str] = &["agent", "plan", "ask"];
 const VALID_EFFORTS: &[&str] = &["low", "medium", "high", "xhigh", "max"];
@@ -1556,19 +1440,11 @@ pub(crate) async fn update_message_timeline_impl(
     messages::update_timeline(&conn, &message_id, timeline_json.as_deref())
 }
 
-// ---------------------------------------------------------------------------
-// check_claude_install
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn check_claude_install() -> ClaudeInstall {
     install::check_installed().await
 }
-
-// ---------------------------------------------------------------------------
-// check_claude_code_session
-// ---------------------------------------------------------------------------
 
 /// Step 6d — heuristic probe for an existing `claude /login` session. The
 /// frontend uses this to give Pro/Max users a single-click "Connect"
@@ -1580,10 +1456,6 @@ pub async fn check_claude_code_session() -> bool {
     session::has_session()
 }
 
-// ---------------------------------------------------------------------------
-// has_anthropic_key
-// ---------------------------------------------------------------------------
-
 /// Step 6 — cheap presence check used by the frontend on app start to know
 /// whether to render "Not connected" immediately or to kick off a probe.
 /// Never returns the value of the key.
@@ -1592,10 +1464,6 @@ pub async fn check_claude_code_session() -> bool {
 pub async fn has_anthropic_key() -> Result<bool, AppError> {
     keyring_store::has_anthropic_key()
 }
-
-// ---------------------------------------------------------------------------
-// connect_anthropic
-// ---------------------------------------------------------------------------
 
 /// Step 6 — probe-then-persist. Only writes to the keyring when the probe
 /// returns `Connected`. On `Invalid` / `NetworkError` the key is dropped at
@@ -1612,10 +1480,6 @@ pub async fn connect_anthropic(key: String) -> Result<ProbeResult, AppError> {
     Ok(result)
 }
 
-// ---------------------------------------------------------------------------
-// disconnect_anthropic
-// ---------------------------------------------------------------------------
-
 /// Step 6 — idempotent removal of the stored key. Safe to call when no
 /// entry exists.
 #[tauri::command]
@@ -1623,10 +1487,6 @@ pub async fn connect_anthropic(key: String) -> Result<ProbeResult, AppError> {
 pub async fn disconnect_anthropic() -> Result<(), AppError> {
     keyring_store::clear_anthropic_key()
 }
-
-// ---------------------------------------------------------------------------
-// refresh_anthropic_connection
-// ---------------------------------------------------------------------------
 
 /// Step 6 — re-probe the currently stored key. Returns `Validation` when no
 /// key is stored (the frontend gates this call on `has_anthropic_key()` so
@@ -1640,10 +1500,6 @@ pub async fn refresh_anthropic_connection() -> Result<ProbeResult, AppError> {
     }
 }
 
-// ---------------------------------------------------------------------------
-// probe_anthropic_reachability
-// ---------------------------------------------------------------------------
-
 /// Keyless reachability check polled by the front-end ConnectivityService.
 /// Owned by Rust so a non-200 HTTP response (e.g. 404 on `HEAD /`) does not
 /// surface as a noisy "Failed to load resource" line in DevTools.
@@ -1652,10 +1508,6 @@ pub async fn refresh_anthropic_connection() -> Result<ProbeResult, AppError> {
 pub async fn probe_anthropic_reachability() -> bool {
     anthropic_probe::probe_reachability().await
 }
-
-// ---------------------------------------------------------------------------
-// list_repository_tree (Phase 4b atom C)
-// ---------------------------------------------------------------------------
 
 /// List the workspace's worktree contents as a nested file tree, with
 /// per-file change badges (`A` / `M` / `D`) computed against the
@@ -1707,10 +1559,6 @@ pub(crate) async fn list_repository_tree_impl(
     Ok(tree)
 }
 
-// ---------------------------------------------------------------------------
-// watch_repository_tree (Phase 4b atom E)
-// ---------------------------------------------------------------------------
-
 /// Subscribe to FS-change events for the workspace's worktree. Spawns
 /// a `notify-debouncer-mini` watcher (200ms window) and registers it
 /// keyed by `workspace_id` so a subsequent call for the same workspace
@@ -1752,10 +1600,6 @@ pub async fn unwatch_repository_tree(
     registry.cancel(&workspace_id);
     Ok(())
 }
-
-// ---------------------------------------------------------------------------
-// get_file_diff (Phase 4c atom 1)
-// ---------------------------------------------------------------------------
 
 /// Resolve the unified diff text for one file in a workspace, against
 /// the workspace's `base_branch`. Working tree (incl. staged + unstaged)
@@ -1948,10 +1792,6 @@ pub(crate) async fn get_file_diff_impl(
     .await
 }
 
-// ---------------------------------------------------------------------------
-// Terminal commands (Phase 4d)
-// ---------------------------------------------------------------------------
-
 /// Open (or replace) the PTY for a workspace, rooted at its worktree.
 /// Streams `TerminalEvent` chunks through `on_event`. Replacement
 /// semantics: any prior PTY for the same workspace is killed before
@@ -2052,10 +1892,6 @@ pub async fn close_terminal(
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// Run command management (Phase 4e)
-// ---------------------------------------------------------------------------
-
 /// Update the project's `run_command`. Pass `None` to clear it.
 #[tauri::command]
 #[specta::specta]
@@ -2145,10 +1981,6 @@ pub async fn stop_workspace_run(
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// IDE detection + launch (Phase 4f atom 1)
-// ---------------------------------------------------------------------------
-
 /// Probe `$PATH` for known IDE binaries. The list is ordered as in
 /// `KNOWN_IDES`. Front-end uses this to filter the static
 /// `OPEN_IN_TOOLS` array.
@@ -2174,10 +2006,6 @@ pub async fn open_in_ide(
     };
     ide_launch::open_in_ide(&ide_id, std::path::Path::new(&ws.worktree_path))
 }
-
-// ---------------------------------------------------------------------------
-// Commit (Phase 4f atom 2)
-// ---------------------------------------------------------------------------
 
 /// Flat list of changed files in the workspace's worktree. Powers the
 /// commit dialog's checkbox list.
@@ -2215,10 +2043,6 @@ pub async fn commit_workspace(
     )
     .await
 }
-
-// ---------------------------------------------------------------------------
-// Per-file staging (P2.5 Changes tab context menu)
-// ---------------------------------------------------------------------------
 
 /// `git add -- <path>` inside the workspace's worktree. P0.1 S0.1.D —
 /// gated by `path_guard::guard_agent_relative_path` so a symlink-escape
@@ -2272,10 +2096,6 @@ pub async fn is_staged(
     path_guard::guard_agent_relative_path(db.inner(), &ws, &path)?;
     staging::is_staged(std::path::Path::new(&ws.worktree_path), &path).await
 }
-
-// ---------------------------------------------------------------------------
-// Viewed state — per-file review markers (P2.2 / [[mozart-viewed-principle]])
-// ---------------------------------------------------------------------------
 
 /// State of a single file relative to its stored Viewed mark. The
 /// frontend uses this to decorate Changes-tab rows and to drive the
@@ -2459,10 +2279,6 @@ pub(crate) async fn mark_all_viewed_impl(
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// GitHub credentials + Create PR (Phase 4f atoms 3 + 4)
-// ---------------------------------------------------------------------------
-
 #[tauri::command]
 #[specta::specta]
 pub async fn has_github_token() -> Result<bool, AppError> {
@@ -2567,10 +2383,6 @@ pub async fn create_workspace_pr(
     .await
 }
 
-// ---------------------------------------------------------------------------
-// merge_workspace_locally (P2.6.B)
-// ---------------------------------------------------------------------------
-
 /// Plan §P2.6 "Merge-now flow". Runs the local-merge state machine on
 /// the workspace's worktree and persists the resulting status.
 ///
@@ -2613,10 +2425,6 @@ pub async fn merge_workspace_locally(
     Ok(outcome)
 }
 
-// ---------------------------------------------------------------------------
-// auth_load_session / auth_save_session / auth_clear_session
-// ---------------------------------------------------------------------------
-
 /// Phase 5 / Atom 3 — load the persisted Mozart auth session from the
 /// OS keyring. Returns `None` when no entry exists OR when the stored
 /// payload is malformed (defensive : the front-end falls back to the
@@ -2657,10 +2465,6 @@ pub fn auth_get_callback_port(
 ) -> u16 {
     state.0
 }
-
-// ---------------------------------------------------------------------------
-// Notification preferences + emit_message_end_notification (Phase 6 / Atom 10)
-// ---------------------------------------------------------------------------
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, specta::Type)]
 pub struct NotificationPreferences {
@@ -2751,10 +2555,6 @@ pub async fn emit_message_end_notification(
     Ok(())
 }
 
-// ---------------------------------------------------------------------------
-// create_get_started_project (Phase 6 / Atom 6)
-// ---------------------------------------------------------------------------
-
 /// Materialize (if missing) the bundled `~/Mozart/get-started/` project,
 /// then ensure a `welcome-1` workspace exists on `main`. Idempotent —
 /// re-entry from Settings → "Revisit tour" reuses the existing repo +
@@ -2766,10 +2566,6 @@ pub async fn create_get_started_project(
 ) -> Result<crate::get_started::GetStartedProject, AppError> {
     crate::get_started::create(db.inner()).await
 }
-
-// ---------------------------------------------------------------------------
-// spawn_claude_login (Phase 6 / Atom 3)
-// ---------------------------------------------------------------------------
 
 const ONBOARDING_PTY_ID: &str = "__onboarding_claude_login__";
 
@@ -2824,10 +2620,6 @@ pub async fn spawn_claude_login(
     registry.register(ONBOARDING_PTY_ID.to_string(), std::sync::Arc::new(handle));
     Ok(ONBOARDING_PTY_ID.to_string())
 }
-
-// ---------------------------------------------------------------------------
-// git_version
-// ---------------------------------------------------------------------------
 
 /// Phase 6 / Atom 2 — detection probe for the onboarding wizard's Git
 /// step. Spawns `git --version` (argv form, no shell) and parses the
@@ -2895,10 +2687,6 @@ pub async fn git_identity() -> Result<Option<GitIdentity>, AppError> {
     }
 }
 
-// ---------------------------------------------------------------------------
-// get_onboarding_completed / set_onboarding_completed
-// ---------------------------------------------------------------------------
-
 /// Phase 6 / Atom 1 — read the local onboarding-completed mirror from the
 /// `config` key-value table. Missing row fails-closed to `false` so a
 /// brand-new install routes into the wizard.
@@ -2937,7 +2725,6 @@ pub async fn set_onboarding_completed(
 
 // ===========================================================================
 // Dev-only DB reset / demo seed (debug builds only)
-// ---------------------------------------------------------------------------
 //
 // Both commands are gated behind `#[cfg(debug_assertions)]`, so the
 // shipping release binary cannot wipe the user's DB even if a stray
@@ -3045,10 +2832,6 @@ mod tests {
     use crate::db::{init_db_memory, tasks};
     use std::path::Path;
     use std::process::Command;
-
-    // -------------------------------------------------------------------
-    // Shared helpers
-    // -------------------------------------------------------------------
 
     fn noop_channel() -> Channel<StreamEvent> {
         Channel::new(|_| Ok(()))
@@ -3190,10 +2973,6 @@ mod tests {
         (ws.workspace_id, th.thread_id)
     }
 
-    // -------------------------------------------------------------------
-    // 1. list_repos
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn list_repos_returns_empty_then_seeded() {
         let db = init_db_memory().unwrap();
@@ -3204,10 +2983,6 @@ mod tests {
         assert_eq!(got.len(), 1);
         assert_eq!(got[0].path, "/tmp/seeded-repo");
     }
-
-    // -------------------------------------------------------------------
-    // 2. add_repo — happy path
-    // -------------------------------------------------------------------
 
     #[tokio::test]
     async fn add_repo_validates_then_creates_repo_row() {
@@ -3226,10 +3001,6 @@ mod tests {
         assert_eq!(got.path, path_str);
         assert_eq!(got.display_name, "my-repo");
     }
-
-    // -------------------------------------------------------------------
-    // 3. add_repo — idempotent
-    // -------------------------------------------------------------------
 
     #[tokio::test]
     async fn add_repo_idempotent_returns_existing() {
@@ -3257,10 +3028,6 @@ mod tests {
             .unwrap();
         assert_eq!(n, 1, "no duplicate row may be inserted");
     }
-
-    // -------------------------------------------------------------------
-    // 3a. remove_repo / set_repo_icon / set_repo_hidden / set_repo_sort
-    // -------------------------------------------------------------------
 
     #[tokio::test]
     async fn remove_repo_deletes_row() {
@@ -3343,10 +3110,6 @@ mod tests {
         assert_eq!(paths, vec!["/tmp/c", "/tmp/a", "/tmp/b"]);
     }
 
-    // -------------------------------------------------------------------
-    // 4. list_branches
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn list_branches_returns_branches() {
         if !sandbox::git_available() {
@@ -3366,10 +3129,6 @@ mod tests {
             "expected branches to include 'main', got {got:?}"
         );
     }
-
-    // -------------------------------------------------------------------
-    // 5. create_workspace — happy path
-    // -------------------------------------------------------------------
 
     // D1.5-L: env-gate Mutex is intentionally held across awaits.
     #[allow(clippy::await_holding_lock)]
@@ -3410,10 +3169,6 @@ mod tests {
         restore_root(prev);
     }
 
-    // -------------------------------------------------------------------
-    // 6. list_workspaces
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn list_workspaces_returns_seeded() {
         let db = init_db_memory().unwrap();
@@ -3422,10 +3177,6 @@ mod tests {
         let got = list_workspaces_impl(&db).await.unwrap();
         assert_eq!(got.len(), 1);
     }
-
-    // -------------------------------------------------------------------
-    // 6b. list_tasks
-    // -------------------------------------------------------------------
 
     #[tokio::test]
     async fn list_tasks_returns_seeded_tasks_for_repo() {
@@ -3483,10 +3234,6 @@ mod tests {
         );
     }
 
-    // -------------------------------------------------------------------
-    // 7. archive_workspace
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn archive_workspace_flips_deletion_intent() {
         let db = init_db_memory().unwrap();
@@ -3497,10 +3244,6 @@ mod tests {
         let ws = workspaces::get(&conn, &ws_id).unwrap();
         assert_eq!(ws.deletion_intent, 1);
     }
-
-    // -------------------------------------------------------------------
-    // 7. rename_workspace + set_workspace_ui_status
-    // -------------------------------------------------------------------
 
     #[tokio::test]
     async fn rename_workspace_round_trip() {
@@ -3544,10 +3287,6 @@ mod tests {
         );
     }
 
-    // -------------------------------------------------------------------
-    // 7a. set_workspace_pinned
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn set_workspace_pinned_round_trip() {
         let db = init_db_memory().unwrap();
@@ -3568,10 +3307,6 @@ mod tests {
         assert!(matches!(err, AppError::NotFound(_)));
     }
 
-    // -------------------------------------------------------------------
-    // 7b. set_workspace_unread
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn set_workspace_unread_round_trip() {
         let db = init_db_memory().unwrap();
@@ -3591,10 +3326,6 @@ mod tests {
             .expect_err("unknown id must error");
         assert!(matches!(err, AppError::NotFound(_)));
     }
-
-    // -------------------------------------------------------------------
-    // 7c. set_workspace_sandbox_level (P0.1 S0.1.E)
-    // -------------------------------------------------------------------
 
     #[tokio::test]
     async fn set_workspace_sandbox_level_round_trips_through_command() {
@@ -3651,10 +3382,6 @@ mod tests {
             .expect_err("unknown workspace must error");
         assert!(matches!(err, AppError::NotFound(_)));
     }
-
-    // -------------------------------------------------------------------
-    // 8. start_agent_run — happy path (unix + git only)
-    // -------------------------------------------------------------------
 
     #[cfg(unix)]
     #[allow(clippy::await_holding_lock)]
@@ -3751,10 +3478,6 @@ mod tests {
         std::env::remove_var("MOZART_MOCK_FIXTURE");
         std::env::remove_var("MOZART_WORKTREES_ROOT");
     }
-
-    // -------------------------------------------------------------------
-    // 9. stop_agent_run — unknown id → NotFound; known id → ok
-    // -------------------------------------------------------------------
 
     #[cfg(unix)]
     #[allow(clippy::await_holding_lock)]
@@ -3859,10 +3582,6 @@ mod tests {
         std::env::remove_var("MOZART_WORKTREES_ROOT");
     }
 
-    // -------------------------------------------------------------------
-    // 10. list_runs
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn list_runs_returns_runs_for_workspace() {
         let db = init_db_memory().unwrap();
@@ -3889,10 +3608,6 @@ mod tests {
         let got = list_runs_impl(&db, ws_id).await.unwrap();
         assert_eq!(got.len(), 2);
     }
-
-    // -------------------------------------------------------------------
-    // 11. get_workspace_diff
-    // -------------------------------------------------------------------
 
     #[tokio::test]
     async fn get_workspace_diff_returns_latest_or_none() {
@@ -3921,10 +3636,6 @@ mod tests {
         assert_eq!(c.workspace_id, ws_id);
     }
 
-    // -------------------------------------------------------------------
-    // 12. discard_workspace_changes — unhappy path: no checkpoint
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn discard_workspace_changes_no_prior_run_returns_validation() {
         let db = init_db_memory().unwrap();
@@ -3942,10 +3653,6 @@ mod tests {
             other => panic!("expected Validation, got {other:?}"),
         }
     }
-
-    // -------------------------------------------------------------------
-    // 12a. Chat surface (S4.A)
-    // -------------------------------------------------------------------
 
     #[tokio::test]
     async fn create_list_chats_round_trip() {
@@ -4075,10 +3782,6 @@ mod tests {
         assert_eq!(got[0].timeline_json.as_deref(), Some(r#"{"x":1}"#));
     }
 
-    // -------------------------------------------------------------------
-    // 13. check_claude_install — must not panic, returns a known variant
-    // -------------------------------------------------------------------
-
     #[tokio::test]
     async fn check_claude_install_returns_some_variant() {
         let got = check_claude_install().await;
@@ -4088,14 +3791,12 @@ mod tests {
         );
     }
 
-    // -------------------------------------------------------------------
     // 14. AgentRunTerminated emission — Q2 audit lock
     //
     // The Tauri command wraps this closure with `tauri_specta::Event::emit`,
     // but the `_impl` surface is generic over `Fn(AgentRunTerminated)`, so
     // these tests capture emissions into a Mutex-protected Vec without
     // booting a Tauri runtime.
-    // -------------------------------------------------------------------
 
     #[cfg(unix)]
     #[allow(clippy::await_holding_lock)]
@@ -4768,10 +4469,6 @@ mod tests {
         }
     }
 
-    // -------------------------------------------------------------------
-    // file_save — P2.1.D
-    // -------------------------------------------------------------------
-
     fn hex_sha256(bytes: &[u8]) -> String {
         super::sha256_hex(bytes)
     }
@@ -4902,10 +4599,6 @@ mod tests {
         .expect_err("traversal must be rejected");
         assert!(matches!(err, AppError::Validation(_)));
     }
-
-    // -------------------------------------------------------------------
-    // File views — P2.2.B (mark / clear / list / mark-all)
-    // -------------------------------------------------------------------
 
     fn hex_short(bytes: &[u8]) -> String {
         super::short_content_hash(bytes)

@@ -1,7 +1,3 @@
-// Public surface of `desktop-auth-data-access`. Facade + adapter
-// token + guard + dev-bypass + DTO mappers + fake adapter for tests.
-// Pure helpers and model types live in `desktop-auth-util`.
-
 export { AuthFacade } from './lib/auth.facade';
 export { AUTH_ADAPTER, type AuthAdapter } from './lib/auth.adapter';
 export {

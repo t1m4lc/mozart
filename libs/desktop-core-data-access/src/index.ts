@@ -1,10 +1,5 @@
-// Public surface of `desktop-core-data-access`. Abstract ports for
-// cross-cutting platform services. Concrete Tauri-bound impls live
-// in apps/desktop/src/app/core/ and are bound to these abstract
-// classes via `useExisting` in app.config.
-//
-// Lets feature libs (`desktop-<domain>-feature`) inject these
-// services without dragging Tauri into their dependency graph.
+// Abstract ports bound to concrete Tauri impls (in apps/desktop/src/app/core/)
+// via `useExisting` in app.config — keeps Tauri out of the feature-lib graph.
 
 export { ExternalLinkService } from './lib/external-link.service';
 export { ConnectivityService } from './lib/connectivity.service';

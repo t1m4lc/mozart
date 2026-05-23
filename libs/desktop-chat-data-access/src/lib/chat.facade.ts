@@ -23,10 +23,7 @@ import {
   type SetupProgress,
   type SetupProgressStatus,
 } from '@mozart/desktop-chat-util';
-import {
-  CHATS_ADAPTER,
-  MESSAGES_ADAPTER,
-} from './chats.adapter';
+import { CHATS_ADAPTER, MESSAGES_ADAPTER } from './chats.adapter';
 import { ChatStore } from './chat.store';
 import { WorkspaceChatPort } from './workspace-chat.port';
 
@@ -102,9 +99,9 @@ export class ChatFacade {
 
   // workspaceId -> chatId, mirrors `workspace_active_chat` table. Lazily
   // hydrated per-workspace via `setActiveChat` or first hydrate().
-  private readonly _activeChatByWorkspace = signal<
-    ReadonlyMap<string, string>
-  >(new Map());
+  private readonly _activeChatByWorkspace = signal<ReadonlyMap<string, string>>(
+    new Map(),
+  );
 
   /** Set of chatIds that currently have a streaming assistant message.
    * Derived from the messages store — the WorkspaceTabBar feature uses
@@ -205,7 +202,10 @@ export class ChatFacade {
         // No chat yet — create one so the user can immediately type.
         firstChat = await this.chats.create(workspaceId, 'Start');
       }
-      this.store.setChatsForWorkspace(workspaceId, list.length > 0 ? list : [firstChat]);
+      this.store.setChatsForWorkspace(
+        workspaceId,
+        list.length > 0 ? list : [firstChat],
+      );
 
       const persisted = await this.chats.getActive(workspaceId);
       const activeId =
@@ -259,9 +259,7 @@ export class ChatFacade {
       errorMessage?: string;
     } = {},
   ): Promise<void> {
-    const existing = this.store
-      .messages()
-      .find((m) => m.id === messageId);
+    const existing = this.store.messages().find((m) => m.id === messageId);
     const command = options.command ?? existing?.setupProgress?.command ?? '';
     const manager = options.manager ?? existing?.setupProgress?.manager;
     const payload: SetupProgress = {
@@ -284,8 +282,6 @@ export class ChatFacade {
       }));
     }
   }
-
-  // ---- chat lifecycle (create / close / rename / activate) ----------
 
   /**
    * Create a new chat for the workspace, upsert it into the store, and
@@ -454,8 +450,6 @@ export class ChatFacade {
     }
   }
 
-  // ---- internals -----------------------------------------------------
-
   // Bump the workspace's lastActivity if `ms` is strictly newer than
   // what we have on file. Looking the chat -> workspace mapping up
   // from the store keeps the call site noise-free.
@@ -528,9 +522,7 @@ export class ChatFacade {
       this.pendingFlush.set(messageId, { timer: null, lastSent: content });
       void this.messages
         .updateContent(messageId, content)
-        .catch((err) =>
-          console.warn('persist message content failed', err),
-        );
+        .catch((err) => console.warn('persist message content failed', err));
     }, STREAM_FLUSH_MS);
     this.pendingFlush.set(messageId, { timer, lastSent });
   }
@@ -704,8 +696,6 @@ export class ChatFacade {
       queued.id,
     );
   }
-
-  // ---- chat mutators (mode / effort / model / read-marker) -----------
 
   async setChatMode(chatId: string, mode: ChatMode): Promise<void> {
     this.store.patchChat(chatId, { mode });

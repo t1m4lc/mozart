@@ -78,8 +78,6 @@ impl ProjectDetection {
     }
 }
 
-// ---------- probe 1: JS workspace ----------
-
 async fn probe_js(root: &Path) -> Option<ProjectDetection> {
     let pkg_json = read_opt(&root.join("package.json")).await?;
 
@@ -135,8 +133,6 @@ fn pick_js_run_script(pkg_json: &str) -> Option<String> {
     None
 }
 
-// ---------- probe 2: Cargo.toml ----------
-
 async fn probe_cargo(root: &Path) -> Option<ProjectDetection> {
     let cargo_toml = read_opt(&root.join("Cargo.toml")).await?;
 
@@ -153,8 +149,6 @@ async fn probe_cargo(root: &Path) -> Option<ProjectDetection> {
         package_manager: Some("cargo".to_string()),
     })
 }
-
-// ---------- probe 3: Python ----------
 
 async fn probe_python(root: &Path) -> Option<ProjectDetection> {
     let pyproject = read_opt(&root.join("pyproject.toml")).await;
@@ -187,8 +181,6 @@ async fn probe_python(root: &Path) -> Option<ProjectDetection> {
     })
 }
 
-// ---------- probe 4: go.mod ----------
-
 async fn probe_go(root: &Path) -> Option<ProjectDetection> {
     if !file_exists(&root.join("go.mod")).await {
         return None;
@@ -202,8 +194,6 @@ async fn probe_go(root: &Path) -> Option<ProjectDetection> {
         package_manager: Some("go".to_string()),
     })
 }
-
-// ---------- probe 5: Makefile ----------
 
 async fn probe_make(root: &Path) -> Option<ProjectDetection> {
     let body = read_opt(&root.join("Makefile")).await?;
@@ -241,8 +231,6 @@ fn has_make_target(makefile: &str, target: &str) -> bool {
         trimmed.starts_with(&needle_colon) || trimmed.starts_with(&needle_space)
     })
 }
-
-// ---------- shared helpers ----------
 
 async fn is_dir(path: &Path) -> bool {
     tokio::fs::metadata(path)

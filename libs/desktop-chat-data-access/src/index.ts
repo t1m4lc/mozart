@@ -1,7 +1,5 @@
-// Public surface of `desktop-chat-data-access`. Facade, store, Tauri
-// ports + DTO mapper for the chat domain. Tauri-bound concrete adapter
-// lives in `apps/desktop/src/app/core/`. WorkspaceChatPort lets ChatFacade
-// observe / mutate workspace state without dragging in the workspaces lib.
+// WorkspaceChatPort lets ChatFacade observe / mutate workspace state
+// without dragging in the workspaces lib.
 
 export { ChatFacade } from './lib/chat.facade';
 export { ChatStore } from './lib/chat.store';
