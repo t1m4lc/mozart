@@ -1,0 +1,24 @@
+{
+  "name": "desktop-llm-model-data-access",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-llm-model-data-access/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": [
+    "app:desktop",
+    "domain:llm-model",
+    "type:data-access"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/desktop-llm-model-data-access/tsconfig.spec.json"
+      }
+    }
+  }
+}

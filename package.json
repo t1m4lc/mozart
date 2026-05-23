@@ -2,6 +2,7 @@
   "name": "@mozart/source",
   "version": "0.0.0",
   "license": "MIT",
+  "sideEffects": false,
   "scripts": {
     "dev": "pnpm nx run desktop:tauri-dev",
     "typecheck": "pnpm nx run-many -t typecheck",

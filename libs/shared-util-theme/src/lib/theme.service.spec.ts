@@ -16,8 +16,8 @@ describe('ThemeService SSR safety', () => {
 
     expect(() => service.init()).not.toThrow();
     expect(() => service.setMode('dark')).not.toThrow();
-    expect(() => service.setTheme('zinc')).not.toThrow();
-    expect(service.activeTheme()).toBe('zinc');
+    expect(() => service.setTheme('mozart')).not.toThrow();
+    expect(service.activeTheme()).toBe('mozart');
   });
 
   it('reads default mode without touching localStorage on the server', () => {

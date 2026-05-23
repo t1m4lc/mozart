@@ -9,9 +9,14 @@ import {
   effect,
   inject,
   input,
+  linkedSignal,
   signal,
 } from '@angular/core';
-import { MzCodeEditorImports } from '@mozart-ui/code-editor';
+// Direct symbol import (not via the *Imports array) so Angular's
+// @defer analyzer can tell mz-code-editor is referenced only inside a
+// @defer block and split it (with its CodeMirror deps) into a lazy
+// chunk.
+import { MzCodeEditor } from '@mozart-ui/code-editor';
 import { ThemeService } from '@mozart/shared-util-theme';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmTabsImports } from '@mozart/ui/tabs';
@@ -24,16 +29,19 @@ import {
 import {
   ScrollPositionService,
   fileTabKey,
-} from '../../core/scroll-position.service';
+} from '@mozart/desktop-workspaces-data-access';
 import {
   FeatureFileDiff,
   FeatureFileToolbar,
-  FileViewsFacade,
-  RepositoriesFacade,
   type DiffMode,
   type FileViewedState,
-} from '../repositories';
-import { UiStateFacade, type WorkspaceFileContentMode } from '../ui-state';
+} from '@mozart/desktop-repositories-feature';
+import {
+  FileViewsFacade,
+  RepositoriesFacade,
+} from '@mozart/desktop-repositories-data-access';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
+import type { WorkspaceFileContentMode } from '@mozart/desktop-ui-state-util';
 
 type FileContentMode = WorkspaceFileContentMode;
 
@@ -51,7 +59,7 @@ const TEXT_ENCODER = new TextEncoder();
     HlmButtonImports,
     FeatureFileDiff,
     FeatureFileToolbar,
-    MzCodeEditorImports,
+    MzCodeEditor,
   ],
   providers: [provideIcons({ lucideFileDiff, lucideFilePen, lucideColumns2 })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -261,13 +269,34 @@ export class FeatureFileContent {
     return entry.state;
   });
 
-  private readonly baseline = signal<string>('');
-  private readonly baselineHash = signal<string>('');
-  protected readonly editorValue = signal<string>('');
+  // Key for resetting per-file edit state. Reading this in a linkedSignal
+  // computation makes baseline/editorValue/etc. snap back to defaults when
+  // the workspace or file changes.
+  private readonly resetKey = computed(
+    () => `${this.workspaceId() ?? ''}|${this.filePath() ?? ''}`,
+  );
+  private readonly baseline = linkedSignal<string>(() => {
+    this.resetKey();
+    return '';
+  });
+  private readonly baselineHash = linkedSignal<string>(() => {
+    this.resetKey();
+    return '';
+  });
+  protected readonly editorValue = linkedSignal<string>(() => {
+    this.resetKey();
+    return '';
+  });
   protected readonly loading = signal(false);
-  protected readonly loadError = signal<string | null>(null);
+  protected readonly loadError = linkedSignal<string | null>(() => {
+    this.resetKey();
+    return null;
+  });
   protected readonly saving = signal(false);
-  protected readonly saveError = signal<SaveError | null>(null);
+  protected readonly saveError = linkedSignal<SaveError | null>(() => {
+    this.resetKey();
+    return null;
+  });
   protected readonly dirty = computed(
     () => this.editorValue() !== this.baseline(),
   );
@@ -276,7 +305,10 @@ export class FeatureFileContent {
   );
 
   private loadFetchId = 0;
-  private loadedEditKey: string | null = null;
+  private readonly loadedEditKey = linkedSignal<string | null>(() => {
+    this.resetKey();
+    return null;
+  });
 
   constructor() {
     effect(() => {
@@ -288,19 +320,8 @@ export class FeatureFileContent {
       }
 
       const key = fileStateKey(ws, p);
-      if (this.loadedEditKey === key) return;
+      if (this.loadedEditKey() === key) return;
       void this.loadFile(ws, p);
-    });
-
-    effect(() => {
-      this.workspaceId();
-      this.filePath();
-      this.loadedEditKey = null;
-      this.baseline.set('');
-      this.baselineHash.set('');
-      this.editorValue.set('');
-      this.saveError.set(null);
-      this.loadError.set(null);
     });
 
     // Diff-mode scroll persistence. The actual scroll surface is the
@@ -476,7 +497,7 @@ export class FeatureFileContent {
       const hash = await sha256Hex(text);
       if (myId !== this.loadFetchId) return;
 
-      this.loadedEditKey = fileStateKey(workspaceId, path);
+      this.loadedEditKey.set(fileStateKey(workspaceId, path));
       this.baseline.set(text);
       this.baselineHash.set(hash);
       this.editorValue.set(text);

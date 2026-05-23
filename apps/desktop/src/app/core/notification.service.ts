@@ -1,4 +1,8 @@
 import { Injectable, signal } from '@angular/core';
+import {
+  NotificationService,
+  type NotificationPrefsCache,
+} from '@mozart/desktop-core-data-access';
 import { commands } from './_bindings';
 import type { NotificationImpl } from './notification-impl';
 
@@ -10,6 +14,12 @@ const SOUND_VOLUME = 0.4;
 // chime are independently gated by user preferences stored in the
 // `config` table (notifications_desktop / notifications_sound). Both
 // default to true on a fresh install.
+//
+// Tauri-bound impl of the abstract `NotificationService` declared in
+// `desktop-core-data-access`. Bound via
+// `{ provide: NotificationService, useExisting: TauriNotificationService }`
+// in app.config so libs can `inject(NotificationService)` without
+// touching `_bindings` or `@tauri-apps/plugin-notification`.
 //
 // Async-injection pattern : the `@tauri-apps/plugin-notification`
 // dependency lives in a sibling file (`notification-impl.ts`) and is
@@ -26,11 +36,6 @@ const SOUND_VOLUME = 0.4;
 // on first use (a Rust-side `emit_message_end_notification` command
 // exists in the bindings but is no longer wired).
 
-interface CachedPrefs {
-  readonly desktop: boolean;
-  readonly sound: boolean;
-}
-
 // Cached impl loader. Lives at module scope so multiple service
 // instances (shouldn't happen with providedIn: 'root', but defensive)
 // share one chunk fetch.
@@ -44,11 +49,17 @@ async function loadImpl(): Promise<NotificationImpl> {
 }
 
 @Injectable({ providedIn: 'root' })
-export class NotificationService {
-  private readonly _prefs = signal<CachedPrefs>({ desktop: true, sound: true });
+export class TauriNotificationService extends NotificationService {
+  private readonly _prefs = signal<NotificationPrefsCache>({
+    desktop: true,
+    sound: true,
+  });
   private _prefsHydrated = false;
 
-  async notify(opts: { title: string; body: string }): Promise<void> {
+  override async notify(opts: {
+    title: string;
+    body: string;
+  }): Promise<void> {
     await this._ensurePrefs();
     const prefs = this._prefs();
     if (prefs.desktop) {
@@ -69,7 +80,7 @@ export class NotificationService {
 
   /** Push preferences from the settings UI so the next notify() uses
    *  the latest values without a DB round-trip. */
-  setPreferences(prefs: CachedPrefs): void {
+  override setPreferences(prefs: NotificationPrefsCache): void {
     this._prefs.set(prefs);
     this._prefsHydrated = true;
   }
@@ -94,7 +105,7 @@ export class NotificationService {
   /** Play the chime only — no desktop notification, no permission
    *  prompt. Used by the Settings "test sound" button so the user can
    *  audit volume without firing a fake message-end. */
-  playSound(): void {
+  override playSound(): void {
     this._playSound();
   }
 

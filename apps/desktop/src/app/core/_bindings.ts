@@ -728,6 +728,14 @@ export const commands = {
     }
   },
   /**
+   * Keyless reachability check polled by the front-end ConnectivityService.
+   * Owned by Rust so a non-200 HTTP response (e.g. 404 on `HEAD /`) does not
+   * surface as a noisy "Failed to load resource" line in DevTools.
+   */
+  async probeAnthropicReachability(): Promise<boolean> {
+    return await TAURI_INVOKE('probe_anthropic_reachability');
+  },
+  /**
    * List the workspace's worktree contents as a nested file tree, with
    * per-file change badges (`A` / `M` / `D`) computed against the
    * workspace's `base_branch`.
@@ -1737,6 +1745,14 @@ export type AgentRun = {
   exit_code: number | null;
   error_message: string | null;
   checkpoint_sha: string | null;
+  /**
+   * ContextCompiler v1 D5 — distinguishes pre-fix rows from
+   * post-fix rows. `'frontend_collapsed'` (migration 011 default)
+   * = `lastUserPrompt` from the Angular store; `'message_content'`
+   * = `messages.content` looked up by `current_user_message_id`
+   * (the source of truth post-T5). Audit tooling reads this column
+   * to interpret old `agent_runs.prompt` values correctly.
+   */
   prompt_source: string;
 };
 /**

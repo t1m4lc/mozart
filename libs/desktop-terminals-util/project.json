@@ -1,0 +1,17 @@
+{
+  "name": "desktop-terminals-util",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-terminals-util/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": [
+    "app:desktop",
+    "domain:terminals",
+    "type:util"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

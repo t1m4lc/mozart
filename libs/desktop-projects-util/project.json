@@ -1,0 +1,13 @@
+{
+  "name": "desktop-projects-util",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-projects-util/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": ["app:desktop", "domain:projects", "type:util"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

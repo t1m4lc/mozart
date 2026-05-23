@@ -10,7 +10,7 @@ import {
   MzScrollPersist,
   type ScrollDefaultPosition,
 } from './mz-scroll-persist.directive';
-import { ScrollPositionService } from './scroll-position.service';
+import { ScrollPositionService } from '@mozart/desktop-workspaces-data-access';
 
 // Host shell that lets each test drive the key + default inputs.
 @Component({

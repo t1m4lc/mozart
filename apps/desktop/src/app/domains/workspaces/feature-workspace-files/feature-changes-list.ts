@@ -15,17 +15,19 @@ import { MzDiffStats } from '@mozart-ui/diff-stats';
 import {
   FileViewsFacade,
   RepositoriesFacade,
-  UiConfirmDiscardChangesDialog,
   type ChangedFile,
-  type ConfirmDiscardChangesContext,
-} from '../../repositories';
-import { UiStateFacade } from '../../ui-state';
-import { FileTabsService } from '../data/file-tabs.service';
+} from '@mozart/desktop-repositories-data-access';
 import {
+  UiConfirmDiscardChangesDialog,
+  type ConfirmDiscardChangesContext,
+} from '@mozart/desktop-repositories-ui';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
+import {
+  FileTabsService,
+  WorkspacesFacade,
   WorkspaceTabRegistry,
-  workspaceTabRouteCommands,
-} from '../data/workspace-tab-registry';
-import { WorkspacesFacade } from '../data/workspace.facade';
+} from '@mozart/desktop-workspaces-data-access';
+import { workspaceTabRouteCommands } from '@mozart/desktop-workspaces-util';
 
 // Shared empty array — keeps `changedFiles` reference-stable on cache
 // miss so downstream filters (stagedFiles/unstagedFiles) don't re-run

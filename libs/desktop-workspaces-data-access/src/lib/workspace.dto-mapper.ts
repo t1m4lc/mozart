@@ -1,0 +1,68 @@
+import type {
+  MergeAction,
+  UiWorkspaceStatus,
+  Workspace,
+} from '@mozart/desktop-workspaces-util';
+
+// Wire shape returned by Tauri (`create_workspace`, `list_workspaces`).
+// Declared locally so this lib has no inbound dep on apps/_bindings —
+// the desktop app passes its generated `Workspace` DTO into the mapper
+// and TypeScript structural typing closes the bridge.
+export interface WorkspaceDto {
+  readonly workspace_id: string;
+  readonly task_id: string;
+  readonly name: string;
+  readonly branch_name: string;
+  readonly base_branch: string;
+  readonly status: string;
+  readonly ui_status: string;
+  readonly pinned: boolean;
+  readonly unread: boolean;
+  readonly created_at: number;
+  readonly deletion_intent: number;
+  readonly last_merge_action: string | null;
+}
+
+// DTO -> Model mapper. `projectId` is supplied by the caller — for
+// freshly-created workspaces the projectId is the input to the create
+// flow; for hydration it's looked up via the TaskStore using
+// `dto.task_id -> task.projectId`.
+export function workspaceFromDto(
+  dto: WorkspaceDto,
+  projectId: string,
+): Workspace {
+  return {
+    id: dto.workspace_id,
+    projectId,
+    name: dto.name,
+    branch: dto.branch_name,
+    baseBranch: dto.base_branch,
+    status: coerceUiStatus(dto.ui_status),
+    pinned: dto.pinned,
+    unread: dto.unread,
+    pending: false,
+    createdAt: new Date(dto.created_at),
+    lastMergeAction: coerceMergeAction(dto.last_merge_action),
+  };
+}
+
+const MERGE_ACTIONS: ReadonlySet<MergeAction> = new Set(['pr', 'local']);
+
+function coerceMergeAction(raw: string | null): MergeAction | null {
+  if (raw == null) return null;
+  return MERGE_ACTIONS.has(raw as MergeAction) ? (raw as MergeAction) : null;
+}
+
+const ALLOWED: ReadonlySet<UiWorkspaceStatus> = new Set([
+  'backlog',
+  'in_progress',
+  'in_review',
+  'done',
+  'canceled',
+]);
+
+function coerceUiStatus(raw: string): UiWorkspaceStatus {
+  return ALLOWED.has(raw as UiWorkspaceStatus)
+    ? (raw as UiWorkspaceStatus)
+    : 'backlog';
+}

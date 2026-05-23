@@ -11,11 +11,11 @@ import {
   viewChild,
 } from '@angular/core';
 import { MzLoader } from '@mozart-ui/loader';
-import { WorkspacesFacade } from '../workspaces';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import {
   TerminalRegistry,
   type TerminalEntry,
-} from './data/terminal-registry.service';
+} from '@mozart/desktop-terminals-data-access';
 
 // Window the host stays hidden behind a loader on first mount of a
 // workspace's terminal. Just enough for the shell to consume the

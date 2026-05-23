@@ -5,8 +5,8 @@ import {
   type UrlMatcher,
   type UrlSegment,
 } from '@angular/router';
-import { WorkspaceTabResolver } from '../data/workspace-tab-resolver.service';
-import { workspaceTabRouteCommands } from '../data/workspace-tab-registry';
+import { WorkspaceTabResolver } from '@mozart/desktop-workspaces-data-access';
+import { workspaceTabRouteCommands } from '@mozart/desktop-workspaces-util';
 
 const TAB_PATH_SEGMENT = 'tab';
 

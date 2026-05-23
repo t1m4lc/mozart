@@ -2,8 +2,8 @@ import { Provider } from '@angular/core';
 import { Channel } from '@tauri-apps/api/core';
 import { homeDir } from '@tauri-apps/api/path';
 import { open as openDialog } from '@tauri-apps/plugin-dialog';
-import { AUTH_ADAPTER } from '../domains/auth';
-import { tauriAuthAdapter } from '../domains/auth/data/tauri-auth.adapter';
+import { AUTH_ADAPTER } from '@mozart/desktop-auth-data-access';
+import { tauriAuthAdapter } from './tauri-auth.adapter';
 import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,
@@ -12,52 +12,56 @@ import {
   turnStateToJson,
   type ChatsAdapter,
   type MessagesAdapter,
-} from '../domains/chat';
-import { LLM_ADAPTER, TauriClaudeAdapter } from '../domains/llm-model';
+} from '@mozart/desktop-chat-data-access';
+import { LLM_ADAPTER } from '@mozart/desktop-llm-model-data-access';
+import { TauriClaudeAdapter } from './tauri-claude.adapter';
 import {
   GET_STARTED_PROJECT_ADAPTER,
   GIT_CHECK_ADAPTER,
   ONBOARDING_ADAPTER,
   PROVIDER_SETUP_ADAPTER,
-} from '../domains/onboarding';
-import { tauriGetStartedProjectAdapter } from '../domains/onboarding/data/tauri-get-started-project.adapter';
-import { tauriGitCheckAdapter } from '../domains/onboarding/data/tauri-git-check.adapter';
-import { tauriOnboardingAdapter } from '../domains/onboarding/data/tauri-onboarding.adapter';
-import { tauriProviderSetupAdapter } from '../domains/onboarding/data/tauri-provider-setup.adapter';
+} from '@mozart/desktop-onboarding-data-access';
+import { tauriGetStartedProjectAdapter } from './tauri-get-started-project.adapter';
+import { tauriGitCheckAdapter } from './tauri-git-check.adapter';
+import { tauriOnboardingAdapter } from './tauri-onboarding.adapter';
+import { tauriProviderSetupAdapter } from './tauri-provider-setup.adapter';
 import {
   CREDENTIALS_ADAPTER,
   NOTIFICATION_PREFS_ADAPTER,
   type CredentialsAdapter,
-} from '../domains/profile';
-import { tauriNotificationPrefsAdapter } from '../domains/profile/data/tauri-notification-prefs.adapter';
+} from '@mozart/desktop-profile-data-access';
+import { tauriNotificationPrefsAdapter } from './tauri-notification-prefs.adapter';
 import {
   DIALOG_ADAPTER,
   PROJECTS_ADAPTER,
   projectFromDto,
   type ProjectsAdapter,
-} from '../domains/projects';
+} from '@mozart/desktop-projects-data-access';
 import {
   REPOSITORIES_ADAPTER,
   fileNodeFromDto,
   type RepositoriesAdapter,
-} from '../domains/repositories';
+} from '@mozart/desktop-repositories-data-access';
 import {
   TASKS_ADAPTER,
   taskFromDto,
   type TasksAdapter,
-} from '../domains/tasks';
-import { RUNS_ADAPTER, type RunsAdapter } from '../domains/runs';
+} from '@mozart/desktop-tasks-data-access';
+import {
+  RUNS_ADAPTER,
+  type RunsAdapter,
+} from '@mozart/desktop-runs-data-access';
 import {
   TERMINALS_ADAPTER,
-  type TerminalEvent as TerminalEventModel,
   type TerminalsAdapter,
-} from '../domains/terminals';
+} from '@mozart/desktop-terminals-data-access';
+import type { TerminalEvent as TerminalEventModel } from '@mozart/desktop-terminals-util';
 import {
   WORKSPACES_ADAPTER,
   WorkspacesFacade,
-  type OpenInToolId as OpenInToolIdAlias,
   type WorkspacesAdapter,
-} from '../domains/workspaces';
+} from '@mozart/desktop-workspaces-data-access';
+import type { OpenInToolId as OpenInToolIdAlias } from '@mozart/desktop-workspaces-util';
 import {
   commands,
   type FileTreeEvent,

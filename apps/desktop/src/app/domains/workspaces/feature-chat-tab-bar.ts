@@ -6,24 +6,24 @@ import {
   input,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { ChatFacade } from '../chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
+  FileTabsService,
   WorkspaceTabRegistry,
-  workspaceRouteCommands,
-  workspaceTabRouteCommands,
-} from './data/workspace-tab-registry';
-import { FileTabsService } from './data/file-tabs.service';
+} from '@mozart/desktop-workspaces-data-access';
 import {
   WorkspaceTabBar,
   type TabRenameEvent,
-} from './ui/workspace-tab-bar/workspace-tab-bar';
+} from '@mozart/desktop-workspaces-ui';
 import {
   CHAT_TAB_CAP,
   NEW_CHAT_TITLE,
+  workspaceRouteCommands,
+  workspaceTabRouteCommands,
   type ChatTab,
   type FileTab,
   type WorkspaceTab,
-} from './ui/workspace-tab-bar/workspace-tab.model';
+} from '@mozart/desktop-workspaces-util';
 
 @Component({
   selector: 'app-feature-chat-tab-bar',

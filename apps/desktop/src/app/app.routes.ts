@@ -1,12 +1,22 @@
-import { Route } from '@angular/router';
-import { authGuard } from './domains/auth';
-import { notOnboardedGuard, onboardingGuard } from './domains/onboarding';
+import { Route, type CanActivateFn } from '@angular/router';
+import { loadXterm } from '@mozart/desktop-core-util';
+import { authGuard } from '@mozart/desktop-auth-data-access';
+import { notOnboardedGuard, onboardingGuard } from '@mozart/desktop-onboarding-feature';
 import {
   tabMatcher,
   workspaceTabCanActivate,
 } from './domains/workspaces/feature-detail/workspace-tab-routes';
 import { AppShell } from './shell/app-shell';
 import { SettingsShell } from './shell/settings-shell';
+
+// Preload xterm.js modules before the workspace-detail route activates.
+// RunRegistry.ensureEntry() runs from computed signals on first render
+// and stays synchronous, so the chunk must be cached by the time the
+// page mounts. Keeps xterm (~290 kB) out of the eager shell bundle.
+const xtermPreloadGuard: CanActivateFn = async () => {
+  await loadXterm();
+  return true;
+};
 
 export const appRoutes: Route[] = [
   {
@@ -39,6 +49,7 @@ export const appRoutes: Route[] = [
       { path: 'workspaces', pathMatch: 'full', redirectTo: '' },
       {
         path: 'project/:projectId/workspace/:workspaceId',
+        canActivate: [xtermPreloadGuard],
         loadComponent: () =>
           import('./domains/workspaces').then((m) => m.WorkspaceDetailPage),
         children: [

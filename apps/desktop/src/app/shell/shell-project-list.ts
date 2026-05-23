@@ -12,36 +12,34 @@ import { HlmDropdownMenuImports } from '@mozart/ui/dropdown-menu';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { HlmDialogService } from '@mozart/ui/dialog';
 import { HlmSidebarImports } from '@mozart/ui/sidebar';
+import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideChevronRight,
-  lucideCircleCheck,
-  lucideCircleDashed,
-  lucideCircleX,
-  lucideEye,
-  lucideTimer,
-} from '@ng-icons/lucide';
+import { lucideChevronRight } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import type { Project } from '@mozart/desktop-projects-util';
 import {
-  type ConfirmDeleteProjectContext,
+  ConfirmDeleteProjectDialog,
   ProjectContextMenu,
   ProjectsEmptyState,
-  ProjectsFacade,
-  type Project,
-} from '../domains/projects';
+  type ConfirmDeleteProjectContext,
+} from '@mozart/desktop-projects-ui';
 import { AddProjectFlow } from './add-project.flow';
-import { ChatFacade } from '../domains/chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import {
   UI_WORKSPACE_STATUSES,
-  WorkspaceContextMenu,
-  WorkspaceRow,
-  WorkspacesFacade,
   workspaceRouteCommands,
-  type ConfirmReopenWorkspaceContext,
   type UiWorkspaceStatus,
   type UiWorkspaceStatusMeta,
   type Workspace,
-} from '../domains/workspaces';
+} from '@mozart/desktop-workspaces-util';
+import {
+  ConfirmReopenWorkspaceDialog,
+  WorkspaceRow,
+  type ConfirmReopenWorkspaceContext,
+} from '@mozart/desktop-workspaces-ui';
+import { WorkspaceContextMenu } from '../domains/workspaces';
 import { ShellProjectRow } from './shell-project-row';
 
 // Cross-domain composer for the left sidebar. This is the only place
@@ -57,22 +55,14 @@ import { ShellProjectRow } from './shell-project-row';
     HlmIconImports,
     HlmSidebarImports,
     NgIcon,
+    MzStatusIcon,
     WorkspaceRow,
     ProjectContextMenu,
     WorkspaceContextMenu,
     ProjectsEmptyState,
     ShellProjectRow,
   ],
-  providers: [
-    provideIcons({
-      lucideChevronRight,
-      lucideCircleCheck,
-      lucideCircleDashed,
-      lucideCircleX,
-      lucideEye,
-      lucideTimer,
-    }),
-  ],
+  providers: [provideIcons({ lucideChevronRight })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template:
     `
@@ -96,14 +86,9 @@ import { ShellProjectRow } from './shell-project-row';
               <span
                 class="relative flex size-4 shrink-0 items-center justify-center"
               >
-                <ng-icon
-                  hlm
-                  [name]="group.status.icon"
-                  size="xs"
-                  [class]="
-                    group.status.colorClass +
-                    ' transition-opacity group-hover/status:opacity-0'
-                  "
+                <mz-status-icon
+                  [status]="group.status.id"
+                  class="transition-opacity group-hover/status:opacity-0"
                 />
                 <ng-icon
                   hlm
@@ -376,9 +361,6 @@ export class ShellProjectList {
         }
       },
     };
-    const { ConfirmDeleteProjectDialog } = await import(
-      '../domains/projects/ui-confirm-delete-project-dialog'
-    );
     this._dialogService.open(ConfirmDeleteProjectDialog, { context });
   }
 
@@ -419,9 +401,6 @@ export class ShellProjectList {
           }
         },
       };
-      const { ConfirmReopenWorkspaceDialog } = await import(
-        '../domains/workspaces/ui-confirm-reopen-workspace-dialog'
-      );
       this._dialogService.open(ConfirmReopenWorkspaceDialog, { context });
       return;
     }

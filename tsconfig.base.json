@@ -10,219 +10,82 @@
     "importHelpers": true,
     "target": "ES2022",
     "module": "ESNext",
-    "lib": [
-      "ES2022",
-      "DOM"
-    ],
+    "lib": ["ES2022", "DOM"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@mozart/ui/accordion": [
-        "./libs/ui/accordion/src/index.ts"
-      ],
-      "@mozart/ui/alert": [
-        "./libs/ui/alert/src/index.ts"
-      ],
-      "@mozart/ui/alert-dialog": [
-        "./libs/ui/alert-dialog/src/index.ts"
-      ],
-      "@mozart/ui/aspect-ratio": [
-        "./libs/ui/aspect-ratio/src/index.ts"
-      ],
-      "@mozart/ui/autocomplete": [
-        "./libs/ui/autocomplete/src/index.ts"
-      ],
-      "@mozart/ui/avatar": [
-        "./libs/ui/avatar/src/index.ts"
-      ],
-      "@mozart/ui/badge": [
-        "./libs/ui/badge/src/index.ts"
-      ],
-      "@mozart/ui/breadcrumb": [
-        "./libs/ui/breadcrumb/src/index.ts"
-      ],
-      "@mozart/ui/button": [
-        "./libs/ui/button/src/index.ts"
-      ],
-      "@mozart/ui/button-group": [
-        "./libs/ui/button-group/src/index.ts"
-      ],
-      "@mozart/ui/calendar": [
-        "./libs/ui/calendar/src/index.ts"
-      ],
-      "@mozart/ui/card": [
-        "./libs/ui/card/src/index.ts"
-      ],
-      "@mozart/ui/carousel": [
-        "./libs/ui/carousel/src/index.ts"
-      ],
-      "@mozart/ui/checkbox": [
-        "./libs/ui/checkbox/src/index.ts"
-      ],
-      "@mozart/ui/collapsible": [
-        "./libs/ui/collapsible/src/index.ts"
-      ],
-      "@mozart/ui/combobox": [
-        "./libs/ui/combobox/src/index.ts"
-      ],
-      "@mozart/ui/command": [
-        "./libs/ui/command/src/index.ts"
-      ],
-      "@mozart/ui/context-menu": [
-        "./libs/ui/context-menu/src/index.ts"
-      ],
-      "@mozart/ui/date-picker": [
-        "./libs/ui/date-picker/src/index.ts"
-      ],
-      "@mozart/ui/dialog": [
-        "./libs/ui/dialog/src/index.ts"
-      ],
-      "@mozart/ui/dropdown-menu": [
-        "./libs/ui/dropdown-menu/src/index.ts"
-      ],
-      "@mozart/ui/empty": [
-        "./libs/ui/empty/src/index.ts"
-      ],
-      "@mozart/ui/field": [
-        "./libs/ui/field/src/index.ts"
-      ],
-      "@mozart/ui/hover-card": [
-        "./libs/ui/hover-card/src/index.ts"
-      ],
-      "@mozart/ui/icon": [
-        "./libs/ui/icon/src/index.ts"
-      ],
-      "@mozart/ui/input": [
-        "./libs/ui/input/src/index.ts"
-      ],
-      "@mozart/ui/input-group": [
-        "./libs/ui/input-group/src/index.ts"
-      ],
-      "@mozart/ui/input-otp": [
-        "./libs/ui/input-otp/src/index.ts"
-      ],
-      "@mozart/ui/item": [
-        "./libs/ui/item/src/index.ts"
-      ],
-      "@mozart/ui/kbd": [
-        "./libs/ui/kbd/src/index.ts"
-      ],
-      "@mozart/ui/label": [
-        "./libs/ui/label/src/index.ts"
-      ],
-      "@mozart/ui/loader": [
-        "./libs/ui/loader/src/index.ts"
-      ],
-      "@mozart/ui/menubar": [
-        "./libs/ui/menubar/src/index.ts"
-      ],
-      "@mozart/ui/native-select": [
-        "./libs/ui/native-select/src/index.ts"
-      ],
-      "@mozart/ui/navigation-menu": [
-        "./libs/ui/navigation-menu/src/index.ts"
-      ],
-      "@mozart/ui/pagination": [
-        "./libs/ui/pagination/src/index.ts"
-      ],
-      "@mozart/ui/popover": [
-        "./libs/ui/popover/src/index.ts"
-      ],
-      "@mozart/ui/progress": [
-        "./libs/ui/progress/src/index.ts"
-      ],
-      "@mozart/ui/radio-group": [
-        "./libs/ui/radio-group/src/index.ts"
-      ],
-      "@mozart/ui/resizable": [
-        "./libs/ui/resizable/src/index.ts"
-      ],
-      "@mozart/ui/scroll-area": [
-        "./libs/ui/scroll-area/src/index.ts"
-      ],
-      "@mozart/ui/select": [
-        "./libs/ui/select/src/index.ts"
-      ],
-      "@mozart/ui/separator": [
-        "./libs/ui/separator/src/index.ts"
-      ],
-      "@mozart/ui/sheet": [
-        "./libs/ui/sheet/src/index.ts"
-      ],
-      "@mozart/ui/sidebar": [
-        "./libs/ui/sidebar/src/index.ts"
-      ],
-      "@mozart/ui/skeleton": [
-        "./libs/ui/skeleton/src/index.ts"
-      ],
-      "@mozart/ui/slider": [
-        "./libs/ui/slider/src/index.ts"
-      ],
-      "@mozart/ui/sonner": [
-        "./libs/ui/sonner/src/index.ts"
-      ],
-      "@mozart/ui/spinner": [
-        "./libs/ui/spinner/src/index.ts"
-      ],
-      "@mozart/ui/switch": [
-        "./libs/ui/switch/src/index.ts"
-      ],
-      "@mozart/ui/table": [
-        "./libs/ui/table/src/index.ts"
-      ],
-      "@mozart/ui/tabs": [
-        "./libs/ui/tabs/src/index.ts"
-      ],
-      "@mozart/ui/textarea": [
-        "./libs/ui/textarea/src/index.ts"
-      ],
-      "@mozart/ui/toggle": [
-        "./libs/ui/toggle/src/index.ts"
-      ],
-      "@mozart/ui/toggle-group": [
-        "./libs/ui/toggle-group/src/index.ts"
-      ],
-      "@mozart/ui/tooltip": [
-        "./libs/ui/tooltip/src/index.ts"
-      ],
-      "@mozart/ui/typography": [
-        "./libs/ui/typography/src/index.ts"
-      ],
-      "@mozart/ui/utils": [
-        "./libs/ui/utils/src/index.ts"
-      ],
-      "@mozart/shared-util-os": [
-        "./libs/shared-util-os/src/index.ts"
-      ],
-      "@mozart/shared-util-theme": [
-        "./libs/shared-util-theme/src/index.ts"
-      ],
-      "@mozart/*": [
-        "./apps/desktop/src/app/domains/*"
-      ],
-      "@mozart/clerk": [
-        "./libs/clerk/src/index.ts"
-      ],
-      "@mozart-ui/code-editor": [
-        "./libs/mozart-ui/code-editor/src/index.ts"
-      ],
+      "@mozart/ui/accordion": ["./libs/ui/accordion/src/index.ts"],
+      "@mozart/ui/alert": ["./libs/ui/alert/src/index.ts"],
+      "@mozart/ui/alert-dialog": ["./libs/ui/alert-dialog/src/index.ts"],
+      "@mozart/ui/aspect-ratio": ["./libs/ui/aspect-ratio/src/index.ts"],
+      "@mozart/ui/autocomplete": ["./libs/ui/autocomplete/src/index.ts"],
+      "@mozart/ui/avatar": ["./libs/ui/avatar/src/index.ts"],
+      "@mozart/ui/badge": ["./libs/ui/badge/src/index.ts"],
+      "@mozart/ui/breadcrumb": ["./libs/ui/breadcrumb/src/index.ts"],
+      "@mozart/ui/button": ["./libs/ui/button/src/index.ts"],
+      "@mozart/ui/button-group": ["./libs/ui/button-group/src/index.ts"],
+      "@mozart/ui/calendar": ["./libs/ui/calendar/src/index.ts"],
+      "@mozart/ui/card": ["./libs/ui/card/src/index.ts"],
+      "@mozart/ui/carousel": ["./libs/ui/carousel/src/index.ts"],
+      "@mozart/ui/checkbox": ["./libs/ui/checkbox/src/index.ts"],
+      "@mozart/ui/collapsible": ["./libs/ui/collapsible/src/index.ts"],
+      "@mozart/ui/combobox": ["./libs/ui/combobox/src/index.ts"],
+      "@mozart/ui/command": ["./libs/ui/command/src/index.ts"],
+      "@mozart/ui/context-menu": ["./libs/ui/context-menu/src/index.ts"],
+      "@mozart/ui/date-picker": ["./libs/ui/date-picker/src/index.ts"],
+      "@mozart/ui/dialog": ["./libs/ui/dialog/src/index.ts"],
+      "@mozart/ui/dropdown-menu": ["./libs/ui/dropdown-menu/src/index.ts"],
+      "@mozart/ui/empty": ["./libs/ui/empty/src/index.ts"],
+      "@mozart/ui/field": ["./libs/ui/field/src/index.ts"],
+      "@mozart/ui/hover-card": ["./libs/ui/hover-card/src/index.ts"],
+      "@mozart/ui/icon": ["./libs/ui/icon/src/index.ts"],
+      "@mozart/ui/input": ["./libs/ui/input/src/index.ts"],
+      "@mozart/ui/input-group": ["./libs/ui/input-group/src/index.ts"],
+      "@mozart/ui/input-otp": ["./libs/ui/input-otp/src/index.ts"],
+      "@mozart/ui/item": ["./libs/ui/item/src/index.ts"],
+      "@mozart/ui/kbd": ["./libs/ui/kbd/src/index.ts"],
+      "@mozart/ui/label": ["./libs/ui/label/src/index.ts"],
+      "@mozart/ui/loader": ["./libs/ui/loader/src/index.ts"],
+      "@mozart/ui/menubar": ["./libs/ui/menubar/src/index.ts"],
+      "@mozart/ui/native-select": ["./libs/ui/native-select/src/index.ts"],
+      "@mozart/ui/navigation-menu": ["./libs/ui/navigation-menu/src/index.ts"],
+      "@mozart/ui/pagination": ["./libs/ui/pagination/src/index.ts"],
+      "@mozart/ui/popover": ["./libs/ui/popover/src/index.ts"],
+      "@mozart/ui/progress": ["./libs/ui/progress/src/index.ts"],
+      "@mozart/ui/radio-group": ["./libs/ui/radio-group/src/index.ts"],
+      "@mozart/ui/resizable": ["./libs/ui/resizable/src/index.ts"],
+      "@mozart/ui/scroll-area": ["./libs/ui/scroll-area/src/index.ts"],
+      "@mozart/ui/select": ["./libs/ui/select/src/index.ts"],
+      "@mozart/ui/separator": ["./libs/ui/separator/src/index.ts"],
+      "@mozart/ui/sheet": ["./libs/ui/sheet/src/index.ts"],
+      "@mozart/ui/sidebar": ["./libs/ui/sidebar/src/index.ts"],
+      "@mozart/ui/skeleton": ["./libs/ui/skeleton/src/index.ts"],
+      "@mozart/ui/slider": ["./libs/ui/slider/src/index.ts"],
+      "@mozart/ui/sonner": ["./libs/ui/sonner/src/index.ts"],
+      "@mozart/ui/spinner": ["./libs/ui/spinner/src/index.ts"],
+      "@mozart/ui/switch": ["./libs/ui/switch/src/index.ts"],
+      "@mozart/ui/table": ["./libs/ui/table/src/index.ts"],
+      "@mozart/ui/tabs": ["./libs/ui/tabs/src/index.ts"],
+      "@mozart/ui/textarea": ["./libs/ui/textarea/src/index.ts"],
+      "@mozart/ui/toggle": ["./libs/ui/toggle/src/index.ts"],
+      "@mozart/ui/toggle-group": ["./libs/ui/toggle-group/src/index.ts"],
+      "@mozart/ui/tooltip": ["./libs/ui/tooltip/src/index.ts"],
+      "@mozart/ui/typography": ["./libs/ui/typography/src/index.ts"],
+      "@mozart/ui/utils": ["./libs/ui/utils/src/index.ts"],
+      "@mozart/shared-util-os": ["./libs/shared-util-os/src/index.ts"],
+      "@mozart/shared-util-theme": ["./libs/shared-util-theme/src/index.ts"],
+      "@mozart/*": ["./apps/desktop/src/app/domains/*"],
+      "@mozart/clerk": ["./libs/clerk/src/index.ts"],
+      "@mozart-ui/code-editor": ["./libs/mozart-ui/code-editor/src/index.ts"],
       "@mozart-ui/codemirror-theme": [
         "./libs/mozart-ui/codemirror-theme/src/index.ts"
       ],
-      "@mozart-ui/composer": [
-        "./libs/mozart-ui/composer/src/index.ts"
-      ],
-      "@mozart-ui/diff-parser": [
-        "./libs/mozart-ui/diff-parser/src/index.ts"
-      ],
-      "@mozart-ui/diff-stats": [
-        "./libs/mozart-ui/diff-stats/src/index.ts"
-      ],
-      "@mozart-ui/diff-view": [
-        "./libs/mozart-ui/diff-view/src/index.ts"
-      ],
+      "@mozart-ui/composer": ["./libs/mozart-ui/composer/src/index.ts"],
+      "@mozart-ui/diff-parser": ["./libs/mozart-ui/diff-parser/src/index.ts"],
+      "@mozart-ui/diff-stats": ["./libs/mozart-ui/diff-stats/src/index.ts"],
+      "@mozart-ui/diff-view": ["./libs/mozart-ui/diff-view/src/index.ts"],
       "@mozart-ui/file-diff-card": [
         "./libs/mozart-ui/file-diff-card/src/index.ts"
       ],
@@ -235,17 +98,115 @@
       "@mozart-ui/review-progress": [
         "./libs/mozart-ui/review-progress/src/index.ts"
       ],
-      "@mozart-ui/theme-toggle": [
-        "./libs/mozart-ui/theme-toggle/src/index.ts"
-      ],
-      "@mozart-ui/timeline": [
-        "./libs/mozart-ui/timeline/src/index.ts"
-      ],
-      "@mozart-ui/loader": [
-        "./libs/mozart-ui/loader/src/index.ts"
-      ],
+      "@mozart-ui/status-icon": ["./libs/mozart-ui/status-icon/src/index.ts"],
+      "@mozart-ui/theme-toggle": ["./libs/mozart-ui/theme-toggle/src/index.ts"],
+      "@mozart-ui/timeline": ["./libs/mozart-ui/timeline/src/index.ts"],
+      "@mozart-ui/loader": ["./libs/mozart-ui/loader/src/index.ts"],
       "@mozart-ui/message-markdown": [
         "./libs/mozart-ui/message-markdown/src/index.ts"
+      ],
+      "@mozart/desktop-tasks-data-access": [
+        "./libs/desktop-tasks-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-auth-data-access": [
+        "./libs/desktop-auth-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-auth-ui": ["./libs/desktop-auth-ui/src/index.ts"],
+      "@mozart/desktop-auth-feature": [
+        "./libs/desktop-auth-feature/src/index.ts"
+      ],
+      "@mozart/desktop-auth-util": ["./libs/desktop-auth-util/src/index.ts"],
+      "@mozart/desktop-ui-state-util": [
+        "./libs/desktop-ui-state-util/src/index.ts"
+      ],
+      "@mozart/desktop-ui-state-data-access": [
+        "./libs/desktop-ui-state-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-llm-model-util": [
+        "./libs/desktop-llm-model-util/src/index.ts"
+      ],
+      "@mozart/desktop-llm-model-data-access": [
+        "./libs/desktop-llm-model-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-profile-util": [
+        "./libs/desktop-profile-util/src/index.ts"
+      ],
+      "@mozart/desktop-profile-data-access": [
+        "./libs/desktop-profile-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-profile-ui": ["./libs/desktop-profile-ui/src/index.ts"],
+      "@mozart/desktop-core-data-access": [
+        "./libs/desktop-core-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-profile-feature": [
+        "./libs/desktop-profile-feature/src/index.ts"
+      ],
+      "@mozart/desktop-core-util": ["./libs/desktop-core-util/src/index.ts"],
+      "@mozart/desktop-terminals-util": [
+        "./libs/desktop-terminals-util/src/index.ts"
+      ],
+      "@mozart/desktop-terminals-data-access": [
+        "./libs/desktop-terminals-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-runs-util": ["./libs/desktop-runs-util/src/index.ts"],
+      "@mozart/desktop-runs-data-access": [
+        "./libs/desktop-runs-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-runs-feature": [
+        "./libs/desktop-runs-feature/src/index.ts"
+      ],
+      "@mozart/desktop-repositories-util": [
+        "./libs/desktop-repositories-util/src/index.ts"
+      ],
+      "@mozart/desktop-repositories-data-access": [
+        "./libs/desktop-repositories-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-repositories-ui": [
+        "./libs/desktop-repositories-ui/src/index.ts"
+      ],
+      "@mozart/desktop-repositories-feature": [
+        "./libs/desktop-repositories-feature/src/index.ts"
+      ],
+      "@mozart/desktop-chat-util": ["./libs/desktop-chat-util/src/index.ts"],
+      "@mozart/desktop-chat-data-access": [
+        "./libs/desktop-chat-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-chat-ui": ["./libs/desktop-chat-ui/src/index.ts"],
+      "@mozart/desktop-chat-feature": [
+        "./libs/desktop-chat-feature/src/index.ts"
+      ],
+      "@mozart/desktop-projects-util": [
+        "./libs/desktop-projects-util/src/index.ts"
+      ],
+      "@mozart/desktop-projects-data-access": [
+        "./libs/desktop-projects-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-projects-ui": [
+        "./libs/desktop-projects-ui/src/index.ts"
+      ],
+      "@mozart/desktop-projects-feature": [
+        "./libs/desktop-projects-feature/src/index.ts"
+      ],
+      "@mozart/desktop-workspaces-util": [
+        "./libs/desktop-workspaces-util/src/index.ts"
+      ],
+      "@mozart/desktop-workspaces-data-access": [
+        "./libs/desktop-workspaces-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-workspaces-ui": [
+        "./libs/desktop-workspaces-ui/src/index.ts"
+      ],
+      "@mozart/desktop-onboarding-util": [
+        "./libs/desktop-onboarding-util/src/index.ts"
+      ],
+      "@mozart/desktop-onboarding-data-access": [
+        "./libs/desktop-onboarding-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-onboarding-ui": [
+        "./libs/desktop-onboarding-ui/src/index.ts"
+      ],
+      "@mozart/desktop-onboarding-feature": [
+        "./libs/desktop-onboarding-feature/src/index.ts"
       ]
     }
   }

@@ -16,20 +16,20 @@ import {
   lucideListTree,
 } from '@ng-icons/lucide';
 import { events } from '../../../core/_bindings';
+import { FeatureFileTree } from '@mozart/desktop-repositories-feature';
 import {
-  FeatureFileTree,
   FileViewsFacade,
   RepositoriesFacade,
   type ChangedFile,
-  type FileNode,
-} from '../../repositories';
-import { UiStateFacade } from '../../ui-state';
-import { FileTabsService } from '../data/file-tabs.service';
+} from '@mozart/desktop-repositories-data-access';
+import type { FileNode } from '@mozart/desktop-repositories-util';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
+  FileTabsService,
+  WorkspacesFacade,
   WorkspaceTabRegistry,
-  workspaceTabRouteCommands,
-} from '../data/workspace-tab-registry';
-import { WorkspacesFacade } from '../data/workspace.facade';
+} from '@mozart/desktop-workspaces-data-access';
+import { workspaceTabRouteCommands } from '@mozart/desktop-workspaces-util';
 import { FeatureChangesList } from './feature-changes-list';
 
 // Shared empty array — returning the same reference on cache miss

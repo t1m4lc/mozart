@@ -19,7 +19,9 @@ use serde::Serialize;
 
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 const PROBE_URL: &str = "https://api.anthropic.com/v1/models";
+const REACHABILITY_URL: &str = "https://api.anthropic.com/";
 const TIMEOUT: Duration = Duration::from_secs(10);
+const REACHABILITY_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Outcome of a probe call. Sent to the frontend via tauri-specta as a
 /// tagged TS union `{ kind: 'connected' | 'invalid' | 'network_error' }`.
@@ -60,6 +62,20 @@ pub async fn probe(key: &str) -> ProbeResult {
         // This arm covers DNS, TLS, timeout, connection refused, etc.
         Err(_) => ProbeResult::NetworkError,
     }
+}
+
+/// Keyless reachability probe used by the connectivity indicator. Issues a
+/// HEAD on the API root and treats any HTTP response (including 4xx) as
+/// reachable — only DNS / TLS / timeout / connection-refused returns false.
+///
+/// Lives in Rust on purpose : the previous in-browser `fetch` would log a
+/// noisy "Failed to load resource: 404" in DevTools because the browser
+/// surfaces the wire status even under `no-cors`. reqwest doesn't.
+pub async fn probe_reachability() -> bool {
+    let Ok(client) = Client::builder().timeout(REACHABILITY_TIMEOUT).build() else {
+        return false;
+    };
+    client.head(REACHABILITY_URL).send().await.is_ok()
 }
 
 #[cfg(test)]

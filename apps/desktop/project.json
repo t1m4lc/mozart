@@ -5,7 +5,8 @@
   "prefix": "app",
   "sourceRoot": "apps/desktop/src",
   "tags": [
-    "scope:app"
+    "scope:app",
+    "app:desktop"
   ],
   "targets": {
     "build": {
@@ -49,13 +50,7 @@
               "maximumError": "8kb"
             }
           ],
-          "outputHashing": "all",
-          "fileReplacements": [
-            {
-              "replace": "apps/desktop/src/app/sandbox.routes.ts",
-              "with": "apps/desktop/src/app/sandbox.routes.prod.ts"
-            }
-          ]
+          "outputHashing": "all"
         },
         "development": {
           "optimization": false,

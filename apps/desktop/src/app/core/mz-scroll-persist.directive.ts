@@ -8,7 +8,7 @@ import {
   inject,
   input,
 } from '@angular/core';
-import { ScrollPositionService } from './scroll-position.service';
+import { ScrollPositionService } from '@mozart/desktop-workspaces-data-access';
 
 // Attach to any scrolling element (host must have overflow-y auto/scroll)
 // to persist its scrollTop across `key` changes and component destroy.

@@ -7,7 +7,7 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
+import { OPEN_IN_TOOLS, type OpenInTool } from '@mozart/desktop-workspaces-util';
 
 interface State {
   // Identity of the displayed workspace (resolved from the URL).

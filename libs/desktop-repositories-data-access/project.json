@@ -1,0 +1,24 @@
+{
+  "name": "desktop-repositories-data-access",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-repositories-data-access/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": [
+    "app:desktop",
+    "domain:repositories",
+    "type:data-access"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/desktop-repositories-data-access/tsconfig.spec.json"
+      }
+    }
+  }
+}

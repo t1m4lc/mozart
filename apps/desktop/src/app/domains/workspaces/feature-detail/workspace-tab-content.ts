@@ -7,15 +7,16 @@ import {
   input,
 } from '@angular/core';
 import { HlmSkeletonImports } from '@mozart/ui/skeleton';
-import { ChatFacade, FeatureChatContent } from '../../chat';
-import { ProjectsFacade } from '../../projects';
-import { FileTabsService } from '../data/file-tabs.service';
-import { WorkspaceTabRegistry } from '../data/workspace-tab-registry';
-import { WorkspacesFacade } from '../data/workspace.facade';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { FeatureChatContent } from '@mozart/desktop-chat-feature';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { FileTabsService } from '@mozart/desktop-workspaces-data-access';
+import { WorkspaceTabRegistry } from '@mozart/desktop-workspaces-data-access';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { FeatureChatTabBar } from '../feature-chat-tab-bar';
 import { FeatureFileContent } from '../feature-file-content';
 import { FeatureWorkspaceMiddle } from '../feature-workspace-middle';
-import { ChatEmptyState } from '../ui/chat-empty-state';
+import { ChatEmptyState } from '@mozart/desktop-workspaces-ui';
 import { WorkspaceDetailStore } from './workspace-detail.store';
 
 @Component({

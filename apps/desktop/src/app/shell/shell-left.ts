@@ -16,13 +16,13 @@ import { AddProjectFlow } from './add-project.flow';
 import { FeatureFlagsService } from '../core/feature-flags';
 import { LayoutService } from '../core/layout.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
-import { FeatureChatList } from '../domains/chat';
+import { FeatureChatList } from '@mozart/desktop-chat-feature';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { GroupByFilter } from '@mozart/desktop-projects-feature';
 import {
   FeatureAddProject,
-  GroupByFilter,
-  ProjectsFacade,
   ProjectsHeaderContextMenu,
-} from '../domains/projects';
+} from '@mozart/desktop-projects-ui';
 import { SHELL_LEFT_PANEL_WIDTH } from './shell-panel.constants';
 import { ShellProjectList } from './shell-project-list';
 import { ShellSidePanel } from './shell-side-panel';

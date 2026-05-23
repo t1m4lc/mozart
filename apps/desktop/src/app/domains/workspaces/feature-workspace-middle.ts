@@ -22,15 +22,15 @@ import {
 import {
   ScrollPositionService,
   chatTabKey,
-} from '../../core/scroll-position.service';
-import { ChatFacade } from '../chat';
+} from '@mozart/desktop-workspaces-data-access';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   DEFAULT_MODEL_ID,
   LLM_MODEL_CATALOG,
   PROVIDERS,
-} from '../llm-model';
-import { workspaceRouteCommands } from './data/workspace-tab-registry';
-import { WorkspacesFacade } from './data/workspace.facade';
+} from '@mozart/desktop-llm-model-util';
+import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 // Distance-from-bottom threshold (px) for the at-bottom detector. Under
 // this, the chat is considered attached (auto-follow stream); over,

@@ -1,0 +1,46 @@
+import type { Workspace } from '@mozart/desktop-workspaces-util';
+
+// Test/Storybook seed. v0.1.0-beta.1 hydrates from Tauri at boot, so this
+// fixture is no longer wired into the store's initial state — it stays
+// around so component tests can opt in without a Tauri runtime.
+export const WORKSPACES_MOCK: Workspace[] = [
+  {
+    id: 'w1',
+    projectId: 'p1',
+    name: 'pavarotti',
+    branch: 'mozart/pavarotti',
+    status: 'in_progress',
+    baseBranch: 'main',
+    pinned: false,
+    unread: false,
+    pending: false,
+    createdAt: new Date('2025-04-15T09:00:00'),
+    lastMergeAction: null,
+  },
+  {
+    id: 'w2',
+    projectId: 'p1',
+    name: 'callas',
+    branch: 'mozart/callas',
+    status: 'done',
+    baseBranch: 'main',
+    pinned: false,
+    unread: true,
+    pending: false,
+    createdAt: new Date('2025-04-10T09:00:00'),
+    lastMergeAction: null,
+  },
+  {
+    id: 'w3',
+    projectId: 'p2',
+    name: 'sinatra',
+    branch: 'mozart/sinatra',
+    status: 'in_review',
+    baseBranch: 'main',
+    pinned: true,
+    unread: false,
+    pending: false,
+    createdAt: new Date('2025-04-20T09:00:00'),
+    lastMergeAction: null,
+  },
+];

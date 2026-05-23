@@ -18,17 +18,18 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
-import { ChatFacade } from '../../chat';
-import { ProfileFacade } from '../../profile';
-import { ProjectsFacade } from '../../projects';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import {
+  FeatureCommitDialog,
   type CommitDialogContext,
-  type CreatePrDialogContext,
-} from '../../repositories';
-import { RunRegistry } from '../../runs';
-import { IdeDetectionService } from '../data/ide-detection.service';
-import { OPEN_IN_TOOLS, type OpenInTool } from '../data/open-in-tools';
-import { WorkspacesFacade } from '../data/workspace.facade';
+} from '@mozart/desktop-repositories-feature';
+import { type CreatePrDialogContext } from '../../repositories';
+import { RunRegistry } from '@mozart/desktop-runs-data-access';
+import { IdeDetectionService } from '@mozart/desktop-workspaces-data-access';
+import { OPEN_IN_TOOLS, type OpenInTool } from '@mozart/desktop-workspaces-util';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { WorkspaceToolbar } from '../ui/workspace-toolbar';
 import { WorkspaceDetailStore } from './workspace-detail.store';
 
@@ -167,6 +168,11 @@ export class WorkspaceDetailPage {
       }
     });
 
+    // Mirror workspace branch fields into the detail store on workspace
+    // change. Effect form is used because the store's setters are also
+    // called imperatively (e.g., the branch picker writes targetBranch
+    // directly). See TODO.md (signals cleanup) for the deferred store
+    // refactor that would let this become a reactive binding.
     effect(() => {
       const ws = this.workspace();
       if (!ws) return;
@@ -213,9 +219,6 @@ export class WorkspaceDetailPage {
     const context: CommitDialogContext = {
       workspaceId: id,
     };
-    const { FeatureCommitDialog } = await import(
-      '../../repositories/feature-commit-dialog'
-    );
     this.dialog.open(FeatureCommitDialog, { context });
   }
 

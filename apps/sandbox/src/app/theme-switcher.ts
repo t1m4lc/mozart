@@ -4,7 +4,7 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { ThemeService } from '@mozart/shared-util-theme';
+import { Theme, ThemeService } from '@mozart/shared-util-theme';
 
 // Dev-only theme switcher for the sandbox shell. Two native <select>
 // elements wired straight to ThemeService — no localStorage access
@@ -67,7 +67,7 @@ export class ThemeSwitcher {
   }
 
   protected onThemeChange(event: Event): void {
-    const value = (event.target as HTMLSelectElement).value as 'mozart' | 'zinc';
+    const value = (event.target as HTMLSelectElement).value as Theme;
     this.themeService.setTheme(value);
   }
 }

@@ -6,9 +6,10 @@ import {
 } from '@angular/core';
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { GET_STARTED_PROJECT_ADAPTER } from '../domains/onboarding';
-import { ProjectsFacade } from '../domains/projects';
-import { WorkspacesFacade, workspaceRouteCommands } from '../domains/workspaces';
+import { GET_STARTED_PROJECT_ADAPTER } from '@mozart/desktop-onboarding-data-access';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
 
 // `/tour` route. Bootstraps the bundled "Get started" project,
 // then redirects to `/project/<projectId>/workspace/<workspaceId>?tour=on`. The

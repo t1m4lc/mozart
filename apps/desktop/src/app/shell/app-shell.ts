@@ -10,9 +10,9 @@ import { HlmToasterImports } from '@mozart/ui/sonner';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideWifiOff } from '@ng-icons/lucide';
 import { map } from 'rxjs/operators';
-import { ConnectivityService } from '../core/connectivity.service';
+import { ConnectivityService } from '@mozart/desktop-core-data-access';
 import { ReturnRouteService } from '../core/return-route.service';
-import { FeatureTour } from '../domains/onboarding';
+import { FeatureTour } from '@mozart/desktop-onboarding-feature';
 import { ShellLeft } from './shell-left';
 import { ShellRight } from './shell-right';
 

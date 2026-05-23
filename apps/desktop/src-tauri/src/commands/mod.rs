@@ -1641,6 +1641,19 @@ pub async fn refresh_anthropic_connection() -> Result<ProbeResult, AppError> {
 }
 
 // ---------------------------------------------------------------------------
+// probe_anthropic_reachability
+// ---------------------------------------------------------------------------
+
+/// Keyless reachability check polled by the front-end ConnectivityService.
+/// Owned by Rust so a non-200 HTTP response (e.g. 404 on `HEAD /`) does not
+/// surface as a noisy "Failed to load resource" line in DevTools.
+#[tauri::command]
+#[specta::specta]
+pub async fn probe_anthropic_reachability() -> bool {
+    anthropic_probe::probe_reachability().await
+}
+
+// ---------------------------------------------------------------------------
 // list_repository_tree (Phase 4b atom C)
 // ---------------------------------------------------------------------------
 

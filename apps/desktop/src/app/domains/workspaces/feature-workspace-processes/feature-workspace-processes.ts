@@ -8,12 +8,14 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '../../../shell';
-import { ProjectsFacade } from '../../projects';
-import { FeatureWorkspaceRun, RunRegistry } from '../../runs';
-import { FeatureWorkspaceTerminal } from '../../terminals';
-import { UiStateFacade, type WorkspaceAsideBottomTab } from '../../ui-state';
-import { WorkspacesFacade } from '../data/workspace.facade';
-import { RunActionMenu } from '../ui/run-action-menu';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { FeatureWorkspaceRun } from '@mozart/desktop-runs-feature';
+import { RunRegistry } from '@mozart/desktop-runs-data-access';
+import { FeatureWorkspaceTerminal } from '../../terminals/feature-workspace-terminal';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
+import type { WorkspaceAsideBottomTab } from '@mozart/desktop-ui-state-util';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { RunActionMenu } from '@mozart/desktop-workspaces-ui';
 import { FeatureWorkspaceSetup } from './feature-workspace-setup';
 
 // Bottom half of the workspace aside: Setup / Run / Terminal tabs +

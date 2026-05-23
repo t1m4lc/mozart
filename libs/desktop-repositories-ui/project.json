@@ -1,0 +1,17 @@
+{
+  "name": "desktop-repositories-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-repositories-ui/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": [
+    "app:desktop",
+    "domain:repositories",
+    "type:ui"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "name": "desktop-repositories-feature",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-repositories-feature/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": [
+    "app:desktop",
+    "domain:repositories",
+    "type:feature"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/desktop-repositories-feature/tsconfig.spec.json"
+      }
+    }
+  }
+}
