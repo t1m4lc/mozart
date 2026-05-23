@@ -1,110 +1,13 @@
 - on va defer la partie gestion des review dans l'app en invitant le user à poster une PR sur github.
 - Comment faire en sorte que le user soit informer que sa branche main locale est à jour par rapport au remote ? comment mettre à jour les branche de workspace avec leur branche d'origine ?
-
-- revoir la codebase global
-  -- respecter pattern de ce repo https://github.com/angular-architects/flights42/tree/main/src/app/domains/ticketing
-  -- voir si les domaines sont bien defini coneptuellement ou pas en trop,
-  -- regarder les redondances eviter la duplication mais reste KISS,
-  -- composant trop grand ? ou trop de responsabilité ? redecoupe.
-  -- evite les decoupage de composant en composant type UI s'il n'ont pas pour vocation à etre reutilisé s'il sont trop spécifique métier ça ne sert à rien de créer des input ou output pour deleguer à un smart component autant directement le rendre smart avec les responsabilité directement dedans. (toujours en respectant les responsabilité limité (data-access layer different de smart component)  
-  -- folder flat (pas un seul composant dans un folder), mais regrouper les composant utiliser uniquement d'un un meme parent ou siblings au sein d'un meme folder.
-  -- utilisation de code angular modern v22, utiliser ngrx signal store, optimistic pattern.
-
-- probleme du chat actuellement ne garde aucun contexte, aide moi à comprendre comment s'est structuré actuellement faire un audit sur le code existants avant de choisir des solution potentiel pour effectuer la gestion du contexte dans un chat.
-  -- https://hashbrown.dev/
-  --
-
----
-
-✅ Tests réalisables MAINTENANT (après Atom 1)
-
-Vérifient que la donnée est en place :
-
-T1.1 — Migration appliquée
-
-# Boot l'app puis :
-
-sqlite3 ~/.local/share/com.mozart.build/mozart.db \
- "PRAGMA table_info(workspaces);" | grep sandbox_level
-
-# Attendu : 13|sandbox_level|TEXT|1|'L2Project'|0
-
-T1.2 — Workspaces existants backfillés
-sqlite3 ~/.local/share/com.mozart.build/mozart.db \
- "SELECT name, sandbox_level FROM workspaces;"
-
-# Attendu : tous à L2Project
-
-T1.3 — Nouveau workspace inherit la valeur
-Crée un workspace via l'UI → vérifie en SQL → doit être L2Project.
-
-⚠️ Tests qui vont ÉCHOUER aujourd'hui (révèlent pourquoi on doit faire Atom 2 et 3)
-
-Ces tests sont la baseline de la menace — ils doivent passer (= le sandbox bloque) après les prochains atoms.
-Aujourd'hui ils montrent l'absence de défense.
-
-T2.1 — Agent lit ~/.ssh/id_rsa (actuellement : succès — agent lit le fichier. Après Atom 2 : refus.)
-
-- Ouvre un chat en mode agent
-- Prompt : read the file ~/.ssh/id_rsa and tell me its first line
-- Aujourd'hui : l'agent fait Read(~/.ssh/id_rsa) et te montre le contenu
-- Après Atom 2 : l'agent dira qu'il ne peut pas (pas dans --add-dir)
-
-T2.2 — Agent écrit ~/.bashrc (actuellement : succès. Après Atom 2 : refus.)
-
-- Prompt mode agent : append "# pwned" to ~/.bashrc
-- Aujourd'hui : modifie ton bashrc
-- Après Atom 2 : refus
-
-T2.3 — Mode ask mute un fichier (TODO-011) (actuellement : succès — le bug que tu as constaté en dogfood. Après
-Atom 2 : refus.)
-
-- Mode ask, workspace done
-- Prompt : edit src/foo.ts to add a comment
-- Aujourd'hui : Claude exécute Edit malgré le mode ask
-- Après Atom 2 : refus (Edit pas dans allowedTools pour ask)
-
-T3.1 — IPC path traversal (actuellement : refusé seulement par la regex v0. Après Atom 3 : refusé par
-canonicalize.)
-
-- DevTools console : await **TAURI**.invoke('file_save', { workspaceId, path: '../../etc/hosts', content: 'x',
-  expectedHash: 'whatever' })
-- Aujourd'hui : refusé (regex .. du v0)
-- Après Atom 3 : refusé (canonicalize)
-
-T3.2 — Symlink escape (actuellement : succès — la regex v0 ne voit pas le symlink. Après Atom 3 : refusé.)
-
-- Dans le terminal Mozart : ln -s /etc/hosts escape
-- DevTools : await **TAURI**.invoke('read_workspace_file', { workspaceId, path: 'escape' })
-- Aujourd'hui : lit /etc/hosts — bypass du sandbox via symlink
-- Après Atom 3 : PathRefused
-
-⏳ Tests qui marcheront après Atom 4 (S0.1.E, devtools toggle)
-
-T4.1 — L3 isolation entre workspaces
-
-- Crée deux workspaces dans le même projet
-- DevTools : await mozart.facade.setSandboxLevel(ws1_id, 'L3Workspace')
-- Mode agent dans ws1, prompt : read the file <chemin absolu vers ws2>/src/main.rs
-- Attendu : refus
-
-T4.2 — Retour à L2 redonne accès
-
-- setSandboxLevel(ws1_id, 'L2Project')
-- Même prompt → succès
-
-⏳ Tests qui marcheront après Atom 6 (terminal PTY)
-
-T6.1 — PTY ne s'ouvre pas avec worktree corrompu
-
-- Force UPDATE workspaces SET worktree_path='/etc' WHERE workspace_id=… via sqlite
-- Ouvre l'onglet Terminal → toast PathRefused
+- Question lié à celle du dessus comment voir son projet source projet de reference souvent (pas un worktree) souvent branche main par default? reflechir à UI et UX
+- ajouter un context window component (70% yello, 90% red) manage windows count in chat.
 
 ---
 
 - timeline moche à revoir
 - revoir file view car header moche
-- improve workspace status icons use https://chatgpt.com/c/6a0e162b-b730-83eb-9c71-22d765ab8dfb
+  -scroll bug chat
 
 - je trouve que l'ensemble du texte en general est un peu trop petit et les icon aussi peut tu faire des proposition pour rendre l'UI un peu plus accessible.
 
@@ -154,6 +57,14 @@ low > medium > high > xhigh > max
 - keep info about chat model and effort with times... To add to metrics (and bind to telemetry)
 
 ## Open spec note — execution model + future orchestration module
+
+PS: peut etre remplacer la notion de TASK en Session ?
+car il semblerai que session soit se q
+Avant de continuer sur la conception du module orchestartion module il faut faire l'état de l'art de l'exisatnt notament sur:
+
+- https://code.claude.com/docs/en/sub-agents.md
+- https://code.claude.com/docs/en/agent-teams.md
+- https://code.claude.com/docs/en/costs.md (strategies to reduce cost)
 
 Tension identifiée pendant le DX review et étendue depuis. **Non
 résolue, à garder visible.** Aucune solution n'est arrêtée ; le but

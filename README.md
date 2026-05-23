@@ -1,109 +1,162 @@
 # Mozart
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+> **AI can write the notes. Mozart helps you compose the score and conduct the work.**
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+Mozart is a **coordination cockpit for parallel coding agents** — not a chat
+client. It turns product intent into scoped agent workspaces, runs the work in
+isolated git worktrees, and conducts every candidate through review to merge.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+Worktrees let agents work in parallel. **Mozart decides how their work
+should combine.**
 
-## Generate a library
+---
+
+## What Mozart actually is
+
+A desktop **project operating system** built around three pillars:
+
+1. **Repository-owned configuration** — `.mozart/settings.json` declares
+   project behavior in a versionable, shareable file.
+2. **Repository-owned specifications** — `.mozart/specs/` stores vision,
+   epics, stories, and tasks as first-class objects Mozart can index, display,
+   and feed to agents.
+3. **Agent orchestration** — Mozart converts specs into task graphs,
+   allocates isolated workspaces, runs agents in parallel, and coordinates
+   review and merge.
+
+The central object is not a chat — it's a **task** that may spawn one or more
+**workspaces**, each producing a **candidate solution**, compared in a
+**review**, and resolved by a **merge decision**.
+
+```
+Vision → Strategy → Epic → Story → Task
+                              → Atomic Agent Task
+                                → Run → Review → Merge
+```
+
+Different stages need different context depth. Mozart's job is to mediate
+that compression — strategic context for planners, narrow scoped context for
+coders, diff + acceptance criteria for reviewers.
+
+## Positioning
+
+| Tool              | What inspires Mozart                                    | What Mozart does differently                                       |
+| ----------------- | ------------------------------------------------------- | ------------------------------------------------------------------ |
+| **Conductor**     | parallel agents, isolated workspaces, review-then-merge | open architecture, agent-agnostic, deeper coordination             |
+| **Pane**          | agent-agnostic, worktree-as-implementation-detail       | not terminal-first; focuses on decision-making, not just execution |
+| **Worktree CLIs** | one agent = one isolated sandbox                        | full UI for comparing and merging multiple solutions               |
+
+- **Pane** decides *where* agents run
+- **Conductor** decides *what* parallel agents do and how to merge
+- **Mozart** decides *what* agents should do, *how* to compare their
+  results, and *which* solution deserves trust
+
+## Status
+
+Currently shipping **v0.1.0-beta.1** — the first private beta. v0.1.0 is
+reserved for the first public release. The roadmap is six demoable phases:
+
+```
+1. Project + Workspace flow       → add a project, auto-workspace, sidebar
+2. Chat + Composer + Modes        → Agent / Plan / Ask, model, effort
+3. Agent stream + Timeline        → Claude parser, raw text → cinematic UI
+4. Git changes + Files + Terminal → diff, term, IDE, PR
+5. Auth + Foundations             → Clerk gate, deep-link, /welcome
+6. Polish + Onboarding tour       → empty states, notifications, tour
+```
+
+Full plan: [`docs/specs/plan-v0.1.0-beta.1.md`](docs/specs/plan-v0.1.0-beta.1.md).
+
+## Stack
+
+<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="32" align="right"></a>
+
+- **Nx monorepo** + **pnpm** workspaces
+- **Angular 22** with signals, SignalStore, Signal Forms
+- **Tailwind v4** + **Spartan NG** (shadcn-for-Angular) primitives
+- **Tauri v2** (Rust) for the desktop shell, SQLite for local state
+- **Anthropic Claude** as the default agent provider
+
+## Repository layout
+
+```
+apps/
+  desktop          Angular shell that renders inside Tauri
+  desktop-tauri    Rust side: commands, plugins, native shell
+  landing          Public marketing site (Analog)
+  sandbox          Spartan/Mozart UI playground
+
+libs/
+  spartan-ui          ⚠ read-only — Spartan/Hlm primitives
+  mozart-ui           editable Mozart components
+  mozart-design-tokens / mozart-assets
+  desktop-<domain>-*  per-domain feature / ui / data-access / util libs
+                      (chat, workspaces, projects, repositories, runs,
+                       terminals, auth, onboarding, profile, llm-model,
+                       ui-state, shell, core)
+  shared-util-*       cross-cutting utilities (theme, os)
+  clerk               Clerk integration
+```
+
+Every project carries Nx tags across `app:*`, `domain:*`, `type:*`, and
+`scope:*` axes. Boundaries are enforced by
+`@nx/enforce-module-boundaries` — see [`eslint.config.mjs`](eslint.config.mjs)
+and [`CLAUDE.md`](CLAUDE.md) for the rules.
+
+## Getting started
+
+Prerequisites: Node 20+, pnpm 11, Rust toolchain (for Tauri), and the
+[Tauri v2 system dependencies](https://v2.tauri.app/start/prerequisites/).
 
 ```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
+pnpm install
+pnpm dev               # launches the Tauri desktop app
 ```
 
-## Run tasks
-
-To build the library use:
+## Useful commands
 
 ```sh
-npx nx build pkg1
+pnpm dev               # run the desktop app (Tauri + Angular)
+pnpm typecheck         # type-check every project
+pnpm lint              # ESLint across the workspace
+pnpm test              # run all unit/integration tests
+pnpm build             # build all buildable projects
+pnpm tauri-check       # cargo check the Rust side
+pnpm tauri-test        # cargo test the Rust side
+pnpm seed              # seed the local SQLite with demo data
+pnpm reset-db          # wipe local state
 ```
 
-To run any task with Nx use:
+Run a single target with Nx directly:
 
 ```sh
-npx nx <target> <project-name>
+pnpm nx <target> <project>           # e.g. pnpm nx build desktop
+pnpm nx graph                        # interactive project graph
+pnpm nx graph --print --affected     # affected projects vs. base
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+## Architecture & conventions
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Mozart follows a DDD-style architecture: vertical domain slices, horizontal
+layers (`feature-* → ui-* → data → util-*`), facades as the only public
+entry to a domain's data layer, and adapters as the only file that talks
+to Tauri / IPC / HTTP. See:
 
-## Versioning and releasing
+- [`docs/specs/mozart-architecture.md`](docs/specs/mozart-architecture.md) — versioned architecture & boundaries
+- [`docs/specs/mozart-operating-system-vision.md`](docs/specs/mozart-operating-system-vision.md) — the `.mozart/` project OS vision
+- [`docs/specs/plan-v0.1.0-beta.1.md`](docs/specs/plan-v0.1.0-beta.1.md) — the MVP delivery plan and conventions
+- [`CLAUDE.md`](CLAUDE.md) — coding rules and constraints for agents
+- [`AGENTS.md`](AGENTS.md) — operational map for AI agents working in this repo
 
-To version and release the library use
+**Two ground rules worth knowing up front:**
 
-```
-npx nx release
-```
+- `libs/spartan-ui/**` is **read-only**. Domain code composes Spartan/Hlm
+  primitives — it never forks them. New primitives are added to
+  `libs/spartan-ui` first, then consumed.
+- Adapters & DTOs are derived from what the Tauri / Rust side actually
+  exposes, never invented in TypeScript. Phase A of every change inventories
+  the real command shapes.
 
-Pass `--dry-run` to see what would happen without actually releasing the library.
+## License
 
-[Learn more about Nx release &raquo;](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Keep TypeScript project references up to date
-
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
-
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
-
-```sh
-npx nx sync
-```
-
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
-
-```sh
-npx nx sync:check
-```
-
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
-
-## Set up CI!
-
-### Step 1
-
-To connect to Nx Cloud, run the following command:
-
-```sh
-npx nx connect
-```
-
-Connecting to Nx Cloud ensures a [fast and scalable CI](https://nx.dev/ci/intro/why-nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/ci/features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/ci/features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/ci/features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/ci/features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Step 2
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Useful links
-
-Learn more:
-
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+MIT

@@ -190,6 +190,7 @@ The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_san
 **What:** Periodically re-check whether Claude CLI's `--allowedTools` and `--permission-mode=plan` are actually enforced or just contextual. Today (2026-05-22, claude CLI v2.1.144) `--allowedTools` is empirically falsified — the agent writes despite `--allowedTools=Read,Glob,Grep`. Mozart now ALSO sets `--permission-mode=plan` for ask/plan modes as a stronger CLI-level enforcement primitive; whether THAT enforces is the open question this probe answers.
 
 **Why:** Mozart's ask/plan-mode security currently depends on `--permission-mode=plan` actually preventing writes. If the dogfood probe (your live test) confirms it works, this TODO becomes a periodic re-check. If it doesn't work either, both ask and plan modes need either:
+
 - the IPC freeze tightening extended to active workspaces too (composer disables ask/plan entirely until OS fence ships), OR
 - an honest UI relabel ("agent may still write")
 
@@ -201,6 +202,7 @@ The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_san
 4. Record CLI version + outcome in this entry.
 
 **Current findings (2026-05-22, CLI v2.1.144):**
+
 - `--allowedTools=Read,Glob,Grep` → **falsified** (file gets created)
 - `--permission-mode=plan` → **needs probe** (just wired, not yet dogfood-confirmed)
 
@@ -232,7 +234,7 @@ The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_san
 
 2. **Background sweep**: a periodic startup task that deletes envelope + summary rows for chats whose `closed_at` is older than N days (e.g. 90). Same pattern as the FileTabsService cleanup TODO.
 
-The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged — it's the *per-active-chat* cap; archival cleanup is the *cross-chat* cap.
+The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged — it's the _per-active-chat_ cap; archival cleanup is the _cross-chat_ cap.
 
 **Depends on:** A product decision on retention policy (delete-on-close vs delete-after-N-days vs both). Eng work is small (a delete query + a startup task). Not blocking v0.1.0-beta.1.
 
@@ -240,7 +242,7 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 
 ## Agent context — LLM-driven summary distillation (replaces deterministic v1)
 
-**What:** `claude_cli::summary_builder::build_summary` is deterministic v1 — walks `agent_events`, extracts tool calls + results, produces a short prose recap like "Read 1 file, edited 2 files, ran 1 command." It captures *what happened* but loses *why it mattered*: a 50-line Bash command and a 1-line one both count as "1 command"; a Read of `src/main.rs` and a Read of `README.md` both count as "1 file". For long sessions the operational_summaries layer becomes thin compared to the raw turn it replaced.
+**What:** `claude_cli::summary_builder::build_summary` is deterministic v1 — walks `agent_events`, extracts tool calls + results, produces a short prose recap like "Read 1 file, edited 2 files, ran 1 command." It captures _what happened_ but loses _why it mattered_: a 50-line Bash command and a 1-line one both count as "1 command"; a Read of `src/main.rs` and a Read of `README.md` both count as "1 file". For long sessions the operational_summaries layer becomes thin compared to the raw turn it replaced.
 
 **Why:** The architecture doc accepted v1's determinism as a deliberate cost: no LLM-in-loop dependency for the post-run hook means the hook can't fail because of a model outage, and it's reproducible. An LLM-driven distiller would produce richer text_summary and could honor things like "highlight the key result of this turn for the next agent" — but adds a second model dependency and a latency cost (post-run blocks on a model call before the summary lands).
 
@@ -277,5 +279,17 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **How to apply:** See per-item notes above. Items 1 and 2 layer naturally on top of the OS-fence work; item 3 is a 10-line UX fix that can ship independently.
 
 **Depends on:** Items 1 and 2 partially absorbed by TODO-001 (OS fence); item 3 standalone.
+
+## Signals cleanup
+
+- [ ] Restructure `OnboardingFacade` and `WorkspaceDetailStore` to expose
+      reactive "bind-from-signal" APIs so the 3 remaining mirror `effect()`s
+      can be removed. Sites: - `apps/desktop/src/app/domains/onboarding/feature-onboarding-step-github.ts` (markStep mirror) - `apps/desktop/src/app/domains/onboarding/feature-onboarding-step-provider.ts` (markStep mirror) - `apps/desktop/src/app/domains/workspaces/feature-detail/workspace-detail.page.ts` (setCurrentBranch + seedTargetBranch mirror)
+
+      Blocked by: `markStep` / `setCurrentBranch` / `seedTargetBranch` also have
+      imperative callers (skip buttons, branch pickers), so the refactor needs
+      to add a parallel `bindStepSource(step, Signal<Status>)` /
+      `bindWorkspace(Signal<Workspace>)` API on each store before the effects
+      can go.
 
 ---
