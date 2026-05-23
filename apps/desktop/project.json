@@ -23,13 +23,19 @@
         "tsConfig": "apps/desktop/tsconfig.app.json",
         "assets": [
           {
-            "glob": "**/*",
-            "input": "apps/desktop/public"
-          },
-          {
             "glob": "**/!(*.md)",
             "input": "libs/mozart-assets/src/shared",
             "output": "assets/shared"
+          },
+          {
+            "glob": "sounds/**/*",
+            "input": "libs/mozart-assets/src/desktop",
+            "output": "assets/desktop"
+          },
+          {
+            "glob": "icons/**/*",
+            "input": "libs/mozart-assets/src/desktop",
+            "output": "assets/desktop"
           }
         ],
         "styles": [

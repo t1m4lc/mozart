@@ -6,7 +6,7 @@ import {
 import { commands } from './_bindings';
 import type { NotificationImpl } from './notification-impl';
 
-const SOUND_URL = '/sounds/message-done.ogg';
+const SOUND_URL = '/assets/desktop/sounds/message-done.ogg';
 const SOUND_VOLUME = 0.4;
 
 // Desktop notifications + a subtle chime when an agent turn finishes

@@ -6,7 +6,7 @@
 //! drift in `commands/mod.rs` or `bindings_export.rs` that drops a
 //! command name or a type from the export will fail here.
 
-use app_lib::bindings_export::build_specta_builder;
+use mozart_lib::bindings_export::build_specta_builder;
 use specta_typescript::{BigIntExportBehavior, Typescript};
 
 #[test]

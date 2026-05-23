@@ -31,11 +31,11 @@
     "active": true,
     "targets": "all",
     "icon": [
-      "icons/32x32.png",
-      "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.icns",
-      "icons/icon.ico"
+      "../../libs/mozart-assets/src/desktop/app-icons/32x32.png",
+      "../../libs/mozart-assets/src/desktop/app-icons/128x128.png",
+      "../../libs/mozart-assets/src/desktop/app-icons/128x128@2x.png",
+      "../../libs/mozart-assets/src/desktop/app-icons/icon.icns",
+      "../../libs/mozart-assets/src/desktop/app-icons/icon.ico"
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"

@@ -211,6 +211,21 @@ pub fn run() {
             let port = auth::http_callback::start_server(app.handle().clone());
             app.manage(auth::http_callback::CallbackPort(port));
 
+            // Runtime window icon. `bundle.icon` in tauri.conf.json only
+            // applies to the packaged build (.AppImage / .deb / .app /
+            // .exe); in `tauri dev`, and for non-installed AppImage runs,
+            // the dock/taskbar falls back to a generic GTK icon unless
+            // the icon is set on the window at runtime. `include_bytes!`
+            // embeds the PNG into the binary at compile time, sourced
+            // directly from the `mozart-assets` lib.
+            if let Some(window) = app.get_webview_window("main") {
+                if let Ok(icon) = tauri::image::Image::from_bytes(include_bytes!(
+                    "../../../libs/mozart-assets/src/desktop/app-icons/128x128.png"
+                )) {
+                    let _ = window.set_icon(icon);
+                }
+            }
+
             // Linux/WebKitGTK scroll-feel parity with Chromium. The
             // default WebKit "smooth scrolling" animates each wheel
             // tick, which feels noticeably slower than Chromium's

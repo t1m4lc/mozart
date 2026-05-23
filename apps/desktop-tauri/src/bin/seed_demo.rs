@@ -76,7 +76,7 @@ fn main() {
         }
     }
 
-    let db = match app_lib::db::init_db(&db_path) {
+    let db = match mozart_lib::db::init_db(&db_path) {
         Ok(d) => d,
         Err(e) => {
             eprintln!("seed-demo: db init failed at {}: {e:?}", db_path.display());
@@ -86,8 +86,8 @@ fn main() {
     let mut conn = db.lock();
 
     let result = match mode {
-        Mode::Clean => app_lib::db::reset::reset_clean(&mut conn),
-        Mode::Demo => app_lib::db::reset::reset_with_demo_seed(&mut conn),
+        Mode::Clean => mozart_lib::db::reset::reset_clean(&mut conn),
+        Mode::Demo => mozart_lib::db::reset::reset_with_demo_seed(&mut conn),
     };
     match result {
         Ok(()) => {

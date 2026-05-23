@@ -24,10 +24,17 @@ src/
     screenshots/
     social/      # marketing OG cards
     authors/
+
+  desktop/       # used ONLY by apps/desktop (Angular frontend in Tauri)
+    sounds/      # notification chimes (message-done.ogg, …)
+    icons/tools/ # IDE / file-manager brand icons (vscode.svg, cursor.svg, …)
+    app-icons/   # Tauri OS bundle icons (icon.ico, icon.icns, 32x32.png, …)
+                 # referenced from apps/desktop-tauri/tauri.conf.json,
+                 # NOT served to the web bundle
 ```
 
-When in doubt, put it in `landing/`. Promote to `shared/` the first time a
-second app needs it.
+When in doubt, put it in the app-specific folder (`landing/`, `desktop/`).
+Promote to `shared/` the first time a second app needs it.
 
 ## Naming
 
@@ -44,10 +51,16 @@ Each app's build copies `libs/mozart-assets/src/**` into its output under
   → `/assets/shared/logos/mozart-logo.svg`
 - `libs/mozart-assets/src/landing/social/og-default.png`
   → `/assets/landing/social/og-default.png`
+- `libs/mozart-assets/src/desktop/sounds/message-done.ogg`
+  → `/assets/desktop/sounds/message-done.ogg`
 
 Angular apps (`desktop`, `web`, `sandbox`) wire this through the `assets`
 array in `project.json`. The Vite-based `landing` app wires it through a
 small plugin in `apps/landing/vite.config.ts`.
+
+`desktop/app-icons/` is the exception: Tauri reads those files directly
+from disk at bundle time, via relative paths in
+`apps/desktop-tauri/tauri.conf.json`. They are never served over HTTP.
 
 ## UI wrappers
 
