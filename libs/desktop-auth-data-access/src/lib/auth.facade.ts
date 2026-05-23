@@ -1,6 +1,8 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
-import type { Subscription } from 'rxjs';
+import { Subject, timer, type Subscription } from 'rxjs';
+import { takeUntil } from 'rxjs/operators';
 import {
   buildSignInUrl,
   decodeJwt,
@@ -33,6 +35,7 @@ const SIGN_IN_TIMEOUT_MS = 5 * 60 * 1000;
 export class AuthFacade {
   private readonly adapter = inject(AUTH_ADAPTER);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   private readonly _session = signal<AuthSession | null>(null);
   readonly session = computed(() => this._session());
@@ -49,7 +52,8 @@ export class AuthFacade {
 
   private pendingState: string | null = null;
   private deepLinkSub: Subscription | null = null;
-  private signInTimeoutHandle: ReturnType<typeof setTimeout> | null = null;
+  // Emits to cancel the in-flight sign-in timeout (timer pipeline below).
+  private readonly cancelSignInTimeout$ = new Subject<void>();
 
   /** Port of the localhost HTTP callback server. Cached at bootstrap
    *  and embedded in the apps/web sign-in URL so the browser-side
@@ -106,28 +110,30 @@ export class AuthFacade {
   }
 
   cancelSignIn(): void {
-    this.clearTimeout();
+    this.clearSignInTimeout();
     this.pendingState = null;
     this._signInUrl.set(null);
     this.welcomeState.set('idle');
   }
 
   private armTimeout(): void {
-    this.clearTimeout();
-    this.signInTimeoutHandle = setTimeout(() => {
-      // Only flip if we're still waiting — the deep-link might have
-      // arrived right before the timer fired.
-      if (this.welcomeState() === 'opening') {
-        this.welcomeState.set('timed-out');
-      }
-    }, SIGN_IN_TIMEOUT_MS);
+    this.clearSignInTimeout();
+    timer(SIGN_IN_TIMEOUT_MS)
+      .pipe(
+        takeUntil(this.cancelSignInTimeout$),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => {
+        // Only flip if we're still waiting — the deep-link might have
+        // arrived right before the timer fired.
+        if (this.welcomeState() === 'opening') {
+          this.welcomeState.set('timed-out');
+        }
+      });
   }
 
-  private clearTimeout(): void {
-    if (this.signInTimeoutHandle) {
-      clearTimeout(this.signInTimeoutHandle);
-      this.signInTimeoutHandle = null;
-    }
+  private clearSignInTimeout(): void {
+    this.cancelSignInTimeout$.next();
   }
 
   async signOut(): Promise<void> {
@@ -150,7 +156,7 @@ export class AuthFacade {
     }
     console.info('[auth] deep-link state validated');
     this.pendingState = null;
-    this.clearTimeout();
+    this.clearSignInTimeout();
 
     // Atom 6 (Phase 6) decodes the JWT for expiresAt + onboarding. The
     // `onboarding` claim drives the post-sign-in routing decision : the
