@@ -17,7 +17,7 @@ import {
   lucideRefreshCw,
 } from '@ng-icons/lucide';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
-import { OnboardingFacade } from './data/onboarding.facade';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 
 // Step 4 of the onboarding wizard. Optional GitHub connection — reuses
 // the existing Phase 4f PAT flow via `UiGithubConnectDialog`. The

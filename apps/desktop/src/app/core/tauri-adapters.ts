@@ -20,11 +20,11 @@ import {
   GIT_CHECK_ADAPTER,
   ONBOARDING_ADAPTER,
   PROVIDER_SETUP_ADAPTER,
-} from '../domains/onboarding';
-import { tauriGetStartedProjectAdapter } from '../domains/onboarding/data/tauri-get-started-project.adapter';
-import { tauriGitCheckAdapter } from '../domains/onboarding/data/tauri-git-check.adapter';
-import { tauriOnboardingAdapter } from '../domains/onboarding/data/tauri-onboarding.adapter';
-import { tauriProviderSetupAdapter } from '../domains/onboarding/data/tauri-provider-setup.adapter';
+} from '@mozart/desktop-onboarding-data-access';
+import { tauriGetStartedProjectAdapter } from './tauri-get-started-project.adapter';
+import { tauriGitCheckAdapter } from './tauri-git-check.adapter';
+import { tauriOnboardingAdapter } from './tauri-onboarding.adapter';
+import { tauriProviderSetupAdapter } from './tauri-provider-setup.adapter';
 import {
   CREDENTIALS_ADAPTER,
   NOTIFICATION_PREFS_ADAPTER,

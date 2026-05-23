@@ -10,7 +10,7 @@ import {
   HlmHighlightOverlay,
   type HighlightStep,
 } from '@mozart-ui/highlight-overlay';
-import { UiTourClosingCard } from './ui-tour-closing-card';
+import { UiTourClosingCard } from '@mozart/desktop-onboarding-ui';
 
 const TOUR_STEPS: readonly HighlightStep[] = [
   {

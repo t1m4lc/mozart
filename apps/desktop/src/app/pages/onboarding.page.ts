@@ -1,13 +1,13 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { TopBar } from '../core/window-controls/top-bar';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
+import { UiOnboardingStepper } from '@mozart/desktop-onboarding-ui';
 import {
   FeatureOnboardingStepGit,
   FeatureOnboardingStepGithub,
   FeatureOnboardingStepProvider,
   FeatureOnboardingStepWelcome,
-  OnboardingFacade,
-  UiOnboardingStepper,
-} from '../domains/onboarding';
+} from '@mozart/desktop-onboarding-feature';
 
 // `/onboarding` route shell. The stepper wrapper renders the progress
 // dots once and stays mounted while `facade.currentStep()` swaps the

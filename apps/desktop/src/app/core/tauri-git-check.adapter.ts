@@ -1,5 +1,5 @@
-import { commands } from '../../../core/_bindings';
-import type { GitCheckAdapter } from './git-check.adapter';
+import { commands } from './_bindings';
+import type { GitCheckAdapter } from '@mozart/desktop-onboarding-data-access';
 
 function unwrap<T>(
   r:

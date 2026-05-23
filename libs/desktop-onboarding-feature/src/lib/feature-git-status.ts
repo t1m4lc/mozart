@@ -7,7 +7,7 @@ import {
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCheck, lucideCircleAlert } from '@ng-icons/lucide';
-import { GIT_CHECK_ADAPTER } from './data/git-check.adapter';
+import { GIT_CHECK_ADAPTER } from '@mozart/desktop-onboarding-data-access';
 
 // Read-only Git status card surfaced under /settings. Re-probes
 // git --version on mount via the shared adapter. Used by Atom 8.

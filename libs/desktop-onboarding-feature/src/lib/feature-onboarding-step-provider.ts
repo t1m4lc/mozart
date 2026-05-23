@@ -14,7 +14,7 @@ import { HlmSelectImports } from '@mozart/ui/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideInfo, lucideLock, lucideRefreshCw } from '@ng-icons/lucide';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
-import { OnboardingFacade } from './data/onboarding.facade';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 import { FeatureClaudeLoginPty } from './feature-claude-login-pty';
 
 type ProviderId = 'claude' | 'openai' | 'openrouter' | 'local';

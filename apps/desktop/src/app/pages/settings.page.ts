@@ -3,7 +3,8 @@ import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
-import { FeatureGitStatus, OnboardingFacade } from '../domains/onboarding';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
+import { FeatureGitStatus } from '@mozart/desktop-onboarding-feature';
 import {
   FeatureConnections,
   FeatureNotificationPrefs,

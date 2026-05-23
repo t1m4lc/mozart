@@ -1,6 +1,6 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
-import { OnboardingFacade } from './data/onboarding.facade';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 
 // Inverse of `onboardingGuard`. Protects the `/onboarding` route so a
 // returning user with `onboarding_completed === true` can't URL-jump

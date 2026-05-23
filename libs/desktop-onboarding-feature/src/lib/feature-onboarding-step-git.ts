@@ -12,9 +12,9 @@ import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideRefreshCw } from '@ng-icons/lucide';
 import { OsService } from '@mozart/shared-util-os';
-import { GIT_CHECK_ADAPTER, type GitIdentity } from './data/git-check.adapter';
-import { OnboardingFacade } from './data/onboarding.facade';
-import { GIT_INSTALL_INSTRUCTIONS } from './util-git-install-instructions';
+import { GIT_CHECK_ADAPTER, type GitIdentity } from '@mozart/desktop-onboarding-data-access';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
+import { GIT_INSTALL_INSTRUCTIONS } from '@mozart/desktop-onboarding-util';
 
 type ProbeState = 'idle' | 'probing' | 'found' | 'missing';
 

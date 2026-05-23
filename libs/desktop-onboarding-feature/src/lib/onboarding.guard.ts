@@ -1,7 +1,7 @@
 import { inject } from '@angular/core';
 import { CanActivateFn, Router, UrlTree } from '@angular/router';
 import { isDevAuthBypassActive } from '@mozart/desktop-auth-data-access';
-import { OnboardingFacade } from './data/onboarding.facade';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 
 // Onboarding gate. When `onboarding_completed === false`, every guarded
 // route that isn't `/onboarding`, `/tour`, or `/welcome` redirects back

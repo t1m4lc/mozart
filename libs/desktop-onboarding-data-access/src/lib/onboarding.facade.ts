@@ -9,7 +9,7 @@ import {
   ONBOARDING_STEPS,
   type OnboardingStep,
   type StepStatus,
-} from './onboarding.model';
+} from '@mozart/desktop-onboarding-util';
 
 // Public API of the `onboarding` domain. Features inject this — never
 // the adapter directly. Shape :

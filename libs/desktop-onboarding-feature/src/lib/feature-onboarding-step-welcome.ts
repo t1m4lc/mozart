@@ -5,7 +5,7 @@ import {
   inject,
 } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
-import { OnboardingFacade } from './data/onboarding.facade';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 
 // Step 1 of the onboarding wizard. Pure intro — Enter or click on the
 // CTA advances to the Git check.

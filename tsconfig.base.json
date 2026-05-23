@@ -195,6 +195,18 @@
       ],
       "@mozart/desktop-workspaces-ui": [
         "./libs/desktop-workspaces-ui/src/index.ts"
+      ],
+      "@mozart/desktop-onboarding-util": [
+        "./libs/desktop-onboarding-util/src/index.ts"
+      ],
+      "@mozart/desktop-onboarding-data-access": [
+        "./libs/desktop-onboarding-data-access/src/index.ts"
+      ],
+      "@mozart/desktop-onboarding-ui": [
+        "./libs/desktop-onboarding-ui/src/index.ts"
+      ],
+      "@mozart/desktop-onboarding-feature": [
+        "./libs/desktop-onboarding-feature/src/index.ts"
       ]
     }
   }

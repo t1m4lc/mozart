@@ -1,0 +1,13 @@
+{
+  "name": "desktop-onboarding-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-onboarding-ui/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": ["app:desktop", "domain:onboarding", "type:ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}
