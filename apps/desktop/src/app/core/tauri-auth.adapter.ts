@@ -100,7 +100,7 @@ export function tauriAuthAdapter(): AuthAdapter {
         console.warn('[auth] clearSession failed:', err);
       }
     },
-    async openSignIn({ url, state: _state }) {
+    async openSignIn({ url }) {
       // The browser lands on apps/web /login which captures state +
       // port, walks the user through OAuth, then on /dashboard fires
       // a `fetch(http://127.0.0.1:<port>/auth?token=…&state=…)`. The
