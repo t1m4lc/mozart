@@ -14,7 +14,7 @@ import { ScrollPositionService } from '@mozart/desktop-workspaces-data-access';
 
 // Host shell that lets each test drive the key + default inputs.
 @Component({
-  selector: 'test-host',
+  selector: 'app-test-host',
   imports: [MzScrollPersist],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `

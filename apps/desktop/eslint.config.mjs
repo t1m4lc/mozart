@@ -6,13 +6,16 @@ export default [
   ...nx.configs['flat/angular-template'],
   ...baseConfig,
   {
+    ignores: ['**/_bindings.ts'],
+  },
+  {
     files: ['**/*.ts'],
     rules: {
       '@angular-eslint/directive-selector': [
         'error',
         {
           type: 'attribute',
-          prefix: 'app',
+          prefix: ['app', 'mz'],
           style: 'camelCase',
         },
       ],
@@ -20,7 +23,7 @@ export default [
         'error',
         {
           type: 'element',
-          prefix: 'app',
+          prefix: ['app', 'mz'],
           style: 'kebab-case',
         },
       ],

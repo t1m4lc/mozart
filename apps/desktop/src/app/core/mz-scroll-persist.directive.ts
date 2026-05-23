@@ -41,9 +41,11 @@ export class MzScrollPersist {
 
   /** Where to land when no scrollTop is stored for the key. Defaults to
    *  the top — matches the typical file-viewer expectation. */
-  readonly defaultPosition = input<ScrollDefaultPosition>('top', {
-    alias: 'mzScrollPersistDefault',
-  });
+  readonly defaultPosition = input<ScrollDefaultPosition>(
+    'top',
+    // eslint-disable-next-line @angular-eslint/no-input-rename
+    { alias: 'mzScrollPersistDefault' },
+  );
 
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly service = inject(ScrollPositionService);
