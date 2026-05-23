@@ -1,0 +1,13 @@
+{
+  "name": "desktop-chat-ui",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-chat-ui/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": ["app:desktop", "domain:chat", "type:ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

@@ -4,8 +4,8 @@ import {
   inject,
   input,
 } from '@angular/core';
-import { ChatFacade } from './data/chat.facade';
-import { MessageList } from './ui-message-list';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { MessageList } from '@mozart/desktop-chat-ui';
 
 /**
  * Chat-only content for the middle shell — owns the message-list /

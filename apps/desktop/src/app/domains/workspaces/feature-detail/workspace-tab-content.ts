@@ -7,7 +7,8 @@ import {
   input,
 } from '@angular/core';
 import { HlmSkeletonImports } from '@mozart/ui/skeleton';
-import { ChatFacade, FeatureChatContent } from '../../chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { FeatureChatContent } from '@mozart/desktop-chat-feature';
 import { ProjectsFacade } from '../../projects';
 import { FileTabsService } from '../data/file-tabs.service';
 import { WorkspaceTabRegistry } from '../data/workspace-tab-registry';

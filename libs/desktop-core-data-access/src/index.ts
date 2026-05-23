@@ -12,3 +12,4 @@ export {
   NotificationService,
   type NotificationPrefsCache,
 } from './lib/notification.service';
+export { WindowFocusService } from './lib/window-focus.service';

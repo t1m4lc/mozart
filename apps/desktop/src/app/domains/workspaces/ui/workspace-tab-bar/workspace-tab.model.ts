@@ -1,6 +1,9 @@
 // Provisional tab model — local to the WorkspaceTabBar component.
 // Will move to /data and a real store once tabs are persisted server-side.
 
+import { CHAT_TAB_CAP } from '@mozart/desktop-chat-util';
+export { CHAT_TAB_CAP };
+
 export type TabKind = 'chat' | 'file';
 
 export interface ChatTab {
@@ -22,10 +25,6 @@ export interface FileTab {
 }
 
 export type WorkspaceTab = ChatTab | FileTab;
-
-/** Maximum chat tabs per workspace. The `+ New chat` button disables
- *  at this count. File tabs do not consume this budget. */
-export const CHAT_TAB_CAP = 4;
 
 /** Maximum file tabs per workspace. v0.1.0-beta.1 ships with cap = 1 :
  *  opening a file replaces the previous file tab. Less DOM, less

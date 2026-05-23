@@ -12,9 +12,21 @@ import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideMessageSquare, lucidePlus } from '@ng-icons/lucide';
 import dayjs from 'dayjs';
-import { WorkspacesFacade, workspaceRouteCommands } from '../workspaces';
-import { ChatFacade } from './data/chat.facade';
-import type { Chat } from './data/chat.model';
+import {
+  ChatFacade,
+  WorkspaceChatPort,
+} from '@mozart/desktop-chat-data-access';
+import type { Chat } from '@mozart/desktop-chat-util';
+
+// Mirrors the workspaces lib's route convention. Kept inline so the
+// chat feature lib doesn't reach into the workspaces domain — the
+// shape is part of the app's URL contract, not a private detail.
+function workspaceRouteCommands(
+  projectId: string,
+  workspaceId: string,
+): readonly string[] {
+  return ['/project', projectId, 'workspace', workspaceId];
+}
 
 type Bucket = 'today' | 'yesterday' | 'this_week' | 'older';
 
@@ -124,7 +136,7 @@ function bucketFor(createdAt: number, now: number): Bucket {
 })
 export class FeatureChatList {
   private readonly facade = inject(ChatFacade);
-  private readonly workspaces = inject(WorkspacesFacade);
+  private readonly workspaces = inject(WorkspaceChatPort);
 
   protected readonly groups = computed<readonly BucketGroup[]>(() => {
     const now = Date.now();

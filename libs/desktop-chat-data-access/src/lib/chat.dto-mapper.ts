@@ -1,14 +1,43 @@
 import type { TurnState } from '@mozart/desktop-llm-model-util';
-import type { ChatDto, MessageDto } from './chat.dto';
-import type { Chat, ChatMode, EffortLevel } from './chat.model';
 import type {
+  Chat,
+  ChatMode,
+  EffortLevel,
   Message,
   MessageRole,
   MessageStatus,
   SetupProgress,
   SetupProgressStatus,
   SystemInfo,
-} from './message.model';
+} from '@mozart/desktop-chat-util';
+
+// Wire shapes returned by Tauri (`list_chats`, `list_messages`,
+// `insert_message`). Declared locally so this lib has no inbound
+// dep on apps/_bindings — the desktop app passes its generated
+// `Chat` / `Message` DTOs into these mappers and TypeScript
+// structural typing closes the bridge.
+export interface ChatDto {
+  readonly chat_id: string;
+  readonly workspace_id: string;
+  readonly title: string;
+  readonly llm_id: string | null;
+  readonly mode: string;
+  readonly effort: string;
+  readonly last_read_message_id: string | null;
+  readonly created_at: number;
+}
+
+export interface MessageDto {
+  readonly message_id: string;
+  readonly chat_id: string;
+  readonly role: string;
+  readonly content: string;
+  readonly mode: string | null;
+  readonly status: string;
+  readonly created_at: number;
+  readonly timeline_json: string | null;
+  readonly run_id?: string | null;
+}
 
 const ALLOWED_MODES: ReadonlySet<ChatMode> = new Set(['agent', 'plan', 'ask']);
 const ALLOWED_EFFORTS: ReadonlySet<EffortLevel> = new Set([

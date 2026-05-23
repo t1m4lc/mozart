@@ -9,6 +9,10 @@
 @source "../../../libs/desktop-auth-feature";
 @source "../../../libs/desktop-auth-ui";
 @source "../../../libs/desktop-auth-util";
+@source "../../../libs/desktop-chat-data-access";
+@source "../../../libs/desktop-chat-feature";
+@source "../../../libs/desktop-chat-ui";
+@source "../../../libs/desktop-chat-util";
 @source "../../../libs/desktop-core-data-access";
 @source "../../../libs/desktop-core-util";
 @source "../../../libs/desktop-llm-model-data-access";

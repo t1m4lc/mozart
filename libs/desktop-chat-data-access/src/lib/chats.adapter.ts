@@ -1,7 +1,13 @@
 import { InjectionToken } from '@angular/core';
 import type { TurnState } from '@mozart/desktop-llm-model-util';
-import type { Chat, ChatMode, EffortLevel } from './chat.model';
-import type { Message, MessageStatus, SetupProgress } from './message.model';
+import type {
+  Chat,
+  ChatMode,
+  EffortLevel,
+  Message,
+  MessageStatus,
+  SetupProgress,
+} from '@mozart/desktop-chat-util';
 
 // Tauri-backed IO for the chat domain. Concrete impl bound in
 // app.config.ts. Two interfaces — chats vs messages — bound under the

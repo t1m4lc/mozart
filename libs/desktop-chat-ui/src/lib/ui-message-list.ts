@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, input } from '@angular/core';
-import type { Message } from './data/message.model';
+import type { Message } from '@mozart/desktop-chat-util';
 import { AgentMessage } from './ui-agent-message';
 import { SetupProgressMessage } from './ui-setup-progress-message';
 import { SystemInfoMessage } from './ui-system-info-message';

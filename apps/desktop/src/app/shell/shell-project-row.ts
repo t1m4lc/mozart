@@ -9,7 +9,7 @@ import {
   output,
 } from '@angular/core';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
-import { ChatFacade } from '../domains/chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { type Project, ProjectRow, ProjectsFacade } from '../domains/projects';
 import {
   WorkspaceEmptyState,

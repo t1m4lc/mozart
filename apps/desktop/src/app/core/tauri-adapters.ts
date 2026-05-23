@@ -12,7 +12,7 @@ import {
   turnStateToJson,
   type ChatsAdapter,
   type MessagesAdapter,
-} from '../domains/chat';
+} from '@mozart/desktop-chat-data-access';
 import { LLM_ADAPTER } from '@mozart/desktop-llm-model-data-access';
 import { TauriClaudeAdapter } from './tauri-claude.adapter';
 import {

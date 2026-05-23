@@ -1,4 +1,9 @@
-import type { ChatMode, EffortLevel } from '@mozart-ui/composer';
+import type { ChatMode } from '@mozart/desktop-llm-model-util';
+
+// Effort-level discriminant for the LLM run. Defined locally so the
+// chat util lib stays at `type:util` (no scope:mozart-ui dep) — the
+// composer's enum mirrors this string union.
+export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 
 // One or more chats per workspace. The tab bar shows up to MAX_TABS;
 // the sidebar Chats group lists every open chat across every workspace
@@ -15,4 +20,4 @@ export interface Chat {
   readonly createdAt: number;
 }
 
-export type { ChatMode, EffortLevel };
+export type { ChatMode };

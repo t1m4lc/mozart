@@ -6,7 +6,7 @@ import {
   input,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { ChatFacade } from '../chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   WorkspaceTabRegistry,
   workspaceRouteCommands,

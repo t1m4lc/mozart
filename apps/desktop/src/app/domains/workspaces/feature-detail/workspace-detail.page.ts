@@ -18,7 +18,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '../../../core/layout.service';
 import { MacWindowControls } from '../../../core/window-controls/mac-window-controls';
-import { ChatFacade } from '../../chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '../../projects';
 import {

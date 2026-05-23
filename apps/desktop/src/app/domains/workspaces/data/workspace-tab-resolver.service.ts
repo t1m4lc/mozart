@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { ChatFacade } from '../../chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { WorkspacesFacade } from './workspace.facade';
 import {
   WorkspaceTabRegistry,

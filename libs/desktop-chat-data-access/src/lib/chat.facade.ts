@@ -1,6 +1,8 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
-import { NotificationService } from '@mozart/desktop-core-data-access';
-import { WindowFocusService } from '../../../core/window-focus.service';
+import {
+  NotificationService,
+  WindowFocusService,
+} from '@mozart/desktop-core-data-access';
 import {
   LLM_ADAPTER,
   type LlmRunHandle,
@@ -11,20 +13,22 @@ import {
   type TurnOutcome,
   type TurnState,
 } from '@mozart/desktop-llm-model-util';
-import { WorkspacesFacade } from '../../workspaces';
-import { CHAT_TAB_CAP } from '../../workspaces/ui/workspace-tab-bar/workspace-tab.model';
+import {
+  CHAT_TAB_CAP,
+  type Chat,
+  type ChatMode,
+  type EffortLevel,
+  type Message,
+  type MessageStatus,
+  type SetupProgress,
+  type SetupProgressStatus,
+} from '@mozart/desktop-chat-util';
 import {
   CHATS_ADAPTER,
   MESSAGES_ADAPTER,
 } from './chats.adapter';
-import type { Chat, ChatMode, EffortLevel } from './chat.model';
-import type {
-  Message,
-  MessageStatus,
-  SetupProgress,
-  SetupProgressStatus,
-} from './message.model';
 import { ChatStore } from './chat.store';
+import { WorkspaceChatPort } from './workspace-chat.port';
 
 function outcomeToStatus(
   outcome: TurnOutcome | undefined,
@@ -67,7 +71,7 @@ export class ChatFacade {
   private readonly llm = inject(LLM_ADAPTER);
   private readonly chats = inject(CHATS_ADAPTER);
   private readonly messages = inject(MESSAGES_ADAPTER);
-  private readonly workspaces = inject(WorkspacesFacade);
+  private readonly workspaces = inject(WorkspaceChatPort);
   private readonly windowFocus = inject(WindowFocusService);
   private readonly notify = inject(NotificationService);
 

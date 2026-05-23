@@ -22,7 +22,10 @@ import { TauriConnectivityService } from './core/connectivity.service';
 import { TauriExternalLinkService } from './core/external-link.service';
 import { TauriNotificationService } from './core/notification.service';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
-import { ChatFacade } from './domains/chat';
+import {
+  ChatFacade,
+  WorkspaceChatPort,
+} from '@mozart/desktop-chat-data-access';
 import { OnboardingFacade } from './domains/onboarding';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from './domains/projects';
@@ -53,6 +56,11 @@ export const appConfig: ApplicationConfig = {
     { provide: ConnectivityService, useExisting: TauriConnectivityService },
     { provide: ExternalLinkService, useExisting: TauriExternalLinkService },
     { provide: NotificationService, useExisting: TauriNotificationService },
+    // Bind WorkspaceChatPort (declared in `desktop-chat-data-access`) to
+    // the in-app WorkspacesFacade so ChatFacade can read activeId /
+    // workspaceById + call markRead / toggleUnread without a
+    // chat→workspaces lib dep.
+    { provide: WorkspaceChatPort, useExisting: WorkspacesFacade },
     provideAppInitializer(async () => {
       // All inject() calls MUST happen synchronously before any await —
       // Angular's injection context is lost across microtasks.

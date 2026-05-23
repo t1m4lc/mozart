@@ -24,7 +24,7 @@ import {
   type Project,
 } from '../domains/projects';
 import { AddProjectFlow } from './add-project.flow';
-import { ChatFacade } from '../domains/chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   UI_WORKSPACE_STATUSES,
   WorkspaceContextMenu,

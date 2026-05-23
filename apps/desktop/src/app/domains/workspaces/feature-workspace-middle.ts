@@ -23,7 +23,7 @@ import {
   ScrollPositionService,
   chatTabKey,
 } from '../../core/scroll-position.service';
-import { ChatFacade } from '../chat';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   DEFAULT_MODEL_ID,
   LLM_MODEL_CATALOG,

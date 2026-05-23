@@ -16,7 +16,7 @@ import { AddProjectFlow } from './add-project.flow';
 import { FeatureFlagsService } from '../core/feature-flags';
 import { LayoutService } from '../core/layout.service';
 import { MacWindowControls } from '../core/window-controls/mac-window-controls';
-import { FeatureChatList } from '../domains/chat';
+import { FeatureChatList } from '@mozart/desktop-chat-feature';
 import {
   FeatureAddProject,
   GroupByFilter,

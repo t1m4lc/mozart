@@ -4,7 +4,7 @@ import {
   computed,
   input,
 } from '@angular/core';
-import type { Message } from './data/message.model';
+import type { Message } from '@mozart/desktop-chat-util';
 
 /**
  * Subtle muted card that renders a `system_info` chat-timeline entry as

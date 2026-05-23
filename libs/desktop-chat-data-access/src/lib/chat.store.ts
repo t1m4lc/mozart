@@ -6,8 +6,7 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import type { Chat } from './chat.model';
-import type { Message } from './message.model';
+import type { Chat, Message } from '@mozart/desktop-chat-util';
 
 interface ChatStoreState {
   readonly chats: readonly Chat[];
