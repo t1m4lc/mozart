@@ -90,8 +90,13 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - uses: nrwl/nx-set-shas@v5
       - id: affected
+        # `nx show projects --affected` emits a JSON array on one line
+        # (e.g. `["desktop","desktop-tauri",...]`), so `grep -qx` will
+        # never match. Filter to `--projects desktop-tauri` instead — Nx
+        # returns `["desktop-tauri"]` when affected and `[]` when not, so
+        # `grep -q desktop-tauri` is a reliable presence check.
         run: |
-          if pnpm nx show projects --affected --base="$NX_BASE" --head="$NX_HEAD" | grep -qx desktop-tauri; then
+          if pnpm nx show projects --projects desktop-tauri --affected --base="$NX_BASE" --head="$NX_HEAD" | grep -q desktop-tauri; then
             echo "run=true" >> "$GITHUB_OUTPUT"
           else
             echo "run=false" >> "$GITHUB_OUTPUT"
