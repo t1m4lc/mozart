@@ -1,5 +1,5 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
-import { ProjectsFacade } from '../../projects';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { generateWorkspaceName } from '../util-workspace-name';

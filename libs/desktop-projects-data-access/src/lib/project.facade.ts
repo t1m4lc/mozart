@@ -1,15 +1,21 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
-// Deep import: workspaces -> projects already exists (WorkspacesFacade
-// depends on ProjectsFacade). Going through workspaces/index.ts would
-// close that loop on a value import. workspace-status.ts is leaf
-// (no imports) so reaching into it is safe.
-import { UI_WORKSPACE_STATUSES } from '../../workspaces/data/workspace-status';
 import { DIALOG_ADAPTER } from './dialog.adapter';
-import type { Project } from './project.model';
+import type { Project } from '@mozart/desktop-projects-util';
 import type { GroupBy, ProjectFilter } from './project.store';
 import { ProjectStore } from './project.store';
 import { PROJECTS_ADAPTER, type MergeMode } from './projects.adapter';
+
+// Status ids whose group-rows the `Collapse all` action targets when
+// the user is grouping by status. Mirrors workspaces' UI_WORKSPACE_STATUSES
+// — kept inline so this lib has no cross-domain dep on `workspaces`.
+const WORKSPACE_STATUS_IDS = [
+  'backlog',
+  'in_progress',
+  'in_review',
+  'done',
+  'canceled',
+] as const;
 
 // Public API of the `projects` domain. Features inject this — never
 // the store directly. All mutators are optimistic-first: patch the
@@ -170,9 +176,7 @@ export class ProjectsFacade {
   }
   collapseAll(): void {
     if (this.store.groupBy() === 'status') {
-      this.uiState.setCollapsedStatuses(
-        UI_WORKSPACE_STATUSES.map((s) => s.id),
-      );
+      this.uiState.setCollapsedStatuses([...WORKSPACE_STATUS_IDS]);
     } else {
       this.uiState.collapseAllProjects();
     }

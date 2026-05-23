@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { Project } from '../../projects';
+import type { Project } from '@mozart/desktop-projects-util';
 import type { Workspace } from '../../workspaces';
 
 // Port for the tour's "Get started" project bootstrap. Wraps the

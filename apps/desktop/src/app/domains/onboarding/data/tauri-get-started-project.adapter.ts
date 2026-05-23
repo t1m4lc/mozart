@@ -1,5 +1,5 @@
 import { commands } from '../../../core/_bindings';
-import { projectFromDto } from '../../projects';
+import { projectFromDto } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from '../../workspaces';
 import type { GetStartedProjectAdapter } from './get-started-project.adapter';
 

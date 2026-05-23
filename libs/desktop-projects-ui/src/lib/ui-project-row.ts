@@ -14,7 +14,7 @@ import {
   lucideFolderCog,
   lucidePlus,
 } from '@ng-icons/lucide';
-import type { Project } from './data/project.model';
+import type { Project } from '@mozart/desktop-projects-util';
 
 @Component({
   selector: 'app-project-row',

@@ -16,13 +16,14 @@ import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideChevronRight } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import type { Project } from '@mozart/desktop-projects-util';
 import {
-  type ConfirmDeleteProjectContext,
+  ConfirmDeleteProjectDialog,
   ProjectContextMenu,
   ProjectsEmptyState,
-  ProjectsFacade,
-  type Project,
-} from '../domains/projects';
+  type ConfirmDeleteProjectContext,
+} from '@mozart/desktop-projects-ui';
 import { AddProjectFlow } from './add-project.flow';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
@@ -357,9 +358,6 @@ export class ShellProjectList {
         }
       },
     };
-    const { ConfirmDeleteProjectDialog } = await import(
-      '../domains/projects/ui-confirm-delete-project-dialog'
-    );
     this._dialogService.open(ConfirmDeleteProjectDialog, { context });
   }
 

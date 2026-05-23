@@ -18,8 +18,8 @@ import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFile, lucideFolderOpen, lucideLayers } from '@ng-icons/lucide';
-import { DIALOG_ADAPTER } from './data/dialog.adapter';
-import { UiRadioCard } from './ui-radio-card';
+import { DIALOG_ADAPTER } from '@mozart/desktop-projects-data-access';
+import { UiRadioCard } from '@mozart/desktop-projects-ui';
 
 export interface CreateProjectContext {
   // Pre-resolved default parent location (e.g. `<home>/mozart/repos`).

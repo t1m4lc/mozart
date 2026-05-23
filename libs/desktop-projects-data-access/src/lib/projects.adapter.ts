@@ -1,5 +1,5 @@
 import { InjectionToken } from '@angular/core';
-import type { Project } from './project.model';
+import type { Project } from '@mozart/desktop-projects-util';
 
 /** Mirror of the Rust `BootstrapResult` shape on the wire. */
 export interface BootstrapResult {

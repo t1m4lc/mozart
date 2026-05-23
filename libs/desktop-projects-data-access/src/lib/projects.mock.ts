@@ -1,4 +1,4 @@
-import type { Project } from './project.model';
+import type { Project } from '@mozart/desktop-projects-util';
 
 // Test/Storybook fixture. Production hydrates from Tauri at boot.
 export const PROJECTS_MOCK: Project[] = [

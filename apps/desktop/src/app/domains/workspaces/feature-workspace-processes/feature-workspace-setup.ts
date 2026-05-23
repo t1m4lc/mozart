@@ -8,7 +8,7 @@ import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmIconImports } from '@mozart/ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideListTree, lucidePlay } from '@ng-icons/lucide';
-import { ProjectsFacade } from '../../projects';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { WorkspacesFacade } from '../data/workspace.facade';
 

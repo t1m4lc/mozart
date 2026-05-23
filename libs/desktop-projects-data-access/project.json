@@ -1,0 +1,13 @@
+{
+  "name": "desktop-projects-data-access",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/desktop-projects-data-access/src",
+  "prefix": "app",
+  "projectType": "library",
+  "tags": ["app:desktop", "domain:projects", "type:data-access"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}

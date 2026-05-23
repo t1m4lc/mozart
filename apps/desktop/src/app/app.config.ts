@@ -28,7 +28,7 @@ import {
 } from '@mozart/desktop-chat-data-access';
 import { OnboardingFacade } from './domains/onboarding';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
-import { ProjectsFacade } from './domains/projects';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from './domains/workspaces';
 
 export const appConfig: ApplicationConfig = {

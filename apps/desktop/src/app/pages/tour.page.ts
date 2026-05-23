@@ -7,7 +7,7 @@ import {
 import { Router } from '@angular/router';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { GET_STARTED_PROJECT_ADAPTER } from '../domains/onboarding';
-import { ProjectsFacade } from '../domains/projects';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade, workspaceRouteCommands } from '../domains/workspaces';
 
 // `/tour` route. Bootstraps the bundled "Get started" project,

@@ -8,7 +8,7 @@ import {
   withMethods,
   withState,
 } from '@ngrx/signals';
-import type { Project } from './project.model';
+import type { Project } from '@mozart/desktop-projects-util';
 
 export type GroupBy = 'project' | 'status';
 

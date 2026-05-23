@@ -12,7 +12,7 @@ import { toast } from '@spartan-ng/brain/sonner';
 import { LayoutService } from '../core/layout.service';
 import { NonMacWindowControls } from '../core/window-controls/non-mac-window-controls';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
-import { ProjectsFacade } from '../domains/projects';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import {
   FeatureWorkspaceAside,
   MergeActionMenu,

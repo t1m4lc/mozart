@@ -18,7 +18,7 @@ import { HlmSpinnerImports } from '@mozart/ui/spinner';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFolderOpen } from '@ng-icons/lucide';
-import { DIALOG_ADAPTER } from './data/dialog.adapter';
+import { DIALOG_ADAPTER } from '@mozart/desktop-projects-data-access';
 
 export interface CloneRepoContext {
   // Pre-resolved default location (e.g. `<home>/mozart/repos`). The

@@ -8,7 +8,7 @@ import {
 import { ActivatedRoute, Router } from '@angular/router';
 import { HlmTabsImports } from '@mozart/ui/tabs';
 import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '../../../shell';
-import { ProjectsFacade } from '../../projects';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { FeatureWorkspaceRun } from '@mozart/desktop-runs-feature';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { FeatureWorkspaceTerminal } from '../../terminals/feature-workspace-terminal';

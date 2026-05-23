@@ -10,7 +10,9 @@ import {
 } from '@angular/core';
 import { HlmContextMenuImports } from '@mozart/ui/context-menu';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
-import { type Project, ProjectRow, ProjectsFacade } from '../domains/projects';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import type { Project } from '@mozart/desktop-projects-util';
+import { ProjectRow } from '@mozart/desktop-projects-ui';
 import {
   WorkspaceEmptyState,
   WorkspaceRow,

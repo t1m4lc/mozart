@@ -21,6 +21,10 @@
 @source "../../../libs/desktop-profile-feature";
 @source "../../../libs/desktop-profile-ui";
 @source "../../../libs/desktop-profile-util";
+@source "../../../libs/desktop-projects-data-access";
+@source "../../../libs/desktop-projects-feature";
+@source "../../../libs/desktop-projects-ui";
+@source "../../../libs/desktop-projects-util";
 @source "../../../libs/desktop-repositories-data-access";
 @source "../../../libs/desktop-repositories-feature";
 @source "../../../libs/desktop-repositories-ui";
@@ -64,7 +68,6 @@
 @source "../../../libs/ui/input-group";
 @source "../../../libs/ui/kbd";
 @source "../../../libs/ui/label";
-@source "../../../libs/ui/popover";
 @source "../../../libs/ui/select";
 @source "../../../libs/ui/separator";
 @source "../../../libs/ui/sheet";

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { HlmButtonImports } from '@mozart/ui/button';
 import { HlmDialogImports } from '@mozart/ui/dialog';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
-import type { Project } from './data/project.model';
+import type { Project } from '@mozart/desktop-projects-util';
 
 export interface ConfirmDeleteProjectContext {
   project: Project;

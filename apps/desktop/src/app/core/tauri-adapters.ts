@@ -36,7 +36,7 @@ import {
   PROJECTS_ADAPTER,
   projectFromDto,
   type ProjectsAdapter,
-} from '../domains/projects';
+} from '@mozart/desktop-projects-data-access';
 import {
   REPOSITORIES_ADAPTER,
   fileNodeFromDto,

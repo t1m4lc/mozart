@@ -15,7 +15,7 @@ import { HlmSeparatorImports } from '@mozart/ui/separator';
 import { HlmTooltipImports } from '@mozart/ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideListFilter } from '@ng-icons/lucide';
-import { ProjectsFacade, type GroupBy } from './data/project.facade';
+import { ProjectsFacade, type GroupBy } from '@mozart/desktop-projects-data-access';
 
 interface GroupByItem {
   label: string;
