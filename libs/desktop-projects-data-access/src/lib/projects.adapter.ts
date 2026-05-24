@@ -50,6 +50,12 @@ export interface ProjectsAdapter {
    *  (`'pr'` or `'local'`). Falls back to `'pr'` if the project hasn't
    *  bootstrapped a local config yet. */
   getMergeMode(id: string): Promise<MergeMode>;
+  /** P1.1 D9 — does this project's `origin` remote resolve to a
+   *  github.com URL? Used by the right-aside merge action menu to
+   *  differentiate "user not connected" from "this repo isn't on
+   *  GitHub". Returns `false` for any non-GitHub origin AND any error
+   *  reading the remote (defensive — see Rust command docs). */
+  isGithubRemote(id: string): Promise<boolean>;
 }
 
 export type MergeMode = 'pr' | 'local';

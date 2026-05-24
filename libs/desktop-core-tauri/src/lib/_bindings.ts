@@ -1272,6 +1272,33 @@ export const commands = {
     }
   },
   /**
+   * P1.1 D9 — does this project's `origin` remote resolve to a github.com
+   * URL? Used by the right-aside merge action menu to disable the
+   * Create PR action with a "this repo isn't on GitHub" tooltip when
+   * the workspace's project doesn't have a GitHub remote. The check is
+   * project-level (not workspace-level) because git remotes are shared
+   * across all worktrees of the same repo.
+   *
+   * Returns `false` for any non-GitHub origin AND for any error
+   * reading the remote (no origin configured, missing path, git not
+   * installed, …). The "false on error" semantic is intentional and
+   * defensive: a misconfigured project should not light up a PR button
+   * that will then fail mid-flow.
+   */
+  async isGithubRemoteForProject(
+    repoId: string,
+  ): Promise<Result<boolean, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('is_github_remote_for_project', { repoId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Push the workspace's branch to `origin` (with `-u`) using the local
    * git binary. Resolves the origin URL via `git remote get-url origin`.
    * Surfaces `Validation` if no `origin` is set.

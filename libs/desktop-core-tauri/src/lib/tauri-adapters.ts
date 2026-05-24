@@ -199,6 +199,9 @@ function provideProjectsAdapter(): Provider {
         const config = unwrap(await commands.readProjectConfig(id));
         return config.mergeMode === 'local' ? 'local' : 'pr';
       },
+      async isGithubRemote(id) {
+        return unwrap(await commands.isGithubRemoteForProject(id));
+      },
     } satisfies ProjectsAdapter,
   };
 }
@@ -260,9 +263,7 @@ function provideWorkspacesAdapter(): Provider {
         }));
       },
       async setLastMergeAction(workspaceId, action) {
-        unwrap(
-          await commands.setWorkspaceLastMergeAction(workspaceId, action),
-        );
+        unwrap(await commands.setWorkspaceLastMergeAction(workspaceId, action));
       },
       async mergeLocally(workspaceId) {
         // Bespoke unwrap: preserve the typed AppError discriminator so
@@ -537,9 +538,7 @@ function provideTerminalsAdapter(): Provider {
       async open(workspaceId, cols, rows, onEvent) {
         const channel = new Channel<TerminalEventDto>();
         channel.onmessage = (ev) => onEvent(toTerminalEventModel(ev));
-        unwrap(
-          await commands.openTerminal(workspaceId, cols, rows, channel),
-        );
+        unwrap(await commands.openTerminal(workspaceId, cols, rows, channel));
         return async () => {
           channel.onmessage = () => {
             // no-op after unsubscribe

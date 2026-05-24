@@ -2304,6 +2304,36 @@ pub async fn disconnect_github() -> Result<(), AppError> {
     keyring_store::clear_github_token()
 }
 
+/// P1.1 D9 — does this project's `origin` remote resolve to a github.com
+/// URL? Used by the right-aside merge action menu to disable the
+/// Create PR action with a "this repo isn't on GitHub" tooltip when
+/// the workspace's project doesn't have a GitHub remote. The check is
+/// project-level (not workspace-level) because git remotes are shared
+/// across all worktrees of the same repo.
+///
+/// Returns `false` for any non-GitHub origin AND for any error
+/// reading the remote (no origin configured, missing path, git not
+/// installed, …). The "false on error" semantic is intentional and
+/// defensive: a misconfigured project should not light up a PR button
+/// that will then fail mid-flow.
+#[tauri::command]
+#[specta::specta]
+pub async fn is_github_remote_for_project(
+    db: State<'_, DbState>,
+    repo_id: String,
+) -> Result<bool, AppError> {
+    let repo = {
+        let conn = db.lock();
+        repos::get(&conn, &repo_id)?
+    };
+    let path = std::path::Path::new(&repo.path);
+    let origin_raw = match sandbox::run_git(path, &["remote", "get-url", "origin"]).await {
+        Ok(s) => s,
+        Err(_) => return Ok(false),
+    };
+    Ok(github::parse_github_remote(origin_raw.trim()).is_some())
+}
+
 /// Push the workspace's branch to `origin` (with `-u`) using the local
 /// git binary. Resolves the origin URL via `git remote get-url origin`.
 /// Surfaces `Validation` if no `origin` is set.
