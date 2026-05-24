@@ -4,6 +4,16 @@ import { provideRouter, Router } from '@angular/router';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { FileTabsService } from './file-tabs.service';
 
+// `withStorageSync` writes to window.localStorage on every store patch.
+// Tests sharing a global LS would otherwise leak state across describe
+// blocks — particularly the hydration-persisted-state case below, which
+// pre-seeds the key. Clear before every test so each one starts from a
+// known-empty hydration.
+beforeEach(() => {
+  window.localStorage.removeItem('mozart-file-tabs-v1');
+  window.localStorage.removeItem('mozart-drafts-v1');
+});
+
 // File-tab lifecycle service. Covers the preview/pin idiom (D-r1 / D-r5),
 // R3 no-eviction regression (cap removal), close + side-effect cleanup,
 // findTab helper, and the navigateToFileTab router integration.
@@ -149,6 +159,43 @@ describe('FileTabsService — closeFor', () => {
 
     expect(svc.forWorkspace(wsA)()).toEqual([]);
     expect(svc.activeFor(wsA)()).toBeNull();
+  });
+});
+
+describe('FileTabsService — bootstrap with persisted state (R-freeze)', () => {
+  beforeEach(() => {
+    window.localStorage.removeItem('mozart-file-tabs-v1');
+    window.localStorage.removeItem('mozart-drafts-v1');
+  });
+
+  // Regression: before the untracked() fix in the constructor's mirror
+  // effect, instantiating the service while persisted file tabs existed
+  // would infinite-loop. The effect read `uiState.fileTabsByWorkspace()`
+  // reactively and wrote to the same store via `setFileTabs`. The store
+  // patches with a fresh object reference on every write, so the
+  // effect's own write retriggered the effect, freezing the app on the
+  // first workspace navigation (FileTabsService is providedIn: root,
+  // instantiated lazily). This test seeds persisted data and asserts
+  // the service constructs synchronously without timing out.
+  it('does not infinite-loop when hydrating persisted file tabs', async () => {
+    window.localStorage.setItem(
+      'mozart-file-tabs-v1',
+      JSON.stringify({
+        fileTabsByWorkspace: {
+          [wsA]: [{ path: 'src/a.ts' }, { path: 'src/b.ts' }],
+        },
+        lastActiveTabIdByWorkspace: {},
+        fileViewByWorkspace: {},
+      }),
+    );
+
+    const svc = setup();
+
+    // Let any pending microtasks (effects) settle. An infinite effect
+    // loop would never yield to a macrotask; the test would time out.
+    await new Promise((r) => setTimeout(r, 30));
+
+    expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts', 'src/b.ts']);
   });
 });
 

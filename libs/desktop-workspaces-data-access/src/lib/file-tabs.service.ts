@@ -1,4 +1,11 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
+import {
+  Injectable,
+  computed,
+  effect,
+  inject,
+  signal,
+  untracked,
+} from '@angular/core';
 import { Router } from '@angular/router';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
@@ -69,23 +76,30 @@ export class FileTabsService {
 
     // Mirror in-memory open lists back to UiStateFacade so persistence
     // tracks every mutation without each call site doing it manually.
+    // The persisted store is read via `untracked()` because the same
+    // effect WRITES to it (setFileTabs). `setOpenTabs` creates a fresh
+    // object reference on every patch, so reading the store reactively
+    // here would re-trigger the effect on its own writes and freeze
+    // the app on the first navigation that instantiates this service.
     effect(() => {
       const map = this._openByWorkspace();
-      const seen = new Set<string>();
-      for (const [wsId, paths] of map) {
-        seen.add(wsId);
-        this.uiState.setFileTabs(
-          wsId,
-          paths.map((path) => ({ path })),
-        );
-      }
-      // Clear persisted entries for workspaces that lost all tabs.
-      const persistedNow = this.uiState.fileTabsByWorkspace();
-      for (const wsId of Object.keys(persistedNow)) {
-        if (!seen.has(wsId)) {
-          this.uiState.setFileTabs(wsId, []);
+      untracked(() => {
+        const seen = new Set<string>();
+        for (const [wsId, paths] of map) {
+          seen.add(wsId);
+          this.uiState.setFileTabs(
+            wsId,
+            paths.map((path) => ({ path })),
+          );
         }
-      }
+        // Clear persisted entries for workspaces that lost all tabs.
+        const persistedNow = this.uiState.fileTabsByWorkspace();
+        for (const wsId of Object.keys(persistedNow)) {
+          if (!seen.has(wsId)) {
+            this.uiState.setFileTabs(wsId, []);
+          }
+        }
+      });
     });
   }
 
