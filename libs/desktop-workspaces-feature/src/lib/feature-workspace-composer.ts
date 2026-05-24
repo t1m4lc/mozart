@@ -5,12 +5,13 @@ import {
   Injector,
   afterNextRender,
   computed,
-  effect,
   inject,
   input,
   linkedSignal,
   viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { filter, pairwise, tap } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import {
   MzComposer,
@@ -161,17 +162,6 @@ export class FeatureWorkspaceComposer {
   protected readonly catalog = LLM_MODEL_CATALOG;
   protected readonly providers = PROVIDERS;
 
-  // Tracks streaming false-edge so we refocus the composer the instant
-  // a run ends. Owned by the composer because it has the textarea
-  // reference; the chat scroll surface no longer drives focus directly.
-  // linkedSignal so a workspace switch resets the tracker — otherwise
-  // a stale "was streaming" from workspace A would fire a focus
-  // refresh against workspace B's non-streaming initial state.
-  private readonly _wasStreaming = linkedSignal<string | null, boolean>({
-    source: () => this.workspaceId(),
-    computation: () => false,
-  });
-
   // Default focus → composer textarea. afterNextRender is the
   // reliable hook: when this runs on a workspaceId change, the
   // composer's textarea may not yet be in the DOM (viewChild ref
@@ -191,43 +181,51 @@ export class FeatureWorkspaceComposer {
   }
 
   constructor() {
-    // Focus the textarea on every workspace change (and first mount).
-    // Genuine DOM side effect — effect is the right primitive here;
-    // value/_wasStreaming reset declaratively via linkedSignal above.
-    effect(() => {
-      const id = this.workspaceId();
-      if (id) {
-        this.focusComposer();
-      }
-    });
+    // All three focus triggers are declared as RxJS streams instead of
+    // signal effects: the only mutation is the textarea .focus() call
+    // (genuine DOM side effect inside tap), and pairwise() expresses
+    // the streaming false-edge without a mutable "wasStreaming"
+    // tracker. takeUntilDestroyed handles lifetime.
 
-    // Refocus on the streaming false-edge. Skip when the user is on a
-    // file tab — they're likely editing code in CodeMirror; pulling
-    // focus to the composer mid-edit because a background chat stream
-    // ended is a focus-thief bug.
-    effect(() => {
-      const streaming = this.isStreaming();
-      if (
-        this._wasStreaming() &&
-        !streaming &&
-        this.activeTabKind() !== 'file'
-      ) {
-        this.focusComposer();
-      }
-      this._wasStreaming.set(streaming);
-    });
+    // Focus on workspace change (including first mount).
+    toObservable(this.workspaceId)
+      .pipe(
+        filter((id): id is string => id !== null),
+        tap(() => this.focusComposer()),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
+
+    // Streaming false-edge: refocus the instant a chat run ends. Skip
+    // when the user is on a file tab — pulling focus to the composer
+    // mid-edit because a background chat stream ended is a focus-thief
+    // bug. pairwise compares consecutive emissions so we don't need a
+    // mutable tracker.
+    toObservable(this.isStreaming)
+      .pipe(
+        pairwise(),
+        filter(([prev, curr]) => prev && !curr),
+        filter(() => this.activeTabKind() !== 'file'),
+        tap(() => this.focusComposer()),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
 
     // Chat-surface-originated focus requests (e.g. a chat-scope event
     // that wants the user back in the composer). Today the streaming
     // false-edge above covers the only known consumer; this channel
-    // is here for future chat-surface events to use without
-    // re-coupling components.
-    effect(() => {
-      const req = this.orchestrator.focusRequest();
-      if (!req) return;
-      if (req.workspaceId !== this.workspaceId()) return;
-      this.focusComposer();
-    });
+    // stays here for future chat-surface events without re-coupling
+    // components.
+    toObservable(this.orchestrator.focusRequest)
+      .pipe(
+        filter(
+          (req): req is NonNullable<typeof req> =>
+            req !== null && req.workspaceId === this.workspaceId(),
+        ),
+        tap(() => this.focusComposer()),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
   }
 
   protected onSend(event: ComposerSendEvent): void {
