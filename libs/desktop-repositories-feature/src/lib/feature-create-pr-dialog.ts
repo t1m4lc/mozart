@@ -195,9 +195,24 @@ export class FeatureCreatePrDialog {
         );
       }
     } catch (err) {
-      this.error.set(err instanceof Error ? err.message : String(err));
+      this.error.set(readErrorText(err));
     } finally {
       this.submitting.set(false);
     }
   }
+}
+
+// `workspaces.createPr` routes through the bespoke-unwrap adapter that
+// throws the raw `AppError` ({ kind, message }) rather than wrapping
+// it in `new Error(...)`. `instanceof Error` is false for plain
+// objects, so a naive `err.message` access would render
+// "[object Object]". Read `.message` from any thrown object that has
+// a string-typed one.
+function readErrorText(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  if (err && typeof err === 'object' && 'message' in err) {
+    const msg = (err as { message: unknown }).message;
+    if (typeof msg === 'string') return msg;
+  }
+  return String(err);
 }

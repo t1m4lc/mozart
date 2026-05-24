@@ -38,7 +38,10 @@ function makeProfile(connected = true): ProfileStub {
 
 interface WorkspacesOpts {
   readonly resolve?: { readonly pr: CreatedPr; readonly statusFlipFailed: boolean };
-  readonly reject?: Error;
+  // `unknown` because the bespoke-unwrap adapter throws raw AppError
+  // objects ({ kind, message }) — not Error instances. The dialog
+  // must handle both shapes.
+  readonly reject?: unknown;
   readonly delay?: Promise<void>;
 }
 
@@ -186,7 +189,7 @@ describe('FeatureCreatePrDialog — submit flow', () => {
     );
   });
 
-  it('surfaces a thrown error inline and keeps the form open for retry', async () => {
+  it('surfaces a thrown Error inline and keeps the form open for retry', async () => {
     const workspaces = makeWorkspaces({ reject: new Error('NoGithubToken') });
     const { fixture } = mount({ workspaces });
     submitButton(fixture).click();
@@ -198,6 +201,23 @@ describe('FeatureCreatePrDialog — submit flow', () => {
     expect(fixture.debugElement.query(By.css('input#pr-title'))).not.toBeNull();
     // submit becomes clickable again — user can retry after fixing
     expect(submitButton(fixture).disabled).toBe(false);
+  });
+
+  it('surfaces a thrown AppError object ({ kind, message }) inline', async () => {
+    // The production adapter throws the raw AppError shape via
+    // bespoke unwrap — NOT `new Error(...)`. The dialog has to read
+    // `.message` from plain objects too, otherwise the inline error
+    // renders as "[object Object]".
+    const workspaces = makeWorkspaces({
+      reject: { kind: 'NoGithubToken', message: 'GitHub token not configured' },
+    });
+    const { fixture } = mount({ workspaces });
+    submitButton(fixture).click();
+    await fixture.whenStable();
+    fixture.detectChanges();
+    const errEl = inlineErrorEl(fixture);
+    expect(errEl?.textContent).toContain('GitHub token not configured');
+    expect(errEl?.textContent).not.toContain('[object Object]');
   });
 
   it('guards against double-submit while one call is in flight', async () => {
