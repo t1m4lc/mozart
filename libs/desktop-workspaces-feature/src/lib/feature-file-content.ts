@@ -198,6 +198,7 @@ const TEXT_ENCODER = new TextEncoder();
                 [path]="p"
                 [readOnly]="!canEdit()"
                 [theme]="editorTheme()"
+                [scrollPaddingBottom]="COMPOSER_OVERLAY_PADDING_PX"
                 (valueChange)="onEditorChange($event)"
               />
             } @placeholder {
@@ -220,6 +221,7 @@ const TEXT_ENCODER = new TextEncoder();
           class="flex-1 min-h-0"
           [workspaceId]="workspaceId()"
           [path]="filePath()"
+          [scrollPaddingBottom]="COMPOSER_OVERLAY_PADDING_PX"
         />
       </div>
     </hlm-tabs>
@@ -229,6 +231,12 @@ export class FeatureFileContent {
   readonly workspaceId = input<string | null>(null);
   readonly filePath = input<string | null>(null);
   readonly canEdit = input<boolean>(true);
+
+  // Bottom padding (px) inside CodeMirror so the last lines can scroll
+  // up past the workspace composer that absolutely-overlays the file
+  // tab's bottom region. Roughly composer chrome height + a small
+  // safety margin; tune if composer grows multi-line drafts taller.
+  protected readonly COMPOSER_OVERLAY_PADDING_PX = 128;
 
   private readonly repos = inject(RepositoriesFacade);
   private readonly fileViews = inject(FileViewsFacade);
