@@ -981,3 +981,159 @@ Suggested order for execution (each item is one PR slice):
 
 This sequencing keeps each PR under ~300 lines diff and avoids
 landing the architectural change after the polish that depends on it.
+
+---
+
+## 7. Engineering review outcomes — P1.1
+
+Captured during `/plan-eng-review` on 2026-05-24 against §2.1 (P1.1 PR
+workflow rewire). Earlier sections are the RFC; this section is the
+implementation contract for P1.1 specifically. P1.2–P3.1 keep §2 as-is
+until their own review runs.
+
+### 7.1 Decisions (D1–D10)
+
+| ID | Topic | Choice | Implication |
+| --- | --- | --- | --- |
+| D1 | Where do `commit → in_progress` and `PR success → in_review` writers live? | **Facade wrappers in WorkspacesFacade** | Adds `WorkspacesFacade.commitWorkspace(...)` and `WorkspacesFacade.createPr(...)`. One writer per transition; mirrors existing `setStatus / reopen / togglePinned` shape at `workspace.facade.ts:307–336`. Both dialogs (`feature-commit-dialog`, `feature-create-pr-dialog`) route through the wrappers. |
+| D2 | What happens when `createWorkspacePr` succeeds but `setStatus('in_review')` adapter write fails? | **Best-effort flip + warn toast** | The wrapper attempts the flip optimistically; on adapter failure it logs and surfaces a warn toast `"PR opened, but status update failed — refresh to retry"`. It does NOT roll back the in-memory flip. The PR URL is still returned. Reload re-reads from the DB and may show drift (covered by the reconciliation TODO from D8). |
+| D3 | Should the PR-success flip be guarded against backward state transitions? | **Guard on `from ∈ {backlog, in_progress}`** | `createPr` checks the current status before flipping. `done` / `canceled` workspaces are NOT regressed to `in_review` even though the right-aside merge menu still shows for them (`shell-right.ts:62–69` has no `isFrozen` guard). Mirrors the commit-flip guard. |
+| D4 | Resolve §3.4: should `setStatus` early-return on no-op? | **Yes — add `if (previous === status) return;`** | Three-line defensive add at the top of `setStatus`. Closes the §3.4 open question. Eliminates wasted SQLite round-trip + spurious rollback path on the new wrapper paths. |
+| D5 | MergeActionMenu: drop `primaryAction` input or keep it? | **Keep the input; shell-right passes `'pr'` constant** | Component API stays as-is; the temporary "PR is the only reachable primary" policy lives in shell-right's `mergePrimaryAction` returning `'pr'`. Re-enabling Merge now is a one-line revert. Minor dead-code smell on the `'local'` branches in label/icon/tooltip computeds is acceptable. |
+| D6 | Test coverage tier? | **Full lake (A)** | Four spec files plus E2E. New: `workspace.facade.spec.ts`, `merge-action-menu.spec.ts`, `feature-create-pr-dialog.spec.ts`, `apps/desktop-e2e/.../pr-workflow.e2e.spec.ts`. Pattern matches `mz-file-diff-card.spec.ts` (TestBed + provideZonelessChangeDetection + matchMedia stub). |
+| D7 | Outside voice (codex) on the plan? | **Skipped** | User declined the second-opinion gate. In-skill review stands. |
+| D8 | TODO #1 — reconciliation pass for PR-vs-status drift? | **Add to TODOS.md** | Captures the rare-failure recovery path D2 deferred. See `TODOS.md` → "Workspaces — reconciliation pass for PR-vs-status drift (P1.1 D2 follow-up)". |
+| D9 | "Repo not linked to GitHub remote" gate — in P1.1 or deferred? | **Add detection + gate inside P1.1** | New Tauri command exposing the result of `parse_github_remote` (or an equivalent boolean), new `ProjectsFacade.isGithubRemoteFor(projectId)` signal, MergeActionMenu gates primary + dropdown PR row on BOTH `githubConnected` AND `isGithubRemote`. Tooltip text differentiates the two gate states. Out of scope here: the guided "Link this repo to GitHub" provisioning flow (see D10). |
+| D10 | TODO #2 — guided "Link this repo to GitHub" provisioning flow? | **Add to TODOS.md** | The recovery path for users on local-only or non-GitHub repos. See `TODOS.md` → "Workspaces — guided 'Link this repo to GitHub' flow (P1.1 D10)". |
+
+### 7.2 What already exists (reused, not rebuilt)
+
+- **Optimistic-rollback `setStatus`** pattern at `workspace.facade.ts:307–318`, mirrored by `reopen` (`:325–336`), `togglePinned` (`:340–351`), `toggleUnread` (`:353–364`). The two new wrappers follow the same shape.
+- **`ProfileFacade.githubConnected()` signal** at `profile.facade.ts:95`. Bootstrapped by `initializeGithub()` on app boot (`:102–111`). Plan §2.1's primary disable + dropdown row tooltip already wire to it (`merge-action-menu.ts:85`, `:115–117`).
+- **`commands.createWorkspacePr`** returns `{ number, html_url }` via `github.rs:60–110`. The wrapper does not need a Rust change for D1's facade move.
+- **`parse_github_remote`** at `apps/desktop-tauri/src/github.rs:131` already exists and is unit-tested for GitHub vs GitLab vs SSH vs empty. D9 just needs to expose the result to Angular.
+- **`merge_workspace_locally`** at `apps/desktop-tauri/src/commands/mod.rs:2386–2404` continues to own the `'done'` transition. Rust stays the writer for atomic-with-worktree transitions; Angular owns the `'soft'` derived transitions. The asymmetry is intentional per §3.1.
+- **`lastMergeAction`** persistence stays untouched; only `'pr'` reaches it for now (per plan §2.1 risks). The field is intentionally dead-coded for re-enablement.
+
+### 7.3 Failure modes (this slice)
+
+For each new codepath, one realistic production failure:
+
+| Codepath | Failure | Test? | Error handling? | User sees? |
+| --- | --- | --- | --- | --- |
+| `WorkspacesFacade.setStatus` (early-return added) | Race: caller A reads `previous` then caller B writes a different status before A's adapter call lands | T10 — covers `previous === status` no-op path; race itself is unobservable under signals' synchronous semantics | Existing adapter try/catch rolls back | No visible effect on no-op; race outcome reflects last-writer-wins (correct) |
+| `WorkspacesFacade.commitWorkspace` (NEW) | Commit fails after the new wrapper read the workspace | T10 — covers commit-failure-no-flip | Error rethrown to caller; commit-dialog renders inline error (existing path) | Inline error in commit dialog |
+| `WorkspacesFacade.createPr` (NEW) — happy path | PR creates, flip fires from valid from-state | T10 + T13 (E2E) | None needed | Badge advances to `in_review` |
+| `WorkspacesFacade.createPr` (NEW) — flip-failure | PR creates, `setUiStatus` adapter throws | T10 (D2 path) | D2 best-effort: log + warn toast | Toast `"PR opened, but status update failed — refresh to retry"` + PR URL still shown |
+| `WorkspacesFacade.createPr` (NEW) — backward guard | PR opened against `done` workspace | T10 (D3 path) | D3 guard: no flip | Status stays `done`; PR URL still shown |
+| `feature-create-pr-dialog` — mid-flow disconnect | `githubConnected` flips to false while dialog open | T12 + T13 (E2E) | Live alert + submit disabled | Inline alert with "Connect GitHub" link |
+| `MergeActionMenu` (D9 gate) — non-GitHub remote | Workspace on GitLab/local repo, user authenticated to GitHub | T11 + T13 (E2E) | Primary + dropdown PR row disabled with differentiated tooltip | Tooltip "This repo isn't on GitHub" instead of "Connect GitHub to open PRs" |
+| `commands.createWorkspacePr` — token revoked between dialog open and submit | Submit fires, command returns `r.status === 'error'` | T12 | Existing error inline in dialog | Inline error, submit re-enabled, status does NOT flip |
+
+**No critical gap.** Every new failure mode has a test, error handling, AND user-visible signal.
+
+### 7.4 NOT in scope (P1.1 additions to §5)
+
+- **`isFrozen` guard on the right-aside merge action menu.** The menu remains visible on `done` / `canceled` workspaces; the D3 from-state guard prevents the regression. Hiding the menu entirely is a UX call deferred to a future polish pass.
+- **Reconciliation pass for PR-vs-status drift.** Deferred to TODOS.md via D8. The D2 best-effort failure handling is sufficient for the rare path.
+- **Guided "Link this repo to GitHub" provisioning flow.** Deferred to TODOS.md via D10. P1.1 only detects + gates; the link flow is a separate workstream.
+- **Audit/telemetry for status transitions.** Out of scope; can be added later without disturbing the wrappers.
+- **Abort signal for in-flight dialog submission.** Existing `submitting()` flag suffices; abort-on-close is a minor polish for a separate pass.
+- **PR list / PR status sync from GitHub** (already excluded by §5; reiterated here so the boundary is clear).
+
+### 7.5 Worktree parallelization strategy
+
+**Sequential implementation, no parallelization opportunity.** All P1.1 changes are tightly coupled — the facade wrappers (T1–T3) are consumed by both dialog changes (T6, T7) and the gate work (T8–T9) shares the workspaces-ui module with the menu changes (T4–T5). The test work (T10–T13) blocks behind the implementation tasks. Within a single developer's session, the natural order is: T3 → T1 → T2 → T8 → T9 → T4 → T5 → T6 → T7 → T10 → T11 → T12 → T13.
+
+### 7.6 Implementation tasks
+
+Synthesized from the decisions above. Run with Claude Code or Codex;
+checkbox as you ship. JSONL artifact for `/autoplan` aggregation:
+`~/.gstack/projects/t1m4lc-mozart/tasks-eng-review-20260524-163044.jsonl`
+(13 tasks, all P1).
+
+- [ ] **T1 (P1, human: ~1h / CC: ~10min)** — `workspaces-data-access` — Add `WorkspacesFacade.commitWorkspace` + `createPr` wrappers (single writer for status transitions)
+  - Surfaced by: **D1 (Architecture)** — facade wrappers chosen over inline-in-consumers or Rust-side
+  - Files: `libs/desktop-workspaces-data-access/src/lib/workspace.facade.ts`
+  - Verify: `pnpm nx test desktop-workspaces-data-access` (after T10 lands)
+- [ ] **T2 (P1, human: ~30min / CC: ~5min)** — `workspaces-data-access` — `createPr`: gate flip on `from ∈ {backlog, in_progress}`; best-effort + warn toast on adapter failure
+  - Surfaced by: **D2 + D3 (Architecture)** — from-state guard against regression; best-effort over rollback on flip failure
+  - Files: `libs/desktop-workspaces-data-access/src/lib/workspace.facade.ts`
+  - Verify: T10 spec asserts both branches (guard fires; flip-failure toasts + keeps optimistic flip)
+- [ ] **T3 (P1, human: ~10min / CC: ~2min)** — `workspaces-data-access` — `setStatus`: early-return when `previous === status` (resolves §3.4)
+  - Surfaced by: **D4 (Code Quality)** — close §3.4 idempotency open question with 3-line guard
+  - Files: `libs/desktop-workspaces-data-access/src/lib/workspace.facade.ts`
+  - Verify: T10 spec asserts adapter is NOT called when the new status equals the current
+- [ ] **T4 (P1, human: ~30min / CC: ~5min)** — `workspaces-ui` — `MergeActionMenu`: add `localMergeDisabled` input (default `true`); Soon badge + Coming-soon tooltip on the Merge-now row
+  - Surfaced by: **plan §2.1** (target table); **D5** — keep `primaryAction` input intact for future re-enable
+  - Files: `libs/desktop-workspaces-ui/src/lib/merge-action-menu.ts`
+  - Verify: T11 spec; manual check that the badge renders next to the row label and the tooltip reads "Coming soon"
+- [ ] **T5 (P1, human: ~10min / CC: ~2min)** — `shell-feature` — `shell-right`: `mergePrimaryAction` returns `'pr'` constant; pass `localMergeDisabled=true` to merge-action-menu
+  - Surfaced by: **plan §2.1**; **D5** — temporary policy lives in one place
+  - Files: `libs/desktop-shell-feature/src/lib/shell-right.ts`
+  - Verify: dropdown shows only Create PR enabled; Merge now disabled with Soon badge
+- [ ] **T6 (P1, human: ~45min / CC: ~10min)** — `repositories-feature` — `FeatureCreatePrDialog`: inject `ProfileFacade` + `WorkspacesFacade`; inline alert + submit gate on `!connected`; route via `workspaces.createPr` (not `commands.createWorkspacePr`)
+  - Surfaced by: **plan §2.1** (Files to touch); **D1** — dialog calls the wrapper, not commands directly
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-create-pr-dialog.ts`
+  - Verify: T12 spec; manual mid-flow disconnect test (open dialog connected, run `gh auth logout`, see alert appear and submit disable)
+- [ ] **T7 (P1, human: ~15min / CC: ~3min)** — `repositories-feature` — `FeatureCommitDialog`: swap `this.repos.commitWorkspace` → `this.workspaces.commitWorkspace` (**R2 regression**)
+  - Surfaced by: **D1** — route through the new wrapper so the `commit → in_progress` flip fires
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-commit-dialog.ts`
+  - Verify: T10 spec covers the wrapper; T13 E2E covers the round-trip; existing manual happy-path commit still works (R2 regression)
+- [ ] **T8 (P1, human: ~2h / CC: ~15min)** — `projects-data-access + tauri` — Detect `isGithubRemote`: new Tauri command (or extend project metadata) + `ProjectsFacade.isGithubRemoteFor(projectId)` signal
+  - Surfaced by: **D9 (Architecture)** — close the repo-level GitHub gate raised in the user's D8 reply
+  - Files: `apps/desktop-tauri/src/commands/mod.rs`, `apps/desktop-tauri/src/github.rs`, `libs/desktop-projects-data-access/src/lib/projects.facade.ts`, `libs/desktop-core-tauri/src/lib/tauri-adapters.ts`
+  - Verify: unit test for the Rust side reusing `parse_github_remote`'s existing tests; signal returns `true` for a known-GitHub-origin workspace, `false` for a GitLab fixture
+- [ ] **T9 (P1, human: ~30min / CC: ~5min)** — `workspaces-ui + shell-feature` — `MergeActionMenu` accepts `isGithubRemote` input; gate primary + dropdown PR row on `(githubConnected AND isGithubRemote)`; differentiated tooltip text
+  - Surfaced by: **D9** — symmetric disabled-with-tooltip pattern; shell-right binds the new signal
+  - Files: `libs/desktop-workspaces-ui/src/lib/merge-action-menu.ts`, `libs/desktop-shell-feature/src/lib/shell-right.ts`
+  - Verify: T11 spec; manual check on a non-GitHub repo workspace (tooltip should read "This repo isn't on GitHub" rather than "Connect GitHub to open PRs")
+- [ ] **T10 (P1, human: ~2h / CC: ~15min)** — `workspaces-data-access (test)` — NEW `workspace.facade.spec.ts`: `setStatus` idempotency (**R1 regression**), `commitWorkspace` from-state, `createPr` from-state guard, best-effort flip-failure, rollback
+  - Surfaced by: **D6 (Test review tier A)**; **R1 regression** (mandatory)
+  - Files: `libs/desktop-workspaces-data-access/src/lib/workspace.facade.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-workspaces-data-access` passes; coverage report shows the new branches hit
+- [ ] **T11 (P1, human: ~1h / CC: ~10min)** — `workspaces-ui (test)` — NEW `merge-action-menu.spec.ts`: `primaryAction='pr'` rendering, `localMergeDisabled` true/false, Soon badge, dropdown PR row gating with both gates (`connected` + `isGithubRemote`)
+  - Surfaced by: **D6 (Test review tier A)**
+  - Files: `libs/desktop-workspaces-ui/src/lib/merge-action-menu.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-workspaces-ui` passes
+- [ ] **T12 (P1, human: ~1h / CC: ~10min)** — `repositories-feature (test)` — NEW `feature-create-pr-dialog.spec.ts`: submit happy path, `!connected` → alert + submit disabled, mid-flow disconnect via signal flip, error inline on `r.status === 'error'`, double-submit guard
+  - Surfaced by: **D6 (Test review tier A)**
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-create-pr-dialog.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-repositories-feature` passes
+- [ ] **T13 (P1, human: ~1h / CC: ~15min)** — `desktop-e2e` — NEW Playwright E2E (`pr-workflow.e2e.spec.ts`): connected + backlog happy path; disconnected gate; mid-flow disconnect; non-GitHub-remote gate (D9)
+  - Surfaced by: **D6 (Test review tier A)**; critical user paths from the test plan artifact
+  - Files: `apps/desktop-e2e/src/pr-workflow.e2e.spec.ts` (NEW)
+  - Verify: `pnpm nx e2e desktop-e2e --grep "pr-workflow"` passes locally; CI green
+
+### 7.7 Test plan artifact
+
+Detailed test plan with affected surfaces, edge cases, and critical paths:
+`~/.gstack/projects/t1m4lc-mozart/timothy-main-eng-review-test-plan-20260524-160911.md`
+
+Consumed by `/qa` and `/qa-only` as primary test input when QAing the
+shipped slice.
+
+### 7.8 §3.4 follow-up — resolved during this review
+
+- ✅ **Status hook idempotency (P1.1)** — resolved via D4. `setStatus` early-returns when `previous === status`. See T3.
+
+The remaining §3.4 open questions (preview mode, persisted Changes
+snapshot, preview-tab persistence) belong to P1.2 / P1.3 / P3.1 and
+are unchanged.
+
+---
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 (2026-05-24) | CLEAR (PLAN) | 7 decisions resolved (D1–D6, D9); 22 test gaps closed under tier A (D6); 2 regressions captured (R1 setStatus idempotency, R2 commit-dialog swap); 2 follow-ups deferred to TODOS.md (D8 reconciliation, D10 link flow); 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+- **CODEX:** N/A — `/codex review` not run; user declined outside voice (D7).
+- **CROSS-MODEL:** N/A — no codex pass on this review.
+- **UNRESOLVED:** 0 — every AskUserQuestion answered.
+- **VERDICT:** ENG CLEARED — P1.1 ready to implement against §7.6 task list. CEO Review and Design Review not required for this slice (no scope/UX decisions). Outside voice skipped by user choice.
