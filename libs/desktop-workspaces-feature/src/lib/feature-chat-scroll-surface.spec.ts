@@ -132,6 +132,34 @@ describe('FeatureChatScrollSurface', () => {
 
       expect(unregisterSpy).toHaveBeenCalledWith('ws-1');
     });
+
+    it('re-registers when workspaceId changes and unregisters the prior', async () => {
+      const stubs = configure();
+      const registerSpy = vi.spyOn(stubs.orchestrator, 'register');
+      const unregisterSpy = vi.spyOn(stubs.orchestrator, 'unregister');
+
+      const fixture = await mountHost();
+      const host = fixture.componentInstance as TestHost;
+
+      // Initial mount registers ws-1 (covered by the first spec).
+      expect(registerSpy).toHaveBeenCalledTimes(1);
+
+      // Simulate a workspace switch within the same chat-scroll-surface
+      // instance — Angular keeps the view alive when the parent's @if /
+      // @switch stays truthy across the navigation.
+      host.workspaceId.set('ws-2');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      // The prior workspace's binding is released and the new one
+      // takes its place. Without this, composer.scrollToBottom for
+      // ws-2 would silently no-op and ws-1's entry would leak.
+      expect(unregisterSpy).toHaveBeenCalledWith('ws-1');
+      expect(registerSpy).toHaveBeenCalledTimes(2);
+      const [, secondMainEl] = registerSpy.mock.calls[1];
+      expect(registerSpy.mock.calls[1][0]).toBe('ws-2');
+      expect(secondMainEl).toBe(getScrollEl(fixture));
+    });
   });
 
   describe('at-bottom detector (REGRESSION)', () => {

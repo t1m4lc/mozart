@@ -8,7 +8,7 @@ import {
   effect,
   inject,
   input,
-  signal,
+  linkedSignal,
   viewChild,
 } from '@angular/core';
 import { Router } from '@angular/router';
@@ -111,7 +111,16 @@ export class FeatureWorkspaceComposer {
     read: ElementRef<HTMLElement>,
   });
 
-  protected readonly value = signal('');
+  // Composer draft. linkedSignal resets to '' whenever the workspace
+  // changes — composer is always-mounted in WorkspaceTabContent and
+  // would otherwise carry a half-typed message from workspace A into
+  // workspace B's composer (the view stays alive across same-route
+  // navigations). User typing overrides locally; the next workspace
+  // switch resets it again.
+  protected readonly value = linkedSignal<string | null, string>({
+    source: () => this.workspaceId(),
+    computation: () => '',
+  });
   protected readonly isStreaming = this.facade.isStreaming(this.workspaceId);
 
   private readonly _activeChat = computed(() => {
@@ -155,7 +164,13 @@ export class FeatureWorkspaceComposer {
   // Tracks streaming false-edge so we refocus the composer the instant
   // a run ends. Owned by the composer because it has the textarea
   // reference; the chat scroll surface no longer drives focus directly.
-  private _wasStreaming = false;
+  // linkedSignal so a workspace switch resets the tracker — otherwise
+  // a stale "was streaming" from workspace A would fire a focus
+  // refresh against workspace B's non-streaming initial state.
+  private readonly _wasStreaming = linkedSignal<string | null, boolean>({
+    source: () => this.workspaceId(),
+    computation: () => false,
+  });
 
   // Default focus → composer textarea. afterNextRender is the
   // reliable hook: when this runs on a workspaceId change, the
@@ -176,6 +191,9 @@ export class FeatureWorkspaceComposer {
   }
 
   constructor() {
+    // Focus the textarea on every workspace change (and first mount).
+    // Genuine DOM side effect — effect is the right primitive here;
+    // value/_wasStreaming reset declaratively via linkedSignal above.
     effect(() => {
       const id = this.workspaceId();
       if (id) {
@@ -183,12 +201,20 @@ export class FeatureWorkspaceComposer {
       }
     });
 
+    // Refocus on the streaming false-edge. Skip when the user is on a
+    // file tab — they're likely editing code in CodeMirror; pulling
+    // focus to the composer mid-edit because a background chat stream
+    // ended is a focus-thief bug.
     effect(() => {
       const streaming = this.isStreaming();
-      if (this._wasStreaming && !streaming) {
+      if (
+        this._wasStreaming() &&
+        !streaming &&
+        this.activeTabKind() !== 'file'
+      ) {
         this.focusComposer();
       }
-      this._wasStreaming = streaming;
+      this._wasStreaming.set(streaming);
     });
 
     // Chat-surface-originated focus requests (e.g. a chat-scope event

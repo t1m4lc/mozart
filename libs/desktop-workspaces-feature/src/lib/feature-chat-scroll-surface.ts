@@ -9,7 +9,10 @@ import {
   effect,
   inject,
   input,
+  signal,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { fromEvent } from 'rxjs';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   ChatScrollOrchestrator,
@@ -71,9 +74,16 @@ export class FeatureChatScrollSurface {
   private readonly destroyRef = inject(DestroyRef);
   private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
 
-  // Cached scroll surface — `<main>` in app-shell. Walked once after
-  // first render. Null until resolved (or if the orchestrator is used
-  // in a test harness without a scroll ancestor).
+  // Resolved scroll surface (this component's own host once it has
+  // `overflow-y-auto`). Stored as a signal so the orchestrator
+  // registration effect can re-fire once it resolves, and so it stays
+  // null-safe when the component is mounted in a test harness without
+  // a scroll ancestor.
+  private readonly _mainEl = signal<HTMLElement | null>(null);
+
+  // Mirror for non-reactive consumers (the scroll/recall effects below
+  // run before mainEl is set; they bail and re-run once the signal
+  // updates).
   private mainEl: HTMLElement | null = null;
 
   private readonly _activeChat = computed(() => {
@@ -111,57 +121,67 @@ export class FeatureChatScrollSurface {
     // the listener from blocking the browser's native scroll path.
     afterNextRender(
       () => {
-        this.mainEl = closestScrollable(this.hostEl.nativeElement);
-        if (!this.mainEl) {
+        const el = closestScrollable(this.hostEl.nativeElement);
+        if (!el) {
           console.warn(
             '[chat-scroll-surface] no scrollable ancestor — chat scroll persistence disabled',
           );
           return;
         }
-        const main = this.mainEl;
+        this.mainEl = el;
+        this._mainEl.set(el);
 
-        // Register with the orchestrator so the always-mounted
-        // composer can target this surface via scrollToBottom. The
-        // composer never touches DOM; the orchestrator is the seam.
-        const ws = this.workspaceId();
-        if (ws) {
-          this.orchestrator.register(ws, main);
-        }
+        // Subscribe to scroll events via fromEvent — declarative, with
+        // takeUntilDestroyed handling teardown so we don't manage
+        // listener lifetime by hand. `{ passive: true }` keeps the
+        // listener off the browser's blocking scroll path.
+        fromEvent(el, 'scroll', { passive: true })
+          .pipe(takeUntilDestroyed(this.destroyRef))
+          .subscribe(() => {
+            const wsId = this.workspaceId();
+            // Suppress attach/detach flips during a programmatic
+            // smooth scroll — those scroll events would otherwise
+            // flip the chat to detached as scrollTop transits the
+            // animation. The grace window lives in the orchestrator.
+            if (wsId && this.orchestrator.isInGracePeriod(wsId)) {
+              return;
+            }
+            const chatId = this._activeChatId();
+            if (!chatId) return;
 
-        const onScroll = () => {
-          const wsId = this.workspaceId();
-          // Suppress attach/detach flips during a programmatic
-          // smooth scroll — those scroll events would otherwise
-          // flip the chat to detached as scrollTop transits the
-          // animation. The grace window lives in the orchestrator.
-          if (wsId && this.orchestrator.isInGracePeriod(wsId)) {
-            return;
-          }
-          const chatId = this._activeChatId();
-          if (!chatId) return;
+            const distance =
+              el.scrollHeight - el.scrollTop - el.clientHeight;
+            const atBottom = distance < AT_BOTTOM_THRESHOLD_PX;
+            const currentlyAttached = this.scroll.isAttached(chatId);
 
-          const distance =
-            main.scrollHeight - main.scrollTop - main.clientHeight;
-          const atBottom = distance < AT_BOTTOM_THRESHOLD_PX;
-          const currentlyAttached = this.scroll.isAttached(chatId);
-
-          if (atBottom && !currentlyAttached) {
-            this.scroll.setAttached(chatId);
-          } else if (!atBottom && currentlyAttached) {
-            this.scroll.setDetached(chatId);
-          }
-        };
-        main.addEventListener('scroll', onScroll, { passive: true });
-        this.destroyRef.onDestroy(() => {
-          main.removeEventListener('scroll', onScroll);
-          const wsOnDestroy = this.workspaceId();
-          if (wsOnDestroy) {
-            this.orchestrator.unregister(wsOnDestroy);
-          }
-        });
+            if (atBottom && !currentlyAttached) {
+              this.scroll.setAttached(chatId);
+            } else if (!atBottom && currentlyAttached) {
+              this.scroll.setDetached(chatId);
+            }
+          });
       },
       { injector: this.injector },
     );
+
+    // Orchestrator registration is a per-workspaceId binding, not a
+    // per-component one. The same chat-scroll-surface instance can
+    // serve multiple workspaces over its lifetime (Angular keeps the
+    // view alive across same-route navigations when `tab().kind`
+    // stays 'chat'). Re-fire on every workspaceId change and rely on
+    // the effect's onCleanup to unregister the prior binding — that
+    // way the orchestrator's Map never accumulates dead entries and
+    // composer's `scrollToBottom(currentWs)` always finds the live
+    // mainEl.
+    effect((onCleanup) => {
+      const ws = this.workspaceId();
+      const el = this._mainEl();
+      if (!ws || !el) return;
+      this.orchestrator.register(ws, el);
+      onCleanup(() => {
+        this.orchestrator.unregister(ws);
+      });
+    });
 
     // Chat tab activate / switch: snapshot the prior chat's scrollTop
     // (via onCleanup) and restore the new chat's value after the next
