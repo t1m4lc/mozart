@@ -762,6 +762,7 @@ header available as `title`.
 2. Copy-paste from the hunk row still copies the original `@@`
    text (if that's a feature the team uses).
    > **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
+> **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
 
 **Goal:** Replace `@@ -120,7 +120,8 @@` with `"120 lines above"` (or `"No more lines above"` when `linesAvailable === 0`). When a hunk's gap-above AND the next gap (= gap-below this hunk) are both empty, omit the hunk header row entirely so the diff reads as continuous context. Raw `@@` available via `title` attribute for diff-literate users.
 
@@ -804,6 +805,11 @@ buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
 | `n > 1`   | `"${n} lines above"`                                              |
 | `n === 1` | `"1 line above"`                                                  |
 | `n === 0` | `"No more lines above"` (defensive; caller usually hides the row) |
+| Input          | Output                  |
+| -------------- | ----------------------- |
+| `n > 1`        | `"${n} lines above"`    |
+| `n === 1`      | `"1 line above"`        |
+| `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
 
 **Files to touch:**
 
@@ -880,6 +886,7 @@ lines above"` (or just `"+20"` if width-constrained). Reposition
 1. Hunk row button has visible label.
 2. Click expands 20 lines above; trailing-gap bar still works.
    > **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
+> **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
 
 **Goal:** The hunk-row gutter chevron becomes a ~24px wider hit target with chevron + count badge (`"+20"`, or `"+12"` when fewer lines remain). Disabled with `"No more hidden lines"` title when `linesAvailable === 0`. Behavior preserved: click expands `HUNK_EXPAND_STEP` lines up; shift-click doubles.
 
@@ -1301,6 +1308,14 @@ P1.1, P1.4, P2.\* unchanged from §6.
 | `HunkButtonMarker.toDOM` wider hit target | Wider button overflows the gutter on the left, clipped by parent.                                           | no (visual)            | css; manual QA | no — visible overflow         |
 | `HunkButtonMarker.toDOM` count badge      | Badge text not in sync with `linesAvailable` after rapid clicks.                                            | n/a (eq covers)        | `eq` rebuild   | no — would show wrong number  |
 | `HunkButtonMarker.toDOM` shift-click      | Wider DOM intercepts shiftKey wrong; only single step expands.                                              | yes (case 16)          | n/a            | yes — silent regression to 1× |
+| Codepath                                       | Failure scenario                                                                                            | Has test? | Has handling?    | Silent?                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------- | ---------------- | -------------------------------- |
+| `buildDocPlan` hide-on-both-empty              | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)       | no — visible UX                  |
+| `buildDocPlan` hide-on-both-empty              | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a              | no — visible misalignment        |
+| `buildLineDecorations` title decoration        | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a              | yes — fall back: no tooltip      |
+| `HunkButtonMarker.toDOM` wider hit target      | Wider button overflows the gutter on the left, clipped by parent.                                           | no (visual)            | css; manual QA   | no — visible overflow            |
+| `HunkButtonMarker.toDOM` count badge           | Badge text not in sync with `linesAvailable` after rapid clicks.                                            | n/a (eq covers)        | `eq` rebuild     | no — would show wrong number     |
+| `HunkButtonMarker.toDOM` shift-click           | Wider DOM intercepts shiftKey wrong; only single step expands.                                              | yes (case 16)          | n/a              | yes — silent regression to 1×    |
 
 **Critical gaps:** none. The closest is the wider-button overflow risk (no automated test, only css + manual QA) but the failure is visually obvious in dev — not silent.
 
@@ -1386,3 +1401,14 @@ Synthesized from this review's findings. Each task derives from a specific findi
 
 - **UNRESOLVED:** 0
 - **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
+| Review        | Trigger              | Why                              | Runs | Status         | Findings                       |
+| ------------- | -------------------- | -------------------------------- | ---- | -------------- | ------------------------------ |
+| CEO Review    | `/plan-ceo-review`   | Scope & strategy                 | 0    | —              | —                              |
+| Codex Review  | `/codex review`      | Independent 2nd opinion          | 0    | —              | —                              |
+| Eng Review    | `/plan-eng-review`   | Architecture & tests (required)  | 1    | CLEAR (PLAN)   | 3 issues, 0 critical gaps      |
+| Design Review | `/plan-design-review`| UI/UX gaps                       | 0    | —              | —                              |
+| DX Review     | `/plan-devex-review` | Developer experience gaps        | 0    | —              | —                              |
+
+- **UNRESOLVED:** 0
+- **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
+
