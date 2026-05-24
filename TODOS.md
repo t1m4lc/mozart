@@ -450,6 +450,22 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 
 ---
 
+## desktop-e2e — Tauri-mocking infra for Playwright specs
+
+**What:** Build the test harness that lets the desktop app boot under Playwright in browser-only mode. Today `apps/desktop` boots via `provideTauriAdapters()` which calls `invoke()` against the Tauri runtime at module init; under `pnpm nx serve desktop` (which Playwright drives) those calls reject and the app never reaches a usable state. The current `apps/desktop-e2e/src/example.spec.ts` looks for `<h1>Welcome</h1>` — text that does not exist in the app — confirming nobody has actually run the e2e suite end-to-end.
+
+**Why:** Without this infra, every plan that promises Playwright coverage (`/plan-eng-review` has been emitting these consistently — P2.2 D5 was the most recent) lands with only the unit-spec layer of coverage. Integration flows that span Tauri commands, signals, scroll DOM, and router can't be locked in. Each PR that defers e2e is small; the cumulative gap is large.
+
+**How to apply:** Two paths. (a) Provide a `provideMockAdapters()` alongside `provideTauriAdapters()` and wire it in via an env flag (`E2E_MODE=mock` → swap providers in `app.config.ts`). The mocks live next to `WORKSPACES_MOCK` and friends; bootstrap fixtures via Playwright `beforeAll`. (b) Drive a real Tauri instance via `tauri-driver` + `webdriverio` (heavier, but no behavior divergence). Recommend (a) for P2.2-scoped flows where data shape matters more than Tauri-command correctness.
+
+**Concrete first commits when this lands:**
+- Replace `example.spec.ts` with a smoke spec that asserts the actual workspace-list landing renders.
+- Two specs for P2.2 (per `docs/tmp/2026-05-24-shell-ux-investigation.md` §2.6 T5): fresh-workspace first send from a file tab; streaming auto-follow round-trip across a chat→file→chat tab switch.
+
+**Depends on:** Nothing — pure infra work. Pulls forward as soon as someone needs reliable e2e (likely the next plan-eng-review that flags it).
+
+---
+
 ## Composer — "talking to chat X" indicator on file tabs (blocked on multi-chat workspaces)
 
 **What:** Render a small affordance next to the composer (e.g. `→ Chat: My-chat-name`) when the active tab is a file tab AND the workspace has more than one chat — so the user knows where a Send will land before pressing it.
