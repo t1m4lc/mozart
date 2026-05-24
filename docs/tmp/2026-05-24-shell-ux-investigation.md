@@ -829,6 +829,109 @@ header available as `title`.
    tooltip shows the original `@@` syntax.
 2. Copy-paste from the hunk row still copies the original `@@`
    text (if that's a feature the team uses).
+   > **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
+> **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
+
+**Goal:** Replace `@@ -120,7 +120,8 @@` with `"120 lines above"` (or `"No more lines above"` when `linesAvailable === 0`). When a hunk's gap-above AND the next gap (= gap-below this hunk) are both empty, omit the hunk header row entirely so the diff reads as continuous context. Raw `@@` available via `title` attribute for diff-literate users.
+
+**Implementation notes:**
+
+```
+buildDocPlan hunk-header branch (cm-diff-extensions.ts:131-140)
+
+  pre-pass items[] once, build nextHunkLinesAvailable[gapIndex] map.
+
+  for each RenderItem of kind 'hunk-header':
+    linesAbove = item.linesAvailable
+    linesBelow = nextHunkLinesAvailable[item.gapIndex] ?? 0
+    if linesAbove === 0 && linesBelow === 0:
+      SKIP — don't append a doc line for this hunk header
+    else:
+      label = formatHunkLabel(linesAbove)        ← new pure helper
+      appendLine(label, {
+        kind: 'hunk',
+        oldLine: null, newLine: null,
+        hunkGapIndex: item.gapIndex,
+        hunkLinesAvailable: linesAbove,
+        originalHeader: item.text,               ← new LineMeta field
+      })
+
+buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
+
+  for hunk-kind line:
+    builder.add(linePos, linePos, HUNK_LINE_DECO)
+    if (meta.originalHeader):
+      builder.add(linePos, linePos, Decoration.line({
+        attributes: { title: meta.originalHeader }
+      }))
+```
+
+**`formatHunkLabel` contract:**
+
+| Input     | Output                                                            |
+| --------- | ----------------------------------------------------------------- |
+| `n > 1`   | `"${n} lines above"`                                              |
+| `n === 1` | `"1 line above"`                                                  |
+| `n === 0` | `"No more lines above"` (defensive; caller usually hides the row) |
+| Input          | Output                  |
+| -------------- | ----------------------- |
+| `n > 1`        | `"${n} lines above"`    |
+| `n === 1`      | `"1 line above"`        |
+| `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
+
+**Files to touch:**
+
+- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`
+  - `LineMeta` (line 22): add `readonly originalHeader?: string`.
+  - `buildDocPlan` hunk-header branch (lines 131–140): consume the pre-pass lookahead, hide row when both gaps empty, swap `item.text` for `formatHunkLabel(linesAvailable)`, pass `originalHeader` through `LineMeta`.
+  - `buildLineDecorations` hunk branch (lines 235–237): when `meta.originalHeader` present, also emit a `Decoration.line` with `attributes.title`.
+  - New `formatHunkLabel(n: number): string` pure helper near `formatNumber` (line 554).
+  - Header comment block (lines 76–87): update to reflect doc-text-is-label model — diagram maintenance per CLAUDE.md.
+- `libs/mozart-ui/diff-parser/src/lib/diff-parser.ts` — no change. `DiffHunk` already exposes the parsed counts.
+
+**Tests:** new spec file — see §2.8.1 below.
+
+**Verification:**
+
+1. Open a multi-hunk diff: each visible hunk row shows `"N lines above"`; hover tooltip shows the original `@@ -a,b +c,d @@`.
+2. Fully expand a middle hunk's gap-above AND gap-below — that hunk's header row disappears from the doc; adjacent lines flow together.
+3. First hunk starts at line 1 (no gap above): hunk row is hidden from first render.
+4. Copying a hunk row puts the human label on the clipboard. The original `@@` only appears on hover (intentional — drops the prior "copy returns original" verification step which contradicted the goal).
+
+**Risks / notes:**
+
+- The hide-on-both-empty refinement requires a one-pass lookahead in `buildDocPlan`. Build the `nextHunkLinesAvailable[gapIndex]` map once before the loop — do not do an O(n²) inner search.
+- When a hunk row hides, gutter line numbers on surrounding rows must still align. Verify visually with a multi-hunk diff where one middle hunk hides.
+- If `formatHunkLabel` ever wants to surface the step constant (e.g., `"Show 20 lines above"`), key off `HUNK_EXPAND_STEP` (line 49). Do not introduce a second magic 20.
+
+---
+
+#### 2.8.1 New spec file: `cm-diff-extensions.spec.ts`
+
+**Goal:** Close the test gap on the CodeMirror integration layer. Today the entire 600-LOC `cm-diff-extensions.ts` has zero direct tests — `mz-diff-view.spec.ts` only covers upstream `buildRenderItems` (data shape, not rendering). P2.4 + P2.5 both edit this file; ship the spec alongside.
+
+**Cases (≥14):**
+
+1. `formatHunkLabel(120)` → `"120 lines above"`
+2. `formatHunkLabel(1)` → `"1 line above"` (singular)
+3. `formatHunkLabel(0)` → `"No more lines above"`
+4. `buildDocPlan`: single hunk-header with `linesAvailable > 0` → one hunk doc line; text is the formatted label; `LineMeta.originalHeader === item.text`.
+5. `buildDocPlan`: single hunk-header with `linesAvailable === 0` and no next hunk → row hidden (no doc line emitted; `lineMeta.length` is one less than the hunk-header items count).
+6. `buildDocPlan`: two consecutive hunk-headers where both gaps empty → both rows hidden.
+7. `buildDocPlan`: two hunks, gap above first empty + gap between them non-zero → only the first hunk row hides.
+8. `buildDocPlan`: code-line items between hunk-headers stay in document order; widget specs unchanged.
+9. `buildLineDecorations`: hunk-kind line gets `HUNK_LINE_DECO` AND a title decoration with the original header.
+10. `buildLineDecorations`: hunk-kind line whose meta has no `originalHeader` gets only `HUNK_LINE_DECO` (defensive).
+11. `buildLineDecorations`: add/remove kinds still get their respective line decos + inline markers — regression guard for §2.8 changes not breaking unrelated paths.
+12. `HunkButtonMarker.eq`: same gapIndex + linesAvailable → equal; differing values → unequal.
+13. `HunkButtonMarker.toDOM`: when `linesAvailable === 0` the button is disabled and title is `"No more hidden lines"`.
+14. `HunkButtonMarker.toDOM`: when `linesAvailable > 0` the button title matches `Show ${min(HUNK_EXPAND_STEP, linesAvailable)} lines above`.
+15. `HunkButtonMarker.toDOM` (P2.5): wider hit-target classes applied; count badge `+${min(HUNK_EXPAND_STEP, linesAvailable)}` renders inside the button.
+16. `HunkButtonMarker.toDOM` (P2.5): dispatching a `MouseEvent('click', { shiftKey: true })` fires `onExpand` with `count = min(2 * HUNK_EXPAND_STEP, linesAvailable)`.
+
+**Fixtures:** reuse the `makeHunk(startLine, endLine)` pattern from `mz-diff-view.spec.ts:50–80`. `toDOM` cases use jsdom (already configured for this lib).
+
+**Verification:** `pnpm nx test diff-view` passes; new file in the suite output; coverage report shows non-zero lines in `cm-diff-extensions.ts`.
 
 ---
 
@@ -850,6 +953,34 @@ lines above"` (or just `"+20"` if width-constrained). Reposition
 
 1. Hunk row button has visible label.
 2. Click expands 20 lines above; trailing-gap bar still works.
+   > **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
+> **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
+
+**Goal:** The hunk-row gutter chevron becomes a ~24px wider hit target with chevron + count badge (`"+20"`, or `"+12"` when fewer lines remain). Disabled with `"No more hidden lines"` title when `linesAvailable === 0`. Behavior preserved: click expands `HUNK_EXPAND_STEP` lines up; shift-click doubles.
+
+**Files to touch:**
+
+- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:478–532` — `HunkButtonMarker.toDOM`:
+  - Replace the 12×12 circle with a wider strip-shaped button (~24px × 16px), still positioned in the OLD gutter cell with the `translate(50%, -50%)` math so the visual centroid stays on the column seam.
+  - Append a `<span>` inside the button rendering `+${min(HUNK_EXPAND_STEP, linesAvailable)}` next to the existing `lucideChevronUp` icon. Hide the count when `linesAvailable === 0`.
+  - Tailwind: drop `h-4 w-4 rounded-full`; replace with `h-5 px-1 rounded-md` (or similar). Keep within the hunk-band vertical rhythm.
+  - Title logic unchanged.
+- Add a one-line comment near the click handler (lines 523–528) documenting shift-click doubles to `2 × HUNK_EXPAND_STEP`.
+
+**Tests:** covered by §2.8.1 cases 12–16.
+
+**Verification:**
+
+1. Hunk-row button is visibly wider than before; chevron + `+20` count both render.
+2. Click expands `HUNK_EXPAND_STEP` lines (20). Shift-click expands 40 (still works under the wider DOM).
+3. Fully expanded: button disables, count hides, title becomes `"No more hidden lines"`. The whole row hides per §2.8's hide-on-both-empty rule.
+4. Visual: the strip stays inside the gutter columns; the doc-line text ("120 lines above") sits to its right; nothing collides.
+
+**Risks / notes:**
+
+- The wider button still uses `transform: translate(50%, -50%)` to position over the column seam. Verify in dev that the wider shape doesn't overflow on the left (the OLD column natural width ≈ 32px; 24px button + half-translate fits).
+- Don't widen so much that the button overlaps the new row text — keep at least 8px between the button's right edge and the start of the doc area.
+- Count badge changes `+20` → `+12` etc. as `linesAvailable` shrinks below `HUNK_EXPAND_STEP`. `HunkButtonMarker.eq()` already keys off `linesAvailable`, so re-render is automatic.
 
 ---
 
@@ -1089,6 +1220,262 @@ T2 + T3 are sequential (feature change before its spec is easiest to
 write). T1/T4 and T2/T3 can run in parallel worktrees if desired,
 but realistically this is a one-PR slice — ship as a single commit
 unit.
+## 7. Eng review adjustments — 2026-05-24
+
+Locked decisions from `/plan-eng-review` covering P1.2 + P1.3. Anything
+here OVERRIDES the corresponding part of §2.2 / §2.3 above. Read this
+section before implementing; the upstream §2 text is preserved for
+provenance but is partially stale.
+
+### 7.1 Verified-against-code
+
+- P1.3 close-button bug — confirmed at `tab-item.ts:75` (rename + close
+  both gated by `kind === 'chat' && !renaming()`).
+- `FileTreeCacheStore` is purely in-memory today — confirmed.
+- `ChangedFile` TS DTO has no `oldPath` and no `'renamed'` — confirmed.
+- `commit.rs:185–187` already collapses renames into ONE row (consumes
+  the source path then discards it). The doc's "two rows" claim is
+  wrong; the actual gap is just `oldPath` propagation.
+- `feature-file-content.ts:463–484` `save()` does NOT trigger any
+  Changes-list refresh today — confirmed.
+- `tauri-plugin-store` is **not in Cargo.toml**. The existing pattern is
+  `withStorageSync` (`@angular-architects/ngrx-toolkit`) writing to
+  localStorage, used by `UiStateStore`.
+- `FILE_TAB_CAP = 1` is intentional today (`workspace-tab.model.ts:35`).
+  Per user direction, the cap is removed (effectively unbounded).
+- The middle shell is **router-outlet driven**:
+  `workspace-detail.page.ts:82` mounts `<router-outlet/>`; the child
+  `WorkspaceTabContent` receives `projectId / workspaceId / tabId` via
+  component-input-binding. Its effect at lines 166–176 is the SINGLE
+  seam that calls `FileTabsService.openFor` on every navigation. The
+  tree, the changes-list, and the chat-tab-bar all navigate; the route
+  effect mirrors into the service. The URL is the source of truth for
+  the active tab.
+
+### 7.2 P1.2 — Changes tab persistence (adjusted)
+
+| Decision                          | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                             |
+| --------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Storage layer                     | localStorage via `withStorageSync` (key `mozart-changed-files-v1`). Synchronous read on bootstrap = instant paint. ~3 MB headroom for 50 typical workspaces. Defer `tauri-plugin-store` until needed.                                                                                                                                                                                                                                              |
+| Hydration vs. refresh (was a bug) | `CachedChangedFiles` gains `hydratedAt?: number` and `refreshedSinceHydration?: boolean`. The cache-miss effect in `feature-workspace-files.ts:196–214` refreshes when `cached === null` OR `(hydratedAt && !refreshedSinceHydration)`. First in-session refresh sets the flag. This closes the "snapshot stays stale forever" gap that the original short-circuit would create.                                                                   |
+| Rename detection                  | Keep porcelain v1 -z. In `commit.rs:185–187`, capture `iter.next()` as `Option<String>` (covers both `R*` AND `C*` per codex review). `classify()` maps `R*` → `Some("renamed")`. Add `pub old_path: Option<String>` to the Rust DTO. Add `'renamed'` to the TS `ChangedFile` status union and `oldPath?: string` on the DTO. Render `<old> → <new>` in the Changes row when `oldPath` present (reuse the arrow already used by `MzFileDiffCard`). |
+| Status helper DRY                 | Lift duplicated `statusLetter` + color-class ternaries into `libs/desktop-repositories-util/src/lib/changed-file-status.ts`. Export `changedFileStatusMeta(status) → { letter, colorClass, label }`. Both `feature-changes-list` and `feature-commit-dialog` consume it. Review `tauri-adapters.ts:470` to either include `'renamed'` in the condition or refactor to an exhaustive switch.                                                        |
+| RPC failure surface               | `RepositoriesFacade` gains `lastRefreshErrorByWorkspace`. The Changes tab trigger shows a small destructive-tinted alert icon when the most recent refresh failed; clears on next success. Replaces today's silent `console.warn`.                                                                                                                                                                                                                 |
+| Manual refresh button             | **Skipped.** Watcher + `softRefreshAfterMutation` + always-refresh-on-activation cover real cases. Captured as TODO if users report stale lists.                                                                                                                                                                                                                                                                                                   |
+
+### 7.3 P1.3 — File tabs (adjusted)
+
+| Decision                                | Detail                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| --------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| FILE_TAB_CAP                            | **Removed.** Cap → effectively unbounded. Tab bar already has horizontal-scroll overflow (`workspace-tab-bar.ts:67–72`). Only the active tab mounts CodeMirror (lazy `@defer` at `feature-file-content.ts:194`). Route encoding is per-active-tab only — no URL bloat.                                                                                                                                                                                                                                                                                                                                                                                                   |
+| Tab persistence                         | Add `fileTabsByWorkspace: Record<wsId, { open: { path }[] }>` slice to `UiStateStore`; persist via existing `withStorageSync` block (key `mozart-ui-state-v1`). `FileTabsService` stays the public API but delegates open/close to `UiStateFacade`. `activeByWorkspace` is NOT persisted — it's downstream of the URL; route activation restores it.                                                                                                                                                                                                                                                                                                                     |
+| Preview / pin model                     | Tabs gain `isPreview: boolean` (in-memory only; **NOT persisted** — on hydrate all tabs come back as `isPreview: false`). New methods: `previewFor(ws, path)` (one preview slot per workspace; next call replaces the existing slot's path) and `pinFor(ws, path)` (append if absent; flip preview→pinned if open; focus if already pinned).                                                                                                                                                                                                                                                                                                                             |
+| Intent threading (CROSS-MODEL ADJUSTED) | Per codex outside voice: **DO NOT** put `intent` in the URL. Use `Router.navigate(commands, { state: { intent: 'preview' }, replaceUrl: true })` for tree single-click. Tree double-click + Changes-list click navigate without state (= pin). `WorkspaceTabContent` effect reads `history.state?.intent ?? 'pin'` and calls `previewFor` or `pinFor`. `replaceUrl: true` on preview prevents history-entry pollution. URLs stay clean; deep-links always pin.                                                                                                                                                                                                           |
+| Click discrimination                    | Native `(click)` + `(dblclick)` bindings on `FileTreeRow` — NO `setTimeout` debounce. Accept the brief italic→non-italic visual on a real double-click (preview navigate then pin navigate target the same path; the second pinFor flips the existing preview slot's `isPreview=false`).                                                                                                                                                                                                                                                                                                                                                                                 |
+| Close button regression fix             | In `tab-item.ts:75`, move the close button out of the `kind === 'chat' && !renaming()` guard. Rename pen stays chat-only. Test (regression-class, mandatory): `showClose=true && tab.kind === 'file'` renders the × button.                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| Auto-pin on edit (CROSS-MODEL ADJUSTED) | Per codex: do NOT pin on raw `valueChange` — CodeMirror emits on initial model dispatch under `@defer`, which would spuriously pin every preview tab. Instead, run an `effect` that watches `dirty()` flipping `false → true` and calls `pinFor(active.path)` only when the active tab is a preview. The initial editor emit has `value === baseline()` so `dirty` stays false; the first real keystroke flips it.                                                                                                                                                                                                                                                       |
+| Save → Changes sync                     | Lift the current `softRefreshAfterMutation` (private in `feature-changes-list.ts:295–302`) into a **feature-internal** free function at `libs/desktop-workspaces-feature/src/lib/util-soft-refresh.ts`: `softRefreshAfterMutation(ws, repos, workspaces, fileViews)`. Stays inside the feature lib (feature → feature is allowed); both `feature-changes-list` and the `save()` success path in `feature-file-content.ts` import via relative path. NOT a `type:util` lib — the function takes facade refs whose types live in data-access, which would violate util boundary rules. Skip the call on `saveError.kind === 'frozen' \| 'stale'` (no successful mutation). |
+| File-content auto-pin file lookup       | `FileTabsService` gains a small helper `findTab(ws, path)` so `feature-file-content` can check `isPreview` without crossing layers.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+
+### 7.4 TODOs captured
+
+Captured in `TODOS.md`:
+
+- **Manual refresh button on Changes header** — skipped; reconsider if users report stale lists.
+- **Throttle on snapshot writes** — only matters on 500+ changed-file workspaces; measure first with Performance > Long Tasks panel before adding `throttle: 500` to `withStorageSync`.
+- **Proactive stale-tab-path prune on activation** — relying on the existing open-time error UX (`feature-file-content.ts:121–139` shows "Couldn't open file" with Retry).
+- **localStorage quota-exceeded UX** — `withStorageSync` swallows `QuotaExceededError` today. Add a defensive try/catch + a one-time "your tab/snapshot state hit the storage cap" toast.
+- **Multi-window contention** — `tauri-plugin-single-instance` is wired today so this is N/A in v0.1.0-beta.1. When Mozart spawns secondary windows, `withStorageSync` will need `storage` event listening or a leader-election strategy.
+- **True Playwright + Tauri-webdriver E2E** — defer; covered by Angular component integration tests for v1.
+- **FILE_TAB_CAP soft ceiling** — codex called out the unbounded risk. Add a soft cap (e.g. 100) with FIFO eviction once we see real session sizes.
+- **C\* (copy) status semantics** — `parse_porcelain` consumes copy source identically to rename; surface as `'renamed'` for v1 (functionally equivalent for the UI). Revisit if/when we add explicit copy semantics.
+
+### 7.5 Test coverage diagram (P1.2 + P1.3)
+
+Captured separately in
+`~/.gstack/projects/t1m4lc-mozart/timothy-wt-p1.2-eng-review-test-plan-20260524-172002.md`
+(test plan artifact for `/qa` and `/qa-only` consumption).
+
+53 total gaps across both items, 3 mandatory regression tests
+(close-button visibility, rename `oldPath` propagation, save→Changes
+soft-refresh call). Coverage chosen at the Angular component
+integration level; no E2E framework added in this PR.
+
+### 7.6 What already exists (don't rebuild)
+
+- `FileTreeCacheStore`'s revision-tracked staleness check + atomic
+  swap pattern — reuse for the new `hydratedAt` semantics.
+- `withStorageSync` from `@angular-architects/ngrx-toolkit` is already
+  vetted on `UiStateStore` — same pattern, same key family.
+- `FileTabsService.closeFor` + neighbor-fallback wiring at
+  `feature-chat-tab-bar.ts:101–109` already routes file-tab closes.
+  No template wiring changes needed beyond the regression fix.
+- `RepositoriesFacade.refreshChangedFilesInBackground` already does
+  the atomic swap. `softRefreshAfterMutation`'s lift is pure code
+  movement, no new RPC.
+- `MzFileDiffCard` already has `'renamed'` + `oldPath` support
+  (`mz-file-diff-card.ts:37, 316, 368`) — only the upstream DTO chain
+  was lossy. Reuse the arrow rendering.
+- `parse_porcelain` tests at `commit.rs:245–268` are the template for
+  the new rename test.
+
+### 7.7 NOT in scope
+
+- Multi-file review surface itself (the chrome variant on
+  `MzFileDiffCard` is P1.4, not P1.3).
+- Workspace status state machine changes (P1.1 scope).
+- File-header refactor / dropping `FeatureFileToolbar` (P1.4).
+- Composer mount on file tabs (P2.2).
+- Drag-reorder of file tabs.
+- Multi-window state coordination (single-instance app today).
+- Replacing watcher debounce semantics; Rust-side `spawn_watcher`
+  keeps its current behavior.
+- True cross-process E2E framework — see TODO entry.
+
+### 7.8 Failure modes (P1.2 + P1.3)
+
+| Path                                                                     | Test?                             | Error handling?                          | User-visible?                               |
+| ------------------------------------------------------------------------ | --------------------------------- | ---------------------------------------- | ------------------------------------------- |
+| `listChangedFiles` RPC fails on activation                               | unit                              | inline alert icon (new)                  | YES                                         |
+| `git mv` rename detection misses on edge cases                           | rust unit (new)                   | falls through to plain `modified`        | low                                         |
+| localStorage `QuotaExceededError`                                        | not in this PR                    | swallowed by withStorageSync             | silent — **critical gap**, captured as TODO |
+| Preview tab path stale after reload                                      | manual + open-time UX             | "Couldn't open file" banner              | YES                                         |
+| `save()` while `saveError.kind === 'stale'` triggers soft-refresh anyway | unit                              | guarded: only on success                 | low                                         |
+| Double-click → two history entries                                       | unit (workspace-tab-content spec) | `replaceUrl: true` on preview navigation | none after fix                              |
+| Editor initial emit pins preview spuriously                              | unit (effect on dirty())          | dirty-based guard                        | none after fix                              |
+
+**Critical gap**: localStorage quota exceeded is silent today. Capture
+in TODOs; not blocking for v1 ship.
+
+### 7.9 Worktree parallelization strategy
+
+| Step                                      | Modules touched                                                                                                                                                                                                                                                                                                                                 | Depends on |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| P1.3a (close button)                      | `libs/desktop-workspaces-ui/` (tab-item)                                                                                                                                                                                                                                                                                                        | —          |
+| P1.3b (preview/pin + persist + save sync) | `libs/desktop-workspaces-data-access/` (file-tabs.service), `libs/desktop-workspaces-util/` (workspace-tab.model), `libs/desktop-ui-state-data-access/`, `libs/desktop-workspaces-ui/` (tab-item italic), `libs/desktop-workspaces-feature/` (workspace-tab-content, feature-workspace-files navigate, feature-file-content, util-soft-refresh) | P1.3a      |
+| P1.2 (persist + rename)                   | `libs/desktop-repositories-data-access/` (file-tree-cache, repositories.adapter), `libs/desktop-repositories-util/` (changed-file-status), `libs/desktop-workspaces-feature/` (feature-workspace-files stale-hydration effect, feature-changes-list), `apps/desktop-tauri/src/commit.rs`                                                        | —          |
+
+**Lanes:**
+
+- **Lane A:** P1.3a (close button) — independent, ships first as smallest user-visible win.
+- **Lane B:** P1.2 (Changes persistence + rename) — independent of A and C.
+- **Lane C:** P1.3b (preview/pin + persistence + save sync) — depends on A.
+
+**Execution order:** Launch **A and B in parallel** worktrees. After A merges, launch **C** (touches the same `feature-workspace-files.ts` file as B for navigate calls — second lander rebases).
+
+**Conflict flag:** Lanes B and C both touch `libs/desktop-workspaces-feature/.../feature-workspace-files.ts`. B adds the stale-hydration refresh effect; C changes the tree-click handler to navigate with `state: { intent }` extras. Trivial merge conflict; coordinate by rebasing C onto B's merge commit.
+
+### 7.10 Outside voice (codex) — items folded into this plan
+
+- Intent encoding: switched from `?intent=preview` query param to `Router.navigate(..., { state: { intent }, replaceUrl: true })` (7.3).
+- Auto-pin race: switched from raw `valueChange` to `dirty()`-based effect (7.3).
+- C\* (copy) treatment: folded into 7.2's rename branch.
+- `replaceUrl: true` on preview navigation: folded into 7.3.
+
+Codex items captured as TODOs (not blocking): quota-exceeded UX,
+multi-window contention, FILE_TAB_CAP soft ceiling.
+
+### 7.11 Sequencing recommendation (updated)
+
+1. **P1.3a — close-button regression fix** (smallest, highest value, 1 file)
+2. **P1.2 — Changes persistence + rename** (independent; can ship in parallel with 1)
+3. **P1.3b — preview/pin + tab persistence + save sync** (depends on 1; conflicts with 2 on one file)
+
+P1.1, P1.4, P2.\* unchanged from §6.
+
+## 7. /plan-eng-review notes — P2.4 + P2.5 (2026-05-24)
+
+### 7.1 NOT in scope (P2.4 + P2.5)
+
+- Function-scope suffix preservation (`@@ ... @@ class FooBar:`) — deferred to TODOS.md "Diff view — function-scope suffix on hunk row (post P2.4)".
+- ExpandBarWidget spec coverage — deferred to TODOS.md "Diff view — spec coverage for trailing-gap ExpandBarWidget". Folded into the new spec file's home so future pickup is cheap.
+- Shared abstraction for `ExpandBarWidget` + `HunkButtonMarker` — both are visual cousins but extend different CodeMirror base classes (`WidgetType` vs `GutterMarker`). Coupling them is over-engineering for two callsites.
+- Down/both direction support on the per-hunk gutter button — the button only operates "up" by design; trailing-gap and bidirectional cases stay with `ExpandBarWidget`.
+- Visual regression / screenshot tests for diff view — no screenshot harness exists in this repo today; not in scope to add one.
+
+### 7.2 What already exists (reused by P2.4 + P2.5)
+
+- `DiffHunk.{oldStart, oldCount, newStart, newCount}` — parsed numbers ready in `diff-parser.ts:20–41`. No parser change needed.
+- `RenderItem.hunk-header` carries `gapIndex` + `linesAvailable` — `mz-diff-view.ts:88–98`.
+- `gapRemaining()` in `mz-diff-view.ts:593–608` already computes the lookahead `linesBelow` value §2.8 needs.
+- `HUNK_EXPAND_STEP = 20` constant — `cm-diff-extensions.ts:49`. Key all "20" text off this.
+- `HunkButtonMarker.eq()` already keys off `gapIndex + linesAvailable` — re-renders on count change for free.
+- `lucideChevronUp` icon — already imported and used; reuse for the wider button.
+- `ExpandBarWidget` (lines 269–334) — the labelled-strip visual pattern P2.5 mirrors. Look at its `makeBtn` factory for the title/disabled/shift-doubles structure before re-implementing.
+
+### 7.3 Failure modes
+
+| Codepath                                  | Failure scenario                                                                                            | Has test?              | Has handling?  | Silent?                       |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------- | -------------- | ----------------------------- |
+| `buildDocPlan` hide-on-both-empty         | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)     | no — visible UX               |
+| `buildDocPlan` hide-on-both-empty         | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a            | no — visible misalignment     |
+| `buildLineDecorations` title decoration   | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a            | yes — fall back: no tooltip   |
+| `HunkButtonMarker.toDOM` wider hit target | Wider button overflows the gutter on the left, clipped by parent.                                           | no (visual)            | css; manual QA | no — visible overflow         |
+| `HunkButtonMarker.toDOM` count badge      | Badge text not in sync with `linesAvailable` after rapid clicks.                                            | n/a (eq covers)        | `eq` rebuild   | no — would show wrong number  |
+| `HunkButtonMarker.toDOM` shift-click      | Wider DOM intercepts shiftKey wrong; only single step expands.                                              | yes (case 16)          | n/a            | yes — silent regression to 1× |
+| Codepath                                       | Failure scenario                                                                                            | Has test? | Has handling?    | Silent?                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------- | ---------------- | -------------------------------- |
+| `buildDocPlan` hide-on-both-empty              | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)       | no — visible UX                  |
+| `buildDocPlan` hide-on-both-empty              | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a              | no — visible misalignment        |
+| `buildLineDecorations` title decoration        | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a              | yes — fall back: no tooltip      |
+| `HunkButtonMarker.toDOM` wider hit target      | Wider button overflows the gutter on the left, clipped by parent.                                           | no (visual)            | css; manual QA   | no — visible overflow            |
+| `HunkButtonMarker.toDOM` count badge           | Badge text not in sync with `linesAvailable` after rapid clicks.                                            | n/a (eq covers)        | `eq` rebuild     | no — would show wrong number     |
+| `HunkButtonMarker.toDOM` shift-click           | Wider DOM intercepts shiftKey wrong; only single step expands.                                              | yes (case 16)          | n/a              | yes — silent regression to 1×    |
+
+**Critical gaps:** none. The closest is the wider-button overflow risk (no automated test, only css + manual QA) but the failure is visually obvious in dev — not silent.
+
+### 7.4 Worktree parallelization strategy
+
+Sequential implementation, no parallelization opportunity. P2.4 and P2.5 both edit `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`. They also share the new `cm-diff-extensions.spec.ts`. Land in one PR slice; they're a single coherent design.
+
+### 7.5 Implementation Tasks
+
+Synthesized from this review's findings. Each task derives from a specific finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~1h / CC: ~8min)** — `cm-diff-extensions.ts` — Add `formatHunkLabel` helper + `LineMeta.originalHeader` field
+  - Surfaced by: §2.8 Implementation notes (label formatter contract).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`
+  - Verify: unit test cases 1–3 from §2.8.1.
+
+- [ ] **T2 (P1, human: ~2h / CC: ~12min)** — `cm-diff-extensions.ts` — `buildDocPlan` hide-on-both-empty + label swap
+  - Surfaced by: Architecture decision D3 (hide row when both adjacent gaps empty).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:131–140` + header comment block at lines 76–87.
+  - Verify: unit test cases 4–8 from §2.8.1; manual: multi-hunk diff with one fully-expanded mid-hunk → row disappears.
+
+- [ ] **T3 (P1, human: ~45min / CC: ~6min)** — `cm-diff-extensions.ts` — `buildLineDecorations` title decoration on hunk rows
+  - Surfaced by: Architecture decision D2 (replace text + tooltip with raw `@@`).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:235–237`.
+  - Verify: unit test cases 9–11; manual: hover hunk row → tooltip shows raw `@@`.
+
+- [ ] **T4 (P1, human: ~1.5h / CC: ~10min)** — `cm-diff-extensions.ts` — `HunkButtonMarker.toDOM` wider hit target + count badge
+  - Surfaced by: §2.9 P2.5 implementation.
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:478–532`.
+  - Verify: unit test cases 12–16; manual: button visibly wider, `+20` badge renders, doesn't overflow gutter.
+
+- [ ] **T5 (P1, human: ~3h / CC: ~20min)** — Create `cm-diff-extensions.spec.ts` with ≥14 cases
+  - Surfaced by: §2.8.1 + D4 (full coverage required).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.spec.ts` (new).
+  - Verify: `pnpm nx test diff-view` passes; coverage report shows non-zero lines in `cm-diff-extensions.ts`.
+
+- [ ] **T6 (P2, human: ~10min / CC: ~3min)** — Update header comment diagram at `cm-diff-extensions.ts:76–87`
+  - Surfaced by: §2.8 risks/notes (diagram maintenance per CLAUDE.md rule).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:76–87`.
+  - Verify: comment accurately reflects "hunk row's doc text is a human label; raw `@@` is on the line's title attr; row hides when both adjacent gaps empty."
+
+### 7.6 Completion summary (P2.4 + P2.5)
+
+- Step 0: Scope Challenge — scope accepted as-is (1 file, 0 new classes, no STOP gate).
+- Architecture Review: 3 issues raised, all decided (label/button split, label rendering mechanism, label content).
+- Code Quality Review: 0 issues requiring user decision; constants reuse + diagram maintenance folded into plan inline.
+- Test Review: coverage diagram produced, 16 gaps identified, full new spec file required (D4).
+- Performance Review: 0 issues.
+- NOT in scope: 5 items listed in §7.1.
+- What already exists: 7 items listed in §7.2.
+- TODOS.md updates: 2 items added (function-scope suffix, ExpandBarWidget tests).
+- Failure modes: 0 critical gaps flagged (table in §7.3).
+- Outside voice: skipped per user.
+- Parallelization: sequential — both items edit the same file; one PR slice.
+- Lake Score: 4/4 recommendations chose the complete option (full spec coverage, hide-on-both-empty refinement, decorate-with-title for tooltip, defer scope suffix as TODO not omitted).
 
 ---
 
@@ -1108,3 +1495,39 @@ unit.
 files + 2 new spec files. Cache-hit short-circuit regression test is
 mandatory per IRON rule. Outside voice + design review skipped — scope
 too narrow to justify.
+| Review        | Trigger               | Why                             | Runs | Status       | Findings                                                                                                                                                                                                                                                                                                             |
+| ------------- | --------------------- | ------------------------------- | ---- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0    | —            | not run                                                                                                                                                                                                                                                                                                              |
+| Codex Review  | `/codex review`       | Independent 2nd opinion         | 1    | ISSUES_FOUND | 2 cross-model tensions resolved (intent encoding, auto-pin race); 6 codex items captured as TODOs                                                                                                                                                                                                                    |
+| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | CLEAR (PLAN) | 12 issues found across §1–§4 (5 architecture, 2 code-quality, 5 test gaps batched into one decision, 2 perf); 0 unresolved; 1 critical gap captured (localStorage quota — TODO); 53 test gaps mapped, 3 mandatory regression tests; outside voice ran (codex), 2 cross-model tensions surfaced + applied to the plan |
+| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | not run (preview/pin is a behavioral spec, not a visual one; reconsider for P1.4 file-header refactor)                                                                                                                                                                                                               |
+| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | not run (no developer-facing API surface in this scope)                                                                                                                                                                                                                                                              |
+
+**CODEX:** Surfaced 2 substantive issues that the eng review missed and 6 smaller risks. Both substantive items were applied to the plan (§7.10): URL-query-param → router state extras with `replaceUrl: true`; raw-valueChange auto-pin → `dirty()`-flip-based effect. The 6 smaller items live in §7.4 TODOs.
+
+**CROSS-MODEL:** Two tensions — both resolved in codex's favor with the user's confirmation. No remaining disagreement.
+
+**UNRESOLVED:** 0.
+
+**VERDICT:** ENG CLEARED — P1.2 + P1.3 ready to implement per §7 adjustments. Suggested lanes: P1.3a (close button) + P1.2 (persist + rename) in parallel; P1.3b (preview/pin + tab persistence + save sync) after P1.3a lands.
+| Review | Trigger | Why | Runs | Status | Findings |
+| ------------- | -------------------- | -------------------------------- | ---- | -------------- | ------------------------------ |
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 3 issues, 0 critical gaps |
+| Design Review | `/plan-design-review`| UI/UX gaps | 0 | — | — |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+
+- **UNRESOLVED:** 0
+- **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
+| Review        | Trigger              | Why                              | Runs | Status         | Findings                       |
+| ------------- | -------------------- | -------------------------------- | ---- | -------------- | ------------------------------ |
+| CEO Review    | `/plan-ceo-review`   | Scope & strategy                 | 0    | —              | —                              |
+| Codex Review  | `/codex review`      | Independent 2nd opinion          | 0    | —              | —                              |
+| Eng Review    | `/plan-eng-review`   | Architecture & tests (required)  | 1    | CLEAR (PLAN)   | 3 issues, 0 critical gaps      |
+| Design Review | `/plan-design-review`| UI/UX gaps                       | 0    | —              | —                              |
+| DX Review     | `/plan-devex-review` | Developer experience gaps        | 0    | —              | —                              |
+
+- **UNRESOLVED:** 0
+- **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
+
