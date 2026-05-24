@@ -12,6 +12,8 @@ import {
   output,
   signal,
 } from '@angular/core';
+import { toObservable, toSignal } from '@angular/core/rxjs-interop';
+import { combineLatest, map, of, switchMap, timer } from 'rxjs';
 import { memoize } from '@mozart/desktop-core-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { FileNode } from '@mozart/desktop-repositories-util';
@@ -171,14 +173,35 @@ export class FeatureFileTree {
     return null;
   });
 
+  // Defer-first-show 150ms gate. `combineLatest` re-emits on every
+  // `workspaceId` or `loading` change; `switchMap` cancels the
+  // previous `timer(150)` so a new load (or workspace switch)
+  // restarts the window. `toSignal` tears the subscription down on
+  // destroy — no manual cleanup. Sub-150ms fetches never flash
+  // because `showSkeleton` also ANDs on `loading()`, which flips
+  // false the moment the fetch resolves.
+  private readonly pastMinDelay = toSignal(
+    combineLatest([
+      toObservable(this.workspaceId),
+      toObservable(this.loading),
+    ]).pipe(
+      switchMap(([id, loading]) =>
+        id && loading ? timer(150).pipe(map(() => true)) : of(false),
+      ),
+    ),
+    { initialValue: false },
+  );
+
   /** True when no tree at all is available yet (own cache empty AND
-   *  no sibling fallback) AND a fetch is in flight. Sibling-tree hits
-   *  short-circuit this so the user sees the placeholder instead. */
+   *  no sibling fallback) AND a fetch is in flight AND the 150ms
+   *  defer window has elapsed. Sibling-tree hits short-circuit this
+   *  so the user sees the placeholder instead. */
   protected readonly showSkeleton = computed(
     () =>
       this.cachedTree() === null &&
       this.projectFallbackTree() === null &&
-      this.loading(),
+      this.loading() &&
+      this.pastMinDelay(),
   );
 
   // Expansion state keyed by node.path. CdkTree's `childrenAccessor`
