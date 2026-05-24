@@ -90,6 +90,7 @@
     --brand-subtle: 262 50% 70%;
     --ring: 262 70% 58%;
     --sidebar-ring: 262 70% 58%;
+    --selection-foreground: 262 80% 18%;
 
     /* Diff semantic tokens — translucent backgrounds let the diff blend
      * with whatever surface it's painted on; marker foregrounds carry
@@ -116,6 +117,7 @@
     --brand-subtle: 262 45% 55%;
     --ring: 262 70% 68%;
     --sidebar-ring: 262 70% 68%;
+    --selection-foreground: 262 30% 95%;
 
     --diff-add-bg: hsl(149 30% 18%);
     --diff-add-bg-strong: hsl(149 40% 25%);
@@ -159,5 +161,10 @@
 
   button:disabled {
     cursor: not-allowed;
+  }
+
+  ::selection {
+    background-color: hsl(var(--brand) / 0.1);
+    color: hsl(var(--selection-foreground));
   }
 }
