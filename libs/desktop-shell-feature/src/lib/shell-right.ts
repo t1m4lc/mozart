@@ -62,9 +62,10 @@ import { ShellSidePanel } from './shell-side-panel';
           <div class="flex gap-2">
             @if (workspaces.activeId()) {
               <app-merge-action-menu
-                [primaryAction]="mergePrimaryAction()"
+                [primaryAction]="mergePrimaryAction"
                 [githubConnected]="profile.githubConnected()"
                 [isGithubRemote]="isGithubRemote()"
+                [localMergeDisabled]="true"
                 (pick)="onMergeActionPick($event)"
               />
             }
@@ -106,19 +107,12 @@ export class ShellRight {
   // and 0 (driven by ShellSidePanel from `_visible`).
   protected readonly _fullWidth = SHELL_RIGHT_PANEL_WIDTH;
 
-  // AD-02 routing: workspace.lastMergeAction → project.mergeMode →
-  // default 'pr'. `mergeModeFor` returns null until ensureMergeMode has
-  // resolved; the effect below kicks it off whenever the active
-  // workspace changes.
-  protected readonly mergePrimaryAction = computed<MergeAction>(() => {
-    const id = this.workspaces.activeId();
-    if (!id) return 'pr';
-    const ws = this.workspaces.workspaceById(id)();
-    if (ws?.lastMergeAction) return ws.lastMergeAction;
-    if (!ws) return 'pr';
-    const mode = this.projects.mergeModeFor(ws.projectId)();
-    return mode ?? 'pr';
-  });
+  // P1.1 D5 — collapsed to a 'pr' constant while local-merge is hidden
+  // behind the Soon badge. When the local-merge flow ships, restore the
+  // AD-02 routing computed (workspace.lastMergeAction →
+  // project.mergeMode → default 'pr') and re-add `ensureMergeMode` to
+  // the effect below.
+  protected readonly mergePrimaryAction: MergeAction = 'pr';
 
   // P1.1 D9 — gates the PR primary + dropdown row. Null until the
   // backend probe resolves; treat null as `false` (defensive) so the
@@ -133,16 +127,14 @@ export class ShellRight {
   });
 
   constructor() {
-    // Kick the lazy mergeMode + isGithubRemote reads for the active
-    // workspace's project. Both are de-duped inside their respective
-    // ensure-calls, so re-firing on every active-workspace change is
-    // cheap.
+    // Kick the lazy isGithubRemote read for the active workspace's
+    // project. De-duped inside `ensureIsGithubRemote`, so re-firing on
+    // every active-workspace change is cheap.
     effect(() => {
       const id = this.workspaces.activeId();
       if (!id) return;
       const ws = this.workspaces.workspaceById(id)();
       if (!ws) return;
-      void this.projects.ensureMergeMode(ws.projectId);
       void this.projects.ensureIsGithubRemote(ws.projectId);
     });
   }
