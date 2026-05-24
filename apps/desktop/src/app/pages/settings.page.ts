@@ -6,7 +6,9 @@ import {
   FeatureConnections,
   FeatureNotificationPrefs,
 } from '@mozart/desktop-profile-feature';
+import { ThemeService, type ThemeMode } from '@mozart/shared-util-theme';
 import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmSelectImports } from '@spartan-ui/select';
 
 // Web account URL. Mirrors `buildSignInUrl` — same dev origin, just a
 // different path. Production deploy will swap this to app.mozart.build.
@@ -19,6 +21,7 @@ const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
     FeatureGitStatus,
     FeatureNotificationPrefs,
     HlmButtonImports,
+    HlmSelectImports,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full overflow-y-auto p-6' },
@@ -51,6 +54,42 @@ const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
           Notifications
         </h2>
         <app-feature-notification-prefs />
+      </section>
+
+      <section class="space-y-4">
+        <h2
+          class="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+        >
+          Appearance
+        </h2>
+        <div
+          class="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-4"
+        >
+          <div class="space-y-1">
+            <p class="text-sm font-medium">Theme</p>
+            <p class="text-xs text-muted-foreground">
+              Follow your system setting, or lock to light or dark.
+            </p>
+          </div>
+          <hlm-select
+            [value]="_theme.mode()"
+            (valueChange)="onSetMode($any($event))"
+            [itemToString]="_modeToString"
+          >
+            <hlm-select-trigger class="w-28 h-8 text-xs">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-group>
+                @for (opt of _themeModes; track opt.value) {
+                  <hlm-select-item [value]="opt.value">
+                    {{ opt.label }}
+                  </hlm-select-item>
+                }
+              </hlm-select-group>
+            </hlm-select-content>
+          </hlm-select>
+        </div>
       </section>
 
       <section class="space-y-4">
@@ -97,6 +136,20 @@ const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
 export class SettingsPage {
   private readonly auth = inject(AuthFacade);
   private readonly externalLink = inject(ExternalLinkService);
+  protected readonly _theme = inject(ThemeService);
+
+  protected readonly _themeModes: { label: string; value: ThemeMode }[] = [
+    { label: 'System', value: 'system' },
+    { label: 'Light', value: 'light' },
+    { label: 'Dark', value: 'dark' },
+  ];
+
+  protected readonly _modeToString = (mode: ThemeMode): string =>
+    this._themeModes.find((o) => o.value === mode)?.label ?? '';
+
+  protected onSetMode(mode: ThemeMode): void {
+    this._theme.setMode(mode);
+  }
 
   protected onSignOut(): void {
     void this.auth.signOut();

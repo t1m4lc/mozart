@@ -6,7 +6,7 @@ import {
 } from '@angular/core';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideCheck, lucideCircleAlert } from '@ng-icons/lucide';
+import { lucideCircleAlert } from '@ng-icons/lucide';
 import { GIT_CHECK_ADAPTER } from '@mozart/desktop-onboarding-data-access';
 
 // Read-only Git status card surfaced under /settings. Re-probes
@@ -14,17 +14,18 @@ import { GIT_CHECK_ADAPTER } from '@mozart/desktop-onboarding-data-access';
 @Component({
   selector: 'app-feature-git-status',
   imports: [HlmIconImports, NgIcon],
-  providers: [provideIcons({ lucideCheck, lucideCircleAlert })],
+  providers: [provideIcons({ lucideCircleAlert })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 p-4">
+    <div class="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-4 py-3">
       @switch (_state()) {
         @case ('probing') {
+          <span class="inline-block size-2 shrink-0 rounded-full bg-brand/60 animate-pulse" aria-hidden="true"></span>
           <span class="text-sm text-muted-foreground">Checking…</span>
         }
         @case ('found') {
-          <ng-icon hlm name="lucideCheck" size="sm" class="text-emerald-600" />
+          <span class="inline-block size-2 shrink-0 rounded-full bg-green-500" aria-hidden="true"></span>
           <span class="text-sm">Git {{ _version() }} detected</span>
         }
         @case ('missing') {
@@ -32,7 +33,7 @@ import { GIT_CHECK_ADAPTER } from '@mozart/desktop-onboarding-data-access';
             hlm
             name="lucideCircleAlert"
             size="sm"
-            class="text-red-600"
+            class="text-destructive"
           />
           <span class="text-sm">Git not detected on PATH</span>
         }
