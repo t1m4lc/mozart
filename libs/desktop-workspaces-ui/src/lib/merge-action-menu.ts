@@ -5,18 +5,17 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmBadgeImports } from '@spartan-ui/badge';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
+import type { MergeAction } from '@mozart/desktop-workspaces-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronDown,
   lucideGitMerge,
   lucideGitPullRequest,
 } from '@ng-icons/lucide';
-import type { MergeAction } from '@mozart/desktop-workspaces-util';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
 
 // P2.6.C — split-button + dropdown for the merge action on the right-
 // aside header. Primary label routes off AD-02:
@@ -27,10 +26,9 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
 //
 // "Create PR" stays clickable even when GitHub isn't connected or the
 // remote isn't GitHub — the dialog (FeatureCreatePrDialog) shows a
-// state-explaining alert and gates Submit instead. Tooltips here stay
-// informational so a user hovering knows the dialog will explain.
-// "Merge now" is still gated behind `localMergeDisabled` (P1.1 D5)
-// until the flow ships.
+// state-explaining alert and gates Submit instead. "Merge now" is
+// still gated behind `localMergeDisabled` (P1.1 D5) until the flow
+// ships.
 @Component({
   selector: 'app-merge-action-menu',
   imports: [
@@ -39,7 +37,6 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
     HlmButtonImports,
     HlmDropdownMenuImports,
     HlmIconImports,
-    HlmTooltipImports,
   ],
   providers: [
     provideIcons({
@@ -56,8 +53,6 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
         variant="outline"
         size="sm"
         type="button"
-        [hlmTooltip]="primaryTooltip()"
-        position="bottom"
         class="h-7 rounded-r-none rounded-l-md border-r-0 px-2 text-xs font-normal"
         [disabled]="primaryDisabled()"
         (click)="primary()"
@@ -70,8 +65,6 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
         variant="outline"
         size="sm"
         type="button"
-        hlmTooltip="More merge options"
-        position="bottom"
         [hlmDropdownMenuTrigger]="menu"
         align="end"
         side="bottom"
@@ -88,24 +81,20 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
           type="button"
           class="cursor-pointer"
           [disabled]="prRowDisabled()"
-          [hlmTooltip]="prRowTooltip()"
-          position="left"
           (triggered)="onPick('pr')"
         >
           <ng-icon hlm name="lucideGitPullRequest" size="xs" />
-          <span class="flex-1">Create PR</span>
+          <span>Create PR</span>
         </button>
         <button
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
           [disabled]="localMergeDisabled()"
-          [hlmTooltip]="localMergeDisabled() ? 'Coming soon' : null"
-          position="left"
           (triggered)="onPick('local')"
         >
           <ng-icon hlm name="lucideGitMerge" size="xs" />
-          <span class="flex-1">Merge now</span>
+          <span>Merge now</span>
           @if (localMergeDisabled()) {
             <span hlmBadge variant="secondary" class="font-normal">Soon</span>
           }
@@ -154,24 +143,8 @@ export class MergeActionMenu {
     this.primaryAction() === 'pr' ? 'lucideGitPullRequest' : 'lucideGitMerge',
   );
 
-  protected readonly primaryTooltip = computed(() => {
-    if (this.primaryAction() === 'pr') {
-      if (!this.isGithubRemote()) return "This repo isn't on GitHub";
-      if (!this.githubConnected()) return 'Connect GitHub to open PRs';
-      return 'Open a pull request';
-    }
-    if (this.localMergeDisabled()) return 'Coming soon';
-    return 'Merge this workspace into its base branch';
-  });
-
   // PR row stays clickable; the dialog explains and gates Submit.
   protected readonly prRowDisabled = computed(() => false);
-
-  protected readonly prRowTooltip = computed(() => {
-    if (!this.isGithubRemote()) return "This repo isn't on GitHub";
-    if (!this.githubConnected()) return 'Connect GitHub to open PRs';
-    return null;
-  });
 
   protected primary(): void {
     if (this.primaryDisabled()) return;
