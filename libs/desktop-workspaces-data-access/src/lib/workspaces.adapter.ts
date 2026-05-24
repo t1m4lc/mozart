@@ -22,6 +22,15 @@ export interface MergeOutcome {
   readonly conflicting_files: readonly string[];
 }
 
+/** Result of a successful `create_workspace_pr` call. Mirrors the
+ *  GitHub REST response surface; declared locally so this lib has no
+ *  inbound dep on `_bindings.ts`. The adapter impl maps `html_url`
+ *  → `htmlUrl` at the boundary. */
+export interface CreatedPr {
+  readonly number: number;
+  readonly htmlUrl: string;
+}
+
 // Tauri-backed IO for the workspaces domain. Concrete impl bound in
 // app.config.ts. The adapter is the ONLY surface in the Angular tree
 // that may reference Tauri command names or `_bindings.ts` — no
@@ -84,6 +93,18 @@ export interface WorkspacesAdapter {
   /** P2.6 — run the six-step local merge flow. Returns the outcome the
    *  frontend uses to route toasts / mark conflicting files. */
   mergeLocally(workspaceId: string): Promise<MergeOutcome>;
+
+  /** P1.1 — push the branch (idempotent) then open a GitHub PR via the
+   *  REST API. Requires a stored GitHub token AND the project's origin
+   *  resolving to `github.com/<owner>/<repo>`. Throws `AppError` on
+   *  precondition failure; the wrapper in `WorkspacesFacade.createPr`
+   *  layers status-transition semantics (D1/D2/D3) on top. */
+  createPr(
+    workspaceId: string,
+    title: string,
+    body: string,
+    draft: boolean,
+  ): Promise<CreatedPr>;
 }
 
 /** Per-workspace aggregate line counts. Sums of `git diff --numstat`

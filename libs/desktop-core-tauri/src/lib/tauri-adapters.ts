@@ -273,6 +273,20 @@ function provideWorkspacesAdapter(): Provider {
         if (r.status === 'error') throw r.error;
         return r.data;
       },
+      async createPr(workspaceId, title, body, draft) {
+        // Same bespoke-unwrap pattern as mergeLocally: surface the
+        // typed AppError so the caller can route toasts on `err.kind`
+        // (NoGithubRemote / NoGithubToken / etc.). Map the snake_case
+        // wire field `html_url` to the camelCase port shape.
+        const r = await commands.createWorkspacePr(
+          workspaceId,
+          title,
+          body,
+          draft,
+        );
+        if (r.status === 'error') throw r.error;
+        return { number: r.data.number, htmlUrl: r.data.html_url };
+      },
     } satisfies WorkspacesAdapter,
   };
 }

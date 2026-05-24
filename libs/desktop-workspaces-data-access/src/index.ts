@@ -6,6 +6,7 @@ export {
 export { WorkspaceStore } from './lib/workspace.store';
 export {
   WORKSPACES_ADAPTER,
+  type CreatedPr,
   type InstallPackagesResult,
   type MergeOutcome,
   type WorkspaceDiffStatsEntry,
