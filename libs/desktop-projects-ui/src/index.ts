@@ -1,3 +1,4 @@
+export { AddProjectMenuItems } from './lib/add-project-menu-items';
 export { FeatureAddProject } from './lib/feature-add-project';
 export { ProjectRow } from './lib/ui-project-row';
 export { ProjectContextMenu } from './lib/ui-project-context-menu';

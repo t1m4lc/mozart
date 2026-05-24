@@ -1,19 +1,15 @@
 import { ChangeDetectionStrategy, Component, output } from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideFolderPlus } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideFolderOpen,
-  lucideFolderPlus,
-  lucideGithub,
-  lucideZap,
-} from '@ng-icons/lucide';
+import { AddProjectMenuItems } from './add-project-menu-items';
 
-// "Open project" button + dropdown. Atom 1: the "Open project" item emits
-// an event but no handler is wired yet (matches today's behavior).
-// Atom 2 will wire the click to ProjectsFacade.openPickerAndAdd().
+// Trigger button (sidebar `+`) + dropdown. The dropdown body is the
+// shared <app-add-project-menu-items/> — see that file for wording,
+// icons, and the Quickstart disabled state.
 @Component({
   selector: 'app-feature-add-project',
   imports: [
@@ -22,15 +18,9 @@ import {
     HlmDropdownMenuImports,
     HlmIconImports,
     HlmTooltipImports,
+    AddProjectMenuItems,
   ],
-  providers: [
-    provideIcons({
-      lucideFolderOpen,
-      lucideFolderPlus,
-      lucideGithub,
-      lucideZap,
-    }),
-  ],
+  providers: [provideIcons({ lucideFolderPlus })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
@@ -48,30 +38,10 @@ import {
     </button>
     <ng-template #addMenu>
       <hlm-dropdown-menu>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          (triggered)="openProject.emit()"
-        >
-          <ng-icon hlm name="lucideFolderOpen" size="sm" />
-          Open a repository on this machine
-        </button>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          (triggered)="openGithubProject.emit()"
-        >
-          <ng-icon hlm name="lucideGithub" size="sm" />
-          Clone from Git
-        </button>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          (triggered)="quickStart.emit()"
-        >
-          <ng-icon hlm name="lucideZap" size="sm" />
-          Create a new project
-        </button>
+        <app-add-project-menu-items
+          (openProject)="openProject.emit()"
+          (openGithubProject)="openGithubProject.emit()"
+        />
       </hlm-dropdown-menu>
     </ng-template>
   `,
@@ -79,5 +49,5 @@ import {
 export class FeatureAddProject {
   readonly openProject = output<void>();
   readonly openGithubProject = output<void>();
-  readonly quickStart = output<void>();
+  // readonly quickStart = output<void>();
 }

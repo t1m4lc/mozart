@@ -1,29 +1,29 @@
 import { ChangeDetectionStrategy, Component, output } from '@angular/core';
-import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
-import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronsDownUp,
   lucideChevronsUpDown,
-  lucideFolderOpen,
   lucideFolderPlus,
-  lucideGithub,
   lucideListFilter,
-  lucideZap,
 } from '@ng-icons/lucide';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { AddProjectMenuItems } from './add-project-menu-items';
 
 @Component({
   selector: 'app-projects-header-context-menu',
-  imports: [NgIcon, HlmDropdownMenuImports, HlmIconImports],
+  imports: [
+    NgIcon,
+    HlmDropdownMenuImports,
+    HlmIconImports,
+    AddProjectMenuItems,
+  ],
   providers: [
     provideIcons({
       lucideChevronsDownUp,
       lucideChevronsUpDown,
-      lucideFolderOpen,
       lucideFolderPlus,
-      lucideGithub,
       lucideListFilter,
-      lucideZap,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -74,28 +74,10 @@ import {
 
     <ng-template #addSubTpl>
       <hlm-dropdown-menu class="w-52">
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          class="cursor-pointer"
-          (triggered)="openProject.emit()"
-        >
-          <ng-icon hlm name="lucideFolderOpen" size="xs" /> Open a repository on
-          this machine
-        </button>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          class="cursor-pointer"
-          (triggered)="openGithubProject.emit()"
-        >
-          <ng-icon hlm name="lucideGithub" size="xs" /> Clone from Git
-        </button>
-        <!-- Quickstart kept visible but disabled — CreateProjectDialog
-             flow is on ice until the underlying create-folder UX lands. -->
-        <button hlmDropdownMenuItem type="button" disabled>
-          <ng-icon hlm name="lucideZap" size="xs" /> Create a new project
-        </button>
+        <app-add-project-menu-items
+          (openProject)="openProject.emit()"
+          (openGithubProject)="openGithubProject.emit()"
+        />
       </hlm-dropdown-menu>
     </ng-template>
   `,

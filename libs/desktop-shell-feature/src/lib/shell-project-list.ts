@@ -7,26 +7,24 @@ import {
   signal,
 } from '@angular/core';
 import { Router } from '@angular/router';
-import { HlmContextMenuImports } from '@spartan-ui/context-menu';
-import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmDialogService } from '@spartan-ui/dialog';
-import { HlmSidebarImports } from '@spartan-ui/sidebar';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideChevronRight } from '@ng-icons/lucide';
-import { toast } from '@spartan-ng/brain/sonner';
+import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
-import type { Project } from '@mozart/desktop-projects-util';
 import {
+  AddProjectMenuItems,
   ConfirmDeleteProjectDialog,
   ProjectContextMenu,
   ProjectsEmptyState,
   type ConfirmDeleteProjectContext,
 } from '@mozart/desktop-projects-ui';
-import { AddProjectFlow } from './add-project.flow';
-import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import type { Project } from '@mozart/desktop-projects-util';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { WorkspaceContextMenu } from '@mozart/desktop-workspaces-feature';
+import {
+  ConfirmReopenWorkspaceDialog,
+  WorkspaceRow,
+  type ConfirmReopenWorkspaceContext,
+} from '@mozart/desktop-workspaces-ui';
 import {
   UI_WORKSPACE_STATUSES,
   workspaceRouteCommands,
@@ -34,12 +32,15 @@ import {
   type UiWorkspaceStatusMeta,
   type Workspace,
 } from '@mozart/desktop-workspaces-util';
-import {
-  ConfirmReopenWorkspaceDialog,
-  WorkspaceRow,
-  type ConfirmReopenWorkspaceContext,
-} from '@mozart/desktop-workspaces-ui';
-import { WorkspaceContextMenu } from '@mozart/desktop-workspaces-feature';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideChevronRight } from '@ng-icons/lucide';
+import { toast } from '@spartan-ng/brain/sonner';
+import { HlmContextMenuImports } from '@spartan-ui/context-menu';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmSidebarImports } from '@spartan-ui/sidebar';
+import { AddProjectFlow } from './add-project.flow';
 import { ShellProjectRow } from './shell-project-row';
 
 // Cross-domain composer for the left sidebar. This is the only place
@@ -61,6 +62,7 @@ import { ShellProjectRow } from './shell-project-row';
     WorkspaceContextMenu,
     ProjectsEmptyState,
     ShellProjectRow,
+    AddProjectMenuItems,
   ],
   providers: [provideIcons({ lucideChevronRight })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -186,27 +188,10 @@ import { ShellProjectRow } from './shell-project-row';
     ` button. -->
     <ng-template #emptyProjectsCtxMenuTpl>
       <hlm-dropdown-menu class="w-52">
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          class="cursor-pointer"
-          (triggered)="addProjectFlow.openPickerAndOpen()"
-        >
-          Open a repository on this machine
-        </button>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          class="cursor-pointer"
-          (triggered)="addProjectFlow.openCloneDialog()"
-        >
-          Clone from Git
-        </button>
-        <!-- Quickstart kept visible but disabled — CreateProjectDialog
-             flow is on ice until the underlying create-folder UX lands. -->
-        <button hlmDropdownMenuItem type="button" disabled>
-          Create a new project
-        </button>
+        <app-add-project-menu-items
+          (openProject)="addProjectFlow.openPickerAndOpen()"
+          (openGithubProject)="addProjectFlow.openCloneDialog()"
+        />
       </hlm-dropdown-menu>
     </ng-template>
 
