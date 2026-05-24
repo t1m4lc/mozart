@@ -162,6 +162,60 @@ describe('FeatureChatScrollSurface', () => {
     });
   });
 
+  describe('tab-key scroll recall (REGRESSION)', () => {
+    it('recalls and restores scrollTop on first mount even though mainEl resolves after _chatTabKey', async () => {
+      // The tab-key stream listens on combineLatest([_chatTabKey,
+      // _mainEl]) so it can fire when EITHER resolves. _chatTabKey
+      // computes synchronously after CD; _mainEl is set inside
+      // afterNextRender (one tick later). If the stream only filtered
+      // on this.mainEl (non-reactive), the first emission would land
+      // before mainEl resolves and the recall would never fire.
+      const stubs = configure();
+      const recallSpy = vi.spyOn(stubs.scroll, 'recall');
+
+      const fixture = await mountHost();
+      const main = getScrollEl(fixture);
+      Object.defineProperty(main, 'scrollHeight', {
+        value: 1000,
+        configurable: true,
+      });
+
+      // _chatTabKey resolves to `chat:ws-1:chat-1` synchronously
+      // (active chat is seeded in the configure() stub). mainEl
+      // resolves inside afterNextRender. Once both have emitted via
+      // combineLatest, recall fires for the resolved key.
+      expect(recallSpy).toHaveBeenCalledWith('chat:ws-1:chat-1');
+    });
+
+    it('remembers scrollTop on chat switch and recalls for the new key', async () => {
+      const stubs = configure();
+      const recallSpy = vi.spyOn(stubs.scroll, 'recall');
+      const rememberSpy = vi.spyOn(stubs.scroll, 'remember');
+
+      const fixture = await mountHost();
+      const main = getScrollEl(fixture);
+      Object.defineProperty(main, 'scrollHeight', {
+        value: 1000,
+        configurable: true,
+      });
+      main.scrollTop = 420;
+
+      // Simulate a chat switch — the active chat signal changes,
+      // which flips _chatTabKey, which fires combineLatest with the
+      // new pair. switchMap unsubscribes the prior inner observable
+      // (finalize fires remember on the prior key) and subscribes
+      // the new inner (tap.subscribe fires recall on the new key).
+      stubs.activeChatSignal.set(makeChat('chat-2', 'ws-1'));
+      fixture.detectChanges();
+      await fixture.whenStable();
+      // Allow combineLatest's microtask to flush.
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(rememberSpy).toHaveBeenCalledWith('chat:ws-1:chat-1', 420);
+      expect(recallSpy).toHaveBeenCalledWith('chat:ws-1:chat-2');
+    });
+  });
+
   describe('at-bottom detector (REGRESSION)', () => {
     it('flips chat to attached when scrolled near the bottom', async () => {
       const stubs = configure();

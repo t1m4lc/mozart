@@ -17,7 +17,13 @@ import {
   fromEvent,
   NEVER,
 } from 'rxjs';
-import { auditTime, filter, switchMap, tap } from 'rxjs/operators';
+import {
+  auditTime,
+  filter,
+  finalize,
+  switchMap,
+  tap,
+} from 'rxjs/operators';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   ChatScrollOrchestrator,
@@ -29,6 +35,19 @@ import {
 // Under this, the chat is considered attached (auto-follow stream);
 // over, it's detached (the user has scrolled up to read history).
 const AT_BOTTOM_THRESHOLD_PX = 50;
+
+// Type-guard for combineLatest predicates that wait on two
+// "resolved" sources (a workspace + mainEl pair, a key + mainEl pair,
+// etc.). Uses NonNullable on each tuple slot so the downstream
+// destructure (`switchMap(([a, b]) => ...)`) sees non-null types —
+// without this mapping TS keeps the `| null` in the inferred A/B and
+// the narrowing is a no-op.
+function bothResolved<A, B>(
+  pair: [A, B],
+): pair is [NonNullable<A>, NonNullable<B>] {
+  const [a, b] = pair;
+  return a != null && b != null;
+}
 
 /**
  * Chat-only scroll surface for the middle shell — the chat content's
@@ -174,29 +193,22 @@ export class FeatureChatScrollSurface {
     // multiple workspaces over its lifetime (Angular keeps the view
     // alive across same-route navigations when `tab().kind` stays
     // 'chat'). filter keeps the predicate pure; switchMap holds the
-    // inner subscription open via NEVER and tap's subscribe /
-    // unsubscribe carry the only side effects (register / unregister
-    // the orchestrator binding). switchMap unsubscribes the prior
-    // inner when (workspaceId, mainEl) changes, which triggers
-    // tap.unsubscribe BEFORE tap.subscribe of the new inner fires —
-    // order is unregister(old) → register(new), so the Map never
-    // double-holds and composer's `scrollToBottom(currentWs)`
-    // always finds the live mainEl.
+    // inner subscription open via NEVER; tap.subscribe and finalize
+    // carry the only side effects (register / unregister). switchMap
+    // unsubscribes the prior inner when (workspaceId, mainEl)
+    // changes — finalize fires before tap.subscribe of the new
+    // inner, so the order is unregister(old) → register(new) and
+    // the Map never double-holds.
     combineLatest([
       toObservable(this.workspaceId),
       toObservable(this._mainEl),
     ])
       .pipe(
-        filter(
-          (pair): pair is [string, HTMLElement] =>
-            pair[0] !== null && pair[1] !== null,
-        ),
+        filter(bothResolved),
         switchMap(([ws, el]) =>
           NEVER.pipe(
-            tap({
-              subscribe: () => this.orchestrator.register(ws, el),
-              unsubscribe: () => this.orchestrator.unregister(ws),
-            }),
+            tap({ subscribe: () => this.orchestrator.register(ws, el) }),
+            finalize(() => this.orchestrator.unregister(ws)),
           ),
         ),
         takeUntilDestroyed(this.destroyRef),
@@ -205,19 +217,26 @@ export class FeatureChatScrollSurface {
 
     // Chat tab activate / switch: restore the new chat's scrollTop
     // after the next render (tap.subscribe), snapshot the prior
-    // chat's scrollTop on unsubscribe (tap.unsubscribe). First visit
-    // to a chat → default to bottom (newest message visible). Same
-    // switchMap + NEVER + TapObserver shape as the orchestrator
-    // binding above so both lifetimes are managed the same way.
-    toObservable(this._chatTabKey)
+    // chat's scrollTop on unsubscribe (finalize). First visit to a
+    // chat → default to bottom (newest message visible).
+    //
+    // combineLatest with `_mainEl` (not the bare `this.mainEl`
+    // field) is load-bearing: `_chatTabKey` resolves on the post-CD
+    // microtask, but `mainEl` is set inside `afterNextRender` which
+    // runs AFTER that microtask. Without the signal in the source
+    // pair, the first emission of `_chatTabKey` arrives while
+    // mainEl is still null, the filter rejects it, and the recall
+    // never fires — the user lands at scrollTop 0 on every first
+    // chat mount instead of the bottom default. Same shape as the
+    // orchestrator stream above.
+    combineLatest([
+      toObservable(this._chatTabKey),
+      toObservable(this._mainEl),
+    ])
       .pipe(
-        filter(
-          (key): key is string => key !== null && this.mainEl !== null,
-        ),
-        switchMap((key) => {
-          const main = this.mainEl;
-          if (!main) return NEVER;
-          return NEVER.pipe(
+        filter(bothResolved),
+        switchMap(([key, main]) =>
+          NEVER.pipe(
             tap({
               subscribe: () => {
                 const stored = this.scroll.recall(key);
@@ -233,10 +252,10 @@ export class FeatureChatScrollSurface {
                   { injector: this.injector },
                 );
               },
-              unsubscribe: () => this.scroll.remember(key, main.scrollTop),
             }),
-          );
-        }),
+            finalize(() => this.scroll.remember(key, main.scrollTop)),
+          ),
+        ),
         takeUntilDestroyed(this.destroyRef),
       )
       .subscribe();
