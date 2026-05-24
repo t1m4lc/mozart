@@ -293,3 +293,28 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
       can go.
 
 ---
+
+## Diff view — function-scope suffix on hunk row (post P2.4)
+
+**What:** Real `@@` headers in unified diffs often carry a function/scope suffix — e.g. `@@ -120,7 +120,8 @@ class FooBar:` or `@@ -10,3 +10,3 @@ fn render()`. Today the parser keeps the whole header in `DiffHunk.header` but doesn't split out the suffix. P2.4 replaces the hunk-row text with "N lines above" and drops this suffix. Add it back as secondary context once the human label format is live.
+
+**Why:** For code reviewers (a real-but-not-primary Mozart audience), the function-scope suffix is the single most valuable piece of context on a hunk header — it tells you what symbol is being modified without scrolling. GitHub, GitLab, and every modern diff UI surface it. Mozart's P2.4 chose human-readable framing first; this is the addback for git-literate users.
+
+**How to apply:** (1) In `libs/mozart-ui/diff-parser/src/lib/diff-parser.ts` extend `HUNK_HEADER_RE` to capture the trailing text after the closing `@@`. Expose as `DiffHunk.scopeHint?: string` (undefined if empty/whitespace-only). (2) In `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`, when `scopeHint` is present, append it to the hunk-row label: `"class FooBar  ·  120 lines above"`. (3) Extend `cm-diff-extensions.spec.ts` (created by P2.4/P2.5) with 2-3 cases covering the suffix path.
+
+**Depends on:** P2.4 + P2.5 landed. ~30 min CC work.
+
+---
+
+## Diff view — spec coverage for trailing-gap ExpandBarWidget
+
+**What:** `cm-diff-extensions.ts:269–334` defines `ExpandBarWidget` — the full-width strip used at the trailing gap (below the last hunk) and at any inter-hunk gap where the new per-row gutter button doesn't apply. It's visually parallel to the wider `HunkButtonMarker` P2.5 builds. P2.4/P2.5 adds `cm-diff-extensions.spec.ts` covering the new code; this TODO extends that spec to cover `ExpandBarWidget` too.
+
+**Why:** The new spec file gives us a natural home. `ExpandBarWidget` has been stable in production but is untested. Folding its coverage in while the spec is fresh is much cheaper than greenfielding it later.
+
+**How to apply:** Extend the spec file P2.4/P2.5 creates with: (1) `eq()` distinguishes by gapIndex + direction + linesAvailable; (2) `toDOM()` renders up button only when direction is 'up' or 'both'; (3) down button only when 'down' or 'both'; (4) disabled state when linesAvailable === 0; (5) shift-click doubles the step. ~15 min CC.
+
+**Depends on:** P2.4 + P2.5 landed (spec file created).
+
+---
+
