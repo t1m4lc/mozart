@@ -5,8 +5,6 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmSelectImports } from '@spartan-ui/select';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideBot,
@@ -14,34 +12,19 @@ import {
   lucideMap,
   lucideMessageCircleQuestion,
 } from '@ng-icons/lucide';
+import { HlmSelectImports } from '@spartan-ui/select';
 import type { ChatMode } from './mz-composer';
 
 interface ModeRow {
   readonly value: ChatMode;
   readonly label: string;
   readonly icon: string;
-  readonly tooltip: string;
 }
 
 const MODE_ROWS: readonly ModeRow[] = [
-  {
-    value: 'agent',
-    label: 'Agent',
-    icon: 'lucideBot',
-    tooltip: 'Agent — full edits',
-  },
-  {
-    value: 'plan',
-    label: 'Plan',
-    icon: 'lucideMap',
-    tooltip: 'Plan — design before touching files',
-  },
-  {
-    value: 'ask',
-    label: 'Ask',
-    icon: 'lucideMessageCircleQuestion',
-    tooltip: 'Ask — read-only mode',
-  },
+  { value: 'agent', label: 'Agent', icon: 'lucideBot' },
+  { value: 'plan', label: 'Plan', icon: 'lucideMap' },
+  { value: 'ask', label: 'Ask', icon: 'lucideMessageCircleQuestion' },
 ];
 
 const ROW_BY_MODE: Record<ChatMode, ModeRow> = MODE_ROWS.reduce(
@@ -58,7 +41,7 @@ const ROW_BY_MODE: Record<ChatMode, ModeRow> = MODE_ROWS.reduce(
  */
 @Component({
   selector: 'mz-composer-mode-select',
-  imports: [NgIcon, HlmSelectImports, HlmTooltipImports],
+  imports: [NgIcon, HlmSelectImports],
   providers: [
     provideIcons({
       lucideBot,
@@ -77,10 +60,9 @@ const ROW_BY_MODE: Record<ChatMode, ModeRow> = MODE_ROWS.reduce(
     >
       <hlm-select-trigger
         size="auto"
-        hlmTooltip="Change mode"
         class="h-6 w-auto gap-1 rounded-md border-transparent px-2.5 py-0 text-xs shadow-none [&>ng-icon:last-child]:text-xs [&>ng-icon:last-child]:transition-transform [&>ng-icon:last-child]:duration-150 [&[aria-expanded=true]>ng-icon:last-child]:rotate-180"
       >
-        <ng-icon hlm [name]="_currentRow().icon" size="xs" />
+        <ng-icon hlm [name]="_currentRow().icon" size="sm" />
         <span class="text-xs">{{ _currentRow().label }}</span>
       </hlm-select-trigger>
       <hlm-select-content *hlmSelectPortal class="w-48">
@@ -88,7 +70,7 @@ const ROW_BY_MODE: Record<ChatMode, ModeRow> = MODE_ROWS.reduce(
           @for (row of _rows; track row.value) {
             <hlm-select-item [value]="row.value">
               <span class="flex flex-1 items-center gap-2">
-                <ng-icon hlm [name]="row.icon" size="xs" />
+                <ng-icon hlm [name]="row.icon" size="sm" />
                 <span>{{ row.label }}</span>
               </span>
               @if (mode() === row.value) {
