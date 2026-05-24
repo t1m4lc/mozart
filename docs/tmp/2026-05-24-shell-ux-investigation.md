@@ -981,3 +981,188 @@ Suggested order for execution (each item is one PR slice):
 
 This sequencing keeps each PR under ~300 lines diff and avoids
 landing the architectural change after the polish that depends on it.
+
+---
+
+## 7. Eng review adjustments — 2026-05-24
+
+Locked decisions from `/plan-eng-review` covering P1.2 + P1.3. Anything
+here OVERRIDES the corresponding part of §2.2 / §2.3 above. Read this
+section before implementing; the upstream §2 text is preserved for
+provenance but is partially stale.
+
+### 7.1 Verified-against-code
+
+- P1.3 close-button bug — confirmed at `tab-item.ts:75` (rename + close
+  both gated by `kind === 'chat' && !renaming()`).
+- `FileTreeCacheStore` is purely in-memory today — confirmed.
+- `ChangedFile` TS DTO has no `oldPath` and no `'renamed'` — confirmed.
+- `commit.rs:185–187` already collapses renames into ONE row (consumes
+  the source path then discards it). The doc's "two rows" claim is
+  wrong; the actual gap is just `oldPath` propagation.
+- `feature-file-content.ts:463–484` `save()` does NOT trigger any
+  Changes-list refresh today — confirmed.
+- `tauri-plugin-store` is **not in Cargo.toml**. The existing pattern is
+  `withStorageSync` (`@angular-architects/ngrx-toolkit`) writing to
+  localStorage, used by `UiStateStore`.
+- `FILE_TAB_CAP = 1` is intentional today (`workspace-tab.model.ts:35`).
+  Per user direction, the cap is removed (effectively unbounded).
+- The middle shell is **router-outlet driven**:
+  `workspace-detail.page.ts:82` mounts `<router-outlet/>`; the child
+  `WorkspaceTabContent` receives `projectId / workspaceId / tabId` via
+  component-input-binding. Its effect at lines 166–176 is the SINGLE
+  seam that calls `FileTabsService.openFor` on every navigation. The
+  tree, the changes-list, and the chat-tab-bar all navigate; the route
+  effect mirrors into the service. The URL is the source of truth for
+  the active tab.
+
+### 7.2 P1.2 — Changes tab persistence (adjusted)
+
+| Decision | Detail |
+|---|---|
+| Storage layer | localStorage via `withStorageSync` (key `mozart-changed-files-v1`). Synchronous read on bootstrap = instant paint. ~3 MB headroom for 50 typical workspaces. Defer `tauri-plugin-store` until needed. |
+| Hydration vs. refresh (was a bug) | `CachedChangedFiles` gains `hydratedAt?: number` and `refreshedSinceHydration?: boolean`. The cache-miss effect in `feature-workspace-files.ts:196–214` refreshes when `cached === null` OR `(hydratedAt && !refreshedSinceHydration)`. First in-session refresh sets the flag. This closes the "snapshot stays stale forever" gap that the original short-circuit would create. |
+| Rename detection | Keep porcelain v1 -z. In `commit.rs:185–187`, capture `iter.next()` as `Option<String>` (covers both `R*` AND `C*` per codex review). `classify()` maps `R*` → `Some("renamed")`. Add `pub old_path: Option<String>` to the Rust DTO. Add `'renamed'` to the TS `ChangedFile` status union and `oldPath?: string` on the DTO. Render `<old> → <new>` in the Changes row when `oldPath` present (reuse the arrow already used by `MzFileDiffCard`). |
+| Status helper DRY | Lift duplicated `statusLetter` + color-class ternaries into `libs/desktop-repositories-util/src/lib/changed-file-status.ts`. Export `changedFileStatusMeta(status) → { letter, colorClass, label }`. Both `feature-changes-list` and `feature-commit-dialog` consume it. Review `tauri-adapters.ts:470` to either include `'renamed'` in the condition or refactor to an exhaustive switch. |
+| RPC failure surface | `RepositoriesFacade` gains `lastRefreshErrorByWorkspace`. The Changes tab trigger shows a small destructive-tinted alert icon when the most recent refresh failed; clears on next success. Replaces today's silent `console.warn`. |
+| Manual refresh button | **Skipped.** Watcher + `softRefreshAfterMutation` + always-refresh-on-activation cover real cases. Captured as TODO if users report stale lists. |
+
+### 7.3 P1.3 — File tabs (adjusted)
+
+| Decision | Detail |
+|---|---|
+| FILE_TAB_CAP | **Removed.** Cap → effectively unbounded. Tab bar already has horizontal-scroll overflow (`workspace-tab-bar.ts:67–72`). Only the active tab mounts CodeMirror (lazy `@defer` at `feature-file-content.ts:194`). Route encoding is per-active-tab only — no URL bloat. |
+| Tab persistence | Add `fileTabsByWorkspace: Record<wsId, { open: { path }[] }>` slice to `UiStateStore`; persist via existing `withStorageSync` block (key `mozart-ui-state-v1`). `FileTabsService` stays the public API but delegates open/close to `UiStateFacade`. `activeByWorkspace` is NOT persisted — it's downstream of the URL; route activation restores it. |
+| Preview / pin model | Tabs gain `isPreview: boolean` (in-memory only; **NOT persisted** — on hydrate all tabs come back as `isPreview: false`). New methods: `previewFor(ws, path)` (one preview slot per workspace; next call replaces the existing slot's path) and `pinFor(ws, path)` (append if absent; flip preview→pinned if open; focus if already pinned). |
+| Intent threading (CROSS-MODEL ADJUSTED) | Per codex outside voice: **DO NOT** put `intent` in the URL. Use `Router.navigate(commands, { state: { intent: 'preview' }, replaceUrl: true })` for tree single-click. Tree double-click + Changes-list click navigate without state (= pin). `WorkspaceTabContent` effect reads `history.state?.intent ?? 'pin'` and calls `previewFor` or `pinFor`. `replaceUrl: true` on preview prevents history-entry pollution. URLs stay clean; deep-links always pin. |
+| Click discrimination | Native `(click)` + `(dblclick)` bindings on `FileTreeRow` — NO `setTimeout` debounce. Accept the brief italic→non-italic visual on a real double-click (preview navigate then pin navigate target the same path; the second pinFor flips the existing preview slot's `isPreview=false`). |
+| Close button regression fix | In `tab-item.ts:75`, move the close button out of the `kind === 'chat' && !renaming()` guard. Rename pen stays chat-only. Test (regression-class, mandatory): `showClose=true && tab.kind === 'file'` renders the × button. |
+| Auto-pin on edit (CROSS-MODEL ADJUSTED) | Per codex: do NOT pin on raw `valueChange` — CodeMirror emits on initial model dispatch under `@defer`, which would spuriously pin every preview tab. Instead, run an `effect` that watches `dirty()` flipping `false → true` and calls `pinFor(active.path)` only when the active tab is a preview. The initial editor emit has `value === baseline()` so `dirty` stays false; the first real keystroke flips it. |
+| Save → Changes sync | Lift the current `softRefreshAfterMutation` (private in `feature-changes-list.ts:295–302`) into a **feature-internal** free function at `libs/desktop-workspaces-feature/src/lib/util-soft-refresh.ts`: `softRefreshAfterMutation(ws, repos, workspaces, fileViews)`. Stays inside the feature lib (feature → feature is allowed); both `feature-changes-list` and the `save()` success path in `feature-file-content.ts` import via relative path. NOT a `type:util` lib — the function takes facade refs whose types live in data-access, which would violate util boundary rules. Skip the call on `saveError.kind === 'frozen' \| 'stale'` (no successful mutation). |
+| File-content auto-pin file lookup | `FileTabsService` gains a small helper `findTab(ws, path)` so `feature-file-content` can check `isPreview` without crossing layers. |
+
+### 7.4 TODOs captured
+
+Captured in `TODOS.md`:
+
+- **Manual refresh button on Changes header** — skipped; reconsider if users report stale lists.
+- **Throttle on snapshot writes** — only matters on 500+ changed-file workspaces; measure first with Performance > Long Tasks panel before adding `throttle: 500` to `withStorageSync`.
+- **Proactive stale-tab-path prune on activation** — relying on the existing open-time error UX (`feature-file-content.ts:121–139` shows "Couldn't open file" with Retry).
+- **localStorage quota-exceeded UX** — `withStorageSync` swallows `QuotaExceededError` today. Add a defensive try/catch + a one-time "your tab/snapshot state hit the storage cap" toast.
+- **Multi-window contention** — `tauri-plugin-single-instance` is wired today so this is N/A in v0.1.0-beta.1. When Mozart spawns secondary windows, `withStorageSync` will need `storage` event listening or a leader-election strategy.
+- **True Playwright + Tauri-webdriver E2E** — defer; covered by Angular component integration tests for v1.
+- **FILE_TAB_CAP soft ceiling** — codex called out the unbounded risk. Add a soft cap (e.g. 100) with FIFO eviction once we see real session sizes.
+- **C* (copy) status semantics** — `parse_porcelain` consumes copy source identically to rename; surface as `'renamed'` for v1 (functionally equivalent for the UI). Revisit if/when we add explicit copy semantics.
+
+### 7.5 Test coverage diagram (P1.2 + P1.3)
+
+Captured separately in
+`~/.gstack/projects/t1m4lc-mozart/timothy-wt-p1.2-eng-review-test-plan-20260524-172002.md`
+(test plan artifact for `/qa` and `/qa-only` consumption).
+
+53 total gaps across both items, 3 mandatory regression tests
+(close-button visibility, rename `oldPath` propagation, save→Changes
+soft-refresh call). Coverage chosen at the Angular component
+integration level; no E2E framework added in this PR.
+
+### 7.6 What already exists (don't rebuild)
+
+- `FileTreeCacheStore`'s revision-tracked staleness check + atomic
+  swap pattern — reuse for the new `hydratedAt` semantics.
+- `withStorageSync` from `@angular-architects/ngrx-toolkit` is already
+  vetted on `UiStateStore` — same pattern, same key family.
+- `FileTabsService.closeFor` + neighbor-fallback wiring at
+  `feature-chat-tab-bar.ts:101–109` already routes file-tab closes.
+  No template wiring changes needed beyond the regression fix.
+- `RepositoriesFacade.refreshChangedFilesInBackground` already does
+  the atomic swap. `softRefreshAfterMutation`'s lift is pure code
+  movement, no new RPC.
+- `MzFileDiffCard` already has `'renamed'` + `oldPath` support
+  (`mz-file-diff-card.ts:37, 316, 368`) — only the upstream DTO chain
+  was lossy. Reuse the arrow rendering.
+- `parse_porcelain` tests at `commit.rs:245–268` are the template for
+  the new rename test.
+
+### 7.7 NOT in scope
+
+- Multi-file review surface itself (the chrome variant on
+  `MzFileDiffCard` is P1.4, not P1.3).
+- Workspace status state machine changes (P1.1 scope).
+- File-header refactor / dropping `FeatureFileToolbar` (P1.4).
+- Composer mount on file tabs (P2.2).
+- Drag-reorder of file tabs.
+- Multi-window state coordination (single-instance app today).
+- Replacing watcher debounce semantics; Rust-side `spawn_watcher`
+  keeps its current behavior.
+- True cross-process E2E framework — see TODO entry.
+
+### 7.8 Failure modes (P1.2 + P1.3)
+
+| Path | Test? | Error handling? | User-visible? |
+|---|---|---|---|
+| `listChangedFiles` RPC fails on activation | unit | inline alert icon (new) | YES |
+| `git mv` rename detection misses on edge cases | rust unit (new) | falls through to plain `modified` | low |
+| localStorage `QuotaExceededError` | not in this PR | swallowed by withStorageSync | silent — **critical gap**, captured as TODO |
+| Preview tab path stale after reload | manual + open-time UX | "Couldn't open file" banner | YES |
+| `save()` while `saveError.kind === 'stale'` triggers soft-refresh anyway | unit | guarded: only on success | low |
+| Double-click → two history entries | unit (workspace-tab-content spec) | `replaceUrl: true` on preview navigation | none after fix |
+| Editor initial emit pins preview spuriously | unit (effect on dirty()) | dirty-based guard | none after fix |
+
+**Critical gap**: localStorage quota exceeded is silent today. Capture
+in TODOs; not blocking for v1 ship.
+
+### 7.9 Worktree parallelization strategy
+
+| Step | Modules touched | Depends on |
+|---|---|---|
+| P1.3a (close button) | `libs/desktop-workspaces-ui/` (tab-item) | — |
+| P1.3b (preview/pin + persist + save sync) | `libs/desktop-workspaces-data-access/` (file-tabs.service), `libs/desktop-workspaces-util/` (workspace-tab.model), `libs/desktop-ui-state-data-access/`, `libs/desktop-workspaces-ui/` (tab-item italic), `libs/desktop-workspaces-feature/` (workspace-tab-content, feature-workspace-files navigate, feature-file-content, util-soft-refresh) | P1.3a |
+| P1.2 (persist + rename) | `libs/desktop-repositories-data-access/` (file-tree-cache, repositories.adapter), `libs/desktop-repositories-util/` (changed-file-status), `libs/desktop-workspaces-feature/` (feature-workspace-files stale-hydration effect, feature-changes-list), `apps/desktop-tauri/src/commit.rs` | — |
+
+**Lanes:**
+
+- **Lane A:** P1.3a (close button) — independent, ships first as smallest user-visible win.
+- **Lane B:** P1.2 (Changes persistence + rename) — independent of A and C.
+- **Lane C:** P1.3b (preview/pin + persistence + save sync) — depends on A.
+
+**Execution order:** Launch **A and B in parallel** worktrees. After A merges, launch **C** (touches the same `feature-workspace-files.ts` file as B for navigate calls — second lander rebases).
+
+**Conflict flag:** Lanes B and C both touch `libs/desktop-workspaces-feature/.../feature-workspace-files.ts`. B adds the stale-hydration refresh effect; C changes the tree-click handler to navigate with `state: { intent }` extras. Trivial merge conflict; coordinate by rebasing C onto B's merge commit.
+
+### 7.10 Outside voice (codex) — items folded into this plan
+
+- Intent encoding: switched from `?intent=preview` query param to `Router.navigate(..., { state: { intent }, replaceUrl: true })` (7.3).
+- Auto-pin race: switched from raw `valueChange` to `dirty()`-based effect (7.3).
+- C* (copy) treatment: folded into 7.2's rename branch.
+- `replaceUrl: true` on preview navigation: folded into 7.3.
+
+Codex items captured as TODOs (not blocking): quota-exceeded UX,
+multi-window contention, FILE_TAB_CAP soft ceiling.
+
+### 7.11 Sequencing recommendation (updated)
+
+1. **P1.3a — close-button regression fix** (smallest, highest value, 1 file)
+2. **P1.2 — Changes persistence + rename** (independent; can ship in parallel with 1)
+3. **P1.3b — preview/pin + tab persistence + save sync** (depends on 1; conflicts with 2 on one file)
+
+P1.1, P1.4, P2.* unchanged from §6.
+
+---
+
+## GSTACK REVIEW REPORT
+
+| Review | Trigger | Why | Runs | Status | Findings |
+|--------|---------|-----|------|--------|----------|
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | not run |
+| Codex Review | `/codex review` | Independent 2nd opinion | 1 | ISSUES_FOUND | 2 cross-model tensions resolved (intent encoding, auto-pin race); 6 codex items captured as TODOs |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 12 issues found across §1–§4 (5 architecture, 2 code-quality, 5 test gaps batched into one decision, 2 perf); 0 unresolved; 1 critical gap captured (localStorage quota — TODO); 53 test gaps mapped, 3 mandatory regression tests; outside voice ran (codex), 2 cross-model tensions surfaced + applied to the plan |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | not run (preview/pin is a behavioral spec, not a visual one; reconsider for P1.4 file-header refactor) |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | not run (no developer-facing API surface in this scope) |
+
+**CODEX:** Surfaced 2 substantive issues that the eng review missed and 6 smaller risks. Both substantive items were applied to the plan (§7.10): URL-query-param → router state extras with `replaceUrl: true`; raw-valueChange auto-pin → `dirty()`-flip-based effect. The 6 smaller items live in §7.4 TODOs.
+
+**CROSS-MODEL:** Two tensions — both resolved in codex's favor with the user's confirmation. No remaining disagreement.
+
+**UNRESOLVED:** 0.
+
+**VERDICT:** ENG CLEARED — P1.2 + P1.3 ready to implement per §7 adjustments. Suggested lanes: P1.3a (close button) + P1.2 (persist + rename) in parallel; P1.3b (preview/pin + tab persistence + save sync) after P1.3a lands.
