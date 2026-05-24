@@ -116,8 +116,8 @@ import { ShellSidePanel } from './shell-side-panel';
               <app-feature-add-project
                 (openProject)="addProjectFlow.openPickerAndOpen()"
                 (openGithubProject)="addProjectFlow.openCloneDialog()"
-                (quickStart)="addProjectFlow.openCreateDialog()"
               />
+              <!-- (quickStart)="addProjectFlow.openCreateDialog()" -->
             </div>
 
             <ng-template #projectsHeaderCtxMenu>
@@ -127,8 +127,8 @@ import { ShellSidePanel } from './shell-side-panel';
                 (openFilter)="filter.open()"
                 (openProject)="addProjectFlow.openPickerAndOpen()"
                 (openGithubProject)="addProjectFlow.openCloneDialog()"
-                (quickStart)="addProjectFlow.openCreateDialog()"
               />
+              <!-- (quickStart)="addProjectFlow.openCreateDialog()" -->
             </ng-template>
 
             <div hlmSidebarGroupContent>

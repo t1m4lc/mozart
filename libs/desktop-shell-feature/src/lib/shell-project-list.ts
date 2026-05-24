@@ -202,12 +202,9 @@ import { ShellProjectRow } from './shell-project-row';
         >
           Clone from Git
         </button>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          class="cursor-pointer"
-          (triggered)="addProjectFlow.openCreateDialog()"
-        >
+        <!-- Quickstart kept visible but disabled — CreateProjectDialog
+             flow is on ice until the underlying create-folder UX lands. -->
+        <button hlmDropdownMenuItem type="button" disabled>
           Create a new project
         </button>
       </hlm-dropdown-menu>

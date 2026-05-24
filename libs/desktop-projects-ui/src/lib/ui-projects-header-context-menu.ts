@@ -91,12 +91,9 @@ import {
         >
           <ng-icon hlm name="lucideGithub" size="xs" /> Clone from Git
         </button>
-        <button
-          hlmDropdownMenuItem
-          type="button"
-          class="cursor-pointer"
-          (triggered)="quickStart.emit()"
-        >
+        <!-- Quickstart kept visible but disabled — CreateProjectDialog
+             flow is on ice until the underlying create-folder UX lands. -->
+        <button hlmDropdownMenuItem type="button" disabled>
           <ng-icon hlm name="lucideZap" size="xs" /> Create a new project
         </button>
       </hlm-dropdown-menu>
@@ -109,5 +106,5 @@ export class ProjectsHeaderContextMenu {
   readonly openFilter = output<void>();
   readonly openProject = output<void>();
   readonly openGithubProject = output<void>();
-  readonly quickStart = output<void>();
+  // readonly quickStart = output<void>();
 }

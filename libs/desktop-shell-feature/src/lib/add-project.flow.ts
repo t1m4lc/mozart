@@ -9,9 +9,9 @@ import {
 } from '@mozart/desktop-projects-data-access';
 import {
   CloneRepoDialog,
-  CreateProjectDialog,
+  // CreateProjectDialog,
   type CloneRepoContext,
-  type CreateProjectContext,
+  // type CreateProjectContext,
 } from '@mozart/desktop-projects-feature';
 import {
   InitProjectDialog,
@@ -63,17 +63,22 @@ export class AddProjectFlow {
   // creates a fresh `<parent>/<name>` folder, then runs init + add
   // without bouncing through the Init confirmation dialog — Quick
   // start implies init.
-  async openCreateDialog(): Promise<void> {
-    const defaultParent = await this._defaultReposDir();
-    const context: CreateProjectContext = {
-      defaultParent,
-      doCreate: (parent, name) => this.projects.createProjectFolder(parent, name),
-      onCreated: async (path) => {
-        await this._initAndContinue(path);
-      },
-    };
-    this.dialogService.open(CreateProjectDialog, { context });
-  }
+  //
+  // Disabled: Quickstart entry points are hidden behind `disabled` in
+  // the sidebar/header/empty-state menus. Re-enable when the
+  // CreateProjectDialog UX is finalized. Keeping the method body
+  // commented (not deleted) so the wiring is one uncomment away.
+  // async openCreateDialog(): Promise<void> {
+  //   const defaultParent = await this._defaultReposDir();
+  //   const context: CreateProjectContext = {
+  //     defaultParent,
+  //     doCreate: (parent, name) => this.projects.createProjectFolder(parent, name),
+  //     onCreated: async (path) => {
+  //       await this._initAndContinue(path);
+  //     },
+  //   };
+  //   this.dialogService.open(CreateProjectDialog, { context });
+  // }
 
   async addAndOpen(path: string): Promise<void> {
     try {
