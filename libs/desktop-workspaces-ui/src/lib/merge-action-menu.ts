@@ -5,6 +5,7 @@ import {
   input,
   output,
 } from '@angular/core';
+import { HlmBadgeImports } from '@spartan-ui/badge';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
 import { HlmIconImports } from '@spartan-ui/icon';
@@ -26,14 +27,15 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
 //
 // The dropdown ALWAYS shows both options. "Create PR" is disabled (with
 // a tooltip) when either GitHub gate is closed: the user isn't connected
-// (P1.1 D5) OR the project's origin doesn't resolve to a GitHub URL
-// (P1.1 D9). The non-GitHub-remote case takes tooltip priority because
-// connecting won't help — a user has to push the project to GitHub
-// first.
+// OR the project's origin doesn't resolve to a GitHub URL (P1.1 D9). The
+// non-GitHub-remote case takes tooltip priority because connecting won't
+// help — a user has to push the project to GitHub first. "Merge now" is
+// gated behind `localMergeDisabled` (P1.1 D5) until the flow ships.
 @Component({
   selector: 'app-merge-action-menu',
   imports: [
     NgIcon,
+    HlmBadgeImports,
     HlmButtonImports,
     HlmDropdownMenuImports,
     HlmIconImports,
@@ -97,10 +99,16 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
+          [disabled]="localMergeDisabled()"
+          [hlmTooltip]="localMergeDisabled() ? 'Coming soon' : null"
+          position="left"
           (triggered)="onPick('local')"
         >
           <ng-icon hlm name="lucideGitMerge" size="xs" />
           <span class="flex-1">Merge now</span>
+          @if (localMergeDisabled()) {
+            <span hlmBadge variant="secondary" class="font-normal">Soon</span>
+          }
         </button>
       </hlm-dropdown-menu>
     </ng-template>
@@ -118,6 +126,12 @@ export class MergeActionMenu {
    *  the parent passes `false` (defensive — better to gate than to
    *  surface a misleading enabled button). */
   readonly isGithubRemote = input.required<boolean>();
+  /** P1.1 D5 — temporary policy: local-merge is hidden behind a Soon
+   *  badge until the flow is finished. Defaults to `true` so any
+   *  surface that mounts the menu without opting in stays safe; T5
+   *  passes `true` explicitly from shell-right. Flip to `false` when
+   *  the local-merge feature is ready to ship. */
+  readonly localMergeDisabled = input<boolean>(true);
 
   readonly pick = output<MergeAction>();
 
