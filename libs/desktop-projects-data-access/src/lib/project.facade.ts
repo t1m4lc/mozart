@@ -108,9 +108,11 @@ export class ProjectsFacade {
   }
 
   /** Kick the lazy read. Idempotent under concurrency. Failures fall
-   *  back to `false` so the gate behaves defensively (better to refuse
-   *  PR creation we can't verify than to surface a misleading enabled
-   *  button). */
+   *  back to `false` AND cache the defensive default so a persistently
+   *  failing project id doesn't hammer the backend on every signal
+   *  read. The Rust command already swallows transient git errors and
+   *  returns Ok(false); reaching the catch here means a structural
+   *  failure (missing repo row, IPC drop) that won't self-heal. */
   ensureIsGithubRemote(id: string): Promise<boolean> {
     const cached = this.isGithubRemoteCache().get(id);
     if (cached !== undefined) return Promise.resolve(cached);
@@ -125,6 +127,9 @@ export class ProjectsFacade {
         return result;
       } catch (err) {
         console.warn('[projects] isGithubRemote failed:', err);
+        const next = new Map(this.isGithubRemoteCache());
+        next.set(id, false);
+        this.isGithubRemoteCache.set(next);
         return false;
       } finally {
         this.isGithubRemoteInflight.delete(id);
