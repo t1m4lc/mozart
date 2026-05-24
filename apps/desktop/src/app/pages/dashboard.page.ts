@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmCardImports } from '@spartan-ui/card';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
+import { NonMacWindowControls } from '@mozart/desktop-core-ui';
+import { AddProjectFlow } from '@mozart/desktop-shell-feature';
+import { LayoutService } from '@mozart/desktop-ui-state-data-access';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFolderOpen,
@@ -10,9 +10,10 @@ import {
   lucidePanelLeft,
   lucideZap,
 } from '@ng-icons/lucide';
-import { AddProjectFlow } from '@mozart/desktop-shell-feature';
-import { LayoutService } from '@mozart/desktop-ui-state-data-access';
-import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmCardImports } from '@spartan-ui/card';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 
 // Phase 1 dashboard. Renders when no workspace is selected (`/`).
 // Welcome hero above a 3-card grid : Open project / Open GitHub
@@ -27,13 +28,21 @@ import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
     HlmCardImports,
     HlmIconImports,
     HlmTooltipImports,
+    NonMacWindowControls,
   ],
   providers: [
-    provideIcons({ lucideFolderOpen, lucideGithub, lucidePanelLeft, lucideZap }),
+    provideIcons({
+      lucideFolderOpen,
+      lucideGithub,
+      lucidePanelLeft,
+      lucideZap,
+    }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'relative flex h-full items-center justify-center p-8' },
   template: `
+    <app-non-mac-window-controls class="absolute right-3 top-2.5" />
+
     @if (!layout.leftPanelOpen()) {
       <button
         hlmBtn
@@ -50,28 +59,6 @@ import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
     }
 
     <div class="flex w-full max-w-4xl flex-col gap-6">
-      <section
-        hlmCard
-        class="flex items-center gap-4 bg-muted/30 p-6"
-        aria-labelledby="dashboard-hero-title"
-      >
-        <img
-          src="/assets/shared/logos/mozart-logo.svg"
-          alt=""
-          aria-hidden="true"
-          class="size-10 shrink-0"
-        />
-        <div class="min-w-0">
-          <h1 id="dashboard-hero-title" class="text-lg font-medium">
-            Welcome to Mozart
-          </h1>
-          <p class="text-sm text-muted-foreground">
-            Pick a starting point below — open a project or clone a repo
-            from GitHub.
-          </p>
-        </div>
-      </section>
-
       <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
         <button
           type="button"
@@ -79,7 +66,9 @@ import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
           class="cursor-pointer p-6 text-left transition hover:bg-accent"
           (click)="onOpenProject()"
         >
-          <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
+          <div
+            class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted"
+          >
             <ng-icon hlm name="lucideFolderOpen" size="base" />
           </div>
           <h2 class="text-base font-medium">Open project</h2>
@@ -94,7 +83,9 @@ import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
           class="cursor-pointer p-6 text-left transition hover:bg-accent"
           (click)="onOpenGithubProject()"
         >
-          <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
+          <div
+            class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted"
+          >
             <ng-icon hlm name="lucideGithub" size="base" />
           </div>
           <h2 class="text-base font-medium">Open GitHub project</h2>
@@ -103,22 +94,20 @@ import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
           </p>
         </button>
 
-        <div
-          hlmCard
-          class="relative p-6 opacity-60"
-          aria-disabled="true"
-        >
+        <div hlmCard class="relative p-6 opacity-60" aria-disabled="true">
           <span
             class="absolute right-3 top-3 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground"
           >
             Coming soon
           </span>
-          <div class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted">
+          <div
+            class="mb-3 flex size-10 items-center justify-center rounded-md bg-muted"
+          >
             <ng-icon hlm name="lucideZap" size="base" />
           </div>
           <h2 class="text-base font-medium">Quick start</h2>
           <p class="mt-1 text-sm text-muted-foreground">
-            Create a local folder and an empty project.
+            Use a project template to get started faster.
           </p>
         </div>
       </div>
