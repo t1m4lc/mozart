@@ -12,8 +12,6 @@ import {
   output,
   signal,
 } from '@angular/core';
-import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { combineLatest, map, of, switchMap, timer } from 'rxjs';
 import { memoize } from '@mozart/desktop-core-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { FileNode } from '@mozart/desktop-repositories-util';
@@ -50,7 +48,16 @@ import { UiFileTreeSkeleton } from '@mozart/desktop-repositories-ui';
   template: `
     <div class="min-h-0 flex-1 overflow-auto px-0 py-1">
       @if (showSkeleton()) {
-        <app-file-tree-skeleton />
+        <!-- Defer-first-show 150ms: @placeholder (minimum 150ms)
+             holds an empty slot for at least 150ms before swapping
+             to the skeleton. If the fetch resolves before 150ms,
+             showSkeleton flips false and the whole @defer block
+             tears down — the skeleton never appears. -->
+        @defer (on immediate) {
+          <app-file-tree-skeleton />
+        } @placeholder (minimum 150ms) {
+          <span class="block"></span>
+        }
       } @else if (error(); as err) {
         <p class="px-2 py-3 text-xs text-destructive">
           Failed to load: {{ err }}
@@ -173,35 +180,17 @@ export class FeatureFileTree {
     return null;
   });
 
-  // Defer-first-show 150ms gate. `combineLatest` re-emits on every
-  // `workspaceId` or `loading` change; `switchMap` cancels the
-  // previous `timer(150)` so a new load (or workspace switch)
-  // restarts the window. `toSignal` tears the subscription down on
-  // destroy — no manual cleanup. Sub-150ms fetches never flash
-  // because `showSkeleton` also ANDs on `loading()`, which flips
-  // false the moment the fetch resolves.
-  private readonly pastMinDelay = toSignal(
-    combineLatest([
-      toObservable(this.workspaceId),
-      toObservable(this.loading),
-    ]).pipe(
-      switchMap(([id, loading]) =>
-        id && loading ? timer(150).pipe(map(() => true)) : of(false),
-      ),
-    ),
-    { initialValue: false },
-  );
-
-  /** True when no tree at all is available yet (own cache empty AND
-   *  no sibling fallback) AND a fetch is in flight AND the 150ms
-   *  defer window has elapsed. Sibling-tree hits short-circuit this
-   *  so the user sees the placeholder instead. */
+  /** Candidate state for the skeleton: no tree at all is available
+   *  yet (own cache empty AND no sibling fallback) AND a fetch is in
+   *  flight. Sibling-tree hits short-circuit this so the user sees
+   *  the placeholder instead. The 150ms defer-first-show is enforced
+   *  in the template via `@placeholder (minimum 150ms)` so fast
+   *  fetches never flash the skeleton. */
   protected readonly showSkeleton = computed(
     () =>
       this.cachedTree() === null &&
       this.projectFallbackTree() === null &&
-      this.loading() &&
-      this.pastMinDelay(),
+      this.loading(),
   );
 
   // Expansion state keyed by node.path. CdkTree's `childrenAccessor`

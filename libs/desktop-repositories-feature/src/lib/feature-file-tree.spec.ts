@@ -1,23 +1,31 @@
 import { signal, type WritableSignal } from '@angular/core';
-import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import {
+  DeferBlockState,
+  TestBed,
+  type ComponentFixture,
+} from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { FileNode } from '@mozart/desktop-repositories-util';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { FeatureFileTree } from './feature-file-tree';
 
 // Regression suite for `FeatureFileTree.showSkeleton` after the
-// defer-first-show 150ms gate landed. The cache-hit short-circuit
-// (own + sibling) MUST keep working — `pastMinDelay` is an AND, not
-// an OR. Plus timing matrix: defer-show, fast-resolve never-show,
-// workspaceId switch resets, destroy cleanup. Skeleton shape + a11y
-// assertions absorbed from the planned T4 since `desktop-repositories-ui`
-// has no test infra (no `desktop-*-ui` lib does — project convention).
+// defer-first-show 150ms gate landed. The skeleton lives inside a
+// `@defer (on immediate)` block with `@placeholder (minimum 150ms)`,
+// so the only thing the JS layer controls is whether the outer
+// `@if (showSkeleton())` branch enters at all — Angular's @defer
+// machinery owns the 150ms timing.
 //
-// Project is zoneless (provideZonelessChangeDetection), so fakeAsync
-// is not available. Timing tests use vi.useFakeTimers + manual
-// microtask flushes — same pattern as mz-file-diff-card.spec.ts.
+// Critical invariant: when EITHER cache (own or sibling) has the
+// tree, the @defer block must never enter the DOM. Otherwise a
+// cache hit could eventually flash the skeleton once the minimum
+// elapses.
+//
+// Skeleton shape + a11y assertions are folded in here since
+// `desktop-repositories-ui` has no test infra (no `desktop-*-ui`
+// lib does — project convention).
 
 const FOLDER_NODE: FileNode = {
   name: 'src',
@@ -44,7 +52,13 @@ function makeFacades(): {
   const cached = signal<readonly FileNode[] | null>(null);
   const fallback = signal<readonly FileNode[] | null>(null);
   const expanded = signal<readonly string[]>([]);
-  const loadTree = vi.fn(async (): Promise<readonly FileNode[]> => []);
+  // A never-resolving promise keeps `loading` true so showSkeleton
+  // stays true through the assertions. Cache-hit tests bypass this
+  // by populating one of the caches up front.
+  const loadTree = vi.fn(
+    (): Promise<readonly FileNode[]> =>
+      new Promise<readonly FileNode[]>(() => undefined),
+  );
   const cacheTree = vi.fn();
 
   const repos: Partial<RepositoriesFacade> = {
@@ -66,219 +80,126 @@ function makeFacades(): {
   };
 }
 
-function mount(
+async function mount(
   repos: Partial<RepositoriesFacade>,
   uiState: Partial<UiStateFacade>,
-  workspaceId: string | null = 'ws-1',
-): ComponentFixture<FeatureFileTree> {
-  TestBed.configureTestingModule({
+): Promise<ComponentFixture<FeatureFileTree>> {
+  // `compileComponents()` is required by `@defer` blocks; without
+  // it TestBed throws "Component has unresolved metadata."
+  await TestBed.configureTestingModule({
+    imports: [FeatureFileTree],
     providers: [
       { provide: RepositoriesFacade, useValue: repos },
       { provide: UiStateFacade, useValue: uiState },
     ],
-  });
+  }).compileComponents();
   const fixture = TestBed.createComponent(FeatureFileTree);
-  fixture.componentRef.setInput('workspaceId', workspaceId);
+  fixture.componentRef.setInput('workspaceId', 'ws-1');
   fixture.componentRef.setInput('projectId', 'proj-1');
+  fixture.detectChanges();
+  await fixture.whenStable();
   fixture.detectChanges();
   return fixture;
 }
 
-function isSkeletonShown(fixture: ComponentFixture<unknown>): boolean {
-  return (
-    fixture.debugElement.queryAll(By.css('app-file-tree-skeleton')).length > 0
-  );
+function querySkeleton(
+  fixture: ComponentFixture<unknown>,
+): HTMLElement | null {
+  const de = fixture.debugElement.query(By.css('app-file-tree-skeleton'));
+  return de ? (de.nativeElement as HTMLElement) : null;
 }
 
-// Flush a few microtask cycles so toObservable/combineLatest/toSignal
-// can settle before assertions or time advance. Three rounds covers
-// the longest chain we hit (effect → toObservable emit → RxJS pipe →
-// toSignal write → next CD pass).
-async function flushMicrotasks(): Promise<void> {
-  await Promise.resolve();
-  await Promise.resolve();
-  await Promise.resolve();
-}
-
-describe('FeatureFileTree — showSkeleton min-delay gate', () => {
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
+describe('FeatureFileTree — showSkeleton + @defer skeleton gate', () => {
   describe('cache-hit short-circuit (CRITICAL regression)', () => {
-    it('never shows skeleton when own cache has the tree', async () => {
+    it('renders no defer block when own cache has the tree', async () => {
       const { repos, uiState, handles } = makeFacades();
       handles.cached.set([FOLDER_NODE]);
-      const fixture = mount(repos, uiState);
+      const fixture = await mount(repos, uiState);
 
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(isSkeletonShown(fixture)).toBe(false);
+      // No skeleton can ever appear because the outer @if never enters.
+      expect(querySkeleton(fixture)).toBeNull();
+      expect(await fixture.getDeferBlocks()).toHaveLength(0);
       expect(handles.loadTree).not.toHaveBeenCalled();
     });
 
-    it('never shows skeleton when sibling fallback has the tree', async () => {
+    it('renders no defer block when sibling fallback has the tree', async () => {
       const { repos, uiState, handles } = makeFacades();
       handles.fallback.set([FOLDER_NODE]);
-      const fixture = mount(repos, uiState);
+      const fixture = await mount(repos, uiState);
 
-      await fixture.whenStable();
-      fixture.detectChanges();
-
-      expect(isSkeletonShown(fixture)).toBe(false);
+      expect(querySkeleton(fixture)).toBeNull();
+      expect(await fixture.getDeferBlocks()).toHaveLength(0);
     });
 
-    it('hides skeleton mid-flight if a cache resolves before the fetch returns', async () => {
-      vi.useFakeTimers();
+    it('tears the defer block down when a cache lands mid-flight', async () => {
       const { repos, uiState, handles } = makeFacades();
-      handles.loadTree.mockImplementation(
-        () => new Promise<readonly FileNode[]>(() => undefined),
-      );
+      const fixture = await mount(repos, uiState);
 
-      const fixture = mount(repos, uiState);
-      await flushMicrotasks();
-      vi.advanceTimersByTime(200);
-      await flushMicrotasks();
-      fixture.detectChanges();
-      expect(isSkeletonShown(fixture)).toBe(true);
+      // Both caches empty + loadTree pending → defer block is mounted
+      // (placeholder visible, skeleton not yet rendered).
+      expect(await fixture.getDeferBlocks()).toHaveLength(1);
+      expect(querySkeleton(fixture)).toBeNull();
 
-      // Sibling cache lands after the skeleton appeared — must vanish.
+      // Sibling cache lands → outer @if flips false → defer block
+      // disappears entirely, taking the placeholder with it.
       handles.fallback.set([FOLDER_NODE]);
-      await flushMicrotasks();
       fixture.detectChanges();
-      expect(isSkeletonShown(fixture)).toBe(false);
+      expect(await fixture.getDeferBlocks()).toHaveLength(0);
+      expect(querySkeleton(fixture)).toBeNull();
     });
   });
 
-  describe('defer-first-show timing', () => {
-    it('hides skeleton for <150ms, then shows it', async () => {
-      vi.useFakeTimers();
-      const { repos, uiState, handles } = makeFacades();
-      handles.loadTree.mockImplementation(
-        () => new Promise<readonly FileNode[]>(() => undefined),
-      );
+  describe('skeleton path (no caches, loading in flight)', () => {
+    it('mounts a single defer block with the placeholder visible', async () => {
+      const { repos, uiState } = makeFacades();
+      const fixture = await mount(repos, uiState);
 
-      const fixture = mount(repos, uiState);
-      await flushMicrotasks();
-      fixture.detectChanges();
-
-      vi.advanceTimersByTime(149);
-      await flushMicrotasks();
-      fixture.detectChanges();
-      expect(isSkeletonShown(fixture)).toBe(false);
-
-      vi.advanceTimersByTime(1);
-      await flushMicrotasks();
-      fixture.detectChanges();
-      expect(isSkeletonShown(fixture)).toBe(true);
+      const blocks = await fixture.getDeferBlocks();
+      expect(blocks).toHaveLength(1);
+      // Before the 150ms minimum elapses, the skeleton is NOT in the
+      // DOM — only the placeholder template is.
+      expect(querySkeleton(fixture)).toBeNull();
     });
 
-    it('never shows skeleton if loadTree resolves before the 150ms gate', async () => {
+    it('renders the tree-shaped skeleton with a11y attrs once the defer reaches Complete', async () => {
       vi.useFakeTimers();
-      const { repos, uiState, handles } = makeFacades();
-      handles.loadTree.mockResolvedValue([FOLDER_NODE]);
+      try {
+        const { repos, uiState } = makeFacades();
+        const fixture = await mount(repos, uiState);
 
-      const fixture = mount(repos, uiState);
-      await flushMicrotasks();
-      fixture.detectChanges();
+        // The @placeholder (minimum 150ms) gates the Complete
+        // transition. Advance past the minimum AND request Complete
+        // — jsdom does not run Angular's defer timing scheduler on
+        // its own, so we need both halves.
+        vi.advanceTimersByTime(200);
+        for (const block of await fixture.getDeferBlocks()) {
+          await block.render(DeferBlockState.Complete);
+        }
+        await fixture.whenStable();
+        fixture.detectChanges();
 
-      vi.advanceTimersByTime(500);
-      await flushMicrotasks();
-      fixture.detectChanges();
-      expect(isSkeletonShown(fixture)).toBe(false);
-    });
+        const host = querySkeleton(fixture);
+        expect(host).not.toBeNull();
+        expect(host?.getAttribute('aria-busy')).toBe('true');
+        expect(host?.getAttribute('role')).toBe('status');
 
-    it('restarts the 150ms window when workspaceId changes mid-flight', async () => {
-      vi.useFakeTimers();
-      const { repos, uiState, handles } = makeFacades();
-      handles.loadTree.mockImplementation(
-        () => new Promise<readonly FileNode[]>(() => undefined),
-      );
-
-      const fixture = mount(repos, uiState);
-      await flushMicrotasks();
-      fixture.detectChanges();
-
-      // 100ms into the first workspace's window — switch.
-      vi.advanceTimersByTime(100);
-      fixture.componentRef.setInput('workspaceId', 'ws-2');
-      await flushMicrotasks();
-      fixture.detectChanges();
-
-      // 60ms after the switch: original timer would have fired at
-      // 150ms total (50ms ago) — it must have been cancelled.
-      vi.advanceTimersByTime(60);
-      await flushMicrotasks();
-      fixture.detectChanges();
-      expect(isSkeletonShown(fixture)).toBe(false);
-
-      // 90 more ms: ws-2's own 150ms window elapses.
-      vi.advanceTimersByTime(90);
-      await flushMicrotasks();
-      fixture.detectChanges();
-      expect(isSkeletonShown(fixture)).toBe(true);
-    });
-  });
-
-  describe('skeleton render (when shown)', () => {
-    it('renders 3 folder rows + 6 file rows with a11y attrs', async () => {
-      vi.useFakeTimers();
-      const { repos, uiState, handles } = makeFacades();
-      handles.loadTree.mockImplementation(
-        () => new Promise<readonly FileNode[]>(() => undefined),
-      );
-
-      const fixture = mount(repos, uiState);
-      await flushMicrotasks();
-      vi.advanceTimersByTime(150);
-      await flushMicrotasks();
-      fixture.detectChanges();
-
-      const host = fixture.debugElement.query(
-        By.css('app-file-tree-skeleton'),
-      );
-      expect(host).toBeTruthy();
-      const hostEl = host.nativeElement as HTMLElement;
-      expect(hostEl.getAttribute('aria-busy')).toBe('true');
-      expect(hostEl.getAttribute('role')).toBe('status');
-
-      const chevrons = host.queryAll(
-        By.css('ng-icon[name="lucideChevronRight"]'),
-      );
-      const folders = host.queryAll(By.css('ng-icon[name="lucideFolder"]'));
-      const files = host.queryAll(By.css('ng-icon[name="lucideFile"]'));
-      expect(chevrons.length).toBe(3);
-      expect(folders.length).toBe(3);
-      expect(files.length).toBe(6);
-
-      const bars = host.queryAll(By.css('hlm-skeleton'));
-      expect(bars.length).toBe(9);
-    });
-  });
-
-  describe('destroy cleanup', () => {
-    it('tears down the RxJS subscription so a destroyed component never updates pastMinDelay', async () => {
-      vi.useFakeTimers();
-      const { repos, uiState, handles } = makeFacades();
-      handles.loadTree.mockImplementation(
-        () => new Promise<readonly FileNode[]>(() => undefined),
-      );
-
-      const fixture = mount(repos, uiState);
-      await flushMicrotasks();
-      fixture.detectChanges();
-
-      vi.advanceTimersByTime(50);
-      fixture.destroy();
-
-      // Advance past the would-be timer; toSignal's DestroyRef
-      // teardown should have unsubscribed, so no stale work fires.
-      vi.advanceTimersByTime(500);
-      await flushMicrotasks();
-      // No throw, no skeleton (component is gone) — the test
-      // passes by virtue of completing cleanly.
-      expect(true).toBe(true);
+        const skeletonDe = fixture.debugElement.query(
+          By.css('app-file-tree-skeleton'),
+        );
+        expect(
+          skeletonDe.queryAll(By.css('ng-icon[name="lucideChevronRight"]'))
+            .length,
+        ).toBe(3);
+        expect(
+          skeletonDe.queryAll(By.css('ng-icon[name="lucideFolder"]')).length,
+        ).toBe(3);
+        expect(
+          skeletonDe.queryAll(By.css('ng-icon[name="lucideFile"]')).length,
+        ).toBe(6);
+        expect(skeletonDe.queryAll(By.css('hlm-skeleton')).length).toBe(9);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
