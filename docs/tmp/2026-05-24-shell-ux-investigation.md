@@ -17,20 +17,20 @@ User-explicit priorities → critical: **file changes, PR workflow,
 general shell UX.** File-header refactor bundles into P1 as the seam
 for the future multi-file review surface.
 
-| ID   | Area          | Item                                                                                         | Priority |
-| ---- | ------------- | -------------------------------------------------------------------------------------------- | -------- |
-| P1.1 | Right sidebar | PR workflow rewire (Create PR primary, Merge now "Soon", GitHub gate, status transitions)    | **P1**   |
-| P1.2 | Right sidebar | Changes tab persistence (cross-reload hydration, watcher coverage audit, rename handling)    | **P1**   |
-| P1.3 | Middle shell  | File tabs (close button, preview/pin tabs, double-click in tree, save→Changes sync)          | **P1**   |
-| P1.4 | Middle shell  | File header refactor (drop `FeatureFileToolbar`, reuse `MzFileDiffCard` with `flush` chrome) | **P1**   |
-| P2.1 | Right sidebar | File tree real loading state (tree-shaped skeleton, min-delay anti-flicker)                  | P2       |
-| P2.2 | Middle shell  | Composer visibility on file tabs                                                             | P2       |
-| P2.3 | Middle shell  | Save/Discard overlay (absolute, shadow, no layout push)                                      | P2       |
-| P2.4 | Diff UX       | Human-readable hunk labels (`@@ -120,7 @@` → `"120 lines above"`)                            | P2       |
-| P2.5 | Diff UX       | Better expand-context button (wide strip vs 12px chevron)                                    | P2       |
-| P2.6 | Right sidebar | Setup/Run tab UX (empty-state CTA, behavior audit)                                           | P2       |
-| P2.7 | Right sidebar | Terminal first-load visual (xterm mount window)                                              | P2       |
-| P3.1 | Middle shell  | Preview mode default + scope decision (markdown only)                                        | P3       |
+| ID   | Area          | Item                                                                                         | Priority | Status     |
+| ---- | ------------- | -------------------------------------------------------------------------------------------- | -------- | ---------- |
+| P1.1 | Right sidebar | PR workflow rewire (Create PR primary, Merge now "Soon", GitHub gate, status transitions)    | **P1**   | ✅ DONE    |
+| P1.2 | Right sidebar | Changes tab persistence (cross-reload hydration, watcher coverage audit, rename handling)    | **P1**   | ✅ DONE    |
+| P1.3 | Middle shell  | File tabs (close button, preview/pin tabs, double-click in tree, save→Changes sync)          | **P1**   | pending    |
+| P1.4 | Middle shell  | File header refactor (drop `FeatureFileToolbar`, reuse `MzFileDiffCard` with `flush` chrome) | **P1**   | pending    |
+| P2.1 | Right sidebar | File tree real loading state (tree-shaped skeleton, min-delay anti-flicker)                  | P2       | ✅ DONE    |
+| P2.2 | Middle shell  | Composer visibility on file tabs                                                             | P2       | ✅ DONE    |
+| P2.3 | Middle shell  | Save/Discard overlay (absolute, shadow, no layout push)                                      | P2       | pending    |
+| P2.4 | Diff UX       | Human-readable hunk labels (`@@ -120,7 @@` → `"120 lines above"`)                            | P2       | ✅ DONE    |
+| P2.5 | Diff UX       | Better expand-context button (wide strip vs 12px chevron)                                    | P2       | ✅ DONE    |
+| P2.6 | Right sidebar | Setup/Run tab UX (empty-state CTA, behavior audit)                                           | P2       | pending    |
+| P2.7 | Right sidebar | Terminal first-load visual (xterm mount window)                                              | P2       | pending    |
+| P3.1 | Middle shell  | Preview mode default + scope decision (markdown only)                                        | P3       | pending    |
 
 Each P1 item is sized for one PR slice. P2 items are independent
 polish PRs. P3.1 is a one-liner now + a planning round later.
@@ -351,7 +351,7 @@ newStart, newCount, addedLines, removedLines }`. Already typed
 Each item has: **goal**, **current → target**, **files to touch**,
 **verification**.
 
-### 2.1 P1.1 — PR workflow rewire
+### 2.1 P1.1 — PR workflow rewire ✅ DONE
 
 **Goal:** Right-aside header always advertises "Create PR" as the
 primary action; "Merge now" temporarily disabled with a "Soon"
@@ -428,7 +428,7 @@ flips through the lifecycle.
 
 ---
 
-### 2.2 P1.2 — Changes tab persistence
+### 2.2 P1.2 — Changes tab persistence ✅ DONE
 
 **Goal:** Changes list survives **app reload** (not just navigation).
 Sync between Git real state and UI is auditable and rename detection
@@ -656,7 +656,7 @@ the future multi-file review surface.
 
 ---
 
-### 2.5 P2.1 — File tree real loading state
+### 2.5 P2.1 — File tree real loading state ✅ DONE
 
 **Reachable path:** First-ever workspace open per project, no sibling
 workspace cached, fetch >150ms. The 4-tier loading hierarchy in
@@ -751,7 +751,7 @@ No critical gaps.
 
 ---
 
-### 2.6 P2.2 — Composer visibility on file tabs
+### 2.6 P2.2 — Composer visibility on file tabs ✅ DONE
 
 **Goal:** Composer remains visible at the bottom of the middle shell
 regardless of whether the active tab is `chat` or `file`. Send
@@ -1090,7 +1090,7 @@ right-3 z-10 …">`; bind visibility to `dirty()` with a CSS
 
 ---
 
-### 2.8 P2.4 — Human-readable hunk labels
+### 2.8 P2.4 — Human-readable hunk labels ✅ DONE
 
 > **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
 
@@ -1152,76 +1152,9 @@ buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
 
 1. Open a diff with multiple hunks: each row shows a human label,
    tooltip shows the original `@@` syntax.
-2. Copy-paste from the hunk row still copies the original `@@`
-   text (if that's a feature the team uses).
-   > **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
-   > **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
-
-**Goal:** Replace `@@ -120,7 +120,8 @@` with `"120 lines above"` (or `"No more lines above"` when `linesAvailable === 0`). When a hunk's gap-above AND the next gap (= gap-below this hunk) are both empty, omit the hunk header row entirely so the diff reads as continuous context. Raw `@@` available via `title` attribute for diff-literate users.
-
-**Implementation notes:**
-
-```
-buildDocPlan hunk-header branch (cm-diff-extensions.ts:131-140)
-
-  pre-pass items[] once, build nextHunkLinesAvailable[gapIndex] map.
-
-  for each RenderItem of kind 'hunk-header':
-    linesAbove = item.linesAvailable
-    linesBelow = nextHunkLinesAvailable[item.gapIndex] ?? 0
-    if linesAbove === 0 && linesBelow === 0:
-      SKIP — don't append a doc line for this hunk header
-    else:
-      label = formatHunkLabel(linesAbove)        ← new pure helper
-      appendLine(label, {
-        kind: 'hunk',
-        oldLine: null, newLine: null,
-        hunkGapIndex: item.gapIndex,
-        hunkLinesAvailable: linesAbove,
-        originalHeader: item.text,               ← new LineMeta field
-      })
-
-buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
-
-  for hunk-kind line:
-    builder.add(linePos, linePos, HUNK_LINE_DECO)
-    if (meta.originalHeader):
-      builder.add(linePos, linePos, Decoration.line({
-        attributes: { title: meta.originalHeader }
-      }))
-```
-
-**`formatHunkLabel` contract:**
-
-| Input          | Output                                                            |
-| -------------- | ----------------------------------------------------------------- |
-| `n > 1`        | `"${n} lines above"`                                              |
-| `n === 1`      | `"1 line above"`                                                  |
-| `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
-| Input          | Output                                                            |
-| -------------- | -----------------------                                           |
-| `n > 1`        | `"${n} lines above"`                                              |
-| `n === 1`      | `"1 line above"`                                                  |
-| `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
-
-**Files to touch:**
-
-- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`
-  - `LineMeta` (line 22): add `readonly originalHeader?: string`.
-  - `buildDocPlan` hunk-header branch (lines 131–140): consume the pre-pass lookahead, hide row when both gaps empty, swap `item.text` for `formatHunkLabel(linesAvailable)`, pass `originalHeader` through `LineMeta`.
-  - `buildLineDecorations` hunk branch (lines 235–237): when `meta.originalHeader` present, also emit a `Decoration.line` with `attributes.title`.
-  - New `formatHunkLabel(n: number): string` pure helper near `formatNumber` (line 554).
-  - Header comment block (lines 76–87): update to reflect doc-text-is-label model — diagram maintenance per CLAUDE.md.
-- `libs/mozart-ui/diff-parser/src/lib/diff-parser.ts` — no change. `DiffHunk` already exposes the parsed counts.
-
-**Tests:** new spec file — see §2.8.1 below.
-
-**Verification:**
-
-1. Open a multi-hunk diff: each visible hunk row shows `"N lines above"`; hover tooltip shows the original `@@ -a,b +c,d @@`.
 2. Fully expand a middle hunk's gap-above AND gap-below — that hunk's header row disappears from the doc; adjacent lines flow together.
 3. First hunk starts at line 1 (no gap above): hunk row is hidden from first render.
-4. Copying a hunk row puts the human label on the clipboard. The original `@@` only appears on hover (intentional — drops the prior "copy returns original" verification step which contradicted the goal).
+4. Copying a hunk row puts the human label on the clipboard. The original `@@` only appears on hover.
 
 **Risks / notes:**
 
@@ -1260,29 +1193,9 @@ buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
 
 ---
 
-### 2.9 P2.5 — Better expand-context button
+### 2.9 P2.5 — Better expand-context button ✅ DONE
 
 > **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
-
-**Goal:** The hunk-row gutter chevron becomes a ~24px wider hit target with chevron + count badge (`"+20"`, or `"+12"` when fewer lines remain). Disabled with `"No more hidden lines"` title when `linesAvailable === 0`. Behavior preserved: click expands `HUNK_EXPAND_STEP` lines up; shift-click doubles.
-
-**Files to touch:**
-
-- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:478–532` — `HunkButtonMarker.toDOM`:
-  - Replace the 12×12 circle with a wider strip-shaped button (~24px × 16px), still positioned in the OLD gutter cell with the `translate(50%, -50%)` math so the visual centroid stays on the column seam.
-  - Append a `<span>` inside the button rendering `+${min(HUNK_EXPAND_STEP, linesAvailable)}` next to the existing `lucideChevronUp` icon. Hide the count when `linesAvailable === 0`.
-  - Tailwind: drop `h-4 w-4 rounded-full`; replace with `h-5 px-1 rounded-md` (or similar). Keep within the hunk-band vertical rhythm.
-  - Title logic unchanged.
-- Add a one-line comment near the click handler (lines 523–528) documenting shift-click doubles to `2 × HUNK_EXPAND_STEP`.
-
-**Tests:** covered by §2.8.1 cases 12–16.
-
-**Verification:**
-
-1. Hunk row button has visible label.
-2. Click expands 20 lines above; trailing-gap bar still works.
-   > **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
-   > **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
 
 **Goal:** The hunk-row gutter chevron becomes a ~24px wider hit target with chevron + count badge (`"+20"`, or `"+12"` when fewer lines remain). Disabled with `"No more hidden lines"` title when `linesAvailable === 0`. Behavior preserved: click expands `HUNK_EXPAND_STEP` lines up; shift-click doubles.
 
@@ -1511,7 +1424,7 @@ landing the architectural change after the polish that depends on it.
 
 ---
 
-## 7. Engineering review outcomes — P1.1
+## 7. Engineering review outcomes — P1.1 ✅ DONE
 
 Captured during `/plan-eng-review` on 2026-05-24 against §2.1 (P1.1 PR
 workflow rewire). Earlier sections are the RFC; this section is the
@@ -1645,7 +1558,7 @@ The remaining §3.4 open questions (preview mode, persisted Changes
 snapshot, preview-tab persistence) belong to P1.2 / P1.3 / P3.1 and
 are unchanged.
 
-## 7. Implementation Tasks (P2.1)
+## 8. Implementation Tasks (P2.1) ✅ DONE
 
 Synthesized from `/plan-eng-review` on 2026-05-24. Each task derives
 from a finding above. Run with Claude Code or Codex; checkbox as you
@@ -1683,7 +1596,7 @@ write). T1/T4 and T2/T3 can run in parallel worktrees if desired,
 but realistically this is a one-PR slice — ship as a single commit
 unit.
 
-## 7. Eng review adjustments — 2026-05-24
+## 9. Eng review adjustments — P1.2 + P1.3 (P1.2 ✅ DONE, P1.3 pending)
 
 Locked decisions from `/plan-eng-review` covering P1.2 + P1.3. Anything
 here OVERRIDES the corresponding part of §2.2 / §2.3 above. Read this
@@ -1846,7 +1759,7 @@ multi-window contention, FILE_TAB_CAP soft ceiling.
 
 P1.1, P1.4, P2.\* unchanged from §6.
 
-## 7. /plan-eng-review notes — P2.4 + P2.5 (2026-05-24)
+## 10. /plan-eng-review notes — P2.4 + P2.5 ✅ DONE
 
 ### 7.1 NOT in scope (P2.4 + P2.5)
 
@@ -1870,14 +1783,6 @@ P1.1, P1.4, P2.\* unchanged from §6.
 
 | Codepath                                       | Failure scenario                                                                                            | Has test?              | Has handling?    | Silent?                          |
 | ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------- | -------------------------------- |
-| `buildDocPlan` hide-on-both-empty              | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)       | no — visible UX                  |
-| `buildDocPlan` hide-on-both-empty              | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a              | no — visible misalignment        |
-| `buildLineDecorations` title decoration        | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a              | yes — fall back: no tooltip      |
-| `HunkButtonMarker.toDOM` wider hit target      | Wider button overflows the gutter on the left, clipped by parent.                                           | no (visual)            | css; manual QA   | no — visible overflow            |
-| `HunkButtonMarker.toDOM` count badge           | Badge text not in sync with `linesAvailable` after rapid clicks.                                            | n/a (eq covers)        | `eq` rebuild     | no — would show wrong number     |
-| `HunkButtonMarker.toDOM` shift-click           | Wider DOM intercepts shiftKey wrong; only single step expands.                                              | yes (case 16)          | n/a              | yes — silent regression to 1×    |
-| Codepath                                       | Failure scenario                                                                                            | Has test?              | Has handling?    | Silent?                          |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------              | ---------------- | -------------------------------- |
 | `buildDocPlan` hide-on-both-empty              | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)       | no — visible UX                  |
 | `buildDocPlan` hide-on-both-empty              | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a              | no — visible misalignment        |
 | `buildLineDecorations` title decoration        | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a              | yes — fall back: no tooltip      |
@@ -1942,85 +1847,51 @@ Synthesized from this review's findings. Each task derives from a specific findi
 
 ---
 
-## GSTACK REVIEW REPORT
+## GSTACK REVIEW REPORTS
 
-| Review        | Trigger               | Why                             | Runs           | Status       | Findings                                                                                                                                                                                                                                 |
-| ------------- | --------------------- | ------------------------------- | -------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0              | —            | —                                                                                                                                                                                                                                        |
-| Codex Review  | `/codex review`       | Independent 2nd opinion         | 0              | —            | —                                                                                                                                                                                                                                        |
-| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1 (2026-05-24) | CLEAR (PLAN) | 7 decisions resolved (D1–D6, D9); 22 test gaps closed under tier A (D6); 2 regressions captured (R1 setStatus idempotency, R2 commit-dialog swap); 2 follow-ups deferred to TODOS.md (D8 reconciliation, D10 link flow); 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps                      | 0              | —            | —                                                                                                                                                                                                                                        |
-| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0              | —            | —                                                                                                                                                                                                                                        |
+One row per reviewed slice. All reviewed slices are now shipped (✅).
 
-- **CODEX:** N/A — `/codex review` not run; user declined outside voice (D7).
-- **CROSS-MODEL:** N/A — no codex pass on this review.
-- **UNRESOLVED:** 0 — every AskUserQuestion answered.
-- **VERDICT:** ENG CLEARED — P1.1 ready to implement against §7.6 task list. CEO Review and Design Review not required for this slice (no scope/UX decisions). Outside voice skipped by user choice.
-  | Review | Trigger | Why | Runs | Status | Findings |
-  | ------------- | -------------------- | -------------------------------- | ---- | -------------- | --------------------------------------- |
-  | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-  | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | skipped — scope too small for outside voice |
-  | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 3 findings resolved, 0 critical gaps, 4 tasks emitted |
-  | Design Review | `/plan-design-review`| UI/UX gaps | 0 | — | not invoked (low-impact polish; visual spec resolved inline) |
-  | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | n/a — internal UI polish |
+### P1.1 — PR workflow rewire ✅ DONE
 
-**UNRESOLVED:** 0
+| Review     | Runs           | Status       | Findings                                                                                                                            |
+| ---------- | -------------- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------- |
+| Eng Review | 1 (2026-05-24) | CLEAR (PLAN) | 7 decisions resolved (D1–D6, D9); 22 test gaps closed (D6); 2 regressions (R1, R2); 2 follow-ups → TODOS.md (D8, D10); 0 critical gaps |
 
-**VERDICT:** ENG CLEARED — P2.1 plan ready for implementation. 2 source
-files + 2 new spec files. Cache-hit short-circuit regression test is
-mandatory per IRON rule. Outside voice + design review skipped — scope
-too narrow to justify.
-| Review | Trigger | Why | Runs | Status | Findings |
-| ------------- | --------------------- | ------------------------------- | ---- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | not run |
-| Codex Review | `/codex review` | Independent 2nd opinion | 1 | ISSUES_FOUND | 2 cross-model tensions resolved (intent encoding, auto-pin race); 6 codex items captured as TODOs |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 12 issues found across §1–§4 (5 architecture, 2 code-quality, 5 test gaps batched into one decision, 2 perf); 0 unresolved; 1 critical gap captured (localStorage quota — TODO); 53 test gaps mapped, 3 mandatory regression tests; outside voice ran (codex), 2 cross-model tensions surfaced + applied to the plan |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | not run (preview/pin is a behavioral spec, not a visual one; reconsider for P1.4 file-header refactor) |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | not run (no developer-facing API surface in this scope) |
+- **CODEX / CROSS-MODEL:** N/A — user declined outside voice (D7).
+- **VERDICT:** ENG CLEARED — implemented against §7.6 task list.
 
-**CODEX:** Surfaced 2 substantive issues that the eng review missed and 6 smaller risks. Both substantive items were applied to the plan (§7.10): URL-query-param → router state extras with `replaceUrl: true`; raw-valueChange auto-pin → `dirty()`-flip-based effect. The 6 smaller items live in §7.4 TODOs.
+### P2.1 — File tree real loading state ✅ DONE
 
-**CROSS-MODEL:** Two tensions — both resolved in codex's favor with the user's confirmation. No remaining disagreement.
+| Review     | Runs | Status       | Findings                                              |
+| ---------- | ---- | ------------ | ----------------------------------------------------- |
+| Eng Review | 1    | CLEAR (PLAN) | 3 findings resolved, 0 critical gaps, 4 tasks emitted |
 
-**UNRESOLVED:** 0.
+- **VERDICT:** ENG CLEARED — 2 source + 2 spec files. Cache-hit short-circuit regression test mandatory.
 
-**VERDICT:** ENG CLEARED — P1.2 + P1.3 ready to implement per §7 adjustments. Suggested lanes: P1.3a (close button) + P1.2 (persist + rename) in parallel; P1.3b (preview/pin + tab persistence + save sync) after P1.3a lands.
-| Review | Trigger | Why | Runs | Status | Findings |
-| ------------- | -------------------- | -------------------------------- | ---- | -------------- | ------------------------------ |
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 3 issues, 0 critical gaps |
-| Design Review | `/plan-design-review`| UI/UX gaps | 0 | — | — |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+### P1.2 + P1.3 — Changes persistence + file tabs (P1.2 ✅ DONE, P1.3 pending)
 
-- **UNRESOLVED:** 0
-- **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
-  | Review | Trigger | Why | Runs | Status | Findings |
-  | ------------- | -------------------- | -------------------------------- | ---- | -------------- | ------------------------------ |
-  | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-  | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-  | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 3 issues, 0 critical gaps |
-  | Design Review | `/plan-design-review`| UI/UX gaps | 0 | — | — |
-  | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+| Review       | Runs | Status       | Findings                                                                                                                                                                            |
+| ------------ | ---- | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Codex Review | 1    | ISSUES_FOUND | 2 cross-model tensions resolved (intent encoding, auto-pin race); 6 codex items → TODOs                                                                                              |
+| Eng Review   | 1    | CLEAR (PLAN) | 12 issues across §1–§4 (5 architecture, 2 code-quality, 5 test gaps, 2 perf); 1 critical gap captured (localStorage quota — TODO); 53 test gaps mapped, 3 mandatory regression tests |
 
-- **UNRESOLVED:** 0
-- **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
+- **CODEX:** Applied to plan (§7.10): URL-query-param → router state extras with `replaceUrl: true`; raw-valueChange auto-pin → `dirty()`-flip-based effect.
+- **VERDICT:** ENG CLEARED per §7 adjustments. P1.3a (close button) + P1.2 in parallel; P1.3b after P1.3a.
 
-## GSTACK REVIEW REPORT
+### P2.4 + P2.5 — Hunk labels + expand button ✅ DONE
 
-Scoped to **P2.2 — Composer visibility on file tabs** (§2.6). Other
-items (P1.1–P3.1) were NOT reviewed in this pass.
+| Review     | Runs | Status       | Findings                  |
+| ---------- | ---- | ------------ | ------------------------- |
+| Eng Review | 1    | CLEAR (PLAN) | 3 issues, 0 critical gaps |
 
-| Review        | Trigger               | Why                             | Runs | Status       | Findings                                            |
-| ------------- | --------------------- | ------------------------------- | ---- | ------------ | --------------------------------------------------- |
-| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0    | —            | —                                                   |
-| Codex Review  | `/codex review`       | Independent 2nd opinion         | 0    | —            | —                                                   |
-| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | CLEAR (PLAN) | 4 issues, 0 critical gaps; §2.6 rewritten per D1–D5 |
-| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | —                                                   |
-| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | —                                                   |
+- **VERDICT:** ENG CLEARED — single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new spec).
 
-- **UNRESOLVED:** 0
-- **TODOS:** 2 added (composer per-chat draft persistence; "talking to chat X" indicator) — both blocked on multi-chat workspaces
-- **TASKS:** 6 (T1–T6) emitted to `~/.gstack/projects/t1m4lc-mozart/tasks-eng-review-20260524-163428.jsonl`; 4 × P1, 1 × P2, 1 × P3
-- **TEST PLAN ARTIFACT:** `~/.gstack/projects/t1m4lc-mozart/timothy-wt-p2.2-eng-review-test-plan-20260524-164036.md`
-- **VERDICT:** ENG CLEARED for P2.2 — ready to implement after P1.3 (sequencing recommendation in §2.6)
+### P2.2 — Composer visibility on file tabs ✅ DONE
+
+| Review     | Runs | Status       | Findings                                            |
+| ---------- | ---- | ------------ | --------------------------------------------------- |
+| Eng Review | 1    | CLEAR (PLAN) | 4 issues, 0 critical gaps; §2.6 rewritten per D1–D5 |
+
+- **TODOS:** 2 added (per-chat draft persistence; "talking to chat X" indicator) — blocked on multi-chat workspaces.
+- **TASKS:** 6 (T1–T6) emitted; 4 × P1, 1 × P2, 1 × P3.
+- **VERDICT:** ENG CLEARED — implemented after P1.3 prep.
