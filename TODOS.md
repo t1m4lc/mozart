@@ -329,3 +329,111 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** P1.1 landed (so the targets exist). `@tauri-apps/api` is already a dependency, but `@tauri-apps/api/mocks` may need an explicit re-export or import path check. Decision on whether to keep the example `src/example.spec.ts` placeholder or delete it as part of the same change.
 
 ---
+## P1.2 — Manual refresh button on Changes header (skipped during eng review)
+
+**What:** A small refresh icon at the right of the Staged/Unstaged section header that calls `repos.refreshChangedFilesInBackground(workspaceId)`.
+
+**Why:** The investigation doc §2.2 proposed it as an "escape hatch." Eng review concluded it's cargo-culted: the FS watcher + `softRefreshAfterMutation` on mutations + always-refresh-on-activation (the new `refreshedSinceHydration` flag in §7.2) already cover real cases. Build only if a user reports stale lists.
+
+**How to apply:** ~10 lines in `feature-changes-list.ts` header template + a `manualRefresh()` protected method. Trigger condition: a user complaint or telemetry showing snapshot-vs-real divergence.
+
+**Depends on:** Real user signal. Not blocking.
+
+---
+
+## P1.2 — Throttle snapshot writes on heavy workspaces
+
+**What:** Add `throttle: 500` (or similar) to `withStorageSync` config for the FileTreeCache's persisted changed-files slice.
+
+**Why:** With 500+ changed files (≈ 60 KB JSON) and the watcher's ~200ms debounce, sustained worst case is ~5/sec × 60 KB main-thread JSON.stringify ≈ 300 KB/sec. Imperceptible at the typical 5–50 files. Worth defending against if/when heavy-monorepo users dogfood Mozart.
+
+**How to apply:** Measure first via Performance > Long Tasks panel. If a real workload stutters, pass `throttle: 500` on the `withStorageSync` block in `file-tree-cache.store.ts`. Tradeoff: snapshot can be up to 500ms stale on crash.
+
+**Depends on:** Telemetry or user signal.
+
+---
+
+## P1.2 — localStorage QuotaExceededError UX
+
+**What:** Add a defensive try/catch around `withStorageSync` write paths and surface a one-time "your tab/snapshot state hit the storage cap" toast or banner.
+
+**Why:** Codex eng-review outside voice flagged this. Today `withStorageSync` swallows `QuotaExceededError` silently — the in-memory state moves forward but the persisted slice doesn't, producing a "snapshot says X today, but on reload says Y" inconsistency. Critical gap (per the eng-review §7.8) but low real-world probability with the 3 MB / 50-workspace headroom math.
+
+**How to apply:** Wrap the `withStorageSync` adapter (or write a sibling util) that catches quota errors. Surface via toast + suggest clearing localStorage from settings.
+
+**Depends on:** A real user hitting the cap, OR a deliberate hardening pass.
+
+---
+
+## P1.3 — Multi-window withStorageSync contention
+
+**What:** `withStorageSync` doesn't listen to the browser `storage` event today, so two Mozart windows would last-write-wins each other's tab list + snapshot.
+
+**Why:** N/A in v0.1.0-beta.1 because `tauri-plugin-single-instance` enforces one window. When Mozart spawns secondary windows (e.g., detached editor view), the storage layer needs `storage` event listening or a leader-election strategy.
+
+**How to apply:** When the multi-window feature lands, add a `storage`-event subscription that re-hydrates affected slices on remote writes. Test by manually firing `storage` events in DevTools.
+
+**Depends on:** Multi-window product decision. Not in scope today.
+
+---
+
+## P1.3 — FILE_TAB_CAP soft ceiling + eviction policy
+
+**What:** Reintroduce a soft cap on `FILE_TAB_CAP` (e.g. 100) with FIFO eviction on the persisted slice once we see real session sizes.
+
+**Why:** Codex flagged: removing the cap entirely is a latent memory + rendering risk. Today's existing FIFO eviction code in `file-tabs.service.ts:53–58` will be deleted as part of P1.3. Re-add a defensive ceiling once we observe usage patterns.
+
+**How to apply:** Add a configurable cap (default 100). On `openFor`/`previewFor`/`pinFor`, if the list exceeds cap, evict the **oldest pinned** tab (not preview — preview is replaced in-slot). Persisted slice automatically stays bounded.
+
+**Depends on:** Real session-size observation (telemetry or self-dogfooding).
+
+---
+
+## P1.3 — Proactive stale-tab-path prune on activation
+
+**What:** New Tauri command `existsByPath(ws, paths[]) -> bool[]`. On workspace activation, drop persisted tab paths that no longer exist on disk.
+
+**Why:** Eng review chose to rely on the existing `feature-file-content.ts:121–139` open-time "Couldn't open file" + Retry banner instead of a proactive prune. Add only if users complain that stale tabs linger in the bar after a session-spanning rename/delete.
+
+**How to apply:** Rust: batched `tokio::fs::metadata` over the path list. TS: `FileTabsService.pruneStale(ws)` triggered by an effect on workspace activation.
+
+**Depends on:** Real UX feedback that stale tabs are annoying.
+
+---
+
+## Desktop — True Playwright + Tauri-webdriver E2E suite
+
+**What:** Add an `apps/desktop-e2e/` Nx project with `@nx/playwright:configuration`, targeting the running desktop app via Tauri's webdriver harness.
+
+**Why:** Eng review chose Angular component integration tests for the P1.3 preview/pin chain coverage. That covers ~10 of 13 E2E-worthy paths. The remaining 3 (cold reload paint, save→Changes ≤100ms in real Tauri build, `git mv` from terminal) get a manual checklist for now.
+
+**How to apply:** When the desktop binary distribution pipeline lands (see existing Landing TODO), wire Playwright pointed at `pnpm nx serve desktop` + Tauri webdriver. Start with the 3 manual-checklist scenarios.
+
+**Depends on:** Distribution pipeline OR a deliberate decision that the manual checklist isn't enough.
+
+---
+
+## Diff view — function-scope suffix on hunk row (post P2.4)
+
+**What:** Real `@@` headers in unified diffs often carry a function/scope suffix — e.g. `@@ -120,7 +120,8 @@ class FooBar:` or `@@ -10,3 +10,3 @@ fn render()`. Today the parser keeps the whole header in `DiffHunk.header` but doesn't split out the suffix. P2.4 replaces the hunk-row text with "N lines above" and drops this suffix. Add it back as secondary context once the human label format is live.
+
+**Why:** For code reviewers (a real-but-not-primary Mozart audience), the function-scope suffix is the single most valuable piece of context on a hunk header — it tells you what symbol is being modified without scrolling. GitHub, GitLab, and every modern diff UI surface it. Mozart's P2.4 chose human-readable framing first; this is the addback for git-literate users.
+
+**How to apply:** (1) In `libs/mozart-ui/diff-parser/src/lib/diff-parser.ts` extend `HUNK_HEADER_RE` to capture the trailing text after the closing `@@`. Expose as `DiffHunk.scopeHint?: string` (undefined if empty/whitespace-only). (2) In `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`, when `scopeHint` is present, append it to the hunk-row label: `"class FooBar  ·  120 lines above"`. (3) Extend `cm-diff-extensions.spec.ts` (created by P2.4/P2.5) with 2-3 cases covering the suffix path.
+
+**Depends on:** P2.4 + P2.5 landed. ~30 min CC work.
+
+---
+
+## Diff view — spec coverage for trailing-gap ExpandBarWidget
+
+**What:** `cm-diff-extensions.ts:269–334` defines `ExpandBarWidget` — the full-width strip used at the trailing gap (below the last hunk) and at any inter-hunk gap where the new per-row gutter button doesn't apply. It's visually parallel to the wider `HunkButtonMarker` P2.5 builds. P2.4/P2.5 adds `cm-diff-extensions.spec.ts` covering the new code; this TODO extends that spec to cover `ExpandBarWidget` too.
+
+**Why:** The new spec file gives us a natural home. `ExpandBarWidget` has been stable in production but is untested. Folding its coverage in while the spec is fresh is much cheaper than greenfielding it later.
+
+**How to apply:** Extend the spec file P2.4/P2.5 creates with: (1) `eq()` distinguishes by gapIndex + direction + linesAvailable; (2) `toDOM()` renders up button only when direction is 'up' or 'both'; (3) down button only when 'down' or 'both'; (4) disabled state when linesAvailable === 0; (5) shift-click doubles the step. ~15 min CC.
+
+**Depends on:** P2.4 + P2.5 landed (spec file created).
+
+---
+
