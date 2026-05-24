@@ -6,13 +6,18 @@ import {
   Injector,
   afterNextRender,
   computed,
-  effect,
   inject,
   input,
   signal,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { fromEvent } from 'rxjs';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import {
+  animationFrameScheduler,
+  combineLatest,
+  fromEvent,
+  NEVER,
+} from 'rxjs';
+import { auditTime, filter, switchMap, tap } from 'rxjs/operators';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   ChatScrollOrchestrator,
@@ -164,88 +169,128 @@ export class FeatureChatScrollSurface {
       { injector: this.injector },
     );
 
-    // Orchestrator registration is a per-workspaceId binding, not a
-    // per-component one. The same chat-scroll-surface instance can
-    // serve multiple workspaces over its lifetime (Angular keeps the
-    // view alive across same-route navigations when `tab().kind`
-    // stays 'chat'). Re-fire on every workspaceId change and rely on
-    // the effect's onCleanup to unregister the prior binding — that
-    // way the orchestrator's Map never accumulates dead entries and
-    // composer's `scrollToBottom(currentWs)` always finds the live
-    // mainEl.
-    effect((onCleanup) => {
-      const ws = this.workspaceId();
-      const el = this._mainEl();
-      if (!ws || !el) return;
-      this.orchestrator.register(ws, el);
-      onCleanup(() => {
-        this.orchestrator.unregister(ws);
-      });
-    });
+    // Orchestrator registration: per-workspaceId binding, not
+    // per-component. The same chat-scroll-surface instance can serve
+    // multiple workspaces over its lifetime (Angular keeps the view
+    // alive across same-route navigations when `tab().kind` stays
+    // 'chat'). filter keeps the predicate pure; switchMap holds the
+    // inner subscription open via NEVER and tap's subscribe /
+    // unsubscribe carry the only side effects (register / unregister
+    // the orchestrator binding). switchMap unsubscribes the prior
+    // inner when (workspaceId, mainEl) changes, which triggers
+    // tap.unsubscribe BEFORE tap.subscribe of the new inner fires —
+    // order is unregister(old) → register(new), so the Map never
+    // double-holds and composer's `scrollToBottom(currentWs)`
+    // always finds the live mainEl.
+    combineLatest([
+      toObservable(this.workspaceId),
+      toObservable(this._mainEl),
+    ])
+      .pipe(
+        filter(
+          (pair): pair is [string, HTMLElement] =>
+            pair[0] !== null && pair[1] !== null,
+        ),
+        switchMap(([ws, el]) =>
+          NEVER.pipe(
+            tap({
+              subscribe: () => this.orchestrator.register(ws, el),
+              unsubscribe: () => this.orchestrator.unregister(ws),
+            }),
+          ),
+        ),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
 
-    // Chat tab activate / switch: snapshot the prior chat's scrollTop
-    // (via onCleanup) and restore the new chat's value after the next
-    // render. First visit to a chat → default to bottom (newest
-    // message visible).
-    effect((onCleanup) => {
-      const key = this._chatTabKey();
-      const main = this.mainEl;
-      if (!key || !main) return;
-
-      const stored = this.scroll.recall(key);
-      afterNextRender(
-        () => {
-          if (stored != null) {
-            main.scrollTop = stored;
-          } else {
-            // First visit: chat default is bottom (newest).
-            main.scrollTop = main.scrollHeight;
-          }
-        },
-        { injector: this.injector },
-      );
-
-      onCleanup(() => {
-        this.scroll.remember(key, main.scrollTop);
-      });
-    });
-
-    this.destroyRef.onDestroy(() => {
-      const key = this._chatTabKey();
-      if (key && this.mainEl) {
-        this.scroll.remember(key, this.mainEl.scrollTop);
-      }
-    });
+    // Chat tab activate / switch: restore the new chat's scrollTop
+    // after the next render (tap.subscribe), snapshot the prior
+    // chat's scrollTop on unsubscribe (tap.unsubscribe). First visit
+    // to a chat → default to bottom (newest message visible). Same
+    // switchMap + NEVER + TapObserver shape as the orchestrator
+    // binding above so both lifetimes are managed the same way.
+    toObservable(this._chatTabKey)
+      .pipe(
+        filter(
+          (key): key is string => key !== null && this.mainEl !== null,
+        ),
+        switchMap((key) => {
+          const main = this.mainEl;
+          if (!main) return NEVER;
+          return NEVER.pipe(
+            tap({
+              subscribe: () => {
+                const stored = this.scroll.recall(key);
+                afterNextRender(
+                  () => {
+                    if (stored != null) {
+                      main.scrollTop = stored;
+                    } else {
+                      // First visit: chat default is bottom (newest).
+                      main.scrollTop = main.scrollHeight;
+                    }
+                  },
+                  { injector: this.injector },
+                );
+              },
+              unsubscribe: () => this.scroll.remember(key, main.scrollTop),
+            }),
+          );
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
 
     // Message-arrival auto-follow. The messages signal fires when:
     //   - a new message is appended (user sends, agent placeholder
     //     appears, etc.)
     //   - the active message's content updates during streaming
     //     (the store creates a new array on each token mutation, so
-    //     the signal fires per-token)
-    //   - the active chat changes (chat A -> chat B) — but the
-    //     tab-key effect's afterNextRender restore runs AFTER this
-    //     microtask scrollTo, so a chat-switch overrides whatever
-    //     this effect sets and lands the user at the stored position.
+    //     the signal fires per-token — easily 50+ emissions per
+    //     frame for a fast stream)
+    //   - the active chat changes (chat A -> chat B) — the tab-key
+    //     stream's afterNextRender restore runs AFTER this rAF
+    //     scrollTo, so a chat-switch overrides whatever this stream
+    //     sets and lands the user at the stored position.
     //
-    // Standard auto-follow during streaming: while attached, keep
-    // the bottom of the chat content pinned to the viewport bottom
-    // on every messages-signal fire (which includes per-token
-    // updates because the store creates a new array each token).
-    // Target scrollHeight directly — the browser clamps so when
-    // content fits in the viewport this is a no-op.
-    effect(() => {
-      this._messages();
-      const chatId = this._activeChatId();
-      const main = this.mainEl;
+    // `auditTime(0, animationFrameScheduler)` coalesces the burst of
+    // per-token emissions to one write per animation frame, with the
+    // latest emission winning. Display refreshes at ~60Hz so we
+    // don't need finer granularity, and we drop ~50x scrollTop
+    // writes per second of streaming. Target scrollHeight directly —
+    // the browser clamps so when content fits in the viewport this
+    // is a no-op.
+    //
+    // Two filters around the audit: the first gates emissions before
+    // they enter the audit window (cheap early exit when detached or
+    // no chat). The second re-checks at tap-time: a user can scroll
+    // up DURING the audit window (the at-bottom listener flips us to
+    // detached), and without re-checking we'd write scrollTop after
+    // their manual scroll — undoing it. Both filters are pure
+    // predicates; tap is the only side-effect site.
+    toObservable(this._messages)
+      .pipe(
+        filter(() => this._isAttachedToActiveChat()),
+        auditTime(0, animationFrameScheduler),
+        filter(() => this._isAttachedToActiveChat()),
+        tap(() => {
+          const main = this.mainEl;
+          if (!main) return;
+          main.scrollTop = main.scrollHeight;
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
+  }
 
-      if (!chatId || !main) return;
-      if (!this.scroll.isAttached(chatId)) return;
-
-      queueMicrotask(() => {
-        main.scrollTop = main.scrollHeight;
-      });
-    });
+  // Pure predicate shared between the pre-audit and post-audit
+  // filters in the messages auto-follow stream. Returns true when
+  // there is an active chat that's in attached mode AND a resolved
+  // scroll surface to target.
+  private _isAttachedToActiveChat(): boolean {
+    const chatId = this._activeChatId();
+    if (!chatId || !this.mainEl) return false;
+    return this.scroll.isAttached(chatId);
   }
 }
 
