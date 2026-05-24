@@ -739,49 +739,135 @@ right-3 z-10 …">`; bind visibility to `dirty()` with a CSS
 
 ### 2.8 P2.4 — Human-readable hunk labels
 
-**Goal:** Replace `@@ -120,7 +120,8 @@` with text like
-`"120 lines above"` or `"34 unchanged lines"`, while keeping the raw
-header available as `title`.
+> **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
+
+**Goal:** Replace `@@ -120,7 +120,8 @@` with `"120 lines above"` (or `"No more lines above"` when `linesAvailable === 0`). When a hunk's gap-above AND the next gap (= gap-below this hunk) are both empty, omit the hunk header row entirely so the diff reads as continuous context. Raw `@@` available via `title` attribute for diff-literate users.
+
+**Implementation notes:**
+
+```
+buildDocPlan hunk-header branch (cm-diff-extensions.ts:131-140)
+
+  pre-pass items[] once, build nextHunkLinesAvailable[gapIndex] map.
+
+  for each RenderItem of kind 'hunk-header':
+    linesAbove = item.linesAvailable
+    linesBelow = nextHunkLinesAvailable[item.gapIndex] ?? 0
+    if linesAbove === 0 && linesBelow === 0:
+      SKIP — don't append a doc line for this hunk header
+    else:
+      label = formatHunkLabel(linesAbove)        ← new pure helper
+      appendLine(label, {
+        kind: 'hunk',
+        oldLine: null, newLine: null,
+        hunkGapIndex: item.gapIndex,
+        hunkLinesAvailable: linesAbove,
+        originalHeader: item.text,               ← new LineMeta field
+      })
+
+buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
+
+  for hunk-kind line:
+    builder.add(linePos, linePos, HUNK_LINE_DECO)
+    if (meta.originalHeader):
+      builder.add(linePos, linePos, Decoration.line({
+        attributes: { title: meta.originalHeader }
+      }))
+```
+
+**`formatHunkLabel` contract:**
+
+| Input          | Output                  |
+| -------------- | ----------------------- |
+| `n > 1`        | `"${n} lines above"`    |
+| `n === 1`      | `"1 line above"`        |
+| `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
 
 **Files to touch:**
 
-- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:131–140`
-  — extend the `hunk-header` branch with a formatter that consumes
-  `oldStart`, `oldCount`, `newStart`, `newCount` from the parsed
-  `DiffHunk` and produces a short label.
-- Tag the doc line with a `data-original-header` attr so
-  hover/copy works for diff-literate users.
-- `libs/mozart-ui/diff-parser/src/lib/diff-parser.ts:20–162`
-  — confirm `DiffHunk` exposes the parsed numbers (it does); add
-  no parser changes.
+- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`
+  - `LineMeta` (line 22): add `readonly originalHeader?: string`.
+  - `buildDocPlan` hunk-header branch (lines 131–140): consume the pre-pass lookahead, hide row when both gaps empty, swap `item.text` for `formatHunkLabel(linesAvailable)`, pass `originalHeader` through `LineMeta`.
+  - `buildLineDecorations` hunk branch (lines 235–237): when `meta.originalHeader` present, also emit a `Decoration.line` with `attributes.title`.
+  - New `formatHunkLabel(n: number): string` pure helper near `formatNumber` (line 554).
+  - Header comment block (lines 76–87): update to reflect doc-text-is-label model — diagram maintenance per CLAUDE.md.
+- `libs/mozart-ui/diff-parser/src/lib/diff-parser.ts` — no change. `DiffHunk` already exposes the parsed counts.
+
+**Tests:** new spec file — see §2.8.1 below.
 
 **Verification:**
 
-1. Open a diff with multiple hunks: each row shows a human label,
-   tooltip shows the original `@@` syntax.
-2. Copy-paste from the hunk row still copies the original `@@`
-   text (if that's a feature the team uses).
+1. Open a multi-hunk diff: each visible hunk row shows `"N lines above"`; hover tooltip shows the original `@@ -a,b +c,d @@`.
+2. Fully expand a middle hunk's gap-above AND gap-below — that hunk's header row disappears from the doc; adjacent lines flow together.
+3. First hunk starts at line 1 (no gap above): hunk row is hidden from first render.
+4. Copying a hunk row puts the human label on the clipboard. The original `@@` only appears on hover (intentional — drops the prior "copy returns original" verification step which contradicted the goal).
+
+**Risks / notes:**
+
+- The hide-on-both-empty refinement requires a one-pass lookahead in `buildDocPlan`. Build the `nextHunkLinesAvailable[gapIndex]` map once before the loop — do not do an O(n²) inner search.
+- When a hunk row hides, gutter line numbers on surrounding rows must still align. Verify visually with a multi-hunk diff where one middle hunk hides.
+- If `formatHunkLabel` ever wants to surface the step constant (e.g., `"Show 20 lines above"`), key off `HUNK_EXPAND_STEP` (line 49). Do not introduce a second magic 20.
+
+---
+
+#### 2.8.1 New spec file: `cm-diff-extensions.spec.ts`
+
+**Goal:** Close the test gap on the CodeMirror integration layer. Today the entire 600-LOC `cm-diff-extensions.ts` has zero direct tests — `mz-diff-view.spec.ts` only covers upstream `buildRenderItems` (data shape, not rendering). P2.4 + P2.5 both edit this file; ship the spec alongside.
+
+**Cases (≥14):**
+
+1. `formatHunkLabel(120)` → `"120 lines above"`
+2. `formatHunkLabel(1)` → `"1 line above"` (singular)
+3. `formatHunkLabel(0)` → `"No more lines above"`
+4. `buildDocPlan`: single hunk-header with `linesAvailable > 0` → one hunk doc line; text is the formatted label; `LineMeta.originalHeader === item.text`.
+5. `buildDocPlan`: single hunk-header with `linesAvailable === 0` and no next hunk → row hidden (no doc line emitted; `lineMeta.length` is one less than the hunk-header items count).
+6. `buildDocPlan`: two consecutive hunk-headers where both gaps empty → both rows hidden.
+7. `buildDocPlan`: two hunks, gap above first empty + gap between them non-zero → only the first hunk row hides.
+8. `buildDocPlan`: code-line items between hunk-headers stay in document order; widget specs unchanged.
+9. `buildLineDecorations`: hunk-kind line gets `HUNK_LINE_DECO` AND a title decoration with the original header.
+10. `buildLineDecorations`: hunk-kind line whose meta has no `originalHeader` gets only `HUNK_LINE_DECO` (defensive).
+11. `buildLineDecorations`: add/remove kinds still get their respective line decos + inline markers — regression guard for §2.8 changes not breaking unrelated paths.
+12. `HunkButtonMarker.eq`: same gapIndex + linesAvailable → equal; differing values → unequal.
+13. `HunkButtonMarker.toDOM`: when `linesAvailable === 0` the button is disabled and title is `"No more hidden lines"`.
+14. `HunkButtonMarker.toDOM`: when `linesAvailable > 0` the button title matches `Show ${min(HUNK_EXPAND_STEP, linesAvailable)} lines above`.
+15. `HunkButtonMarker.toDOM` (P2.5): wider hit-target classes applied; count badge `+${min(HUNK_EXPAND_STEP, linesAvailable)}` renders inside the button.
+16. `HunkButtonMarker.toDOM` (P2.5): dispatching a `MouseEvent('click', { shiftKey: true })` fires `onExpand` with `count = min(2 * HUNK_EXPAND_STEP, linesAvailable)`.
+
+**Fixtures:** reuse the `makeHunk(startLine, endLine)` pattern from `mz-diff-view.spec.ts:50–80`. `toDOM` cases use jsdom (already configured for this lib).
+
+**Verification:** `pnpm nx test diff-view` passes; new file in the suite output; coverage report shows non-zero lines in `cm-diff-extensions.ts`.
 
 ---
 
 ### 2.9 P2.5 — Better expand-context button
 
-**Goal:** The hunk-row gutter chevron becomes a wider, labelled
-click target — visual parity with the trailing-gap expand bar.
+> **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
+
+**Goal:** The hunk-row gutter chevron becomes a ~24px wider hit target with chevron + count badge (`"+20"`, or `"+12"` when fewer lines remain). Disabled with `"No more hidden lines"` title when `linesAvailable === 0`. Behavior preserved: click expands `HUNK_EXPAND_STEP` lines up; shift-click doubles.
 
 **Files to touch:**
 
-- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:478–532`
-  — widen the button into a small strip with text `"Show 20
-lines above"` (or just `"+20"` if width-constrained). Reposition
-  so the strip sits inside the hunk row's gutter, not at the seam.
-- Optional: add a `"Show all"` modifier (shift+click already
-  doubles; document this).
+- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:478–532` — `HunkButtonMarker.toDOM`:
+  - Replace the 12×12 circle with a wider strip-shaped button (~24px × 16px), still positioned in the OLD gutter cell with the `translate(50%, -50%)` math so the visual centroid stays on the column seam.
+  - Append a `<span>` inside the button rendering `+${min(HUNK_EXPAND_STEP, linesAvailable)}` next to the existing `lucideChevronUp` icon. Hide the count when `linesAvailable === 0`.
+  - Tailwind: drop `h-4 w-4 rounded-full`; replace with `h-5 px-1 rounded-md` (or similar). Keep within the hunk-band vertical rhythm.
+  - Title logic unchanged.
+- Add a one-line comment near the click handler (lines 523–528) documenting shift-click doubles to `2 × HUNK_EXPAND_STEP`.
+
+**Tests:** covered by §2.8.1 cases 12–16.
 
 **Verification:**
 
-1. Hunk row button has visible label.
-2. Click expands 20 lines above; trailing-gap bar still works.
+1. Hunk-row button is visibly wider than before; chevron + `+20` count both render.
+2. Click expands `HUNK_EXPAND_STEP` lines (20). Shift-click expands 40 (still works under the wider DOM).
+3. Fully expanded: button disables, count hides, title becomes `"No more hidden lines"`. The whole row hides per §2.8's hide-on-both-empty rule.
+4. Visual: the strip stays inside the gutter columns; the doc-line text ("120 lines above") sits to its right; nothing collides.
+
+**Risks / notes:**
+
+- The wider button still uses `transform: translate(50%, -50%)` to position over the column seam. Verify in dev that the wider shape doesn't overflow on the left (the OLD column natural width ≈ 32px; 24px button + half-translate fits).
+- Don't widen so much that the button overlaps the new row text — keep at least 8px between the button's right edge and the start of the doc area.
+- Count badge changes `+20` → `+12` etc. as `linesAvailable` shrinks below `HUNK_EXPAND_STEP`. `HunkButtonMarker.eq()` already keys off `linesAvailable`, so re-render is automatic.
 
 ---
 
@@ -981,3 +1067,107 @@ Suggested order for execution (each item is one PR slice):
 
 This sequencing keeps each PR under ~300 lines diff and avoids
 landing the architectural change after the polish that depends on it.
+
+---
+
+## 7. /plan-eng-review notes — P2.4 + P2.5 (2026-05-24)
+
+### 7.1 NOT in scope (P2.4 + P2.5)
+
+- Function-scope suffix preservation (`@@ ... @@ class FooBar:`) — deferred to TODOS.md "Diff view — function-scope suffix on hunk row (post P2.4)".
+- ExpandBarWidget spec coverage — deferred to TODOS.md "Diff view — spec coverage for trailing-gap ExpandBarWidget". Folded into the new spec file's home so future pickup is cheap.
+- Shared abstraction for `ExpandBarWidget` + `HunkButtonMarker` — both are visual cousins but extend different CodeMirror base classes (`WidgetType` vs `GutterMarker`). Coupling them is over-engineering for two callsites.
+- Down/both direction support on the per-hunk gutter button — the button only operates "up" by design; trailing-gap and bidirectional cases stay with `ExpandBarWidget`.
+- Visual regression / screenshot tests for diff view — no screenshot harness exists in this repo today; not in scope to add one.
+
+### 7.2 What already exists (reused by P2.4 + P2.5)
+
+- `DiffHunk.{oldStart, oldCount, newStart, newCount}` — parsed numbers ready in `diff-parser.ts:20–41`. No parser change needed.
+- `RenderItem.hunk-header` carries `gapIndex` + `linesAvailable` — `mz-diff-view.ts:88–98`.
+- `gapRemaining()` in `mz-diff-view.ts:593–608` already computes the lookahead `linesBelow` value §2.8 needs.
+- `HUNK_EXPAND_STEP = 20` constant — `cm-diff-extensions.ts:49`. Key all "20" text off this.
+- `HunkButtonMarker.eq()` already keys off `gapIndex + linesAvailable` — re-renders on count change for free.
+- `lucideChevronUp` icon — already imported and used; reuse for the wider button.
+- `ExpandBarWidget` (lines 269–334) — the labelled-strip visual pattern P2.5 mirrors. Look at its `makeBtn` factory for the title/disabled/shift-doubles structure before re-implementing.
+
+### 7.3 Failure modes
+
+| Codepath                                       | Failure scenario                                                                                            | Has test? | Has handling?    | Silent?                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------- | ---------------- | -------------------------------- |
+| `buildDocPlan` hide-on-both-empty              | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)       | no — visible UX                  |
+| `buildDocPlan` hide-on-both-empty              | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a              | no — visible misalignment        |
+| `buildLineDecorations` title decoration        | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a              | yes — fall back: no tooltip      |
+| `HunkButtonMarker.toDOM` wider hit target      | Wider button overflows the gutter on the left, clipped by parent.                                           | no (visual)            | css; manual QA   | no — visible overflow            |
+| `HunkButtonMarker.toDOM` count badge           | Badge text not in sync with `linesAvailable` after rapid clicks.                                            | n/a (eq covers)        | `eq` rebuild     | no — would show wrong number     |
+| `HunkButtonMarker.toDOM` shift-click           | Wider DOM intercepts shiftKey wrong; only single step expands.                                              | yes (case 16)          | n/a              | yes — silent regression to 1×    |
+
+**Critical gaps:** none. The closest is the wider-button overflow risk (no automated test, only css + manual QA) but the failure is visually obvious in dev — not silent.
+
+### 7.4 Worktree parallelization strategy
+
+Sequential implementation, no parallelization opportunity. P2.4 and P2.5 both edit `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`. They also share the new `cm-diff-extensions.spec.ts`. Land in one PR slice; they're a single coherent design.
+
+### 7.5 Implementation Tasks
+
+Synthesized from this review's findings. Each task derives from a specific finding above. Run with Claude Code or Codex; checkbox as you ship.
+
+- [ ] **T1 (P1, human: ~1h / CC: ~8min)** — `cm-diff-extensions.ts` — Add `formatHunkLabel` helper + `LineMeta.originalHeader` field
+  - Surfaced by: §2.8 Implementation notes (label formatter contract).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`
+  - Verify: unit test cases 1–3 from §2.8.1.
+
+- [ ] **T2 (P1, human: ~2h / CC: ~12min)** — `cm-diff-extensions.ts` — `buildDocPlan` hide-on-both-empty + label swap
+  - Surfaced by: Architecture decision D3 (hide row when both adjacent gaps empty).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:131–140` + header comment block at lines 76–87.
+  - Verify: unit test cases 4–8 from §2.8.1; manual: multi-hunk diff with one fully-expanded mid-hunk → row disappears.
+
+- [ ] **T3 (P1, human: ~45min / CC: ~6min)** — `cm-diff-extensions.ts` — `buildLineDecorations` title decoration on hunk rows
+  - Surfaced by: Architecture decision D2 (replace text + tooltip with raw `@@`).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:235–237`.
+  - Verify: unit test cases 9–11; manual: hover hunk row → tooltip shows raw `@@`.
+
+- [ ] **T4 (P1, human: ~1.5h / CC: ~10min)** — `cm-diff-extensions.ts` — `HunkButtonMarker.toDOM` wider hit target + count badge
+  - Surfaced by: §2.9 P2.5 implementation.
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:478–532`.
+  - Verify: unit test cases 12–16; manual: button visibly wider, `+20` badge renders, doesn't overflow gutter.
+
+- [ ] **T5 (P1, human: ~3h / CC: ~20min)** — Create `cm-diff-extensions.spec.ts` with ≥14 cases
+  - Surfaced by: §2.8.1 + D4 (full coverage required).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.spec.ts` (new).
+  - Verify: `pnpm nx test diff-view` passes; coverage report shows non-zero lines in `cm-diff-extensions.ts`.
+
+- [ ] **T6 (P2, human: ~10min / CC: ~3min)** — Update header comment diagram at `cm-diff-extensions.ts:76–87`
+  - Surfaced by: §2.8 risks/notes (diagram maintenance per CLAUDE.md rule).
+  - Files: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:76–87`.
+  - Verify: comment accurately reflects "hunk row's doc text is a human label; raw `@@` is on the line's title attr; row hides when both adjacent gaps empty."
+
+### 7.6 Completion summary (P2.4 + P2.5)
+
+- Step 0: Scope Challenge — scope accepted as-is (1 file, 0 new classes, no STOP gate).
+- Architecture Review: 3 issues raised, all decided (label/button split, label rendering mechanism, label content).
+- Code Quality Review: 0 issues requiring user decision; constants reuse + diagram maintenance folded into plan inline.
+- Test Review: coverage diagram produced, 16 gaps identified, full new spec file required (D4).
+- Performance Review: 0 issues.
+- NOT in scope: 5 items listed in §7.1.
+- What already exists: 7 items listed in §7.2.
+- TODOS.md updates: 2 items added (function-scope suffix, ExpandBarWidget tests).
+- Failure modes: 0 critical gaps flagged (table in §7.3).
+- Outside voice: skipped per user.
+- Parallelization: sequential — both items edit the same file; one PR slice.
+- Lake Score: 4/4 recommendations chose the complete option (full spec coverage, hide-on-both-empty refinement, decorate-with-title for tooltip, defer scope suffix as TODO not omitted).
+
+---
+
+## GSTACK REVIEW REPORT
+
+| Review        | Trigger              | Why                              | Runs | Status         | Findings                       |
+| ------------- | -------------------- | -------------------------------- | ---- | -------------- | ------------------------------ |
+| CEO Review    | `/plan-ceo-review`   | Scope & strategy                 | 0    | —              | —                              |
+| Codex Review  | `/codex review`      | Independent 2nd opinion          | 0    | —              | —                              |
+| Eng Review    | `/plan-eng-review`   | Architecture & tests (required)  | 1    | CLEAR (PLAN)   | 3 issues, 0 critical gaps      |
+| Design Review | `/plan-design-review`| UI/UX gaps                       | 0    | —              | —                              |
+| DX Review     | `/plan-devex-review` | Developer experience gaps        | 0    | —              | —                              |
+
+- **UNRESOLVED:** 0
+- **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
+
