@@ -308,6 +308,7 @@ export class WorkspacesFacade {
     const current = this.workspaceById(id)();
     if (!current) return;
     const previous = current.status;
+    if (previous === status) return;
     this.store.setStatus(id, status);
     try {
       await this.adapter.setUiStatus(id, status);
