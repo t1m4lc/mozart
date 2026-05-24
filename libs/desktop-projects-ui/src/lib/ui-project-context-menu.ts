@@ -1,24 +1,18 @@
 import { ChangeDetectionStrategy, Component, output } from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucidePlus, lucideSettings, lucideTrash2 } from '@ng-icons/lucide';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
 import { HlmIconImports } from '@spartan-ui/icon';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideEyeOff,
-  lucidePlus,
-  lucideSettings,
-  lucideSmile,
-  lucideTrash2,
-} from '@ng-icons/lucide';
 
 @Component({
   selector: 'app-project-context-menu',
   imports: [NgIcon, HlmDropdownMenuImports, HlmIconImports],
   providers: [
     provideIcons({
-      lucideEyeOff,
+      // lucideEyeOff,
       lucidePlus,
       lucideSettings,
-      lucideSmile,
+      // lucideSmile,
       lucideTrash2,
     }),
   ],
@@ -33,34 +27,34 @@ import {
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
-          (triggered)="newWorkspace.emit()"
+          (triggered)="settings.emit()"
         >
-          <ng-icon hlm name="lucidePlus" size="xs" /> New workspace
+          <ng-icon hlm name="lucideSettings" size="xs" /> Project settings
         </button>
         <button
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
-          (triggered)="settings.emit()"
+          (triggered)="newWorkspace.emit()"
         >
-          <ng-icon hlm name="lucideSettings" size="xs" /> Repository settings
+          <ng-icon hlm name="lucidePlus" size="xs" /> New workspace
         </button>
-        <button
+        <!-- <button
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
           (triggered)="changeIcon.emit()"
         >
           <ng-icon hlm name="lucideSmile" size="xs" /> Change icon
-        </button>
-        <button
+        </button> -->
+        <!-- <button
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
           (triggered)="hide.emit()"
         >
           <ng-icon hlm name="lucideEyeOff" size="xs" /> Hide repository
-        </button>
+        </button> -->
       </hlm-dropdown-menu-group>
       <hlm-dropdown-menu-separator />
       <hlm-dropdown-menu-group>

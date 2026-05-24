@@ -5,9 +5,6 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmBadgeImports } from '@spartan-ui/badge';
-import { HlmSelectImports } from '@spartan-ui/select';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
@@ -15,6 +12,8 @@ import {
   lucideHardDrive,
   lucideSparkles,
 } from '@ng-icons/lucide';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmSelectImports } from '@spartan-ui/select';
 
 export type ProviderId = 'anthropic' | 'openai' | 'local';
 
@@ -55,7 +54,7 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
  */
 @Component({
   selector: 'mz-composer-model-select',
-  imports: [NgIcon, HlmBadgeImports, HlmSelectImports, HlmTooltipImports],
+  imports: [NgIcon, HlmBadgeImports, HlmSelectImports],
   providers: [
     provideIcons({
       lucideCheck,
@@ -73,7 +72,6 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
     >
       <hlm-select-trigger
         size="auto"
-        hlmTooltip="Change model"
         class="h-6 w-auto gap-1 rounded-md border-transparent px-2.5 py-0 text-xs shadow-none [&>ng-icon:last-child]:text-xs [&>ng-icon:last-child]:transition-transform [&>ng-icon:last-child]:duration-150 [&[aria-expanded=true]>ng-icon:last-child]:rotate-180"
       >
         <ng-icon hlm [name]="_triggerIcon()" size="xs" />

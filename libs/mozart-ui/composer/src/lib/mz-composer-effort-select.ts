@@ -5,8 +5,6 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmSelectImports } from '@spartan-ui/select';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
@@ -16,6 +14,7 @@ import {
   lucideSignalMedium,
   lucideSignalZero,
 } from '@ng-icons/lucide';
+import { HlmSelectImports } from '@spartan-ui/select';
 import type { EffortLevel } from './mz-composer';
 
 interface EffortRow {
@@ -47,7 +46,7 @@ const ROW_BY_LEVEL: Record<EffortLevel, EffortRow> = EFFORT_ROWS.reduce(
  */
 @Component({
   selector: 'mz-composer-effort-select',
-  imports: [NgIcon, HlmSelectImports, HlmTooltipImports],
+  imports: [NgIcon, HlmSelectImports],
   providers: [
     provideIcons({
       lucideCheck,
@@ -68,7 +67,6 @@ const ROW_BY_LEVEL: Record<EffortLevel, EffortRow> = EFFORT_ROWS.reduce(
     >
       <hlm-select-trigger
         size="auto"
-        hlmTooltip="Adjust effort"
         class="h-6 w-auto gap-1 rounded-md border-transparent px-2.5 py-0 text-xs shadow-none [&>ng-icon:last-child]:text-xs [&>ng-icon:last-child]:transition-transform [&>ng-icon:last-child]:duration-150 [&[aria-expanded=true]>ng-icon:last-child]:rotate-180"
       >
         <ng-icon hlm [name]="_currentRow().icon" size="xs" />
