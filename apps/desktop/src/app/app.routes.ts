@@ -29,11 +29,15 @@ export const appRoutes: Route[] = [
     loadComponent: () =>
       import('./pages/onboarding.page').then((m) => m.OnboardingPage),
   },
-  {
-    path: 'tour',
-    canActivate: [authGuard],
-    loadComponent: () => import('./pages/tour.page').then((m) => m.TourPage),
-  },
+  // /tour is parked: the overlay is optional and the 5-step walkthrough
+  // isn't ready yet. Re-enable by uncommenting this route + the Replay
+  // tour section in settings.page.ts. The `pages/tour.page.ts` and
+  // `desktop-onboarding-feature` tour atoms are kept in-tree.
+  // {
+  //   path: 'tour',
+  //   canActivate: [authGuard],
+  //   loadComponent: () => import('./pages/tour.page').then((m) => m.TourPage),
+  // },
   {
     path: '',
     component: AppShell,
