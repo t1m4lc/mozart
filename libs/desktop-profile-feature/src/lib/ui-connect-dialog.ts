@@ -10,10 +10,13 @@ import {
 import { HlmAlertImports } from '@spartan-ui/alert';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmDialogImports } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmInputImports } from '@spartan-ui/input';
 import { HlmLabelImports } from '@spartan-ui/label';
 import { HlmSpinnerImports } from '@spartan-ui/spinner';
 import { BrnDialogRef } from '@spartan-ng/brain/dialog';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideLock } from '@ng-icons/lucide';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 
 // Connect-to-Claude dialog. Probe-before-persist: the backend only writes
@@ -32,11 +35,14 @@ import { ProfileFacade } from '@mozart/desktop-profile-data-access';
   imports: [
     HlmDialogImports,
     HlmButtonImports,
+    HlmIconImports,
     HlmInputImports,
     HlmLabelImports,
     HlmAlertImports,
     HlmSpinnerImports,
+    NgIcon,
   ],
+  providers: [provideIcons({ lucideLock })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div hlmDialogHeader class="px-6 py-4">
@@ -69,6 +75,12 @@ import { ProfileFacade } from '@mozart/desktop-profile-data-access';
           <p hlmAlertDescription>{{ error() }}</p>
         </div>
       }
+      <p
+        class="flex items-center gap-1.5 text-xs text-muted-foreground"
+      >
+        <ng-icon hlm name="lucideLock" size="xs" />
+        <span>Your token is stored locally on this device, in your OS keychain.</span>
+      </p>
       <!-- Submit button kept inside the form so Enter triggers submit().
            Visible action lives in the dialog footer. -->
       <button type="submit" class="hidden" aria-hidden="true"></button>
