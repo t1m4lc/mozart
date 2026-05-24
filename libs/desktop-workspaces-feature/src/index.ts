@@ -1,7 +1,8 @@
 export { WorkspaceDetailPage } from './lib/feature-detail/workspace-detail.page';
 export { WorkspaceTabContent } from './lib/feature-detail/workspace-tab-content';
 export { FeatureWorkspaceAside } from './lib/feature-workspace-aside';
-export { FeatureWorkspaceMiddle } from './lib/feature-workspace-middle';
+export { FeatureChatScrollSurface } from './lib/feature-chat-scroll-surface';
+export { FeatureWorkspaceComposer } from './lib/feature-workspace-composer';
 export { FeatureFileContent } from './lib/feature-file-content';
 export { FeatureChatTabBar } from './lib/feature-chat-tab-bar';
 export { WorkspaceContextMenu } from './lib/feature-workspace-context-menu';

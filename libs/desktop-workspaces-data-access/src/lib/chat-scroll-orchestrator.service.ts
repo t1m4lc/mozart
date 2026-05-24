@@ -1,9 +1,7 @@
 import { Injectable, signal, type Signal } from '@angular/core';
 
 // 700ms covers the default smooth-scroll duration (~500ms in
-// Chromium) plus a margin for layout settling. Mirrors the prior
-// in-component constant in FeatureWorkspaceMiddle.scrollMainToBottom
-// — see commit history before the P2.2 decoupling.
+// Chromium) plus a margin for layout settling.
 const PROGRAMMATIC_SCROLL_GRACE_MS = 700;
 
 /** Payload of a focus request emitted by the chat-scope surface

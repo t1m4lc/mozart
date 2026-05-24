@@ -14,8 +14,9 @@ import { FileTabsService } from '@mozart/desktop-workspaces-data-access';
 import { WorkspaceTabRegistry } from '@mozart/desktop-workspaces-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { FeatureChatTabBar } from '../feature-chat-tab-bar';
+import { FeatureChatScrollSurface } from '../feature-chat-scroll-surface';
 import { FeatureFileContent } from '../feature-file-content';
-import { FeatureWorkspaceMiddle } from '../feature-workspace-middle';
+import { FeatureWorkspaceComposer } from '../feature-workspace-composer';
 import { ChatEmptyState } from '@mozart/desktop-workspaces-ui';
 import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
 
@@ -24,9 +25,10 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
   imports: [
     ...HlmSkeletonImports,
     FeatureChatTabBar,
-    FeatureWorkspaceMiddle,
+    FeatureChatScrollSurface,
     FeatureChatContent,
     FeatureFileContent,
+    FeatureWorkspaceComposer,
     ChatEmptyState,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -42,10 +44,9 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
     @switch (tab()?.kind) {
       @case ('chat') {
         @if (chatTab(); as chat) {
-          <app-feature-workspace-middle
+          <app-feature-chat-scroll-surface
             class="flex flex-1 flex-col"
             [workspaceId]="workspaceIdOrNull()"
-            [frozen]="frozen()"
           >
             <app-feature-chat-content [workspaceId]="workspaceIdOrNull()">
               <app-chat-empty-state
@@ -59,7 +60,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
                 [installManager]="install().manager"
               />
             </app-feature-chat-content>
-          </app-feature-workspace-middle>
+          </app-feature-chat-scroll-surface>
         }
       }
       @case ('file') {
@@ -83,6 +84,17 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
           <hlm-skeleton class="h-4 w-2/3" />
         </div>
       }
+    }
+
+    <!-- Always-mounted composer host: visible on chat AND file tabs
+         (P2.2). Sticky bottom-0 inside this component pins it to
+         <main>'s viewport bottom while the chat scrolls behind it. -->
+    @if (workspaceIdOrNull(); as ws) {
+      <app-feature-workspace-composer
+        [workspaceId]="ws"
+        [frozen]="frozen()"
+        [activeTabKind]="composerTabKind()"
+      />
     }
   `,
 })
@@ -121,6 +133,16 @@ export class WorkspaceTabContent {
     const t = this.tab();
     return t?.kind === 'file' ? t.path : null;
   });
+
+  // Narrow the parsed tab kind to the one the composer cares about
+  // (chat vs file). Other kinds (review/run/terminal) collapse to
+  // null — composer treats null the same as "no special tab gate".
+  protected readonly composerTabKind = computed<'chat' | 'file' | null>(
+    () => {
+      const k = this.tab()?.kind;
+      return k === 'chat' || k === 'file' ? k : null;
+    },
+  );
 
   private readonly workspace = computed(() => {
     const id = this.workspaceId();

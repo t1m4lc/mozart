@@ -9,13 +9,16 @@ import { MessageList } from '@mozart/desktop-chat-ui';
 
 /**
  * Chat-only content for the middle shell — owns the message-list /
- * empty-state switch. Projected into `FeatureWorkspaceMiddle`'s
- * `[middle-content]` slot ; the surrounding frame keeps the composer
- * pinned regardless of which content sits inside.
+ * empty-state switch. Projected into `FeatureChatScrollSurface`'s
+ * default slot; that surface owns chat scroll behavior. The composer
+ * (FeatureWorkspaceComposer) lives outside both, always mounted at
+ * WorkspaceTabContent's bottom regardless of which content sits in
+ * the chat surface — that's the P2.2 file-tab visibility design.
  *
- * Owns no scroll API. FeatureWorkspaceMiddle drives chat scroll against
- * the shell's `<main>` overflow surface, using ScrollPositionService
- * for per-tab persistence and per-chat attach/detach mode.
+ * Owns no scroll API. FeatureChatScrollSurface drives chat scroll
+ * against the shell's `<main>` overflow surface, using
+ * ScrollPositionService for per-tab persistence and per-chat
+ * attach/detach mode.
  *
  * Empty state is projected via the default `<ng-content>` — keeps the
  * variant/copy decisions in the parent page rather than coupling this

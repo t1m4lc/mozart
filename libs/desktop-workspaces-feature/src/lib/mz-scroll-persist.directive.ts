@@ -14,7 +14,7 @@ import { ScrollPositionService } from '@mozart/desktop-workspaces-data-access';
 // to persist its scrollTop across `key` changes and component destroy.
 // Used by file-diff / file-edit panes where each tab owns its own
 // scroll container. Chat scrolling uses imperative orchestration in
-// FeatureWorkspaceMiddle instead — because the chat scroll surface is
+// FeatureChatScrollSurface instead — because the chat scroll surface is
 // `<main>` in app-shell, not the message list.
 //
 // Lifecycle:

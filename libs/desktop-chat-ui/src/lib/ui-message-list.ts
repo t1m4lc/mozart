@@ -7,7 +7,7 @@ import { UserMessage } from './ui-user-message';
 
 // Pure presentational @for over messages, switching on role. Owns no
 // scroll behavior — chat scroll is orchestrated from
-// FeatureWorkspaceMiddle against the shell's <main> overflow surface,
+// FeatureChatScrollSurface against the shell's <main> overflow surface,
 // using ScrollPositionService for per-tab persistence and attach mode.
 //
 // TODO(perf): see TODOS.md — virtual scrolling is captured there.
