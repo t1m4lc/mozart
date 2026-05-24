@@ -56,8 +56,9 @@ export const ChatStore = signalStore(
      * the existing chat if any, otherwise inserts a synthetic placeholder
      * with a temporary id. The facade is expected to immediately replace
      * the placeholder with the server row via `replaceChat` once
-     * persistence resolves. Called by `FeatureWorkspaceMiddle`'s
-     * workspace-id effect via `ensureChatForWorkspace(id)`.
+     * persistence resolves. Called by `WorkspaceDetailPage`'s
+     * workspace-id effect via `ensureChatForWorkspace(id)` so the
+     * composer can send before any chat tab has been visited.
      */
     ensureChat(workspaceId: string): Chat {
       const existing = store.chatByWorkspace().get(workspaceId);

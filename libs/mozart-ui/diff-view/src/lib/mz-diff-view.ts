@@ -148,6 +148,11 @@ export class MzDiffView {
    *  bar and the bar's linesAvailable indicator. Null hides the
    *  below-last-hunk bar. */
   readonly fileLineCount = input<number | null>(null);
+  /** Extra paddingBottom on `.cm-content` so the document can scroll
+   *  past the visible viewport bottom. Used when a fixed UI element
+   *  overlays the diff's bottom region (e.g. the workspace composer
+   *  on file tabs in diff mode). 0 disables. */
+  readonly scrollPaddingBottom = input<number>(0);
 
   private readonly destroyRef = inject(DestroyRef);
   private readonly theme = inject(ThemeService);
@@ -390,6 +395,15 @@ export class MzDiffView {
       this.decorationsCompartment.of([]),
       this.readOnlyCompartment.of(EditorState.readOnly.of(true)),
     ];
+
+    const pb = this.scrollPaddingBottom();
+    if (pb > 0) {
+      extensions.push(
+        EditorView.theme({
+          '.cm-content': { paddingBottom: `${pb}px` },
+        }),
+      );
+    }
 
     const state = EditorState.create({
       doc: plan.doc,

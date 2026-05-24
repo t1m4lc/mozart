@@ -329,6 +329,7 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** P1.1 landed (so the targets exist). `@tauri-apps/api` is already a dependency, but `@tauri-apps/api/mocks` may need an explicit re-export or import path check. Decision on whether to keep the example `src/example.spec.ts` placeholder or delete it as part of the same change.
 
 ---
+
 ## P1.2 — Manual refresh button on Changes header (skipped during eng review)
 
 **What:** A small refresh icon at the right of the Staged/Unstaged section header that calls `repos.refreshChangedFilesInBackground(workspaceId)`.
@@ -437,3 +438,42 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 
 ---
 
+## Composer — per-chat draft persistence (blocked on multi-chat workspaces)
+
+**What:** Save composer draft text per chat (per workspace), so switching active chats or reloading the app restores what was typed but not sent.
+
+**Why:** After P2.2 the composer is always mounted; draft text survives tab switches for free. But switching the workspace's active chat (once multi-chat lands) or reloading the app still loses the draft. Today every workspace has exactly one chat, so persistence is invisible — the moment a chat picker ships, the missing draft becomes a trust-shaped paper cut.
+
+**How to apply:** Add a draft slice to `UiStateFacade` keyed by `chatId`. `FeatureWorkspaceComposer.value` reads/writes through that facade instead of a local signal. Add an eviction rule when a chat or workspace is deleted (so orphan drafts don't pile up in persisted state). Verify with a unit spec covering save → reload → restore + a regression spec for orphan eviction.
+
+**Depends on:** Multi-chat-per-workspace UI / chat picker. Not blocking P2.2.
+
+---
+
+## desktop-e2e — Tauri-mocking infra for Playwright specs
+
+**What:** Build the test harness that lets the desktop app boot under Playwright in browser-only mode. Today `apps/desktop` boots via `provideTauriAdapters()` which calls `invoke()` against the Tauri runtime at module init; under `pnpm nx serve desktop` (which Playwright drives) those calls reject and the app never reaches a usable state. The current `apps/desktop-e2e/src/example.spec.ts` looks for `<h1>Welcome</h1>` — text that does not exist in the app — confirming nobody has actually run the e2e suite end-to-end.
+
+**Why:** Without this infra, every plan that promises Playwright coverage (`/plan-eng-review` has been emitting these consistently — P2.2 D5 was the most recent) lands with only the unit-spec layer of coverage. Integration flows that span Tauri commands, signals, scroll DOM, and router can't be locked in. Each PR that defers e2e is small; the cumulative gap is large.
+
+**How to apply:** Two paths. (a) Provide a `provideMockAdapters()` alongside `provideTauriAdapters()` and wire it in via an env flag (`E2E_MODE=mock` → swap providers in `app.config.ts`). The mocks live next to `WORKSPACES_MOCK` and friends; bootstrap fixtures via Playwright `beforeAll`. (b) Drive a real Tauri instance via `tauri-driver` + `webdriverio` (heavier, but no behavior divergence). Recommend (a) for P2.2-scoped flows where data shape matters more than Tauri-command correctness.
+
+**Concrete first commits when this lands:**
+- Replace `example.spec.ts` with a smoke spec that asserts the actual workspace-list landing renders.
+- Two specs for P2.2 (per `docs/tmp/2026-05-24-shell-ux-investigation.md` §2.6 T5): fresh-workspace first send from a file tab; streaming auto-follow round-trip across a chat→file→chat tab switch.
+
+**Depends on:** Nothing — pure infra work. Pulls forward as soon as someone needs reliable e2e (likely the next plan-eng-review that flags it).
+
+---
+
+## Composer — "talking to chat X" indicator on file tabs (blocked on multi-chat workspaces)
+
+**What:** Render a small affordance next to the composer (e.g. `→ Chat: My-chat-name`) when the active tab is a file tab AND the workspace has more than one chat — so the user knows where a Send will land before pressing it.
+
+**Why:** P2.2 makes the composer always visible. Send routes to the workspace's active chat regardless of which tab is open. With one chat per workspace that's unambiguous; with two or more, it's invisible routing. The original shell-UX investigation already flagged this as a `risks` note: "surface a small indicator if ambiguity matters."
+
+**How to apply:** Bind to `_activeChat()` (already wired in `FeatureWorkspaceComposer`); render the chip only when `tab().kind === 'file' && chatsByWorkspace(workspaceId).length > 1`. Click on the chip should navigate to that chat's tab. Add a unit spec for the visibility gate (single-chat → hidden; multi-chat + file tab → visible).
+
+**Depends on:** Multi-chat-per-workspace UI. Pure no-op today; safe to ship the gate code alongside P2.2 if multi-chat is on the near horizon, otherwise defer.
+
+---

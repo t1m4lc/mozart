@@ -54,6 +54,13 @@ export class MzCodeEditor {
   readonly path = input<string | null>(null);
   readonly readOnly = input<boolean>(false);
   readonly theme = input<CodeEditorTheme>('light');
+  // Extra paddingBottom on `.cm-content` so the document can scroll
+  // past the visible viewport bottom. Used when a fixed UI element
+  // overlays the editor's bottom region (e.g. the workspace composer
+  // on file tabs) — without this, the last lines are forever hidden
+  // behind the overlay. 0 disables; default is no padding for
+  // contexts that don't need it (sandbox, etc.).
+  readonly scrollPaddingBottom = input<number>(0);
 
   readonly valueChange = output<string>();
 
@@ -139,6 +146,15 @@ export class MzCodeEditor {
         this.scheduleEmit();
       }),
     ];
+
+    const pb = this.scrollPaddingBottom();
+    if (pb > 0) {
+      extensions.push(
+        EditorView.theme({
+          '.cm-content': { paddingBottom: `${pb}px` },
+        }),
+      );
+    }
 
     const state = EditorState.create({
       doc: initial,

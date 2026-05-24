@@ -266,6 +266,7 @@ interface PathDisplay {
               [error]="error()"
               [fetchContext]="fetchContext()"
               [fileLineCount]="fileLineCount()"
+              [scrollPaddingBottom]="scrollPaddingBottom()"
             />
           }
           @case ('binary') {
@@ -328,6 +329,11 @@ export class MzFileDiffCard {
   readonly defaultCollapsed = input<boolean>(false);
   readonly active = input<boolean>(false);
   readonly viewed = input<boolean>(false);
+  // Forwarded to the inner MzDiffView. Bottom padding (px) inside the
+  // diff's CodeMirror so the last hunk can scroll past UI that overlays
+  // the bottom (e.g. the file-tab composer). 0 disables — the default
+  // for standalone card usage.
+  readonly scrollPaddingBottom = input<number>(0);
 
   readonly refresh = output<void>();
   // Plan §5.3 named this `copy`, but Angular flags `copy` as a DOM event

@@ -14,8 +14,9 @@ import { FileTabsService } from '@mozart/desktop-workspaces-data-access';
 import { WorkspaceTabRegistry } from '@mozart/desktop-workspaces-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { FeatureChatTabBar } from '../feature-chat-tab-bar';
+import { FeatureChatScrollSurface } from '../feature-chat-scroll-surface';
 import { FeatureFileContent } from '../feature-file-content';
-import { FeatureWorkspaceMiddle } from '../feature-workspace-middle';
+import { FeatureWorkspaceComposer } from '../feature-workspace-composer';
 import { ChatEmptyState } from '@mozart/desktop-workspaces-ui';
 import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
 
@@ -24,13 +25,20 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
   imports: [
     ...HlmSkeletonImports,
     FeatureChatTabBar,
-    FeatureWorkspaceMiddle,
+    FeatureChatScrollSurface,
     FeatureChatContent,
     FeatureFileContent,
+    FeatureWorkspaceComposer,
     ChatEmptyState,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex min-h-0 flex-1 flex-col' },
+  // `overflow-hidden` clips any child overflow at this boundary so the
+  // composer's `absolute inset-x-0 bottom-0` anchor cannot drift below
+  // the viewport even if a descendant tries to push past its flex
+  // allocation. CodeMirror, chat-scroll-surface, and the file editor
+  // each own their own internal scroll — overflow is intentional inside
+  // them, never outside.
+  host: { class: 'relative flex min-h-0 flex-1 flex-col overflow-hidden' },
   template: `
     <app-feature-chat-tab-bar
       class="sticky top-10 z-20"
@@ -42,10 +50,9 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
     @switch (tab()?.kind) {
       @case ('chat') {
         @if (chatTab(); as chat) {
-          <app-feature-workspace-middle
+          <app-feature-chat-scroll-surface
             class="flex flex-1 flex-col"
             [workspaceId]="workspaceIdOrNull()"
-            [frozen]="frozen()"
           >
             <app-feature-chat-content [workspaceId]="workspaceIdOrNull()">
               <app-chat-empty-state
@@ -59,7 +66,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
                 [installManager]="install().manager"
               />
             </app-feature-chat-content>
-          </app-feature-workspace-middle>
+          </app-feature-chat-scroll-surface>
         }
       }
       @case ('file') {
@@ -83,6 +90,21 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
           <hlm-skeleton class="h-4 w-2/3" />
         </div>
       }
+    }
+
+    <!-- Always-mounted composer host: visible on chat AND file tabs
+         (P2.2). Absolutely positioned at WorkspaceTabContent's bottom
+         so it overlays whatever content is in the @switch — chat
+         scrolls behind it inside chat-scroll-surface, and the file
+         editor extends full-height with the composer floating over
+         the bottom region. -->
+    @if (workspaceIdOrNull(); as ws) {
+      <app-feature-workspace-composer
+        class="absolute inset-x-0 bottom-0 z-30"
+        [workspaceId]="ws"
+        [frozen]="frozen()"
+        [activeTabKind]="composerTabKind()"
+      />
     }
   `,
 })
@@ -121,6 +143,16 @@ export class WorkspaceTabContent {
     const t = this.tab();
     return t?.kind === 'file' ? t.path : null;
   });
+
+  // Narrow the parsed tab kind to the one the composer cares about
+  // (chat vs file). Other kinds (review/run/terminal) collapse to
+  // null — composer treats null the same as "no special tab gate".
+  protected readonly composerTabKind = computed<'chat' | 'file' | null>(
+    () => {
+      const k = this.tab()?.kind;
+      return k === 'chat' || k === 'file' ? k : null;
+    },
+  );
 
   private readonly workspace = computed(() => {
     const id = this.workspaceId();
