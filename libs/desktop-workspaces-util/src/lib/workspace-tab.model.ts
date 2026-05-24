@@ -22,21 +22,15 @@ export interface FileTab {
   kind: 'file';
   title: string;
   filePath: string;
+  // VS Code-style preview tab: single-click in the tree opens a
+  // preview (italic title) that replaces on the next single-click.
+  // Double-click in the tree, click in Changes, or the first edit
+  // promotes it to a pinned tab (isPreview = false).
+  isPreview: boolean;
 }
 
 export type WorkspaceTab = ChatTab | FileTab;
 
-/** Maximum file tabs per workspace. v0.1.0-beta.1 ships with cap = 1 :
- *  opening a file replaces the previous file tab. Less DOM, less
- *  memory, and a clearer mental model — the workspace shows ONE
- *  diff at a time alongside the chats. Raise the cap when a future
- *  iteration warrants multi-file tabs ; FileTabsService.openFor
- *  already does FIFO eviction over the cap. */
-export const FILE_TAB_CAP = 1;
-
-/** @deprecated kept for back-compat callers; chats cap is the
- *  effective `+` button gate. Prefer CHAT_TAB_CAP. */
-export const MAX_TABS = CHAT_TAB_CAP;
 // First chat tab title. Carries the workspace-initialization empty-state
 // (branched from, files ready, setup complete, compose first prompt).
 export const DEFAULT_CHAT_TITLE = 'Start';

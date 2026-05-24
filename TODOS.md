@@ -477,3 +477,39 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** Multi-chat-per-workspace UI. Pure no-op today; safe to ship the gate code alongside P2.2 if multi-chat is on the near horizon, otherwise defer.
 
 ---
+
+## Drafts — compression for very large files (P1.3 follow-up)
+
+**What:** Compress drafts content (e.g. gzip via `fflate`, or LZ-string) inside `DraftsStore` before persisting to localStorage. Worker-write is dropped because `Storage` isn't exposed to dedicated workers, so debounced writes carry us today — but a single ~5MB binary file still serializes 5MB on each flush.
+
+**Why:** Speculative until measured. Most code files are <100KB and the 500ms debounce already keeps the main thread responsive. Becomes relevant when the first user types into a very large file (markdown novels, generated SQL dumps) and notices a jank on the flush. Compression keeps localStorage headroom for multi-MB drafts without bumping to IndexedDB.
+
+**How to apply:** Wrap `JSON.stringify` + `setItem` in `DraftsStore.flushNow` with `compressToUTF16` (or fflate's `gzipSync`). Mirror inverse on hydrate. Compression dep adds ~5KB to the desktop bundle.
+
+**Depends on:** First user report of jank on large-file edits. Don't pre-empt.
+
+---
+
+## WorkspaceMutationsFacade — migrate other post-mutation choreography (P1.3 follow-up)
+
+**What:** The new `WorkspaceMutationsFacade.softRefreshAfterMutation(workspaceId)` centralises tree/changedFiles/diffStats/fileViews refreshes for stage/discard/save. Other workspace-level mutation flows (commit success, merge success, PR create success, branch switch) currently fire their own ad-hoc fan-outs.
+
+**Why:** Adding a fifth refresh later is a one-line change inside the facade vs grepping every consumer. Centralising prevents drift between mutation paths (one path forgets to refresh diff stats, another double-refreshes).
+
+**How to apply:** Audit `WorkspacesFacade.commitWorkspace`, `createPr`, `merge_workspace_locally`'s post-flip step, and any branch-switch handlers. Move their refresh calls into `WorkspaceMutationsFacade` methods (`afterCommit`, `afterPrCreated`, `afterMerge`, `afterBranchSwitch`). Pass extra context (e.g. PR URL) only as side-effect parameters, not as the central choreography.
+
+**Depends on:** Next PR that touches one of those flows — wedge the migration opportunistically.
+
+---
+
+## Drafts — multi-window contention strategy (P1.3 follow-up)
+
+**What:** When Mozart spawns secondary windows, two windows editing the same file will race-overwrite drafts in `mozart-drafts-v1` localStorage. Today single-instance via `tauri-plugin-single-instance` so this is N/A.
+
+**Why:** The general multi-window concern was already captured (under the P1.2 storage section) but drafts have a unique edge: the data is keystroke-frequent and per-(ws, path), so "last writer wins" feels broken (one window's typed paragraph silently vanishes when the other window flushes).
+
+**How to apply:** Two paths when multi-window lands. (a) `BroadcastChannel('mozart-drafts')` — windows post draft updates to each other; each `DraftsStore` mirror updates in real time. (b) Storage `storage` event listener — passively detects writes from other windows, hydrates the in-memory mirror, surfaces a conflict UX if the local buffer also moved. Recommend (a) for liveness; (b) for the silent-conflict detection.
+
+**Depends on:** Multi-window roadmap. Not until then.
+
+---

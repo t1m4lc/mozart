@@ -41,6 +41,7 @@ import { statusBadge } from './util-status-badge';
       [class.opacity-50]="node().ignored"
       [class.px-2]="isFolder()"
       (click)="onClick()"
+      (dblclick)="onDblClick()"
     >
       @if (isFolder()) {
         <ng-icon
@@ -91,6 +92,7 @@ export class FileTreeRow {
   readonly active = input<boolean>(false);
 
   readonly fileClick = output<FileNode>();
+  readonly fileDoubleClick = output<FileNode>();
   readonly folderToggle = output<FileNode>();
 
   protected readonly badge = computed(() => statusBadge(this.node().status));
@@ -107,5 +109,14 @@ export class FileTreeRow {
     } else {
       this.fileClick.emit(this.node());
     }
+  }
+
+  // Native dblclick: browsers also fire two `click`s for the same
+  // gesture, so the route effect sees preview → preview (no-op on
+  // same path) before the final pin. Plan §9.3 accepts the brief
+  // italic flicker on a real double-click.
+  protected onDblClick(): void {
+    if (this.isFolder()) return;
+    this.fileDoubleClick.emit(this.node());
   }
 }

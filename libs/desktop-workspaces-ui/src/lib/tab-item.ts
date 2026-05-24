@@ -29,8 +29,8 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
       'group/tab relative flex h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 first:pl-2 transition-[width,background-color] duration-150 text-muted-foreground hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground',
     '[class.w-36]': '!renaming()',
     '[class.w-56]': 'renaming()',
-    '[class.pr-2]': "renaming() || (tab().kind !== 'chat')",
-    '[class.pr-12]': "!renaming() && tab().kind === 'chat'",
+    '[class.pr-2]': 'renaming() || !showActions()',
+    '[class.pr-12]': '!renaming() && showActions()',
     '[attr.role]': '"tab"',
     '[attr.aria-selected]': 'active()',
     '(click)': 'activate.emit()',
@@ -66,27 +66,30 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
     } @else {
       <span
         class="min-w-0 flex-1 truncate text-xs font-light text-foreground"
+        [class.italic]="isPreviewTab()"
         (dblclick)="onTitleDblClick($event)"
       >
         {{ tab().title }}
       </span>
     }
 
-    @if (tab().kind === 'chat' && !renaming()) {
+    @if (showActions() && !renaming()) {
       <div
         class="absolute right-1 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover/tab:opacity-100"
       >
-        <button
-          hlmBtn
-          variant="ghost"
-          size="icon-xs"
-          type="button"
-          aria-label="Rename tab"
-          class="size-4 rounded-full text-muted-foreground"
-          (click)="startRename($event)"
-        >
-          <ng-icon hlm name="lucidePencil" size="8px" />
-        </button>
+        @if (isChat()) {
+          <button
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
+            type="button"
+            aria-label="Rename tab"
+            class="size-4 rounded-full text-muted-foreground"
+            (click)="startRename($event)"
+          >
+            <ng-icon hlm name="lucidePencil" size="8px" />
+          </button>
+        }
 
         @if (showClose()) {
           <button
@@ -96,7 +99,7 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
             type="button"
             aria-label="Close tab"
             class="size-4 rounded-full text-muted-foreground"
-            [disabled]="$any(tab()).isStreaming"
+            [disabled]="isChatStreaming()"
             (click)="onClose($event)"
           >
             <ng-icon hlm name="lucideX" size="9px" />
@@ -131,6 +134,23 @@ export class TabItem {
 
   // Only chat tabs can be renamed — exposed for host bindings.
   protected readonly isChat = computed(() => this.tab().kind === 'chat');
+  // Italic title for VS Code-style preview file tabs (single-click in
+  // the tree opens a preview; double-click or first edit pins it).
+  protected readonly isPreviewTab = computed(() => {
+    const t = this.tab();
+    return t.kind === 'file' && t.isPreview;
+  });
+  // Actions slot (rename pen + close ×) is shown for any tab; rename
+  // is gated chat-only inside the slot. Without this, file tabs never
+  // rendered their close button (the prior chat-only outer guard
+  // short-circuited the entire slot).
+  protected readonly showActions = computed(
+    () => this.isChat() || this.tab().kind === 'file',
+  );
+  protected readonly isChatStreaming = computed(() => {
+    const t = this.tab();
+    return t.kind === 'chat' && t.isStreaming;
+  });
 
   constructor() {
     effect(() => {

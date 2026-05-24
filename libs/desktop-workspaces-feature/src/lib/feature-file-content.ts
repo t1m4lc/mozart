@@ -27,7 +27,9 @@ import {
   lucideFilePen,
 } from '@ng-icons/lucide';
 import {
+  FileTabsService,
   ScrollPositionService,
+  WorkspaceMutationsFacade,
   fileTabKey,
 } from '@mozart/desktop-workspaces-data-access';
 import {
@@ -241,30 +243,27 @@ export class FeatureFileContent {
   private readonly themeService = inject(ThemeService);
   private readonly uiState = inject(UiStateFacade);
   private readonly scrollPosition = inject(ScrollPositionService);
+  private readonly fileTabs = inject(FileTabsService);
+  private readonly mutations = inject(WorkspaceMutationsFacade);
   private readonly destroyRef = inject(DestroyRef);
   private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
+  // Per-(workspace, path) UI state. Each open tab remembers its own
+  // mode + splitDiff independently; switching between two open tabs
+  // preserves each tab's view choice.
   private readonly fileViewState = this.uiState.fileViewStateFor(
     this.workspaceId,
+    this.filePath,
   );
 
-  protected readonly mode = computed<FileContentMode>(() => {
-    const state = this.fileViewState();
-    const flow = state.activeFlow;
-    if (!flow) return 'diff';
-    const active = state[flow];
-    return active.path === this.filePath() ? active.mode : 'diff';
-  });
+  protected readonly mode = computed<FileContentMode>(
+    () => this.fileViewState().mode,
+  );
 
-  protected readonly diffMode = computed<DiffMode>(() => {
-    const state = this.fileViewState();
-    const flow = state.activeFlow;
-    if (!flow) return 'unified';
-    const active = state[flow];
-    if (active.path !== this.filePath()) return 'unified';
-    return active.splitDiff ? 'split' : 'unified';
-  });
+  protected readonly diffMode = computed<DiffMode>(() =>
+    this.fileViewState().splitDiff ? 'split' : 'unified',
+  );
 
   protected readonly viewedState = computed<FileViewedState>(() => {
     const ws = this.workspaceId();
@@ -289,9 +288,15 @@ export class FeatureFileContent {
     this.resetKey();
     return '';
   });
+  // Editor buffer. Initialized from any persisted draft for this
+  // (ws, path) so unsaved edits survive tab switches. Once loadFile
+  // resolves, the baseline is set; the editorValue stays whatever the
+  // draft was (or matches baseline if no draft existed).
   protected readonly editorValue = linkedSignal<string>(() => {
-    this.resetKey();
-    return '';
+    const key = this.resetKey();
+    const [ws, path] = decodeResetKey(key);
+    if (!ws || !path) return '';
+    return this.uiState.readDraft(ws, path)?.content ?? '';
   });
   protected readonly loading = signal(false);
   protected readonly loadError = linkedSignal<string | null>(() => {
@@ -306,6 +311,13 @@ export class FeatureFileContent {
   protected readonly dirty = computed(
     () => this.editorValue() !== this.baseline(),
   );
+  // Auto-pin guard — per (ws, path) so a different file gets a fresh
+  // chance to auto-pin on its own first edit. Resets via the same
+  // resetKey the buffer uses.
+  private readonly hasAutoPinned = linkedSignal<boolean>(() => {
+    this.resetKey();
+    return false;
+  });
   protected readonly editorTheme = computed<'light' | 'dark'>(() =>
     this.themeService.isDark() ? 'dark' : 'light',
   );
@@ -328,6 +340,44 @@ export class FeatureFileContent {
       const key = fileStateKey(ws, p);
       if (this.loadedEditKey() === key) return;
       void this.loadFile(ws, p);
+    });
+
+    // Auto-pin: first time the buffer becomes dirty for an active
+    // preview tab, promote it to pinned. Guarded per (ws, path) so
+    // Cmd-Z back to baseline + re-type does NOT fire a second
+    // pin-call (pinFor is idempotent but we avoid the cross-component
+    // churn). Resets on file/workspace change via `hasAutoPinned`'s
+    // linkedSignal.
+    effect(() => {
+      if (!this.dirty()) return;
+      if (this.hasAutoPinned()) return;
+      const ws = this.workspaceId();
+      const p = this.filePath();
+      if (!ws || !p) return;
+      const tab = this.fileTabs.findTab(ws, p);
+      if (!tab || !tab.isPreview) {
+        this.hasAutoPinned.set(true);
+        return;
+      }
+      this.fileTabs.pinForPath(ws, p);
+      this.hasAutoPinned.set(true);
+    });
+
+    // Drafts: keep the persisted entry in sync with the live buffer.
+    // Writes go through a Web Worker (transparent), so this is cheap
+    // even on keystroke-frequent updates. Cleared on save success
+    // and on tab close (FileTabsService.closeFor).
+    effect(() => {
+      const ws = this.workspaceId();
+      const p = this.filePath();
+      if (!ws || !p) return;
+      // Track dirty so we don't write a no-op draft for an
+      // unchanged buffer; baseline-equal buffers clear instead.
+      if (this.dirty()) {
+        this.uiState.writeDraft(ws, p, this.editorValue());
+      } else if (this.uiState.readDraft(ws, p)) {
+        this.uiState.clearDraft(ws, p);
+      }
     });
 
     // Diff-mode scroll persistence. The actual scroll surface is the
@@ -384,41 +434,14 @@ export class FeatureFileContent {
     const ws = this.workspaceId();
     const p = this.filePath();
     if (!ws || !p) return;
-
-    const state = this.fileViewState();
-    const flow = state.activeFlow;
-    const active = flow ? state[flow] : null;
-
-    if (flow && active?.path === p) {
-      this.uiState.updateActiveWorkspaceFileViewState(ws, { mode: value });
-      return;
-    }
-
-    this.uiState.openWorkspaceFile(ws, p, {
-      mode: value,
-      source: value === 'edit' ? 'all-files' : 'changes',
-    });
+    this.uiState.upsertFileView(ws, p, { mode: value });
   }
 
   protected setDiffMode(value: DiffMode): void {
     const ws = this.workspaceId();
     const p = this.filePath();
     if (!ws || !p) return;
-
-    const state = this.fileViewState();
-    const flow = state.activeFlow;
-    const active = flow ? state[flow] : null;
-
-    if (!flow || active?.path !== p) {
-      this.uiState.openWorkspaceFile(ws, p, {
-        mode: 'diff',
-        source: 'changes',
-      });
-    }
-
-    this.uiState.updateActiveWorkspaceFileViewState(ws, {
-      splitDiff: value === 'split',
-    });
+    this.uiState.upsertFileView(ws, p, { splitDiff: value === 'split' });
   }
 
   protected toggleSplit(): void {
@@ -482,6 +505,11 @@ export class FeatureFileContent {
       const newHash = await this.repos.saveFile(ws, p, content, expected);
       this.baseline.set(content);
       this.baselineHash.set(newHash);
+      // Save success: drop the draft AND nudge the Changes tab to
+      // refresh so the user's modification shows up without waiting
+      // for the FS-watcher debounce. saveError paths skip both.
+      this.uiState.clearDraft(ws, p);
+      this.mutations.softRefreshAfterMutation(ws);
     } catch (err) {
       this.saveError.set(mapSaveError(err));
     } finally {
@@ -506,7 +534,13 @@ export class FeatureFileContent {
       this.loadedEditKey.set(fileStateKey(workspaceId, path));
       this.baseline.set(text);
       this.baselineHash.set(hash);
-      this.editorValue.set(text);
+      // Only seed the buffer from disk when there isn't a draft. A
+      // pre-existing draft is the user's unsaved work — preserve it
+      // and let `dirty` flip true so the Save button lights up.
+      const draft = this.uiState.readDraft(workspaceId, path);
+      if (!draft) {
+        this.editorValue.set(text);
+      }
     } catch (err) {
       if (myId !== this.loadFetchId) return;
       this.loadError.set(err instanceof Error ? err.message : String(err));
@@ -516,6 +550,14 @@ export class FeatureFileContent {
       }
     }
   }
+}
+
+function decodeResetKey(key: string): readonly [string | null, string | null] {
+  const sep = key.indexOf('|');
+  if (sep <= 0) return [null, null];
+  const ws = key.slice(0, sep);
+  const p = key.slice(sep + 1);
+  return [ws || null, p || null];
 }
 
 interface AppErrorShape {

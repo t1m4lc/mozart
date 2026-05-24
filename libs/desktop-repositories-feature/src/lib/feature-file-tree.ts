@@ -82,6 +82,7 @@ import { UiFileTreeSkeleton } from '@mozart/desktop-repositories-ui';
               [isFolder]="false"
               [active]="activePath() === node.path"
               (fileClick)="onFileClick($event)"
+              (fileDoubleClick)="onFileDoubleClick($event)"
             />
           </cdk-tree-node>
 
@@ -122,6 +123,9 @@ export class FeatureFileTree {
    *  matching this path render with brand tint. */
   readonly activePath = input<string | null>(null);
   readonly fileSelected = output<FileNode>();
+  /** Emitted on a native double-click on a file row. Consumer pins
+   *  the resulting tab (vs single-click → preview). */
+  readonly fileDoubleSelected = output<FileNode>();
 
   private readonly repos = inject(RepositoriesFacade);
   private readonly uiState = inject(UiStateFacade);
@@ -294,6 +298,10 @@ export class FeatureFileTree {
 
   protected onFileClick(node: FileNode): void {
     this.fileSelected.emit(node);
+  }
+
+  protected onFileDoubleClick(node: FileNode): void {
+    this.fileDoubleSelected.emit(node);
   }
 
   private async fetch(

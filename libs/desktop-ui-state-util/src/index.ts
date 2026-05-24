@@ -1,13 +1,14 @@
 export {
   DEFAULT_WORKSPACE_ASIDE_STATE,
-  DEFAULT_WORKSPACE_FILE_VIEW_STATE,
+  DEFAULT_WORKSPACE_FILE_PATH_STATE,
+  type DraftEntry,
+  type PersistedFileTab,
   type WorkspaceAsideBottomTab,
   type WorkspaceAsideFilesView,
   type WorkspaceAsideState,
   type WorkspaceFileContentMode,
-  type WorkspaceFileFlowState,
   type WorkspaceFileOpenOptions,
   type WorkspaceFileOpenSource,
-  type WorkspaceFileViewFlow,
-  type WorkspaceFileViewState,
+  type WorkspaceFilePathState,
+  type WorkspaceFileViewMap,
 } from './lib/ui-state.types';

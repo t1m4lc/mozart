@@ -17,8 +17,6 @@ export {
 } from './lib/util-workspace-name';
 export {
   CHAT_TAB_CAP,
-  FILE_TAB_CAP,
-  MAX_TABS,
   DEFAULT_CHAT_TITLE,
   NEW_CHAT_TITLE,
   type ChatTab,

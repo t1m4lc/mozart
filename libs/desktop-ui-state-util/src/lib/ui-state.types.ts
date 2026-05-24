@@ -7,28 +7,29 @@ export type WorkspaceAsideBottomTab = 'setup' | 'run' | 'terminal';
 export type WorkspaceAsideFilesView = 'all' | 'changes';
 export type WorkspaceFileContentMode = 'edit' | 'diff';
 export type WorkspaceFileOpenSource = 'all-files' | 'changes';
-export type WorkspaceFileViewFlow = 'edit' | 'review';
 
 export interface WorkspaceFileOpenOptions {
   mode: WorkspaceFileContentMode;
   source: WorkspaceFileOpenSource;
 }
 
-export interface WorkspaceFileFlowState {
-  path: string | null;
+// Per-file UI state, keyed by file path inside a workspace. With
+// multi-tab support each open file remembers its own mode + splitDiff
+// independently — switching between two open tabs preserves each
+// tab's view choice.
+export interface WorkspaceFilePathState {
   mode: WorkspaceFileContentMode;
   source: WorkspaceFileOpenSource;
   splitDiff: boolean;
 }
 
-// Per-workspace middle-shell file state. `edit` is the All files flow,
-// `review` is the Changes flow; keeping both lets the same path retain
-// separate UI choices depending on where the user opened it from.
-export interface WorkspaceFileViewState {
-  activeFlow: WorkspaceFileViewFlow | null;
-  edit: WorkspaceFileFlowState;
-  review: WorkspaceFileFlowState;
-}
+export type WorkspaceFileViewMap = Record<string, WorkspaceFilePathState>;
+
+export const DEFAULT_WORKSPACE_FILE_PATH_STATE: WorkspaceFilePathState = {
+  mode: 'edit',
+  source: 'all-files',
+  splitDiff: false,
+};
 
 // Per-workspace right-aside UI state. Persisted across sessions via the
 // store's `withStorageSync`, keyed by workspaceId. Defaults match the
@@ -56,18 +57,17 @@ export const DEFAULT_WORKSPACE_ASIDE_STATE: WorkspaceAsideState = {
   unstagedOpen: true,
 };
 
-export const DEFAULT_WORKSPACE_FILE_VIEW_STATE: WorkspaceFileViewState = {
-  activeFlow: null,
-  edit: {
-    path: null,
-    mode: 'edit',
-    source: 'all-files',
-    splitDiff: false,
-  },
-  review: {
-    path: null,
-    mode: 'diff',
-    source: 'changes',
-    splitDiff: false,
-  },
-};
+// Persisted file-tab list per workspace. Preview-state is intentionally
+// in-memory only — on hydrate, restored tabs come back as pinned.
+export interface PersistedFileTab {
+  readonly path: string;
+}
+
+// Draft contents for unsaved edits to a file within a workspace.
+// Keyed by (workspaceId, path); persisted off-main-thread via a Web
+// Worker so typing on large files doesn't block the UI on a sync
+// localStorage write.
+export interface DraftEntry {
+  readonly content: string;
+  readonly updatedAt: number;
+}

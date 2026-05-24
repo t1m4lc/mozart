@@ -6,7 +6,6 @@ import {
   effect,
   inject,
 } from '@angular/core';
-import { Router } from '@angular/router';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmKbdImports } from '@spartan-ui/kbd';
 import { HlmTabsImports } from '@spartan-ui/tabs';
@@ -27,9 +26,7 @@ import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
   FileTabsService,
   WorkspacesFacade,
-  WorkspaceTabRegistry,
 } from '@mozart/desktop-workspaces-data-access';
-import { workspaceTabRouteCommands } from '@mozart/desktop-workspaces-util';
 import { FeatureChangesList } from './feature-changes-list';
 
 // Shared empty array — returning the same reference on cache miss
@@ -116,6 +113,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
             [projectId]="activeProjectId()"
             [activePath]="activeFilePath()"
             (fileSelected)="onFileSelected($event)"
+            (fileDoubleSelected)="onFileDoubleSelected($event)"
           />
         }
       </div>
@@ -135,8 +133,6 @@ export class FeatureWorkspaceFiles {
   private readonly fileViews = inject(FileViewsFacade);
   private readonly destroyRef = inject(DestroyRef);
   private readonly fileTabs = inject(FileTabsService);
-  private readonly tabs = inject(WorkspaceTabRegistry);
-  private readonly router = inject(Router);
   private readonly uiState = inject(UiStateFacade);
 
   protected readonly workspaceId = this.workspaces.activeId;
@@ -268,26 +264,37 @@ export class FeatureWorkspaceFiles {
     this.uiState.updateWorkspaceAsideState(id, { filesView: view });
   }
 
+  // Tree single-click: open as preview (italic title; next single-
+  // click replaces). Native dblclick also fires `click` twice — the
+  // second click reads `intent='preview'` against an already-active
+  // preview (no-op), then `dblclick` pins.
   protected onFileSelected(node: FileNode): void {
     if (node.kind === 'directory') return;
-    this.openFileFromAllFiles(node.path);
+    void this.navigateToFile(node.path, 'preview');
   }
 
-  private openFileFromAllFiles(path: string): void {
-    const id = this.workspaceId();
-    if (!id) return;
-    const workspace = this.workspaces.workspaceById(id)();
-    if (!workspace) return;
-    const tabId = this.tabs.fileTabId(path);
-    if (!tabId) return;
+  // Tree double-click: pin the tab.
+  protected onFileDoubleSelected(node: FileNode): void {
+    if (node.kind === 'directory') return;
+    void this.navigateToFile(node.path, 'pin');
+  }
 
-    this.uiState.openWorkspaceFile(id, path, {
+  private navigateToFile(
+    path: string,
+    intent: 'preview' | 'pin',
+  ): Promise<boolean> {
+    const id = this.workspaceId();
+    if (!id) return Promise.resolve(false);
+    const workspace = this.workspaces.workspaceById(id)();
+    if (!workspace) return Promise.resolve(false);
+    return this.fileTabs.navigateToFileTab({
+      projectId: workspace.projectId,
+      workspaceId: id,
+      path,
+      intent,
       mode: 'edit',
       source: 'all-files',
     });
-    void this.router.navigate(
-      workspaceTabRouteCommands(workspace.projectId, id, tabId),
-    );
   }
 
   private async attachWatcher(workspaceId: string): Promise<void> {

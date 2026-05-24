@@ -1847,6 +1847,239 @@ Synthesized from this review's findings. Each task derives from a specific findi
 
 ---
 
+## 11. Eng review adjustments — P1.3 (re-run 2026-05-24)
+
+Second `/plan-eng-review` pass on P1.3 specifically, run after P1.2 shipped.
+Decisions here OVERRIDE the corresponding parts of §2.3 and §9.3. Read this
+section before implementing P1.3b; the earlier §2.3 / §9.3 text is preserved
+for provenance but partially stale.
+
+### 11.1 Verified-against-code (this run)
+
+- `tab-item.ts:75` still gates close × on `kind === 'chat' && !renaming()` — bug confirmed.
+- `FILE_TAB_CAP = 1` at `workspace-tab.model.ts:35` — confirmed.
+- `FileTabsService.openFor` (`:47–61`) still trims via `FILE_TAB_CAP` — confirmed.
+- `feature-file-content.ts:469–490` `save()` still does NOT trigger any Changes refresh — confirmed.
+- `softRefreshAfterMutation` is private at `feature-changes-list.ts:295–302` — confirmed.
+- `feature-workspace-files.ts:276–291` and `feature-changes-list.ts:304–319` are near-duplicate open helpers — confirmed (this review adds a `navigateToFileTab` helper to collapse them).
+- `WorkspaceTabContent`'s effect at `workspace-tab-content.ts:197–207` is the single seam between URL and `FileTabsService` — confirmed.
+- `WorkspaceTabResolver.defaultChatTabId` (`workspace-tab-resolver.service.ts:82–97`) always routes to chat; never restores last-active file tab — confirmed.
+- No `file-tabs.service.spec.ts`, no `tab-item.spec.ts` today — confirmed.
+- Pre-prod app: no localStorage migration burden (user-confirmed).
+
+### 11.2 P1.3 decisions (D-rerun)
+
+| ID  | Topic | Choice | Implication |
+| --- | ----- | ------ | ----------- |
+| D-r1 | Multi-tab unsaved-edits loss on tab switch | **Lift cap + add draft persistence in same PR** | `FeatureFileContent`'s `linkedSignal` for `editorValue` resets on `filePath` change, blowing away unsaved edits on tab switch when cap=1 is removed. Solution: hydrate `editorValue` from a draft store on filePath change; write drafts on edit. Lake-style — multi-tab works without data loss. |
+| D-r2 | Intent capture (`history.state` re-fire + back-nav semantics) | **RxJS `Router.events` NavigationEnd subscription → `toSignal`** | Replace the bare effect-on-`tab()` read of `history.state`. Subscribe to NavigationEnd, extract `extras.state.intent`, expose via `toSignal`. Effect for the FileTabsService mutation reads the signal. Aligns with CLAUDE.md ("Prefer `computed()` / `linkedSignal()` over `effect()`; for async use RxJS"). |
+| D-r3 | `fileViewStateByWorkspace` single-active shape vs multi-tab | **Reshape to `Record<wsId, Record<path, FileFlowState>>`** | Each file remembers its own mode/splitDiff. Active path derived from URL. No in-place migration (pre-prod). |
+| D-r4 | `softRefreshAfterMutation` home | **New `WorkspaceMutationsFacade` in `workspaces-data-access`** | Owns post-mutation choreography. Cross-domain calls live in the facade where they belong. Callers inject + call one method. Both `feature-changes-list` (stage/discard) and `feature-file-content` (save) consume it. |
+| D-r5 | DRY: `openFileFromAllFiles` vs `openFileFromChanges` | **`FileTabsService.navigateToFileTab(ws, path, opts)`** | Wraps tabId construction + uiState write + `router.navigate` + intent state extras. Both call sites collapse to one line. Single tested helper. |
+| D-r6 | Auto-pin via `dirty()` flip — Cmd-Z re-type race | **`hasAutoPinned` linkedSignal per-(ws,path); reset on resetKey** | Effect calls `pinFor` ONLY on first `false → true` dirty edge per tab lifetime; subsequent flips (undo/redo) are no-ops. ~6 LOC. |
+| D-r7 | Per-workspace last-active tab persistence (user-added requirement) | **`lastActiveTabIdByWorkspace` slice on `UiStateStore`; resolver prefers it** | Persist last-active tabId (chat OR file kind) per workspace via `withStorageSync`. `WorkspaceTabContent` writes on every tab transition. `WorkspaceTabResolver.defaultChatTabId` → rename `defaultTabId`; if persisted last-active parses + `authorize` passes, return it; else fall back to existing chat logic. Stale file path → trust the URL; existing `FeatureFileContent` "Couldn't open file" banner handles it (no extra RPC). |
+| D-r8 | Test scope | **Full lake: ~57 cases across 8 spec files + 4 E2E TODOs** | All preview/pin/persistence/auto-pin/draft/last-active paths covered. R1–R6 regressions mandatory. Aligns with D-r1 completeness. |
+| D-r9 | Storage layout: reshape `mozart-ui-state-v1` or split? | **Split into separate keys (no migration)** | New keys: `mozart-file-tabs-v1` for tabs + last-active; `mozart-file-views-v1` for per-path mode; `mozart-drafts-v1` for drafts (worker-owned key). `mozart-ui-state-v1` keeps aside/tree state intact. Each slice owns its lifecycle; clean separation; no in-place migration code. |
+| D-r10 | Draft write cadence (perf) | **Separate `mozart-drafts-v1` key + Web Worker write** | Move drafts out of the main UI state blob into a dedicated key; serialize + persist via worker so main-thread typing on large files isn't blocked. Bounded data loss on hard crash = last unflushed batch. Worker also keeps headroom for future compression (TODO). |
+
+### 11.3 What already exists (don't rebuild — this review)
+
+- `FileTabsService.closeFor` + neighbor fallback (`file-tabs.service.ts:68–86`) — close logic works; bug is template-side only.
+- `feature-chat-tab-bar.ts:91–135` already routes file closes through `fileTabs.closeFor`.
+- `WorkspaceTabRegistry.fileTabId` + base64url path encoding (`workspace-tab-registry.ts:127–131`).
+- `withStorageSync` from `@angular-architects/ngrx-toolkit` — already vetted on `UiStateStore`. New keys reuse the same pattern.
+- `RepositoriesFacade.refreshChangedFilesInBackground` already atomic-swaps the cache.
+- `WorkspaceTabResolver.authorize` returns `true` for file kinds — stale path falls through to existing `FeatureFileContent` "Couldn't open file" banner.
+- `linkedSignal` reset-on-key pattern at `feature-file-content.ts:282` — clean precedent for `autoPinned` flag.
+- `Router.events` + `toSignal` — Angular 22 supports `state` extras + `toSignal` wrapping cleanly.
+- `pruneWorkspace` (`ui-state.store.ts:245–257`) — extend to also drop `fileTabsByWorkspace`, the per-path file view map, `lastActiveTabIdByWorkspace`, and drafts.
+
+### 11.4 NOT in scope (P1.3 — this run additions to §5)
+
+- **Persisted preview state across reload** — preview is intentionally ephemeral; restored tabs all come back as pinned.
+- **Drag-reorder of file tabs** — §9.4 captured.
+- **Soft cap (e.g., 100) with FIFO eviction** — §9.4 captured as TODO; risk surfaces only at extreme tab counts.
+- **Multi-window draft contention** — Mozart is single-instance today (§9.4); when multi-window lands, draft writes will need leader-election or storage-event listening. New TODO added below.
+- **IndexedDB migration for drafts** — Web Worker + localStorage carries us until per-file drafts exceed quota; IndexedDB lands when needed.
+- **Eager mount of CodeMirror for non-active tabs** — `@defer (when mode() === 'edit')` keeps inactive tabs cheap.
+- **`File` icon variant per extension** — unrelated polish.
+- **Composer-on-file-tab beyond send/stop** — P2.2 boundary.
+- **Stale-path Tauri `file_exists` precheck in resolver** — chose to trust the URL (existing banner UX), per D-r7.
+- **`mozart-ui-state-v1` → v2 reshape with migration** — split-key approach (D-r9) avoids it; pre-prod also means no users to migrate.
+
+### 11.5 TODOs captured (new, in addition to §9.4)
+
+- **Drafts compression for very large files** — Web Worker write handles the synchronous-stall concern. Compression (e.g., gzip via `fflate`, or LZ-string) extends localStorage headroom for multi-MB drafts. Speculative until a real user hits it.
+- **`WorkspaceMutationsFacade` horizon** — opportunistically migrate other post-mutation choreography (post-merge, post-PR-create, post-branch-switch) into the new facade when their flows are touched.
+- **Multi-window draft contention** — when secondary windows land, two windows editing the same file will race-overwrite drafts. Design: storage events + leader election OR window-scoped draft keys. §9.4 mentions the general multi-window concern; this is the draft-specific instance.
+
+### 11.6 Failure modes (this run)
+
+| Codepath | Failure | Test? | Error handling? | User-visible? |
+| -------- | ------- | ----- | --------------- | ------------- |
+| `tab-item` close × on file tab | template gate fix — no failure surface | T17 (R1) | n/a | close × visible on hover, click closes |
+| `FileTabsService.previewFor` slot replace | concurrent calls | T18 | signals patch sync; last-writer-wins | replaced tab disappears, new takes slot — correct |
+| `FileTabsService.pinFor` already-pinned | idempotency | T18 | sync compute; activate only | no visible change |
+| Auto-pin on dirty edge (Cmd-Z re-type) | `hasAutoPinned` not reset between files | T22 | reset on `resetKey` (workspaceId|filePath change) | none — guard intact |
+| Draft hydrate on `filePath` change | stale draft + baseline mismatch | T22 | linkedSignal initial reads draft-or-baseline; first save baselines | restored unsaved edits show as dirty, save works |
+| Draft write via Worker | worker crash mid-write | T18 (worker mock) | swallow + console.warn + fall back to in-memory next time | drafts in-memory only until worker restarts — silent until reload |
+| `WorkspaceMutationsFacade.softRefreshAfterMutation` | one fan-out RPC fails | T20 | existing try/catch on fileViews; others tolerate via cache-and-swap | partial refresh; recovers on next watcher tick |
+| `save()` → softRefresh | mutations facade injection fails | T22 | DI throws on construction | clear dev-console error; broken shell |
+| `WorkspaceTabContent` intent capture | NavigationEnd fires before tab() updates | T21 | `toSignal` + dep on `tab()` in effect captures both atomically | tab opens with correct intent |
+| `WorkspaceTabResolver.defaultTabId` stale file path | last-active is a deleted file | T23 + manual | trust-the-URL → `FeatureFileContent` banner | "Couldn't open file" banner with Retry |
+| `ui-state.store` split-keys hydrate | one key missing/corrupt | T19 | per-key default-on-miss | resets only that slice, others intact |
+| `FileTabsService` cap removal | memory grows with 100s of tabs | not tested | manual + soft-cap TODO from §9.4 | gradual perf degradation if user keeps opening tabs |
+
+**Critical gaps:** none. Worker-write silent failure is the closest (data loss on reload after worker crash), but it's well-bounded by the in-memory fallback and a hard crash is the only realistic trigger.
+
+### 11.7 Worktree parallelization strategy
+
+| Lane | Modules touched | Depends on |
+| ---- | --------------- | ---------- |
+| A — close button + italic + dead-cap | `workspaces-ui` (tab-item), `workspaces-util` (workspace-tab.model) | — |
+| B — data layer | `workspaces-data-access` (file-tabs.service, NEW workspace-mutations.facade), `ui-state-data-access` (ui-state.store, ui-state.facade) | — |
+| C — feature integration | `workspaces-feature` (workspace-tab-content, feature-file-content, feature-workspace-files, feature-changes-list), `workspaces-data-access` (workspace-tab-resolver.service), `repositories-feature` (feature-file-tree), `repositories-ui` (ui-file-tree-row) | B |
+| D — drafts worker infra | NEW worker module under `desktop-ui-state-data-access` (or `mozart-ui/util` if it grows) | B (for the UiStateFacade integration point) |
+
+**Execution order:** Launch **A** in parallel with **B**. Launch **D** in parallel with **B** (separate file, no overlap). Launch **C** after **B** merges (C consumes the new facade + selectors). C and D each merge independently after they land their respective integration points.
+
+**Conflict flag:** Lane B and Lane C both touch `UiStateFacade` selectors. B adds the new selectors; C consumes them. Sequence C after B so the second lander rebases cleanly.
+
+### 11.8 Implementation tasks (P1.3 — this run)
+
+Synthesized from this review's findings. Run with Claude Code or Codex;
+checkbox as you ship. JSONL artifact for `/autoplan` aggregation:
+`~/.gstack/projects/t1m4lc-mozart/tasks-eng-review-20260524-211325.jsonl`
+(25 tasks).
+
+- [ ] **T1 (P1, human: ~10min / CC: ~3min)** — `workspaces-ui` — `tab-item`: move close `×` out of `kind === 'chat' && !renaming()` guard (**R1 regression**); rename pen stays chat-only
+  - Surfaced by: §11.2 D-r2 (architecture); user-flagged close-button bug
+  - Files: `libs/desktop-workspaces-ui/src/lib/tab-item.ts`
+  - Verify: T17 spec; manual hover on file tab → close × appears
+- [ ] **T2 (P1, human: ~30min / CC: ~5min)** — `workspaces-ui` — `tab-item`: add `italic` Tailwind class when `tab.kind === 'file' && tab.isPreview`
+  - Surfaced by: §2.3 plan target — preview tab visual
+  - Files: `libs/desktop-workspaces-ui/src/lib/tab-item.ts`
+  - Verify: T17 spec; manual single-click tree → italic title
+- [ ] **T3 (P1, human: ~10min / CC: ~2min)** — `workspaces-util` — remove `FILE_TAB_CAP` constant + `MAX_TABS` dead alias
+  - Surfaced by: §9.3 D-FILE_TAB_CAP — cap removed → constant is dead code
+  - Files: `libs/desktop-workspaces-util/src/lib/workspace-tab.model.ts`
+  - Verify: build passes (no remaining imports); grep -r `FILE_TAB_CAP` returns no source refs
+- [ ] **T4 (P1, human: ~15min / CC: ~3min)** — `workspaces-util` — `FileTab` gains `isPreview: boolean`
+  - Surfaced by: §2.3 + §9.3 preview/pin model
+  - Files: `libs/desktop-workspaces-util/src/lib/workspace-tab.model.ts`
+  - Verify: types compile; `feature-chat-tab-bar.ts` maps the field through
+- [ ] **T5 (P1, human: ~3h / CC: ~20min)** — `workspaces-data-access` — `FileTabsService` rewrite: `previewFor`, `pinFor`, `openFor` (back-compat → pinFor), `findTab`, `navigateToFileTab`; persistence delegation to UiStateFacade; draft buffer plumbing (read/write/clear)
+  - Surfaced by: §11.2 D-r1, D-r5, D-r6 + §9.3 preview/pin model
+  - Files: `libs/desktop-workspaces-data-access/src/lib/file-tabs.service.ts`
+  - Verify: T18 spec (18 cases including R3)
+- [ ] **T6 (P1, human: ~1h / CC: ~10min)** — `ui-state-data-access` — `UiStateStore`: split keys — `mozart-ui-state-v1` unchanged, new `mozart-file-tabs-v1` (tabs + lastActive), new `mozart-file-views-v1` (per-path mode), new `mozart-drafts-v1` (drafts, worker-owned); reshape `fileViewStateByWorkspace` to `Record<wsId, Record<path, FileFlowState>>`; add `fileTabsByWorkspace`, `lastActiveTabIdByWorkspace`, `drafts` slices; extend `pruneWorkspace` to clear all new slices
+  - Surfaced by: §11.2 D-r3, D-r7, D-r9
+  - Files: `libs/desktop-ui-state-data-access/src/lib/ui-state.store.ts`
+  - Verify: T19 spec (12 cases including R5)
+- [ ] **T7 (P1, human: ~2h / CC: ~15min)** — `ui-state-data-access` — `UiStateFacade` selectors: `fileViewStateForPath(ws, path)`, `lastActiveTabIdFor(ws)`, `fileTabsFor(ws)`, draft CRUD; setters: `setLastActiveTab`, `setFileTabs`, `writeDraft`/`readDraft`/`clearDraft`
+  - Surfaced by: §11.2 D-r3, D-r7
+  - Files: `libs/desktop-ui-state-data-access/src/lib/ui-state.facade.ts`
+  - Verify: types compile; T19 store spec covers underlying patches
+- [ ] **T8 (P1, human: ~3h / CC: ~20min)** — `workspaces-data-access` — NEW `workspace-mutations.facade.ts`: `softRefreshAfterMutation(workspaceId)` fans out to `RepositoriesFacade.refreshTreeInBackground` + `refreshChangedFilesInBackground` + `WorkspacesFacade.refreshDiffStats` + `FileViewsFacade.refresh`
+  - Surfaced by: §11.2 D-r4
+  - Files: `libs/desktop-workspaces-data-access/src/lib/workspace-mutations.facade.ts` (NEW), `libs/desktop-workspaces-data-access/src/index.ts`
+  - Verify: T20 spec (5 cases)
+- [ ] **T9 (P1, human: ~1h / CC: ~10min)** — `workspaces-feature` — `feature-changes-list`: delegate stage/discard refresh to `WorkspaceMutationsFacade.softRefreshAfterMutation`; drop private helper
+  - Surfaced by: §11.2 D-r4
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-workspace-files/feature-changes-list.ts`
+  - Verify: existing manual stage/discard still triggers Changes list refresh
+- [ ] **T10 (P1, human: ~3h / CC: ~20min)** — `workspaces-feature` — `feature-file-content`: auto-pin effect with `hasAutoPinned` linkedSignal guard; hydrate `editorValue` from `UiStateFacade.readDraft` on filePath change (replacing the `linkedSignal(() => '')`); write draft on `editorValue` change; save success → `mutations.softRefreshAfterMutation` + `clearDraft`; `saveError.kind === 'stale' | 'frozen'` short-circuits the refresh (**R2 + R4 regressions**)
+  - Surfaced by: §11.2 D-r1, D-r4, D-r6
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-file-content.ts`
+  - Verify: T22 spec (10 cases including R2, R4)
+- [ ] **T11 (P1, human: ~1h / CC: ~10min)** — `repositories-ui` — `FileTreeRow`: add `(fileDoubleClick)` output via native `(dblclick)` binding (no setTimeout debounce per §9.3)
+  - Surfaced by: §9.3 click discrimination
+  - Files: `libs/desktop-repositories-ui/src/lib/ui-file-tree-row.ts`
+  - Verify: T24 spec
+- [ ] **T12 (P1, human: ~30min / CC: ~5min)** — `repositories-feature` — `FeatureFileTree`: forward `(fileDoubleClick)` upward
+  - Surfaced by: §9.3 click discrimination
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-file-tree.ts`
+  - Verify: types compile; bubbled output reaches `FeatureWorkspaceFiles`
+- [ ] **T13 (P1, human: ~2h / CC: ~15min)** — `workspaces-feature` — `feature-workspace-files` + `feature-changes-list`: replace inline open helpers with `FileTabsService.navigateToFileTab(ws, path, { intent })`; tree single-click → `intent: 'preview'`, tree double-click + Changes-list click → `intent: 'pin'`
+  - Surfaced by: §11.2 D-r5
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-workspace-files/feature-workspace-files.ts`, `libs/desktop-workspaces-feature/src/lib/feature-workspace-files/feature-changes-list.ts`
+  - Verify: T18 covers the service helper; manual: tree click → italic, dblclick → pinned
+- [ ] **T14 (P1, human: ~3h / CC: ~25min)** — `workspaces-feature` — `workspace-tab-content`: replace effect-on-`tab()` with (a) RxJS `Router.events` → `NavigationEnd` → `map(intent)` → `toSignal` intent capture, (b) effect that dispatches FileTabsService mutation (previewFor/pinFor/setActiveChat) AND writes `UiStateFacade.setLastActiveTab(ws, tab.tabId)` on every transition
+  - Surfaced by: §11.2 D-r2, D-r7
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-detail/workspace-tab-content.ts`
+  - Verify: T21 spec (6 cases)
+- [ ] **T15 (P1, human: ~2h / CC: ~15min)** — `workspaces-data-access` — `WorkspaceTabResolver`: rename `defaultChatTabId` → `defaultTabId`; first check `UiStateFacade.lastActiveTabIdFor(ws)`; if it parses + `authorize` passes, return it; else fall back to existing chat-default logic (**R6 regression**)
+  - Surfaced by: §11.2 D-r7
+  - Files: `libs/desktop-workspaces-data-access/src/lib/workspace-tab-resolver.service.ts`
+  - Verify: T23 spec
+- [ ] **T16 (P1, human: ~2h / CC: ~15min)** — `ui-state-data-access` — NEW drafts Web Worker: serialize + write `mozart-drafts-v1` off-main-thread; the UiStateFacade draft setters post to the worker; reads stay synchronous from the in-memory mirror
+  - Surfaced by: §11.2 D-r10 (perf)
+  - Files: `libs/desktop-ui-state-data-access/src/lib/drafts-worker.ts` (NEW), worker bootstrap in `ui-state.facade.ts`
+  - Verify: T18 worker-mock cases (write success, write fail → in-memory fallback warned)
+- [ ] **T17 (P1, human: ~1h / CC: ~10min)** — `workspaces-ui` test — NEW `tab-item.spec.ts`: chat-single hides ×, chat-multi shows ×, **file shows × (R1)**, italic on preview file tab, rename pen stays chat-only
+  - Surfaced by: §11.2 D-r8 + R1 regression
+  - Files: `libs/desktop-workspaces-ui/src/lib/tab-item.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-workspaces-ui` passes new cases
+- [ ] **T18 (P1, human: ~3h / CC: ~25min)** — `workspaces-data-access` test — NEW `file-tabs.service.spec.ts` (~18 cases): previewFor (empty / replace existing / promote-existing-pin), pinFor (open new / flip preview→pin / activate-already-pinned), closeFor (**R3 no eviction**, neighbor fallback, draft + preview-slot clear), findTab, navigateToFileTab (state extras present/absent), drafts CRUD, worker mock (success + failure)
+  - Surfaced by: §11.2 D-r8 + R3 regression
+  - Files: `libs/desktop-workspaces-data-access/src/lib/file-tabs.service.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-workspaces-data-access` passes
+- [ ] **T19 (P1, human: ~2h / CC: ~15min)** — `ui-state-data-access` test — EXTEND `ui-state.store.spec.ts` (~12 cases): per-path file view shape, fileTabsByWorkspace CRUD, lastActiveTabId CRUD (**R5 contributing**), drafts CRUD, pruneWorkspace extensions, split-keys hydrate (one key missing → defaults), bumped keys persist across reload
+  - Surfaced by: §11.2 D-r8 + R5 regression
+  - Files: `libs/desktop-ui-state-data-access/src/lib/ui-state.store.spec.ts` (EXTEND)
+  - Verify: `pnpm nx test desktop-ui-state-data-access` passes
+- [ ] **T20 (P1, human: ~1h / CC: ~10min)** — `workspaces-data-access` test — NEW `workspace-mutations.facade.spec.ts` (~5 cases): fans out all four refreshes, tolerates fileViews.refresh rejection, no-op when workspaceId invalid
+  - Surfaced by: §11.2 D-r8
+  - Files: `libs/desktop-workspaces-data-access/src/lib/workspace-mutations.facade.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-workspaces-data-access` passes
+- [ ] **T21 (P1, human: ~2h / CC: ~15min)** — `workspaces-feature` test — NEW `workspace-tab-content.spec.ts` (~6 cases): intent='preview' from NavigationEnd state → previewFor; intent absent → pinFor (default); intent='pin' from NavigationEnd state → pinFor; chat kind → setActiveChat + setActiveFor(null); lastActive write on every transition; back-navigation that restores prior history.state — assert behavior matches the captured-on-transition policy
+  - Surfaced by: §11.2 D-r8 + D-r2
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-detail/workspace-tab-content.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-workspaces-feature` passes
+- [ ] **T22 (P1, human: ~3h / CC: ~25min)** — `workspaces-feature` test — NEW `feature-file-content.spec.ts` (~10 cases): auto-pin on dirty edge (false→true → pinFor; Cmd-Z back to baseline → stays pinned; re-type → no spurious pinFor; new file → guard resets); **(R4)** draft hydrate on filePath change; draft write on editorValue change; **(R2)** save success → mutations.softRefreshAfterMutation; saveError 'stale' / 'frozen' → no refresh; clearDraft on save success
+  - Surfaced by: §11.2 D-r8 + R2 + R4 regressions
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-file-content.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-workspaces-feature` passes
+- [ ] **T23 (P1, human: ~1h / CC: ~10min)** — `workspaces-data-access` test — NEW `workspace-tab-resolver.service.spec.ts` (~6 cases): defaultTabId returns persisted last-active (file kind valid → returns); (chat kind valid → returns); (file kind stale path → trust URL, returns); (last-active is null → falls back to chat default); (parse fails → falls back); **(R6)** workspace re-navigation restores last active
+  - Surfaced by: §11.2 D-r7, D-r8 + R6 regression
+  - Files: `libs/desktop-workspaces-data-access/src/lib/workspace-tab-resolver.service.spec.ts` (NEW)
+  - Verify: `pnpm nx test desktop-workspaces-data-access` passes
+- [ ] **T24 (P2, human: ~30min / CC: ~5min)** — `repositories-ui` test — EXTEND `ui-file-tree-row.spec.ts` (or NEW if missing) (~3 cases): native dblclick on file row emits `fileDoubleClick`; dblclick on folder row does NOT emit; single-click still emits `fileClick`
+  - Surfaced by: §11.2 D-r8
+  - Files: `libs/desktop-repositories-ui/src/lib/ui-file-tree-row.spec.ts`
+  - Verify: `pnpm nx test desktop-repositories-ui` passes
+- [ ] **T25 (P3, human: ~30min / CC: ~5min)** — `TODOS.md` — append 3 new TODOs: drafts compression for very large files; `WorkspaceMutationsFacade` horizon (migrate other post-mutation choreography); multi-window draft contention
+  - Surfaced by: §11.5
+  - Files: `TODOS.md`
+  - Verify: TODO entries present + linked to §11.5
+
+### 11.9 Sequencing (updated)
+
+1. **Lane A (T1–T4 + T17)** — close button + italic + dead cap + FileTab type. Smallest, highest user-visible value. 1 PR.
+2. **Lane B (T5–T8 + T18–T20)** — data layer + drafts service + mutations facade. Independent of A. 1 PR.
+3. **Lane D (T16)** — drafts worker. Can land inside Lane B's PR or as a follow-up; T18 mocks the worker either way.
+4. **Lane C (T9–T15 + T21–T23 + T24)** — feature integration. Depends on Lane B (consumes new selectors + facade + service helpers). 1 PR.
+5. **T25** — TODOS.md update — fold into Lane A or land standalone.
+
+3 PRs total (A, B+D, C), executable in series.
+
+### 11.10 Completion summary
+
+- Step 0: Scope Challenge — scope **expanded** (lift cap + drafts + last-active-tab + reshape per-path mode + worker write); user accepted full lake per D-r1, D-r3, D-r7, D-r10.
+- Architecture Review: 4 issues raised, all decided (D-r1, D-r2, D-r3, D-r4); A5 v1→v2 reset concern resolved via D-r9 split keys (and user clarification: pre-prod, no migration burden).
+- Code Quality Review: 2 issues raised, both decided (D-r5 DRY helper, D-r6 auto-pin idempotency).
+- Test Review: coverage diagram produced; 52 + 5 last-active-tab gaps mapped; 6 mandatory regressions (R1–R6); full coverage chosen per D-r8.
+- Performance Review: 1 issue raised, decided (D-r10 drafts worker).
+- NOT in scope: 10 items listed in §11.4.
+- What already exists: 9 items listed in §11.3.
+- TODOS.md updates: 3 new items proposed + approved (§11.5).
+- Failure modes: 0 critical gaps flagged (table in §11.6); worker-write silent failure is the closest watch item.
+- Outside voice: not run on this rerun (P1.3 already had a codex pass in §9.3; no new codex run requested).
+- Parallelization: 4 lanes; 3 PRs in sequence.
+- Lake Score: 10/10 recommendations chose the complete option (drafts + reshape + facade + DRY helper + auto-pin guard + last-active + full coverage + worker write + split keys + 25 tasks).
+
+---
+
 ## GSTACK REVIEW REPORTS
 
 One row per reviewed slice. All reviewed slices are now shipped (✅).
@@ -1877,6 +2110,18 @@ One row per reviewed slice. All reviewed slices are now shipped (✅).
 
 - **CODEX:** Applied to plan (§7.10): URL-query-param → router state extras with `replaceUrl: true`; raw-valueChange auto-pin → `dirty()`-flip-based effect.
 - **VERDICT:** ENG CLEARED per §7 adjustments. P1.3a (close button) + P1.2 in parallel; P1.3b after P1.3a.
+
+### P1.3 re-run — file tabs (full P1.3a + P1.3b spec)
+
+Second pass on P1.3 after P1.2 shipped — supersedes the P1.3-portion of the row above. See §11.
+
+| Review     | Runs           | Status       | Findings                                                                                                                                                                                                                       |
+| ---------- | -------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Eng Review | 1 (2026-05-24) | CLEAR (PLAN) | 10 decisions resolved (D-r1–D-r10); 6 mandatory regressions (R1 close ×, R2 save→softRefresh, R3 no FIFO eviction, R4 draft persistence, R5 per-path mode, R6 last-active tab restore); 0 critical gaps; 25 tasks (T1–T25) emitted |
+
+- **CODEX / CROSS-MODEL:** Not run on this re-run; the prior codex pass (§7.10) still applies (intent encoding via router state, auto-pin via dirty edge).
+- **UNRESOLVED:** 0.
+- **VERDICT:** ENG CLEARED per §11 adjustments. Sequencing per §11.9: Lane A → Lane B (+D) → Lane C, 3 PRs.
 
 ### P2.4 + P2.5 — Hunk labels + expand button ✅ DONE
 

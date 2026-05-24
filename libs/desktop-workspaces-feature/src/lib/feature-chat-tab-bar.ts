@@ -77,6 +77,7 @@ export class FeatureChatTabBar {
           kind: 'file',
           title: basename(path),
           filePath: path,
+          isPreview: this.fileTabs.isPreviewFor(ws, path),
         };
       })
       .filter((tab): tab is FileTab => tab !== null);

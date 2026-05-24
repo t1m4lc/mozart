@@ -18,7 +18,12 @@ export {
 } from './lib/workspace.dto-mapper';
 export { WORKSPACES_MOCK } from './lib/workspaces.mock';
 export { IdeDetectionService } from './lib/ide-detection.service';
-export { FileTabsService } from './lib/file-tabs.service';
+export {
+  FileTabsService,
+  type FileTabIntent,
+  type NavigateFileTabOptions,
+} from './lib/file-tabs.service';
+export { WorkspaceMutationsFacade } from './lib/workspace-mutations.facade';
 export {
   ScrollPositionService,
   chatTabKey,

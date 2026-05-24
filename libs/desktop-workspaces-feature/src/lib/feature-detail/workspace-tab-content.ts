@@ -6,10 +6,14 @@ import {
   inject,
   input,
 } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { NavigationEnd, Router, type Navigation } from '@angular/router';
+import { filter, map, startWith } from 'rxjs';
 import { HlmSkeletonImports } from '@spartan-ui/skeleton';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { FeatureChatContent } from '@mozart/desktop-chat-feature';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { FileTabsService } from '@mozart/desktop-workspaces-data-access';
 import { WorkspaceTabRegistry } from '@mozart/desktop-workspaces-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
@@ -19,6 +23,8 @@ import { FeatureFileContent } from '../feature-file-content';
 import { FeatureWorkspaceComposer } from '../feature-workspace-composer';
 import { ChatEmptyState } from '@mozart/desktop-workspaces-ui';
 import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
+
+type FileTabIntent = 'preview' | 'pin';
 
 @Component({
   selector: 'app-workspace-tab-content',
@@ -123,6 +129,24 @@ export class WorkspaceTabContent {
   private readonly projects = inject(ProjectsFacade);
   private readonly chat = inject(ChatFacade);
   private readonly fileTabs = inject(FileTabsService);
+  private readonly router = inject(Router);
+  private readonly uiState = inject(UiStateFacade);
+
+  // Per-navigation intent capture. The tree open helper writes
+  // `state: { intent: 'preview' }` on single-click; absent state
+  // means pin (deep-links, dblclick, Changes-list clicks, back/
+  // forward to a non-preview navigation, fresh load). Read via
+  // RxJS NavigationEnd → toSignal so the effect below can correlate
+  // intent with the URL-derived `tab()` reactively, without each
+  // re-fire of the effect re-reading stale `history.state`.
+  private readonly latestIntent = toSignal<FileTabIntent, FileTabIntent>(
+    this.router.events.pipe(
+      filter((e): e is NavigationEnd => e instanceof NavigationEnd),
+      map(() => extractIntent(this.router.lastSuccessfulNavigation())),
+      startWith(extractIntent(this.router.lastSuccessfulNavigation())),
+    ),
+    { initialValue: 'pin' },
+  );
 
   protected readonly workspaceIdOrNull = computed(
     () => this.workspaceId() ?? null,
@@ -189,21 +213,59 @@ export class WorkspaceTabContent {
     return chats[0].id === chatId;
   });
 
+  // Track which tabId we already dispatched. Intent is captured AT
+  // the moment of NavigationEnd; without this guard, an upstream
+  // signal flip (e.g. workspaceId reactivity) re-fires the effect
+  // against the same tab and the cached intent would re-apply.
+  private lastDispatchedTabId: string | null = null;
+
   constructor() {
-    // URL is the source of truth for which chat/file is active. Mirror
-    // the parsed tab into the chat facade and file-tabs service so the
-    // rest of the UI (sidebar unread state, scroll persistence, etc.)
-    // keeps working without subscribing to the router itself.
+    // URL is the source of truth for which chat/file is active. The
+    // effect mirrors the parsed tab into FileTabsService + ChatFacade
+    // and writes `lastActiveTabIdByWorkspace` so the resolver restores
+    // the user's last position on workspace re-navigation.
     effect(() => {
       const ws = this.workspaceId();
       const parsed = this.tab();
       if (!ws || !parsed) return;
+
+      const intent = this.latestIntent();
+      const tabKey = `${ws}:${parsed.tabId}`;
+      const isNewTab = this.lastDispatchedTabId !== tabKey;
+      this.lastDispatchedTabId = tabKey;
+
+      // Always persist the last-active tabId, even on re-fires — it's
+      // the cheapest way to keep the resolver in sync.
+      this.uiState.setLastActiveTab(ws, parsed.tabId);
+
       if (parsed.kind === 'chat') {
         this.fileTabs.setActiveFor(ws, null);
         void this.chat.setActiveChat(ws, parsed.chatId);
-      } else if (parsed.kind === 'file') {
-        this.fileTabs.openFor(ws, parsed.path);
+        return;
+      }
+
+      if (parsed.kind === 'file') {
+        if (!isNewTab) {
+          // Same tab re-firing: just re-activate without re-applying
+          // intent (already settled).
+          this.fileTabs.setActiveFor(ws, parsed.path);
+          return;
+        }
+        if (intent === 'preview') {
+          this.fileTabs.previewForPath(ws, parsed.path);
+        } else {
+          this.fileTabs.pinForPath(ws, parsed.path);
+        }
       }
     });
   }
+}
+
+// Exported for unit testing the intent encoding. The route effect
+// calls this with `Router.lastSuccessfulNavigation()` on every
+// NavigationEnd; absent state defaults to pin so deep-links always
+// land on a pinned tab.
+export function extractIntent(nav: Navigation | null): FileTabIntent {
+  const raw = (nav?.extras?.state as { intent?: unknown } | undefined)?.intent;
+  return raw === 'preview' ? 'preview' : 'pin';
 }

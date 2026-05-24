@@ -5,13 +5,7 @@ import {
 import { patchState, signalStore, withMethods, withState } from '@ngrx/signals';
 import {
   DEFAULT_WORKSPACE_ASIDE_STATE,
-  DEFAULT_WORKSPACE_FILE_VIEW_STATE,
   type WorkspaceAsideState,
-  type WorkspaceFileFlowState,
-  type WorkspaceFileOpenOptions,
-  type WorkspaceFileOpenSource,
-  type WorkspaceFileViewFlow,
-  type WorkspaceFileViewState,
 } from '@mozart/desktop-ui-state-util';
 
 // Cross-domain UI state. Per Phase 7 conventions §1.3 :
@@ -28,6 +22,12 @@ import {
 // Shape + defaults for the cross-domain slices live in
 // `@mozart/desktop-ui-state-util` so type:ui libs in other domains
 // can read them without crossing the data-access boundary.
+//
+// File-tab state (open tabs, last-active per workspace, per-path mode)
+// lives in the sibling `FileTabsStore` to keep its lifecycle + its
+// storage key (`mozart-file-tabs-v1`) cleanly separated. Drafts live
+// in `DraftsStore` because their write cadence is keystroke-frequent
+// and goes through a Web Worker.
 
 interface State {
   // Currently-routed workspace id. `null` on /, /welcome, /settings,
@@ -49,11 +49,6 @@ interface State {
   // serialize, so persisting the whole state would corrupt them.
   asideStateByWorkspace: Record<string, WorkspaceAsideState>;
 
-  // Per-workspace middle-shell file view state. Stored separately from
-  // FileTabsService's open-tab list so All files and Changes can keep
-  // independent mode/review state for the same path.
-  fileViewStateByWorkspace: Record<string, WorkspaceFileViewState>;
-
   // Per-workspace All-files tree expansion. List of folder paths the
   // user has expanded; absence == collapsed. Persisted so that
   // returning to a workspace restores the tree in the same shape the
@@ -67,32 +62,8 @@ const initialState: State = {
   expandedProjectIds: new Set<string>(),
   collapsedStatusIds: new Set<string>(),
   asideStateByWorkspace: {},
-  fileViewStateByWorkspace: {},
   treeExpandedByWorkspace: {},
 };
-
-function fileFlowFromSource(
-  source: WorkspaceFileOpenSource,
-): WorkspaceFileViewFlow {
-  return source === 'all-files' ? 'edit' : 'review';
-}
-
-function normalizeFileViewState(
-  state: WorkspaceFileViewState | undefined,
-): WorkspaceFileViewState {
-  return {
-    activeFlow:
-      state?.activeFlow ?? DEFAULT_WORKSPACE_FILE_VIEW_STATE.activeFlow,
-    edit: {
-      ...DEFAULT_WORKSPACE_FILE_VIEW_STATE.edit,
-      ...state?.edit,
-    },
-    review: {
-      ...DEFAULT_WORKSPACE_FILE_VIEW_STATE.review,
-      ...state?.review,
-    },
-  };
-}
 
 export const UiStateStore = signalStore(
   { providedIn: 'root' },
@@ -106,7 +77,6 @@ export const UiStateStore = signalStore(
     key: 'mozart-ui-state-v1',
     select: (state) => ({
       asideStateByWorkspace: state.asideStateByWorkspace,
-      fileViewStateByWorkspace: state.fileViewStateByWorkspace,
       treeExpandedByWorkspace: state.treeExpandedByWorkspace,
     }),
   }),
@@ -174,55 +144,6 @@ export const UiStateStore = signalStore(
       });
     },
 
-    openWorkspaceFile(
-      workspaceId: string,
-      path: string,
-      options: WorkspaceFileOpenOptions,
-    ): void {
-      const flow = fileFlowFromSource(options.source);
-      const current = normalizeFileViewState(
-        store.fileViewStateByWorkspace()[workspaceId],
-      );
-      patchState(store, {
-        fileViewStateByWorkspace: {
-          ...store.fileViewStateByWorkspace(),
-          [workspaceId]: {
-            ...current,
-            activeFlow: flow,
-            [flow]: {
-              ...current[flow],
-              path,
-              mode: options.mode,
-              source: options.source,
-            },
-          },
-        },
-      });
-    },
-
-    updateActiveWorkspaceFileViewState(
-      workspaceId: string,
-      patch: Partial<Pick<WorkspaceFileFlowState, 'mode' | 'splitDiff'>>,
-    ): void {
-      const current = normalizeFileViewState(
-        store.fileViewStateByWorkspace()[workspaceId],
-      );
-      const flow = current.activeFlow;
-      if (!flow) return;
-      patchState(store, {
-        fileViewStateByWorkspace: {
-          ...store.fileViewStateByWorkspace(),
-          [workspaceId]: {
-            ...current,
-            [flow]: {
-              ...current[flow],
-              ...patch,
-            },
-          },
-        },
-      });
-    },
-
     // Replace the expanded-folder list for a workspace. Caller passes
     // the full next state (not a delta) — the file-tree component
     // already holds the working Set in memory and converts it on each
@@ -240,18 +161,17 @@ export const UiStateStore = signalStore(
 
     // Drop every per-workspace entry this store owns for `workspaceId`.
     // Called when a workspace is archived or its parent project is
-    // removed — without this, the three maps (and their localStorage
-    // mirror) would accumulate stale entries indefinitely.
+    // removed — without this, the maps (and their localStorage mirror)
+    // would accumulate stale entries indefinitely. The sibling
+    // `FileTabsStore` and `DraftsStore` each expose their own
+    // `pruneWorkspace`; the facade fans out to all three.
     pruneWorkspace(workspaceId: string): void {
       const aside = { ...store.asideStateByWorkspace() };
-      const fileView = { ...store.fileViewStateByWorkspace() };
       const treeExpanded = { ...store.treeExpandedByWorkspace() };
       delete aside[workspaceId];
-      delete fileView[workspaceId];
       delete treeExpanded[workspaceId];
       patchState(store, {
         asideStateByWorkspace: aside,
-        fileViewStateByWorkspace: fileView,
         treeExpandedByWorkspace: treeExpanded,
       });
     },

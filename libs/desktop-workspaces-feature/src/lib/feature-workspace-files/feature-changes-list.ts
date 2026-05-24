@@ -5,7 +5,6 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { Router } from '@angular/router';
 import { HlmDialogService } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -13,7 +12,6 @@ import { lucideChevronDown, lucideChevronUp } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
 import {
-  FileViewsFacade,
   RepositoriesFacade,
   type ChangedFile,
 } from '@mozart/desktop-repositories-data-access';
@@ -24,10 +22,9 @@ import {
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
   FileTabsService,
+  WorkspaceMutationsFacade,
   WorkspacesFacade,
-  WorkspaceTabRegistry,
 } from '@mozart/desktop-workspaces-data-access';
-import { workspaceTabRouteCommands } from '@mozart/desktop-workspaces-util';
 
 // Shared empty array — keeps `changedFiles` reference-stable on cache
 // miss so downstream filters (stagedFiles/unstagedFiles) don't re-run
@@ -160,10 +157,8 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
 export class FeatureChangesList {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly repos = inject(RepositoriesFacade);
-  private readonly fileViews = inject(FileViewsFacade);
   private readonly fileTabs = inject(FileTabsService);
-  private readonly tabs = inject(WorkspaceTabRegistry);
-  private readonly router = inject(Router);
+  private readonly mutations = inject(WorkspaceMutationsFacade);
   private readonly dialogService = inject(HlmDialogService);
   private readonly uiState = inject(UiStateFacade);
 
@@ -248,7 +243,7 @@ export class FeatureChangesList {
       } else {
         await this.repos.stageFile(id, file.path);
       }
-      this.softRefreshAfterMutation(id);
+      this.mutations.softRefreshAfterMutation(id);
     } catch (err) {
       console.warn('[ws-changes] toggle staged failed:', err);
       toast.error('Could not change staged state', {
@@ -277,7 +272,7 @@ export class FeatureChangesList {
       onConfirm: async () => {
         try {
           await this.repos.discardWorkspaceChanges(id);
-          this.softRefreshAfterMutation(id);
+          this.mutations.softRefreshAfterMutation(id);
         } catch (err) {
           toast.error('Could not discard changes', {
             description: err instanceof Error ? err.message : String(err),
@@ -288,33 +283,22 @@ export class FeatureChangesList {
     this.dialogService.open(UiConfirmDiscardChangesDialog, { context });
   }
 
-  /** Shared post-mutation refresh: covers the case where the user's
-   *  click on Stage / Discard produces UI updates faster than the
-   *  FS-watcher's debounce window. Mirrors the watcher callback so
-   *  both code paths converge on the same cache state. */
-  private softRefreshAfterMutation(workspaceId: string): void {
-    void this.repos.refreshTreeInBackground(workspaceId);
-    void this.repos.refreshChangedFilesInBackground(workspaceId);
-    void this.workspaces.refreshDiffStats();
-    void this.fileViews.refresh(workspaceId).catch((err) => {
-      console.warn('[ws-changes] refresh file views failed:', err);
-    });
-  }
-
   private openFileFromChanges(path: string): void {
     const id = this.workspaceId();
     if (!id) return;
     const workspace = this.workspaces.workspaceById(id)();
     if (!workspace) return;
-    const tabId = this.tabs.fileTabId(path);
-    if (!tabId) return;
-
-    this.uiState.openWorkspaceFile(id, path, {
+    // Changes-list clicks always pin (no preview state). Routes via
+    // FileTabsService.navigateToFileTab so router state + per-path
+    // mode are set in one place; the tab effect in
+    // `WorkspaceTabContent` reads intent=pin (absent) and dispatches.
+    void this.fileTabs.navigateToFileTab({
+      projectId: workspace.projectId,
+      workspaceId: id,
+      path,
+      intent: 'pin',
       mode: 'diff',
       source: 'changes',
     });
-    void this.router.navigate(
-      workspaceTabRouteCommands(workspace.projectId, id, tabId),
-    );
   }
 }
