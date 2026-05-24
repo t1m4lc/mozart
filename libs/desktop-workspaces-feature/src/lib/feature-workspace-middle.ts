@@ -200,7 +200,6 @@ export class FeatureWorkspaceMiddle {
     effect(() => {
       const id = this.workspaceId();
       if (id) {
-        this.facade.ensureChatForWorkspace(id);
         this.focusComposer();
       }
     });

@@ -168,6 +168,11 @@ export class WorkspaceDetailPage {
         this.store.loadWorkspace(id);
         this.workspaces.setActive(id);
         void this.workspaces.markRead(id).catch(() => undefined);
+        // Page-level safety net: the workspace must have at least one
+        // chat before any tab renders, because the composer (mounted
+        // above the @switch) may send before the user ever visits a
+        // chat tab. Idempotent; facade is the single source of truth.
+        this.chatFacade.ensureChatForWorkspace(id);
       }
     });
 
