@@ -1,7 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
-import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterOutlet } from '@angular/router';
-import { filter, map, startWith } from 'rxjs/operators';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowLeft } from '@ng-icons/lucide';
 import { HlmIconImports } from '@spartan-ui/icon';
@@ -9,10 +7,13 @@ import { HlmSidebarImports } from '@spartan-ui/sidebar';
 import { OsService } from '@mozart/shared-util-os';
 import { ReturnRouteService } from '@mozart/desktop-ui-state-data-access';
 import { MacWindowControls, NonMacWindowControls } from '@mozart/desktop-core-ui';
+import { SHELL_LEFT_PANEL_WIDTH } from './shell-panel.constants';
 
 @Component({
   selector: 'app-settings-shell',
   imports: [
+    RouterLink,
+    RouterLinkActive,
     RouterOutlet,
     NgIcon,
     HlmIconImports,
@@ -25,7 +26,11 @@ import { MacWindowControls, NonMacWindowControls } from '@mozart/desktop-core-ui
   host: { class: 'block h-screen w-screen bg-background text-foreground' },
   template: `
     <div hlmSidebarWrapper class="h-full">
-      <hlm-sidebar collapsible="none" class="w-64 shrink-0 border-r border-sidebar-border">
+      <hlm-sidebar
+        collapsible="none"
+        class="shrink-0 border-r border-sidebar-border"
+        [style.width]="leftPanelWidth"
+      >
         <!-- macOS traffic lights pin to the left sidebar top, above
              "Back to app". Non-mac chrome lives in the content header
              instead (top-right of the settings pane). -->
@@ -49,26 +54,23 @@ import { MacWindowControls, NonMacWindowControls } from '@mozart/desktop-core-ui
           </button>
         </div>
         <div hlmSidebarContent>
-          <ul hlmSidebarMenu>
-            <li hlmSidebarMenuItem class="relative">
-              <button
-                type="button"
-                hlmSidebarMenuButton
-                (click)="navigateTo('/settings')"
-                [attr.data-active]="generalActive() || null"
-                [class.text-foreground]="generalActive()"
-                class="relative"
-              >
-                <span>General</span>
-              </button>
-              @if (generalActive()) {
-                <span
-                  aria-hidden="true"
-                  class="pointer-events-none absolute left-0 top-1 bottom-1 w-1 rounded-r-full bg-brand shadow-[0_0_10px_hsl(var(--brand)/0.7)]"
-                ></span>
-              }
-            </li>
-          </ul>
+          <div hlmSidebarGroup class="px-2 py-1">
+            <div hlmSidebarGroupContent>
+              <ul hlmSidebarMenu>
+                <li hlmSidebarMenuItem>
+                  <a
+                    hlmSidebarMenuButton
+                    routerLink="/settings"
+                    routerLinkActive="bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
+                    [routerLinkActiveOptions]="{ exact: true }"
+                    class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
+                  >
+                    <span>General</span>
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
       </hlm-sidebar>
       <main hlmSidebarInset class="flex-1 min-w-0 overflow-auto relative">
@@ -90,27 +92,9 @@ export class SettingsShell {
   private readonly router = inject(Router);
   private readonly returnRoute = inject(ReturnRouteService);
 
-  // Track Settings sub-route via Router.events rather than the
-  // routerLinkActive directive — the directive requires a paired
-  // routerLink on the same element, and we use programmatic navigation
-  // (so Back-to-app can return to the prior in-app route).
-  private readonly currentUrl = toSignal(
-    this.router.events.pipe(
-      filter((e) => e instanceof NavigationEnd),
-      map((e) => (e as NavigationEnd).urlAfterRedirects),
-      startWith(this.router.url),
-    ),
-    { initialValue: this.router.url },
-  );
-  protected readonly generalActive = computed(
-    () => this.currentUrl() === '/settings',
-  );
+  protected readonly leftPanelWidth = SHELL_LEFT_PANEL_WIDTH;
 
   protected onBack(): void {
     void this.router.navigateByUrl(this.returnRoute.previous());
-  }
-
-  protected navigateTo(url: string): void {
-    void this.router.navigateByUrl(url);
   }
 }
