@@ -135,11 +135,15 @@ export class MergeActionMenu {
 
   readonly pick = output<MergeAction>();
 
-  protected readonly primaryDisabled = computed(
-    () =>
-      this.primaryAction() === 'pr' &&
-      (!this.githubConnected() || !this.isGithubRemote()),
-  );
+  protected readonly primaryDisabled = computed(() => {
+    if (this.primaryAction() === 'pr') {
+      return !this.githubConnected() || !this.isGithubRemote();
+    }
+    // primaryAction === 'local' — mirror the dropdown row's gating so
+    // a (primaryAction='local', localMergeDisabled=true) combo can't
+    // ship a clickable primary while the dropdown row is disabled.
+    return this.localMergeDisabled();
+  });
 
   protected readonly primaryLabel = computed(() =>
     this.primaryAction() === 'pr' ? 'Create PR' : 'Merge now',
@@ -155,6 +159,7 @@ export class MergeActionMenu {
       if (!this.githubConnected()) return 'Connect GitHub to open PRs';
       return 'Open a pull request';
     }
+    if (this.localMergeDisabled()) return 'Coming soon';
     return 'Merge this workspace into its base branch';
   });
 

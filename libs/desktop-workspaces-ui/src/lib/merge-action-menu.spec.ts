@@ -109,16 +109,30 @@ describe('MergeActionMenu — primary button gating (P1.1 D9)', () => {
     expect(internals(f).primaryTooltip()).toBe("This repo isn't on GitHub");
   });
 
-  it('local primary is not gated by GitHub state', () => {
+  it('local primary is not gated by GitHub state but IS gated by localMergeDisabled', () => {
     const f = mount({
       primaryAction: 'local',
       githubConnected: false,
       isGithubRemote: false,
+      localMergeDisabled: false,
     });
     expect(primaryButton(f).disabled).toBe(false);
     expect(internals(f).primaryTooltip()).toBe(
       'Merge this workspace into its base branch',
     );
+  });
+
+  it('local primary is disabled with "Coming soon" tooltip when localMergeDisabled=true', () => {
+    // Symmetry with the dropdown Merge-now row. A
+    // (primaryAction='local', localMergeDisabled=true) combo would
+    // otherwise show a clickable primary while the dropdown row is
+    // disabled — inconsistent gating.
+    const f = mount({
+      primaryAction: 'local',
+      localMergeDisabled: true,
+    });
+    expect(primaryButton(f).disabled).toBe(true);
+    expect(internals(f).primaryTooltip()).toBe('Coming soon');
   });
 });
 
