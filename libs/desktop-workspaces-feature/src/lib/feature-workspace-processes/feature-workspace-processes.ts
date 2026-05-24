@@ -48,7 +48,10 @@ function coerceBottomTab(raw: string | null): BottomTab {
     FeatureWorkspaceTerminal,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex shrink-0 flex-col overflow-hidden' },
+  host: {
+    class:
+      'flex shrink-0 flex-col overflow-hidden border-t border-sidebar-border',
+  },
   template: `
     <hlm-tabs
       class="contents"
@@ -71,19 +74,19 @@ function coerceBottomTab(raw: string | null): BottomTab {
         >
           <button
             hlmTabsTrigger="setup"
-            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
           >
             Setup
           </button>
           <button
             hlmTabsTrigger="run"
-            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
           >
             Run
           </button>
           <button
             hlmTabsTrigger="terminal"
-            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
           >
             Terminal
           </button>
@@ -120,6 +123,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
             class="block h-full w-full"
             [workspaceId]="workspaceId()"
             [active]="bottomTab() === 'run'"
+            [hasRunCommand]="hasRunCommand()"
             (requestStart)="onStartRun()"
           />
         </div>

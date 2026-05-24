@@ -4,13 +4,13 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideListTree, lucidePlay } from '@ng-icons/lucide';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideListTree } from '@ng-icons/lucide';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 
 // Setup tab — empty-state card with a CTA that runs the configured
 // setup command. Pulled out of `feature-workspace-processes` so the
@@ -20,7 +20,7 @@ import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 @Component({
   selector: 'app-feature-workspace-setup',
   imports: [NgIcon, HlmButtonImports, HlmIconImports],
-  providers: [provideIcons({ lucideListTree, lucidePlay })],
+  providers: [provideIcons({ lucideListTree })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full w-full' },
   template: `
@@ -42,14 +42,12 @@ import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
       </div>
       <button
         hlmBtn
+        variant="outline"
         type="button"
-        size="sm"
-        class="rounded"
         [disabled]="!hasRunCommand() || runStatus() === 'running'"
         (click)="onRunSetup()"
       >
-        <ng-icon hlm name="lucidePlay" size="xs" />
-        Run setup
+        Start setup
       </button>
       @if (!hasRunCommand()) {
         <p class="text-[11px] text-muted-foreground/70">

@@ -48,14 +48,19 @@ import type { RunStatus } from '@mozart/desktop-runs-util';
         </div>
         <button
           hlmBtn
+          variant="outline"
           type="button"
-          size="sm"
-          class="rounded"
+          [disabled]="!hasRunCommand()"
           (click)="requestStart.emit()"
         >
-          <ng-icon hlm name="lucidePlay" size="xs" />
+          <ng-icon hlm name="lucidePlay" size="sm" />
           Run workspace
         </button>
+        @if (!hasRunCommand()) {
+          <p class="text-[11px] text-muted-foreground/70">
+            No run command configured. Add one in project settings.
+          </p>
+        }
       </div>
     }
     <div
@@ -70,6 +75,9 @@ export class FeatureWorkspaceRun {
   /** True when the Run tab is the active tab — defers xterm attach to
    *  avoid sizing against a hidden host. */
   readonly active = input<boolean>(false);
+  /** True when the workspace's project has a run command configured.
+   *  Drives the empty-state CTA's disabled state + helper caption. */
+  readonly hasRunCommand = input<boolean>(false);
   /** User clicked the empty-state CTA. Parent hooks this to RunRegistry. */
   readonly requestStart = output<void>();
 
