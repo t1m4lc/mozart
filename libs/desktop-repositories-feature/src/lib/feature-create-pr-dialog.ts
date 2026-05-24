@@ -5,6 +5,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { HlmAlertImports } from '@spartan-ui/alert';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmDialogImports } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
@@ -12,7 +13,9 @@ import { HlmInputImports } from '@spartan-ui/input';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideExternalLink, lucideGithub } from '@ng-icons/lucide';
-import { commands } from '@mozart/desktop-core-tauri';
+import { toast } from '@spartan-ng/brain/sonner';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 export interface CreatePrDialogContext {
   readonly workspaceId: string;
@@ -25,6 +28,7 @@ export interface CreatePrDialogContext {
   selector: 'app-feature-create-pr-dialog',
   imports: [
     NgIcon,
+    HlmAlertImports,
     HlmButtonImports,
     HlmDialogImports,
     HlmIconImports,
@@ -61,6 +65,13 @@ export interface CreatePrDialogContext {
       </div>
     } @else {
       <div class="px-6 py-4 space-y-4">
+        @if (!profile.githubConnected()) {
+          <div hlmAlert variant="default">
+            <p hlmAlertDescription>
+              Connect your GitHub account to open this PR.
+            </p>
+          </div>
+        }
         <div>
           <label
             for="pr-title"
@@ -132,6 +143,8 @@ export interface CreatePrDialogContext {
 export class FeatureCreatePrDialog {
   protected readonly ctx = injectBrnDialogContext<CreatePrDialogContext>();
   private readonly ref = inject(BrnDialogRef);
+  protected readonly profile = inject(ProfileFacade);
+  private readonly workspaces = inject(WorkspacesFacade);
 
   protected readonly title = signal(this.ctx.defaultTitle ?? '');
   protected readonly body = signal(this.ctx.defaultBody ?? '');
@@ -140,8 +153,14 @@ export class FeatureCreatePrDialog {
   protected readonly error = signal<string | null>(null);
   protected readonly createdUrl = signal<string | null>(null);
 
+  // Submit gates on three signals: non-empty title, not mid-flight,
+  // AND GitHub is connected. Mid-flow disconnect (token revoked in
+  // another window) reactively flips this to `false`.
   protected readonly canSubmit = computed(
-    () => !this.submitting() && this.title().trim().length > 0,
+    () =>
+      !this.submitting() &&
+      this.title().trim().length > 0 &&
+      this.profile.githubConnected(),
   );
 
   protected onTitleInput(event: Event): void {
@@ -159,19 +178,22 @@ export class FeatureCreatePrDialog {
     this.submitting.set(true);
     this.error.set(null);
     try {
-      const r = await commands.createWorkspacePr(
+      const result = await this.workspaces.createPr(
         this.ctx.workspaceId,
         this.title().trim(),
         this.body(),
         this.draft(),
       );
-      if (r.status === 'error') {
-        this.error.set(r.error.message);
-        this.submitting.set(false);
-        return;
+      this.createdUrl.set(result.pr.htmlUrl);
+      this.ctx.onCreated?.(result.pr.htmlUrl);
+      // P1.1 D2 — PR succeeded but the status flip to in_review didn't.
+      // Surface to the user; keep the URL visible so they don't lose
+      // the artifact, and skip rollback so they can refresh to recover.
+      if (result.statusFlipFailed) {
+        toast.error(
+          'PR opened, but status update failed — refresh to retry.',
+        );
       }
-      this.createdUrl.set(r.data.html_url);
-      this.ctx.onCreated?.(r.data.html_url);
     } catch (err) {
       this.error.set(err instanceof Error ? err.message : String(err));
     } finally {
