@@ -21,7 +21,11 @@ const FILE_WIDTHS = ['58%', '82%', '38%', '70%', '52%', '88%'] as const;
     provideIcons({ lucideChevronRight, lucideFile, lucideFolder }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block', 'aria-busy': 'true', role: 'status' },
+  // a11y attrs (aria-busy, role=status) live on the parent wrapper
+  // in `feature-file-tree` so the busy signal announces during the
+  // 150ms @placeholder window too, not only when this skeleton is
+  // mounted. Keeps this component pure-presentational.
+  host: { class: 'block' },
   template: `
     <div class="flex flex-col gap-1 px-1 py-1.5">
       @for (width of folderWidths; track $index) {

@@ -52,12 +52,18 @@ import { UiFileTreeSkeleton } from '@mozart/desktop-repositories-ui';
              holds an empty slot for at least 150ms before swapping
              to the skeleton. If the fetch resolves before 150ms,
              showSkeleton flips false and the whole @defer block
-             tears down — the skeleton never appears. -->
-        @defer (on immediate) {
-          <app-file-tree-skeleton />
-        } @placeholder (minimum 150ms) {
-          <span class="block"></span>
-        }
+             tears down — the skeleton never appears.
+             aria-busy/role live on this wrapper (not on the skeleton
+             host) so SR users hear the busy signal during the 150ms
+             placeholder window AND for fast fetches where the
+             skeleton itself never mounts. -->
+        <div class="block" aria-busy="true" role="status">
+          @defer (on immediate) {
+            <app-file-tree-skeleton />
+          } @placeholder (minimum 150ms) {
+            <span class="block"></span>
+          }
+        </div>
       } @else if (error(); as err) {
         <p class="px-2 py-3 text-xs text-destructive">
           Failed to load: {{ err }}

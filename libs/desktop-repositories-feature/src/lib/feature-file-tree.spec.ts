@@ -109,6 +109,13 @@ function querySkeleton(
   return de ? (de.nativeElement as HTMLElement) : null;
 }
 
+function queryStatusWrapper(
+  fixture: ComponentFixture<unknown>,
+): HTMLElement | null {
+  const de = fixture.debugElement.query(By.css('[role="status"]'));
+  return de ? (de.nativeElement as HTMLElement) : null;
+}
+
 describe('FeatureFileTree — showSkeleton + @defer skeleton gate', () => {
   describe('cache-hit short-circuit (CRITICAL regression)', () => {
     it('renders no defer block when own cache has the tree', async () => {
@@ -150,18 +157,47 @@ describe('FeatureFileTree — showSkeleton + @defer skeleton gate', () => {
   });
 
   describe('skeleton path (no caches, loading in flight)', () => {
-    it('mounts a single defer block with the placeholder visible', async () => {
+    it('mounts a single defer block with the placeholder visible and the busy wrapper announced', async () => {
       const { repos, uiState } = makeFacades();
       const fixture = await mount(repos, uiState);
 
       const blocks = await fixture.getDeferBlocks();
       expect(blocks).toHaveLength(1);
       // Before the 150ms minimum elapses, the skeleton is NOT in the
-      // DOM — only the placeholder template is.
+      // DOM — only the placeholder template is. The busy wrapper IS
+      // present, so SR users on fast fetches still hear the loading
+      // signal (this is the bug move-aria-to-wrapper fixed).
       expect(querySkeleton(fixture)).toBeNull();
+      const status = queryStatusWrapper(fixture);
+      expect(status).not.toBeNull();
+      expect(status?.getAttribute('aria-busy')).toBe('true');
     });
 
-    it('renders the tree-shaped skeleton with a11y attrs once the defer reaches Complete', async () => {
+    it('keeps the skeleton hidden if Complete fires before the 150ms minimum', async () => {
+      vi.useFakeTimers();
+      try {
+        const { repos, uiState } = makeFacades();
+        const fixture = await mount(repos, uiState);
+
+        // Force Complete BEFORE the 150ms minimum. The placeholder's
+        // `minimum 150ms` must hold the skeleton out of the DOM.
+        // Regression guard: if the `minimum 150ms` is ever removed
+        // from the template, this test fails because the skeleton
+        // appears at 50ms instead of being held back.
+        vi.advanceTimersByTime(50);
+        for (const block of await fixture.getDeferBlocks()) {
+          await block.render(DeferBlockState.Complete);
+        }
+        await fixture.whenStable();
+        fixture.detectChanges();
+
+        expect(querySkeleton(fixture)).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('renders the tree-shaped skeleton once the defer reaches Complete after the minimum', async () => {
       vi.useFakeTimers();
       try {
         const { repos, uiState } = makeFacades();
@@ -178,10 +214,10 @@ describe('FeatureFileTree — showSkeleton + @defer skeleton gate', () => {
         await fixture.whenStable();
         fixture.detectChanges();
 
-        const host = querySkeleton(fixture);
-        expect(host).not.toBeNull();
-        expect(host?.getAttribute('aria-busy')).toBe('true');
-        expect(host?.getAttribute('role')).toBe('status');
+        expect(querySkeleton(fixture)).not.toBeNull();
+        // a11y attrs live on the outer wrapper, not the skeleton host.
+        const status = queryStatusWrapper(fixture);
+        expect(status?.getAttribute('aria-busy')).toBe('true');
 
         const skeletonDe = fixture.debugElement.query(
           By.css('app-file-tree-skeleton'),
