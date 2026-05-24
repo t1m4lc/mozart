@@ -97,6 +97,15 @@ export class ChatScrollOrchestrator {
     return performance.now() < until;
   }
 
+  /** Drop the workspace's grace window early. The at-bottom detector
+   *  calls this when it spots a user-driven scroll-up during the
+   *  window — real user input must override the programmatic-scroll
+   *  suppression so the chat flips to detached this frame instead of
+   *  fighting the user until the timer expires. */
+  endGracePeriod(workspaceId: string): void {
+    this._graceUntilByWorkspace.delete(workspaceId);
+  }
+
   /** Ask the composer host for `workspaceId` to refocus its
    *  textarea. The nonce ensures consecutive requests trigger the
    *  consumer effect even for the same workspaceId. */

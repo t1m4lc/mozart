@@ -159,22 +159,30 @@ export class FeatureChatScrollSurface {
         // takeUntilDestroyed handling teardown so we don't manage
         // listener lifetime by hand. `{ passive: true }` keeps the
         // listener off the browser's blocking scroll path.
+        let prevScrollTop = el.scrollTop;
         fromEvent(el, 'scroll', { passive: true })
           .pipe(takeUntilDestroyed(this.destroyRef))
           .subscribe(() => {
             const wsId = this.workspaceId();
-            // Suppress attach/detach flips during a programmatic
-            // smooth scroll — those scroll events would otherwise
-            // flip the chat to detached as scrollTop transits the
-            // animation. The grace window lives in the orchestrator.
+            const currScrollTop = el.scrollTop;
+            // A programmatic scroll-to-bottom moves scrollTop DOWN; a
+            // user scrolling up moves it UP. During the grace window
+            // we suppress flips for the former but must respect the
+            // latter — otherwise the user can't escape auto-follow
+            // mid-stream. End the grace window early so the auto-
+            // follow effect's next-frame write sees `detached` and
+            // skips.
+            const userScrolledUp = currScrollTop < prevScrollTop;
+            prevScrollTop = currScrollTop;
             if (wsId && this.orchestrator.isInGracePeriod(wsId)) {
-              return;
+              if (!userScrolledUp) return;
+              this.orchestrator.endGracePeriod(wsId);
             }
             const chatId = this._activeChatId();
             if (!chatId) return;
 
             const distance =
-              el.scrollHeight - el.scrollTop - el.clientHeight;
+              el.scrollHeight - currScrollTop - el.clientHeight;
             const atBottom = distance < AT_BOTTOM_THRESHOLD_PX;
             const currentlyAttached = this.scroll.isAttached(chatId);
 

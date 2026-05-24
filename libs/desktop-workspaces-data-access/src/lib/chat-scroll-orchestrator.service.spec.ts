@@ -143,6 +143,23 @@ describe('ChatScrollOrchestrator', () => {
       expect(service.isInGracePeriod('ws-a')).toBe(true);
       expect(service.isInGracePeriod('ws-b')).toBe(false);
     });
+
+    it('endGracePeriod clears the entry so isInGracePeriod returns false', () => {
+      stubMatchMedia(false);
+      const el = makeScrollableElement();
+      service.register('ws-1', el);
+      service.scrollToBottom('ws-1', true);
+      expect(service.isInGracePeriod('ws-1')).toBe(true);
+
+      service.endGracePeriod('ws-1');
+
+      expect(service.isInGracePeriod('ws-1')).toBe(false);
+    });
+
+    it('endGracePeriod on an unknown workspace is a no-op', () => {
+      expect(() => service.endGracePeriod('ws-unknown')).not.toThrow();
+      expect(service.isInGracePeriod('ws-unknown')).toBe(false);
+    });
   });
 
   describe('focusRequest channel', () => {
