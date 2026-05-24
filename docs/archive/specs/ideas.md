@@ -1,9 +1,13 @@
+# Todo
+
 - on va defer la partie gestion des review dans l'app en invitant le user à poster une PR sur github.
+
 - Comment faire en sorte que le user soit informer que sa branche main locale est à jour par rapport au remote ? comment mettre à jour les branche de workspace avec leur branche d'origine ?
+
 - Question lié à celle du dessus comment voir son projet source projet de reference souvent (pas un worktree) souvent branche main par default? reflechir à UI et UX
 - ajouter un context window component (70% yello, 90% red) manage windows count in chat.
 
----
+-rendre run, config t terminal optional. pas utile pour les non dev. peut etre visible si .mozart/qqchose existe ?
 
 - timeline moche à revoir
 - revoir file view car header moche
@@ -11,9 +15,7 @@
 
 - je trouve que l'ensemble du texte en general est un peu trop petit et les icon aussi peut tu faire des proposition pour rendre l'UI un peu plus accessible.
 
-- All files tree issue: Il y a toujours le problème suivant, c'est-à-dire que quand je suis sur un workspace et que je clique sur un autre workspace qui contient un filetree, un gros filetree, du coup quand je clique, ça ne route pas, ça attend que le filetree soit résolu et ensuite ça route. Ça, c'est vraiment pas beau, il faut router. Il faut que du coup l'utilisateur route vers le workspace et qu'après seulement le filetree soit résolu. Donc je ne sais pas, c'est peut-être lié au cache. il n'y a pas, je ne pense pas qu'il y ait de résolveur, ça doit être lié au cache qui attend d'être résolu avant que la route navigue bien. Donc ça, c'est vraiment pas bon. Il faut que, il faut Il faut creuser ça. Déjà un quick win, on va dire, ça serait d'inverser les tables all files et change, de les inverser pour que par défaut, ça soit la table change qui soit montrée par défaut, mais ça ne règle pas le problème parce que du coup, on a de la persistence sur les tables. Il suffit que l'utilisateur euh et cliqué sur all files, la table all file, donc du coup, il y a le trick qui est bien chargé. Et du coup ensuite il navigue sur un autre workspace, ensuite il décide de revenir sur le workspace avec le gros filetree et là on a le problème. ET une amélioration serai de rendre l'aétat du file tree persistent entre les changement de workspace. Maybe you can improve with rust layer ??
-
-# Todo
+##
 
 # Idée en vrac
 

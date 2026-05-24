@@ -180,14 +180,14 @@ in `plan-v0.1.0-beta.1.md:38`). Each atom inside a phase ends with a
 
 The five locked architectural decisions, with one-line rationale.
 
-| #     | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Rationale                                                                                                                                                                                                                                                      |
-| ----- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4. **⚠️ PARTIALLY FALSIFIED 2026-05-21:** dogfood probe with the `MOZART_CLAUDE_BIN` shim confirmed `--add-dir` is *contextual, not enforced* — the agent's `Read`/`Bash` tools access any OS-readable path regardless. `--allowedTools` IS enforced (ask-mode write attempts refuse). Atom 7 added `--append-system-prompt` clamp as defense in depth (agent politely refuses), but real filesystem isolation needs the OS fence (now TODO-001, upgraded to load-bearing).                                                                                                                       | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
-| AD-02 | **Merge routing** = `.mozart/run.json` derives no merge preference; per-project `mergeMode` lives in **Mozart local DB** (`project_local_config`); per-workspace `last_merge_action` overrides it for the primary-button label, IDE-button style.                                                                                                                                                                                                                                                               | User-specific preference, never shared with team. Last-action memory mirrors the existing Open-in-IDE pattern.                                                                                                                                                 |
-| AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Explicit reviewer action from the diff toolbar, never automatic on open. Review progress count. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]].                                                                                                                                                                                                                         | Reduces review cognitive load without ceremony while preserving the GitHub-style "I checked this file" intent.                                                                                                                                                  |
-| AD-04 | **Editor** = CodeMirror 6 for Edit mode and code viewing. P2.1 does **not** replace the existing unified diff renderer with `@codemirror/merge`; split/merge diff requires a separate backend contract for base/workspace file bodies. Markdown preview stays for Review mode; `.md` opens as code only in Edit mode.                                                                                                                                                                                             | Keeps P2.1 dogfood-sized and avoids regressing the existing markdown preview. Monaco is heavier and harder to keep visually minimal; CodeMirror remains the editor choice, but diff replacement is deferred until its data contract is explicit.                                                                               |
-| AD-05 | **Freeze** = frontend `isFrozen` signal + Rust IPC guards on every mutating command with new `AppError::Frozen` variant. Belt-and-braces.                                                                                                                                                                                                                                                                                                                                                                       | Single-source enforcement (frontend-only) is fragile; layered is robust.                                                                                                                                                                                       |
-| AD-06 | **Project bootstrap** = silent local default on Open project. No screen. Detect → write `project_local_config` row → auto-create first workspace → auto-create "Start" chat. The Start chat's timeline shows a system-info entry summarising the inferred setup/run + sandbox level + storage location. Two-file split (`.mozart/settings.json` + `.mozart/run.json`) is reserved for the deferred "Save config to repo" action (P4 / TODO-006). Mozart never auto-commits. See [[mozart-repo-init-principle]]. | The first-run user has no basis to choose between local and repo config. Defaulting to local matches the principle, removes a screen, and uses the existing chat timeline as the surface for the inference result. Decided 2026-05-19 in `/plan-devex-review`. |
+| #     | Decision                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Rationale                                                                                                                                                                                                                                                      |
+| ----- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| AD-01 | **Sandbox** = Claude CLI flags (`--add-dir` whitelist + `--permission-mode acceptEdits` + `--allowedTools` per mode) + Rust path-canonicalize at IPC boundary; OS-level fence deferred to P4. **⚠️ PARTIALLY FALSIFIED 2026-05-21:** dogfood probe with the `MOZART_CLAUDE_BIN` shim confirmed `--add-dir` is _contextual, not enforced_ — the agent's `Read`/`Bash` tools access any OS-readable path regardless. `--allowedTools` IS enforced (ask-mode write attempts refuse). Atom 7 added `--append-system-prompt` clamp as defense in depth (agent politely refuses), but real filesystem isolation needs the OS fence (now TODO-001, upgraded to load-bearing). | Ship dogfood-safe security now without per-OS fence complexity.                                                                                                                                                                                                |
+| AD-02 | **Merge routing** = `.mozart/run.json` derives no merge preference; per-project `mergeMode` lives in **Mozart local DB** (`project_local_config`); per-workspace `last_merge_action` overrides it for the primary-button label, IDE-button style.                                                                                                                                                                                                                                                                                                                                                                                                                      | User-specific preference, never shared with team. Last-action memory mirrors the existing Open-in-IDE pattern.                                                                                                                                                 |
+| AD-03 | **Viewed state** = passive review aid only. Decoupled from staging. Explicit reviewer action from the diff toolbar, never automatic on open. Review progress count. Content-hash stale detection. Soft warning at merge/PR/commit, single-click bypass. See [[mozart-viewed-principle]].                                                                                                                                                                                                                                                                                                                                                                               | Reduces review cognitive load without ceremony while preserving the GitHub-style "I checked this file" intent.                                                                                                                                                 |
+| AD-04 | **Editor** = CodeMirror 6 for Edit mode and code viewing. P2.1 does **not** replace the existing unified diff renderer with `@codemirror/merge`; split/merge diff requires a separate backend contract for base/workspace file bodies. Markdown preview stays for Review mode; `.md` opens as code only in Edit mode.                                                                                                                                                                                                                                                                                                                                                  | Keeps P2.1 dogfood-sized and avoids regressing the existing markdown preview. Monaco is heavier and harder to keep visually minimal; CodeMirror remains the editor choice, but diff replacement is deferred until its data contract is explicit.               |
+| AD-05 | **Freeze** = frontend `isFrozen` signal + Rust IPC guards on every mutating command with new `AppError::Frozen` variant. Belt-and-braces.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Single-source enforcement (frontend-only) is fragile; layered is robust.                                                                                                                                                                                       |
+| AD-06 | **Project bootstrap** = silent local default on Open project. No screen. Detect → write `project_local_config` row → auto-create first workspace → auto-create "Start" chat. The Start chat's timeline shows a system-info entry summarising the inferred setup/run + sandbox level + storage location. Two-file split (`.mozart/settings.json` + `.mozart/run.json`) is reserved for the deferred "Save config to repo" action (P4 / TODO-006). Mozart never auto-commits. See [[mozart-repo-init-principle]].                                                                                                                                                        | The first-run user has no basis to choose between local and repo config. Defaulting to local matches the principle, removes a screen, and uses the existing chat timeline as the surface for the inference result. Decided 2026-05-19 in `/plan-devex-review`. |
 
 ---
 
@@ -322,9 +322,9 @@ Files: ~5 (migration, models.rs, schema mirror, facade, store).
       `ask`→`Read,Glob,Grep` closes TODO-011 (no `Write`/`Edit`/`Bash`).
 - [x] `runner.rs:command_argv_for_test` is renamed `production_argv` and
       now takes `(prompt, workspace, chat_mode, level, project_siblings,
-      l1_roots)`. The locked-flag test asserts the **new** flag set
+    l1_roots)`. The locked-flag test asserts the **new** flag set
       (locked prefix, presence of `--add-dir`, `--permission-mode=
-      acceptEdits`, `--allowedTools=…`, continued absence of
+    acceptEdits`, `--allowedTools=…`, continued absence of
       `--dangerously-skip-permissions`, + TODO-011 ask-mode regression).
 - [x] **Manual checkpoint:** Run a real agent turn through Mozart with
       L2 default. Open `~/.mozart/logs/*.log` (or stderr capture), grep
@@ -378,11 +378,11 @@ AppError>` that: 1. `canonicalize()` the input 2. Asserts the canonical form sta
       `validate_agent_path_rejects_traversal_via_canonicalize`,
       `validate_agent_path_rejects_symlink_escape` (the regression
       case the v0 stub couldn't see), `validate_agent_path_rejects_
-      symlink_chain_to_outside`, `validate_agent_path_l3_rejects_
-      sibling_worktree`, `validate_agent_path_l2_accepts_sibling_
-      worktree`, `validate_agent_path_accepts_nonexistent_file_with_
-      existing_parent`, `validate_agent_path_rejects_etc_anywhere`.
-      Live `../../etc/hosts` agent probe to be exercised by author._
+      symlink*chain_to_outside`, `validate_agent_path_l3_rejects*
+      sibling*worktree`, `validate_agent_path_l2_accepts_sibling*
+      worktree`, `validate*agent_path_accepts_nonexistent_file_with*
+      existing*parent`, `validate_agent_path_rejects_etc_anywhere`.
+    Live `../../etc/hosts` agent probe to be exercised by author.*
 
 Files: ~2 + audit edits across ~6 command sites. Tests: 8 cases (happy
 
@@ -402,8 +402,8 @@ surface it with proper explanation.
 - [x] Tauri command `set_workspace_sandbox_level(ws_id, level)` —
       writes the DB column. Wired but not called from any menu.
       _Registered in `bindings_export.rs` alongside the other
-      `set_workspace_*` commands; reachable from devtools via
-      `__TAURI__.invoke('set_workspace_sandbox_level', { workspaceId, level })`._
+      `set_workspace_\*`commands; reachable from devtools via
+   `**TAURI**.invoke('set*workspace_sandbox_level', { workspaceId, level })`.*
 - [x] Debug-only invocation surface: a hidden `mozart://` URL handler
       or a devtools-callable facade method, sufficient for the manual
       checkpoint and for E2E tests. Not user-facing.
@@ -1078,7 +1078,7 @@ Files: 1 e2e.
 > below), wrapping it in `<hlm-tabs>` is a small follow-up. Add it as
 > A1.3.D when implementing this lane. Source-side note pinned in
 > `apps/desktop/src/app/domains/workspaces/ui/workspace-tab-bar/
-> workspace-tab-bar.ts`.
+workspace-tab-bar.ts`.
 
 ### Current shape
 
@@ -1306,12 +1306,12 @@ Files: ~3.
 
 - [x] New Tauri command `file_save(workspace_id, relative_path,
 content, expected_hash)` that uses the same canonical path guard as
-`read_workspace_file` and future file-write commands.
+      `read_workspace_file` and future file-write commands.
 - [x] Return `Frozen` if the workspace is done.
 - [x] Return a stale-file validation error if the current on-disk hash
       differs from `expected_hash`. _Dedicated `AppError::StaleFile`
       variant carries the path; frontend dispatches on `kind:
-      'StaleFile'` to surface the Reload / Keep editing banner._
+    'StaleFile'` to surface the Reload / Keep editing banner._
 - [x] Write UTF-8 text atomically (tmp + rename). Binary and non-UTF-8
       editing are out of scope for P2.1.
 - [x] Update `read_workspace_file` to use the shared path guard so read
@@ -1319,7 +1319,7 @@ content, expected_hash)` that uses the same canonical path guard as
       `path_guard::validate_workspace_relative_path` with its own unit
       tests; `file_save` and `read_workspace_file` both go through it._
 - [x] **Manual checkpoint:** Edit a file in Mozart, Save, observe `git
-      status` shows the change; mark workspace done, then verify Save is
+    status` shows the change; mark workspace done, then verify Save is
       rejected with `Frozen`. _Four cargo unit tests cover the matrix:
       happy save updates the file + returns the new sha; stale-hash
       save returns `StaleFile` and leaves the file untouched; frozen
@@ -1619,12 +1619,12 @@ Files: ~2.
 
 ### Spec
 
-| Source tab    | Click on file        | Opens in                                           |
-| ------------- | -------------------- | -------------------------------------------------- |
-| All files     | a file               | **Edit mode** in middle shell                      |
-| Changes       | a changed file       | **Diff/review mode** in middle shell               |
-| Changes       | context-menu "View" | **Diff/review mode** in middle shell               |
-| Anywhere else | context-menu "View" | **Diff mode** by default when source is ambiguous  |
+| Source tab    | Click on file       | Opens in                                          |
+| ------------- | ------------------- | ------------------------------------------------- |
+| All files     | a file              | **Edit mode** in middle shell                     |
+| Changes       | a changed file      | **Diff/review mode** in middle shell              |
+| Changes       | context-menu "View" | **Diff/review mode** in middle shell              |
+| Anywhere else | context-menu "View" | **Diff mode** by default when source is ambiguous |
 
 The middle shell's `fileMode` signal is set by the click handler in
 `feature-workspace-aside` based on the current sub-tab. All files and
@@ -1646,7 +1646,7 @@ hover/focus/transient rendering state.
 
 - [ ] Two click handlers (one per sub-tab) call
       `featureWorkspaceMiddle.openFile(path, { mode: 'edit' | 'diff',
-      source: 'all-files' | 'changes' })`.
+    source: 'all-files' | 'changes' })`.
 - [ ] Store separate per-workspace file view state for edit flow and
       review flow in NgRx SignalStore so the same path can retain
       different mode/context state depending on where it was opened.
@@ -1915,7 +1915,7 @@ cleanly: a project IS a repo, you OPEN it.
 | Header button + tooltip        | `Add project`         | `Open project`                      |
 | Dropdown entry — open existing | `Open existing`       | `Open a repository on this machine` |
 | Dropdown entry — clone         | `Clone repo`          | `Clone from Git`                    |
-| Dropdown entry — create empty  | `Create local folder` | `Create a new project`              |
+| Dropdown entry — create empty  | `Create local folder` | `Start with Quickstart`             |
 | Empty state CTA                | `Add project`         | `Open project`                      |
 | Header context menu            | `Add project`         | `Open project`                      |
 
