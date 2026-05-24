@@ -317,3 +317,15 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** D9 detection landed (provides the `isGithubRemoteFor` signal and the entry point UI surface); existing GitHub REST machinery in `apps/desktop-tauri/src/github.rs` (token already validated); decision on org-vs-user scoping (do we surface org selection in v1 or default to the authenticated user?).
 
 ---
+
+## desktop-e2e — Playwright PR-workflow coverage (P1.1 T13)
+
+**What:** Build the Tauri-mock infrastructure for `apps/desktop-e2e` and write `pr-workflow.e2e.spec.ts` covering the four cases the P1.1 test plan called out: (1) connected + backlog → in_review happy path, (2) disconnected gate (primary disabled + tooltip), (3) mid-flow disconnect (kill token while dialog is open → submit reactively disables), (4) non-GitHub-remote gate (tooltip reads "This repo isn't on GitHub").
+
+**Why:** P1.1 shipped with strong unit + component coverage (42 tests across `workspace.facade.spec.ts`, `merge-action-menu.spec.ts`, `feature-create-pr-dialog.spec.ts`) so the contract is locked at every boundary the dialog crosses. The E2E layer would add genuine integration coverage — proving the Angular boot, Tauri command roundtrip, signal wiring, and dialog lifecycle work as a single flow — but it can't be built in P1.1's scope because the infra simply isn't there.
+
+**How to apply:** Three pieces, in order. (1) Wire `@tauri-apps/api/mocks` (`mockIPC`) into a web-mode boot path so the Angular app survives without a real Tauri runtime — likely a new `apps/desktop-e2e/src/setup-mocks.ts` plus a build-time env var the app reads. (2) Stub the commands the boot + PR flow needs: `list_repos`, `list_workspaces`, `list_tasks`, `has_github_token`, `is_github_remote_for_project`, `create_workspace_pr`, `commit_workspace`, `set_workspace_ui_status`, plus the deep-link / auth callbacks if a connect-flow case is in scope. (3) Write the four-case spec against fixture projects (a GitHub-origin one and a non-GitHub one) using the stable selectors from the merge-action-menu and create-pr dialog — the unit specs already establish the assertion surface, just lift it to Playwright `getByRole`/`getByText` queries.
+
+**Depends on:** P1.1 landed (so the targets exist). `@tauri-apps/api` is already a dependency, but `@tauri-apps/api/mocks` may need an explicit re-export or import path check. Decision on whether to keep the example `src/example.spec.ts` placeholder or delete it as part of the same change.
+
+---

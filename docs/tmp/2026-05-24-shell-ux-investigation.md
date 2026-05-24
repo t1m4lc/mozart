@@ -1100,10 +1100,7 @@ checkbox as you ship. JSONL artifact for `/autoplan` aggregation:
   - Surfaced by: **D6 (Test review tier A)**
   - Files: `libs/desktop-repositories-feature/src/lib/feature-create-pr-dialog.spec.ts` (NEW)
   - Verify: `pnpm nx test desktop-repositories-feature` passes
-- [ ] **T13 (P1, human: ~1h / CC: ~15min)** — `desktop-e2e` — NEW Playwright E2E (`pr-workflow.e2e.spec.ts`): connected + backlog happy path; disconnected gate; mid-flow disconnect; non-GitHub-remote gate (D9)
-  - Surfaced by: **D6 (Test review tier A)**; critical user paths from the test plan artifact
-  - Files: `apps/desktop-e2e/src/pr-workflow.e2e.spec.ts` (NEW)
-  - Verify: `pnpm nx e2e desktop-e2e --grep "pr-workflow"` passes locally; CI green
+- **T13 — DEFERRED to TODOS.md.** Originally scoped as a Playwright E2E (`pr-workflow.e2e.spec.ts`) covering the connected happy path, disconnected gate, mid-flow disconnect, and non-GitHub-remote gate. Blocked on infrastructure: `apps/desktop-e2e` only ships an Nx scaffold and the Angular app calls Tauri commands during boot without a `mockIPC` shim. Tracked in `TODOS.md` ("desktop-e2e — Playwright PR-workflow coverage (P1.1 T13)"). Unit + component coverage from T10–T12 (42 tests) anchors every contract this would have exercised.
 
 ### 7.7 Test plan artifact
 
