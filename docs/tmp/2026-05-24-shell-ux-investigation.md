@@ -807,21 +807,61 @@ right-3 z-10 …">`; bind visibility to `dirty()` with a CSS
 
 ### 2.8 P2.4 — Human-readable hunk labels
 
-**Goal:** Replace `@@ -120,7 +120,8 @@` with text like
-`"120 lines above"` or `"34 unchanged lines"`, while keeping the raw
-header available as `title`.
+> **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
+
+**Goal:** Replace `@@ -120,7 +120,8 @@` with `"120 lines above"` (or `"No more lines above"` when `linesAvailable === 0`). When a hunk's gap-above AND the next gap (= gap-below this hunk) are both empty, omit the hunk header row entirely so the diff reads as continuous context. Raw `@@` available via `title` attribute for diff-literate users.
+
+**Implementation notes:**
+
+```
+buildDocPlan hunk-header branch (cm-diff-extensions.ts:131-140)
+
+  pre-pass items[] once, build nextHunkLinesAvailable[gapIndex] map.
+
+  for each RenderItem of kind 'hunk-header':
+    linesAbove = item.linesAvailable
+    linesBelow = nextHunkLinesAvailable[item.gapIndex] ?? 0
+    if linesAbove === 0 && linesBelow === 0:
+      SKIP — don't append a doc line for this hunk header
+    else:
+      label = formatHunkLabel(linesAbove)        ← new pure helper
+      appendLine(label, {
+        kind: 'hunk',
+        oldLine: null, newLine: null,
+        hunkGapIndex: item.gapIndex,
+        hunkLinesAvailable: linesAbove,
+        originalHeader: item.text,               ← new LineMeta field
+      })
+
+buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
+
+  for hunk-kind line:
+    builder.add(linePos, linePos, HUNK_LINE_DECO)
+    if (meta.originalHeader):
+      builder.add(linePos, linePos, Decoration.line({
+        attributes: { title: meta.originalHeader }
+      }))
+```
+
+**`formatHunkLabel` contract:**
+
+| Input          | Output                  |
+| -------------- | ----------------------- |
+| `n > 1`        | `"${n} lines above"`    |
+| `n === 1`      | `"1 line above"`        |
+| `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
 
 **Files to touch:**
 
-- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:131–140`
-  — extend the `hunk-header` branch with a formatter that consumes
-  `oldStart`, `oldCount`, `newStart`, `newCount` from the parsed
-  `DiffHunk` and produces a short label.
-- Tag the doc line with a `data-original-header` attr so
-  hover/copy works for diff-literate users.
-- `libs/mozart-ui/diff-parser/src/lib/diff-parser.ts:20–162`
-  — confirm `DiffHunk` exposes the parsed numbers (it does); add
-  no parser changes.
+- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts`
+  - `LineMeta` (line 22): add `readonly originalHeader?: string`.
+  - `buildDocPlan` hunk-header branch (lines 131–140): consume the pre-pass lookahead, hide row when both gaps empty, swap `item.text` for `formatHunkLabel(linesAvailable)`, pass `originalHeader` through `LineMeta`.
+  - `buildLineDecorations` hunk branch (lines 235–237): when `meta.originalHeader` present, also emit a `Decoration.line` with `attributes.title`.
+  - New `formatHunkLabel(n: number): string` pure helper near `formatNumber` (line 554).
+  - Header comment block (lines 76–87): update to reflect doc-text-is-label model — diagram maintenance per CLAUDE.md.
+- `libs/mozart-ui/diff-parser/src/lib/diff-parser.ts` — no change. `DiffHunk` already exposes the parsed counts.
+
+**Tests:** new spec file — see §2.8.1 below.
 
 **Verification:**
 
@@ -937,17 +977,20 @@ buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
 
 ### 2.9 P2.5 — Better expand-context button
 
-**Goal:** The hunk-row gutter chevron becomes a wider, labelled
-click target — visual parity with the trailing-gap expand bar.
+> **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
+
+**Goal:** The hunk-row gutter chevron becomes a ~24px wider hit target with chevron + count badge (`"+20"`, or `"+12"` when fewer lines remain). Disabled with `"No more hidden lines"` title when `linesAvailable === 0`. Behavior preserved: click expands `HUNK_EXPAND_STEP` lines up; shift-click doubles.
 
 **Files to touch:**
 
-- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:478–532`
-  — widen the button into a small strip with text `"Show 20
-lines above"` (or just `"+20"` if width-constrained). Reposition
-  so the strip sits inside the hunk row's gutter, not at the seam.
-- Optional: add a `"Show all"` modifier (shift+click already
-  doubles; document this).
+- `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts:478–532` — `HunkButtonMarker.toDOM`:
+  - Replace the 12×12 circle with a wider strip-shaped button (~24px × 16px), still positioned in the OLD gutter cell with the `translate(50%, -50%)` math so the visual centroid stays on the column seam.
+  - Append a `<span>` inside the button rendering `+${min(HUNK_EXPAND_STEP, linesAvailable)}` next to the existing `lucideChevronUp` icon. Hide the count when `linesAvailable === 0`.
+  - Tailwind: drop `h-4 w-4 rounded-full`; replace with `h-5 px-1 rounded-md` (or similar). Keep within the hunk-band vertical rhythm.
+  - Title logic unchanged.
+- Add a one-line comment near the click handler (lines 523–528) documenting shift-click doubles to `2 × HUNK_EXPAND_STEP`.
+
+**Tests:** covered by §2.8.1 cases 12–16.
 
 **Verification:**
 
