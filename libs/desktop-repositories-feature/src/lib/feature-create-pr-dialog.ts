@@ -7,23 +7,37 @@ import {
 } from '@angular/core';
 import { HlmAlertImports } from '@spartan-ui/alert';
 import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmDialogImports } from '@spartan-ui/dialog';
+import { HlmDialogImports, HlmDialogService } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmInputImports } from '@spartan-ui/input';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideExternalLink, lucideGithub } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 export interface CreatePrDialogContext {
   readonly workspaceId: string;
+  /** Used verbatim as the PR title. The caller (shell-right /
+   *  workspace-detail.page) passes the workspace name. Inputs were
+   *  removed in favor of an auto-title — a future agent will craft
+   *  the title + body, but for now a generic workspace-name title
+   *  is enough. */
   readonly defaultTitle?: string;
   readonly defaultBody?: string;
   readonly onCreated?: (url: string) => void;
 }
 
+// Three render states (mutually exclusive, gated above the form):
+//   1. No GitHub remote on the project   → guidance only.
+//   2. GitHub not connected              → Connect-GitHub CTA.
+//   3. Ready                             → Single "Open pull request"
+//                                          button. No inputs; title is
+//                                          auto-derived from the
+//                                          workspace name.
+// On success the success-state replaces all of the above with the PR
+// URL and a Close button.
 @Component({
   selector: 'app-feature-create-pr-dialog',
   imports: [
@@ -32,7 +46,6 @@ export interface CreatePrDialogContext {
     HlmButtonImports,
     HlmDialogImports,
     HlmIconImports,
-    HlmInputImports,
   ],
   providers: [provideIcons({ lucideExternalLink, lucideGithub })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -43,11 +56,10 @@ export interface CreatePrDialogContext {
         Create pull request
       </h3>
     </div>
+
     @if (createdUrl(); as url) {
       <div class="px-6 py-4 space-y-2">
-        <p class="text-sm text-muted-foreground">
-          Pull request opened.
-        </p>
+        <p class="text-sm text-muted-foreground">Pull request opened.</p>
         <a
           [href]="url"
           target="_blank"
@@ -63,62 +75,56 @@ export interface CreatePrDialogContext {
           Close
         </button>
       </div>
+    } @else if (!isGithubRemote()) {
+      <div class="px-6 py-4">
+        <div hlmAlert variant="default">
+          <p hlmAlertDescription>
+            This workspace's project doesn't have a GitHub remote yet. Add a
+            <code class="font-mono">github.com</code> URL as the
+            <code class="font-mono">origin</code> remote (or push the repo
+            to a GitHub fork), then come back here to open the PR.
+          </p>
+        </div>
+      </div>
+      <div hlmDialogFooter class="px-6 py-4">
+        <button hlmDialogClose hlmBtn variant="default" type="button">
+          Close
+        </button>
+      </div>
+    } @else if (!profile.githubConnected()) {
+      <div class="px-6 py-4">
+        <div hlmAlert variant="default">
+          <p hlmAlertDescription>
+            Mozart needs a GitHub personal access token to open pull
+            requests on your behalf. Connect once and we'll remember it in
+            your OS keychain.
+          </p>
+        </div>
+      </div>
+      <div hlmDialogFooter class="px-6 py-4">
+        <button hlmDialogClose hlmBtn variant="outline" type="button">
+          Cancel
+        </button>
+        <button hlmBtn type="button" (click)="openConnectGithub()">
+          Connect GitHub
+        </button>
+      </div>
     } @else {
-      <div class="px-6 py-4 space-y-4">
-        @if (!profile.githubConnected()) {
-          <div hlmAlert variant="default">
-            <p hlmAlertDescription>
-              Connect your GitHub account to open this PR.
-            </p>
-          </div>
-        }
-        <div>
-          <label
-            for="pr-title"
-            class="mb-1 block text-xs font-medium text-muted-foreground"
-            >Title</label
-          >
-          <input
-            id="pr-title"
-            type="text"
-            hlmInput
-            class="w-full text-sm"
-            [value]="title()"
-            (input)="onTitleInput($event)"
-          />
-        </div>
-        <div>
-          <label
-            for="pr-body"
-            class="mb-1 block text-xs font-medium text-muted-foreground"
-            >Description</label
-          >
-          <textarea
-            id="pr-body"
-            hlmInput
-            rows="6"
-            class="w-full resize-y text-sm"
-            placeholder="What does this PR change?"
-            [value]="body()"
-            (input)="onBodyInput($event)"
-          ></textarea>
-        </div>
-        <label class="flex cursor-pointer items-center gap-2 pt-1 text-sm">
-          <input
-            type="checkbox"
-            class="h-3 w-3 cursor-pointer"
-            [checked]="draft()"
-            (change)="toggleDraft()"
-          />
-          Open as draft
-        </label>
+      <div class="px-6 py-4 space-y-2">
+        <p class="text-sm">
+          Open a pull request for
+          <span class="font-medium">{{ resolvedTitle() }}</span
+          >?
+        </p>
+        <p class="text-xs text-muted-foreground">
+          Mozart pushes the workspace branch to
+          <code class="font-mono">origin</code> and opens the PR against the
+          workspace's base branch. Title + description will be drafted by
+          the agent in a future release; for now a generic title is used.
+        </p>
         @if (error(); as err) {
           <p class="text-xs text-destructive">{{ err }}</p>
         }
-        <p class="text-xs text-muted-foreground">
-          Mozart pushes the workspace branch to <code class="font-mono">origin</code>
-          and opens the PR against the workspace's base branch.
-        </p>
       </div>
       <div hlmDialogFooter class="px-6 py-4">
         <button hlmDialogClose hlmBtn variant="outline" type="button">
@@ -133,7 +139,7 @@ export interface CreatePrDialogContext {
           @if (submitting()) {
             Pushing &amp; creating…
           } @else {
-            Create pull request
+            Open pull request
           }
         </button>
       </div>
@@ -145,33 +151,56 @@ export class FeatureCreatePrDialog {
   private readonly ref = inject(BrnDialogRef);
   protected readonly profile = inject(ProfileFacade);
   private readonly workspaces = inject(WorkspacesFacade);
+  private readonly projects = inject(ProjectsFacade);
+  private readonly dialogService = inject(HlmDialogService);
 
-  protected readonly title = signal(this.ctx.defaultTitle ?? '');
-  protected readonly body = signal(this.ctx.defaultBody ?? '');
-  protected readonly draft = signal(false);
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly createdUrl = signal<string | null>(null);
 
-  // Submit gates on three signals: non-empty title, not mid-flight,
-  // AND GitHub is connected. Mid-flow disconnect (token revoked in
-  // another window) reactively flips this to `false`.
+  // Auto-title — workspace name from context, with a defensive
+  // fallback so the GitHub API never sees an empty title.
+  protected readonly resolvedTitle = computed(() => {
+    const t = (this.ctx.defaultTitle ?? '').trim();
+    return t.length > 0 ? t : 'Mozart pull request';
+  });
+
+  // Workspace → project resolution for the GitHub-remote gate. Null
+  // until the workspace row is in the store (race-safe on direct
+  // dialog mount before WorkspacesFacade has loaded).
+  private readonly projectId = computed(() => {
+    const ws = this.workspaces.workspaceById(this.ctx.workspaceId)();
+    return ws?.projectId ?? null;
+  });
+
+  // True only once the probe resolves AND the origin really is
+  // github.com. `null` (probe pending) and `false` both gate to the
+  // "no GitHub remote" guidance state — defensive default until the
+  // probe lands.
+  protected readonly isGithubRemote = computed(() => {
+    const pid = this.projectId();
+    if (!pid) return false;
+    return this.projects.isGithubRemoteFor(pid)() === true;
+  });
+
+  constructor() {
+    // Kick the lazy isGithubRemote read. The dialog can mount before
+    // shell-right's effect has fired for this workspace (e.g., the
+    // user opens PR from a keyboard shortcut). Idempotent.
+    const pid = this.projectId();
+    if (pid) void this.projects.ensureIsGithubRemote(pid);
+  }
+
+  // Submit only fires from the ready state, where both gates already
+  // passed via the @if chain. The redundant signal checks here guard
+  // against a mid-flow flip between render and click (token revoked,
+  // remote re-probe flipped).
   protected readonly canSubmit = computed(
     () =>
       !this.submitting() &&
-      this.title().trim().length > 0 &&
-      this.profile.githubConnected(),
+      this.profile.githubConnected() &&
+      this.isGithubRemote(),
   );
-
-  protected onTitleInput(event: Event): void {
-    this.title.set((event.target as HTMLInputElement).value);
-  }
-  protected onBodyInput(event: Event): void {
-    this.body.set((event.target as HTMLTextAreaElement).value);
-  }
-  protected toggleDraft(): void {
-    this.draft.update((v) => !v);
-  }
 
   protected async onSubmit(): Promise<void> {
     if (!this.canSubmit()) return;
@@ -180,9 +209,9 @@ export class FeatureCreatePrDialog {
     try {
       const result = await this.workspaces.createPr(
         this.ctx.workspaceId,
-        this.title().trim(),
-        this.body(),
-        this.draft(),
+        this.resolvedTitle(),
+        this.ctx.defaultBody ?? '',
+        false,
       );
       this.createdUrl.set(result.pr.htmlUrl);
       this.ctx.onCreated?.(result.pr.htmlUrl);
@@ -199,6 +228,18 @@ export class FeatureCreatePrDialog {
     } finally {
       this.submitting.set(false);
     }
+  }
+
+  // Dynamic import keeps the profile-feature chunk out of the
+  // repositories-feature eager bundle. The connect dialog overlays this
+  // one; on successful connect, githubConnected() flips reactively and
+  // this dialog re-renders to the ready state — the user can then click
+  // Open pull request without re-opening anything.
+  protected async openConnectGithub(): Promise<void> {
+    const { UiGithubConnectDialog } = await import(
+      '@mozart/desktop-profile-feature'
+    );
+    this.dialogService.open(UiGithubConnectDialog, {});
   }
 }
 

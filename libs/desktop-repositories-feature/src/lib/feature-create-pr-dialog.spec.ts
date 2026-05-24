@@ -7,8 +7,10 @@ import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { DIALOG_DATA } from '@angular/cdk/dialog';
 import { BrnDialogRef } from '@spartan-ng/brain/dialog';
+import { HlmDialogService } from '@spartan-ui/dialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import {
   WorkspacesFacade,
   type CreatedPr,
@@ -18,11 +20,18 @@ import {
   type CreatePrDialogContext,
 } from './feature-create-pr-dialog';
 
-// T12 — covers the Create-PR dialog's interplay with the GitHub auth
-// gate (inline alert + submit disable, reactive mid-flow disconnect),
-// the D2 partial-failure surface, and the double-submit guard. The
-// dialog injects ProfileFacade + WorkspacesFacade via the new P1.1
-// routing; both are stubbed with the smallest plausible shapes.
+// Mock the profile-feature dynamic import so the Connect-GitHub CTA
+// test doesn't try to load the real Spartan-heavy chunk in jsdom.
+vi.mock('@mozart/desktop-profile-feature', () => ({
+  UiGithubConnectDialog: class FakeUiGithubConnectDialog {},
+}));
+
+// Covers the three-state PR dialog (Phase 4f-ish refactor): the
+// no-remote guidance, the not-connected Connect-GitHub CTA, and the
+// ready state's single-button "Open pull request" flow. Inputs (title,
+// body, draft) were removed in favor of an auto-title sourced from
+// ctx.defaultTitle. ProfileFacade, ProjectsFacade, WorkspacesFacade,
+// and HlmDialogService are stubbed with the smallest plausible shapes.
 
 interface ProfileStub {
   readonly githubConnected: WritableSignal<boolean>;
@@ -30,10 +39,30 @@ interface ProfileStub {
 
 interface WorkspacesStub {
   readonly createPr: ReturnType<typeof vi.fn>;
+  readonly workspaceById: (id: string) => () => { projectId: string } | null;
+}
+
+interface ProjectsStub {
+  readonly isGithubRemote: WritableSignal<boolean | null>;
+  readonly isGithubRemoteFor: (id: string) => () => boolean | null;
+  readonly ensureIsGithubRemote: ReturnType<typeof vi.fn>;
+}
+
+interface DialogServiceStub {
+  readonly open: ReturnType<typeof vi.fn>;
 }
 
 function makeProfile(connected = true): ProfileStub {
   return { githubConnected: signal(connected) };
+}
+
+function makeProjects(isGithubRemote: boolean | null = true): ProjectsStub {
+  const sig = signal<boolean | null>(isGithubRemote);
+  return {
+    isGithubRemote: sig,
+    isGithubRemoteFor: () => () => sig(),
+    ensureIsGithubRemote: vi.fn(async () => sig() ?? false),
+  };
 }
 
 interface WorkspacesOpts {
@@ -57,12 +86,19 @@ function makeWorkspaces(opts: WorkspacesOpts = {}): WorkspacesStub {
         }
       );
     }),
+    workspaceById: () => () => ({ projectId: 'proj1' }),
   };
+}
+
+function makeDialogService(): DialogServiceStub {
+  return { open: vi.fn() };
 }
 
 interface MountOpts {
   readonly profile?: ProfileStub;
   readonly workspaces?: WorkspacesStub;
+  readonly projects?: ProjectsStub;
+  readonly dialogService?: DialogServiceStub;
   readonly context?: CreatePrDialogContext;
 }
 
@@ -70,12 +106,16 @@ function mount(opts: MountOpts = {}): {
   fixture: ComponentFixture<FeatureCreatePrDialog>;
   profile: ProfileStub;
   workspaces: WorkspacesStub;
+  projects: ProjectsStub;
+  dialogService: DialogServiceStub;
 } {
   const profile = opts.profile ?? makeProfile(true);
   const workspaces = opts.workspaces ?? makeWorkspaces();
+  const projects = opts.projects ?? makeProjects(true);
+  const dialogService = opts.dialogService ?? makeDialogService();
   const ctx: CreatePrDialogContext = opts.context ?? {
     workspaceId: 'ws1',
-    defaultTitle: 'Initial PR title',
+    defaultTitle: 'My workspace',
   };
   TestBed.configureTestingModule({
     providers: [
@@ -95,11 +135,13 @@ function mount(opts: MountOpts = {}): {
       },
       { provide: ProfileFacade, useValue: profile },
       { provide: WorkspacesFacade, useValue: workspaces },
+      { provide: ProjectsFacade, useValue: projects },
+      { provide: HlmDialogService, useValue: dialogService },
     ],
   });
   const fixture = TestBed.createComponent(FeatureCreatePrDialog);
   fixture.detectChanges();
-  return { fixture, profile, workspaces };
+  return { fixture, profile, workspaces, projects, dialogService };
 }
 
 function buttons(
@@ -110,12 +152,24 @@ function buttons(
     .map((d) => d.nativeElement as HTMLButtonElement);
 }
 
-function submitButton(
+function buttonByText(
   f: ComponentFixture<FeatureCreatePrDialog>,
-): HTMLButtonElement {
-  // Footer order: [Cancel, Create pull request]
-  const all = buttons(f);
-  return all[all.length - 1];
+  text: string,
+): HTMLButtonElement | null {
+  return (
+    buttons(f).find((b) => b.textContent?.trim().includes(text)) ?? null
+  );
+}
+
+// Click helper that fails the test with a clear message instead of
+// allowing a `!` non-null assertion (lint forbids those in specs).
+function clickByText(
+  f: ComponentFixture<FeatureCreatePrDialog>,
+  text: string,
+): void {
+  const btn = buttonByText(f, text);
+  if (!btn) throw new Error(`button containing "${text}" not found`);
+  btn.click();
 }
 
 function alertEl(
@@ -128,57 +182,108 @@ function alertEl(
 function inlineErrorEl(
   f: ComponentFixture<FeatureCreatePrDialog>,
 ): HTMLElement | null {
-  // The inline error <p class="text-xs text-destructive">{{ err }}</p>
-  // lives inside the form. The createdUrl branch doesn't render an
-  // error element, so a single .text-destructive query is unambiguous.
   const found = f.debugElement.query(By.css('p.text-destructive'));
   return found ? (found.nativeElement as HTMLElement) : null;
 }
 
-describe('FeatureCreatePrDialog — auth gate', () => {
-  it('hides the alert and enables submit when GitHub is connected', () => {
-    const { fixture } = mount();
-    expect(alertEl(fixture)).toBeNull();
-    expect(submitButton(fixture).disabled).toBe(false);
-  });
-
-  it('shows the alert and disables submit when GitHub is disconnected', () => {
-    const { fixture } = mount({ profile: makeProfile(false) });
-    const alert = alertEl(fixture);
-    expect(alert?.textContent).toContain(
-      'Connect your GitHub account to open this PR.',
-    );
-    expect(submitButton(fixture).disabled).toBe(true);
-  });
-
-  it('reactively flips when the signal mid-flows from connected to disconnected', () => {
-    const { fixture, profile } = mount();
-    expect(alertEl(fixture)).toBeNull();
-    expect(submitButton(fixture).disabled).toBe(false);
-    profile.githubConnected.set(false);
-    fixture.detectChanges();
-    expect(alertEl(fixture)).not.toBeNull();
-    expect(submitButton(fixture).disabled).toBe(true);
-  });
-
-  it('also disables submit when the title is empty even if connected', () => {
+describe('FeatureCreatePrDialog — no-remote state (priority over not-connected)', () => {
+  it('shows guidance and only a Close button when isGithubRemote=false', () => {
     const { fixture } = mount({
-      context: { workspaceId: 'ws1', defaultTitle: '' },
+      profile: makeProfile(false),
+      projects: makeProjects(false),
     });
-    expect(submitButton(fixture).disabled).toBe(true);
+    expect(alertEl(fixture)?.textContent).toContain(
+      "doesn't have a GitHub remote",
+    );
+    // No "Open pull request" button rendered.
+    expect(buttonByText(fixture, 'Open pull request')).toBeNull();
+    // No "Connect GitHub" CTA rendered either — no-remote takes priority.
+    expect(buttonByText(fixture, 'Connect GitHub')).toBeNull();
+    expect(buttonByText(fixture, 'Close')).not.toBeNull();
+  });
+
+  it('treats isGithubRemote=null (probe pending) as no-remote', () => {
+    const { fixture } = mount({ projects: makeProjects(null) });
+    expect(alertEl(fixture)?.textContent).toContain(
+      "doesn't have a GitHub remote",
+    );
+  });
+
+  it('kicks ensureIsGithubRemote on mount', () => {
+    const projects = makeProjects(true);
+    mount({ projects });
+    expect(projects.ensureIsGithubRemote).toHaveBeenCalledWith('proj1');
   });
 });
 
-describe('FeatureCreatePrDialog — submit flow', () => {
-  it('routes via workspaces.createPr with trimmed title and renders the PR URL on success', async () => {
+describe('FeatureCreatePrDialog — not-connected state', () => {
+  it('shows the Connect-GitHub CTA when remote=true but disconnected', () => {
+    const { fixture } = mount({
+      profile: makeProfile(false),
+      projects: makeProjects(true),
+    });
+    expect(alertEl(fixture)?.textContent).toContain(
+      'GitHub personal access token',
+    );
+    expect(buttonByText(fixture, 'Connect GitHub')).not.toBeNull();
+    // The "Open pull request" button is NOT rendered in this state.
+    expect(buttonByText(fixture, 'Open pull request')).toBeNull();
+  });
+
+  it('Connect-GitHub button opens the UiGithubConnectDialog via the dialog service', async () => {
+    const dialogService = makeDialogService();
+    const { fixture } = mount({
+      profile: makeProfile(false),
+      projects: makeProjects(true),
+      dialogService,
+    });
+    expect(buttonByText(fixture, 'Connect GitHub')).not.toBeNull();
+    // Drive openConnectGithub() directly: the click → handler chain
+    // wraps a dynamic import whose Promise can't be awaited via
+    // fixture.whenStable in jsdom (no Angular zones tracking).
+    const instance = fixture.componentInstance as unknown as {
+      openConnectGithub: () => Promise<void>;
+    };
+    await instance.openConnectGithub();
+    expect(dialogService.open).toHaveBeenCalledTimes(1);
+  });
+
+  it('reactively flips to the ready state when githubConnected goes true', () => {
+    const profile = makeProfile(false);
+    const { fixture } = mount({ profile, projects: makeProjects(true) });
+    expect(buttonByText(fixture, 'Open pull request')).toBeNull();
+    profile.githubConnected.set(true);
+    fixture.detectChanges();
+    expect(buttonByText(fixture, 'Open pull request')).not.toBeNull();
+    expect(alertEl(fixture)).toBeNull();
+  });
+});
+
+describe('FeatureCreatePrDialog — ready state (no inputs, auto-title)', () => {
+  it('renders the "Open pull request" button and the resolved title', () => {
+    const { fixture } = mount();
+    expect(buttonByText(fixture, 'Open pull request')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('My workspace');
+  });
+
+  it('does NOT render title, body, or draft inputs', () => {
+    const { fixture } = mount();
+    expect(fixture.debugElement.query(By.css('input#pr-title'))).toBeNull();
+    expect(fixture.debugElement.query(By.css('textarea#pr-body'))).toBeNull();
+    expect(
+      fixture.debugElement.query(By.css('input[type="checkbox"]')),
+    ).toBeNull();
+  });
+
+  it('routes via workspaces.createPr with the auto-derived title and renders the PR URL on success', async () => {
     const { fixture, workspaces } = mount();
-    submitButton(fixture).click();
+    clickByText(fixture, 'Open pull request');
     await fixture.whenStable();
     fixture.detectChanges();
     expect(workspaces.createPr).toHaveBeenCalledTimes(1);
     expect(workspaces.createPr).toHaveBeenCalledWith(
       'ws1',
-      'Initial PR title',
+      'My workspace',
       '',
       false,
     );
@@ -189,18 +294,33 @@ describe('FeatureCreatePrDialog — submit flow', () => {
     );
   });
 
+  it('falls back to a generic title when ctx.defaultTitle is empty', async () => {
+    const { fixture, workspaces } = mount({
+      context: { workspaceId: 'ws1', defaultTitle: '' },
+    });
+    expect(fixture.nativeElement.textContent).toContain('Mozart pull request');
+    clickByText(fixture, 'Open pull request');
+    await fixture.whenStable();
+    expect(workspaces.createPr).toHaveBeenCalledWith(
+      'ws1',
+      'Mozart pull request',
+      '',
+      false,
+    );
+  });
+
   it('surfaces a thrown Error inline and keeps the form open for retry', async () => {
     const workspaces = makeWorkspaces({ reject: new Error('NoGithubToken') });
     const { fixture } = mount({ workspaces });
-    submitButton(fixture).click();
+    clickByText(fixture, 'Open pull request');
     await fixture.whenStable();
     fixture.detectChanges();
     const errEl = inlineErrorEl(fixture);
     expect(errEl?.textContent).toContain('NoGithubToken');
-    // form (not the createdUrl branch) is still rendered
-    expect(fixture.debugElement.query(By.css('input#pr-title'))).not.toBeNull();
-    // submit becomes clickable again — user can retry after fixing
-    expect(submitButton(fixture).disabled).toBe(false);
+    // "Open pull request" is back to clickable for retry
+    const btn = buttonByText(fixture, 'Open pull request');
+    expect(btn).not.toBeNull();
+    expect(btn?.disabled).toBe(false);
   });
 
   it('surfaces a thrown AppError object ({ kind, message }) inline', async () => {
@@ -212,7 +332,7 @@ describe('FeatureCreatePrDialog — submit flow', () => {
       reject: { kind: 'NoGithubToken', message: 'GitHub token not configured' },
     });
     const { fixture } = mount({ workspaces });
-    submitButton(fixture).click();
+    clickByText(fixture, 'Open pull request');
     await fixture.whenStable();
     fixture.detectChanges();
     const errEl = inlineErrorEl(fixture);
@@ -221,25 +341,37 @@ describe('FeatureCreatePrDialog — submit flow', () => {
   });
 
   it('guards against double-submit while one call is in flight', async () => {
-    let release!: () => void;
-    const gate = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    const workspaces = makeWorkspaces({ delay: gate });
+    const deferred = makeDeferred();
+    const workspaces = makeWorkspaces({ delay: deferred.promise });
     const { fixture } = mount({ workspaces });
-    submitButton(fixture).click();
+    clickByText(fixture, 'Open pull request');
     fixture.detectChanges();
-    // submitting=true → button disabled
-    expect(submitButton(fixture).disabled).toBe(true);
+    // submitting=true → button label flips and is disabled
+    const pending = buttonByText(fixture, 'Pushing & creating…');
+    expect(pending).not.toBeNull();
+    expect(pending?.disabled).toBe(true);
     // a second click while in flight is a no-op
-    submitButton(fixture).click();
+    clickByText(fixture, 'Pushing & creating…');
     expect(workspaces.createPr).toHaveBeenCalledTimes(1);
-    release();
+    deferred.resolve();
     await fixture.whenStable();
     fixture.detectChanges();
     expect(workspaces.createPr).toHaveBeenCalledTimes(1);
   });
 });
+
+interface Deferred {
+  readonly promise: Promise<void>;
+  readonly resolve: () => void;
+}
+
+function makeDeferred(): Deferred {
+  let resolveFn = (): void => undefined;
+  const promise = new Promise<void>((r) => {
+    resolveFn = r;
+  });
+  return { promise, resolve: () => resolveFn() };
+}
 
 describe('FeatureCreatePrDialog — D2 partial failure', () => {
   beforeEach(() => {
@@ -254,7 +386,7 @@ describe('FeatureCreatePrDialog — D2 partial failure', () => {
       },
     });
     const { fixture } = mount({ workspaces });
-    submitButton(fixture).click();
+    clickByText(fixture, 'Open pull request');
     await fixture.whenStable();
     fixture.detectChanges();
     const link = fixture.debugElement.query(By.css('a[target="_blank"]'));

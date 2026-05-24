@@ -5,8 +5,11 @@ import { describe, expect, it } from 'vitest';
 import type { MergeAction } from '@mozart/desktop-workspaces-util';
 import { MergeActionMenu } from './merge-action-menu';
 
-// T11 — covers P1.1 D9 (isGithubRemote gate, differentiated tooltip
-// priority) and D5 (localMergeDisabled defaults + Soon badge wiring).
+// T11 — covers P1.1 D9 (isGithubRemote / githubConnected tooltip
+// priority — informational only after the always-clickable refactor)
+// and D5 (localMergeDisabled defaults + Soon badge wiring). PR
+// primary + dropdown row are ALWAYS clickable; gating moved into the
+// FeatureCreatePrDialog which renders an alert and disables Submit.
 // Dropdown rows live inside an `<ng-template>` and only render after
 // the trigger opens the overlay, so dropdown-internal state is asserted
 // through the protected `prRowDisabled` / `prRowTooltip` computeds via
@@ -79,23 +82,23 @@ describe('MergeActionMenu — primary button gating (P1.1 D9)', () => {
     expect(internals(f).primaryTooltip()).toBe('Open a pull request');
   });
 
-  it('disabled with non-GitHub tooltip when !isGithubRemote', () => {
+  it('stays enabled with non-GitHub tooltip when !isGithubRemote (dialog gates Submit)', () => {
     const f = mount({
       primaryAction: 'pr',
       githubConnected: true,
       isGithubRemote: false,
     });
-    expect(primaryButton(f).disabled).toBe(true);
+    expect(primaryButton(f).disabled).toBe(false);
     expect(internals(f).primaryTooltip()).toBe("This repo isn't on GitHub");
   });
 
-  it('disabled with connect-GitHub tooltip when !githubConnected', () => {
+  it('stays enabled with connect-GitHub tooltip when !githubConnected (dialog gates Submit)', () => {
     const f = mount({
       primaryAction: 'pr',
       githubConnected: false,
       isGithubRemote: true,
     });
-    expect(primaryButton(f).disabled).toBe(true);
+    expect(primaryButton(f).disabled).toBe(false);
     expect(internals(f).primaryTooltip()).toBe('Connect GitHub to open PRs');
   });
 
@@ -105,7 +108,7 @@ describe('MergeActionMenu — primary button gating (P1.1 D9)', () => {
       githubConnected: false,
       isGithubRemote: false,
     });
-    expect(primaryButton(f).disabled).toBe(true);
+    expect(primaryButton(f).disabled).toBe(false);
     expect(internals(f).primaryTooltip()).toBe("This repo isn't on GitHub");
   });
 
@@ -145,8 +148,16 @@ describe('MergeActionMenu — pick output', () => {
     expect(picks).toEqual(['pr']);
   });
 
-  it('does not emit when primary is clicked while disabled', () => {
+  it('emits pick="pr" even when GitHub gates are closed (dialog explains)', () => {
     const f = mount({ primaryAction: 'pr', isGithubRemote: false });
+    const picks: MergeAction[] = [];
+    f.componentInstance.pick.subscribe((a) => picks.push(a));
+    primaryButton(f).click();
+    expect(picks).toEqual(['pr']);
+  });
+
+  it('does not emit for primaryAction="local" while localMergeDisabled', () => {
+    const f = mount({ primaryAction: 'local', localMergeDisabled: true });
     const picks: MergeAction[] = [];
     f.componentInstance.pick.subscribe((a) => picks.push(a));
     primaryButton(f).click();
@@ -161,25 +172,25 @@ describe('MergeActionMenu — dropdown PR row gating (P1.1 D9)', () => {
     expect(internals(f).prRowTooltip()).toBeNull();
   });
 
-  it('disabled with non-GitHub tooltip when !isGithubRemote', () => {
+  it('stays enabled with non-GitHub tooltip when !isGithubRemote (dialog gates Submit)', () => {
     const f = mount({ githubConnected: true, isGithubRemote: false });
-    expect(internals(f).prRowDisabled()).toBe(true);
+    expect(internals(f).prRowDisabled()).toBe(false);
     expect(internals(f).prRowTooltip()).toBe("This repo isn't on GitHub");
   });
 
-  it('disabled with connect-GitHub tooltip when !githubConnected', () => {
+  it('stays enabled with connect-GitHub tooltip when !githubConnected (dialog gates Submit)', () => {
     const f = mount({ githubConnected: false, isGithubRemote: true });
-    expect(internals(f).prRowDisabled()).toBe(true);
+    expect(internals(f).prRowDisabled()).toBe(false);
     expect(internals(f).prRowTooltip()).toBe('Connect GitHub to open PRs');
   });
 
-  it('row gating is independent of primaryAction (still gated when primary="local")', () => {
+  it('row stays clickable regardless of primaryAction (tooltip still reflects state)', () => {
     const f = mount({
       primaryAction: 'local',
       githubConnected: false,
       isGithubRemote: false,
     });
-    expect(internals(f).prRowDisabled()).toBe(true);
+    expect(internals(f).prRowDisabled()).toBe(false);
     expect(internals(f).prRowTooltip()).toBe("This repo isn't on GitHub");
   });
 });

@@ -25,12 +25,12 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
 //   ?? project_local_config.merge_mode
 //   ?? auto-detect from remote
 //
-// The dropdown ALWAYS shows both options. "Create PR" is disabled (with
-// a tooltip) when either GitHub gate is closed: the user isn't connected
-// OR the project's origin doesn't resolve to a GitHub URL (P1.1 D9). The
-// non-GitHub-remote case takes tooltip priority because connecting won't
-// help — a user has to push the project to GitHub first. "Merge now" is
-// gated behind `localMergeDisabled` (P1.1 D5) until the flow ships.
+// "Create PR" stays clickable even when GitHub isn't connected or the
+// remote isn't GitHub — the dialog (FeatureCreatePrDialog) shows a
+// state-explaining alert and gates Submit instead. Tooltips here stay
+// informational so a user hovering knows the dialog will explain.
+// "Merge now" is still gated behind `localMergeDisabled` (P1.1 D5)
+// until the flow ships.
 @Component({
   selector: 'app-merge-action-menu',
   imports: [
@@ -137,7 +137,8 @@ export class MergeActionMenu {
 
   protected readonly primaryDisabled = computed(() => {
     if (this.primaryAction() === 'pr') {
-      return !this.githubConnected() || !this.isGithubRemote();
+      // PR always clickable — the dialog explains and gates Submit.
+      return false;
     }
     // primaryAction === 'local' — mirror the dropdown row's gating so
     // a (primaryAction='local', localMergeDisabled=true) combo can't
@@ -163,9 +164,8 @@ export class MergeActionMenu {
     return 'Merge this workspace into its base branch';
   });
 
-  protected readonly prRowDisabled = computed(
-    () => !this.githubConnected() || !this.isGithubRemote(),
-  );
+  // PR row stays clickable; the dialog explains and gates Submit.
+  protected readonly prRowDisabled = computed(() => false);
 
   protected readonly prRowTooltip = computed(() => {
     if (!this.isGithubRemote()) return "This repo isn't on GitHub";
