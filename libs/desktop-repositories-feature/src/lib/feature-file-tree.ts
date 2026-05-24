@@ -48,7 +48,22 @@ import { UiFileTreeSkeleton } from '@mozart/desktop-repositories-ui';
   template: `
     <div class="min-h-0 flex-1 overflow-auto px-0 py-1">
       @if (showSkeleton()) {
-        <app-file-tree-skeleton />
+        <!-- Defer-first-show 150ms: @placeholder (minimum 150ms)
+             holds an empty slot for at least 150ms before swapping
+             to the skeleton. If the fetch resolves before 150ms,
+             showSkeleton flips false and the whole @defer block
+             tears down — the skeleton never appears.
+             aria-busy/role live on this wrapper (not on the skeleton
+             host) so SR users hear the busy signal during the 150ms
+             placeholder window AND for fast fetches where the
+             skeleton itself never mounts. -->
+        <div class="block" aria-busy="true" role="status">
+          @defer (on immediate) {
+            <app-file-tree-skeleton />
+          } @placeholder (minimum 150ms) {
+            <span class="block"></span>
+          }
+        </div>
       } @else if (error(); as err) {
         <p class="px-2 py-3 text-xs text-destructive">
           Failed to load: {{ err }}
@@ -171,9 +186,12 @@ export class FeatureFileTree {
     return null;
   });
 
-  /** True when no tree at all is available yet (own cache empty AND
-   *  no sibling fallback) AND a fetch is in flight. Sibling-tree hits
-   *  short-circuit this so the user sees the placeholder instead. */
+  /** Candidate state for the skeleton: no tree at all is available
+   *  yet (own cache empty AND no sibling fallback) AND a fetch is in
+   *  flight. Sibling-tree hits short-circuit this so the user sees
+   *  the placeholder instead. The 150ms defer-first-show is enforced
+   *  in the template via `@placeholder (minimum 150ms)` so fast
+   *  fetches never flash the skeleton. */
   protected readonly showSkeleton = computed(
     () =>
       this.cachedTree() === null &&

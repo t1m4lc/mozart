@@ -658,28 +658,96 @@ the future multi-file review surface.
 
 ### 2.5 P2.1 — File tree real loading state
 
-**Goal:** First-instantiation skeleton is a tree-shaped placeholder,
-not seven generic shimmer rows. Add a ≥150ms min-delay to prevent
-flicker on cache hits.
+**Reachable path:** First-ever workspace open per project, no sibling
+workspace cached, fetch >150ms. The 4-tier loading hierarchy in
+`FeatureFileTree` (own cache → sibling cache → local → skeleton)
+short-circuits the skeleton on every other path. Eng-review decisions
+locked 2026-05-24:
+
+- **Min-delay UX (resolved):** defer-first-show 150ms. Don't render
+  the skeleton until 150ms after `loading` flips true; if the fetch
+  resolves before, never show it. (Plan's earlier `Math.max(...)`
+  pseudocode was ambiguous and is replaced by the effect/timer spec
+  below.)
+- **Skeleton shape (resolved):** 3 chevron-right (collapsed) folder
+  rows followed by 6 flat file rows at root level, total 9. No
+  nested children placeholders.
+- **Spec scope (resolved):** add both `feature-file-tree.spec.ts`
+  and `ui-file-tree-skeleton.spec.ts`. Cache-hit regression test is
+  mandatory.
+
+**Goal:** When the skeleton is reached, render a tree-shaped
+placeholder (not 7 generic shimmer rows), and defer first show by
+150ms so sub-150ms fetches never flash it.
 
 **Files to touch:**
 
-- `libs/desktop-repositories-ui/src/lib/ui-file-tree-skeleton.ts:1–28`
-  — rewrite to render 3 collapsed folder rows (with chevron-right
-  glyph + indented children placeholders) and 6 nested file rows.
-  Vary widths but keep them deterministic.
-- `libs/desktop-repositories-feature/src/lib/feature-file-tree.ts:165–182`
-  — wrap `showSkeleton` in a min-delay gate: track `loadingStart`
-  in a `signal`, compute `elapsedSinceLoad`, only hide the
-  skeleton when `Math.max(elapsedSinceLoad, 150ms)` has passed.
+- `libs/desktop-repositories-ui/src/lib/ui-file-tree-skeleton.ts`
+  — rewrite to render **3 collapsed folder rows + 6 flat file
+  rows at root level**, total 9 rows. Folder rows use
+  `lucideChevronRight` + `lucideFolder` to mirror `FileTreeRow`'s
+  closed-folder layout; file rows use the `w-3` spacer +
+  `lucideFile`. Deterministic widths (same anti-jitter rationale as
+  today). Preserve `aria-busy="true"` + `role="status"` on the
+  host.
+- `libs/desktop-repositories-feature/src/lib/feature-file-tree.ts`
+  — add a **defer-first-show 150ms gate** to `showSkeleton`:
+    - New `pastMinDelay = signal(false)` field.
+    - `effect()` on `loading()`: on false→true edge, schedule
+      `setTimeout(() => pastMinDelay.set(true), 150)` and capture
+      the current workspaceId; on true→false edge OR workspaceId
+      change, clear the timer and reset `pastMinDelay` to false.
+      Bail in the timeout callback if the captured workspaceId no
+      longer matches.
+    - Extend `showSkeleton` to:
+      `cachedTree() === null && projectFallbackTree() === null &&
+      loading() && pastMinDelay()`.
+    - The cache-hit short-circuit MUST stay intact — `pastMinDelay`
+      is an additional AND, never an OR. Implementer must register
+      a `DestroyRef` cleanup to clear any pending timer on
+      component teardown.
 
-**Verification:**
+**Tests:**
 
-1. Open a new project's workspace with no cached tree — skeleton
-   is tree-shaped, holds for at least 150ms, then real tree pops
-   in.
-2. Switch between sibling workspaces — sibling-tree fallback still
-   wins; no skeleton flash.
+- `libs/desktop-repositories-feature/src/lib/feature-file-tree.spec.ts`
+  (NEW). Vitest + Angular TestBed (same pattern as
+  `feature-file-diff.spec.ts`), `fakeAsync` + `tick` for timing:
+    - **CRITICAL regression:** cache-hit (own AND sibling) → skeleton
+      never appears, regardless of timing, even when `pastMinDelay`
+      happens to be `true` from a prior load.
+    - Fetch resolves before 150ms → skeleton never shown.
+    - Fetch still pending at tick 150ms → skeleton becomes visible.
+    - `workspaceId` flips mid-150ms-window → timer cancelled, no
+      stale `pastMinDelay` for the next workspace.
+    - Component destroy mid-timer → no leaked timeout (no console
+      warnings under `vi.useFakeTimers()` strict mode).
+- `libs/desktop-repositories-ui/src/lib/ui-file-tree-skeleton.spec.ts`
+  (NEW). Render snapshot (3 folder rows + 6 file rows), assert
+  `aria-busy="true"` and `role="status"` on host, assert widths are
+  stable across re-renders.
+
+**Verification (manual, post-spec):**
+
+1. Wipe `FileTreeCache`, open a new project's first workspace on a
+   slow path (>150ms fetch) — tree-shaped skeleton appears after
+   150ms, then the tree pops in.
+2. Same as 1 but on a fast path (<150ms fetch) — skeleton NEVER
+   appears.
+3. Switch between sibling workspaces — sibling-tree fallback wins;
+   no skeleton flash regardless of timing.
+4. Rapid double-click between two uncached workspaces — no stale
+   skeleton from the first; second behaves per its own timing.
+
+**Failure modes:**
+
+| Failure                                         | Tested? | Handled? | User sees           |
+| ----------------------------------------------- | ------- | -------- | ------------------- |
+| Stale `pastMinDelay` flashes skeleton on cache  | ✓ (regression test) | ✓ (reset on workspaceId / loading false→true) | nothing if guarded |
+| Timer fires after destroy                       | ✓       | ✓ (DestroyRef cleanup) | no visible effect; prevents leak |
+| Rapid workspace switch races                    | ✓       | ✓ (captured workspaceId guard) | no stale skeleton |
+| Slow fetch never resolves                       | n/a     | unchanged (existing error path) | skeleton, then error |
+
+No critical gaps.
 
 ---
 
@@ -1115,6 +1183,43 @@ landing the architectural change after the polish that depends on it.
 
 ---
 
+## 7. Implementation Tasks (P2.1)
+
+Synthesized from `/plan-eng-review` on 2026-05-24. Each task derives
+from a finding above. Run with Claude Code or Codex; checkbox as you
+ship.
+
+- [ ] **T1 (P2, human: ~45min / CC: ~5min)** — ui-file-tree-skeleton —
+      Rewrite skeleton as 3 collapsed folder rows + 6 flat file rows
+  - Surfaced by: Section 2 (Code Quality) — plan visual spec
+    contradiction (collapsed folders vs nested placeholders)
+  - Files: `libs/desktop-repositories-ui/src/lib/ui-file-tree-skeleton.ts`
+  - Verify: visual snapshot matches §2.5; `aria-busy="true"` and
+    `role="status"` preserved on host
+- [ ] **T2 (P2, human: ~1.5h / CC: ~10min)** — feature-file-tree —
+      Add defer-first-show 150ms gate to `showSkeleton`
+  - Surfaced by: Section 1 (Architecture) — plan pseudocode
+    ambiguous between min-hold and defer-show; resolved to defer-show
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-file-tree.ts`
+  - Verify: cache-hit short-circuit unaffected; <150ms fetch never
+    shows; >150ms fetch shows after gate
+- [ ] **T3 (P2, human: ~1h / CC: ~10min)** — feature-file-tree —
+      Add `feature-file-tree.spec.ts` with cache-hit regression +
+      timing matrix + rapid-switch reset
+  - Surfaced by: Section 3 (Tests) + IRON regression rule
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-file-tree.spec.ts`
+  - Verify: `pnpm nx test desktop-repositories-feature` passes new cases
+- [ ] **T4 (P2, human: ~30min / CC: ~5min)** — ui-file-tree-skeleton —
+      Add `ui-file-tree-skeleton.spec.ts` shape snapshot + a11y attrs
+  - Surfaced by: Section 3 (Tests)
+  - Files: `libs/desktop-repositories-ui/src/lib/ui-file-tree-skeleton.spec.ts`
+  - Verify: `pnpm nx test desktop-repositories-ui` passes new cases
+
+**Sequencing:** T1 + T4 are independent (skeleton file + its spec).
+T2 + T3 are sequential (feature change before its spec is easiest to
+write). T1/T4 and T2/T3 can run in parallel worktrees if desired,
+but realistically this is a one-PR slice — ship as a single commit
+unit.
 ## 7. Eng review adjustments — 2026-05-24
 
 Locked decisions from `/plan-eng-review` covering P1.2 + P1.3. Anything
@@ -1376,6 +1481,20 @@ Synthesized from this review's findings. Each task derives from a specific findi
 
 ## GSTACK REVIEW REPORT
 
+| Review        | Trigger              | Why                              | Runs | Status         | Findings                                |
+| ------------- | -------------------- | -------------------------------- | ---- | -------------- | --------------------------------------- |
+| CEO Review    | `/plan-ceo-review`   | Scope & strategy                 | 0    | —              | —                                       |
+| Codex Review  | `/codex review`      | Independent 2nd opinion          | 0    | —              | skipped — scope too small for outside voice |
+| Eng Review    | `/plan-eng-review`   | Architecture & tests (required)  | 1    | CLEAR (PLAN)   | 3 findings resolved, 0 critical gaps, 4 tasks emitted |
+| Design Review | `/plan-design-review`| UI/UX gaps                       | 0    | —              | not invoked (low-impact polish; visual spec resolved inline) |
+| DX Review     | `/plan-devex-review` | Developer experience gaps        | 0    | —              | n/a — internal UI polish                |
+
+**UNRESOLVED:** 0
+
+**VERDICT:** ENG CLEARED — P2.1 plan ready for implementation. 2 source
+files + 2 new spec files. Cache-hit short-circuit regression test is
+mandatory per IRON rule. Outside voice + design review skipped — scope
+too narrow to justify.
 | Review        | Trigger               | Why                             | Runs | Status       | Findings                                                                                                                                                                                                                                                                                                             |
 | ------------- | --------------------- | ------------------------------- | ---- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0    | —            | not run                                                                                                                                                                                                                                                                                                              |
