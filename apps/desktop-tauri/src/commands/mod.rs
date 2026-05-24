@@ -54,6 +54,7 @@ use crate::git_query;
 use crate::run_registry::RunRegistry;
 use crate::sandbox;
 use crate::workspace_service;
+use crate::worktree;
 
 #[tauri::command]
 #[specta::specta]
@@ -558,6 +559,27 @@ pub(crate) async fn archive_workspace_impl(
     db: &DbState,
     workspace_id: String,
 ) -> Result<(), AppError> {
+    // Resolve the on-disk worktree path and the parent repo path so we
+    // can wipe the directory. Scoped block releases the lock before
+    // the async git call below.
+    let (repo_path, worktree_path) = {
+        let conn = db.lock();
+        let ws = workspaces::get(&conn, &workspace_id)?;
+        let task = tasks::get(&conn, &ws.task_id)?;
+        let repo = repos::get(&conn, &task.repo_id)?;
+        (
+            std::path::PathBuf::from(repo.path),
+            std::path::PathBuf::from(ws.worktree_path),
+        )
+    };
+
+    // Disk wipe BEFORE flipping deletion_intent: if the removal fails
+    // the row stays visible and the user can retry. Doing it the
+    // other way around would leak the directory permanently because
+    // `cleanup_orphans` skips paths still referenced by any row,
+    // including soft-deleted ones.
+    worktree::remove(&repo_path, &worktree_path).await?;
+
     let conn = db.lock();
     workspaces::set_deletion_intent(&conn, &workspace_id, true)
 }
@@ -3265,14 +3287,36 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn archive_workspace_flips_deletion_intent() {
+    async fn archive_workspace_flips_deletion_intent_and_removes_worktree() {
         let db = init_db_memory().unwrap();
         let repo_id = seed_repo_row(&db, "/tmp/aw");
         let (ws_id, _) = seed_workspace_chain(&db, &repo_id);
+
+        // Replace the seed's placeholder worktree path with a real
+        // tempdir so we can assert the on-disk wipe actually happened.
+        let wt = tempfile::tempdir().unwrap();
+        let wt_path = wt.path().to_path_buf();
+        std::fs::write(wt_path.join("scratch.txt"), b"keep-me-around").unwrap();
+        {
+            let conn = db.lock();
+            workspaces::update_worktree_path(
+                &conn,
+                &ws_id,
+                &wt_path.to_string_lossy(),
+            )
+            .unwrap();
+        }
+        assert!(wt_path.exists(), "precondition: worktree dir should exist");
+
         archive_workspace_impl(&db, ws_id.clone()).await.unwrap();
+
         let conn = db.lock();
         let ws = workspaces::get(&conn, &ws_id).unwrap();
-        assert_eq!(ws.deletion_intent, 1);
+        assert_eq!(ws.deletion_intent, 1, "soft-delete flag must flip");
+        assert!(
+            !wt_path.exists(),
+            "worktree directory must be wiped on archive"
+        );
     }
 
     #[tokio::test]

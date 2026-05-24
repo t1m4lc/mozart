@@ -15,6 +15,7 @@ import {
   lucidePin,
   lucidePinOff,
   lucideTag,
+  lucideTrash2,
 } from '@ng-icons/lucide';
 import type { UiWorkspaceStatus } from '@mozart/desktop-workspaces-util';
 import type { Workspace } from '@mozart/desktop-workspaces-util';
@@ -36,6 +37,7 @@ import { WorkspaceStatusMenu } from '@mozart/desktop-workspaces-ui';
       lucidePin,
       lucidePinOff,
       lucideTag,
+      lucideTrash2,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -87,6 +89,18 @@ import { WorkspaceStatusMenu } from '@mozart/desktop-workspaces-ui';
           }
         </button>
       </hlm-dropdown-menu-group>
+      <hlm-dropdown-menu-separator />
+      <hlm-dropdown-menu-group>
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          variant="destructive"
+          class="cursor-pointer"
+          (triggered)="remove.emit()"
+        >
+          <ng-icon hlm name="lucideTrash2" size="xs" /> Remove workspace
+        </button>
+      </hlm-dropdown-menu-group>
     </hlm-dropdown-menu>
 
     <ng-template #statusSubTpl>
@@ -110,6 +124,7 @@ export class WorkspaceContextMenu {
   readonly pin = output<void>();
   readonly rename = output<void>();
   readonly setStatus = output<UiWorkspaceStatus>();
+  readonly remove = output<void>();
 
   private readonly _workspaces = inject(WorkspacesFacade);
   protected readonly _live = computed<Workspace>(() => {

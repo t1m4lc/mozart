@@ -21,8 +21,10 @@ import type { Project } from '@mozart/desktop-projects-util';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { WorkspaceContextMenu } from '@mozart/desktop-workspaces-feature';
 import {
+  ConfirmRemoveWorkspaceDialog,
   ConfirmReopenWorkspaceDialog,
   WorkspaceRow,
+  type ConfirmRemoveWorkspaceContext,
   type ConfirmReopenWorkspaceContext,
 } from '@mozart/desktop-workspaces-ui';
 import {
@@ -178,6 +180,7 @@ import { ShellProjectRow } from './shell-project-row';
         (pin)="togglePinnedWorkspace(w.id)"
         (rename)="editingWorkspaceId.set(w.id)"
         (setStatus)="onSetStatus(w.id, $event)"
+        (remove)="openRemoveWorkspaceDialog(w)"
       />
     </ng-template>
 
@@ -344,6 +347,27 @@ export class ShellProjectList {
       },
     };
     this._dialogService.open(ConfirmDeleteProjectDialog, { context });
+  }
+
+  protected openRemoveWorkspaceDialog(workspace: Workspace): void {
+    const stats = this.workspaces.diffStats().get(workspace.id);
+    const hasUncommittedChanges = !!stats && stats.added + stats.removed > 0;
+    const prNotSent = workspace.lastMergeAction !== 'pr';
+    const context: ConfirmRemoveWorkspaceContext = {
+      workspace,
+      hasUncommittedChanges,
+      prNotSent,
+      onConfirm: async () => {
+        try {
+          await this.workspaces.archive(workspace.id);
+        } catch (err) {
+          toast.error('Could not remove workspace', {
+            description: errorMessage(err),
+          });
+        }
+      },
+    };
+    this._dialogService.open(ConfirmRemoveWorkspaceDialog, { context });
   }
 
   protected async hideProject(projectId: string): Promise<void> {

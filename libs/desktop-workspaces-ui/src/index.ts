@@ -14,3 +14,7 @@ export {
   ConfirmReopenWorkspaceDialog,
   type ConfirmReopenWorkspaceContext,
 } from './lib/ui-confirm-reopen-workspace-dialog';
+export {
+  ConfirmRemoveWorkspaceDialog,
+  type ConfirmRemoveWorkspaceContext,
+} from './lib/ui-confirm-remove-workspace-dialog';
