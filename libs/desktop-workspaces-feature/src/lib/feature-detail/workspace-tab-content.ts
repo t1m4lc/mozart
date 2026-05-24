@@ -32,7 +32,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
     ChatEmptyState,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex min-h-0 flex-1 flex-col' },
+  host: { class: 'relative flex min-h-0 flex-1 flex-col' },
   template: `
     <app-feature-chat-tab-bar
       class="sticky top-10 z-20"
@@ -87,10 +87,14 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
     }
 
     <!-- Always-mounted composer host: visible on chat AND file tabs
-         (P2.2). Sticky bottom-0 inside this component pins it to
-         <main>'s viewport bottom while the chat scrolls behind it. -->
+         (P2.2). Absolutely positioned at WorkspaceTabContent's bottom
+         so it overlays whatever content is in the @switch — chat
+         scrolls behind it inside chat-scroll-surface, and the file
+         editor extends full-height with the composer floating over
+         the bottom region. -->
     @if (workspaceIdOrNull(); as ws) {
       <app-feature-workspace-composer
+        class="absolute inset-x-0 bottom-0 z-30"
         [workspaceId]="ws"
         [frozen]="frozen()"
         [activeTabKind]="composerTabKind()"

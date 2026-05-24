@@ -58,7 +58,11 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
   template: `
-    <div class="sticky bottom-0 z-20 bg-background" data-tour="composer-mode">
+    <!-- Composer is positioned by the parent (WorkspaceTabContent gives
+         the host \`absolute inset-x-0 bottom-0\`) so it overlays whatever
+         content is in the @switch — chat scrolling behind it, file
+         editor extending full-height with composer floating on top. -->
+    <div class="bg-background" data-tour="composer-mode">
       <div class="relative mx-auto w-full max-w-5xl px-3 pb-3">
         <div
           class="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-linear-to-t from-background to-transparent dark:from-background"

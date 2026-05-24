@@ -44,15 +44,19 @@ const AT_BOTTOM_THRESHOLD_PX = 50;
   selector: 'app-feature-chat-scroll-surface',
   imports: [],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex w-full flex-col' },
+  // `overflow-y-auto` + `min-h-0` make this element the chat scroll
+  // ancestor instead of <main>. Required because the composer is now
+  // absolutely positioned inside WorkspaceTabContent — if <main>
+  // owned the scroll, the composer would scroll away with the content
+  // (absolute is positioned relative to WorkspaceTabContent, which
+  // would translate with main's scrollTop). Scoping scroll to this
+  // surface keeps the composer overlay pinned at viewport bottom.
+  host: { class: 'flex min-h-0 w-full flex-col overflow-y-auto' },
   template: `
-    <!-- Chat scroll surface is the shell's <main> (overflow-y-auto in
-         app-shell.ts). Owner of all scroll behavior for chat lives in
-         this component — see the orchestration in the constructor.
-         The content area stays flex-1 so the composer (mounted
-         separately in WorkspaceTabContent) sits at viewport bottom
-         on short conversations. -->
-    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5">
+    <!-- Inner wrapper centers chat content + caps width. Bottom padding
+         clears the absolutely-positioned composer overlay (composer
+         chrome ≈ 100px) so the last message stays visible above it. -->
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5 pb-32">
       <ng-content />
     </div>
   `,

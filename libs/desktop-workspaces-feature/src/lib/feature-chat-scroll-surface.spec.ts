@@ -34,21 +34,23 @@ function makeChat(id = 'chat-1', workspaceId = 'ws-1'): FakeChat {
   };
 }
 
-// Test host that gives the surface a scrollable ancestor — mirrors
-// the production layout where <main> is the scroll surface.
+// Test host that wraps the surface in a relative container; the
+// surface itself owns the scroll (overflow-y-auto on its host class)
+// because the composer is absolutely positioned over it in production.
 @Component({
   selector: 'app-test-host',
   imports: [FeatureChatScrollSurface],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <main
-      data-testid="main-scroll"
-      style="overflow-y: auto; height: 200px;"
-    >
-      <app-feature-chat-scroll-surface [workspaceId]="workspaceId()">
+    <div style="position: relative; height: 200px;">
+      <app-feature-chat-scroll-surface
+        data-testid="chat-surface"
+        style="overflow-y: auto; height: 200px;"
+        [workspaceId]="workspaceId()"
+      >
         <div data-testid="chat-body" [style.height.px]="contentHeight()"></div>
       </app-feature-chat-scroll-surface>
-    </main>
+    </div>
   `,
 })
 class TestHost {
@@ -92,11 +94,11 @@ async function mountHost() {
   return fixture;
 }
 
-function getMainEl(fixture: { nativeElement: HTMLElement }): HTMLElement {
+function getScrollEl(fixture: { nativeElement: HTMLElement }): HTMLElement {
   const el = fixture.nativeElement.querySelector<HTMLElement>(
-    '[data-testid="main-scroll"]',
+    '[data-testid="chat-surface"]',
   );
-  if (!el) throw new Error('main scroll element not found');
+  if (!el) throw new Error('chat scroll surface element not found');
   return el;
 }
 
@@ -115,7 +117,10 @@ describe('FeatureChatScrollSurface', () => {
       expect(registerSpy).toHaveBeenCalledTimes(1);
       const [wsId, mainEl] = registerSpy.mock.calls[0];
       expect(wsId).toBe('ws-1');
-      expect(mainEl).toBe(getMainEl(fixture));
+      // After the absolute-composer refactor, chat-scroll-surface owns
+      // its own scroll (overflow-y-auto on the host). closestScrollable
+      // returns the host element itself.
+      expect(mainEl).toBe(getScrollEl(fixture));
     });
 
     it('unregisters on destroy', async () => {
@@ -134,9 +139,9 @@ describe('FeatureChatScrollSurface', () => {
       const stubs = configure();
       await mountHost();
       const mainEl = document.body.querySelector<HTMLElement>(
-        '[data-testid="main-scroll"]',
+        '[data-testid="chat-surface"]',
       );
-      if (!mainEl) throw new Error('main not found');
+      if (!mainEl) throw new Error('chat scroll surface not found');
 
       // Detached → near-bottom scroll should flip to attached.
       stubs.scroll.setDetached('chat-1');
@@ -159,9 +164,9 @@ describe('FeatureChatScrollSurface', () => {
       const stubs = configure();
       await mountHost();
       const mainEl = document.body.querySelector<HTMLElement>(
-        '[data-testid="main-scroll"]',
+        '[data-testid="chat-surface"]',
       );
-      if (!mainEl) throw new Error('main not found');
+      if (!mainEl) throw new Error('chat scroll surface not found');
 
       // Attached → scroll up should flip to detached.
       stubs.scroll.setAttached('chat-1');
@@ -184,9 +189,9 @@ describe('FeatureChatScrollSurface', () => {
       const stubs = configure();
       await mountHost();
       const mainEl = document.body.querySelector<HTMLElement>(
-        '[data-testid="main-scroll"]',
+        '[data-testid="chat-surface"]',
       );
-      if (!mainEl) throw new Error('main not found');
+      if (!mainEl) throw new Error('chat scroll surface not found');
 
       // Force the orchestrator into a grace period as if a smooth
       // programmatic scroll were in flight.
