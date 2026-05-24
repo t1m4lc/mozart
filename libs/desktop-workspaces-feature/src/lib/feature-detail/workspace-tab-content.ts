@@ -41,7 +41,6 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
   host: { class: 'relative flex min-h-0 flex-1 flex-col overflow-hidden' },
   template: `
     <app-feature-chat-tab-bar
-      class="sticky top-10 z-20"
       [projectId]="projectId() ?? null"
       [workspaceId]="workspaceIdOrNull()"
       [activeTabId]="tabId() ?? ''"
