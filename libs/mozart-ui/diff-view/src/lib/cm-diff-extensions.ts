@@ -46,9 +46,9 @@ function isCodeLine(line: DiffLine): boolean {
 // How many context lines a single hunk-button click reveals — GitHub
 // uses 20 and reviewers are used to it; chunked expansion also keeps
 // every fetch bounded for large files.
-export const HUNK_EXPAND_STEP = 20;
+const HUNK_EXPAND_STEP = 20;
 
-export interface ExpandWidgetSpec {
+interface ExpandWidgetSpec {
   readonly kind: 'expand';
   readonly pos: number;
   readonly side: 1 | -1;
@@ -57,7 +57,7 @@ export interface ExpandWidgetSpec {
   readonly linesAvailable: number;
 }
 
-export interface RetryWidgetSpec {
+interface RetryWidgetSpec {
   readonly kind: 'expand-error';
   readonly pos: number;
   readonly side: 1 | -1;
@@ -266,7 +266,7 @@ export interface ExpandBarCallbacks {
   readonly onExpand: (gapIndex: number, event: HunkExpandEvent) => void;
 }
 
-export class ExpandBarWidget extends WidgetType {
+class ExpandBarWidget extends WidgetType {
   constructor(
     private readonly gapIndex: number,
     private readonly direction: HunkExpandDirection,
@@ -337,7 +337,7 @@ export interface RetryCallbacks {
   readonly onRetry: (gapIndex: number) => void;
 }
 
-export class RetryStripWidget extends WidgetType {
+class RetryStripWidget extends WidgetType {
   constructor(
     private readonly gapIndex: number,
     private readonly message: string,

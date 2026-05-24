@@ -2,7 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { DIALOG_ADAPTER } from './dialog.adapter';
 import type { Project } from '@mozart/desktop-projects-util';
-import type { GroupBy, ProjectFilter } from './project.store';
+import type { GroupBy } from './project.store';
 import { ProjectStore } from './project.store';
 import { PROJECTS_ADAPTER, type MergeMode } from './projects.adapter';
 
@@ -276,4 +276,3 @@ export class ProjectsFacade {
   }
 }
 
-export type { GroupBy, ProjectFilter };

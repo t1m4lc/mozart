@@ -10,9 +10,3 @@ export interface ThemeConfig {
   mode: ThemeMode;
   options: ThemeOptions;
 }
-
-export interface ThemeState {
-  theme: Theme;
-  mode: ThemeMode;
-  modeResolved: ThemeModeResolved;
-}

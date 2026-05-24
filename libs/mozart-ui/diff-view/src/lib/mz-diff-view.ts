@@ -26,7 +26,6 @@ import {
   parseGroupedDiff,
   type DiffHunk,
   type DiffLine,
-  type DiffLineKind,
 } from '@mozart-ui/diff-parser';
 import type {
   HunkExpandDirection,
@@ -693,6 +692,3 @@ function synthContextLine(newLineNumber: number, text: string): DiffLine {
   };
 }
 
-// Re-exported here so spec fixtures that pin to the kind union can
-// type their assertions without reaching into @mozart-ui/diff-parser.
-export type { DiffLineKind };
