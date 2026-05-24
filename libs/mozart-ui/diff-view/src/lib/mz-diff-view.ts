@@ -373,6 +373,14 @@ export class MzDiffView {
           backgroundColor: 'transparent',
           filter: 'brightness(0.9)',
         },
+        // Hunk rows are metadata, not code. The syntax highlighter
+        // would otherwise paint numbers/identifiers in token colors
+        // and override the muted/italic intent set on the line itself
+        // (cm-diff-extensions HUNK_LINE_DECO).
+        '.cm-line.mz-diff-cm-hunk-row *': {
+          color: 'var(--muted-foreground)',
+          fontStyle: 'italic',
+        },
       }),
       EditorView.lineWrapping,
       this.themeCompartment.of(
