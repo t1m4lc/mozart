@@ -105,6 +105,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::has_github_token,
                 commands::connect_github,
                 commands::disconnect_github,
+                commands::is_github_remote_for_project,
                 commands::push_workspace_branch,
                 commands::create_workspace_pr,
                 commands::merge_workspace_locally,

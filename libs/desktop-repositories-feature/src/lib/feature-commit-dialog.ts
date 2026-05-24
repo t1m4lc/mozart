@@ -12,8 +12,10 @@ import { HlmInputImports } from '@spartan-ui/input';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitCommitVertical } from '@ng-icons/lucide';
+import { toast } from '@spartan-ng/brain/sonner';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import type { ChangedFile } from '@mozart/desktop-repositories-data-access';
+import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 export interface CommitDialogContext {
   readonly workspaceId: string;
@@ -152,6 +154,7 @@ export class FeatureCommitDialog {
   protected readonly ctx = injectBrnDialogContext<CommitDialogContext>();
   private readonly ref = inject(BrnDialogRef);
   private readonly repos = inject(RepositoriesFacade);
+  private readonly workspaces = inject(WorkspacesFacade);
 
   protected readonly state = signal<LoadState>({ kind: 'loading' });
   protected readonly selected = signal<ReadonlySet<string>>(new Set());
@@ -240,13 +243,23 @@ export class FeatureCommitDialog {
     this.committing.set(true);
     this.commitError.set(null);
     try {
-      const sha = await this.repos.commitWorkspace(
+      // R2 — commit goes through the workspaces facade so the
+      // backlog → in_progress status flip is co-located with the
+      // commit. `listChangedFiles` stays on `repos` (out of T7 scope).
+      const result = await this.workspaces.commitWorkspace(
         this.ctx.workspaceId,
         Array.from(this.selected()),
         this.message().trim(),
       );
-      this.ctx.onCommitted?.(sha);
+      this.ctx.onCommitted?.(result.sha);
       this.ref.close();
+      // P1.1 D2 — commit succeeded but the optimistic status flip to
+      // in_progress didn't persist. Surface so the user can refresh.
+      if (result.statusFlipFailed) {
+        toast.error(
+          'Committed, but status update failed — refresh to retry.',
+        );
+      }
     } catch (err) {
       this.commitError.set(err instanceof Error ? err.message : String(err));
       this.committing.set(false);

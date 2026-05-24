@@ -199,6 +199,9 @@ function provideProjectsAdapter(): Provider {
         const config = unwrap(await commands.readProjectConfig(id));
         return config.mergeMode === 'local' ? 'local' : 'pr';
       },
+      async isGithubRemote(id) {
+        return unwrap(await commands.isGithubRemoteForProject(id));
+      },
     } satisfies ProjectsAdapter,
   };
 }
@@ -260,9 +263,7 @@ function provideWorkspacesAdapter(): Provider {
         }));
       },
       async setLastMergeAction(workspaceId, action) {
-        unwrap(
-          await commands.setWorkspaceLastMergeAction(workspaceId, action),
-        );
+        unwrap(await commands.setWorkspaceLastMergeAction(workspaceId, action));
       },
       async mergeLocally(workspaceId) {
         // Bespoke unwrap: preserve the typed AppError discriminator so
@@ -272,6 +273,20 @@ function provideWorkspacesAdapter(): Provider {
         const r = await commands.mergeWorkspaceLocally(workspaceId);
         if (r.status === 'error') throw r.error;
         return r.data;
+      },
+      async createPr(workspaceId, title, body, draft) {
+        // Same bespoke-unwrap pattern as mergeLocally: surface the
+        // typed AppError so the caller can route toasts on `err.kind`
+        // (NoGithubRemote / NoGithubToken / etc.). Map the snake_case
+        // wire field `html_url` to the camelCase port shape.
+        const r = await commands.createWorkspacePr(
+          workspaceId,
+          title,
+          body,
+          draft,
+        );
+        if (r.status === 'error') throw r.error;
+        return { number: r.data.number, htmlUrl: r.data.html_url };
       },
     } satisfies WorkspacesAdapter,
   };
@@ -523,9 +538,7 @@ function provideTerminalsAdapter(): Provider {
       async open(workspaceId, cols, rows, onEvent) {
         const channel = new Channel<TerminalEventDto>();
         channel.onmessage = (ev) => onEvent(toTerminalEventModel(ev));
-        unwrap(
-          await commands.openTerminal(workspaceId, cols, rows, channel),
-        );
+        unwrap(await commands.openTerminal(workspaceId, cols, rows, channel));
         return async () => {
           channel.onmessage = () => {
             // no-op after unsubscribe

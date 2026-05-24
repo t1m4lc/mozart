@@ -294,6 +294,41 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 
 ---
 
+## Workspaces — reconciliation pass for PR-vs-status drift (P1.1 D2 follow-up)
+
+**What:** Self-healing pass that, on app or workspace activation, checks whether the workspace's branch has an open GitHub PR and reconciles the local `ui_status` if it has drifted. Specifically: if `status ∈ {'backlog', 'in_progress'}` AND a PR exists for the branch, flip to `'in_review'`. Closes the rare gap left by P1.1's D2 decision (best-effort flip + warning toast on failure).
+
+**Why:** P1.1 D2 chose A (best-effort flip) over B (reconciliation) to keep scope tight. The accepted path leaves a rare gap: when `commands.createWorkspacePr` succeeds but the subsequent `setStatus('in_review')` adapter write fails, the user sees a warning toast and the PR URL, but on next app launch the badge re-reads from the DB and shows `backlog`. The reconciliation pass closes this without making P1.1 do double duty.
+
+**How to apply:** Add an activation effect that, on workspace switch, queries the existing GitHub probe cache (`apps/desktop-tauri/src/github.rs`) for an open PR against the workspace's branch. Cache the PR-exists result per branch with a short TTL (e.g., 5 minutes) to avoid hammering the API on every activation. If a PR exists AND the workspace status is in `{'backlog', 'in_progress'}`, call `WorkspacesFacade.setStatus(id, 'in_review')` (the early-return idempotency from D4 covers the already-in-review case). Emit a `console.info` for observability; no toast on the auto-flip (the user didn't trigger it).
+
+**Depends on:** P1.1 lands (`WorkspacesFacade.createPr` wrapper from D1; the activation effect can mirror it). Existing GitHub probe machinery in `apps/desktop-tauri/src/github.rs`. PR-exists endpoint (`GET /repos/{owner}/{repo}/pulls?head={branch}`) — currently unused in Mozart; would be the new external call.
+
+---
+
+## Workspaces — guided "Link this repo to GitHub" flow (P1.1 D10)
+
+**What:** Recovery path for users on local-only or non-GitHub-remote workspaces who want to use the PR workflow. P1.1 D9 added the DETECTION gate (Create PR is disabled with a useful tooltip when the workspace's origin isn't GitHub). D10 captures the linking flow that turns the disabled state into a guided fix: detect → CTA "Link this repo to GitHub" → dialog (repo name / visibility / org) → Rust command creates the GitHub repo via REST → set origin → push initial branch → unlock the PR action.
+
+**Why:** D9 closes the detection gap (no more click→fail), but a local-only Mozart user still has no in-app path to becoming a GitHub user. Today they'd have to leave Mozart, run `git remote add origin git@github.com:...` (or create the repo on github.com first), then come back. The guided flow is a sibling of the existing `connect_github` token flow — same shape, different verb (create repo + set remote instead of validate token).
+
+**How to apply:** Surface the "Link to GitHub" CTA inside the disabled-state tooltip (or as a separate empty-state surface on the merge action menu when `!isGithubRemote`). Dialog asks for: repo name (default = workspace name), visibility (private/public), owner (user or org). New Rust command `create_github_repo` mirrors `connect_github`'s structure: `POST /user/repos` (or `POST /orgs/{org}/repos`), parse response, set origin via `git remote add origin <html_url_or_ssh>`, push current branch. After success, the existing `parse_github_remote` detection from D9 re-runs and the PR action becomes available.
+
+**Depends on:** D9 detection landed (provides the `isGithubRemoteFor` signal and the entry point UI surface); existing GitHub REST machinery in `apps/desktop-tauri/src/github.rs` (token already validated); decision on org-vs-user scoping (do we surface org selection in v1 or default to the authenticated user?).
+
+---
+
+## desktop-e2e — Playwright PR-workflow coverage (P1.1 T13)
+
+**What:** Build the Tauri-mock infrastructure for `apps/desktop-e2e` and write `pr-workflow.e2e.spec.ts` covering the four cases the P1.1 test plan called out: (1) connected + backlog → in_review happy path, (2) disconnected gate (primary disabled + tooltip), (3) mid-flow disconnect (kill token while dialog is open → submit reactively disables), (4) non-GitHub-remote gate (tooltip reads "This repo isn't on GitHub").
+
+**Why:** P1.1 shipped with strong unit + component coverage (42 tests across `workspace.facade.spec.ts`, `merge-action-menu.spec.ts`, `feature-create-pr-dialog.spec.ts`) so the contract is locked at every boundary the dialog crosses. The E2E layer would add genuine integration coverage — proving the Angular boot, Tauri command roundtrip, signal wiring, and dialog lifecycle work as a single flow — but it can't be built in P1.1's scope because the infra simply isn't there.
+
+**How to apply:** Three pieces, in order. (1) Wire `@tauri-apps/api/mocks` (`mockIPC`) into a web-mode boot path so the Angular app survives without a real Tauri runtime — likely a new `apps/desktop-e2e/src/setup-mocks.ts` plus a build-time env var the app reads. (2) Stub the commands the boot + PR flow needs: `list_repos`, `list_workspaces`, `list_tasks`, `has_github_token`, `is_github_remote_for_project`, `create_workspace_pr`, `commit_workspace`, `set_workspace_ui_status`, plus the deep-link / auth callbacks if a connect-flow case is in scope. (3) Write the four-case spec against fixture projects (a GitHub-origin one and a non-GitHub one) using the stable selectors from the merge-action-menu and create-pr dialog — the unit specs already establish the assertion surface, just lift it to Playwright `getByRole`/`getByText` queries.
+
+**Depends on:** P1.1 landed (so the targets exist). `@tauri-apps/api` is already a dependency, but `@tauri-apps/api/mocks` may need an explicit re-export or import path check. Decision on whether to keep the example `src/example.spec.ts` placeholder or delete it as part of the same change.
+
+---
 ## P1.2 — Manual refresh button on Changes header (skipped during eng review)
 
 **What:** A small refresh icon at the right of the Staged/Unstaged section header that calls `repos.refreshChangedFilesInBackground(workspaceId)`.

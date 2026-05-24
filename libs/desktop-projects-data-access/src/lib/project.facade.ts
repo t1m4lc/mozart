@@ -42,6 +42,15 @@ export class ProjectsFacade {
   );
   private readonly mergeModeInflight = new Map<string, Promise<MergeMode>>();
 
+  // P1.1 D9 — per-project isGithubRemote cache. The right-aside merge
+  // action menu reads this signal to differentiate "GitHub not
+  // connected" from "this repo isn't on GitHub". Lazy + de-duped on
+  // concurrent reads, same shape as mergeModeCache.
+  private readonly isGithubRemoteCache = signal<ReadonlyMap<string, boolean>>(
+    new Map(),
+  );
+  private readonly isGithubRemoteInflight = new Map<string, Promise<boolean>>();
+
   // Reads
   readonly all = this.store.projects;
   readonly visible = this.store.visibleProjects;
@@ -86,6 +95,47 @@ export class ProjectsFacade {
       }
     })();
     this.mergeModeInflight.set(id, p);
+    return p;
+  }
+
+  /** P1.1 D9 — reactive view of the cached `isGithubRemote` boolean.
+   *  Returns `null` until the value is loaded via
+   *  `ensureIsGithubRemote(id)`. Consumers should treat `null` and
+   *  `false` the same for gating purposes — defensive default until
+   *  the probe lands. */
+  isGithubRemoteFor(id: string) {
+    return computed(() => this.isGithubRemoteCache().get(id) ?? null);
+  }
+
+  /** Kick the lazy read. Idempotent under concurrency. Failures fall
+   *  back to `false` AND cache the defensive default so a persistently
+   *  failing project id doesn't hammer the backend on every signal
+   *  read. The Rust command already swallows transient git errors and
+   *  returns Ok(false); reaching the catch here means a structural
+   *  failure (missing repo row, IPC drop) that won't self-heal. */
+  ensureIsGithubRemote(id: string): Promise<boolean> {
+    const cached = this.isGithubRemoteCache().get(id);
+    if (cached !== undefined) return Promise.resolve(cached);
+    const inflight = this.isGithubRemoteInflight.get(id);
+    if (inflight) return inflight;
+    const p = (async () => {
+      try {
+        const result = await this.adapter.isGithubRemote(id);
+        const next = new Map(this.isGithubRemoteCache());
+        next.set(id, result);
+        this.isGithubRemoteCache.set(next);
+        return result;
+      } catch (err) {
+        console.warn('[projects] isGithubRemote failed:', err);
+        const next = new Map(this.isGithubRemoteCache());
+        next.set(id, false);
+        this.isGithubRemoteCache.set(next);
+        return false;
+      } finally {
+        this.isGithubRemoteInflight.delete(id);
+      }
+    })();
+    this.isGithubRemoteInflight.set(id, p);
     return p;
   }
 
@@ -275,4 +325,3 @@ export class ProjectsFacade {
     }, 250);
   }
 }
-

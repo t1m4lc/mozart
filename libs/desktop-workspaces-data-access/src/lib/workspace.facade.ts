@@ -1,5 +1,6 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { generateWorkspaceName } from '@mozart/desktop-workspaces-util';
@@ -11,6 +12,7 @@ import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
 import { WorkspaceStore } from './workspace.store';
 import {
   WORKSPACES_ADAPTER,
+  type CreatedPr,
   type InstallPackagesResult,
 } from './workspaces.adapter';
 
@@ -32,6 +34,7 @@ export class WorkspacesFacade {
   private readonly adapter = inject(WORKSPACES_ADAPTER);
   private readonly projects = inject(ProjectsFacade);
   private readonly tasks = inject(TasksFacade);
+  private readonly repos = inject(RepositoriesFacade);
   private readonly ideDetection = inject(IdeDetectionService);
   private readonly uiState = inject(UiStateFacade);
 
@@ -308,12 +311,81 @@ export class WorkspacesFacade {
     const current = this.workspaceById(id)();
     if (!current) return;
     const previous = current.status;
+    if (previous === status) return;
     this.store.setStatus(id, status);
     try {
       await this.adapter.setUiStatus(id, status);
     } catch (err) {
       this.store.setStatus(id, previous);
       throw err;
+    }
+  }
+
+  // P1.1 D1 — single-writer wrappers for the new kanban transitions.
+  // The two methods below own:
+  //   • commit success on a `backlog` workspace → `in_progress`
+  //   • PR creation on a {backlog, in_progress} workspace → `in_review`
+  // Both share a best-effort post-flip semantic (D2): the underlying
+  // git/GitHub operation is the ground truth; if the local
+  // `setUiStatus` write fails (rare SQLite hiccup, transient adapter
+  // error), the in-memory flip is kept and a `statusFlipFailed` flag
+  // is returned so the caller can surface a warning. Backward state
+  // transitions are guarded (D3) — a PR opened against a `done` or
+  // `canceled` workspace will NOT regress the status.
+  async commitWorkspace(
+    workspaceId: string,
+    paths: readonly string[],
+    message: string,
+  ): Promise<{ readonly sha: string; readonly statusFlipFailed: boolean }> {
+    const sha = await this.repos.commitWorkspace(workspaceId, paths, message);
+    const result = await this.advanceStatusBestEffort(
+      workspaceId,
+      ['backlog'],
+      'in_progress',
+    );
+    return { sha, statusFlipFailed: result === 'failed' };
+  }
+
+  async createPr(
+    workspaceId: string,
+    title: string,
+    body: string,
+    draft: boolean,
+  ): Promise<{ readonly pr: CreatedPr; readonly statusFlipFailed: boolean }> {
+    const pr = await this.adapter.createPr(workspaceId, title, body, draft);
+    const result = await this.advanceStatusBestEffort(
+      workspaceId,
+      ['backlog', 'in_progress'],
+      'in_review',
+    );
+    return { pr, statusFlipFailed: result === 'failed' };
+  }
+
+  // Optimistic write to the store; persist via the adapter; on adapter
+  // failure KEEP the optimistic flip (unlike setStatus, which rolls
+  // back). Returns 'flipped' on success, 'no-op' when the workspace is
+  // missing or its status isn't in `allowedFrom`, 'failed' when the
+  // optimistic write landed but the adapter call threw. The caller
+  // decides whether to warn the user.
+  private async advanceStatusBestEffort(
+    workspaceId: string,
+    allowedFrom: readonly UiWorkspaceStatus[],
+    target: UiWorkspaceStatus,
+  ): Promise<'flipped' | 'no-op' | 'failed'> {
+    const current = this.workspaceById(workspaceId)();
+    if (!current) return 'no-op';
+    if (!allowedFrom.includes(current.status)) return 'no-op';
+    if (current.status === target) return 'no-op';
+    this.store.setStatus(workspaceId, target);
+    try {
+      await this.adapter.setUiStatus(workspaceId, target);
+      return 'flipped';
+    } catch (err) {
+      console.warn(
+        `[workspaces] best-effort status flip ${current.status} → ${target} failed for ${workspaceId}:`,
+        err,
+      );
+      return 'failed';
     }
   }
 
