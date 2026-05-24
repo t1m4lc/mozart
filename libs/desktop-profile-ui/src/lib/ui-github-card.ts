@@ -6,46 +6,38 @@ import {
   output,
 } from '@angular/core';
 import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideGithub } from '@ng-icons/lucide';
 
 @Component({
   selector: 'app-ui-github-card',
-  imports: [NgIcon, HlmButtonImports, HlmIconImports],
-  providers: [provideIcons({ lucideGithub })],
+  imports: [HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="flex items-start gap-3 rounded-md border border-border/60 bg-muted/30 p-4">
-      <ng-icon
-        hlm
-        name="lucideGithub"
-        size="lg"
-        class="mt-0.5 shrink-0 text-foreground/80"
-      />
-      <div class="min-w-0 flex-1 space-y-1">
-        <p class="text-sm font-medium">GitHub</p>
+    <div
+      class="flex items-center gap-3 rounded-md border border-border/60 bg-muted/30 px-4 py-3"
+    >
+      <span
+        [class]="
+          'inline-block size-2 shrink-0 rounded-full ' +
+          (connected() ? 'bg-green-500' : 'bg-yellow-500')
+        "
+        aria-hidden="true"
+      ></span>
+      <div class="min-w-0 flex-1 text-sm">
+        <span class="font-medium">GitHub</span>
         <p class="truncate text-xs text-muted-foreground">{{ subtitle() }}</p>
       </div>
       @if (connected()) {
         <button
           hlmBtn
           variant="outline"
-          size="sm"
           type="button"
           (click)="disconnect.emit()"
         >
           Disconnect
         </button>
       } @else {
-        <button
-          hlmBtn
-          variant="default"
-          size="sm"
-          type="button"
-          (click)="connect.emit()"
-        >
+        <button hlmBtn variant="outline" type="button" (click)="connect.emit()">
           Connect
         </button>
       }
