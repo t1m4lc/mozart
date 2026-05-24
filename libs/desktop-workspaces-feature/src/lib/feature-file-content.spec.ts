@@ -1,0 +1,175 @@
+import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { TestBed, type ComponentFixture } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
+import { provideTheme } from '@mozart/shared-util-theme';
+import { describe, expect, it, vi } from 'vitest';
+
+import {
+  FileTabsService,
+  ScrollPositionService,
+  WorkspaceMutationsFacade,
+} from '@mozart/desktop-workspaces-data-access';
+import {
+  FileViewsFacade,
+  RepositoriesFacade,
+} from '@mozart/desktop-repositories-data-access';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
+
+import { FeatureFileContent } from './feature-file-content';
+
+// jsdom doesn't implement matchMedia; CodeMirror's ThemeService bridge
+// reaches for it during construction. Stub once before any TestBed mount.
+if (typeof window !== 'undefined' && !window.matchMedia) {
+  Object.defineProperty(window, 'matchMedia', {
+    writable: true,
+    value: (query: string) => ({
+      matches: false,
+      media: query,
+      onchange: null,
+      addListener: () => undefined,
+      removeListener: () => undefined,
+      addEventListener: () => undefined,
+      removeEventListener: () => undefined,
+      dispatchEvent: () => false,
+    }),
+  });
+}
+
+interface UiStateStub {
+  fileViewStateFor: ReturnType<typeof vi.fn>;
+  upsertFileView: ReturnType<typeof vi.fn>;
+  readDraft: ReturnType<typeof vi.fn>;
+  writeDraft: ReturnType<typeof vi.fn>;
+  clearDraft: ReturnType<typeof vi.fn>;
+}
+
+function makeUiState(): UiStateStub {
+  // Default to 'diff' so the @defer-wrapped mz-code-editor block stays
+  // dormant during the spec — fewer transitive deps to satisfy.
+  const state = signal({ mode: 'diff' as const, splitDiff: false });
+  return {
+    fileViewStateFor: vi.fn(() => state),
+    upsertFileView: vi.fn(),
+    readDraft: vi.fn(() => null),
+    writeDraft: vi.fn(),
+    clearDraft: vi.fn(),
+  };
+}
+
+async function mount(opts: {
+  uiState?: UiStateStub;
+  workspaceId?: string | null;
+  filePath?: string | null;
+  canEdit?: boolean;
+}): Promise<{
+  fixture: ComponentFixture<FeatureFileContent>;
+  uiState: UiStateStub;
+}> {
+  const uiState = opts.uiState ?? makeUiState();
+  await TestBed.configureTestingModule({
+    imports: [FeatureFileContent],
+    providers: [
+      {
+        provide: RepositoriesFacade,
+        useValue: {
+          loadFile: vi.fn(async () => ''),
+          saveFile: vi.fn(async () => ''),
+          loadFileDiff: vi.fn(async () => ''),
+        },
+      },
+      { provide: UiStateFacade, useValue: uiState },
+      {
+        provide: ScrollPositionService,
+        useValue: { recall: vi.fn(() => null), remember: vi.fn() },
+      },
+      {
+        provide: FileTabsService,
+        useValue: { findTab: vi.fn(() => null), pinForPath: vi.fn() },
+      },
+      {
+        provide: WorkspaceMutationsFacade,
+        useValue: { softRefreshAfterMutation: vi.fn() },
+      },
+      {
+        provide: FileViewsFacade,
+        useValue: {
+          entryFor: vi.fn(() => undefined),
+          markViewed: vi.fn(async () => undefined),
+          clearViewed: vi.fn(async () => undefined),
+        },
+      },
+      provideTheme(),
+      provideZonelessChangeDetection(),
+    ],
+  }).compileComponents();
+
+  const fixture = TestBed.createComponent(FeatureFileContent);
+  fixture.componentRef.setInput('workspaceId', opts.workspaceId ?? 'ws1');
+  fixture.componentRef.setInput('filePath', opts.filePath ?? 'src/foo.ts');
+  fixture.componentRef.setInput('canEdit', opts.canEdit ?? true);
+  fixture.detectChanges();
+  return { fixture, uiState };
+}
+
+describe('FeatureFileContent — edit-mode header (P1.4)', () => {
+  it('mounts a MzFileTabHeader with the file path projected in', async () => {
+    const { fixture } = await mount({ filePath: 'src/foo.ts' });
+    expect(
+      fixture.debugElement.query(By.css('mz-file-tab-header')),
+    ).toBeTruthy();
+    const text = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('src/foo.ts');
+  });
+
+  it('renders both Diff and Edit toggle buttons in the header actions slot', () => {
+    return mount({}).then(({ fixture }) => {
+      const buttons = fixture.debugElement.queryAll(By.css('button'));
+      const labels = buttons.map((b) =>
+        (b.nativeElement.textContent ?? '').trim(),
+      );
+      expect(labels.some((l) => l.includes('Diff'))).toBe(true);
+      expect(labels.some((l) => l.includes('Edit'))).toBe(true);
+    });
+  });
+
+  // P1.4 D5 regression — Viewed is a review-of-changes concept and lives
+  // only in MzFileDiffCard's header (Diff mode). The edit-mode header
+  // must NOT carry it.
+  it('does NOT render a Viewed button in the header (D5)', async () => {
+    const { fixture } = await mount({});
+    const buttons = fixture.debugElement.queryAll(By.css('button'));
+    const labels = buttons.map((b) =>
+      (b.nativeElement.textContent ?? '').trim(),
+    );
+    expect(labels.some((l) => l.includes('Viewed'))).toBe(false);
+  });
+
+  it('clicking the Edit toggle calls upsertFileView with mode=edit', async () => {
+    const { fixture, uiState } = await mount({
+      workspaceId: 'wsA',
+      filePath: 'lib/bar.ts',
+    });
+
+    const buttons = fixture.debugElement.queryAll(By.css('button'));
+    const editBtn = buttons.find(
+      (b) => (b.nativeElement.textContent ?? '').trim() === 'Edit',
+    );
+    if (!editBtn) throw new Error('expected Edit toggle');
+    editBtn.nativeElement.click();
+    fixture.detectChanges();
+
+    expect(uiState.upsertFileView).toHaveBeenCalledWith('wsA', 'lib/bar.ts', {
+      mode: 'edit',
+    });
+  });
+
+  it('disables the Edit toggle when canEdit=false (frozen workspace)', async () => {
+    const { fixture } = await mount({ canEdit: false });
+    const buttons = fixture.debugElement.queryAll(By.css('button'));
+    const editBtn = buttons.find(
+      (b) => (b.nativeElement.textContent ?? '').trim() === 'Edit',
+    );
+    if (!editBtn) throw new Error('expected Edit toggle');
+    expect((editBtn.nativeElement as HTMLButtonElement).disabled).toBe(true);
+  });
+});

@@ -13,7 +13,10 @@ import { HlmButtonImports } from '@spartan-ui/button';
 import { type FetchContextLines } from '@mozart-ui/diff-view';
 import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
 import { MzMessageMarkdown } from '@mozart-ui/message-markdown';
-import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
+import {
+  FileViewsFacade,
+  RepositoriesFacade,
+} from '@mozart/desktop-repositories-data-access';
 
 type ViewMode = 'diff' | 'preview';
 
@@ -115,6 +118,8 @@ function isMarkdownPath(path: string | null): boolean {
              once the workspace tab actually scrolls it into view. -->
         @defer (on viewport) {
           <mz-file-diff-card
+            chrome="flush"
+            [collapsible]="false"
             [path]="path() ?? ''"
             [diffText]="diffText()"
             [loading]="loading()"
@@ -122,9 +127,11 @@ function isMarkdownPath(path: string | null): boolean {
             [fetchContext]="fetchContext"
             [fileLineCount]="fileLineCount()"
             [scrollPaddingBottom]="scrollPaddingBottom()"
+            [viewed]="viewed()"
             (refresh)="reload()"
             (pathCopy)="pathCopy.emit($event)"
             (copyError)="copyError.emit($event)"
+            (viewedChange)="onViewedChange($event)"
           />
         } @placeholder {
           <p class="text-muted-foreground px-3 py-3 text-xs">Loading diff…</p>
@@ -149,6 +156,31 @@ export class FeatureFileDiff {
   readonly copyError = output<Error>();
 
   private readonly repos = inject(RepositoriesFacade);
+  private readonly fileViews = inject(FileViewsFacade);
+
+  // Mirror the `MzFileDiffCard` Viewed state from FileViewsFacade so
+  // the toggle reflects on-disk truth across tab switches. The card is
+  // the canonical place for Viewed after the P1.4 header refactor —
+  // see [[plan-p1-4]].
+  protected readonly viewed = computed(() => {
+    const ws = this.workspaceId();
+    const p = this.path();
+    if (!ws || !p) return false;
+    const entry = this.fileViews.entryFor(ws, p);
+    return entry?.state === 'viewed';
+  });
+
+  protected onViewedChange(next: boolean): void {
+    const ws = this.workspaceId();
+    const p = this.path();
+    if (!ws || !p) return;
+    const action = next
+      ? this.fileViews.markViewed(ws, p)
+      : this.fileViews.clearViewed(ws, p);
+    void action.catch((err) => {
+      console.warn('[file-diff] viewedChange failed:', err);
+    });
+  }
 
   protected readonly diffText = signal<string>('');
   protected readonly loading = signal(false);

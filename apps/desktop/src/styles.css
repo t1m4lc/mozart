@@ -56,6 +56,7 @@
 @source "../../../libs/mozart-ui/diff-stats";
 @source "../../../libs/mozart-ui/diff-view";
 @source "../../../libs/mozart-ui/file-diff-card";
+@source "../../../libs/mozart-ui/file-tab-header";
 @source "../../../libs/mozart-ui/highlight-overlay";
 @source "../../../libs/mozart-ui/hunk-expand-bar";
 @source "../../../libs/mozart-ui/loader";

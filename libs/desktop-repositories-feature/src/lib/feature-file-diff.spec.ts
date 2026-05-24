@@ -7,7 +7,10 @@ import { By } from '@angular/platform-browser';
 import { provideTheme } from '@mozart/shared-util-theme';
 import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
 import { describe, expect, it, vi } from 'vitest';
-import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
+import {
+  FileViewsFacade,
+  RepositoriesFacade,
+} from '@mozart/desktop-repositories-data-access';
 import { FeatureFileDiff } from './feature-file-diff';
 
 // jsdom doesn't implement matchMedia; ThemeService (injected by
@@ -40,6 +43,20 @@ interface FacadeStub {
   loadFile: ReturnType<typeof vi.fn>;
 }
 
+interface FileViewsFacadeStub {
+  entryFor: ReturnType<typeof vi.fn>;
+  markViewed: ReturnType<typeof vi.fn>;
+  clearViewed: ReturnType<typeof vi.fn>;
+}
+
+function makeFileViewsFacade(): FileViewsFacadeStub {
+  return {
+    entryFor: vi.fn(() => undefined),
+    markViewed: vi.fn(() => Promise.resolve()),
+    clearViewed: vi.fn(() => Promise.resolve()),
+  };
+}
+
 interface FacadeOpts {
   readonly diff?: string | ((ws: string, p: string) => string | Promise<string>);
   readonly file?: string | ((ws: string, p: string) => string | Promise<string>);
@@ -67,6 +84,7 @@ interface MountOpts {
 async function mountWith(
   facade: FacadeStub,
   opts: MountOpts = {},
+  fileViews: FileViewsFacadeStub = makeFileViewsFacade(),
 ): Promise<ComponentFixture<FeatureFileDiff>> {
   // The @defer block in the template forces async compilation; the
   // chain form (configure + compile) is what Angular 21's
@@ -75,6 +93,7 @@ async function mountWith(
     imports: [FeatureFileDiff],
     providers: [
       { provide: RepositoriesFacade, useValue: facade },
+      { provide: FileViewsFacade, useValue: fileViews },
       provideTheme(),
     ],
   }).compileComponents();
@@ -152,6 +171,54 @@ describe('FeatureFileDiff — mode switching', () => {
     fixture.detectChanges();
     await settle(fixture);
     expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeTruthy();
+  });
+
+  // P1.4 regression — D3 in the eng review locked the contract that
+  // markdown Preview default + tab strip survive the header refactor.
+  // If a future change reverts the diff branch to a hard pass-through,
+  // these assertions break before the user ever sees the regression.
+  it('opens markdown to Preview by default with a Preview/Diff tab strip', async () => {
+    const fixture = await mountWith(makeFacade({ file: '# Hi' }), {
+      path: 'README.md',
+    });
+    await settle(fixture);
+    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeNull();
+
+    const buttons = fixture.debugElement.queryAll(By.css('button'));
+    const labels = buttons.map((b) =>
+      (b.nativeElement.textContent ?? '').trim(),
+    );
+    expect(labels).toContain('Preview');
+    expect(labels).toContain('Diff');
+  });
+
+  it('passes chrome=flush + collapsible=false to the card for non-markdown', async () => {
+    const fixture = await mountWith(makeFacade(), { path: 'src/foo.ts' });
+    await settle(fixture);
+    const card = getCard(fixture);
+    if (!card) throw new Error('expected card');
+    expect(card.chrome()).toBe('flush');
+    expect(card.collapsible()).toBe(false);
+  });
+
+  it('wires viewedChange to FileViewsFacade.markViewed / clearViewed', async () => {
+    const fileViews = makeFileViewsFacade();
+    const fixture = await mountWith(
+      makeFacade(),
+      { workspaceId: 'ws', path: 'src/foo.ts' },
+      fileViews,
+    );
+    await settle(fixture);
+
+    const card = getCard(fixture);
+    if (!card) throw new Error('expected card');
+
+    card.viewedChange.emit(true);
+    expect(fileViews.markViewed).toHaveBeenCalledWith('ws', 'src/foo.ts');
+    expect(fileViews.clearViewed).not.toHaveBeenCalled();
+
+    card.viewedChange.emit(false);
+    expect(fileViews.clearViewed).toHaveBeenCalledWith('ws', 'src/foo.ts');
   });
 });
 

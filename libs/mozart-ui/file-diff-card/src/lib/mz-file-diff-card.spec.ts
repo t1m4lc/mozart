@@ -38,6 +38,8 @@ interface MountOpts {
   readonly defaultCollapsed?: boolean;
   readonly active?: boolean;
   readonly viewed?: boolean;
+  readonly chrome?: 'card' | 'flush';
+  readonly collapsible?: boolean;
 }
 
 function mount(opts: MountOpts = {}): ComponentFixture<MzFileDiffCard> {
@@ -60,6 +62,8 @@ function mount(opts: MountOpts = {}): ComponentFixture<MzFileDiffCard> {
   );
   fixture.componentRef.setInput('active', opts.active ?? false);
   fixture.componentRef.setInput('viewed', opts.viewed ?? false);
+  fixture.componentRef.setInput('chrome', opts.chrome ?? 'card');
+  fixture.componentRef.setInput('collapsible', opts.collapsible ?? true);
   fixture.detectChanges();
   return fixture;
 }
@@ -549,5 +553,81 @@ describe('MzFileDiffCard — expand-all toggle', () => {
     fixture.componentRef.setInput('path', 'other.ts');
     fixture.detectChanges();
     expect(btn.getAttribute('aria-pressed')).toBe('false');
+  });
+});
+
+describe('MzFileDiffCard — chrome variant', () => {
+  it("chrome='card' (default) renders the bordered article", () => {
+    const fixture = mount();
+    const article = articleEl(fixture);
+    expect(article.classList).toContain('border');
+    expect(article.classList).toContain('border-border');
+    expect(article.classList).toContain('rounded-md');
+    expect(article.classList).toContain('bg-card');
+  });
+
+  it("chrome='flush' drops outer border, background, and rounded corners", () => {
+    const fixture = mount({ chrome: 'flush' });
+    const article = articleEl(fixture);
+    expect(article.classList).not.toContain('border');
+    expect(article.classList).not.toContain('border-border');
+    expect(article.classList).not.toContain('rounded-md');
+    expect(article.classList).not.toContain('bg-card');
+  });
+
+  it("chrome='flush' hides the collapse chevron", () => {
+    const fixture = mount({ chrome: 'flush' });
+    expect(findBySlot(fixture, 'collapse-chevron')).toBeNull();
+  });
+
+  it("chrome='flush' suppresses the path display in the header", () => {
+    const fixture = mount({ chrome: 'flush', path: 'src/foo.ts' });
+    expect(findBySlot(fixture, 'card-path')).toBeNull();
+  });
+
+  it("chrome='card' renders the path display in the header", () => {
+    const fixture = mount({ path: 'src/foo.ts' });
+    const pathEl = findBySlot(fixture, 'card-path');
+    expect(pathEl).toBeTruthy();
+    expect(pathEl!.textContent).toContain('src/foo.ts');
+  });
+
+  it("chrome='flush' always paints the body even with defaultCollapsed=true", () => {
+    const fixture = mount({ chrome: 'flush', defaultCollapsed: true });
+    expect(fixture.debugElement.query(By.css('mz-diff-view'))).toBeTruthy();
+  });
+
+  it("chrome='flush' + active=true still applies the ring accent", () => {
+    const fixture = mount({ chrome: 'flush', active: true });
+    const article = articleEl(fixture);
+    expect(article.classList).toContain('ring-2');
+  });
+
+  it("chrome='card' regression: chevron present and toggles collapse as before", () => {
+    const fixture = mount();
+    expect(findBySlot(fixture, 'collapse-chevron')).toBeTruthy();
+    expect(fixture.debugElement.query(By.css('mz-diff-view'))).toBeTruthy();
+
+    findBySlot(fixture, 'collapse-chevron')!.click();
+    fixture.detectChanges();
+
+    expect(fixture.debugElement.query(By.css('mz-diff-view'))).toBeNull();
+  });
+});
+
+describe('MzFileDiffCard — collapsible input', () => {
+  it("collapsible=false hides the chevron in card chrome", () => {
+    const fixture = mount({ collapsible: false });
+    expect(findBySlot(fixture, 'collapse-chevron')).toBeNull();
+  });
+
+  it("collapsible=false always paints body even with defaultCollapsed=true", () => {
+    const fixture = mount({ collapsible: false, defaultCollapsed: true });
+    expect(fixture.debugElement.query(By.css('mz-diff-view'))).toBeTruthy();
+  });
+
+  it("collapsible=true (default) keeps the chevron in card chrome", () => {
+    const fixture = mount();
+    expect(findBySlot(fixture, 'collapse-chevron')).toBeTruthy();
   });
 });

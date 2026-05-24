@@ -223,6 +223,9 @@
       "@mozart-ui/file-diff-card": [
         "./libs/mozart-ui/file-diff-card/src/index.ts"
       ],
+      "@mozart-ui/file-tab-header": [
+        "./libs/mozart-ui/file-tab-header/src/index.ts"
+      ],
       "@mozart-ui/highlight-overlay": [
         "./libs/mozart-ui/highlight-overlay/src/index.ts"
       ],

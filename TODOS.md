@@ -513,3 +513,39 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** Multi-window roadmap. Not until then.
 
 ---
+
+## File diff card — `changed_since_viewed` indicator parity (P1.4 follow-up)
+
+**What:** The legacy `FeatureFileToolbar` rendered an amber "changed since viewed" chip next to the Viewed checkbox when `FileViewsFacade.entryFor(...)` returned `state === 'changed_since_viewed'`. After P1.4 the Viewed surface moved to `MzFileDiffCard`'s header, which has no equivalent drift indicator today.
+
+**Why:** Reviewers who marked a file Viewed and then the agent edited it again currently see no signal in the diff card that the file moved under them. The information is still in the store; we just stopped rendering it.
+
+**How to apply:** Add an optional `viewedDrift: boolean` input to `MzFileDiffCard`. When true, render a small `lucideRotateCcw` glyph (matching the legacy chip) next to the Viewed button with a tooltip "Changed since you reviewed it". Wire from `feature-file-diff.ts` by reading `FileViewsFacade.entryFor(ws, path)?.state === 'changed_since_viewed'`.
+
+**Depends on:** None. Self-contained; ship after the first user report of a missed re-review.
+
+---
+
+## Diff view — Unified/Split layout home (P1.4 follow-up)
+
+**What:** The legacy `FeatureFileToolbar` exposed a Unified/Split layout toggle for the diff body. `MzFileDiffCard` doesn't surface one today; `MzDiffView` still has the underlying hooks. The toggle has no home in the new file-tab UX.
+
+**Why:** Some users prefer split-diff for wide screens. We dropped the toggle in P1.4 to keep the header focused; we did NOT remove the capability. Decide where it lives so we can re-enable it.
+
+**How to apply:** Options. (a) New `[mzFileDiffCardLayoutTrigger]` projection slot in the card header — caller renders the unified/split tabs. (b) Add a `layout: 'unified' | 'split'` input + a `(layoutChange)` output to `MzFileDiffCard`; render the toggle inside the card's actions slot. (c) Move the toggle to a workspace-level setting (one preference applies to all files). Recommend (a) for v1 — least design-system commitment.
+
+**Depends on:** First user request for split diff in file tabs.
+
+---
+
+## Changes tab — per-row Discard via context menu (P1.4 follow-up)
+
+**What:** The legacy `FeatureFileToolbar` had a `showDiscard` input that was off everywhere; the per-file Discard button never shipped through that surface. After dropping the toolbar, the affordance has no plumbing.
+
+**Why:** Per-file Discard is a legitimate flow (revert one file's edits while keeping others). The right home is the Changes-tab row context menu — same surface that hosts stage/unstage per row (`feature-changes-list.ts:242–289`). That keeps mutation actions colocated with the file list.
+
+**How to apply:** Wire a `discard` action on the `UiChangesContextMenu` bound rows. Calls `RepositoriesFacade.discardChangedFile(workspaceId, path)` (already exists per the P1.2 design). Confirm dialog optional — match the staging UX.
+
+**Depends on:** None. Self-contained polish.
+
+---

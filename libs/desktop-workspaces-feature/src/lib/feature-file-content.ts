@@ -17,31 +17,22 @@ import {
 // @defer block and split it (with its CodeMirror deps) into a lazy
 // chunk.
 import { MzCodeEditor } from '@mozart-ui/code-editor';
+import { MzFileTabHeader } from '@mozart-ui/file-tab-header';
 import { ThemeService } from '@mozart/shared-util-theme';
 import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmTabsImports } from '@spartan-ui/tabs';
-import { provideIcons } from '@ng-icons/core';
-import {
-  lucideColumns2,
-  lucideFileDiff,
-  lucideFilePen,
-} from '@ng-icons/lucide';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideFileDiff, lucideFilePen } from '@ng-icons/lucide';
 import {
   FileTabsService,
   ScrollPositionService,
   WorkspaceMutationsFacade,
   fileTabKey,
 } from '@mozart/desktop-workspaces-data-access';
-import {
-  FeatureFileDiff,
-  FeatureFileToolbar,
-  type DiffMode,
-  type FileViewedState,
-} from '@mozart/desktop-repositories-feature';
-import {
-  FileViewsFacade,
-  RepositoriesFacade,
-} from '@mozart/desktop-repositories-data-access';
+import { FeatureFileDiff } from '@mozart/desktop-repositories-feature';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { WorkspaceFileContentMode } from '@mozart/desktop-ui-state-util';
 
@@ -57,13 +48,16 @@ const TEXT_ENCODER = new TextEncoder();
 @Component({
   selector: 'app-feature-file-content',
   imports: [
-    HlmTabsImports,
     HlmButtonImports,
+    HlmIconImports,
+    HlmTabsImports,
+    HlmTooltipImports,
+    NgIcon,
     FeatureFileDiff,
-    FeatureFileToolbar,
     MzCodeEditor,
+    MzFileTabHeader,
   ],
-  providers: [provideIcons({ lucideFileDiff, lucideFilePen, lucideColumns2 })],
+  providers: [provideIcons({ lucideFileDiff, lucideFilePen })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
@@ -72,17 +66,47 @@ const TEXT_ENCODER = new TextEncoder();
       [tab]="mode()"
       (tabActivated)="setMode($any($event))"
     >
-      <app-feature-file-toolbar
-        [filePath]="filePath()"
-        [viewedState]="viewedState()"
-        [isFrozen]="!canEdit()"
-        [diffMode]="diffMode()"
-        [fileMode]="mode()"
-        (markViewed)="onMarkViewed()"
-        (markUnviewed)="onMarkUnviewed()"
-        (diffModeChange)="setDiffMode($event)"
-        (fileModeChange)="setMode($event)"
-      />
+      <!--
+        Shared header layout: path + Diff/Edit toggle for every file
+        tab, regardless of mode. Viewed lives inside MzFileDiffCard (in
+        Diff mode) — the edit surface has no concept of "reviewed" per
+        the P1.4 D5 decision.
+      -->
+      <mz-file-tab-header>
+        <span
+          class="select-text text-muted-foreground"
+          [attr.title]="filePath()"
+        >
+          {{ filePath() ?? '' }}
+        </span>
+
+        <hlm-tabs-list
+          mzFileTabHeaderActions
+          variant="line"
+          class="flex h-7 items-center gap-1"
+          aria-label="File mode"
+        >
+          <button
+            hlmTabsTrigger="diff"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-2 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
+            hlmTooltip="Review (diff)"
+          >
+            <ng-icon hlm name="lucideFileDiff" size="xs" />
+            <span>Diff</span>
+          </button>
+          <button
+            hlmTabsTrigger="edit"
+            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-2 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
+            [disabled]="!canEdit()"
+            [hlmTooltip]="
+              canEdit() ? 'Edit' : 'Workspace is done — edits disabled'
+            "
+          >
+            <ng-icon hlm name="lucideFilePen" size="xs" />
+            <span>Edit</span>
+          </button>
+        </hlm-tabs-list>
+      </mz-file-tab-header>
 
       @if (mode() === 'edit') {
         <div
@@ -239,7 +263,6 @@ export class FeatureFileContent {
   readonly canEdit = input<boolean>(true);
 
   private readonly repos = inject(RepositoriesFacade);
-  private readonly fileViews = inject(FileViewsFacade);
   private readonly themeService = inject(ThemeService);
   private readonly uiState = inject(UiStateFacade);
   private readonly scrollPosition = inject(ScrollPositionService);
@@ -260,19 +283,6 @@ export class FeatureFileContent {
   protected readonly mode = computed<FileContentMode>(
     () => this.fileViewState().mode,
   );
-
-  protected readonly diffMode = computed<DiffMode>(() =>
-    this.fileViewState().splitDiff ? 'split' : 'unified',
-  );
-
-  protected readonly viewedState = computed<FileViewedState>(() => {
-    const ws = this.workspaceId();
-    const path = this.filePath();
-    if (!ws || !path) return 'not_viewed';
-    const entry = this.fileViews.entryFor(ws, path);
-    if (!entry) return 'not_viewed';
-    return entry.state;
-  });
 
   // Key for resetting per-file edit state. Reading this in a linkedSignal
   // computation makes baseline/editorValue/etc. snap back to defaults when
@@ -435,37 +445,6 @@ export class FeatureFileContent {
     const p = this.filePath();
     if (!ws || !p) return;
     this.uiState.upsertFileView(ws, p, { mode: value });
-  }
-
-  protected setDiffMode(value: DiffMode): void {
-    const ws = this.workspaceId();
-    const p = this.filePath();
-    if (!ws || !p) return;
-    this.uiState.upsertFileView(ws, p, { splitDiff: value === 'split' });
-  }
-
-  protected toggleSplit(): void {
-    this.setDiffMode(this.diffMode() === 'split' ? 'unified' : 'split');
-  }
-
-  protected onMarkViewed(): void {
-    const ws = this.workspaceId();
-    const path = this.filePath();
-    if (!ws || !path) return;
-
-    void this.fileViews.markViewed(ws, path).catch((err) => {
-      console.warn('[file-content] markViewed failed:', err);
-    });
-  }
-
-  protected onMarkUnviewed(): void {
-    const ws = this.workspaceId();
-    const path = this.filePath();
-    if (!ws || !path) return;
-
-    void this.fileViews.clearViewed(ws, path).catch((err) => {
-      console.warn('[file-content] clearViewed failed:', err);
-    });
   }
 
   protected onEditorChange(next: string): void {

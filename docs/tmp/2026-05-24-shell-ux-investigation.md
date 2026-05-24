@@ -2080,6 +2080,178 @@ checkbox as you ship. JSONL artifact for `/autoplan` aggregation:
 
 ---
 
+## 12. Eng review adjustments — P1.4 (2026-05-24)
+
+Captured during `/plan-eng-review` on 2026-05-24 against §2.4 (P1.4 file
+header refactor). Earlier sections (TL;DR, §1.8, §2.4, §3.3) describe
+the original RFC; this section is the implementation contract for
+P1.4. Six decisions (D1–D6) reshape the architectural seam.
+
+### 12.1 Decisions (D1–D6)
+
+| ID  | Topic                                                | Choice                                                                | Implication                                                                                                                                                                                                                                                                                                                                                            |
+| --- | ---------------------------------------------------- | --------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Edit-mode header semantic mismatch                   | **Extract `MzFileTabHeader` (mozart-ui)**                             | New shared header component in `libs/mozart-ui/file-tab-header/`. Holds path + projected actions slot. `MzFileDiffCard` composes it for diff body; `FeatureFileContent` composes it directly for edit body. Removes the coupling between MzFileDiffCard's diff-only controls (status badge, expand-all, refresh, Viewed) and the editor surface.                       |
+| D2  | Action slot projection mechanism                     | **`<ng-content select="[mzFileTabHeaderActions]">`**                  | Matches every other slot-accepting component in `libs/mozart-ui` + `libs/spartan-ui`. No new pattern; smallest implementation. Consumer marks the host element with the attribute (e.g. `<div mzFileTabHeaderActions>...</div>`). Rejects `contentChild<TemplateRef>` + `*ngTemplateOutlet`.                                                                            |
+| D3  | Markdown preview tabs in `feature-file-diff.ts`      | **Keep markdown Preview/Diff toggle and default-to-Preview**          | The plan's original wording silently pre-decided P3.1 ("Preview mode default + scope decision"). Reverted: P1.4 only swaps the Diff branch to `chrome='flush'`; the `isMarkdown` → `mode='preview'` default and the Preview/Diff tab strip (lines 52–90) stay intact. P3.1 keeps its decision space.                                                                   |
+| D4  | Save/Discard inline strip placement                  | **Leave the existing 8px strip in `feature-file-content.ts` as-is**   | Plan was silent on this. The strip stays Edit-mode-only between the new header and the editor body. P2.3 ("Save/Discard overlay") moves it to an absolute overlay later. P1.4 does not touch P2.3's scope.                                                                                                                                                             |
+| D5  | Viewed toggle in Edit mode                           | **Drop Viewed from Edit mode**                                        | Viewed is a GitHub-style "I've reviewed this change before it ships" marker. It belongs only where changes are visible — the diff body. Today's toolbar shows it in both modes (carryover). After P1.4: Viewed lives only inside `MzFileDiffCard` header. Edit-mode header is path + Diff/Edit toggle only. Aligns surface with reviewer semantics.                    |
+| D6  | Test coverage tier                                   | **Full lake**                                                         | Plan's three cases plus: `chrome='card'` regression (existing review surface unchanged); new `MzFileTabHeader.spec.ts`; markdown-Preview-default regression in `feature-file-diff.spec.ts`; `collapsible=false` chevron-not-rendered case; `chrome='flush' + active=true` ring-2 behavior; edit-mode header wiring assertion (Viewed NOT present per D5).               |
+| D7  | Outside voice (codex) on the plan?                   | **Skipped**                                                           | User declined. In-skill review stands.                                                                                                                                                                                                                                                                                                                                 |
+
+### 12.2 What already exists (reused, not rebuilt)
+
+- `MzFileDiffCard` already supports `'renamed'` + `oldPath` (no new
+  status work). Its existing chevron / Viewed / expand-all / refresh /
+  copy-path / status-badge UI carries over unchanged inside the `card`
+  chrome variant.
+- `FileViewsFacade.markViewed / clearViewed` wiring stays in place;
+  only the consumer changes (from `FeatureFileToolbar` to
+  `MzFileDiffCard`'s built-in Viewed button which already emits
+  `viewedChange`).
+- `WorkspaceMutationsFacade.softRefreshAfterMutation` already wired
+  from `feature-file-content.ts:512` — unaffected by P1.4.
+- `mz-file-diff-card.spec.ts` (TestBed + provideZonelessChangeDetection
+  + matchMedia stub) is the template for the new variant tests and
+  `MzFileTabHeader.spec.ts`.
+- `feature-file-diff.spec.ts` already exists at
+  `libs/desktop-repositories-feature/src/lib/feature-file-diff.spec.ts`
+  — extend with a markdown-Preview-default regression case.
+- `FeatureFileToolbar` has exactly one consumer (`feature-file-content.ts`).
+  Deletion is mechanical; no cross-module sweep needed.
+
+### 12.3 NOT in scope
+
+- Save/Discard overlay redesign — P2.3.
+- Markdown preview default change — P3.1.
+- Multi-file review surface itself — chrome variant is the seam only;
+  no consumer added in this PR.
+- Discard-per-file button — toolbar's `showDiscard` input is currently
+  off everywhere; not migrated. Captured in §12.6.
+- `Unified/Split` diff layout tabs — currently a duplicative control on
+  the toolbar; `MzFileDiffCard` does not expose this and the underlying
+  `MzDiffView` already has the hooks. Drop the toolbar's tabs with no
+  replacement until a real Unified/Split UX is designed (TODO).
+- The `changed_since_viewed` warning chip rendered by the legacy
+  toolbar — `MzFileDiffCard`'s Viewed button does not surface this
+  state today. Captured in §12.6.
+
+### 12.4 Failure modes
+
+| Path                                                                      | Test?                              | Error handling?                                 | User-visible?                  |
+| ------------------------------------------------------------------------- | ---------------------------------- | ----------------------------------------------- | ------------------------------ |
+| `MzFileTabHeader` rendered with no actions slot content                   | unit (new spec)                    | renders path only; no slot div                  | none (intentional)             |
+| `chrome='flush'` + `active=true` interaction                              | unit (new case)                    | ring-2 on the outer article still applies       | low — pick one and document    |
+| Markdown file with `chrome='card'` (future review surface)                | regression unit                    | Preview branch not reachable from card consumer | none (card consumer = diff)    |
+| `collapsible=false` user clicks chevron (shouldn't render)                | unit (new case)                    | chevron not rendered → no click target          | none after fix                 |
+| `feature-file-diff.ts` markdown branch regresses to Diff default          | regression unit (D3)               | guarded: existing `isMarkdown` linkedSignal     | YES if regressed               |
+| Viewed wiring breaks during toolbar deletion                              | unit (edit-mode header spec)       | Viewed NOT in edit header (D5)                  | none after fix                 |
+
+**0 critical gaps.** No silent-failure paths.
+
+### 12.5 Worktree parallelization strategy
+
+Sequential implementation, single PR slice. Three reasons: (1) all
+changes land in the same architectural seam; (2) the new
+`MzFileTabHeader` is a dependency of every other step; (3) deleting
+`FeatureFileToolbar` must happen last to keep the migration testable.
+
+| Step                                                | Modules touched                                       | Depends on |
+| --------------------------------------------------- | ----------------------------------------------------- | ---------- |
+| Add `MzFileTabHeader` (new lib)                     | `libs/mozart-ui/file-tab-header/`                     | —          |
+| Add `chrome` + `collapsible` to `MzFileDiffCard`    | `libs/mozart-ui/file-diff-card/`                      | step 1     |
+| Migrate `feature-file-diff.ts` diff branch          | `libs/desktop-repositories-feature/`                  | step 2     |
+| Migrate `feature-file-content.ts` edit-mode header  | `libs/desktop-workspaces-feature/`                    | step 1     |
+| Delete `FeatureFileToolbar`                         | `libs/desktop-repositories-feature/`                  | all above  |
+
+### 12.6 TODOS (to capture in TODOS.md)
+
+- **`changed_since_viewed` indicator parity** — legacy
+  `FeatureFileToolbar` rendered an amber "changed since viewed" chip
+  when `viewedState === 'changed_since_viewed'`. `MzFileDiffCard`'s
+  Viewed button does not surface this state today. Capture as TODO:
+  add an optional `viewedDrift: boolean` input to `MzFileDiffCard`
+  that renders a small drift glyph next to the Viewed button. Not
+  blocking P1.4 ship.
+- **Unified/Split diff layout control** — legacy toolbar exposed this
+  via `hlm-tabs`; `MzFileDiffCard` doesn't. The underlying `MzDiffView`
+  has the hooks. Capture as TODO: design a Unified/Split toggle home
+  (header action slot? body chrome?). Not blocking.
+- **Per-file Discard button** — legacy toolbar's `showDiscard` input is
+  off everywhere today. Capture as TODO: bind a per-file discard
+  action from the Changes-tab row context menu (the more natural home
+  for per-row mutations, per §1.3).
+
+### 12.7 Implementation Tasks
+
+Synthesized from D1–D6. Each task derives from a specific finding above.
+
+- [ ] **T1 (P1, human: ~2h / CC: ~20min)** — mozart-ui — Add `MzFileTabHeader` library
+  - Surfaced by: D1
+  - Files: `libs/mozart-ui/file-tab-header/` (new lib via `nx-generate`); src/lib/mz-file-tab-header.ts (path display + `<ng-content select="[mzFileTabHeaderActions]">` + truncate styles matching MzFileDiffCard header); src/index.ts
+  - Verify: `pnpm nx build mozart-ui-file-tab-header` succeeds; spec passes (T6).
+- [ ] **T2 (P1, human: ~1h / CC: ~15min)** — mz-file-diff-card — Add `chrome` + `collapsible` inputs and compose `MzFileTabHeader`
+  - Surfaced by: D1
+  - Files: `libs/mozart-ui/file-diff-card/src/lib/mz-file-diff-card.ts`; `libs/mozart-ui/file-diff-card/src/index.ts`
+  - Behavior: `chrome = input<'card' | 'flush'>('card')`; `collapsible = input<boolean>(true)`. flush drops outer `border-border` ring + chevron + forces `_collapsed = false`. collapsible=false hides chevron button (template gate). The existing header controls (Viewed, copy, expand-all, refresh, status badge, stats) project into `MzFileTabHeader`'s actions slot via the `[mzFileTabHeaderActions]` attribute.
+  - Verify: `pnpm nx test mozart-ui-file-diff-card` passes including the new cases from T7.
+- [ ] **T3 (P1, human: ~1.5h / CC: ~15min)** — desktop-workspaces-feature — Migrate `feature-file-content.ts` edit-mode header
+  - Surfaced by: D1, D5
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-file-content.ts`
+  - Replace `<app-feature-file-toolbar>` with `<mz-file-tab-header [path]="filePath()">`. Inside the header, project Diff/Edit toggle (existing `hlm-tabs-list` with `lucideFileDiff` + `lucideFilePen`) via `[mzFileTabHeaderActions]`. Viewed is NOT projected (D5). Save/Discard inline strip stays in place between header and editor body (D4). Drop the `markViewed` / `markUnviewed` wiring from this component (Viewed now lives on `MzFileDiffCard` and emits `viewedChange` — wire that to `FileViewsFacade` via the existing facade methods).
+  - Verify: open a file in Edit mode — header shows path + Diff/Edit toggle only; toggle still flips mode; Save/Discard strip still appears below header.
+- [ ] **T4 (P1, human: ~45min / CC: ~10min)** — desktop-repositories-feature — Wrap diff body with `chrome='flush'`
+  - Surfaced by: D1, D3
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-file-diff.ts`
+  - In the non-markdown / Diff branch only: set `[chrome]="'flush'"` and `[collapsible]="false"` on `<mz-file-diff-card>`. Wire `viewedChange` output to `FileViewsFacade.markViewed / clearViewed`. The markdown Preview/Diff tab strip + `isMarkdown` → `mode='preview'` default STAY (D3).
+  - Verify: README still opens to Preview; non-markdown file opens to flush-chrome diff with no nested card border.
+- [ ] **T5 (P1, human: ~15min / CC: ~5min)** — desktop-repositories-feature — Delete `FeatureFileToolbar`
+  - Surfaced by: D1
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-file-toolbar.ts` (delete); `libs/desktop-repositories-feature/src/index.ts` (remove export of `FeatureFileToolbar`, `FileViewedState`, `DiffMode`, `FileMode` if not used elsewhere); grep confirms no remaining consumers.
+  - Verify: `pnpm nx build desktop-repositories-feature` succeeds; `pnpm nx graph --print --affected` shows no broken references.
+- [ ] **T6 (P1, human: ~1h / CC: ~15min)** — mozart-ui — `MzFileTabHeader.spec.ts` NEW
+  - Surfaced by: D6
+  - Files: `libs/mozart-ui/file-tab-header/src/lib/mz-file-tab-header.spec.ts`
+  - Cases: path renders + truncates; projected action via `[mzFileTabHeaderActions]` renders in the slot; no-actions case (only path + slot is empty); long-path title attribute set.
+  - Verify: `pnpm nx test mozart-ui-file-tab-header` passes.
+- [ ] **T7 (P1, human: ~1.5h / CC: ~20min)** — mozart-ui — `mz-file-diff-card.spec.ts` extend
+  - Surfaced by: D6
+  - Files: `libs/mozart-ui/file-diff-card/src/lib/mz-file-diff-card.spec.ts`
+  - Cases: `chrome='flush'` drops outer border + chevron + forces uncollapsed; `chrome='card'` regression (existing review surface unchanged); `collapsible=false` chevron not rendered (template gate); `chrome='flush'` + `active=true` ring-2 behavior documented and asserted; projected action content via `[mzFileTabHeaderActions]` reaches the header slot.
+  - Verify: `pnpm nx test mozart-ui-file-diff-card` passes.
+- [ ] **T8 (P1, human: ~30min / CC: ~10min)** — desktop-repositories-feature — Markdown Preview default regression test
+  - Surfaced by: D3, D6
+  - Files: `libs/desktop-repositories-feature/src/lib/feature-file-diff.spec.ts` (extend)
+  - Cases: path ending `.md` opens with `mode === 'preview'` and the Preview/Diff tab strip visible; clicking Diff flips to `mz-file-diff-card` rendering; non-markdown path opens directly to `mz-file-diff-card` with no tab strip; the diff card has `chrome='flush'` + `collapsible=false`.
+  - Verify: `pnpm nx test desktop-repositories-feature` passes.
+- [ ] **T9 (P2, human: ~30min / CC: ~10min)** — desktop-workspaces-feature — Edit-mode header wiring spec
+  - Surfaced by: D5, D6
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-file-content.spec.ts` (extend if exists; otherwise small new spec)
+  - Cases: edit-mode header renders path + Diff/Edit toggle; Viewed button NOT present in edit-mode header (D5); toggle activates `setMode('diff')`.
+  - Verify: spec passes locally.
+- [ ] **T10 (P3, human: ~15min / CC: ~5min)** — TODOS.md — Append §12.6 follow-ups
+  - Surfaced by: §12.6
+  - Files: `TODOS.md`
+  - Entries: `changed_since_viewed` indicator parity on `MzFileDiffCard`; Unified/Split diff layout home; per-file Discard via Changes-tab row context menu.
+  - Verify: entries present + linked to §12.6.
+
+### 12.8 Completion summary
+
+- Step 0: Scope Challenge — scope **accepted as-is** (6 files, 1 new mozart-ui lib via D1, 0 new services).
+- Architecture Review: 3 issues raised, all decided (D1 extract MzFileTabHeader, D2 ng-content slot, D3 keep markdown preview).
+- Code Quality Review: 2 issues raised, both decided (D4 Save/Discard stays inline, D5 drop Viewed from Edit mode).
+- Test Review: 6-area gap analysis surfaced; D6 chose full lake; T6–T9 cover all gaps including 1 mandatory regression (D3 markdown Preview default).
+- Performance Review: no issues found (no new RPCs; lazy `@defer` chain preserved; dropping toolbar trims bundle).
+- NOT in scope: 6 items listed in §12.3.
+- What already exists: 6 items listed in §12.2.
+- TODOS.md updates: 3 items proposed (§12.6) → T10.
+- Failure modes: 0 critical gaps (table in §12.4).
+- Outside voice: skipped per D7.
+- Parallelization: sequential (single PR slice, §12.5).
+- Lake Score: 6/6 recommendations chose the complete option (extraction over reuse, full test lake, preserve preview, separate Save/Discard scope, semantic alignment of Viewed, ng-content idiom).
+
+---
+
 ## GSTACK REVIEW REPORTS
 
 One row per reviewed slice. All reviewed slices are now shipped (✅).
@@ -2140,3 +2312,13 @@ Second pass on P1.3 after P1.2 shipped — supersedes the P1.3-portion of the ro
 - **TODOS:** 2 added (per-chat draft persistence; "talking to chat X" indicator) — blocked on multi-chat workspaces.
 - **TASKS:** 6 (T1–T6) emitted; 4 × P1, 1 × P2, 1 × P3.
 - **VERDICT:** ENG CLEARED — implemented after P1.3 prep.
+
+### P1.4 — File header refactor (2026-05-24)
+
+| Review     | Runs           | Status       | Findings                                                                                                                                                                                                                                       |
+| ---------- | -------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Eng Review | 1 (2026-05-24) | CLEAR (PLAN) | 6 decisions resolved (D1 extract MzFileTabHeader, D2 ng-content slot, D3 keep markdown preview, D4 Save/Discard stays inline, D5 drop Viewed from Edit, D6 full test lake); 1 mandatory regression test (markdown Preview default); 0 critical gaps; 10 tasks (T1–T10) emitted |
+
+- **CODEX / CROSS-MODEL:** N/A — user declined outside voice (D7).
+- **UNRESOLVED:** 0.
+- **VERDICT:** ENG CLEARED per §12 adjustments. Sequential single PR slice per §12.5; ship after P1.3 lands (P1.3 §6 sequencing recommendation #4 still holds: P1.4 lands before P1.3b polish).

@@ -29,6 +29,16 @@ import {
 } from '@ng-icons/lucide';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { MzDiffView, type FetchContextLines } from '@mozart-ui/diff-view';
+import { MzFileTabHeader } from '@mozart-ui/file-tab-header';
+
+/** Header + outer-frame variant.
+ *  - `card` (default) — full chrome: outer border, rounded corners,
+ *    chevron collapse, body can be hidden.
+ *  - `flush` — no outer border, no chevron, body always painted. Used
+ *    when the card is embedded directly in a file-tab body (the card
+ *    sits inside a pane that already has its own borders).
+ */
+export type FileDiffCardChrome = 'card' | 'flush';
 
 export type FileDiffStatus =
   | 'modified'
@@ -91,6 +101,7 @@ interface PathDisplay {
     HlmTooltipImports,
     MzDiffStats,
     MzDiffView,
+    MzFileTabHeader,
   ],
   providers: [
     provideIcons({
@@ -110,152 +121,161 @@ interface PathDisplay {
   host: { class: 'block' },
   template: `
     <article
-      class="border-border bg-card text-card-foreground block w-full rounded-md border"
+      class="block w-full"
+      [class.border-border]="chrome() === 'card'"
+      [class.bg-card]="chrome() === 'card'"
+      [class.text-card-foreground]="chrome() === 'card'"
+      [class.rounded-md]="chrome() === 'card'"
+      [class.border]="chrome() === 'card'"
       [class.ring-2]="active()"
       [class.ring-ring/30]="active()"
       data-slot="file-diff-card"
     >
-      <header
-        class="border-border/60 flex h-8 items-center gap-1 border-b px-2"
-        [class.border-b-0]="_collapsed()"
-      >
-        <button
-          hlmBtn
-          variant="ghost"
-          size="xs"
-          type="button"
-          class="text-muted-foreground hover:text-foreground -ml-1 h-6 w-6 shrink-0 p-0"
-          [attr.aria-expanded]="!_collapsed()"
-          [attr.aria-label]="_collapsed() ? 'Expand file' : 'Collapse file'"
-          (click)="_toggle()"
-        >
-          <ng-icon
-            hlm
-            [name]="_collapsed() ? 'lucideChevronRight' : 'lucideChevronDown'"
-            size="xs"
-          />
-        </button>
-
-        <div
-          class="min-w-0 flex-1 truncate font-mono text-[11px]"
-          [title]="_pathTitle()"
-        >
-          @if (_pathDisplay().kind === 'rename') {
-            <span class="text-muted-foreground/80">{{ _pathDisplay().from }}</span>
-            <ng-icon
-              hlm
-              name="lucideArrowRight"
-              size="xs"
-              class="text-muted-foreground/60 mx-1 inline-block align-middle"
-              aria-hidden="true"
-            />
-            <span class="text-foreground">{{ _pathDisplay().to }}</span>
-          } @else {
-            <span class="text-foreground">{{ _pathDisplay().to }}</span>
-          }
-        </div>
-
-        <button
-          hlmBtn
-          variant="ghost"
-          size="xs"
-          type="button"
-          class="text-muted-foreground hover:text-foreground h-6 w-6 shrink-0 p-0"
-          [hlmTooltip]="_copyTooltip()"
-          [attr.aria-label]="_copyTooltip()"
-          data-slot="copy-button"
-          (click)="_copyPath()"
-        >
-          <ng-icon
-            hlm
-            [name]="_copyState() === 'copied' ? 'lucideCheck' : 'lucideCopy'"
-            size="xs"
-            [class.text-emerald-500]="_copyState() === 'copied'"
-            [class.text-destructive]="_copyState() === 'err'"
-          />
-        </button>
-
-        @if (_bodyMode() === 'diff') {
+      <mz-file-tab-header>
+        @if (_showChevron()) {
           <button
+            mzFileTabHeaderLeading
             hlmBtn
             variant="ghost"
             size="xs"
             type="button"
-            class="text-muted-foreground hover:text-foreground h-6 w-6 shrink-0 p-0"
-            [hlmTooltip]="_expandAllTooltip()"
-            [attr.aria-label]="_expandAllTooltip()"
-            [attr.aria-pressed]="_allExpanded()"
-            data-slot="expand-all-button"
-            [disabled]="!fetchContext()"
-            (click)="_toggleExpandAll()"
+            class="text-muted-foreground hover:text-foreground -ml-1 h-6 w-6 shrink-0 p-0"
+            [attr.aria-expanded]="!_effectiveCollapsed()"
+            [attr.aria-label]="_effectiveCollapsed() ? 'Expand file' : 'Collapse file'"
+            data-slot="collapse-chevron"
+            (click)="_toggle()"
           >
             <ng-icon
               hlm
               [name]="
-                _allExpanded() ? 'lucideFoldVertical' : 'lucideUnfoldVertical'
+                _effectiveCollapsed() ? 'lucideChevronRight' : 'lucideChevronDown'
               "
               size="xs"
             />
           </button>
         }
 
-        <mz-diff-stats
-          class="shrink-0"
-          [added]="additions()"
-          [removed]="deletions()"
-        />
+        @if (chrome() === 'card') {
+          <span [title]="_pathTitle()" data-slot="card-path">
+            @if (_pathDisplay().kind === 'rename') {
+              <span class="text-muted-foreground/80">{{ _pathDisplay().from }}</span>
+              <ng-icon
+                hlm
+                name="lucideArrowRight"
+                size="xs"
+                class="text-muted-foreground/60 mx-1 inline-block align-middle"
+                aria-hidden="true"
+              />
+              <span class="text-foreground">{{ _pathDisplay().to }}</span>
+            } @else {
+              <span class="text-foreground">{{ _pathDisplay().to }}</span>
+            }
+          </span>
+        }
 
-        <span
-          hlmBadge
-          variant="outline"
-          class="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wider"
-          [class]="_badgeToneClass()"
-          [attr.aria-label]="'Status: ' + _badge().label"
-          data-slot="status-badge"
-        >{{ _badge().label }}</span>
-
-        <button
-          hlmBtn
-          variant="ghost"
-          size="xs"
-          type="button"
-          class="text-muted-foreground hover:text-foreground h-6 w-6 shrink-0 p-0"
-          hlmTooltip="Refresh"
-          aria-label="Refresh diff"
-          data-slot="refresh-button"
-          (click)="refresh.emit()"
-        >
-          <ng-icon
-            hlm
-            name="lucideRefreshCw"
+        <div mzFileTabHeaderActions class="contents">
+          <button
+            hlmBtn
+            variant="ghost"
             size="xs"
-            [class.animate-spin]="loading()"
-          />
-        </button>
+            type="button"
+            class="text-muted-foreground hover:text-foreground h-6 w-6 shrink-0 p-0"
+            [hlmTooltip]="_copyTooltip()"
+            [attr.aria-label]="_copyTooltip()"
+            data-slot="copy-button"
+            (click)="_copyPath()"
+          >
+            <ng-icon
+              hlm
+              [name]="_copyState() === 'copied' ? 'lucideCheck' : 'lucideCopy'"
+              size="xs"
+              [class.text-emerald-500]="_copyState() === 'copied'"
+              [class.text-destructive]="_copyState() === 'err'"
+            />
+          </button>
 
-        <button
-          hlmBtn
-          variant="ghost"
-          size="xs"
-          type="button"
-          class="text-muted-foreground hover:text-foreground h-6 shrink-0 gap-1 px-2 text-[11px]"
-          [class.text-foreground]="_viewed()"
-          [hlmTooltip]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
-          [attr.aria-pressed]="_viewed()"
-          [attr.aria-label]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
-          data-slot="viewed-button"
-          (click)="_toggleViewed()"
-        >
-          <ng-icon
-            hlm
-            [name]="_viewed() ? 'lucideSquareCheck' : 'lucideSquare'"
+          @if (_bodyMode() === 'diff') {
+            <button
+              hlmBtn
+              variant="ghost"
+              size="xs"
+              type="button"
+              class="text-muted-foreground hover:text-foreground h-6 w-6 shrink-0 p-0"
+              [hlmTooltip]="_expandAllTooltip()"
+              [attr.aria-label]="_expandAllTooltip()"
+              [attr.aria-pressed]="_allExpanded()"
+              data-slot="expand-all-button"
+              [disabled]="!fetchContext()"
+              (click)="_toggleExpandAll()"
+            >
+              <ng-icon
+                hlm
+                [name]="
+                  _allExpanded() ? 'lucideFoldVertical' : 'lucideUnfoldVertical'
+                "
+                size="xs"
+              />
+            </button>
+          }
+
+          <mz-diff-stats
+            class="shrink-0"
+            [added]="additions()"
+            [removed]="deletions()"
+          />
+
+          <span
+            hlmBadge
+            variant="outline"
+            class="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wider"
+            [class]="_badgeToneClass()"
+            [attr.aria-label]="'Status: ' + _badge().label"
+            data-slot="status-badge"
+          >{{ _badge().label }}</span>
+
+          <button
+            hlmBtn
+            variant="ghost"
             size="xs"
-          />
-          Viewed
-        </button>
-      </header>
+            type="button"
+            class="text-muted-foreground hover:text-foreground h-6 w-6 shrink-0 p-0"
+            hlmTooltip="Refresh"
+            aria-label="Refresh diff"
+            data-slot="refresh-button"
+            (click)="refresh.emit()"
+          >
+            <ng-icon
+              hlm
+              name="lucideRefreshCw"
+              size="xs"
+              [class.animate-spin]="loading()"
+            />
+          </button>
 
-      @if (!_collapsed()) {
+          <button
+            hlmBtn
+            variant="ghost"
+            size="xs"
+            type="button"
+            class="text-muted-foreground hover:text-foreground h-6 shrink-0 gap-1 px-2 text-[11px]"
+            [class.text-foreground]="_viewed()"
+            [hlmTooltip]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
+            [attr.aria-pressed]="_viewed()"
+            [attr.aria-label]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
+            data-slot="viewed-button"
+            (click)="_toggleViewed()"
+          >
+            <ng-icon
+              hlm
+              [name]="_viewed() ? 'lucideSquareCheck' : 'lucideSquare'"
+              size="xs"
+            />
+            Viewed
+          </button>
+        </div>
+      </mz-file-tab-header>
+
+      @if (!_effectiveCollapsed()) {
         @switch (_bodyMode()) {
           @case ('diff') {
             <mz-diff-view
@@ -329,6 +349,17 @@ export class MzFileDiffCard {
   readonly defaultCollapsed = input<boolean>(false);
   readonly active = input<boolean>(false);
   readonly viewed = input<boolean>(false);
+  // Chrome variant — `card` (default) renders the bordered, rounded,
+  // collapsible review surface. `flush` drops the outer border and the
+  // chevron and always paints the body; use it when the card is
+  // embedded inside a pane that already provides its own framing
+  // (e.g. the file-tab body in `feature-file-content.ts`).
+  readonly chrome = input<FileDiffCardChrome>('card');
+  // Whether the card can collapse. `false` removes the chevron and
+  // keeps the body painted. `chrome='flush'` also forces this off; the
+  // two inputs are independent so a future card consumer can opt out
+  // of collapse without dropping the rest of the card chrome.
+  readonly collapsible = input<boolean>(true);
   // Forwarded to the inner MzDiffView. Bottom padding (px) inside the
   // diff's CodeMirror so the last hunk can scroll past UI that overlays
   // the bottom (e.g. the file-tab composer). 0 disables — the default
@@ -358,6 +389,19 @@ export class MzFileDiffCard {
     this.path();
     return false;
   });
+
+  // Collapse intent (local toggle) AND-gated by chrome / collapsible.
+  // flush variants and non-collapsible cards always paint the body.
+  protected readonly _effectiveCollapsed = computed(() => {
+    if (this.chrome() === 'flush') return false;
+    if (!this.collapsible()) return false;
+    return this._collapsed();
+  });
+
+  // Chevron only renders for the collapsible card chrome.
+  protected readonly _showChevron = computed(
+    () => this.chrome() === 'card' && this.collapsible(),
+  );
 
   protected readonly _bodyMode = computed<BodyMode>(() =>
     statusBodyMode(this.status()),

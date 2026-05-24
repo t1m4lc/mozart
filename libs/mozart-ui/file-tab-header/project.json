@@ -1,0 +1,20 @@
+{
+  "name": "file-tab-header",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-ui/file-tab-header/src",
+  "prefix": "mz",
+  "projectType": "library",
+  "tags": ["scope:mozart-ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/mozart-ui/file-tab-header/tsconfig.spec.json"
+      }
+    }
+  }
+}
