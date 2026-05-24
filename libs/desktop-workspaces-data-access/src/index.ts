@@ -26,6 +26,10 @@ export {
   type FollowMode,
 } from './lib/scroll-position.service';
 export {
+  ChatScrollOrchestrator,
+  type ComposerFocusRequest,
+} from './lib/chat-scroll-orchestrator.service';
+export {
   WorkspaceTabRegistry,
   type ChatWorkspaceTab,
   type FileWorkspaceTab,
