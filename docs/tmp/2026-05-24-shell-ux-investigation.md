@@ -692,35 +692,35 @@ placeholder (not 7 generic shimmer rows), and defer first show by
   host.
 - `libs/desktop-repositories-feature/src/lib/feature-file-tree.ts`
   — add a **defer-first-show 150ms gate** to `showSkeleton`:
-    - New `pastMinDelay = signal(false)` field.
-    - `effect()` on `loading()`: on false→true edge, schedule
-      `setTimeout(() => pastMinDelay.set(true), 150)` and capture
-      the current workspaceId; on true→false edge OR workspaceId
-      change, clear the timer and reset `pastMinDelay` to false.
-      Bail in the timeout callback if the captured workspaceId no
-      longer matches.
-    - Extend `showSkeleton` to:
-      `cachedTree() === null && projectFallbackTree() === null &&
-      loading() && pastMinDelay()`.
-    - The cache-hit short-circuit MUST stay intact — `pastMinDelay`
-      is an additional AND, never an OR. Implementer must register
-      a `DestroyRef` cleanup to clear any pending timer on
-      component teardown.
+  - New `pastMinDelay = signal(false)` field.
+  - `effect()` on `loading()`: on false→true edge, schedule
+    `setTimeout(() => pastMinDelay.set(true), 150)` and capture
+    the current workspaceId; on true→false edge OR workspaceId
+    change, clear the timer and reset `pastMinDelay` to false.
+    Bail in the timeout callback if the captured workspaceId no
+    longer matches.
+  - Extend `showSkeleton` to:
+    `cachedTree() === null && projectFallbackTree() === null &&
+loading() && pastMinDelay()`.
+  - The cache-hit short-circuit MUST stay intact — `pastMinDelay`
+    is an additional AND, never an OR. Implementer must register
+    a `DestroyRef` cleanup to clear any pending timer on
+    component teardown.
 
 **Tests:**
 
 - `libs/desktop-repositories-feature/src/lib/feature-file-tree.spec.ts`
   (NEW). Vitest + Angular TestBed (same pattern as
   `feature-file-diff.spec.ts`), `fakeAsync` + `tick` for timing:
-    - **CRITICAL regression:** cache-hit (own AND sibling) → skeleton
-      never appears, regardless of timing, even when `pastMinDelay`
-      happens to be `true` from a prior load.
-    - Fetch resolves before 150ms → skeleton never shown.
-    - Fetch still pending at tick 150ms → skeleton becomes visible.
-    - `workspaceId` flips mid-150ms-window → timer cancelled, no
-      stale `pastMinDelay` for the next workspace.
-    - Component destroy mid-timer → no leaked timeout (no console
-      warnings under `vi.useFakeTimers()` strict mode).
+  - **CRITICAL regression:** cache-hit (own AND sibling) → skeleton
+    never appears, regardless of timing, even when `pastMinDelay`
+    happens to be `true` from a prior load.
+  - Fetch resolves before 150ms → skeleton never shown.
+  - Fetch still pending at tick 150ms → skeleton becomes visible.
+  - `workspaceId` flips mid-150ms-window → timer cancelled, no
+    stale `pastMinDelay` for the next workspace.
+  - Component destroy mid-timer → no leaked timeout (no console
+    warnings under `vi.useFakeTimers()` strict mode).
 - `libs/desktop-repositories-ui/src/lib/ui-file-tree-skeleton.spec.ts`
   (NEW). Render snapshot (3 folder rows + 6 file rows), assert
   `aria-busy="true"` and `role="status"` on host, assert widths are
@@ -740,12 +740,12 @@ placeholder (not 7 generic shimmer rows), and defer first show by
 
 **Failure modes:**
 
-| Failure                                         | Tested? | Handled? | User sees           |
-| ----------------------------------------------- | ------- | -------- | ------------------- |
-| Stale `pastMinDelay` flashes skeleton on cache  | ✓ (regression test) | ✓ (reset on workspaceId / loading false→true) | nothing if guarded |
-| Timer fires after destroy                       | ✓       | ✓ (DestroyRef cleanup) | no visible effect; prevents leak |
-| Rapid workspace switch races                    | ✓       | ✓ (captured workspaceId guard) | no stale skeleton |
-| Slow fetch never resolves                       | n/a     | unchanged (existing error path) | skeleton, then error |
+| Failure                                        | Tested?             | Handled?                                      | User sees                        |
+| ---------------------------------------------- | ------------------- | --------------------------------------------- | -------------------------------- |
+| Stale `pastMinDelay` flashes skeleton on cache | ✓ (regression test) | ✓ (reset on workspaceId / loading false→true) | nothing if guarded               |
+| Timer fires after destroy                      | ✓                   | ✓ (DestroyRef cleanup)                        | no visible effect; prevents leak |
+| Rapid workspace switch races                   | ✓                   | ✓ (captured workspaceId guard)                | no stale skeleton                |
+| Slow fetch never resolves                      | n/a                 | unchanged (existing error path)               | skeleton, then error             |
 
 No critical gaps.
 
@@ -754,33 +754,318 @@ No critical gaps.
 ### 2.6 P2.2 — Composer visibility on file tabs
 
 **Goal:** Composer remains visible at the bottom of the middle shell
-regardless of whether the active tab is `chat` or `file`.
+regardless of whether the active tab is `chat` or `file`. Send
+routes to the workspace's active chat from any tab. Chat-only
+behaviors (auto-follow, scroll memory, at-bottom detector) stay
+sealed inside the chat case.
+
+**Plan-eng-review note:** the original two-line "extract or move
+directly" sketch understated the work. `FeatureWorkspaceMiddle`
+today owns five concerns: composer mount, at-bottom detector,
+programmatic-scroll grace window, per-chat-tab scroll
+recall/remember, message-arrival auto-follow, plus the
+`ensureChatForWorkspace` bootstrap. Concerns (2)–(5) are chat-only
+and target `<main>`; lifting the composer out without separating
+them would either corrupt per-chat attach/detach state on every
+file-tab visit or leave the composer's `scrollToBottom` /
+`autoFollowChat` semantics meaningless on a file tab.
+
+**Architecture — agreed (D1 / D2 / D3 / D4):**
+
+```
+WorkspaceDetailPage (existing)
+  └── workspaceId effect → ensureChatForWorkspace (NEW, moved up
+                                                   from middle)
+
+WorkspaceTabContent (existing)
+  ├── FeatureWorkspaceComposer    NEW   — always mounted
+  │     reads:  ChatFacade.activeChatFor(workspaceId)
+  │     writes: send / stop / mode / effort / model
+  │     scroll-to-bottom overlay hidden when tab().kind === 'file'
+  │     scrollToBottom emit → no-op on file tab,
+  │                            forwards to orchestrator on chat tab
+  │
+  └── @switch tab().kind
+        ├── 'chat' → FeatureChatScrollSurface  RENAMED
+        │     was FeatureWorkspaceMiddle; only mounts here.
+        │     owns: at-bottom detector, programmatic-scroll grace,
+        │            tab-key recall/remember, messages auto-follow,
+        │            composer focusComposer hooks.
+        │     publishes attach/detach + scrollToBottom calls via
+        │     ChatScrollOrchestrator (NEW service, workspace-scoped).
+        └── 'file' → FeatureFileContent (unchanged)
+```
+
+The new `ChatScrollOrchestrator` service is the seam: composer
+reads `isAttached(workspaceId)` and emits `scrollToBottom`; the
+chat-scope surface registers `mainEl` on mount and tears it down on
+destroy. No DOM ownership crosses component boundaries.
+
+**Current → target:**
+
+|                          | Current                                                                | Target                                                                                  |
+| ------------------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| Composer mount           | Inside chat `@case` only                                               | Always mounted via `FeatureWorkspaceComposer` above the `@switch`                       |
+| Composer host name       | `FeatureWorkspaceMiddle` (lies after refactor)                         | Split: `FeatureWorkspaceComposer` (composer) + `FeatureChatScrollSurface` (chat scroll) |
+| At-bottom detector       | Lives in `FeatureWorkspaceMiddle`, fires only when chat case is active | Stays in `FeatureChatScrollSurface`, same lifecycle gate                                |
+| `ensureChatForWorkspace` | Effect inside `FeatureWorkspaceMiddle` (depends on chat-case mount)    | Effect inside `WorkspaceDetailPage.workspaceId` (fires before any tab renders)          |
+| Send from file tab       | Composer not mounted → impossible                                      | Routes to workspace's active chat via `ChatFacade.sendUserMessage(id,…)`                |
+| Scroll-to-bottom overlay | Bound to `<main>` (= chat surface today)                               | Hidden on file tab (`autoFollowChat=true` forced); active + correct on chat tab         |
+| Composer draft (`value`) | Local to `FeatureWorkspaceMiddle` lifetime (lost when file tab active) | Local to always-mounted `FeatureWorkspaceComposer` (preserved across tabs)              |
+| Stop button across tabs  | Only visible on chat tab                                               | Visible on any tab — kill-switch from anywhere                                          |
+
+**What already exists (no rebuilding):**
+
+- `MzComposer` (`libs/mozart-ui/composer/src/lib/mz-composer.ts`)
+  — fully-functional dumb component. Inputs/outputs unchanged by
+  this work.
+- `ChatFacade.activeChatFor(workspaceId)`, `sendUserMessage`,
+  `setChatMode`, `setChatEffort`, `setChatModel`, `cancelActive`,
+  `isStreaming`, `ensureChatForWorkspace` — all already exist.
+- `ScrollPositionService` — `recall`, `remember`, `isAttached`,
+  `setAttached`, `setDetached`, `followModeFor` — already exist.
+  The new `ChatScrollOrchestrator` wraps these for the chat-scoped
+  scroll behavior; it does not replace them.
+- Sticky bottom CSS pattern (`feature-workspace-middle.ts:59–86`)
+  — moves wholesale onto the new composer host.
+- The `<main>` overflow surface (`app-shell.ts`) — unchanged; only
+  the `closestScrollable` walk relocates with
+  `FeatureChatScrollSurface`.
 
 **Files to touch:**
 
-- `libs/desktop-workspaces-feature/src/lib/feature-workspace-middle.ts:42–88`
-  — extract the composer mount into its own component
-  (`FeatureWorkspaceComposer`) or move the `<mz-composer>` into
-  `WorkspaceTabContent` directly so it sits below the `@switch`
-  branches.
-- `libs/desktop-workspaces-feature/src/lib/workspace-tab-content.ts:35–86`
-  — wrap the content area in a flex column with `<mz-composer>`
-  sticky at the bottom. Edit/Diff modes adjust their `flex-1`
-  panels so the composer doesn't overlap.
+1. `libs/desktop-workspaces-feature/src/lib/feature-workspace-composer.ts`
+   NEW — always-mounted composer host. Mirrors lines 41–88 of
+   today's `feature-workspace-middle.ts` template; binds composer
+   inputs from `ChatFacade.activeChatFor(workspaceId)`; on
+   `tab().kind === 'file'` forces `autoFollowChat=true` and
+   intercepts `scrollToBottom` to no-op (D3). Owns `value`
+   signal. No DOM scroll work.
+2. `libs/desktop-workspaces-feature/src/lib/feature-chat-scroll-surface.ts`
+   RENAMED from `feature-workspace-middle.ts`. Drops composer
+   template + bindings; keeps `mainEl` resolution, at-bottom
+   listener, programmatic-scroll grace window, tab-key recall/
+   remember effect, messages auto-follow effect,
+   `focusComposer` hook. Registers itself with
+   `ChatScrollOrchestrator` on mount and unregisters on destroy.
+   Selector `app-feature-chat-scroll-surface`.
+3. `libs/desktop-workspaces-data-access/src/lib/chat-scroll-orchestrator.ts`
+   NEW — workspace-scoped service. Methods:
+   `register(workspaceId, mainEl)`, `unregister(workspaceId)`,
+   `scrollToBottom(workspaceId, smooth)`,
+   `isAttachedSignal(workspaceId)`. Internally talks to
+   `ScrollPositionService` for attach/detach state. No DOM walking
+   logic — the chat-scope surface passes the resolved `mainEl` in.
+4. `libs/desktop-workspaces-feature/src/lib/feature-detail/workspace-tab-content.ts`
+   — replace the chat `@case`'s `<app-feature-workspace-middle>`
+   wrapper with `<app-feature-chat-scroll-surface>`. Mount
+   `<app-feature-workspace-composer>` outside the `@switch` below
+   the tab bar. Pass `tab()` to the composer so it knows the
+   active kind (D3).
+5. `libs/desktop-workspaces-feature/src/lib/feature-detail/workspace-detail.page.ts:165–172`
+   — extend the workspaceId effect with
+   `this.chatFacade.ensureChatForWorkspace(id)` (D2). The facade
+   is already injected for `isStreaming`.
+6. `libs/desktop-workspaces-feature/src/index.ts` — replace
+   `FeatureWorkspaceMiddle` export with
+   `FeatureChatScrollSurface` and `FeatureWorkspaceComposer`.
+7. `libs/desktop-workspaces-feature/src/lib/mz-scroll-persist.directive.ts:17`
+   — update the comment referencing `FeatureWorkspaceMiddle` to
+   the new name.
 
-**Verification:**
+**Test plan (D5 — full coverage, mandatory regressions in **bold**):**
 
-1. Open a file tab: composer is visible at the bottom; sending a
-   prompt routes to the same chat the workspace is on.
-2. Switch back to chat tab: composer is in the same spot, no
-   layout shift.
+New unit specs (Vitest + Angular TestBed):
+
+- `feature-workspace-composer.spec.ts` (NEW, 11 cases)
+  - Mounts on chat tab and file tab; composer renders in both.
+  - `onSend` routes via `ChatFacade.sendUserMessage(workspaceId,
+text, mode)` when active tab is `chat`.
+  - `onSend` routes the same call when active tab is `file`.
+  - `onSend` is no-op (with warn) when `_activeChat()` is null.
+  - **REGRESSION:** `currentMode`/`currentEffort`/`currentModelId`
+    reflect `ChatFacade.activeChatFor(id)`.
+  - `onStop` calls `cancelActive(workspaceId)` from any tab.
+  - `value` signal preserved across tab switch (component is the
+    same instance because it's mounted above the `@switch`).
+  - On file tab: `autoFollowChat` input forced to `true` regardless
+    of `ScrollPositionService.followModeFor(chatId)()`.
+  - On file tab: `scrollToBottom` output does not call
+    `ChatScrollOrchestrator.scrollToBottom()`.
+  - On chat tab: `scrollToBottom` output forwards through the
+    orchestrator.
+  - On chat tab: `setAttached` write fires on send (existing
+    intent, ported).
+- `feature-chat-scroll-surface.spec.ts` (NEW, 9 regression cases)
+  - **REGRESSION:** at-bottom detector flips
+    `ScrollPositionService` to attached when distance <
+    `AT_BOTTOM_THRESHOLD_PX`.
+  - **REGRESSION:** at-bottom detector flips to detached when over
+    threshold.
+  - **REGRESSION:** programmatic-scroll grace window suppresses
+    attach/detach flips for 700ms after `scrollMainToBottom(true)`.
+  - **REGRESSION:** first visit to a chat tab defaults
+    `scrollTop = scrollHeight` (bottom).
+  - **REGRESSION:** revisit restores stored `scrollTop` from
+    `ScrollPositionService.recall(key)`.
+  - **REGRESSION:** cleanup on chat-switch writes
+    `ScrollPositionService.remember(key, scrollTop)`.
+  - **REGRESSION:** cleanup on component destroy writes the final
+    `scrollTop` value.
+  - **REGRESSION:** messages-arrival effect scrolls to bottom while
+    attached, holds position while detached.
+  - **REGRESSION:** streaming false-edge refocuses the composer
+    via the composer host's exposed `focusComposer()` hook (or
+    `ChatScrollOrchestrator.requestFocus()` if we route through
+    the service).
+- `chat-scroll-orchestrator.spec.ts` (NEW, 3 cases)
+  - `register`/`unregister` correctly track mainEl per workspace.
+  - `scrollToBottom(workspaceId, smooth)` honors
+    `prefers-reduced-motion` (mock `matchMedia`).
+  - `isAttachedSignal(workspaceId)` delegates to
+    `ScrollPositionService.isAttached`.
+- `workspace-detail.page.spec.ts` (NEW or extend if exists, 1
+  case)
+  - On workspaceId change, `ensureChatForWorkspace(id)` is called
+    exactly once. Idempotent across re-fires (relies on facade
+    already being idempotent).
+
+E2E (Playwright, `apps/desktop-e2e`):
+
+- **NEW:** Fresh workspace, first action is opening a file from
+  `All files`. Composer is visible; type + Send creates the first
+  chat and routes the message. Reply appears in the chat tab.
+- **NEW:** Stream a response. Click a file tab mid-stream;
+  composer still visible. Click back to chat tab; auto-follow has
+  resumed and the latest token is at the bottom.
+
+**Verification (manual, complements specs):**
+
+1. Open a file tab on an existing workspace: composer visible at
+   the bottom with active-chat mode/effort/model; sending routes
+   to the workspace's active chat.
+2. Switch back to chat tab: composer in the same spot, no layout
+   shift, draft preserved.
+3. On a file tab, the scroll-to-bottom overlay is never visible.
+   On a chat tab during a stream, it appears when scrolling up
+   and dismisses when at bottom.
+4. Fresh workspace with no chats: open a file from `All files`
+   first; composer is enabled; Send creates the first chat and
+   delivers the message.
+5. Streaming response: click a file tab mid-stream; click back —
+   chat auto-follow resumed correctly.
+
+**NOT in scope for P2.2:**
+
+- Per-chat composer draft persistence (today `value` is
+  component-local; lifted to the always-mounted composer it
+  survives tab switches, but does NOT persist across reloads or
+  per-chat switches). Captured as TODO.
+- Active-chat selector / multi-chat-per-workspace UI for the
+  composer. Today there's exactly one active chat per workspace;
+  send routes to it. Visible chat picker is a future polish.
+- Composer-on-file-tab feature parity with chat-tab affordances
+  beyond send/stop (e.g. attachments, reference-this-file
+  context-pinning) — pure visibility + send routing this round.
+- Eager mount of CodeMirror in Edit mode just because the composer
+  is now always visible. Unrelated.
+- Routing semantics where send-from-file-tab would auto-navigate
+  to the chat tab. Out per D3 — send is silent, user stays on
+  the file.
+
+**Failure modes (per new codepath):**
+
+| Codepath                             | Realistic failure                                                  | Test?        | Error handling?         | Silent?                        |
+| ------------------------------------ | ------------------------------------------------------------------ | ------------ | ----------------------- | ------------------------------ |
+| Composer onSend, file tab            | activeChat is null → silently no-ops                               | ✓ unit + e2e | warn-log only           | mitigated by D2 bootstrap      |
+| ensureChatForWorkspace at page entry | facade throws on first workspace mount → page renders without chat | ✓ unit       | existing facade catches | no, user sees empty sidebar    |
+| chat-scope register/unregister leak  | rapid chat ↔ file flips don't tear down the at-bottom listener    | ✓ unit       | destroyRef-guarded      | no, would corrupt attach state |
+| scrollToBottom on file tab           | accidentally still scrolls `<main>` (=file content)                | ✓ unit       | D3 hard gate            | yes — user sees file jump      |
+| Composer mode change with null chat  | `setChatMode(undefined, …)` rejected by facade                     | ✓ unit       | facade no-ops           | yes — UI toggle reverts        |
 
 **Risks / notes:**
 
-- The composer's prompt routing may need to know "which chat" when
-  a file tab is active. Default to the most-recently-active chat
-  in the workspace; surface a small "→ Chat: My-Chat" indicator if
-  ambiguity matters.
+- The `[active]` input on the composer is currently not used in
+  `feature-workspace-middle.ts`; carry it forward only if the
+  always-mounted composer needs to suppress focus-stealing while
+  on a file tab. Default: no, file editor manages its own focus.
+- The streaming false-edge refocus (`feature-workspace-middle.ts:
+208–214`) currently uses `viewChild('composerEl')` — the
+  composer host is in a different component after refactor. Route
+  the refocus request through `ChatScrollOrchestrator.requestFocus
+(workspaceId)` (signal-based), with `FeatureWorkspaceComposer`
+  subscribing. Keeps the chat surface from DOM-walking into the
+  composer.
+- `lastMergeAction` / focus / unread / model catalog imports stay
+  with the composer host — no orphan imports left in the chat
+  scroll surface.
+
+**Sequencing observation:** P2.2 is bigger than its "P2 polish"
+label suggests. Recommend landing it AFTER P1.3 (file tabs ship
+first — close button + preview/pin), so the middle shell isn't
+being refactored at the same time the file-tab UX is. If P1.3
+slips, P2.2 can ship independently; the file-tab `@case` already
+renders without composer today.
+
+**Worktree parallelization for P2.2:** Sequential implementation,
+no parallelization opportunity. All 7 file changes touch the same
+module (`libs/desktop-workspaces-feature` + a tiny bit of
+`data-access`) and share dependencies. Land in one PR slice.
+
+**Implementation tasks (P2.2-only, derived from the review):**
+
+- [ ] **T1 (P1, human: ~1h / CC: ~10min)** — `WorkspaceDetailPage`
+      — move `ensureChatForWorkspace(id)` into the existing
+      workspaceId effect; remove the chat-bootstrap responsibility
+      from the chat-scope surface.
+  - Surfaced by: D2 — silent send no-op on file-first activation.
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-detail/workspace-detail.page.ts`
+  - Verify: unit spec; manually open a fresh workspace, click a
+    file from All files first, type + Send, see message land.
+- [ ] **T2 (P1, human: ~4h / CC: ~25min)** —
+      `chat-scroll-orchestrator` — new workspace-scoped service
+      mediating attach state + scroll-to-bottom between composer
+      and chat-scope surface.
+  - Surfaced by: D1 — decoupling architecture.
+  - Files: `libs/desktop-workspaces-data-access/src/lib/chat-scroll-orchestrator.ts`,
+    `libs/desktop-workspaces-data-access/src/index.ts`,
+    `chat-scroll-orchestrator.spec.ts`.
+  - Verify: 3 unit specs (register/unregister, smooth scroll,
+    attach delegation).
+- [ ] **T3 (P1, human: ~6h / CC: ~30min)** —
+      `FeatureChatScrollSurface` — rename + slim down (drop
+      composer mount + bindings, register with
+      `ChatScrollOrchestrator`).
+  - Surfaced by: D1, D4.
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-chat-scroll-surface.ts`
+    (rename), `index.ts`, `workspace-tab-content.ts`,
+    `mz-scroll-persist.directive.ts` (comment),
+    `feature-chat-scroll-surface.spec.ts`.
+  - Verify: 9 regression specs covering at-bottom detector, grace
+    window, recall/remember, auto-follow, focus.
+- [ ] **T4 (P1, human: ~5h / CC: ~25min)** —
+      `FeatureWorkspaceComposer` — new always-mounted composer
+      host with facade bindings and tab-aware scrollToBottom gate.
+  - Surfaced by: D1, D3.
+  - Files: `libs/desktop-workspaces-feature/src/lib/feature-workspace-composer.ts`,
+    `feature-workspace-composer.spec.ts`,
+    `index.ts`, `workspace-tab-content.ts`.
+  - Verify: 11 unit specs covering send routing, mode/effort/model
+    bindings, value preservation, file-tab overlay gate.
+- [ ] **T5 (P2, human: ~3h / CC: ~15min)** — Playwright e2e specs
+      for the two highest-stakes flows.
+  - Surfaced by: D5 — full coverage gate.
+  - Files: `apps/desktop-e2e/src/composer-on-file-tab.spec.ts`
+    (or extend existing workspace spec).
+  - Verify: file-first send works on fresh workspace; streaming
+    auto-follow resumes after tab round-trip.
+- [ ] **T6 (P3, human: ~30min / CC: ~5min)** — Update
+      `mz-scroll-persist.directive.ts:17` comment to reference
+      `FeatureChatScrollSurface`.
+  - Surfaced by: D4 — naming consistency.
+  - Files: `libs/desktop-workspaces-feature/src/lib/mz-scroll-persist.directive.ts`.
+  - Verify: grep finds zero references to `FeatureWorkspaceMiddle`
+    after T3 + T6 land.
 
 ---
 
@@ -845,11 +1130,11 @@ buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
 
 **`formatHunkLabel` contract:**
 
-| Input          | Output                  |
-| -------------- | ----------------------- |
-| `n > 1`        | `"${n} lines above"`    |
-| `n === 1`      | `"1 line above"`        |
-| `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
+| Input     | Output                                                            |
+| --------- | ----------------------------------------------------------------- |
+| `n > 1`   | `"${n} lines above"`                                              |
+| `n === 1` | `"1 line above"`                                                  |
+| `n === 0` | `"No more lines above"` (defensive; caller usually hides the row) |
 
 **Files to touch:**
 
@@ -870,7 +1155,7 @@ buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
 2. Copy-paste from the hunk row still copies the original `@@`
    text (if that's a feature the team uses).
    > **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
-> **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
+   > **Decisions from /plan-eng-review 2026-05-24:** Replace the doc-line text directly (label IS the text). Tooltip shows the raw `@@` via `title` on a line decoration. **Hide the hunk row entirely when both gaps adjacent to the hunk are fully revealed** — a fully-expanded hunk no longer needs a separator row. Label describes the gap above ("N lines above"), coupling to the P2.5 button's action. Function-scope suffix preservation deferred to TODOS.md.
 
 **Goal:** Replace `@@ -120,7 +120,8 @@` with `"120 lines above"` (or `"No more lines above"` when `linesAvailable === 0`). When a hunk's gap-above AND the next gap (= gap-below this hunk) are both empty, omit the hunk header row entirely so the diff reads as continuous context. Raw `@@` available via `title` attribute for diff-literate users.
 
@@ -908,15 +1193,15 @@ buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
 
 **`formatHunkLabel` contract:**
 
-| Input     | Output                                                            |
-| --------- | ----------------------------------------------------------------- |
-| `n > 1`   | `"${n} lines above"`                                              |
-| `n === 1` | `"1 line above"`                                                  |
-| `n === 0` | `"No more lines above"` (defensive; caller usually hides the row) |
-| Input          | Output                  |
-| -------------- | ----------------------- |
-| `n > 1`        | `"${n} lines above"`    |
-| `n === 1`      | `"1 line above"`        |
+| Input          | Output                                                            |
+| -------------- | ----------------------------------------------------------------- |
+| `n > 1`        | `"${n} lines above"`                                              |
+| `n === 1`      | `"1 line above"`                                                  |
+| `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
+| Input          | Output                                                            |
+| -------------- | -----------------------                                           |
+| `n > 1`        | `"${n} lines above"`                                              |
+| `n === 1`      | `"1 line above"`                                                  |
 | `n === 0`      | `"No more lines above"` (defensive; caller usually hides the row) |
 
 **Files to touch:**
@@ -997,7 +1282,7 @@ buildLineDecorations hunk branch (cm-diff-extensions.ts:235-237)
 1. Hunk row button has visible label.
 2. Click expands 20 lines above; trailing-gap bar still works.
    > **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
-> **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
+   > **Decisions from /plan-eng-review 2026-05-24:** Keep the button in the gutter (it stays a `GutterMarker`, not a block widget) — preserves the §2.8 doc-line architecture. Widen the hit target ~2× (12×12 circle → ~24×16 strip with chevron + `+20` count badge). The doc-line label from P2.4 lives in parallel: button = action, row text = static info.
 
 **Goal:** The hunk-row gutter chevron becomes a ~24px wider hit target with chevron + count badge (`"+20"`, or `"+12"` when fewer lines remain). Disabled with `"No more hidden lines"` title when `linesAvailable === 0`. Behavior preserved: click expands `HUNK_EXPAND_STEP` lines up; shift-click doubles.
 
@@ -1235,18 +1520,18 @@ until their own review runs.
 
 ### 7.1 Decisions (D1–D10)
 
-| ID | Topic | Choice | Implication |
-| --- | --- | --- | --- |
-| D1 | Where do `commit → in_progress` and `PR success → in_review` writers live? | **Facade wrappers in WorkspacesFacade** | Adds `WorkspacesFacade.commitWorkspace(...)` and `WorkspacesFacade.createPr(...)`. One writer per transition; mirrors existing `setStatus / reopen / togglePinned` shape at `workspace.facade.ts:307–336`. Both dialogs (`feature-commit-dialog`, `feature-create-pr-dialog`) route through the wrappers. |
-| D2 | What happens when `createWorkspacePr` succeeds but `setStatus('in_review')` adapter write fails? | **Best-effort flip + warn toast** | The wrapper attempts the flip optimistically; on adapter failure it logs and surfaces a warn toast `"PR opened, but status update failed — refresh to retry"`. It does NOT roll back the in-memory flip. The PR URL is still returned. Reload re-reads from the DB and may show drift (covered by the reconciliation TODO from D8). |
-| D3 | Should the PR-success flip be guarded against backward state transitions? | **Guard on `from ∈ {backlog, in_progress}`** | `createPr` checks the current status before flipping. `done` / `canceled` workspaces are NOT regressed to `in_review` even though the right-aside merge menu still shows for them (`shell-right.ts:62–69` has no `isFrozen` guard). Mirrors the commit-flip guard. |
-| D4 | Resolve §3.4: should `setStatus` early-return on no-op? | **Yes — add `if (previous === status) return;`** | Three-line defensive add at the top of `setStatus`. Closes the §3.4 open question. Eliminates wasted SQLite round-trip + spurious rollback path on the new wrapper paths. |
-| D5 | MergeActionMenu: drop `primaryAction` input or keep it? | **Keep the input; shell-right passes `'pr'` constant** | Component API stays as-is; the temporary "PR is the only reachable primary" policy lives in shell-right's `mergePrimaryAction` returning `'pr'`. Re-enabling Merge now is a one-line revert. Minor dead-code smell on the `'local'` branches in label/icon/tooltip computeds is acceptable. |
-| D6 | Test coverage tier? | **Full lake (A)** | Four spec files plus E2E. New: `workspace.facade.spec.ts`, `merge-action-menu.spec.ts`, `feature-create-pr-dialog.spec.ts`, `apps/desktop-e2e/.../pr-workflow.e2e.spec.ts`. Pattern matches `mz-file-diff-card.spec.ts` (TestBed + provideZonelessChangeDetection + matchMedia stub). |
-| D7 | Outside voice (codex) on the plan? | **Skipped** | User declined the second-opinion gate. In-skill review stands. |
-| D8 | TODO #1 — reconciliation pass for PR-vs-status drift? | **Add to TODOS.md** | Captures the rare-failure recovery path D2 deferred. See `TODOS.md` → "Workspaces — reconciliation pass for PR-vs-status drift (P1.1 D2 follow-up)". |
-| D9 | "Repo not linked to GitHub remote" gate — in P1.1 or deferred? | **Add detection + gate inside P1.1** | New Tauri command exposing the result of `parse_github_remote` (or an equivalent boolean), new `ProjectsFacade.isGithubRemoteFor(projectId)` signal, MergeActionMenu gates primary + dropdown PR row on BOTH `githubConnected` AND `isGithubRemote`. Tooltip text differentiates the two gate states. Out of scope here: the guided "Link this repo to GitHub" provisioning flow (see D10). |
-| D10 | TODO #2 — guided "Link this repo to GitHub" provisioning flow? | **Add to TODOS.md** | The recovery path for users on local-only or non-GitHub repos. See `TODOS.md` → "Workspaces — guided 'Link this repo to GitHub' flow (P1.1 D10)". |
+| ID  | Topic                                                                                            | Choice                                                 | Implication                                                                                                                                                                                                                                                                                                                                                                                 |
+| --- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| D1  | Where do `commit → in_progress` and `PR success → in_review` writers live?                       | **Facade wrappers in WorkspacesFacade**                | Adds `WorkspacesFacade.commitWorkspace(...)` and `WorkspacesFacade.createPr(...)`. One writer per transition; mirrors existing `setStatus / reopen / togglePinned` shape at `workspace.facade.ts:307–336`. Both dialogs (`feature-commit-dialog`, `feature-create-pr-dialog`) route through the wrappers.                                                                                   |
+| D2  | What happens when `createWorkspacePr` succeeds but `setStatus('in_review')` adapter write fails? | **Best-effort flip + warn toast**                      | The wrapper attempts the flip optimistically; on adapter failure it logs and surfaces a warn toast `"PR opened, but status update failed — refresh to retry"`. It does NOT roll back the in-memory flip. The PR URL is still returned. Reload re-reads from the DB and may show drift (covered by the reconciliation TODO from D8).                                                         |
+| D3  | Should the PR-success flip be guarded against backward state transitions?                        | **Guard on `from ∈ {backlog, in_progress}`**           | `createPr` checks the current status before flipping. `done` / `canceled` workspaces are NOT regressed to `in_review` even though the right-aside merge menu still shows for them (`shell-right.ts:62–69` has no `isFrozen` guard). Mirrors the commit-flip guard.                                                                                                                          |
+| D4  | Resolve §3.4: should `setStatus` early-return on no-op?                                          | **Yes — add `if (previous === status) return;`**       | Three-line defensive add at the top of `setStatus`. Closes the §3.4 open question. Eliminates wasted SQLite round-trip + spurious rollback path on the new wrapper paths.                                                                                                                                                                                                                   |
+| D5  | MergeActionMenu: drop `primaryAction` input or keep it?                                          | **Keep the input; shell-right passes `'pr'` constant** | Component API stays as-is; the temporary "PR is the only reachable primary" policy lives in shell-right's `mergePrimaryAction` returning `'pr'`. Re-enabling Merge now is a one-line revert. Minor dead-code smell on the `'local'` branches in label/icon/tooltip computeds is acceptable.                                                                                                 |
+| D6  | Test coverage tier?                                                                              | **Full lake (A)**                                      | Four spec files plus E2E. New: `workspace.facade.spec.ts`, `merge-action-menu.spec.ts`, `feature-create-pr-dialog.spec.ts`, `apps/desktop-e2e/.../pr-workflow.e2e.spec.ts`. Pattern matches `mz-file-diff-card.spec.ts` (TestBed + provideZonelessChangeDetection + matchMedia stub).                                                                                                       |
+| D7  | Outside voice (codex) on the plan?                                                               | **Skipped**                                            | User declined the second-opinion gate. In-skill review stands.                                                                                                                                                                                                                                                                                                                              |
+| D8  | TODO #1 — reconciliation pass for PR-vs-status drift?                                            | **Add to TODOS.md**                                    | Captures the rare-failure recovery path D2 deferred. See `TODOS.md` → "Workspaces — reconciliation pass for PR-vs-status drift (P1.1 D2 follow-up)".                                                                                                                                                                                                                                        |
+| D9  | "Repo not linked to GitHub remote" gate — in P1.1 or deferred?                                   | **Add detection + gate inside P1.1**                   | New Tauri command exposing the result of `parse_github_remote` (or an equivalent boolean), new `ProjectsFacade.isGithubRemoteFor(projectId)` signal, MergeActionMenu gates primary + dropdown PR row on BOTH `githubConnected` AND `isGithubRemote`. Tooltip text differentiates the two gate states. Out of scope here: the guided "Link this repo to GitHub" provisioning flow (see D10). |
+| D10 | TODO #2 — guided "Link this repo to GitHub" provisioning flow?                                   | **Add to TODOS.md**                                    | The recovery path for users on local-only or non-GitHub repos. See `TODOS.md` → "Workspaces — guided 'Link this repo to GitHub' flow (P1.1 D10)".                                                                                                                                                                                                                                           |
 
 ### 7.2 What already exists (reused, not rebuilt)
 
@@ -1261,16 +1546,16 @@ until their own review runs.
 
 For each new codepath, one realistic production failure:
 
-| Codepath | Failure | Test? | Error handling? | User sees? |
-| --- | --- | --- | --- | --- |
-| `WorkspacesFacade.setStatus` (early-return added) | Race: caller A reads `previous` then caller B writes a different status before A's adapter call lands | T10 — covers `previous === status` no-op path; race itself is unobservable under signals' synchronous semantics | Existing adapter try/catch rolls back | No visible effect on no-op; race outcome reflects last-writer-wins (correct) |
-| `WorkspacesFacade.commitWorkspace` (NEW) | Commit fails after the new wrapper read the workspace | T10 — covers commit-failure-no-flip | Error rethrown to caller; commit-dialog renders inline error (existing path) | Inline error in commit dialog |
-| `WorkspacesFacade.createPr` (NEW) — happy path | PR creates, flip fires from valid from-state | T10 + T13 (E2E) | None needed | Badge advances to `in_review` |
-| `WorkspacesFacade.createPr` (NEW) — flip-failure | PR creates, `setUiStatus` adapter throws | T10 (D2 path) | D2 best-effort: log + warn toast | Toast `"PR opened, but status update failed — refresh to retry"` + PR URL still shown |
-| `WorkspacesFacade.createPr` (NEW) — backward guard | PR opened against `done` workspace | T10 (D3 path) | D3 guard: no flip | Status stays `done`; PR URL still shown |
-| `feature-create-pr-dialog` — mid-flow disconnect | `githubConnected` flips to false while dialog open | T12 + T13 (E2E) | Live alert + submit disabled | Inline alert with "Connect GitHub" link |
-| `MergeActionMenu` (D9 gate) — non-GitHub remote | Workspace on GitLab/local repo, user authenticated to GitHub | T11 + T13 (E2E) | Primary + dropdown PR row disabled with differentiated tooltip | Tooltip "This repo isn't on GitHub" instead of "Connect GitHub to open PRs" |
-| `commands.createWorkspacePr` — token revoked between dialog open and submit | Submit fires, command returns `r.status === 'error'` | T12 | Existing error inline in dialog | Inline error, submit re-enabled, status does NOT flip |
+| Codepath                                                                    | Failure                                                                                               | Test?                                                                                                           | Error handling?                                                              | User sees?                                                                            |
+| --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| `WorkspacesFacade.setStatus` (early-return added)                           | Race: caller A reads `previous` then caller B writes a different status before A's adapter call lands | T10 — covers `previous === status` no-op path; race itself is unobservable under signals' synchronous semantics | Existing adapter try/catch rolls back                                        | No visible effect on no-op; race outcome reflects last-writer-wins (correct)          |
+| `WorkspacesFacade.commitWorkspace` (NEW)                                    | Commit fails after the new wrapper read the workspace                                                 | T10 — covers commit-failure-no-flip                                                                             | Error rethrown to caller; commit-dialog renders inline error (existing path) | Inline error in commit dialog                                                         |
+| `WorkspacesFacade.createPr` (NEW) — happy path                              | PR creates, flip fires from valid from-state                                                          | T10 + T13 (E2E)                                                                                                 | None needed                                                                  | Badge advances to `in_review`                                                         |
+| `WorkspacesFacade.createPr` (NEW) — flip-failure                            | PR creates, `setUiStatus` adapter throws                                                              | T10 (D2 path)                                                                                                   | D2 best-effort: log + warn toast                                             | Toast `"PR opened, but status update failed — refresh to retry"` + PR URL still shown |
+| `WorkspacesFacade.createPr` (NEW) — backward guard                          | PR opened against `done` workspace                                                                    | T10 (D3 path)                                                                                                   | D3 guard: no flip                                                            | Status stays `done`; PR URL still shown                                               |
+| `feature-create-pr-dialog` — mid-flow disconnect                            | `githubConnected` flips to false while dialog open                                                    | T12 + T13 (E2E)                                                                                                 | Live alert + submit disabled                                                 | Inline alert with "Connect GitHub" link                                               |
+| `MergeActionMenu` (D9 gate) — non-GitHub remote                             | Workspace on GitLab/local repo, user authenticated to GitHub                                          | T11 + T13 (E2E)                                                                                                 | Primary + dropdown PR row disabled with differentiated tooltip               | Tooltip "This repo isn't on GitHub" instead of "Connect GitHub to open PRs"           |
+| `commands.createWorkspacePr` — token revoked between dialog open and submit | Submit fires, command returns `r.status === 'error'`                                                  | T12                                                                                                             | Existing error inline in dialog                                              | Inline error, submit re-enabled, status does NOT flip                                 |
 
 **No critical gap.** Every new failure mode has a test, error handling, AND user-visible signal.
 
@@ -1359,6 +1644,7 @@ shipped slice.
 The remaining §3.4 open questions (preview mode, persisted Changes
 snapshot, preview-tab persistence) belong to P1.2 / P1.3 / P3.1 and
 are unchanged.
+
 ## 7. Implementation Tasks (P2.1)
 
 Synthesized from `/plan-eng-review` on 2026-05-24. Each task derives
@@ -1396,6 +1682,7 @@ T2 + T3 are sequential (feature change before its spec is easiest to
 write). T1/T4 and T2/T3 can run in parallel worktrees if desired,
 but realistically this is a one-PR slice — ship as a single commit
 unit.
+
 ## 7. Eng review adjustments — 2026-05-24
 
 Locked decisions from `/plan-eng-review` covering P1.2 + P1.3. Anything
@@ -1581,16 +1868,16 @@ P1.1, P1.4, P2.\* unchanged from §6.
 
 ### 7.3 Failure modes
 
-| Codepath                                  | Failure scenario                                                                                            | Has test?              | Has handling?  | Silent?                       |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------- | -------------- | ----------------------------- |
-| `buildDocPlan` hide-on-both-empty         | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)     | no — visible UX               |
-| `buildDocPlan` hide-on-both-empty         | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a            | no — visible misalignment     |
-| `buildLineDecorations` title decoration   | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a            | yes — fall back: no tooltip   |
-| `HunkButtonMarker.toDOM` wider hit target | Wider button overflows the gutter on the left, clipped by parent.                                           | no (visual)            | css; manual QA | no — visible overflow         |
-| `HunkButtonMarker.toDOM` count badge      | Badge text not in sync with `linesAvailable` after rapid clicks.                                            | n/a (eq covers)        | `eq` rebuild   | no — would show wrong number  |
-| `HunkButtonMarker.toDOM` shift-click      | Wider DOM intercepts shiftKey wrong; only single step expands.                                              | yes (case 16)          | n/a            | yes — silent regression to 1× |
-| Codepath                                       | Failure scenario                                                                                            | Has test? | Has handling?    | Silent?                          |
-| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | --------- | ---------------- | -------------------------------- |
+| Codepath                                       | Failure scenario                                                                                            | Has test?              | Has handling?    | Silent?                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------------------- | ---------------- | -------------------------------- |
+| `buildDocPlan` hide-on-both-empty              | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)       | no — visible UX                  |
+| `buildDocPlan` hide-on-both-empty              | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a              | no — visible misalignment        |
+| `buildLineDecorations` title decoration        | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a              | yes — fall back: no tooltip      |
+| `HunkButtonMarker.toDOM` wider hit target      | Wider button overflows the gutter on the left, clipped by parent.                                           | no (visual)            | css; manual QA   | no — visible overflow            |
+| `HunkButtonMarker.toDOM` count badge           | Badge text not in sync with `linesAvailable` after rapid clicks.                                            | n/a (eq covers)        | `eq` rebuild     | no — would show wrong number     |
+| `HunkButtonMarker.toDOM` shift-click           | Wider DOM intercepts shiftKey wrong; only single step expands.                                              | yes (case 16)          | n/a              | yes — silent regression to 1×    |
+| Codepath                                       | Failure scenario                                                                                            | Has test?              | Has handling?    | Silent?                          |
+| ---------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ---------              | ---------------- | -------------------------------- |
 | `buildDocPlan` hide-on-both-empty              | Lookahead computes wrong `linesBelow`; row hides when it shouldn't, or stays when it should hide.           | yes (§2.8.1 cases 5–7) | n/a (pure)       | no — visible UX                  |
 | `buildDocPlan` hide-on-both-empty              | Gutter alignment breaks because lineMeta length stays in sync with doc but downstream consumer assumed N+1. | partial (case 8)       | n/a              | no — visible misalignment        |
 | `buildLineDecorations` title decoration        | Title attr fails to render via `Decoration.line({ attributes: { title } })`.                                | yes (case 9)           | n/a              | yes — fall back: no tooltip      |
@@ -1657,25 +1944,25 @@ Synthesized from this review's findings. Each task derives from a specific findi
 
 ## GSTACK REVIEW REPORT
 
-| Review | Trigger | Why | Runs | Status | Findings |
-|--------|---------|-----|------|--------|----------|
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
-| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 (2026-05-24) | CLEAR (PLAN) | 7 decisions resolved (D1–D6, D9); 22 test gaps closed under tier A (D6); 2 regressions captured (R1 setStatus idempotency, R2 commit-dialog swap); 2 follow-ups deferred to TODOS.md (D8 reconciliation, D10 link flow); 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | — |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
+| Review        | Trigger               | Why                             | Runs           | Status       | Findings                                                                                                                                                                                                                                 |
+| ------------- | --------------------- | ------------------------------- | -------------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0              | —            | —                                                                                                                                                                                                                                        |
+| Codex Review  | `/codex review`       | Independent 2nd opinion         | 0              | —            | —                                                                                                                                                                                                                                        |
+| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1 (2026-05-24) | CLEAR (PLAN) | 7 decisions resolved (D1–D6, D9); 22 test gaps closed under tier A (D6); 2 regressions captured (R1 setStatus idempotency, R2 commit-dialog swap); 2 follow-ups deferred to TODOS.md (D8 reconciliation, D10 link flow); 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps                      | 0              | —            | —                                                                                                                                                                                                                                        |
+| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0              | —            | —                                                                                                                                                                                                                                        |
 
 - **CODEX:** N/A — `/codex review` not run; user declined outside voice (D7).
 - **CROSS-MODEL:** N/A — no codex pass on this review.
 - **UNRESOLVED:** 0 — every AskUserQuestion answered.
 - **VERDICT:** ENG CLEARED — P1.1 ready to implement against §7.6 task list. CEO Review and Design Review not required for this slice (no scope/UX decisions). Outside voice skipped by user choice.
-| Review        | Trigger              | Why                              | Runs | Status         | Findings                                |
-| ------------- | -------------------- | -------------------------------- | ---- | -------------- | --------------------------------------- |
-| CEO Review    | `/plan-ceo-review`   | Scope & strategy                 | 0    | —              | —                                       |
-| Codex Review  | `/codex review`      | Independent 2nd opinion          | 0    | —              | skipped — scope too small for outside voice |
-| Eng Review    | `/plan-eng-review`   | Architecture & tests (required)  | 1    | CLEAR (PLAN)   | 3 findings resolved, 0 critical gaps, 4 tasks emitted |
-| Design Review | `/plan-design-review`| UI/UX gaps                       | 0    | —              | not invoked (low-impact polish; visual spec resolved inline) |
-| DX Review     | `/plan-devex-review` | Developer experience gaps        | 0    | —              | n/a — internal UI polish                |
+  | Review | Trigger | Why | Runs | Status | Findings |
+  | ------------- | -------------------- | -------------------------------- | ---- | -------------- | --------------------------------------- |
+  | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+  | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | skipped — scope too small for outside voice |
+  | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 3 findings resolved, 0 critical gaps, 4 tasks emitted |
+  | Design Review | `/plan-design-review`| UI/UX gaps | 0 | — | not invoked (low-impact polish; visual spec resolved inline) |
+  | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | n/a — internal UI polish |
 
 **UNRESOLVED:** 0
 
@@ -1683,13 +1970,13 @@ Synthesized from this review's findings. Each task derives from a specific findi
 files + 2 new spec files. Cache-hit short-circuit regression test is
 mandatory per IRON rule. Outside voice + design review skipped — scope
 too narrow to justify.
-| Review        | Trigger               | Why                             | Runs | Status       | Findings                                                                                                                                                                                                                                                                                                             |
+| Review | Trigger | Why | Runs | Status | Findings |
 | ------------- | --------------------- | ------------------------------- | ---- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0    | —            | not run                                                                                                                                                                                                                                                                                                              |
-| Codex Review  | `/codex review`       | Independent 2nd opinion         | 1    | ISSUES_FOUND | 2 cross-model tensions resolved (intent encoding, auto-pin race); 6 codex items captured as TODOs                                                                                                                                                                                                                    |
-| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | CLEAR (PLAN) | 12 issues found across §1–§4 (5 architecture, 2 code-quality, 5 test gaps batched into one decision, 2 perf); 0 unresolved; 1 critical gap captured (localStorage quota — TODO); 53 test gaps mapped, 3 mandatory regression tests; outside voice ran (codex), 2 cross-model tensions surfaced + applied to the plan |
-| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | not run (preview/pin is a behavioral spec, not a visual one; reconsider for P1.4 file-header refactor)                                                                                                                                                                                                               |
-| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | not run (no developer-facing API surface in this scope)                                                                                                                                                                                                                                                              |
+| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | not run |
+| Codex Review | `/codex review` | Independent 2nd opinion | 1 | ISSUES_FOUND | 2 cross-model tensions resolved (intent encoding, auto-pin race); 6 codex items captured as TODOs |
+| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 12 issues found across §1–§4 (5 architecture, 2 code-quality, 5 test gaps batched into one decision, 2 perf); 0 unresolved; 1 critical gap captured (localStorage quota — TODO); 53 test gaps mapped, 3 mandatory regression tests; outside voice ran (codex), 2 cross-model tensions surfaced + applied to the plan |
+| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | not run (preview/pin is a behavioral spec, not a visual one; reconsider for P1.4 file-header refactor) |
+| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | not run (no developer-facing API surface in this scope) |
 
 **CODEX:** Surfaced 2 substantive issues that the eng review missed and 6 smaller risks. Both substantive items were applied to the plan (§7.10): URL-query-param → router state extras with `replaceUrl: true`; raw-valueChange auto-pin → `dirty()`-flip-based effect. The 6 smaller items live in §7.4 TODOs.
 
@@ -1708,14 +1995,32 @@ too narrow to justify.
 
 - **UNRESOLVED:** 0
 - **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
-| Review        | Trigger              | Why                              | Runs | Status         | Findings                       |
-| ------------- | -------------------- | -------------------------------- | ---- | -------------- | ------------------------------ |
-| CEO Review    | `/plan-ceo-review`   | Scope & strategy                 | 0    | —              | —                              |
-| Codex Review  | `/codex review`      | Independent 2nd opinion          | 0    | —              | —                              |
-| Eng Review    | `/plan-eng-review`   | Architecture & tests (required)  | 1    | CLEAR (PLAN)   | 3 issues, 0 critical gaps      |
-| Design Review | `/plan-design-review`| UI/UX gaps                       | 0    | —              | —                              |
-| DX Review     | `/plan-devex-review` | Developer experience gaps        | 0    | —              | —                              |
+  | Review | Trigger | Why | Runs | Status | Findings |
+  | ------------- | -------------------- | -------------------------------- | ---- | -------------- | ------------------------------ |
+  | CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | — |
+  | Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | — |
+  | Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 3 issues, 0 critical gaps |
+  | Design Review | `/plan-design-review`| UI/UX gaps | 0 | — | — |
+  | DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | — |
 
 - **UNRESOLVED:** 0
 - **VERDICT:** ENG CLEARED — P2.4 + P2.5 ready to implement as a single PR slice (one file: `libs/mozart-ui/diff-view/src/lib/cm-diff-extensions.ts` + new `cm-diff-extensions.spec.ts`).
 
+## GSTACK REVIEW REPORT
+
+Scoped to **P2.2 — Composer visibility on file tabs** (§2.6). Other
+items (P1.1–P3.1) were NOT reviewed in this pass.
+
+| Review        | Trigger               | Why                             | Runs | Status       | Findings                                            |
+| ------------- | --------------------- | ------------------------------- | ---- | ------------ | --------------------------------------------------- |
+| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0    | —            | —                                                   |
+| Codex Review  | `/codex review`       | Independent 2nd opinion         | 0    | —            | —                                                   |
+| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | CLEAR (PLAN) | 4 issues, 0 critical gaps; §2.6 rewritten per D1–D5 |
+| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | —                                                   |
+| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | —                                                   |
+
+- **UNRESOLVED:** 0
+- **TODOS:** 2 added (composer per-chat draft persistence; "talking to chat X" indicator) — both blocked on multi-chat workspaces
+- **TASKS:** 6 (T1–T6) emitted to `~/.gstack/projects/t1m4lc-mozart/tasks-eng-review-20260524-163428.jsonl`; 4 × P1, 1 × P2, 1 × P3
+- **TEST PLAN ARTIFACT:** `~/.gstack/projects/t1m4lc-mozart/timothy-wt-p2.2-eng-review-test-plan-20260524-164036.md`
+- **VERDICT:** ENG CLEARED for P2.2 — ready to implement after P1.3 (sequencing recommendation in §2.6)

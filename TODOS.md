@@ -329,6 +329,7 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** P1.1 landed (so the targets exist). `@tauri-apps/api` is already a dependency, but `@tauri-apps/api/mocks` may need an explicit re-export or import path check. Decision on whether to keep the example `src/example.spec.ts` placeholder or delete it as part of the same change.
 
 ---
+
 ## P1.2 — Manual refresh button on Changes header (skipped during eng review)
 
 **What:** A small refresh icon at the right of the Staged/Unstaged section header that calls `repos.refreshChangedFilesInBackground(workspaceId)`.
@@ -437,3 +438,26 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 
 ---
 
+## Composer — per-chat draft persistence (blocked on multi-chat workspaces)
+
+**What:** Save composer draft text per chat (per workspace), so switching active chats or reloading the app restores what was typed but not sent.
+
+**Why:** After P2.2 the composer is always mounted; draft text survives tab switches for free. But switching the workspace's active chat (once multi-chat lands) or reloading the app still loses the draft. Today every workspace has exactly one chat, so persistence is invisible — the moment a chat picker ships, the missing draft becomes a trust-shaped paper cut.
+
+**How to apply:** Add a draft slice to `UiStateFacade` keyed by `chatId`. `FeatureWorkspaceComposer.value` reads/writes through that facade instead of a local signal. Add an eviction rule when a chat or workspace is deleted (so orphan drafts don't pile up in persisted state). Verify with a unit spec covering save → reload → restore + a regression spec for orphan eviction.
+
+**Depends on:** Multi-chat-per-workspace UI / chat picker. Not blocking P2.2.
+
+---
+
+## Composer — "talking to chat X" indicator on file tabs (blocked on multi-chat workspaces)
+
+**What:** Render a small affordance next to the composer (e.g. `→ Chat: My-chat-name`) when the active tab is a file tab AND the workspace has more than one chat — so the user knows where a Send will land before pressing it.
+
+**Why:** P2.2 makes the composer always visible. Send routes to the workspace's active chat regardless of which tab is open. With one chat per workspace that's unambiguous; with two or more, it's invisible routing. The original shell-UX investigation already flagged this as a `risks` note: "surface a small indicator if ambiguity matters."
+
+**How to apply:** Bind to `_activeChat()` (already wired in `FeatureWorkspaceComposer`); render the chip only when `tab().kind === 'file' && chatsByWorkspace(workspaceId).length > 1`. Click on the chip should navigate to that chat's tab. Add a unit spec for the visibility gate (single-chat → hidden; multi-chat + file tab → visible).
+
+**Depends on:** Multi-chat-per-workspace UI. Pure no-op today; safe to ship the gate code alongside P2.2 if multi-chat is on the near horizon, otherwise defer.
+
+---
