@@ -64,6 +64,7 @@ import { ShellSidePanel } from './shell-side-panel';
               <app-merge-action-menu
                 [primaryAction]="mergePrimaryAction()"
                 [githubConnected]="profile.githubConnected()"
+                [isGithubRemote]="isGithubRemote()"
                 (pick)="onMergeActionPick($event)"
               />
             }
@@ -119,14 +120,30 @@ export class ShellRight {
     return mode ?? 'pr';
   });
 
+  // P1.1 D9 — gates the PR primary + dropdown row. Null until the
+  // backend probe resolves; treat null as `false` (defensive) so the
+  // button starts disabled and flips on once we've confirmed the
+  // origin really is github.com.
+  protected readonly isGithubRemote = computed(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return false;
+    const ws = this.workspaces.workspaceById(id)();
+    if (!ws) return false;
+    return this.projects.isGithubRemoteFor(ws.projectId)() ?? false;
+  });
+
   constructor() {
-    // Kick the lazy mergeMode read for the active workspace's project.
+    // Kick the lazy mergeMode + isGithubRemote reads for the active
+    // workspace's project. Both are de-duped inside their respective
+    // ensure-calls, so re-firing on every active-workspace change is
+    // cheap.
     effect(() => {
       const id = this.workspaces.activeId();
       if (!id) return;
       const ws = this.workspaces.workspaceById(id)();
       if (!ws) return;
       void this.projects.ensureMergeMode(ws.projectId);
+      void this.projects.ensureIsGithubRemote(ws.projectId);
     });
   }
 
