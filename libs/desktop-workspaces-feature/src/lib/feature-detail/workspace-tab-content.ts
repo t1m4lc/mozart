@@ -32,7 +32,13 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
     ChatEmptyState,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'relative flex min-h-0 flex-1 flex-col' },
+  // `overflow-hidden` clips any child overflow at this boundary so the
+  // composer's `absolute inset-x-0 bottom-0` anchor cannot drift below
+  // the viewport even if a descendant tries to push past its flex
+  // allocation. CodeMirror, chat-scroll-surface, and the file editor
+  // each own their own internal scroll — overflow is intentional inside
+  // them, never outside.
+  host: { class: 'relative flex min-h-0 flex-1 flex-col overflow-hidden' },
   template: `
     <app-feature-chat-tab-bar
       class="sticky top-10 z-20"

@@ -49,7 +49,13 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
   ],
   providers: [provideIcons({ lucidePanelLeft })],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex min-h-full flex-col' },
+  // h-full (exact, not min-h-full) so the page is locked to the viewport.
+  // overflow-hidden so any inner overflow is scoped to scroll containers
+  // inside the page (chat-scroll-surface, CodeMirror) instead of leaking
+  // up to <main>. Without this, long content can scroll the whole page
+  // and the composer (absolutely positioned inside WorkspaceTabContent)
+  // scrolls with it instead of staying pinned at viewport bottom.
+  host: { class: 'flex h-full flex-col overflow-hidden' },
   template: `
     <app-workspace-toolbar
       class="sticky top-0 z-30"
