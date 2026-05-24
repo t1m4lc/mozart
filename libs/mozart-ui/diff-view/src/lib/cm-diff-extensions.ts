@@ -7,7 +7,7 @@ import {
   gutter,
   WidgetType,
 } from '@codemirror/view';
-import { lucideChevronUp } from '@ng-icons/lucide';
+import { lucideUnfoldVertical } from '@ng-icons/lucide';
 import type { DiffLine, DiffLineKind } from '@mozart-ui/diff-parser';
 import type {
   HunkExpandDirection,
@@ -25,6 +25,10 @@ export interface LineMeta {
   readonly newLine: number | null;
   readonly hunkGapIndex?: number;
   readonly hunkLinesAvailable?: number;
+  // Raw `@@ -a,b +c,d @@` text — surfaced as the line's title attr so
+  // hover reveals the original header even though the visible doc text
+  // is a human-readable label ("N lines above"). Only set on hunk rows.
+  readonly originalHeader?: string;
 }
 
 // Stripped-down line body — the unified-diff marker (+, −, space) is
@@ -77,12 +81,20 @@ export interface DocPlan {
 // CodeMirror plan: doc text, sidecar line metadata, and a list of
 // block-widget specs anchored by absolute char position.
 //
-// Hunk headers are now real doc lines (not block widgets) so a per-row
-// expand button in the gutter can sit on the same row as the
-// `@@ … @@` text — GitHub style. The legacy inter-hunk expand-bar
-// widget is suppressed; only the trailing-gap bar (no following hunk
-// to host a button) and any expand-error retry strips keep their
-// block-widget treatment.
+// Hunk headers are real doc lines (not block widgets) so a per-row
+// expand button in the gutter can sit on the same row. Two shifts vs
+// the raw `@@` rendering:
+//   1. The visible doc text is a direction-neutral human label
+//      ("120 hidden lines"); the raw `@@ -a,b +c,d @@` survives as
+//      the line's title attr via buildLineDecorations.
+//   2. A hunk row is omitted entirely when its gap above has been
+//      fully revealed (linesAvailable === 0) — the row's button
+//      operates "up" only, so a 0-state row carries no signal and
+//      the diff reads as continuous context.
+//
+// The legacy inter-hunk expand-bar widget is suppressed; only the
+// trailing-gap bar (no following hunk to host a button) and any
+// expand-error retry strips keep their block-widget treatment.
 //
 // `hunkCount` is needed so we can tell a trailing-gap `expand` item
 // (keep) from an inter-hunk one (drop — the hunk button replaces it).
@@ -129,12 +141,20 @@ export function buildDocPlan(
       continue;
     }
     if (item.kind === 'hunk-header') {
-      appendLine(item.text, {
+      // Hide the hunk row when its gap above is fully revealed — the
+      // row's gutter button only operates "up", so a 0-state row has
+      // no actionable affordance and the human label ("No more hidden
+      // lines") just adds noise. The hunk's body still renders below;
+      // the diff reads as continuous context flowing into the changes.
+      const linesAbove = item.linesAvailable;
+      if (linesAbove === 0) continue;
+      appendLine(formatHunkLabel(linesAbove), {
         kind: 'hunk',
         oldLine: null,
         newLine: null,
         hunkGapIndex: item.gapIndex,
-        hunkLinesAvailable: item.linesAvailable,
+        hunkLinesAvailable: linesAbove,
+        originalHeader: item.text,
       });
       continue;
     }
@@ -181,9 +201,13 @@ const ADD_LINE_DECO = Decoration.line({
 const REMOVE_LINE_DECO = Decoration.line({
   attributes: { style: 'background-color: var(--diff-remove-bg);' },
 });
+// Hunk-row text is metadata, not code. Dim it (muted-foreground) and
+// italicize so a glance separates "this row describes the diff" from
+// "this row IS the diff".
 const HUNK_LINE_DECO = Decoration.line({
   attributes: {
-    style: 'background-color: var(--diff-hunk-bg);',
+    style:
+      'background-color: var(--diff-hunk-bg); color: var(--muted-foreground); font-style: italic;',
     class: 'mz-diff-cm-hunk-row',
   },
 });
@@ -234,6 +258,16 @@ export function buildLineDecorations(
 
     if (meta.kind === 'hunk') {
       builder.add(linePos, linePos, HUNK_LINE_DECO);
+      // Surface the raw `@@ -a,b +c,d @@` via the line element's title
+      // attr so hover reveals the original header even though the
+      // visible doc text is a human-readable label.
+      if (meta.originalHeader) {
+        builder.add(
+          linePos,
+          linePos,
+          Decoration.line({ attributes: { title: meta.originalHeader } }),
+        );
+      }
       continue;
     }
     if (meta.kind !== 'add' && meta.kind !== 'remove') continue;
@@ -467,15 +501,15 @@ class SpacerMarker extends GutterMarker {
   }
 }
 
-// Hunk-row "expand 20 lines up" button. Single icon visually
-// centered on the seam between the two gutter columns: lives in the
-// LEFT cell with the button absolutely positioned at the cell's
-// right edge and translated 50% rightward so its center sits exactly
-// where the gutters meet. The RIGHT cell renders a HunkEmptyMarker
-// (same strong bg, no content) so the band reads as one continuous
-// strip. Chevron icon matches MzHunkExpandBar (lucideChevronUp).
-// Disabled when the gap above is fully revealed.
-class HunkButtonMarker extends GutterMarker {
+// Hunk-row expand button. Fills the full hunk-row gutter band (both
+// OLD and NEW number columns) with just an unfold icon — same lucide
+// glyph as the Expand-all action on MzFileDiffCard so the "reveal
+// hidden lines" affordance reads consistently. The button lives in
+// the OLD cell and stretches rightward via `width: 200%` so it visually
+// covers the NEW cell too; the NEW cell's HunkEmptyMarker provides the
+// strong background behind it. Disabled when the gap above is fully
+// revealed.
+export class HunkButtonMarker extends GutterMarker {
   constructor(
     private readonly gapIndex: number,
     private readonly linesAvailable: number,
@@ -504,28 +538,36 @@ class HunkButtonMarker extends GutterMarker {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className =
-      'mz-diff-cm-hunk-btn absolute top-1/2 right-0 flex h-4 w-4 items-center justify-center rounded-full text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40';
+      'mz-diff-cm-hunk-btn absolute inset-y-0 left-0 inline-flex items-center justify-center text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40';
+    // width: 200% stretches the button across both gutter cells (OLD +
+    // NEW). z-index keeps it above the NEW cell's HunkEmptyMarker.
     btn.setAttribute(
       'style',
-      'transform: translate(50%, -50%); background-color: var(--diff-hunk-bg-strong); padding: 0; border: none; cursor: pointer; z-index: 2;',
+      'width: 200%; background-color: var(--diff-hunk-bg-strong); border: none; cursor: pointer; padding: 0; z-index: 2;',
     );
-    btn.innerHTML = lucideChevronUp;
-    const svg = btn.querySelector('svg');
-    if (svg) {
-      svg.setAttribute('width', '12');
-      svg.setAttribute('height', '12');
-    }
     btn.disabled = this.linesAvailable === 0;
     btn.title =
       this.linesAvailable === 0
         ? 'No more hidden lines'
         : `Show ${Math.min(HUNK_EXPAND_STEP, this.linesAvailable)} lines above`;
+
+    // Same lucide glyph as the Expand-all button on MzFileDiffCard.
+    btn.innerHTML = lucideUnfoldVertical;
+    const svg = btn.querySelector('svg');
+    if (svg) {
+      svg.setAttribute('width', '12');
+      svg.setAttribute('height', '12');
+    }
+
+    // Shift-click doubles the step, matching ExpandBarWidget's idiom.
     btn.addEventListener('click', (e) => {
       e.preventDefault();
       if (btn.disabled) return;
-      const count = Math.min(HUNK_EXPAND_STEP, this.linesAvailable);
+      const requested = e.shiftKey ? HUNK_EXPAND_STEP * 2 : HUNK_EXPAND_STEP;
+      const count = Math.min(requested, this.linesAvailable);
       this.onExpand(this.gapIndex, { direction: 'up', count });
     });
+
     cell.appendChild(btn);
     return cell;
   }
@@ -553,6 +595,18 @@ class HunkEmptyMarker extends GutterMarker {
 
 function formatNumber(n: number | null): string {
   return n === null ? '' : String(n);
+}
+
+// Human-readable label for the hunk row, keyed off the number of
+// still-hidden context lines around this hunk. Replaces the raw
+// `@@ -a,b +c,d @@` text in the visible doc; the raw header survives
+// as the row's title attr (see buildLineDecorations). Wording is
+// direction-neutral — the gutter button (which IS directional) carries
+// the "above" / "below" affordance.
+export function formatHunkLabel(linesAvailable: number): string {
+  if (linesAvailable <= 0) return 'No more hidden lines';
+  if (linesAvailable === 1) return '1 hidden line';
+  return `${linesAvailable} hidden lines`;
 }
 
 export function oldLineGutter(
