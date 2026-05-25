@@ -5,12 +5,12 @@ import {
   signal,
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideGithub, lucideMail } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmSpinnerImports } from '@spartan-ui/spinner';
 import { HlmTypographyImports } from '@spartan-ui/typography';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideGithub, lucideMail } from '@ng-icons/lucide';
 import { AuthFacade, type OAuthProvider } from '../domains/auth';
 import { UiAuthCard } from '../domains/auth/ui-auth-card';
 
@@ -46,7 +46,7 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
       >
         @if (busy() === 'github') {
           <hlm-spinner class="size-4" />
-          Redirecting to GitHub…
+          Connecting to GitHub…
         } @else {
           <ng-icon hlm name="lucideGithub" size="sm" />
           Sign in with GitHub
@@ -63,7 +63,7 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
       >
         @if (busy() === 'google') {
           <hlm-spinner class="size-4" />
-          Redirecting to Google…
+          Connecting to Google…
         } @else {
           <ng-icon hlm name="lucideMail" size="sm" />
           Sign in with Google

@@ -5,10 +5,10 @@ import {
   inject,
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { HlmButton } from '@spartan-ui/button';
-import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideUserRound } from '@ng-icons/lucide';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { AuthFacade, FeatureLaunchMozart } from '../domains/auth';
 import { UiAuthCard } from '../domains/auth/ui-auth-card';
 

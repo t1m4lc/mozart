@@ -4,10 +4,6 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmSpinnerImports } from '@spartan-ui/spinner';
-import { HlmTypographyImports } from '@spartan-ui/typography';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowRight,
@@ -15,6 +11,11 @@ import {
   lucideRefreshCw,
   lucideTriangleAlert,
 } from '@ng-icons/lucide';
+import { HlmAvatarImports } from '@spartan-ui/avatar';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmSpinnerImports } from '@spartan-ui/spinner';
+import { HlmTypographyImports } from '@spartan-ui/typography';
 import { AuthFacade } from './data/auth.facade';
 import { isMobileUserAgent } from './util-detect-mobile';
 
@@ -54,6 +55,7 @@ type LaunchState =
     HlmIconImports,
     HlmSpinnerImports,
     HlmTypographyImports,
+    HlmAvatarImports,
   ],
   providers: [
     provideIcons({
@@ -67,8 +69,7 @@ type LaunchState =
   template: `
     @if (isMobile()) {
       <p hlmMuted class="text-center text-sm">
-        Mozart is desktop-only. Sign in from your computer to launch
-        the app.
+        Mozart is desktop-only. Sign in from your computer to launch the app.
       </p>
       <a hlmBtn variant="outline" href="https://mozart.build/download">
         Download Mozart
@@ -76,12 +77,7 @@ type LaunchState =
     } @else {
       @switch (state()) {
         @case ('idle') {
-          <button
-            hlmBtn
-            type="button"
-            class="w-full"
-            (click)="onLaunch()"
-          >
+          <button hlmBtn type="button" class="w-full" (click)="onLaunch()">
             Launch Mozart desktop
             <ng-icon hlm name="lucideArrowRight" size="sm" />
           </button>
@@ -94,15 +90,26 @@ type LaunchState =
         }
         @case ('success') {
           <div class="flex flex-col items-center gap-3">
-            <div
-              class="bg-brand-subtle text-brand ring-brand/30 flex size-14 items-center justify-center rounded-full ring-1"
-              aria-label="Success"
-            >
-              <ng-icon name="lucideCheck" size="lg" />
-            </div>
+            @if (user(); as u) {
+              <hlm-avatar class="size-16">
+                <img
+                  hlmAvatarImage
+                  [src]="u.imageUrl"
+                  [alt]="u.name || u.email"
+                />
+                <div
+                  hlmAvatarFallback
+                  class="bg-brand-subtle text-brand ring-brand/30 flex size-14 items-center justify-center rounded-full ring-1"
+                  aria-label="Success"
+                >
+                  <ng-icon hlm name="lucideCheck" size="lg" />
+                </div>
+              </hlm-avatar>
+            }
+
             <p hlmP class="text-center text-sm">
-              You're signed in. Switch back to Mozart on your computer
-              to continue.
+              You're signed in. Switch back to Mozart on your computer to
+              continue.
             </p>
             <p hlmMuted class="text-center text-xs">
               You can close this tab now.
@@ -112,17 +119,12 @@ type LaunchState =
         @case ('unreachable') {
           <div class="flex flex-col items-center gap-3">
             <p hlmP class="text-center text-sm">
-              Mozart desktop isn't responding. If you restarted it
-              recently, open Mozart and click <strong>Sign in</strong>
-              again to refresh the handoff URL — the localhost port
-              changes on every boot.
+              Mozart desktop isn't responding. If you restarted it recently,
+              open Mozart and click <strong>Sign in</strong>
+              again to refresh the handoff URL — the localhost port changes on
+              every boot.
             </p>
-            <button
-              hlmBtn
-              type="button"
-              class="w-full"
-              (click)="onLaunch()"
-            >
+            <button hlmBtn type="button" class="w-full" (click)="onLaunch()">
               <ng-icon hlm name="lucideRefreshCw" size="sm" />
               Try again
             </button>
@@ -145,15 +147,15 @@ type LaunchState =
               class="bg-muted/40 text-muted-foreground ring-border flex size-14 items-center justify-center rounded-full ring-1"
               aria-label="Open Mozart desktop first"
             >
-              <ng-icon name="lucideTriangleAlert" size="lg" />
+              <ng-icon hlm name="lucideTriangleAlert" size="lg" />
             </div>
             <p hlmP class="text-center text-sm">
               No Mozart handoff for this tab.
             </p>
             <p hlmMuted class="text-center text-xs">
               Open Mozart desktop and click <strong>Sign in</strong>
-              on the welcome screen. The browser will reopen this
-              page with a fresh handoff URL.
+              on the welcome screen. The browser will reopen this page with a
+              fresh handoff URL.
             </p>
             <button
               hlmBtn
@@ -168,7 +170,6 @@ type LaunchState =
           </div>
         }
       }
-
     }
   `,
 })
@@ -180,6 +181,8 @@ export class FeatureLaunchMozart {
       ? isMobileUserAgent(navigator.userAgent)
       : false,
   );
+
+  protected readonly user = this.auth.user;
 
   protected readonly state = signal<LaunchState>('idle');
 
@@ -211,7 +214,10 @@ export class FeatureLaunchMozart {
       // crash or signal-reader exception could bubble through.
       // Default to 'unreachable' rather than getting stuck on the
       // spinner forever.
-      console.error('[launch] unexpected error from triggerDesktopSignIn:', err);
+      console.error(
+        '[launch] unexpected error from triggerDesktopSignIn:',
+        err,
+      );
       this.state.set('unreachable');
     }
   }
