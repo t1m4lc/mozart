@@ -13,7 +13,6 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import { filter, pairwise, tap } from 'rxjs/operators';
 import { Router } from '@angular/router';
 import {
   MzComposer,
@@ -28,12 +27,13 @@ import {
   PROVIDERS,
 } from '@mozart/desktop-llm-model-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
-import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
 import {
   ChatScrollOrchestrator,
   ScrollPositionService,
   WorkspacesFacade,
 } from '@mozart/desktop-workspaces-data-access';
+import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
+import { filter, pairwise, tap } from 'rxjs/operators';
 
 /**
  * Always-mounted composer host. Lives inside `WorkspaceTabContent`
@@ -60,41 +60,30 @@ import {
   selector: 'app-feature-workspace-composer',
   imports: [MzComposer],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'block w-full' },
+  host: { class: 'block w-full px-3' },
   template: `
-    <!-- Composer is positioned by the parent (WorkspaceTabContent gives
-         the host \`absolute inset-x-0 bottom-0\`) so it overlays whatever
-         content is in the @switch — chat scrolling behind it, file
-         editor extending full-height with composer floating on top. -->
-    <div class="bg-background" data-tour="composer-mode">
-      <div class="relative mx-auto w-full max-w-5xl px-3 pb-3">
-        <!-- The fade-to-background that used to sit just above the
-             composer moved to the top of the chat scroll surface
-             (FeatureChatScrollSurface). Keeping it here doubled the
-             visual seam and pulled the eye toward the bottom of the
-             chat instead of the response. -->
-        <mz-composer
-          #composerEl
-          [(value)]="value"
-          [mode]="currentMode()"
-          (modeChange)="onModeChange($event)"
-          [effort]="currentEffort()"
-          (effortChange)="onEffortChange($event)"
-          [models]="catalog"
-          [providers]="providers"
-          [selectedModelId]="currentModelId()"
-          (modelChange)="onModelChange($event)"
-          [isRunning]="isStreaming()"
-          [askOnly]="frozen()"
-          [autoFollowChat]="autoFollowChat()"
-          [hasNextUnreadInProject]="hasNextUnreadInProject()"
-          (send)="onSend($event)"
-          (stop)="onStop()"
-          (scrollToBottom)="onScrollToBottom()"
-          (nextUnreadWorkspace)="onNextUnreadWorkspace()"
-        />
-      </div>
-    </div>
+    <mz-composer
+      class="bg-background mx-auto w-full max-w-5xl overflow-hidden pb-2.5 shadow-[0_-4px_16px_-2px_rgb(0_0_0_/_0.06)] dark:shadow-[0_-4px_16px_-2px_rgb(0_0_0_/_0.3)]"
+      data-tour="composer-mode"
+      #composerEl
+      [(value)]="value"
+      [mode]="currentMode()"
+      (modeChange)="onModeChange($event)"
+      [effort]="currentEffort()"
+      (effortChange)="onEffortChange($event)"
+      [models]="catalog"
+      [providers]="providers"
+      [selectedModelId]="currentModelId()"
+      (modelChange)="onModelChange($event)"
+      [isRunning]="isStreaming()"
+      [askOnly]="frozen()"
+      [autoFollowChat]="autoFollowChat()"
+      [hasNextUnreadInProject]="hasNextUnreadInProject()"
+      (send)="onSend($event)"
+      (stop)="onStop()"
+      (scrollToBottom)="onScrollToBottom()"
+      (nextUnreadWorkspace)="onNextUnreadWorkspace()"
+    />
   `,
 })
 export class FeatureWorkspaceComposer {

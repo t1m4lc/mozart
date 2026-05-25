@@ -6,12 +6,12 @@ import {
   model,
   output,
 } from '@angular/core';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideArrowUp, lucideCircleStop, lucidePlus } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmTextareaImports } from '@spartan-ui/textarea';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowUp, lucideCircleStop, lucidePlus } from '@ng-icons/lucide';
 import { ComposerEffortSelect } from './mz-composer-effort-select';
 import { ComposerModeSelect } from './mz-composer-mode-select';
 import {
