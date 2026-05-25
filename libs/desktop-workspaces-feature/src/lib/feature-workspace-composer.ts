@@ -68,10 +68,11 @@ import {
          editor extending full-height with composer floating on top. -->
     <div class="bg-background" data-tour="composer-mode">
       <div class="relative mx-auto w-full max-w-5xl px-3 pb-3">
-        <div
-          class="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-linear-to-t from-background to-transparent dark:from-background"
-          aria-hidden="true"
-        ></div>
+        <!-- The fade-to-background that used to sit just above the
+             composer moved to the top of the chat scroll surface
+             (FeatureChatScrollSurface). Keeping it here doubled the
+             visual seam and pulled the eye toward the bottom of the
+             chat instead of the response. -->
         <mz-composer
           #composerEl
           [(value)]="value"

@@ -47,7 +47,7 @@ const TYPE_CHARS_PER_FRAME = 2;
   host: { class: 'block' },
   template: `
     <div
-      class="prose prose-sm dark:prose-invert max-w-none text-foreground select-text prose-p:my-3 prose-headings:my-3"
+      class="prose prose-sm dark:prose-invert max-w-none text-foreground select-text prose-p:my-3 prose-headings:my-3 prose-code:bg-muted/40 prose-code:text-foreground prose-code:font-normal prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted/30 prose-pre:border prose-pre:border-border prose-pre:text-foreground"
       [innerHTML]="_html()"
     ></div>
     @if (streaming()) {

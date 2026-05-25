@@ -34,10 +34,12 @@ const AT_BOTTOM_THRESHOLD_PX = 80;
 // absolutely positioned over the bottom of WorkspaceTabContent, so
 // any scrollTop math that wants the newest message to land just
 // above it needs to subtract this from `clientHeight`. The inner
-// scroll wrapper's `pb-40` (160px) keeps content from clipping at
+// scroll wrapper's `pb-48` (192px) keeps content from clipping at
 // rest ; this constant is the smaller working zone the auto-follow
-// targets while streaming.
-const COMPOSER_OVERLAY_PX = 120;
+// targets while streaming. Measured against the real composer
+// chrome height (~120–140px depending on mode selectors) plus
+// breathing room.
+const COMPOSER_OVERLAY_PX = 160;
 
 // Type-guard for combineLatest predicates that wait on two
 // "resolved" sources (a workspace + mainEl pair, a key + mainEl pair,
@@ -83,13 +85,22 @@ function bothResolved<A, B>(
   // surface keeps the composer overlay pinned at viewport bottom.
   host: { class: 'flex min-h-0 w-full flex-col overflow-y-auto' },
   template: `
+    <!-- Top fade : a sticky gradient pinned to the top of the
+         scroll surface viewport. Softens the hard line where chat
+         content used to clip against the workspace header as the
+         user scrolled. Lives as a sibling before the inner wrapper
+         so flex layout doesn't compress its height. -->
+    <div
+      class="pointer-events-none sticky top-0 z-10 h-8 -mb-8 bg-linear-to-b from-background to-transparent dark:from-background"
+      aria-hidden="true"
+    ></div>
     <!-- Inner wrapper centers chat content + caps width. Bottom padding
          clears the absolutely-positioned composer overlay (composer
-         chrome ≈ 100px) so the last message stays visible above it.
-         pb-40 = 160px gives ~60px of breathing room above the composer
-         even for very short turns (e.g. plain-text replies where the
-         entire turn is a single prose line, no header, no timeline). -->
-    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5 pb-32">
+         chrome ≈ 120–140px) so the last message stays visible above
+         it. pb-48 = 192px mirrors COMPOSER_OVERLAY_PX (160px) plus
+         32px of breathing room — measured during dogfood, text used
+         to land flush against the composer chrome with pb-32. -->
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-4 pb-48">
       <ng-content />
     </div>
   `,
@@ -361,7 +372,7 @@ function lastMessageEl(scope: HTMLElement): HTMLElement | null {
   const selectors =
     'app-agent-message, app-user-message, app-system-info-message, app-setup-progress-message';
   const all = scope.querySelectorAll<HTMLElement>(selectors);
-  return all.length === 0 ? null : all[all.length - 1] ?? null;
+  return all.length === 0 ? null : (all[all.length - 1] ?? null);
 }
 
 // Pixels between the bottom of the last real message and the
