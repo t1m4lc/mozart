@@ -3,8 +3,6 @@ import {
   Component,
   DestroyRef,
   ElementRef,
-  Injector,
-  afterNextRender,
   computed,
   effect,
   inject,
@@ -267,7 +265,6 @@ export class FeatureFileContent {
   private readonly mutations = inject(WorkspaceMutationsFacade);
   private readonly destroyRef = inject(DestroyRef);
   private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
-  private readonly injector = inject(Injector);
 
   // Per-(workspace, path) UI state. Each open tab remembers its own
   // mode + splitDiff independently; switching between two open tabs
@@ -417,9 +414,16 @@ export class FeatureFileContent {
   // Reusable persistence wiring for a given mode + the CSS selector
   // that resolves to the scroll element when that mode is active.
   // Snapshots on cleanup (mode/path/workspace change), restores after
-  // the next render so the new content has laid out. The same key
+  // the new mode's scroll element appears. The same key
   // (`file:{ws}:{path}`) is reused across modes so switching from
   // diff to edit and back preserves the user's reading position.
+  //
+  // Edit mode wraps mz-code-editor in `@defer (when mode() === 'edit')`,
+  // so CodeMirror's .cm-scroller doesn't exist when the effect first
+  // fires. Single-shot afterNextRender + querySelector silently misses
+  // restoration in that case. Retry over rAF up to ~500ms (30 frames
+  // at 60fps) to give the deferred chunk time to load and mount before
+  // we give up.
   private _wireScrollPersist(
     activeMode: FileContentMode,
     scrollElSelector: string,
@@ -431,20 +435,28 @@ export class FeatureFileContent {
       if (m !== activeMode || !ws || !p) return;
 
       const key = fileTabKey(ws, p);
+      let cancelled = false;
+      let attempts = 0;
+      const MAX_ATTEMPTS = 30;
 
-      afterNextRender(
-        () => {
-          const el = this.hostEl.nativeElement.querySelector<HTMLElement>(
-            scrollElSelector,
-          );
-          if (!el) return;
+      const tryRestore = (): void => {
+        if (cancelled) return;
+        const el = this.hostEl.nativeElement.querySelector<HTMLElement>(
+          scrollElSelector,
+        );
+        if (el) {
           const stored = this.scrollPosition.recall(key);
           el.scrollTop = stored ?? 0;
-        },
-        { injector: this.injector },
-      );
+          return;
+        }
+        if (++attempts < MAX_ATTEMPTS) {
+          requestAnimationFrame(tryRestore);
+        }
+      };
+      requestAnimationFrame(tryRestore);
 
       onCleanup(() => {
+        cancelled = true;
         const el = this.hostEl.nativeElement.querySelector<HTMLElement>(
           scrollElSelector,
         );

@@ -53,10 +53,14 @@ export class ScrollSurfaceRegistry {
 
   /** Unregister a surface for an id. Idempotent. Leaves the inner
    *  signal in place (set to null) so subscribers can re-attach when
-   *  the same id re-registers without losing reactivity. */
-  unregister(id: string): void {
+   *  the same id re-registers without losing reactivity. When
+   *  `surface` is provided, only nulls the entry if it still matches —
+   *  prevents an old-instance teardown from nulling a newer surface
+   *  that registered first (race on rapid @switch destroy/recreate). */
+  unregister(id: string, surface?: ScrollSurface): void {
     const existing = this._entries.get(id);
     if (!existing) return;
+    if (surface && existing() !== surface) return;
     existing.set(null);
   }
 
@@ -83,8 +87,16 @@ export class ScrollSurfaceRegistry {
   /** Reactive boolean — is the surface for `id` currently at-bottom?
    *  Defaults to `true` when no surface is registered (matches the
    *  "fresh chat, attached" default). Useful for composer UI like the
-   *  scroll-to-bottom button. */
+   *  scroll-to-bottom button. Cached by id so a `computed` that reads
+   *  this doesn't allocate a new inner computed every render. */
   isAtBottom(id: string): Signal<boolean> {
-    return computed(() => this.entry(id)()?.isAtBottom() ?? true);
+    let s = this._isAtBottomCache.get(id);
+    if (!s) {
+      s = computed(() => this.entry(id)()?.isAtBottom() ?? true);
+      this._isAtBottomCache.set(id, s);
+    }
+    return s;
   }
+
+  private readonly _isAtBottomCache = new Map<string, Signal<boolean>>();
 }

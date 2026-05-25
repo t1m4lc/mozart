@@ -247,9 +247,17 @@ export class FeatureWorkspaceComposer {
   // already inside the composer's subtree (focus is ours to reclaim
   // after a streaming run). If the user clicked into a message or
   // code block during the stream, document.activeElement lives
-  // outside this composer — leave it alone.
+  // outside this composer — leave it alone. Also bail when the user
+  // has an active text selection (typically selecting text in a
+  // message leaves activeElement on body, which the activeElement
+  // check alone would treat as "safe to refocus" — but refocusing
+  // collapses the selection).
   private _shouldRefocusOnStreamEnd(): boolean {
     if (typeof document === 'undefined') return true;
+    if (typeof window !== 'undefined') {
+      const sel = window.getSelection();
+      if (sel && sel.toString().length > 0) return false;
+    }
     const active = document.activeElement;
     if (active === null || active === document.body) return true;
     const composerHost = this.composerEl()?.nativeElement;
@@ -282,10 +290,12 @@ export class FeatureWorkspaceComposer {
     // sentinel sat far below viewport (isAtBottom=false → no auto-
     // follow). scrollToBottom is the unambiguously correct primitive.
     if (this.activeTabKind() === 'file') return;
-    const surface = this.registry.get(id);
-    if (!surface) return;
+    // Re-read the surface inside afterNextRender so a tab-switch or
+    // surface-replacement between this call and the callback (rare but
+    // possible on rapid @switch destroy/recreate) targets the CURRENT
+    // surface, not a stale handle.
     afterNextRender(
-      () => surface.scrollToBottom(false),
+      () => this.registry.get(id)?.scrollToBottom(false),
       { injector: this.injector },
     );
   }

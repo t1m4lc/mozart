@@ -162,12 +162,14 @@ export class MzScrollSurface implements ScrollSurface {
 
     // Re-register when registerAs changes mid-life (a workspace
     // identifier rebinding, etc.). Unregister the prior id first so
-    // the registry never double-holds.
+    // the registry never double-holds. Pass `this` to unregister so a
+    // delayed teardown can't null a newer surface registered under the
+    // same id.
     effect(() => {
       const next = this.registerAs();
       const prev = this._registeredAs;
       if (prev === next) return;
-      if (prev) this.registry.unregister(prev);
+      if (prev) this.registry.unregister(prev, this);
       if (next) {
         this.registry.register(next, this);
         this._registeredAs = next;
@@ -236,7 +238,10 @@ export class MzScrollSurface implements ScrollSurface {
       this._io = null;
     }
     if (this._registeredAs) {
-      this.registry.unregister(this._registeredAs);
+      // Compare-and-swap via `this`: if a newer surface already
+      // registered under the same id (rare race on rapid mount/unmount),
+      // this no-ops instead of nulling the active surface.
+      this.registry.unregister(this._registeredAs, this);
       this._registeredAs = null;
     }
   }
