@@ -3917,17 +3917,6 @@ mod tests {
         );
     }
 
-    // TODO(flaky): this test fails ~60% of runs. Root cause is in
-    // `db/messages.rs:32` — `ORDER BY created_at ASC, message_id ASC`
-    // combined with two inserts that complete inside the same
-    // millisecond (synchronous test code) means the tie-break falls on
-    // randomly-generated UUID v4 strings, so half the time `m2 < m1`
-    // lexicographically and the order asserted below is reversed.
-    // Fix options: (a) order by `created_at, ROWID` in `list_for_chat`
-    // so insertion order is the final tie-break, (b) seed inserts with
-    // explicit differing created_at values, or (c) sleep 1 ms between
-    // inserts. Scope as a follow-up — the flakiness predates the
-    // GitHub auto-connect work that surfaced it.
     #[tokio::test]
     async fn message_insert_and_list() {
         let db = init_db_memory().unwrap();

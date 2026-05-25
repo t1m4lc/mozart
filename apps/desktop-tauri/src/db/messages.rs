@@ -28,8 +28,13 @@ pub fn insert(conn: &Connection, msg: &Message) -> Result<(), AppError> {
 }
 
 pub fn list_for_chat(conn: &Connection, chat_id: &str) -> Result<Vec<Message>, AppError> {
+    // `ROWID` (SQLite's implicit per-row monotonic id) gives us a
+    // deterministic insertion-order tie-break when two messages share
+    // a `created_at` millisecond. Using `message_id` here was a UUID
+    // string compare — random by design, which produced a flaky test
+    // (commands::tests::message_insert_and_list) about ~60% of runs.
     let mut stmt = conn.prepare(&format!(
-        "SELECT {COLS} FROM messages WHERE chat_id = ?1 ORDER BY created_at ASC, message_id ASC"
+        "SELECT {COLS} FROM messages WHERE chat_id = ?1 ORDER BY created_at ASC, ROWID ASC"
     ))?;
     let rows = stmt.query_map([chat_id], row_to_message)?;
     let mut out = Vec::new();
@@ -78,11 +83,13 @@ pub fn find_assistant_by_run(
     conn: &Connection,
     run_id: &str,
 ) -> Result<Option<Message>, AppError> {
+    // Same ROWID-as-tie-break rationale as `list_for_chat` above —
+    // keeps "first assistant row for this run" deterministic.
     let res = conn.query_row(
         &format!(
             "SELECT {COLS} FROM messages \
              WHERE run_id = ?1 AND role = 'assistant' \
-             ORDER BY created_at ASC, message_id ASC \
+             ORDER BY created_at ASC, ROWID ASC \
              LIMIT 1"
         ),
         [run_id],

@@ -705,10 +705,14 @@ mod tests {
     }
 
     #[test]
-    fn same_timestamp_messages_order_by_message_id() {
-        // Both prior messages share created_at=1. The list_for_chat
-        // tiebreaker is `message_id ASC`, so the "aaaa…" id should
-        // come before the "bbbb…" id in the envelope.
+    fn same_timestamp_messages_order_by_insertion() {
+        // Both prior messages share created_at=1. `list_for_chat`
+        // tie-breaks on `ROWID ASC`, i.e. SQLite's monotonic insertion
+        // order — so the row inserted first ("B") comes back first
+        // regardless of UUID lex order. This is the deterministic
+        // contract that replaced the prior `message_id ASC` tie-break,
+        // which was non-deterministic for two messages persisted
+        // inside the same millisecond.
         let db = init_db_memory().unwrap();
         let conn = db.lock();
         let s = seed(&conn);
@@ -738,7 +742,7 @@ mod tests {
             .iter()
             .map(|t| t.content.as_str())
             .collect();
-        assert_eq!(contents, vec!["A", "B"]);
+        assert_eq!(contents, vec!["B", "A"]);
     }
 
     #[test]
