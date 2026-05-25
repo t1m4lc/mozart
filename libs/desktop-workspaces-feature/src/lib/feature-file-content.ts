@@ -389,23 +389,57 @@ export class FeatureFileContent {
       }
     });
 
-    // Diff-mode scroll persistence. The actual scroll surface is the
-    // `<mz-diff-view>` host (in libs/mozart-ui/diff-view, marked
-    // `overflow-auto`). We snapshot its scrollTop on cleanup, restore
-    // on activate via afterNextRender. The edit-mode editor owns its
-    // own scroll (CodeMirror's scrollDOM) and is intentionally NOT
-    // persisted here — captured as a follow-up in TODOS.md.
+    // Per-mode scroll persistence. Both modes use the same per-(ws,
+    // path) key — switching modes preserves position within the file.
+    // Diff scrolls happen on the `<mz-diff-view>` host (overflow-auto
+    // applied in libs/mozart-ui/diff-view). Edit scrolls happen on
+    // CodeMirror's internal `.cm-scroller` (CM owns the scrollable
+    // even though our host wrapper also declares overflow-auto). One
+    // helper wires both — same ScrollPositionService backend the
+    // MzScrollSurface directive uses for chat, so persistence is
+    // unified across surfaces even though the diff/edit roots live in
+    // mozart-ui leaf libs that can't import workspaces-data-access
+    // directly.
+    this._wireScrollPersist('diff', 'mz-diff-view');
+    this._wireScrollPersist('edit', 'mz-code-editor .cm-scroller');
+
+    // Final snapshot on component destroy — covers chat-tab-switch
+    // and route-navigate cases where the effect's cleanup didn't run.
+    this.destroyRef.onDestroy(() => {
+      const ws = this.workspaceId();
+      const p = this.filePath();
+      if (!ws || !p) return;
+      const m = this.mode();
+      const selector =
+        m === 'diff' ? 'mz-diff-view' : 'mz-code-editor .cm-scroller';
+      const el = this.hostEl.nativeElement.querySelector<HTMLElement>(selector);
+      if (el) this.scrollPosition.remember(fileTabKey(ws, p), el.scrollTop);
+    });
+  }
+
+  // Reusable persistence wiring for a given mode + the CSS selector
+  // that resolves to the scroll element when that mode is active.
+  // Snapshots on cleanup (mode/path/workspace change), restores after
+  // the next render so the new content has laid out. The same key
+  // (`file:{ws}:{path}`) is reused across modes so switching from
+  // diff to edit and back preserves the user's reading position.
+  private _wireScrollPersist(
+    activeMode: FileContentMode,
+    scrollElSelector: string,
+  ): void {
     effect((onCleanup) => {
       const ws = this.workspaceId();
       const p = this.filePath();
       const m = this.mode();
-      if (m !== 'diff' || !ws || !p) return;
+      if (m !== activeMode || !ws || !p) return;
 
       const key = fileTabKey(ws, p);
 
       afterNextRender(
         () => {
-          const el = this.findDiffScrollEl();
+          const el = this.hostEl.nativeElement.querySelector<HTMLElement>(
+            scrollElSelector,
+          );
           if (!el) return;
           const stored = this.scrollPosition.recall(key);
           el.scrollTop = stored ?? 0;
@@ -414,28 +448,12 @@ export class FeatureFileContent {
       );
 
       onCleanup(() => {
-        const el = this.findDiffScrollEl();
+        const el = this.hostEl.nativeElement.querySelector<HTMLElement>(
+          scrollElSelector,
+        );
         if (el) this.scrollPosition.remember(key, el.scrollTop);
       });
     });
-
-    // Final snapshot on component destroy — covers chat-tab-switch
-    // and route-navigate cases where the effect's cleanup didn't run.
-    this.destroyRef.onDestroy(() => {
-      const ws = this.workspaceId();
-      const p = this.filePath();
-      if (this.mode() !== 'diff' || !ws || !p) return;
-      const el = this.findDiffScrollEl();
-      if (el) this.scrollPosition.remember(fileTabKey(ws, p), el.scrollTop);
-    });
-  }
-
-  // The `<mz-diff-view>` element is the diff's scroll surface. Its host
-  // carries `overflow-auto`. Returns null when the diff view isn't
-  // mounted (e.g., in edit mode, during a re-render, or on first
-  // mount before afterNextRender fires).
-  private findDiffScrollEl(): HTMLElement | null {
-    return this.hostEl.nativeElement.querySelector('mz-diff-view');
   }
 
   protected setMode(value: string): void {
