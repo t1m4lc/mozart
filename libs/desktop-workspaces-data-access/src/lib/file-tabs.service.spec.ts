@@ -4,52 +4,51 @@ import { provideRouter, Router } from '@angular/router';
 import { describe, expect, it, beforeEach, vi } from 'vitest';
 import { FileTabsService } from './file-tabs.service';
 
-// `withStorageSync` writes to window.localStorage on every store patch.
-// Tests sharing a global LS would otherwise leak state across describe
-// blocks — particularly the hydration-persisted-state case below, which
-// pre-seeds the key. Clear before every test so each one starts from a
-// known-empty hydration.
-beforeEach(() => {
-  window.localStorage.removeItem('mozart-file-tabs-v1');
-  window.localStorage.removeItem('mozart-drafts-v1');
-});
-
-// File-tab lifecycle service. Covers the preview/pin idiom (D-r1 / D-r5),
-// R3 no-eviction regression (cap removal), close + side-effect cleanup,
-// findTab helper, and the navigateToFileTab router integration.
+// FileTabsService is now pure orchestration over SessionStore +
+// router. No localStorage interactions; the freeze-loop regression at
+// the persist-mirror layer is gone with the mirror itself. Active-tab
+// state is derived from the router URL — assertions that need it should
+// drive the router. Most tests below assert the open list / preview
+// slot lifecycle, which doesn't depend on routing.
 
 const wsA = 'workspace-a';
 const projectA = 'project-a';
 
-function makeRouter() {
-  return {
-    navigate: vi.fn().mockResolvedValue(true),
-  } as unknown as Router;
-}
-
 function setup() {
   TestBed.configureTestingModule({
-    providers: [
-      provideZonelessChangeDetection(),
-      provideRouter([]),
-    ],
+    providers: [provideZonelessChangeDetection(), provideRouter([])],
   });
   return TestBed.inject(FileTabsService);
 }
 
-describe('FileTabsService — preview / pin model', () => {
-  beforeEach(() => {
-    window.localStorage.removeItem('mozart-file-tabs-v1');
-    window.localStorage.removeItem('mozart-drafts-v1');
+function setupWithRouterMock() {
+  TestBed.configureTestingModule({
+    providers: [
+      provideZonelessChangeDetection(),
+      provideRouter([]),
+      {
+        provide: Router,
+        useValue: { navigate: vi.fn().mockResolvedValue(true) },
+      },
+    ],
   });
+  return {
+    svc: TestBed.inject(FileTabsService),
+    router: TestBed.inject(Router),
+  };
+}
 
-  it('previewForPath opens a new tab with preview state and activates', () => {
+beforeEach(() => {
+  window.localStorage.removeItem('mozart-last-url-v1');
+});
+
+describe('FileTabsService — preview / pin model', () => {
+  it('previewForPath opens a new tab with preview state', () => {
     const svc = setup();
     svc.previewForPath(wsA, 'src/a.ts');
 
     expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts']);
     expect(svc.isPreviewFor(wsA, 'src/a.ts')).toBe(true);
-    expect(svc.activeFor(wsA)()).toBe('src/a.ts');
   });
 
   it('previewForPath replaces the existing preview slot (one preview per workspace)', () => {
@@ -60,16 +59,15 @@ describe('FileTabsService — preview / pin model', () => {
     expect(svc.forWorkspace(wsA)()).toEqual(['src/b.ts']);
     expect(svc.isPreviewFor(wsA, 'src/a.ts')).toBe(false);
     expect(svc.isPreviewFor(wsA, 'src/b.ts')).toBe(true);
-    expect(svc.activeFor(wsA)()).toBe('src/b.ts');
   });
 
-  it('previewForPath on an already-pinned path just activates (preserves pin)', () => {
+  it('previewForPath on an already-pinned path is a no-op', () => {
     const svc = setup();
     svc.pinForPath(wsA, 'src/a.ts');
     svc.previewForPath(wsA, 'src/a.ts');
 
     expect(svc.isPreviewFor(wsA, 'src/a.ts')).toBe(false);
-    expect(svc.activeFor(wsA)()).toBe('src/a.ts');
+    expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts']);
   });
 
   it('pinForPath opens a new tab when not yet open', () => {
@@ -78,7 +76,6 @@ describe('FileTabsService — preview / pin model', () => {
 
     expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts']);
     expect(svc.isPreviewFor(wsA, 'src/a.ts')).toBe(false);
-    expect(svc.activeFor(wsA)()).toBe('src/a.ts');
   });
 
   it('pinForPath promotes an existing preview to pinned (flips italic)', () => {
@@ -90,23 +87,21 @@ describe('FileTabsService — preview / pin model', () => {
     expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts']);
   });
 
-  it('pinForPath on already-pinned is a no-op aside from activate', () => {
+  it('pinForPath on already-pinned is a no-op', () => {
     const svc = setup();
     svc.pinForPath(wsA, 'src/a.ts');
     svc.pinForPath(wsA, 'src/b.ts');
     svc.pinForPath(wsA, 'src/a.ts');
 
     expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts', 'src/b.ts']);
-    expect(svc.activeFor(wsA)()).toBe('src/a.ts');
   });
 });
 
-describe('FileTabsService — cap removal (R3)', () => {
-  it('R3: opening a second pinned tab does NOT evict the first (cap removed)', () => {
+describe('FileTabsService — no cap (R3)', () => {
+  it('R3: opening a second pinned tab does NOT evict the first', () => {
     const svc = setup();
     svc.pinForPath(wsA, 'src/a.ts');
     svc.pinForPath(wsA, 'src/b.ts');
-
     expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts', 'src/b.ts']);
   });
 
@@ -120,17 +115,16 @@ describe('FileTabsService — cap removal (R3)', () => {
 });
 
 describe('FileTabsService — closeFor', () => {
-  it('removes the closed path and falls back to neighbor active', () => {
+  it('removes the closed path and returns the neighbour to navigate to', () => {
     const svc = setup();
     svc.pinForPath(wsA, 'src/a.ts');
     svc.pinForPath(wsA, 'src/b.ts');
     svc.pinForPath(wsA, 'src/c.ts');
-    svc.setActiveFor(wsA, 'src/b.ts');
 
-    svc.closeFor(wsA, 'src/b.ts');
+    const next = svc.closeFor(wsA, 'src/b.ts');
 
     expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts', 'src/c.ts']);
-    expect(svc.activeFor(wsA)()).toBe('src/a.ts');
+    expect(next).toBe('src/a.ts');
   });
 
   it('clears the preview slot when the closing tab was the preview', () => {
@@ -148,54 +142,27 @@ describe('FileTabsService — closeFor', () => {
   it('is idempotent on a path that is not open', () => {
     const svc = setup();
     svc.pinForPath(wsA, 'src/a.ts');
-    svc.closeFor(wsA, 'src/does-not-exist.ts');
+    const next = svc.closeFor(wsA, 'src/does-not-exist.ts');
+    expect(next).toBeNull();
     expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts']);
   });
 
-  it('returns null active when the workspace had only one tab', () => {
+  it('returns null neighbour when the workspace had only one tab', () => {
     const svc = setup();
     svc.pinForPath(wsA, 'src/a.ts');
-    svc.closeFor(wsA, 'src/a.ts');
+    const next = svc.closeFor(wsA, 'src/a.ts');
 
     expect(svc.forWorkspace(wsA)()).toEqual([]);
-    expect(svc.activeFor(wsA)()).toBeNull();
+    expect(next).toBeNull();
   });
 });
 
-describe('FileTabsService — bootstrap with persisted state (R-freeze)', () => {
-  beforeEach(() => {
-    window.localStorage.removeItem('mozart-file-tabs-v1');
-    window.localStorage.removeItem('mozart-drafts-v1');
-  });
-
-  // Regression: before the untracked() fix in the constructor's mirror
-  // effect, instantiating the service while persisted file tabs existed
-  // would infinite-loop. The effect read `uiState.fileTabsByWorkspace()`
-  // reactively and wrote to the same store via `setFileTabs`. The store
-  // patches with a fresh object reference on every write, so the
-  // effect's own write retriggered the effect, freezing the app on the
-  // first workspace navigation (FileTabsService is providedIn: root,
-  // instantiated lazily). This test seeds persisted data and asserts
-  // the service constructs synchronously without timing out.
-  it('does not infinite-loop when hydrating persisted file tabs', async () => {
-    window.localStorage.setItem(
-      'mozart-file-tabs-v1',
-      JSON.stringify({
-        fileTabsByWorkspace: {
-          [wsA]: [{ path: 'src/a.ts' }, { path: 'src/b.ts' }],
-        },
-        lastActiveTabIdByWorkspace: {},
-        fileViewByWorkspace: {},
-      }),
-    );
-
+describe('FileTabsService — freshly constructed', () => {
+  it('has no open tabs for any workspace', () => {
     const svc = setup();
-
-    // Let any pending microtasks (effects) settle. An infinite effect
-    // loop would never yield to a macrotask; the test would time out.
-    await new Promise((r) => setTimeout(r, 30));
-
-    expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts', 'src/b.ts']);
+    expect(svc.forWorkspace(wsA)()).toEqual([]);
+    expect(svc.previewFor(wsA)()).toBeNull();
+    expect(svc.activeFor(wsA)()).toBeNull();
   });
 });
 
@@ -226,15 +193,7 @@ describe('FileTabsService — findTab', () => {
 
 describe('FileTabsService — navigateToFileTab', () => {
   it('passes state={intent:preview} + replaceUrl=true for preview navigations', async () => {
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        provideRouter([]),
-        { provide: Router, useValue: makeRouter() },
-      ],
-    });
-    const svc = TestBed.inject(FileTabsService);
-    const router = TestBed.inject(Router);
+    const { svc, router } = setupWithRouterMock();
 
     await svc.navigateToFileTab({
       projectId: projectA,
@@ -254,15 +213,7 @@ describe('FileTabsService — navigateToFileTab', () => {
   });
 
   it('omits state and replaceUrl=false for pin navigations', async () => {
-    TestBed.configureTestingModule({
-      providers: [
-        provideZonelessChangeDetection(),
-        provideRouter([]),
-        { provide: Router, useValue: makeRouter() },
-      ],
-    });
-    const svc = TestBed.inject(FileTabsService);
-    const router = TestBed.inject(Router);
+    const { svc, router } = setupWithRouterMock();
 
     await svc.navigateToFileTab({
       projectId: projectA,

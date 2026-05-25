@@ -220,37 +220,31 @@ export class WorkspaceTabContent {
   private lastDispatchedTabId: string | null = null;
 
   constructor() {
-    // URL is the source of truth for which chat/file is active. The
-    // effect mirrors the parsed tab into FileTabsService + ChatFacade
-    // and writes `lastActiveTabIdByWorkspace` so the resolver restores
-    // the user's last position on workspace re-navigation.
+    // URL is the source of truth for the active workspace + tab —
+    // `withComponentInputBinding()` surfaces them as inputs. This
+    // effect records the (workspace, tab) pair into the session store
+    // for the resolver's "return to last tab in workspace X" fallback,
+    // then dispatches file-tab intent (preview vs pin) and activates
+    // chats.
     effect(() => {
       const ws = this.workspaceId();
       const parsed = this.tab();
       if (!ws || !parsed) return;
+
+      this.uiState.setLastActiveTab(ws, parsed.tabId);
 
       const intent = this.latestIntent();
       const tabKey = `${ws}:${parsed.tabId}`;
       const isNewTab = this.lastDispatchedTabId !== tabKey;
       this.lastDispatchedTabId = tabKey;
 
-      // Always persist the last-active tabId, even on re-fires — it's
-      // the cheapest way to keep the resolver in sync.
-      this.uiState.setLastActiveTab(ws, parsed.tabId);
-
       if (parsed.kind === 'chat') {
-        this.fileTabs.setActiveFor(ws, null);
         void this.chat.setActiveChat(ws, parsed.chatId);
         return;
       }
 
       if (parsed.kind === 'file') {
-        if (!isNewTab) {
-          // Same tab re-firing: just re-activate without re-applying
-          // intent (already settled).
-          this.fileTabs.setActiveFor(ws, parsed.path);
-          return;
-        }
+        if (!isNewTab) return;
         if (intent === 'preview') {
           this.fileTabs.previewForPath(ws, parsed.path);
         } else {

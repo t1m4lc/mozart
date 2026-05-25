@@ -1,7 +1,6 @@
 export {
   DEFAULT_WORKSPACE_ASIDE_STATE,
   DEFAULT_WORKSPACE_FILE_PATH_STATE,
-  type DraftEntry,
   type PersistedFileTab,
   type WorkspaceAsideBottomTab,
   type WorkspaceAsideFilesView,

@@ -5,9 +5,11 @@ import {
   Injector,
   afterNextRender,
   computed,
+  effect,
   inject,
   input,
   linkedSignal,
+  untracked,
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
@@ -25,6 +27,7 @@ import {
   LLM_MODEL_CATALOG,
   PROVIDERS,
 } from '@mozart/desktop-llm-model-util';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
 import {
   ChatScrollOrchestrator,
@@ -107,21 +110,12 @@ export class FeatureWorkspaceComposer {
   private readonly injector = inject(Injector);
   private readonly scroll = inject(ScrollPositionService);
   private readonly orchestrator = inject(ChatScrollOrchestrator);
+  private readonly uiState = inject(UiStateFacade);
 
   private readonly composerEl = viewChild('composerEl', {
     read: ElementRef<HTMLElement>,
   });
 
-  // Composer draft. linkedSignal resets to '' whenever the workspace
-  // changes — composer is always-mounted in WorkspaceTabContent and
-  // would otherwise carry a half-typed message from workspace A into
-  // workspace B's composer (the view stays alive across same-route
-  // navigations). User typing overrides locally; the next workspace
-  // switch resets it again.
-  protected readonly value = linkedSignal<string | null, string>({
-    source: () => this.workspaceId(),
-    computation: () => '',
-  });
   protected readonly isStreaming = this.facade.isStreaming(this.workspaceId);
 
   private readonly _activeChat = computed(() => {
@@ -133,6 +127,26 @@ export class FeatureWorkspaceComposer {
   private readonly _activeChatId = computed(
     () => this._activeChat()?.id ?? null,
   );
+
+  // Composer draft, session-only per (workspaceId, chatId). The
+  // linkedSignal is the local edit buffer; on (workspace, chat) change
+  // the computation loads the saved draft for that pair so half-typed
+  // messages survive a workspace switch. User typing flows back into
+  // the session store via the effect below — both reads and writes are
+  // wrapped in `untracked` so this can't feed back into itself.
+  protected readonly value = linkedSignal<
+    { ws: string | null; chat: string | null },
+    string
+  >({
+    source: () => ({
+      ws: this.workspaceId(),
+      chat: this._activeChatId(),
+    }),
+    computation: ({ ws, chat }) => {
+      if (!ws || !chat) return '';
+      return untracked(() => this.uiState.readChatDraft(ws, chat));
+    },
+  });
 
   protected readonly currentMode = computed<ChatMode>(
     () => this._activeChat()?.mode ?? 'agent',
@@ -181,6 +195,20 @@ export class FeatureWorkspaceComposer {
   }
 
   constructor() {
+    // Mirror the local edit buffer into the session store so the draft
+    // for (workspaceId, chatId) survives workspace switches. Wrapped in
+    // `untracked` so the write doesn't re-trigger the effect via the
+    // session store's signal.
+    effect(() => {
+      const ws = this.workspaceId();
+      const chat = this._activeChatId();
+      const v = this.value();
+      if (!ws || !chat) return;
+      untracked(() => {
+        this.uiState.writeChatDraft(ws, chat, v);
+      });
+    });
+
     // All three focus triggers are declared as RxJS streams instead of
     // signal effects: the only mutation is the textarea .focus() call
     // (genuine DOM side effect inside tap), and pairwise() expresses
@@ -243,6 +271,7 @@ export class FeatureWorkspaceComposer {
       this.orchestrator.scrollToBottom(id, true);
     }
     void this.facade.sendUserMessage(id, event.text, event.mode);
+    if (chatId) this.uiState.clearChatDraft(id, chatId);
     this.value.set('');
   }
 

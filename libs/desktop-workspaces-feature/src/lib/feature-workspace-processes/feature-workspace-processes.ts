@@ -187,7 +187,7 @@ export class FeatureWorkspaceProcesses {
       if (!id || this.hydratedFromUrl.has(id)) return;
       this.hydratedFromUrl.add(id);
       const raw = this.route.snapshot.queryParamMap.get('tab');
-      const hasEntry = !!this.uiState.asideStateByWorkspace()[id];
+      const hasEntry = this.uiState.hasAsideEntry(id);
       if (raw !== null && !hasEntry) {
         this.uiState.updateWorkspaceAsideState(id, {
           bottomTab: coerceBottomTab(raw),

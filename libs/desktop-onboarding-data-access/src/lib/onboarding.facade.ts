@@ -118,7 +118,6 @@ export class OnboardingFacade {
       const result = await this.getStartedAdapter.ensure();
       await this.projects.loadAll();
       await this.workspaces.loadAll();
-      this.workspaces.setActive(result.workspace.id);
       void this.router.navigate(
         workspaceRouteCommands(result.workspace.projectId, result.workspace.id),
       );

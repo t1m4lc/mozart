@@ -69,7 +69,6 @@ export class TourPage {
       const result = await this.adapter.ensure();
       await this.projects.loadAll();
       await this.workspaces.loadAll();
-      this.workspaces.setActive(result.workspace.id);
       // Redirect into the workspace with the tour query param ; the
       // AppShell mounts the overlay when it sees `?tour=on`.
       void this.router.navigate(

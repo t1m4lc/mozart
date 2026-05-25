@@ -156,7 +156,7 @@ export class FeatureWorkspaceFiles {
   protected readonly activeFilePath = computed(() => {
     const id = this.workspaces.activeId();
     if (!id) return null;
-    return this.fileTabs.activeByWorkspace().get(id) ?? null;
+    return this.fileTabs.activeFor(id)();
   });
 
   // Count for the Changes tab badge. Reads through the same cache the

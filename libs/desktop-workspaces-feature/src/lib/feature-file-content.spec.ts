@@ -38,9 +38,9 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 interface UiStateStub {
   fileViewStateFor: ReturnType<typeof vi.fn>;
   upsertFileView: ReturnType<typeof vi.fn>;
-  readDraft: ReturnType<typeof vi.fn>;
-  writeDraft: ReturnType<typeof vi.fn>;
-  clearDraft: ReturnType<typeof vi.fn>;
+  readEdit: ReturnType<typeof vi.fn>;
+  writeEdit: ReturnType<typeof vi.fn>;
+  clearEdit: ReturnType<typeof vi.fn>;
 }
 
 function makeUiState(): UiStateStub {
@@ -50,9 +50,9 @@ function makeUiState(): UiStateStub {
   return {
     fileViewStateFor: vi.fn(() => state),
     upsertFileView: vi.fn(),
-    readDraft: vi.fn(() => null),
-    writeDraft: vi.fn(),
-    clearDraft: vi.fn(),
+    readEdit: vi.fn(() => null),
+    writeEdit: vi.fn(),
+    clearEdit: vi.fn(),
   };
 }
 

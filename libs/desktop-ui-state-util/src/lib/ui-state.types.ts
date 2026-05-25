@@ -31,8 +31,8 @@ export const DEFAULT_WORKSPACE_FILE_PATH_STATE: WorkspaceFilePathState = {
   splitDiff: false,
 };
 
-// Per-workspace right-aside UI state. Persisted across sessions via the
-// store's `withStorageSync`, keyed by workspaceId. Defaults match the
+// Per-workspace right-aside UI state. Session-only — held by
+// `SessionStore`, keyed by workspaceId. Defaults match the
 // previous hard-coded component defaults so an empty entry maps onto
 // today's first-run behavior.
 export interface WorkspaceAsideState {
@@ -57,17 +57,9 @@ export const DEFAULT_WORKSPACE_ASIDE_STATE: WorkspaceAsideState = {
   unstagedOpen: true,
 };
 
-// Persisted file-tab list per workspace. Preview-state is intentionally
-// in-memory only — on hydrate, restored tabs come back as pinned.
+// File-tab list per workspace (session-only; SessionStore owns it).
+// Preview state is intentionally NOT carried here — that lives in its
+// own per-workspace slot inside SessionStore.
 export interface PersistedFileTab {
   readonly path: string;
-}
-
-// Draft contents for unsaved edits to a file within a workspace.
-// Keyed by (workspaceId, path); persisted off-main-thread via a Web
-// Worker so typing on large files doesn't block the UI on a sync
-// localStorage write.
-export interface DraftEntry {
-  readonly content: string;
-  readonly updatedAt: number;
 }

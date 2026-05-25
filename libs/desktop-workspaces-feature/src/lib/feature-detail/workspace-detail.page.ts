@@ -172,7 +172,6 @@ export class WorkspaceDetailPage {
       const id = this.workspaceId();
       if (id) {
         this.store.loadWorkspace(id);
-        this.workspaces.setActive(id);
         void this.workspaces.markRead(id).catch(() => undefined);
         // Page-level safety net: the workspace must have at least one
         // chat before any tab renders, because the composer (mounted

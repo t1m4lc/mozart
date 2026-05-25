@@ -298,15 +298,15 @@ export class FeatureFileContent {
     this.resetKey();
     return '';
   });
-  // Editor buffer. Initialized from any persisted draft for this
-  // (ws, path) so unsaved edits survive tab switches. Once loadFile
-  // resolves, the baseline is set; the editorValue stays whatever the
-  // draft was (or matches baseline if no draft existed).
+  // Editor buffer. Initialized from any in-memory edit buffer for this
+  // (ws, path) so unsaved edits survive tab switches within the
+  // session. The buffer is flushed to disk on app close
+  // (`onCloseRequested` in app.config.ts) — no localStorage persistence.
   protected readonly editorValue = linkedSignal<string>(() => {
     const key = this.resetKey();
     const [ws, path] = decodeResetKey(key);
     if (!ws || !path) return '';
-    return this.uiState.readDraft(ws, path)?.content ?? '';
+    return this.uiState.readEdit(ws, path)?.content ?? '';
   });
   protected readonly loading = signal(false);
   protected readonly loadError = linkedSignal<string | null>(() => {
@@ -373,20 +373,19 @@ export class FeatureFileContent {
       this.hasAutoPinned.set(true);
     });
 
-    // Drafts: keep the persisted entry in sync with the live buffer.
-    // Writes go through a Web Worker (transparent), so this is cheap
-    // even on keystroke-frequent updates. Cleared on save success
-    // and on tab close (FileTabsService.closeFor).
+    // Live edit buffer: mirror the editor into SessionStore so other
+    // surfaces (and the on-close disk flush) can read the latest
+    // content + baseline hash. In-memory only; cleared on save success
+    // and on tab close (FileTabsService.closeFor). Baseline-equal
+    // buffers clear instead of writing a no-op entry.
     effect(() => {
       const ws = this.workspaceId();
       const p = this.filePath();
       if (!ws || !p) return;
-      // Track dirty so we don't write a no-op draft for an
-      // unchanged buffer; baseline-equal buffers clear instead.
       if (this.dirty()) {
-        this.uiState.writeDraft(ws, p, this.editorValue());
-      } else if (this.uiState.readDraft(ws, p)) {
-        this.uiState.clearDraft(ws, p);
+        this.uiState.writeEdit(ws, p, this.editorValue(), this.baselineHash());
+      } else if (this.uiState.readEdit(ws, p)) {
+        this.uiState.clearEdit(ws, p);
       }
     });
 
@@ -484,10 +483,10 @@ export class FeatureFileContent {
       const newHash = await this.repos.saveFile(ws, p, content, expected);
       this.baseline.set(content);
       this.baselineHash.set(newHash);
-      // Save success: drop the draft AND nudge the Changes tab to
-      // refresh so the user's modification shows up without waiting
+      // Save success: drop the edit buffer AND nudge the Changes tab
+      // to refresh so the user's modification shows up without waiting
       // for the FS-watcher debounce. saveError paths skip both.
-      this.uiState.clearDraft(ws, p);
+      this.uiState.clearEdit(ws, p);
       this.mutations.softRefreshAfterMutation(ws);
     } catch (err) {
       this.saveError.set(mapSaveError(err));
@@ -513,11 +512,11 @@ export class FeatureFileContent {
       this.loadedEditKey.set(fileStateKey(workspaceId, path));
       this.baseline.set(text);
       this.baselineHash.set(hash);
-      // Only seed the buffer from disk when there isn't a draft. A
-      // pre-existing draft is the user's unsaved work — preserve it
-      // and let `dirty` flip true so the Save button lights up.
-      const draft = this.uiState.readDraft(workspaceId, path);
-      if (!draft) {
+      // Only seed the buffer from disk when there isn't an in-memory
+      // edit. A pre-existing edit is the user's unsaved work — preserve
+      // it and let `dirty` flip true so the Save button lights up.
+      const edit = this.uiState.readEdit(workspaceId, path);
+      if (!edit) {
         this.editorValue.set(text);
       }
     } catch (err) {

@@ -176,7 +176,7 @@ export class FeatureChangesList {
   protected readonly activeFilePath = computed(() => {
     const id = this.workspaceId();
     if (!id) return null;
-    return this.fileTabs.activeByWorkspace().get(id) ?? null;
+    return this.fileTabs.activeFor(id)();
   });
 
   // Reads through the same cache the parent's tab-count badge uses —

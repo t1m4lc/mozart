@@ -2,7 +2,6 @@ import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { NonMacWindowControls } from '@mozart/desktop-core-ui';
 import { AddProjectFlow } from '@mozart/desktop-shell-feature';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
-import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFolderOpen,
@@ -118,11 +117,9 @@ export class DashboardPage {
   private readonly addProjectFlow = inject(AddProjectFlow);
   protected readonly layout = inject(LayoutService);
 
-  constructor() {
-    // Clear active workspace so the shell knows we are not in a
-    // workspace context (drives right-aside visibility).
-    inject(WorkspacesFacade).setActive(null);
-  }
+  // No imperative "clear active workspace" needed — `RouterFacade`
+  // derives `activeWorkspaceId` from the URL, which is `/` while this
+  // page is mounted, so it's already null.
 
   protected async onOpenProject(): Promise<void> {
     try {

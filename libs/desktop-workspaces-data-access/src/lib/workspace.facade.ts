@@ -39,8 +39,8 @@ export class WorkspacesFacade {
   private readonly uiState = inject(UiStateFacade);
 
   readonly all = this.store.workspaces;
-  // Active workspace id is owned by domains/ui-state/. The facade
-  // re-exposes it so historical consumers continue to work.
+  // Active workspace id is derived from the router URL — RouterFacade
+  // exposes it as a signal. The facade re-exposes for legacy consumers.
   readonly activeId = this.uiState.activeWorkspaceId;
   readonly pending = this.store.pending;
 
@@ -115,10 +115,6 @@ export class WorkspacesFacade {
     const siblings = this.store.byProject().get(current.projectId) ?? [];
     const match = siblings.find((w) => w.id !== workspaceId && w.unread);
     return match?.id ?? null;
-  }
-
-  setActive(id: string | null): void {
-    this.uiState.setActiveWorkspace(id);
   }
 
   /**
@@ -221,7 +217,6 @@ export class WorkspacesFacade {
 
       this.store.removeById(pendingId);
       this.store.upsertOne(workspaceFromDto(dto, input.projectId));
-      this.uiState.setActiveWorkspace(dto.workspace_id);
       return dto.workspace_id;
     } catch (err) {
       this.store.removeById(pendingId);
@@ -286,9 +281,6 @@ export class WorkspacesFacade {
   async archive(id: string): Promise<void> {
     await this.adapter.archive(id);
     this.store.removeById(id);
-    if (this.uiState.activeWorkspaceId() === id) {
-      this.uiState.setActiveWorkspace(null);
-    }
     this.uiState.pruneWorkspace(id);
   }
 

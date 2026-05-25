@@ -4,17 +4,17 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmBadgeImports } from '@spartan-ui/badge';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
+import type { OpenInTool } from '@mozart/desktop-workspaces-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideGitBranch,
   lucideGitCommitVertical,
   lucideGitPullRequest,
 } from '@ng-icons/lucide';
-import type { OpenInTool } from '@mozart/desktop-workspaces-util';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { OpenInMenu } from './open-in-menu';
 
 @Component({
@@ -45,7 +45,7 @@ import { OpenInMenu } from './open-in-menu';
         variant="secondary"
         hlmTooltip="Branch for this workspace"
         position="bottom"
-        class="min-w-0 max-w-[140px] gap-1 font-normal"
+        class="min-w-0 max-w-35 gap-1 font-normal"
       >
         <ng-icon hlm name="lucideGitBranch" size="xs" />
         <span class="truncate font-mono">{{ branch() || '—' }}</span>
@@ -66,7 +66,6 @@ import { OpenInMenu } from './open-in-menu';
         size="sm"
         type="button"
         class="h-7 px-2 text-xs font-normal text-muted-foreground"
-        hlmTooltip="Commit changes"
         position="bottom"
         (click)="commit.emit()"
       >

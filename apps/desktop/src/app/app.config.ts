@@ -5,6 +5,7 @@ import {
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import {
+  Router,
   provideRouter,
   withComponentInputBinding,
   withHashLocation,
@@ -17,6 +18,7 @@ import {
   NotificationService,
 } from '@mozart/desktop-core-data-access';
 import { appRoutes } from './app.routes';
+import { registerCloseFlush } from './close-flush';
 import {
   provideTauriAdapters,
   TauriConnectivityService,
@@ -31,6 +33,11 @@ import {
 import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
+import {
+  RouterFacade,
+  SessionStore,
+} from '@mozart/desktop-ui-state-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 export const appConfig: ApplicationConfig = {
@@ -72,6 +79,10 @@ export const appConfig: ApplicationConfig = {
       const workspaces = inject(WorkspacesFacade);
       const chat = inject(ChatFacade);
       const profile = inject(ProfileFacade);
+      const routerFacade = inject(RouterFacade);
+      const sessionStore = inject(SessionStore);
+      const repos = inject(RepositoriesFacade);
+      const router = inject(Router);
 
       // Boot auth + onboarding first so route guards see the persisted
       // state before the router resolves the initial URL.
@@ -85,6 +96,23 @@ export const appConfig: ApplicationConfig = {
       } catch (err) {
         console.error('hydration failed on boot', err);
       }
+
+      // Restore last URL from the previous session. Runs INSIDE the
+      // initializer so it executes before the router's first
+      // navigation — the resolver authorizes the URL, redirecting to
+      // a default tab if the workspace or tab id is stale.
+      const lastUrl = routerFacade.bootRestoreUrl();
+      if (lastUrl && router.url === '/') {
+        await router.navigateByUrl(lastUrl).catch((err) => {
+          console.warn('[boot] last-URL restore failed:', err);
+        });
+      }
+
+      // Awaited so the close handler is registered before any user
+      // interaction can trigger a window close. The Tauri listener
+      // registration resolves in a microtask — cheap.
+      await registerCloseFlush(sessionStore, repos);
+
       // Probe installed IDEs so the Open-in dropdown reflects what the
       // user actually has on PATH.
       void workspaces.detectIdes();

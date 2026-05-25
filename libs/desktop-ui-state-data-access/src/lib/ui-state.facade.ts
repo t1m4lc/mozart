@@ -1,127 +1,101 @@
-import { Injectable, Signal, computed, inject } from '@angular/core';
+import { Injectable, Signal, inject } from '@angular/core';
 import {
-  DEFAULT_WORKSPACE_ASIDE_STATE,
-  DEFAULT_WORKSPACE_FILE_PATH_STATE,
-  type DraftEntry,
   type PersistedFileTab,
   type WorkspaceAsideState,
   type WorkspaceFilePathState,
   type WorkspaceFileViewMap,
 } from '@mozart/desktop-ui-state-util';
-import { DraftsStore } from './drafts.store';
-import { FileTabsStore } from './file-tabs.store';
-import { UiStateStore } from './ui-state.store';
+import { RouterFacade } from './router.facade';
+import { type DirtyEdit, SessionStore } from './session.store';
 
-const EMPTY_TABS: readonly PersistedFileTab[] = [];
-
-// Public surface for ui-state across all three underlying stores —
-// UiStateStore (aside / projects / tree), FileTabsStore (open tabs /
-// last-active / per-path mode), and DraftsStore (unsaved edits via
-// worker). Consumers get a single facade so the split between stores
-// stays an implementation detail.
+// Compat seam over two backing stores:
+//   - SessionStore     — all session-only UI state (sidebar + per-workspace
+//                        incl. live edit buffer flushed to disk on close)
+//   - RouterFacade     — router-derived active position + durable last URL
+//
+// Consumers continue to import this single facade. The split between
+// backing stores stays an implementation detail.
 @Injectable({ providedIn: 'root' })
 export class UiStateFacade {
-  private readonly store = inject(UiStateStore);
-  private readonly fileTabsStore = inject(FileTabsStore);
-  private readonly draftsStore = inject(DraftsStore);
+  private readonly session = inject(SessionStore);
+  private readonly routerFacade = inject(RouterFacade);
 
-  readonly activeWorkspaceId = this.store.activeWorkspaceId;
-  readonly expandedProjectIds = this.store.expandedProjectIds;
-  readonly collapsedStatusIds = this.store.collapsedStatusIds;
-  readonly asideStateByWorkspace = this.store.asideStateByWorkspace;
+  // Active workspace is derived from the router URL — no setter.
+  readonly activeWorkspaceId = this.routerFacade.activeWorkspaceId;
 
-  setActiveWorkspace(id: string | null): void {
-    this.store.setActiveWorkspace(id);
-  }
+  // Sidebar -----------------------------------------------------------
+
+  readonly expandedProjectIds = this.session.expandedProjectIds;
+  readonly collapsedStatusIds = this.session.collapsedStatusIds;
 
   toggleProjectExpanded(projectId: string): void {
-    this.store.toggleProjectExpanded(projectId);
+    this.session.toggleProjectExpanded(projectId);
   }
 
   isProjectExpanded(projectId: string): boolean {
-    return this.store.expandedProjectIds().has(projectId);
+    return this.session.expandedProjectIds().has(projectId);
   }
 
   expandProjects(projectIds: readonly string[]): void {
-    this.store.expandProjects(projectIds);
+    this.session.expandProjects(projectIds);
   }
 
   setExpandedProjects(projectIds: readonly string[]): void {
-    this.store.setExpandedProjects(projectIds);
+    this.session.setExpandedProjects(projectIds);
   }
 
   collapseAllProjects(): void {
-    this.store.collapseAllProjects();
+    this.session.collapseAllProjects();
   }
 
   isStatusCollapsed(statusId: string): boolean {
-    return this.store.collapsedStatusIds().has(statusId);
+    return this.session.collapsedStatusIds().has(statusId);
   }
 
   toggleStatusCollapsed(statusId: string): void {
-    this.store.toggleStatusCollapsed(statusId);
+    this.session.toggleStatusCollapsed(statusId);
   }
 
   setCollapsedStatuses(statusIds: readonly string[]): void {
-    this.store.setCollapsedStatuses(statusIds);
+    this.session.setCollapsedStatuses(statusIds);
   }
 
   expandAllStatuses(): void {
-    this.store.expandAllStatuses();
+    this.session.expandAllStatuses();
   }
 
-  // Returns a Signal that tracks the right-aside state for a given
-  // workspace id. Pass a Signal (typically `workspaces.activeId`) so
-  // the returned signal reactively flips as the user switches between
-  // workspaces. Falls back to DEFAULT_WORKSPACE_ASIDE_STATE while no
-  // entry exists for that id (first visit).
+  // Right-aside (session) ---------------------------------------------
+
   asideStateFor(
     workspaceId: Signal<string | null>,
   ): Signal<WorkspaceAsideState> {
-    return computed(() => {
-      const id = workspaceId();
-      if (!id) return DEFAULT_WORKSPACE_ASIDE_STATE;
-      return (
-        this.store.asideStateByWorkspace()[id] ?? DEFAULT_WORKSPACE_ASIDE_STATE
-      );
-    });
+    return this.session.asideStateFor(workspaceId);
   }
 
   updateWorkspaceAsideState(
     workspaceId: string,
     patch: Partial<WorkspaceAsideState>,
   ): void {
-    this.store.updateWorkspaceAsideState(workspaceId, patch);
+    this.session.updateAsideState(workspaceId, patch);
   }
 
-  /** Per-(workspace, path) file view state for the active file in
-   *  `feature-file-content`. Reactively flips as the user navigates
-   *  between file tabs (each path remembers its own mode + splitDiff). */
+  hasAsideEntry(workspaceId: string): boolean {
+    return this.session.hasAsideEntry(workspaceId);
+  }
+
+  // Per-path file view (session) --------------------------------------
+
   fileViewStateFor(
     workspaceId: Signal<string | null>,
     path: Signal<string | null>,
   ): Signal<WorkspaceFilePathState> {
-    return computed(() => {
-      const id = workspaceId();
-      const p = path();
-      if (!id || !p) return DEFAULT_WORKSPACE_FILE_PATH_STATE;
-      return (
-        this.fileTabsStore.fileViewByWorkspace()[id]?.[p] ??
-        DEFAULT_WORKSPACE_FILE_PATH_STATE
-      );
-    });
+    return this.session.fileViewStateFor(workspaceId, path);
   }
 
-  /** Whole per-workspace view map — used by surfaces that need to
-   *  inspect every open path's state (rare; mostly for tests). */
   fileViewMapFor(
     workspaceId: Signal<string | null>,
   ): Signal<WorkspaceFileViewMap> {
-    return computed(() => {
-      const id = workspaceId();
-      if (!id) return {};
-      return this.fileTabsStore.fileViewByWorkspace()[id] ?? {};
-    });
+    return this.session.fileViewMapFor(workspaceId);
   }
 
   upsertFileView(
@@ -129,77 +103,83 @@ export class UiStateFacade {
     path: string,
     patch: Partial<WorkspaceFilePathState>,
   ): void {
-    this.fileTabsStore.upsertFileView(workspaceId, path, patch);
+    this.session.upsertFileView(workspaceId, path, patch);
   }
 
   forgetFileView(workspaceId: string, path: string): void {
-    this.fileTabsStore.forgetFileView(workspaceId, path);
+    this.session.forgetFileView(workspaceId, path);
   }
 
-  /** Persisted file-tab list for a workspace. Used by FileTabsService
-   *  on bootstrap to restore the open tabs strip. */
+  // Open file tabs (session) ------------------------------------------
+
   fileTabsFor(workspaceId: string): readonly PersistedFileTab[] {
-    return this.fileTabsStore.fileTabsByWorkspace()[workspaceId] ?? EMPTY_TABS;
+    return this.session.fileTabsFor(workspaceId);
   }
 
-  /** Returns a Signal of all persisted file-tab maps. Cheap to consume
-   *  in components that filter by workspace inline. */
-  readonly fileTabsByWorkspace = this.fileTabsStore.fileTabsByWorkspace;
+  readonly fileTabsByWorkspace = this.session.openFileTabs;
 
   setFileTabs(workspaceId: string, tabs: readonly PersistedFileTab[]): void {
-    this.fileTabsStore.setOpenTabs(workspaceId, tabs);
+    this.session.setOpenTabs(workspaceId, tabs);
   }
 
-  /** Persisted last-active tab id for `workspaceId`. Resolver reads
-   *  this on workspace navigation; null means fall back to default chat. */
+  // Last-active tab (session) -----------------------------------------
+
   lastActiveTabIdFor(workspaceId: string): string | null {
-    return (
-      this.fileTabsStore.lastActiveTabIdByWorkspace()[workspaceId] ?? null
-    );
+    return this.session.lastTabFor(workspaceId);
   }
 
-  setLastActiveTab(workspaceId: string, tabId: string | null): void {
-    this.fileTabsStore.setLastActiveTab(workspaceId, tabId);
+  setLastActiveTab(workspaceId: string, tabId: string): void {
+    this.session.setLastTab(workspaceId, tabId);
   }
 
-  // Drafts — synchronous reads from the in-memory mirror, async writes
-  // through the worker (transparent to callers).
-  readDraft(workspaceId: string, path: string): DraftEntry | null {
-    return this.draftsStore.read(workspaceId, path);
+  // Live edit buffer (in-memory, flushed to disk on app close) -------
+
+  readEdit(workspaceId: string, path: string): DirtyEdit | null {
+    return this.session.readEdit(workspaceId, path);
   }
 
-  writeDraft(workspaceId: string, path: string, content: string): void {
-    this.draftsStore.set(workspaceId, path, content);
+  writeEdit(
+    workspaceId: string,
+    path: string,
+    content: string,
+    baseHash: string,
+  ): void {
+    this.session.writeEdit(workspaceId, path, content, baseHash);
   }
 
-  clearDraft(workspaceId: string, path: string): void {
-    this.draftsStore.clear(workspaceId, path);
+  clearEdit(workspaceId: string, path: string): void {
+    this.session.clearEdit(workspaceId, path);
   }
 
-  /** Persisted expanded-folder list for a workspace's All-files tree.
-   *  Pass a Signal (typically the file-tree's `workspaceId` input)
-   *  so the returned signal flips reactively on workspace switch and
-   *  the tree restores the user's previous expansion state. */
+  // Chat composer drafts (session) ------------------------------------
+
+  readChatDraft(workspaceId: string, chatId: string): string {
+    return this.session.readChatDraft(workspaceId, chatId);
+  }
+
+  writeChatDraft(workspaceId: string, chatId: string, content: string): void {
+    this.session.writeChatDraft(workspaceId, chatId, content);
+  }
+
+  clearChatDraft(workspaceId: string, chatId: string): void {
+    this.session.clearChatDraft(workspaceId, chatId);
+  }
+
+  // File tree expansion (session) -------------------------------------
+
   treeExpandedFor(
     workspaceId: Signal<string | null>,
   ): Signal<readonly string[]> {
-    return computed(() => {
-      const id = workspaceId();
-      if (!id) return [];
-      return this.store.treeExpandedByWorkspace()[id] ?? [];
-    });
+    return this.session.treeExpandedFor(workspaceId);
   }
 
   setTreeExpanded(workspaceId: string, paths: readonly string[]): void {
-    this.store.setTreeExpanded(workspaceId, paths);
+    this.session.setTreeExpanded(workspaceId, paths);
   }
 
-  // Drop every per-workspace entry across all three stores. Called by
-  // WorkspacesFacade on archive / project removal so the persisted
-  // maps stay bounded.
+  // Workspace prune (cross-store fan-out) -----------------------------
+
   pruneWorkspace(workspaceId: string): void {
-    this.store.pruneWorkspace(workspaceId);
-    this.fileTabsStore.pruneWorkspace(workspaceId);
-    this.draftsStore.pruneWorkspace(workspaceId);
+    this.session.pruneWorkspace(workspaceId);
   }
 }
