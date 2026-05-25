@@ -142,13 +142,10 @@ const TEXT_ENCODER = new TextEncoder();
         </div>
       }
 
-      <!-- pb-40 (160px) reserves bottom space for the absolutely-
-           positioned workspace composer (chrome ~100px + gradient
-           overlay 32px + breathing room for multi-line drafts). The
-           editor/diff box ends visibly above the composer instead of
-           being overlaid by it. Mirrors the chat-scroll-surface's
-           inner pb-32 pattern. -->
-      <div hlmTabsContent="edit" class="flex min-h-0 flex-1 flex-col pb-40">
+      <!-- Composer is a flex sibling of this tab content's scroll
+           ancestor (M16) — no overlay, no clearance constant. The
+           editor's bottom is where the composer's top is. -->
+      <div hlmTabsContent="edit" class="flex min-h-0 flex-1 flex-col">
         @if (mode() === 'edit') {
           @if (loadError(); as err) {
             <div
@@ -247,7 +244,7 @@ const TEXT_ENCODER = new TextEncoder();
         }
       </div>
 
-      <div hlmTabsContent="diff" class="flex min-h-0 flex-1 flex-col pb-40">
+      <div hlmTabsContent="diff" class="flex min-h-0 flex-1 flex-col">
         <app-feature-file-diff
           class="flex-1 min-h-0"
           [workspaceId]="workspaceId()"

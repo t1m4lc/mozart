@@ -168,7 +168,7 @@ describe('FeatureWorkspaceComposer', () => {
       );
     });
 
-    it('does NOT trigger registered surface scrollToBottom on file tab', () => {
+    it('does NOT touch the registered surface on file tab (rides-up + scroll gates)', () => {
       const stubs = configure({ activeChat: makeChat(), streaming: false });
       const handle = registerMockSurface(stubs.registry, 'ws-1');
       const fixture = mountComposer({
@@ -181,12 +181,35 @@ describe('FeatureWorkspaceComposer', () => {
 
       cmp.onSend({ text: 'silent send', mode: 'agent' });
 
+      expect(handle.surface.scrollIntoView).not.toHaveBeenCalled();
       expect(handle.surface.scrollToBottom).not.toHaveBeenCalled();
     });
 
-    it('triggers registered surface scrollToBottom on chat tab', () => {
+    it('rides up the latest user message via scrollIntoView on chat tab', async () => {
       const stubs = configure({ activeChat: makeChat(), streaming: false });
-      const handle = registerMockSurface(stubs.registry, 'ws-1');
+      // Surface exposes an element so the composer can querySelector
+      // for the trailing app-user-message. Seed two user messages and
+      // assert the LAST one rides up.
+      const scrollEl = document.createElement('div');
+      const u1 = document.createElement('app-user-message');
+      const u2 = document.createElement('app-user-message');
+      scrollEl.append(u1, u2);
+      document.body.appendChild(scrollEl);
+
+      const atBottom = signal(true);
+      const elSignal = signal<HTMLElement | null>(scrollEl);
+      const surface: ScrollSurface = {
+        isAtBottom: atBottom.asReadonly(),
+        element: elSignal.asReadonly(),
+        setKey: vi.fn(),
+        scrollToBottom: vi.fn(),
+        scrollIntoView: vi.fn(),
+        scrollTo: vi.fn(),
+        snapshot: vi.fn(),
+        detach: vi.fn(),
+      };
+      stubs.registry.register('ws-1', surface);
+
       const fixture = mountComposer({
         workspaceId: 'ws-1',
         activeTabKind: 'chat',
@@ -197,7 +220,18 @@ describe('FeatureWorkspaceComposer', () => {
 
       cmp.onSend({ text: 'with scroll', mode: 'agent' });
 
-      expect(handle.surface.scrollToBottom).toHaveBeenCalledWith(true);
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await new Promise((r) => setTimeout(r, 0));
+
+      expect(surface.scrollIntoView).toHaveBeenCalledTimes(1);
+      const [target, opts] = (
+        surface.scrollIntoView as unknown as { mock: { calls: unknown[][] } }
+      ).mock.calls[0];
+      expect(target).toBe(u2);
+      expect(opts).toEqual({ block: 'start', behavior: 'smooth' });
+
+      document.body.removeChild(scrollEl);
     });
 
     it('is a no-op when workspaceId is null', () => {

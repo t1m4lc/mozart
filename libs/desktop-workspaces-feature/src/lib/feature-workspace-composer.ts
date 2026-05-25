@@ -62,16 +62,12 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
   template: `
-    <!-- Composer is positioned by the parent (WorkspaceTabContent gives
-         the host \`absolute inset-x-0 bottom-0\`) so it overlays whatever
-         content is in the @switch — chat scrolling behind it, file
-         editor extending full-height with composer floating on top. -->
+    <!-- Composer is the last flex child of WorkspaceTabContent (M16) —
+         takes its natural height below the scroll surface, no overlay,
+         no gradient mask. The scroll surface above has a hard bottom
+         edge where the composer's top begins. -->
     <div class="bg-background" data-tour="composer-mode">
-      <div class="relative mx-auto w-full max-w-5xl px-3 pb-3">
-        <div
-          class="pointer-events-none absolute inset-x-0 -top-8 h-8 bg-linear-to-t from-background to-transparent dark:from-background"
-          aria-hidden="true"
-        ></div>
+      <div class="mx-auto w-full max-w-5xl px-3 pb-3">
         <mz-composer
           #composerEl
           [(value)]="value"
@@ -230,35 +226,70 @@ export class FeatureWorkspaceComposer {
     // Streaming false-edge: refocus the instant a chat run ends. Skip
     // when the user is on a file tab — pulling focus to the composer
     // mid-edit because a background chat stream ended is a focus-thief
-    // bug. pairwise compares consecutive emissions so we don't need a
-    // mutable tracker.
+    // bug. Also skip when focus is currently inside the message list,
+    // a code block, or any other interactive element (M19) — the user
+    // is mid-action (selecting text, clicking a copy button) and a
+    // refocus would yank them out of it. pairwise compares consecutive
+    // emissions so we don't need a mutable tracker.
     toObservable(this.isStreaming)
       .pipe(
         pairwise(),
         filter(([prev, curr]) => prev && !curr),
         filter(() => this.activeTabKind() !== 'file'),
+        filter(() => this._shouldRefocusOnStreamEnd()),
         tap(() => this.focusComposer()),
         takeUntilDestroyed(),
       )
       .subscribe();
   }
 
+  // Only refocus when activeElement is `body` (no current focus) OR
+  // already inside the composer's subtree (focus is ours to reclaim
+  // after a streaming run). If the user clicked into a message or
+  // code block during the stream, document.activeElement lives
+  // outside this composer — leave it alone.
+  private _shouldRefocusOnStreamEnd(): boolean {
+    if (typeof document === 'undefined') return true;
+    const active = document.activeElement;
+    if (active === null || active === document.body) return true;
+    const composerHost = this.composerEl()?.nativeElement;
+    return composerHost ? composerHost.contains(active) : true;
+  }
+
   protected onSend(event: ComposerSendEvent): void {
     const id = this.workspaceId();
     if (!id) return;
     const chatId = this._activeChatId();
-    // Only request a chat scroll-to-bottom when a chat surface is
-    // registered (chat tab). On a file tab the registry returns null
-    // and the explicit gate also spells out the intent (D3).
-    // Auto-follow re-engages automatically: smooth-scrolling to the
-    // bottom moves the IO sentinel into view, the directive's
-    // isAtBottom flips to true, and the composer's overlay hides.
-    if (this.activeTabKind() !== 'file') {
-      this.registry.get(id)?.scrollToBottom(true);
-    }
     void this.facade.sendUserMessage(id, event.text, event.mode);
     if (chatId) this.uiState.clearChatDraft(id, chatId);
     this.value.set('');
+    // ChatGPT "rides up" (M17): after the user message is appended to
+    // the DOM, smooth-scroll IT to the top of the visible viewport so
+    // empty space sits below for the assistant response to fill.
+    // `min-height: 100cqh` on .chat-turn:last-of-type reserves that
+    // empty space; `overflow-anchor` keeps the assistant text pinned
+    // as tokens stream in. On a file tab the chat surface isn't
+    // registered — early-return.
+    if (this.activeTabKind() === 'file') return;
+    const surface = this.registry.get(id);
+    if (!surface) return;
+    afterNextRender(
+      () => {
+        const scrollEl = surface.element();
+        if (!scrollEl) return;
+        const userMessages = scrollEl.querySelectorAll<HTMLElement>(
+          'app-user-message',
+        );
+        const last = userMessages[userMessages.length - 1];
+        if (last) {
+          surface.scrollIntoView(last, { block: 'start', behavior: 'smooth' });
+        } else {
+          // Empty chat-turn case (rare) — fall back to bottom.
+          surface.scrollToBottom(true);
+        }
+      },
+      { injector: this.injector },
+    );
   }
 
   protected onStop(): void {

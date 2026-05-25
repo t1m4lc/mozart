@@ -34,20 +34,21 @@ import { MzScrollSurface } from './mz-scroll-surface.directive';
   template: `
     <!-- The scrolling container. min-h-0 lets it shrink within the flex
          parent; overflow-y-auto + overflow-anchor enables native scroll
-         anchoring during streaming. pb-32 reserves clearance for the
-         absolutely-positioned composer overlay (composer chrome ~100px).
-         The MzScrollSurface directive owns persistence (mzScrollSurface
-         key), the IO at-bottom detector (mzScrollSurfaceAutoFollow), and
-         the registry seam (mzScrollSurfaceRegisterAs). -->
+         anchoring during streaming. container-type:size sets the
+         container-query height so .chat-turn:last-of-type can use
+         100cqh to reserve a viewport-height landing area for newly
+         sent messages (ChatGPT rides-up, M15). The MzScrollSurface
+         directive owns persistence, the IO at-bottom detector, and
+         the registry seam. -->
     <div
       data-testid="chat-surface-scroll"
-      class="flex min-h-0 flex-1 flex-col overflow-y-auto [overflow-anchor:auto]"
+      class="flex min-h-0 flex-1 flex-col overflow-y-auto [overflow-anchor:auto] [container-type:size]"
       [mzScrollSurface]="_chatTabKey()"
       mzScrollSurfaceDefault="bottom"
       [mzScrollSurfaceAutoFollow]="true"
       [mzScrollSurfaceRegisterAs]="workspaceId()"
     >
-      <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5 pb-32">
+      <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5">
         <ng-content />
       </div>
     </div>

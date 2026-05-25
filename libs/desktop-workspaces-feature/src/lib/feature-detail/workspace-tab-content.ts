@@ -38,13 +38,14 @@ type FileTabIntent = 'preview' | 'pin';
     ChatEmptyState,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  // `overflow-hidden` clips any child overflow at this boundary so the
-  // composer's `absolute inset-x-0 bottom-0` anchor cannot drift below
-  // the viewport even if a descendant tries to push past its flex
-  // allocation. CodeMirror, chat-scroll-surface, and the file editor
-  // each own their own internal scroll — overflow is intentional inside
-  // them, never outside.
-  host: { class: 'relative flex min-h-0 flex-1 flex-col overflow-hidden' },
+  // `overflow-hidden` clips any child overflow at this boundary.
+  // CodeMirror, chat-scroll-surface, and the file editor each own
+  // their own internal scroll — overflow is intentional inside them,
+  // never outside. The composer is the last flex child (M16) and
+  // squeezes the scroll surface to `flex: 1 1 0%` of remaining height
+  // — no `position: absolute`, no clearance constants on the inner
+  // content (`pb-32` / `pb-40` gone).
+  host: { class: 'flex min-h-0 flex-1 flex-col overflow-hidden' },
   template: `
     <app-feature-chat-tab-bar
       [projectId]="projectId() ?? null"
@@ -98,14 +99,14 @@ type FileTabIntent = 'preview' | 'pin';
     }
 
     <!-- Always-mounted composer host: visible on chat AND file tabs
-         (P2.2). Absolutely positioned at WorkspaceTabContent's bottom
-         so it overlays whatever content is in the @switch — chat
-         scrolls behind it inside chat-scroll-surface, and the file
-         editor extends full-height with the composer floating over
-         the bottom region. -->
+         (P2.2). Flex sibling at the bottom of WorkspaceTabContent
+         (M16) — the scroll surface above takes flex:1 1 0% of
+         remaining height; the composer takes its natural height
+         below. Replaces the absolute-overlay design — file editor
+         is no longer hidden behind a floating composer, and the
+         chat surface no longer needs pb-32 clearance. -->
     @if (workspaceIdOrNull(); as ws) {
       <app-feature-workspace-composer
-        class="absolute inset-x-0 bottom-0 z-30"
         [workspaceId]="ws"
         [frozen]="frozen()"
         [activeTabKind]="composerTabKind()"
