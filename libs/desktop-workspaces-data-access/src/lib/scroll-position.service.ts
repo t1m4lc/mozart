@@ -10,9 +10,9 @@ import { Injectable, computed, signal, type Signal } from '@angular/core';
 //   - detached: the user scrolled up; the stream does NOT pull the view down
 //   - Send-a-prompt always flips back to attached.
 //
-// The service has no DOM access — callers (FeatureChatScrollSurface
-// for chat; [mzScrollPersist] for file surfaces) read scrollTop off
-// the right element and hand it in via `remember`.
+// The service has no DOM access — callers ([mzScrollSurface] directive
+// for all surfaces; programmatic attach form for CodeMirror's scrollDOM)
+// read scrollTop off the right element and hand it in via `remember`.
 
 export type FollowMode = 'attached' | 'detached';
 

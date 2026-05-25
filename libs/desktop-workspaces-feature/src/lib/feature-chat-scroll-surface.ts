@@ -78,7 +78,16 @@ function bothResolved<A, B>(
   // (absolute is positioned relative to WorkspaceTabContent, which
   // would translate with main's scrollTop). Scoping scroll to this
   // surface keeps the composer overlay pinned at viewport bottom.
-  host: { class: 'flex min-h-0 w-full flex-col overflow-y-auto' },
+  //
+  // `overflow-anchor: auto` (M1) hands streaming auto-follow to the
+  // browser's compositor: when DOM mutations grow content at the
+  // bottom-most in-viewport node, Chromium silently adjusts scrollTop
+  // to keep that node anchored. The per-token `scrollTop =
+  // scrollHeight` write below becomes redundant in steady state and
+  // gets deleted in M5 once IO-driven `isAtBottom` lands.
+  host: {
+    class: 'flex min-h-0 w-full flex-col overflow-y-auto [overflow-anchor:auto]',
+  },
   template: `
     <!-- Inner wrapper centers chat content + caps width. Bottom padding
          clears the absolutely-positioned composer overlay (composer

@@ -35,6 +35,10 @@ export {
   type ComposerFocusRequest,
 } from './lib/chat-scroll-orchestrator.service';
 export {
+  ScrollSurfaceRegistry,
+  type ScrollSurface,
+} from './lib/scroll-surface-registry.service';
+export {
   WorkspaceTabRegistry,
   type ChatWorkspaceTab,
   type FileWorkspaceTab,

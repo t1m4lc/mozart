@@ -7,4 +7,4 @@ export { FeatureFileContent } from './lib/feature-file-content';
 export { FeatureChatTabBar } from './lib/feature-chat-tab-bar';
 export { WorkspaceContextMenu } from './lib/feature-workspace-context-menu';
 export { WorkspaceToolbar } from './lib/workspace-toolbar';
-export { MzScrollPersist, type ScrollDefaultPosition } from './lib/mz-scroll-persist.directive';
+export { MzScrollSurface, type ScrollDefaultPosition } from './lib/mz-scroll-surface.directive';
