@@ -40,6 +40,15 @@ export class AuthFacade {
   private readonly _session = signal<AuthSession | null>(null);
   readonly session = computed(() => this._session());
   readonly isAuthenticated = computed(() => this._session() !== null);
+  /** GitHub username carried by the `mozart` Clerk JWT template's
+   *  `github_username` claim. Non-null only when the user signed in
+   *  via the GitHub social connection. Used by `ProfileFacade` to
+   *  auto-connect GitHub at boot without an extra user click. */
+  readonly githubUsername = computed<string | null>(() => {
+    const session = this._session();
+    if (!session) return null;
+    return decodeJwt(session.token)?.githubUsername ?? null;
+  });
 
   readonly welcomeState = signal<WelcomeState>('idle');
 

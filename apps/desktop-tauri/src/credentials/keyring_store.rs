@@ -12,6 +12,34 @@ use crate::error::AppError;
 const SERVICE: &str = "mozart";
 const ACCOUNT_ANTHROPIC: &str = "anthropic_api_key";
 const ACCOUNT_GITHUB: &str = "github_token";
+const ACCOUNT_GITHUB_KIND: &str = "github_token_kind";
+
+/// How the stored GitHub token was acquired. Display-only — `create_pr`
+/// treats both kinds identically. Used by the UI to show provenance and
+/// by the create-PR retry path to decide whether a 401 is recoverable
+/// (only `OauthClerk` tokens can be refreshed via the backend).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GithubTokenKind {
+    Pat,
+    OauthClerk,
+}
+
+impl GithubTokenKind {
+    fn as_str(self) -> &'static str {
+        match self {
+            GithubTokenKind::Pat => "pat",
+            GithubTokenKind::OauthClerk => "oauth_clerk",
+        }
+    }
+
+    fn parse(raw: &str) -> Option<Self> {
+        match raw {
+            "pat" => Some(GithubTokenKind::Pat),
+            "oauth_clerk" => Some(GithubTokenKind::OauthClerk),
+            _ => None,
+        }
+    }
+}
 
 fn entry() -> Result<Entry, AppError> {
     Entry::new(SERVICE, ACCOUNT_ANTHROPIC).map_err(AppError::from)
@@ -19,6 +47,10 @@ fn entry() -> Result<Entry, AppError> {
 
 fn github_entry() -> Result<Entry, AppError> {
     Entry::new(SERVICE, ACCOUNT_GITHUB).map_err(AppError::from)
+}
+
+fn github_kind_entry() -> Result<Entry, AppError> {
+    Entry::new(SERVICE, ACCOUNT_GITHUB_KIND).map_err(AppError::from)
 }
 
 /// Returns `true` iff a key is currently stored. Never returns the value.
@@ -69,15 +101,31 @@ pub fn get_github_token() -> Result<Option<String>, AppError> {
     }
 }
 
-pub fn set_github_token(token: &str) -> Result<(), AppError> {
-    github_entry()?.set_password(token).map_err(AppError::from)
+pub fn set_github_token(token: &str, kind: GithubTokenKind) -> Result<(), AppError> {
+    github_entry()?.set_password(token).map_err(AppError::from)?;
+    github_kind_entry()?
+        .set_password(kind.as_str())
+        .map_err(AppError::from)
+}
+
+pub fn get_github_token_kind() -> Result<Option<GithubTokenKind>, AppError> {
+    match github_kind_entry()?.get_password() {
+        Ok(raw) => Ok(GithubTokenKind::parse(&raw)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(AppError::from(e)),
+    }
 }
 
 pub fn clear_github_token() -> Result<(), AppError> {
-    match github_entry()?.delete_credential() {
+    let token_clear = match github_entry()?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(AppError::from(e)),
-    }
+    };
+    let kind_clear = match github_kind_entry()?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(AppError::from(e)),
+    };
+    token_clear.and(kind_clear)
 }
 
 #[cfg(test)]

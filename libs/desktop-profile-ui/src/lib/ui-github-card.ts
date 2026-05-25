@@ -47,15 +47,22 @@ import { HlmButtonImports } from '@spartan-ui/button';
 export class UiGithubCard {
   readonly connected = input.required<boolean>();
   readonly login = input<string | null>(null);
+  readonly kind = input<'pat' | 'oauth_clerk' | null>(null);
 
   readonly connect = output<void>();
   readonly disconnect = output<void>();
 
   protected readonly subtitle = computed(() => {
-    if (this.connected()) {
-      const login = this.login();
-      return login ? `Connected as @${login}` : 'Connected';
+    if (!this.connected()) {
+      return 'Push branches and open pull requests';
     }
-    return 'Push branches and open pull requests';
+    const login = this.login();
+    const handle = login ? `Connected as @${login}` : 'Connected';
+    const provenance = this.kind() === 'oauth_clerk'
+      ? ' · via OAuth'
+      : this.kind() === 'pat'
+        ? ' · via personal access token'
+        : '';
+    return `${handle}${provenance}`;
   });
 }

@@ -29,15 +29,14 @@ export interface CreatePrDialogContext {
   readonly onCreated?: (url: string) => void;
 }
 
-// Three render states (mutually exclusive, gated above the form):
-//   1. No GitHub remote on the project   → guidance only.
-//   2. GitHub not connected              → Connect-GitHub CTA.
-//   3. Ready                             → Single "Open pull request"
-//                                          button. No inputs; title is
-//                                          auto-derived from the
-//                                          workspace name.
-// On success the success-state replaces all of the above with the PR
-// URL and a Close button.
+// Layout (mirrors v2 design — see plan):
+//   - Persistent status row at the top: connection + GitHub-remote
+//     state. Inline "Connect GitHub" button when not connected; the
+//     submit below stays gated by `canSubmit` so the form is visible
+//     either way.
+//   - Body: confirmation prompt for the PR; non-blocking warning row
+//     when the project has no GitHub remote.
+//   - Success state replaces the whole body with the resulting URL.
 @Component({
   selector: 'app-feature-create-pr-dialog',
   imports: [
@@ -75,41 +74,60 @@ export interface CreatePrDialogContext {
           Close
         </button>
       </div>
-    } @else if (!isGithubRemote()) {
-      <div class="px-6 py-4">
-        <div hlmAlert variant="default">
-          <p hlmAlertDescription>
-            This workspace's project doesn't have a GitHub remote yet. Add a
-            <code class="font-mono">github.com</code> URL as the
-            <code class="font-mono">origin</code> remote (or push the repo
-            to a GitHub fork), then come back here to open the PR.
-          </p>
-        </div>
-      </div>
-      <div hlmDialogFooter class="px-6 py-4">
-        <button hlmDialogClose hlmBtn variant="default" type="button">
-          Close
-        </button>
-      </div>
-    } @else if (!profile.githubConnected()) {
-      <div class="px-6 py-4">
-        <div hlmAlert variant="default">
-          <p hlmAlertDescription>
-            Mozart needs a GitHub personal access token to open pull
-            requests on your behalf. Connect once and we'll remember it in
-            your OS keychain.
-          </p>
-        </div>
-      </div>
-      <div hlmDialogFooter class="px-6 py-4">
-        <button hlmDialogClose hlmBtn variant="outline" type="button">
-          Cancel
-        </button>
-        <button hlmBtn type="button" (click)="openConnectGithub()">
-          Connect GitHub
-        </button>
-      </div>
     } @else {
+      <div class="px-6 pt-2 pb-1">
+        <div
+          class="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs"
+        >
+          @if (profile.githubConnected()) {
+            <div class="flex items-center gap-2">
+              <span
+                class="inline-block size-2 rounded-full bg-emerald-500"
+                aria-hidden="true"
+              ></span>
+              <span class="text-foreground">
+                Connected as
+                <span class="font-medium">{{ githubLoginLabel() }}</span>
+              </span>
+              @if (provenanceLabel(); as p) {
+                <span class="text-muted-foreground">· {{ p }}</span>
+              }
+            </div>
+          } @else {
+            <div class="flex items-center gap-2">
+              <span
+                class="inline-block size-2 rounded-full bg-amber-500"
+                aria-hidden="true"
+              ></span>
+              <span class="text-foreground">GitHub not connected</span>
+            </div>
+            <button
+              hlmBtn
+              size="sm"
+              variant="secondary"
+              type="button"
+              class="h-6 px-2 text-xs"
+              (click)="openConnectGithub()"
+            >
+              Connect GitHub
+            </button>
+          }
+        </div>
+      </div>
+
+      @if (!isGithubRemote()) {
+        <div class="px-6 pt-3">
+          <div hlmAlert variant="default">
+            <p hlmAlertDescription>
+              This workspace's project doesn't have a GitHub remote yet. Add a
+              <code class="font-mono">github.com</code> URL as the
+              <code class="font-mono">origin</code> remote (or push the repo
+              to a GitHub fork), then come back here to open the PR.
+            </p>
+          </div>
+        </div>
+      }
+
       <div class="px-6 py-4 space-y-2">
         <p class="text-sm">
           Open a pull request for
@@ -126,6 +144,7 @@ export interface CreatePrDialogContext {
           <p class="text-xs text-destructive">{{ err }}</p>
         }
       </div>
+
       <div hlmDialogFooter class="px-6 py-4">
         <button hlmDialogClose hlmBtn variant="outline" type="button">
           Cancel
@@ -165,6 +184,22 @@ export class FeatureCreatePrDialog {
     return t.length > 0 ? t : 'Mozart pull request';
   });
 
+  protected readonly githubLoginLabel = computed(() => {
+    const login = this.profile.githubLogin();
+    return login ? `@${login}` : 'GitHub';
+  });
+
+  protected readonly provenanceLabel = computed(() => {
+    switch (this.profile.githubKind()) {
+      case 'oauth_clerk':
+        return 'via OAuth';
+      case 'pat':
+        return 'via personal access token';
+      default:
+        return null;
+    }
+  });
+
   // Workspace → project resolution for the GitHub-remote gate. Null
   // until the workspace row is in the store (race-safe on direct
   // dialog mount before WorkspacesFacade has loaded).
@@ -191,10 +226,9 @@ export class FeatureCreatePrDialog {
     if (pid) void this.projects.ensureIsGithubRemote(pid);
   }
 
-  // Submit only fires from the ready state, where both gates already
-  // passed via the @if chain. The redundant signal checks here guard
-  // against a mid-flow flip between render and click (token revoked,
-  // remote re-probe flipped).
+  // Submit fires only when both gates pass: GitHub auth + GitHub
+  // remote on the project. The persistent status row above keeps
+  // those gates visible to the user when one of them is failing.
   protected readonly canSubmit = computed(
     () =>
       !this.submitting() &&
@@ -233,8 +267,8 @@ export class FeatureCreatePrDialog {
   // Dynamic import keeps the profile-feature chunk out of the
   // repositories-feature eager bundle. The connect dialog overlays this
   // one; on successful connect, githubConnected() flips reactively and
-  // this dialog re-renders to the ready state — the user can then click
-  // Open pull request without re-opening anything.
+  // this dialog re-renders with the green status row — the user can
+  // then click Open pull request without re-opening anything.
   protected async openConnectGithub(): Promise<void> {
     const { UiGithubConnectDialog } = await import(
       '@mozart/desktop-profile-feature'

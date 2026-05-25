@@ -16,12 +16,43 @@ function makeJwt(payload: Record<string, unknown>): string {
 describe('decodeJwt', () => {
   it('extracts exp + onboarding from a well-formed token', () => {
     const token = makeJwt({ exp: 1_700_000_000, onboarding: true, sub: 'u1' });
-    expect(decodeJwt(token)).toEqual({ exp: 1_700_000_000, onboarding: true });
+    expect(decodeJwt(token)).toEqual({
+      exp: 1_700_000_000,
+      onboarding: true,
+      githubUsername: null,
+    });
   });
 
   it('defaults onboarding to false when claim is missing', () => {
     const token = makeJwt({ exp: 1_700_000_000, sub: 'u1' });
-    expect(decodeJwt(token)).toEqual({ exp: 1_700_000_000, onboarding: false });
+    expect(decodeJwt(token)).toEqual({
+      exp: 1_700_000_000,
+      onboarding: false,
+      githubUsername: null,
+    });
+  });
+
+  it('extracts github_username when the user signed in with GitHub', () => {
+    const token = makeJwt({
+      exp: 1_700_000_000,
+      onboarding: true,
+      github_username: 'octocat',
+    });
+    expect(decodeJwt(token)).toEqual({
+      exp: 1_700_000_000,
+      onboarding: true,
+      githubUsername: 'octocat',
+    });
+  });
+
+  it('treats Clerk-rendered "null" string github_username as no link', () => {
+    // Clerk renders missing template variables as the literal string "null".
+    const token = makeJwt({
+      exp: 1_700_000_000,
+      onboarding: true,
+      github_username: 'null',
+    });
+    expect(decodeJwt(token)?.githubUsername).toBeNull();
   });
 
   it('returns null for malformed input', () => {

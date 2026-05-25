@@ -14,6 +14,10 @@
 export interface JwtClaims {
   readonly exp: number; // seconds since epoch (Unix time)
   readonly onboarding: boolean;
+  /** GitHub username from `user.external_accounts.github.username` —
+   *  present only when the user signed in via the GitHub social
+   *  connection in Clerk. Drives the auto-connect-GitHub path. */
+  readonly githubUsername: string | null;
 }
 
 export function decodeJwt(token: string): JwtClaims | null {
@@ -37,8 +41,16 @@ export function decodeJwt(token: string): JwtClaims | null {
     typeof obj['onboarding'] === 'boolean'
       ? (obj['onboarding'] as boolean)
       : false;
+  // Clerk renders missing template variables as the literal string "null"
+  // when the user has no GitHub external account linked — treat both
+  // that and a real null/undefined as "no GitHub link".
+  const rawGh = obj['github_username'];
+  const githubUsername =
+    typeof rawGh === 'string' && rawGh.length > 0 && rawGh !== 'null'
+      ? rawGh
+      : null;
 
-  return { exp, onboarding };
+  return { exp, onboarding, githubUsername };
 }
 
 function base64UrlDecode(input: string): string {

@@ -67,7 +67,8 @@
       ],
       "options": {
         "port": 4201,
-        "ssl": true
+        "ssl": true,
+        "proxyConfig": "apps/web/proxy.conf.json"
       },
       "configurations": {
         "production": {

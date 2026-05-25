@@ -1253,8 +1253,8 @@ export const commands = {
   },
   /**
    * Probe the token via `GET /user`; on success store it in the
-   * keyring and return the resolved login. Failure leaves the keyring
-   * untouched.
+   * keyring (marked as a PAT) and return the resolved login. Failure
+   * leaves the keyring untouched.
    */
   async connectGithub(
     token: string,
@@ -1263,6 +1263,60 @@ export const commands = {
       return {
         status: 'ok',
         data: await TAURI_INVOKE('connect_github', { token }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Fetch the user's GitHub OAuth access token from `{WEB_BASE_URL}/api/github/oauth-token`
+   * (which calls Clerk's Backend SDK with our Mozart-side secret key)
+   * using the Clerk session JWT already stored on the desktop. The token
+   * is probed via `GET /user` for defense-in-depth, then persisted in
+   * the keyring marked with `GithubTokenKind::OauthClerk`.
+   *
+   * Reshapes the backend's discriminated union into the existing
+   * `GithubProbeResult` so the TS facade can treat OAuth-acquired and
+   * PAT-acquired connects through one code path.
+   */
+  async connectGithubViaClerk(): Promise<Result<GithubProbeResult, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('connect_github_via_clerk'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async getGithubTokenKind(): Promise<
+    Result<GithubTokenKindDto | null, AppError>
+  > {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('get_github_token_kind'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * List up to 100 GitHub repos visible to the user's Clerk-linked
+   * GitHub account, sorted by recent activity. Used by the clone-repo
+   * dialog to render an autocomplete list. Does NOT require a GitHub
+   * token to be stored in the keyring — the listing goes through the
+   * same `/api/github/oauth-token`-style backend path with the Clerk
+   * session JWT.
+   */
+  async listClerkGithubRepos(): Promise<Result<ClerkGithubRepo[], AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('list_clerk_github_repos'),
       };
     } catch (e) {
       if (e instanceof Error) throw e;
@@ -2025,6 +2079,30 @@ export type GithubProbeResult =
   | { kind: 'ok'; login: string }
   | { kind: 'unauthorized' }
   | { kind: 'network'; message: string };
+/**
+ * Provenance of the currently-stored GitHub token. Exposed to the UI
+ * so settings + PR dialog can render "via OAuth" vs "via PAT". Returns
+ * `null` if no token is stored or if the keyring lost the sibling kind
+ * entry (legacy data from before the provenance slot existed — treated
+ * as PAT below).
+ */
+export type GithubTokenKindDto = 'pat' | 'oauth_clerk';
+/**
+ * Row in the list returned by `list_clerk_github_repos`. Surfaced to
+ * the clone-repo dialog so the user can pick a repo from a search list
+ * instead of pasting a URL.
+ */
+export type ClerkGithubRepo = {
+  owner: string;
+  name: string;
+  full_name: string;
+  html_url: string;
+  clone_url: string;
+  private?: boolean;
+  default_branch?: string | null;
+  description?: string | null;
+  updated_at?: string | null;
+};
 /**
  * Outcome of an attempt to install package-manager dependencies for a
  * workspace. `ran=false` means no `package.json` was found; the other

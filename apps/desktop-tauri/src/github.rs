@@ -17,6 +17,14 @@ use crate::error::AppError;
 
 const USER_AGENT: &str = "mozart-desktop";
 
+/// Base URL of the apps/web cloud app. Dev builds talk to the local
+/// HTTPS dev server (proxied via apps/web/proxy.conf.json into a local
+/// `wrangler pages dev` instance); release builds talk to production.
+#[cfg(debug_assertions)]
+const WEB_BASE_URL: &str = "https://localhost:4201";
+#[cfg(not(debug_assertions))]
+const WEB_BASE_URL: &str = "https://app.mozart.build";
+
 /// Result of a `GET /user` probe with the candidate token.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -78,6 +86,24 @@ struct ApiError {
     message: String,
 }
 
+/// Error surface for `create_pr`. Splits `Unauthorized` (the only
+/// recoverable case — refreshable via Clerk for OAuth-acquired tokens)
+/// out of the rest so the caller can retry once with a fresh token.
+#[derive(Debug)]
+pub enum CreatePrError {
+    Unauthorized,
+    Other(AppError),
+}
+
+impl From<CreatePrError> for AppError {
+    fn from(e: CreatePrError) -> AppError {
+        match e {
+            CreatePrError::Unauthorized => AppError::Validation("github: Bad credentials".into()),
+            CreatePrError::Other(inner) => inner,
+        }
+    }
+}
+
 pub async fn create_pr(
     token: &str,
     owner: &str,
@@ -87,11 +113,11 @@ pub async fn create_pr(
     title: &str,
     body: &str,
     draft: bool,
-) -> Result<CreatedPr, AppError> {
+) -> Result<CreatedPr, CreatePrError> {
     let client = reqwest::Client::builder()
         .user_agent(USER_AGENT)
         .build()
-        .map_err(|e| AppError::Io(format!("github client: {e}")))?;
+        .map_err(|e| CreatePrError::Other(AppError::Io(format!("github client: {e}"))))?;
     let url = format!("https://api.github.com/repos/{owner}/{repo}/pulls");
     let payload = serde_json::json!({
         "title": title,
@@ -107,22 +133,189 @@ pub async fn create_pr(
         .json(&payload)
         .send()
         .await
-        .map_err(|e| AppError::Io(format!("github request: {e}")))?;
+        .map_err(|e| CreatePrError::Other(AppError::Io(format!("github request: {e}"))))?;
     let status = resp.status();
     if status.is_success() {
         let parsed: PrResponse = resp.json().await.map_err(|e| {
-            AppError::Io(format!("github response parse: {e}"))
+            CreatePrError::Other(AppError::Io(format!("github response parse: {e}")))
         })?;
         return Ok(CreatedPr {
             number: parsed.number,
             html_url: parsed.html_url,
         });
     }
+    if status.as_u16() == 401 {
+        return Err(CreatePrError::Unauthorized);
+    }
     let message = match resp.json::<ApiError>().await {
         Ok(api) => api.message,
         Err(_) => format!("HTTP {}", status.as_u16()),
     };
-    Err(AppError::Validation(format!("github: {message}")))
+    Err(CreatePrError::Other(AppError::Validation(format!(
+        "github: {message}"
+    ))))
+}
+
+/// Outcome of `POST {WEB_BASE_URL}/api/github/oauth-token`.
+///
+/// Mirrors the discriminated union returned by the Cloudflare Pages
+/// Function — `kind` is always one of the four variants below. The Rust
+/// side keeps the variants tight; the TS facade reshapes any of these
+/// into the existing `GithubProbe` for uniform UI handling.
+#[derive(Debug, Clone)]
+pub enum ClerkGithubTokenResult {
+    Ok { token: String, login: Option<String> },
+    NotLinked,
+    Unauthorized,
+    ServerError { message: String },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ClerkGithubTokenPayload {
+    Ok { token: String, login: Option<String> },
+    NotLinked,
+    Unauthorized,
+    ServerError { message: Option<String> },
+}
+
+/// Call `{WEB_BASE_URL}/api/github/oauth-token` with the user's Clerk
+/// session JWT in the `Authorization` header. Returns the
+/// Clerk-mediated GitHub OAuth access token (which Clerk refreshes
+/// internally on each call) plus the linked GitHub login.
+///
+/// Used by `connect_github_via_clerk` (initial connect) and by the
+/// create-PR retry path on a 401 from `api.github.com`.
+pub async fn fetch_clerk_github_token(session_jwt: &str) -> ClerkGithubTokenResult {
+    let mut builder = reqwest::Client::builder().user_agent(USER_AGENT);
+    // Dev URL uses a self-signed cert from the Angular dev server.
+    // Loopback-only — never bypassed in release builds.
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
+    let client = match builder.build() {
+        Ok(c) => c,
+        Err(e) => {
+            return ClerkGithubTokenResult::ServerError {
+                message: e.to_string(),
+            }
+        }
+    };
+    let url = format!("{WEB_BASE_URL}/api/github/oauth-token");
+    let resp = match client
+        .post(&url)
+        .bearer_auth(session_jwt)
+        .header("Accept", "application/json")
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return ClerkGithubTokenResult::ServerError {
+                message: e.to_string(),
+            }
+        }
+    };
+    match resp.json::<ClerkGithubTokenPayload>().await {
+        Ok(ClerkGithubTokenPayload::Ok { token, login }) => {
+            ClerkGithubTokenResult::Ok { token, login }
+        }
+        Ok(ClerkGithubTokenPayload::NotLinked) => ClerkGithubTokenResult::NotLinked,
+        Ok(ClerkGithubTokenPayload::Unauthorized) => ClerkGithubTokenResult::Unauthorized,
+        Ok(ClerkGithubTokenPayload::ServerError { message }) => {
+            ClerkGithubTokenResult::ServerError {
+                message: message.unwrap_or_else(|| "unknown server error".into()),
+            }
+        }
+        Err(e) => ClerkGithubTokenResult::ServerError {
+            message: format!("response parse: {e}"),
+        },
+    }
+}
+
+/// A single repo row returned by `{WEB_BASE_URL}/api/github/repos`,
+/// surfaced to the clone-repo dialog as an autocomplete option.
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct ClerkGithubRepo {
+    pub owner: String,
+    pub name: String,
+    pub full_name: String,
+    pub html_url: String,
+    pub clone_url: String,
+    #[serde(default)]
+    pub private: bool,
+    #[serde(default)]
+    pub default_branch: Option<String>,
+    #[serde(default)]
+    pub description: Option<String>,
+    #[serde(default)]
+    pub updated_at: Option<String>,
+}
+
+#[derive(Debug, Clone)]
+pub enum ClerkGithubReposResult {
+    Ok { repos: Vec<ClerkGithubRepo> },
+    NotLinked,
+    Unauthorized,
+    ServerError { message: String },
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+enum ClerkGithubReposPayload {
+    Ok { repos: Vec<ClerkGithubRepo> },
+    NotLinked,
+    Unauthorized,
+    ServerError { message: Option<String> },
+}
+
+/// Call `{WEB_BASE_URL}/api/github/repos` with the user's Clerk session
+/// JWT. Returns up to 100 repos visible to the linked GitHub account,
+/// sorted by `updated` desc (newest first). Used by the clone-repo
+/// dialog to populate a search-filterable list.
+pub async fn fetch_clerk_github_repos(session_jwt: &str) -> ClerkGithubReposResult {
+    let mut builder = reqwest::Client::builder().user_agent(USER_AGENT);
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
+    let client = match builder.build() {
+        Ok(c) => c,
+        Err(e) => {
+            return ClerkGithubReposResult::ServerError {
+                message: e.to_string(),
+            }
+        }
+    };
+    let url = format!("{WEB_BASE_URL}/api/github/repos");
+    let resp = match client
+        .post(&url)
+        .bearer_auth(session_jwt)
+        .header("Accept", "application/json")
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return ClerkGithubReposResult::ServerError {
+                message: e.to_string(),
+            }
+        }
+    };
+    match resp.json::<ClerkGithubReposPayload>().await {
+        Ok(ClerkGithubReposPayload::Ok { repos }) => ClerkGithubReposResult::Ok { repos },
+        Ok(ClerkGithubReposPayload::NotLinked) => ClerkGithubReposResult::NotLinked,
+        Ok(ClerkGithubReposPayload::Unauthorized) => ClerkGithubReposResult::Unauthorized,
+        Ok(ClerkGithubReposPayload::ServerError { message }) => {
+            ClerkGithubReposResult::ServerError {
+                message: message.unwrap_or_else(|| "unknown server error".into()),
+            }
+        }
+        Err(e) => ClerkGithubReposResult::ServerError {
+            message: format!("response parse: {e}"),
+        },
+    }
 }
 
 /// Parse `git remote get-url origin` output to `(owner, repo)`.

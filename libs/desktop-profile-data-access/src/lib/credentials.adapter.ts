@@ -30,6 +30,18 @@ export interface CredentialsAdapter {
    *  'network_error' the token is NOT persisted. Returns the resolved
    *  login on success. */
   connectGithub(token: string): Promise<GithubProbe>;
+  /** Use the user's current Clerk session JWT to fetch a fresh GitHub
+   *  OAuth token from the apps/web Pages Function, validate it via
+   *  `GET /user`, and store it in the keyring marked `oauth_clerk`. */
+  connectGithubViaClerk(): Promise<GithubProbe>;
+  /** Provenance of the currently-stored token: `'pat'` if connected via
+   *  personal access token, `'oauth_clerk'` if via Clerk-mediated OAuth,
+   *  `null` if not connected. */
+  getGithubTokenKind(): Promise<GithubTokenKind | null>;
+  /** List GitHub repos visible to the Clerk-linked GitHub account. The
+   *  desktop talks to the apps/web Pages Function, which uses the Clerk
+   *  Backend SDK to mint a fresh GitHub OAuth token. */
+  listClerkGithubRepos(): Promise<GithubRepo[]>;
   /** Idempotent removal of the stored token. */
   disconnectGithub(): Promise<void>;
 }
@@ -38,6 +50,20 @@ export type GithubProbe =
   | { kind: 'ok'; login: string }
   | { kind: 'unauthorized' }
   | { kind: 'network_error'; message: string };
+
+export type GithubTokenKind = 'pat' | 'oauth_clerk';
+
+export interface GithubRepo {
+  readonly owner: string;
+  readonly name: string;
+  readonly fullName: string;
+  readonly htmlUrl: string;
+  readonly cloneUrl: string;
+  readonly private: boolean;
+  readonly defaultBranch: string | null;
+  readonly description: string | null;
+  readonly updatedAt: string | null;
+}
 
 export const CREDENTIALS_ADAPTER = new InjectionToken<CredentialsAdapter>(
   'CREDENTIALS_ADAPTER',

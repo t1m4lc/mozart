@@ -1,6 +1,11 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import type { Connection, ProbeResult } from '@mozart/desktop-profile-util';
-import { CREDENTIALS_ADAPTER, type GithubProbe } from './credentials.adapter';
+import { AuthFacade } from '@mozart/desktop-auth-data-access';
+import {
+  CREDENTIALS_ADAPTER,
+  type GithubProbe,
+  type GithubTokenKind,
+} from './credentials.adapter';
 import { ProfileStore } from './profile.store';
 
 // Public API of the `profile` domain. Features inject this — never the
@@ -9,6 +14,26 @@ import { ProfileStore } from './profile.store';
 export class ProfileFacade {
   private readonly store = inject(ProfileStore);
   private readonly credentials = inject(CREDENTIALS_ADAPTER);
+  private readonly auth = inject(AuthFacade);
+
+  constructor() {
+    // BANNER: if you do NOT see this line in DevTools console at app
+    // boot, the Angular bundle is stale — hard-reload the webview.
+    console.info('[profile] facade v3 (auto-connect effect) constructed');
+    // Re-evaluate GitHub state when a session arrives mid-app.
+    effect(() => {
+      const session = this.auth.session();
+      console.info(
+        '[profile] session effect: hasSession=',
+        session !== null,
+        ' state=',
+        this._githubState(),
+      );
+      if (session) {
+        void this.initializeGithub();
+      }
+    });
+  }
 
   readonly status = this.store.status;
   readonly lastCheckedAt = this.store.lastCheckedAt;
@@ -90,23 +115,78 @@ export class ProfileFacade {
     'unknown',
   );
   private readonly _githubLogin = signal<string | null>(null);
+  private readonly _githubKind = signal<GithubTokenKind | null>(null);
   readonly githubState = computed(() => this._githubState());
   readonly githubLogin = computed(() => this._githubLogin());
+  readonly githubKind = computed(() => this._githubKind());
   readonly githubConnected = computed(
     () => this._githubState() === 'connected',
   );
 
-  /** Idempotent boot probe: if a token is stored, mark connected. We
-   *  don't re-validate against the GitHub API here — the user's first
-   *  push or PR creation will surface a stale-token error inline. */
+  /** Idempotent boot probe. Three branches:
+   *  1. Token already in keyring → hydrate state + provenance.
+   *  2. No token, but the Clerk JWT carries a `github_username` claim
+   *     (= user signed in via the GitHub social connection) → silently
+   *     attempt `connectGithubViaClerk` so the PR dialog shows up
+   *     pre-connected. Failures are swallowed; the user can still
+   *     click the inline Connect button.
+   *  3. No token and no GitHub link → leave state as `'none'`. */
   async initializeGithub(): Promise<void> {
-    if (this._githubState() !== 'unknown') return;
+    console.info(
+      '[profile] initializeGithub() called, current state =',
+      this._githubState(),
+    );
+    // Don't no-op on 'none' — the effect that watches auth.session()
+    // can call us again after a fresh sign-in, and we want that path
+    // to re-evaluate (the github_username claim isn't available pre
+    // sign-in). Only 'connected' is a definitive answer.
+    if (this._githubState() === 'connected') return;
     try {
       const present = await this.credentials.hasGithubToken();
-      this._githubState.set(present ? 'connected' : 'none');
+      if (present) {
+        this._githubKind.set(await this.credentials.getGithubTokenKind());
+        this._githubState.set('connected');
+        console.info('[profile] github init: token in keyring →', this._githubKind());
+        return;
+      }
+      // No keyring token. The backend is the source of truth for
+      // "does this user have GitHub linked via Clerk?" — so we attempt
+      // the auto-connect whenever a Clerk session exists, regardless of
+      // whether the JWT carries our custom `github_username` claim
+      // (the default Clerk session JWT doesn't, and not every install
+      // configures the `mozart` template). If the user actually isn't
+      // linked, the backend returns `not_linked` and we fall through
+      // to state 'none' — the manual Connect button takes over.
+      const hasSession = this.auth.session() !== null;
+      console.info('[profile] github init: hasSession=', hasSession);
+      if (hasSession) {
+        console.info('[profile] calling connectGithubViaClerk()…');
+        try {
+          const result = await this.connectGithubViaClerk();
+          console.info(
+            '[profile] auto-connect result:',
+            result.kind,
+            result.kind === 'ok' ? `(login=${result.login})` : '',
+            result.kind === 'network_error' ? `msg=${result.message}` : '',
+          );
+        } catch (err) {
+          console.info(
+            '[profile] auto-connect rejected (likely not_linked):',
+            err,
+          );
+        }
+      }
+      // Stay 'unknown' until a session exists — that way the effect
+      // above can re-trigger us once sign-in completes. Once a session
+      // is present and we still don't have a token, lock state to
+      // 'none'.
+      if (this._githubState() === 'unknown' && hasSession) {
+        this._githubState.set('none');
+      }
     } catch (err) {
       console.warn('[profile] github init failed:', err);
       this._githubState.set('none');
+      this._githubKind.set(null);
     }
   }
 
@@ -114,6 +194,21 @@ export class ProfileFacade {
     const result = await this.credentials.connectGithub(token);
     if (result.kind === 'ok') {
       this._githubLogin.set(result.login);
+      this._githubKind.set('pat');
+      this._githubState.set('connected');
+    }
+    return result;
+  }
+
+  /** Primary "Connect with GitHub" path. Reuses the user's existing Clerk
+   *  session: the desktop hands its session JWT to the apps/web Pages
+   *  Function, which calls Clerk's Backend SDK to retrieve the
+   *  GitHub OAuth token and returns it for storage in the keyring. */
+  async connectGithubViaClerk(): Promise<GithubProbe> {
+    const result = await this.credentials.connectGithubViaClerk();
+    if (result.kind === 'ok') {
+      this._githubLogin.set(result.login);
+      this._githubKind.set('oauth_clerk');
       this._githubState.set('connected');
     }
     return result;
@@ -122,6 +217,7 @@ export class ProfileFacade {
   async disconnectGithub(): Promise<void> {
     await this.credentials.disconnectGithub();
     this._githubLogin.set(null);
+    this._githubKind.set(null);
     this._githubState.set('none');
   }
 }

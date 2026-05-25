@@ -51,6 +51,7 @@ import {
         <app-ui-github-card
           [connected]="facade.githubConnected()"
           [login]="facade.githubLogin()"
+          [kind]="facade.githubKind()"
           (connect)="onConnectGithub()"
           (disconnect)="onDisconnectGithub()"
         />

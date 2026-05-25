@@ -77,6 +77,20 @@ function unwrap<T>(
   return r.data;
 }
 
+function reshapeProbe(
+  probe:
+    | { kind: 'ok'; login: string }
+    | { kind: 'unauthorized' }
+    | { kind: 'network'; message: string },
+):
+  | { kind: 'ok'; login: string }
+  | { kind: 'unauthorized' }
+  | { kind: 'network_error'; message: string } {
+  if (probe.kind === 'ok') return { kind: 'ok', login: probe.login };
+  if (probe.kind === 'unauthorized') return { kind: 'unauthorized' };
+  return { kind: 'network_error', message: probe.message };
+}
+
 function provideAuthAdapter(): Provider {
   return {
     provide: AUTH_ADAPTER,
@@ -429,10 +443,32 @@ function provideCredentialsAdapter(): Provider {
       async connectGithub(token: string) {
         const r = await commands.connectGithub(token);
         if (r.status === 'error') throw new Error(r.error.kind);
-        const probe = r.data;
-        if (probe.kind === 'ok') return { kind: 'ok', login: probe.login };
-        if (probe.kind === 'unauthorized') return { kind: 'unauthorized' };
-        return { kind: 'network_error', message: probe.message };
+        return reshapeProbe(r.data);
+      },
+      async connectGithubViaClerk() {
+        const r = await commands.connectGithubViaClerk();
+        if (r.status === 'error') throw new Error(r.error.kind);
+        return reshapeProbe(r.data);
+      },
+      async getGithubTokenKind() {
+        const r = await commands.getGithubTokenKind();
+        if (r.status === 'error') throw new Error(r.error.kind);
+        return r.data;
+      },
+      async listClerkGithubRepos() {
+        const r = await commands.listClerkGithubRepos();
+        if (r.status === 'error') throw new Error(r.error.kind);
+        return r.data.map((row) => ({
+          owner: row.owner,
+          name: row.name,
+          fullName: row.full_name,
+          htmlUrl: row.html_url,
+          cloneUrl: row.clone_url,
+          private: row.private ?? false,
+          defaultBranch: row.default_branch ?? null,
+          description: row.description ?? null,
+          updatedAt: row.updated_at ?? null,
+        }));
       },
       async disconnectGithub() {
         const r = await commands.disconnectGithub();

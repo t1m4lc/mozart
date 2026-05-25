@@ -16,3 +16,5 @@ allowBuilds:
   core-js: true
   utf-8-validate: true
   protobufjs: false
+  sharp: false
+  workerd: true

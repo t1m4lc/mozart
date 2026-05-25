@@ -27,7 +27,7 @@ use crate::claude_cli::providers::{ClaudeCliRenderer, EnvelopeRenderer};
 use crate::claude_cli::session;
 use crate::claude_cli::{spawn_run, AgentRunTerminated, StreamEvent};
 use crate::credentials::anthropic_probe::{self, ProbeResult};
-use crate::credentials::keyring_store;
+use crate::credentials::keyring_store::{self, GithubTokenKind};
 use crate::db::agent_run_envelopes::ENVELOPE_RETENTION_PER_CHAT;
 use crate::db::models::{AgentRun, AgentRunEnvelope, Chat, Message, Repo, Task, Workspace, WorkspaceChange};
 use crate::db::{
@@ -2307,17 +2307,115 @@ pub async fn has_github_token() -> Result<bool, AppError> {
     keyring_store::has_github_token()
 }
 
+/// Provenance of the currently-stored GitHub token. Exposed to the UI
+/// so settings + PR dialog can render "via OAuth" vs "via PAT". Returns
+/// `null` if no token is stored or if the keyring lost the sibling kind
+/// entry (legacy data from before the provenance slot existed — treated
+/// as PAT below).
+#[derive(Debug, Clone, Copy, serde::Serialize, serde::Deserialize, specta::Type)]
+#[serde(rename_all = "snake_case")]
+pub enum GithubTokenKindDto {
+    Pat,
+    OauthClerk,
+}
+
+impl From<GithubTokenKind> for GithubTokenKindDto {
+    fn from(k: GithubTokenKind) -> Self {
+        match k {
+            GithubTokenKind::Pat => GithubTokenKindDto::Pat,
+            GithubTokenKind::OauthClerk => GithubTokenKindDto::OauthClerk,
+        }
+    }
+}
+
 /// Probe the token via `GET /user`; on success store it in the
-/// keyring and return the resolved login. Failure leaves the keyring
-/// untouched.
+/// keyring (marked as a PAT) and return the resolved login. Failure
+/// leaves the keyring untouched.
 #[tauri::command]
 #[specta::specta]
 pub async fn connect_github(token: String) -> Result<GithubProbeResult, AppError> {
     let probe = github::probe_token(&token).await;
     if matches!(probe, GithubProbeResult::Ok { .. }) {
-        keyring_store::set_github_token(&token)?;
+        keyring_store::set_github_token(&token, GithubTokenKind::Pat)?;
     }
     Ok(probe)
+}
+
+/// Fetch the user's GitHub OAuth access token from `{WEB_BASE_URL}/api/github/oauth-token`
+/// (which calls Clerk's Backend SDK with our Mozart-side secret key)
+/// using the Clerk session JWT already stored on the desktop. The token
+/// is probed via `GET /user` for defense-in-depth, then persisted in
+/// the keyring marked with `GithubTokenKind::OauthClerk`.
+///
+/// Reshapes the backend's discriminated union into the existing
+/// `GithubProbeResult` so the TS facade can treat OAuth-acquired and
+/// PAT-acquired connects through one code path.
+#[tauri::command]
+#[specta::specta]
+pub async fn connect_github_via_clerk() -> Result<GithubProbeResult, AppError> {
+    let session = auth_store::load_session()?
+        .ok_or_else(|| AppError::Validation("no Mozart session — sign in first".into()))?;
+    match github::fetch_clerk_github_token(&session.token).await {
+        github::ClerkGithubTokenResult::Ok { token, login } => {
+            // Defense in depth: confirm the token actually works against
+            // api.github.com before we persist it. Surfaces a clear
+            // GithubProbeResult variant if Clerk handed us something stale.
+            let probe = github::probe_token(&token).await;
+            if matches!(probe, GithubProbeResult::Ok { .. }) {
+                keyring_store::set_github_token(&token, GithubTokenKind::OauthClerk)?;
+                // Prefer the login returned by Clerk (avoids an extra round-trip)
+                // if the probe didn't surface one for some reason; in practice
+                // `probe_token` always carries the login on Ok.
+                if let GithubProbeResult::Ok { login: probe_login } = &probe {
+                    return Ok(GithubProbeResult::Ok {
+                        login: probe_login.clone(),
+                    });
+                }
+                if let Some(l) = login {
+                    return Ok(GithubProbeResult::Ok { login: l });
+                }
+            }
+            Ok(probe)
+        }
+        github::ClerkGithubTokenResult::NotLinked => Err(AppError::Validation(
+            "no GitHub account linked to your Clerk profile".into(),
+        )),
+        github::ClerkGithubTokenResult::Unauthorized => Ok(GithubProbeResult::Unauthorized),
+        github::ClerkGithubTokenResult::ServerError { message } => {
+            Ok(GithubProbeResult::Network { message })
+        }
+    }
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_github_token_kind() -> Result<Option<GithubTokenKindDto>, AppError> {
+    Ok(keyring_store::get_github_token_kind()?.map(GithubTokenKindDto::from))
+}
+
+/// List up to 100 GitHub repos visible to the user's Clerk-linked
+/// GitHub account, sorted by recent activity. Used by the clone-repo
+/// dialog to render an autocomplete list. Does NOT require a GitHub
+/// token to be stored in the keyring — the listing goes through the
+/// same `/api/github/oauth-token`-style backend path with the Clerk
+/// session JWT.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_clerk_github_repos() -> Result<Vec<github::ClerkGithubRepo>, AppError> {
+    let session = auth_store::load_session()?
+        .ok_or_else(|| AppError::Validation("no Mozart session — sign in first".into()))?;
+    match github::fetch_clerk_github_repos(&session.token).await {
+        github::ClerkGithubReposResult::Ok { repos } => Ok(repos),
+        github::ClerkGithubReposResult::NotLinked => Err(AppError::Validation(
+            "no GitHub account linked to your Clerk profile".into(),
+        )),
+        github::ClerkGithubReposResult::Unauthorized => {
+            Err(AppError::Validation("github oauth unauthorized".into()))
+        }
+        github::ClerkGithubReposResult::ServerError { message } => {
+            Err(AppError::Io(format!("github repos: {message}")))
+        }
+    }
 }
 
 #[tauri::command]
@@ -2390,6 +2488,13 @@ pub async fn push_workspace_branch(
 /// Push the branch (idempotent) then create a PR via the GitHub REST
 /// API. Requires a stored GitHub token; the project's origin must
 /// resolve to `github.com/<owner>/<repo>`.
+///
+/// Self-healing: when the stored token is an OAuth token acquired via
+/// Clerk (`GithubTokenKind::OauthClerk`) and GitHub answers 401, the
+/// command transparently re-fetches a fresh token from `{WEB_BASE_URL}
+/// /api/github/oauth-token` (Clerk Backend SDK refreshes upstream),
+/// overwrites the keyring, and retries once. PAT tokens are never
+/// refreshed — a 401 there surfaces directly to the dialog.
 #[tauri::command]
 #[specta::specta]
 pub async fn create_workspace_pr(
@@ -2422,7 +2527,7 @@ pub async fn create_workspace_pr(
         &["push", "-u", "origin", &ws.branch_name],
     )
     .await?;
-    github::create_pr(
+    let first_attempt = github::create_pr(
         &token,
         &owner,
         &repo,
@@ -2432,7 +2537,38 @@ pub async fn create_workspace_pr(
         &body,
         draft,
     )
-    .await
+    .await;
+    match first_attempt {
+        Ok(pr) => Ok(pr),
+        Err(github::CreatePrError::Unauthorized) => {
+            if !matches!(
+                keyring_store::get_github_token_kind()?,
+                Some(GithubTokenKind::OauthClerk)
+            ) {
+                return Err(github::CreatePrError::Unauthorized.into());
+            }
+            let session = auth_store::load_session()?
+                .ok_or_else(|| AppError::Validation("no Mozart session — sign in first".into()))?;
+            let fresh = match github::fetch_clerk_github_token(&session.token).await {
+                github::ClerkGithubTokenResult::Ok { token: t, .. } => t,
+                _ => return Err(github::CreatePrError::Unauthorized.into()),
+            };
+            keyring_store::set_github_token(&fresh, GithubTokenKind::OauthClerk)?;
+            github::create_pr(
+                &fresh,
+                &owner,
+                &repo,
+                &ws.branch_name,
+                &ws.base_branch,
+                &title,
+                &body,
+                draft,
+            )
+            .await
+            .map_err(AppError::from)
+        }
+        Err(other) => Err(other.into()),
+    }
 }
 
 /// Plan §P2.6 "Merge-now flow". Runs the local-merge state machine on
@@ -3781,6 +3917,17 @@ mod tests {
         );
     }
 
+    // TODO(flaky): this test fails ~60% of runs. Root cause is in
+    // `db/messages.rs:32` — `ORDER BY created_at ASC, message_id ASC`
+    // combined with two inserts that complete inside the same
+    // millisecond (synchronous test code) means the tie-break falls on
+    // randomly-generated UUID v4 strings, so half the time `m2 < m1`
+    // lexicographically and the order asserted below is reversed.
+    // Fix options: (a) order by `created_at, ROWID` in `list_for_chat`
+    // so insertion order is the final tie-break, (b) seed inserts with
+    // explicit differing created_at values, or (c) sleep 1 ms between
+    // inserts. Scope as a follow-up — the flakiness predates the
+    // GitHub auto-connect work that surfaced it.
     #[tokio::test]
     async fn message_insert_and_list() {
         let db = init_db_memory().unwrap();
