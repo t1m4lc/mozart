@@ -9,6 +9,7 @@ import type { OpenInToolId } from '@mozart/desktop-workspaces-util';
 import type { UiWorkspaceStatus } from '@mozart/desktop-workspaces-util';
 import { workspaceFromDto, type WorkspaceDto } from './workspace.dto-mapper';
 import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
+import { ScrollPositionService } from './scroll-position.service';
 import { WorkspaceStore } from './workspace.store';
 import {
   WORKSPACES_ADAPTER,
@@ -37,6 +38,7 @@ export class WorkspacesFacade {
   private readonly repos = inject(RepositoriesFacade);
   private readonly ideDetection = inject(IdeDetectionService);
   private readonly uiState = inject(UiStateFacade);
+  private readonly scrollPosition = inject(ScrollPositionService);
 
   readonly all = this.store.workspaces;
   // Active workspace id is derived from the router URL — RouterFacade
@@ -282,6 +284,9 @@ export class WorkspacesFacade {
     await this.adapter.archive(id);
     this.store.removeById(id);
     this.uiState.pruneWorkspace(id);
+    // Drop scroll positions for every chat/file tab in the archived
+    // workspace so the in-memory map doesn't grow unbounded (TODOS #116).
+    this.scrollPosition.forgetWorkspace(id);
   }
 
   removeForProject(projectId: string): void {
@@ -296,6 +301,7 @@ export class WorkspacesFacade {
     this.store.removeForProject(projectId);
     for (const id of orphanedIds) {
       this.uiState.pruneWorkspace(id);
+      this.scrollPosition.forgetWorkspace(id);
     }
   }
 

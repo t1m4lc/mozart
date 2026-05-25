@@ -28,12 +28,7 @@ export {
   ScrollPositionService,
   chatTabKey,
   fileTabKey,
-  type FollowMode,
 } from './lib/scroll-position.service';
-export {
-  ChatScrollOrchestrator,
-  type ComposerFocusRequest,
-} from './lib/chat-scroll-orchestrator.service';
 export {
   ScrollSurfaceRegistry,
   type ScrollSurface,

@@ -30,7 +30,6 @@ import {
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
 import {
-  ChatScrollOrchestrator,
   ScrollSurfaceRegistry,
   WorkspacesFacade,
 } from '@mozart/desktop-workspaces-data-access';
@@ -110,7 +109,6 @@ export class FeatureWorkspaceComposer {
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
   private readonly registry = inject(ScrollSurfaceRegistry);
-  private readonly orchestrator = inject(ChatScrollOrchestrator);
   private readonly uiState = inject(UiStateFacade);
 
   private readonly composerEl = viewChild('composerEl', {
@@ -239,22 +237,6 @@ export class FeatureWorkspaceComposer {
         pairwise(),
         filter(([prev, curr]) => prev && !curr),
         filter(() => this.activeTabKind() !== 'file'),
-        tap(() => this.focusComposer()),
-        takeUntilDestroyed(),
-      )
-      .subscribe();
-
-    // Chat-surface-originated focus requests (e.g. a chat-scope event
-    // that wants the user back in the composer). Today the streaming
-    // false-edge above covers the only known consumer; this channel
-    // stays here for future chat-surface events without re-coupling
-    // components.
-    toObservable(this.orchestrator.focusRequest)
-      .pipe(
-        filter(
-          (req): req is NonNullable<typeof req> =>
-            req !== null && req.workspaceId === this.workspaceId(),
-        ),
         tap(() => this.focusComposer()),
         takeUntilDestroyed(),
       )

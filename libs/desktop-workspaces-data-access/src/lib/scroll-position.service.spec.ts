@@ -99,74 +99,11 @@ describe('ScrollPositionService', () => {
     });
   });
 
-  describe('forgetChat', () => {
-    it('clears the chat scrollTop AND the chat follow mode', () => {
-      service.remember(chatTabKey('ws1', 'c1'), 100);
-      service.setDetached('c1');
-      expect(service.isAttached('c1')).toBe(false);
-
-      service.forgetChat('ws1', 'c1');
-
-      expect(service.recall(chatTabKey('ws1', 'c1'))).toBeNull();
-      // After clear, defaults back to attached.
-      expect(service.isAttached('c1')).toBe(true);
-    });
-  });
-
   describe('forgetFile', () => {
     it('clears the file scrollTop only', () => {
       service.remember(fileTabKey('ws1', 'a.ts'), 80);
       service.forgetFile('ws1', 'a.ts');
       expect(service.recall(fileTabKey('ws1', 'a.ts'))).toBeNull();
-    });
-  });
-
-  describe('follow mode', () => {
-    it('defaults to attached for an unknown chat', () => {
-      expect(service.isAttached('never-seen')).toBe(true);
-      expect(service.followMode('never-seen')).toBe('attached');
-    });
-
-    it('setDetached flips isAttached to false', () => {
-      service.setDetached('c1');
-      expect(service.isAttached('c1')).toBe(false);
-      expect(service.followMode('c1')).toBe('detached');
-    });
-
-    it('setAttached flips back to attached', () => {
-      service.setDetached('c1');
-      service.setAttached('c1');
-      expect(service.isAttached('c1')).toBe(true);
-    });
-
-    it('setAttached when already attached does not churn the signal', () => {
-      // Track the underlying signal value reference: same Map object
-      // means no change. We can't easily inspect that, but at least
-      // confirm correctness.
-      service.setAttached('c1');
-      service.setAttached('c1');
-      expect(service.isAttached('c1')).toBe(true);
-    });
-
-    it('follow mode is per-chat — flipping one does not affect another', () => {
-      service.setDetached('c1');
-      expect(service.isAttached('c1')).toBe(false);
-      expect(service.isAttached('c2')).toBe(true);
-    });
-
-    it('followModeFor returns the same signal for the same chatId', () => {
-      const s1 = service.followModeFor('c1');
-      const s2 = service.followModeFor('c1');
-      expect(s1).toBe(s2);
-    });
-
-    it('followModeFor signal reflects setAttached/setDetached', () => {
-      const sig = service.followModeFor('c1');
-      expect(sig()).toBe('attached');
-      service.setDetached('c1');
-      expect(sig()).toBe('detached');
-      service.setAttached('c1');
-      expect(sig()).toBe('attached');
     });
   });
 });

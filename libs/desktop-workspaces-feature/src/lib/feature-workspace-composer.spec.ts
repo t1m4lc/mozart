@@ -5,7 +5,6 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
-  ChatScrollOrchestrator,
   ScrollSurfaceRegistry,
   WorkspacesFacade,
   type ScrollSurface,
@@ -101,18 +100,16 @@ function configure(state: ChatFacadeStubState) {
     ],
   });
 
-  // ScrollSurfaceRegistry and ChatScrollOrchestrator are simple
-  // root-providedIn services with no Tauri dependency — use the real
-  // ones so the wiring is exercised end-to-end.
+  // ScrollSurfaceRegistry is a simple root-providedIn service with no
+  // Tauri dependency — use the real one so the wiring is exercised
+  // end-to-end.
   const registry = TestBed.inject(ScrollSurfaceRegistry);
-  const orchestrator = TestBed.inject(ChatScrollOrchestrator);
 
   return {
     chatFacade,
     workspacesFacade,
     router,
     registry,
-    orchestrator,
     activeChatSignal,
     streamingSignal,
   };
