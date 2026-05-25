@@ -62,21 +62,21 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 
 **Why:** Pixel restore lands the user at the wrong semantic place when content arrived while they were on another tab — common during streaming. Anchor-based survives content growth.
 
-**How to apply:** `ScrollPositionService` grows a parallel `anchorByTabKey: Map<string, {messageId: string, offsetPx: number}>`. Snapshot uses `IntersectionObserver` (or `getBoundingClientRect` on each message child) to find the first message whose `top >= 0`. Offset = `0 - element.getBoundingClientRect().top` (or the visible portion). Restore: `querySelector` for that message by id, scroll to its top + offset. Fallback to pixel when no anchor element is found (chat empty, anchor message deleted). Same pattern can apply to file diff (anchor to hunk header line number) — but only if anchor-based proves valuable in chat first.
+**How to apply:** `ScrollPositionService` grows a parallel `anchorByTabKey: Map<string, {messageId: string, offsetPx: number}>`. Snapshot uses `IntersectionObserver` (or `getBoundingClientRect` on each message child) to find the first message whose `top >= 0`. Offset = `0 - element.getBoundingClientRect().top` (or the visible portion). Restore: `querySelector` for that message by id, scroll to its top + offset. Fallback to pixel when no anchor element is found (chat empty, anchor message deleted). Same pattern can apply to file diff (anchor to hunk header line number) — but only if anchor-based proves valuable in chat first. The MzScrollSurface directive is the natural seat for the snapshot/restore hooks: extend its `snapshot()` / persistence effect to write both pixel and anchor.
 
-**Depends on:** Scroll persistence PR landed. Pure additive — no architectural change.
+**Depends on:** Nothing — the MzScrollSurface primitive is in place. Pure additive on top of it.
 
 ---
 
-## Chat / Files — CDK virtual scrolling reintroduction
+## Chat / Files — long-chat scroll perf (content-visibility, not CDK)
 
-**What:** Re-attempt CDK virtual scrolling for chat (and maybe file diff) with a real autosize strategy. Was reverted before (commit `37f6171`) because the fixed-size strategy mis-measured variable-height messages.
+**What:** When chats start exceeding ~1000 messages and the unbounded DOM becomes a perf bottleneck, add `content-visibility: auto` per `.chat-turn` (Chromium-native — the browser skips rendering off-screen subtrees automatically). Pair with `contain-intrinsic-size` per turn for stable scrollbar height.
 
-**Why:** Today's "no virtual scroll" decision is "acceptable for now — typical chats stay under a few hundred messages". When chats start exceeding ~1000 messages, the unbounded DOM becomes a perf bottleneck.
+**Why:** CDK Virtual Scroll was tried before and reverted (commit `37f6171`) — the fixed-size strategy mis-measured variable-height messages, and the experimental autosize strategy is flaky on streaming markdown / code blocks. The scroll architecture rewrite (see `docs/tmp/scroll-architecture-plan.md`) recommended `content-visibility: auto` instead: composes cleanly with `overflow-anchor`, requires no item-size strategy, no viewport swap, no DOM restructure. The `.chat-turn` wrapper already added in M14 is the right granularity.
 
-**How to apply:** Trigger condition — chat sizes hit 1000+ in real usage OR perf telemetry shows scroll jank on long chats. Try `@angular/cdk-experimental/scrolling` first (autosize strategy). If still flaky on markdown / code blocks / streaming, write a custom strategy that uses `ResizeObserver` per item to track height changes. Architectural prereq: chat scroll surface needs to move off `<main>` and into the message-list (the inverse of today's design) — see D1 option D from the eng review.
+**How to apply:** Trigger condition — chat sizes hit 1000+ in real usage OR perf telemetry shows scroll jank on long chats. In `libs/desktop-chat-ui/src/lib/ui-message-list.ts`, add `content-visibility: auto; contain-intrinsic-size: auto 200px;` (or a measured value) to `.chat-turn`. Verify `overflow-anchor` still pins on turns coming back into view. If still insufficient, only then revisit virtualization — `cdk-experimental/scrolling` autosize, or a custom `ResizeObserver`-based strategy. CDK should be the last resort, not the first.
 
-**Depends on:** Real perf signal (telemetry or user complaint) OR a custom autosize strategy. Experiment in `apps/sandbox` before touching the chat domain.
+**Depends on:** Real perf signal (telemetry or user complaint). Don't speculate-fix.
 
 ---
 
@@ -113,15 +113,15 @@ We applied the Linux fix because the slowness was reported there. macOS and Wind
 
 ---
 
-## Scroll — wire `forgetChat` / `forgetWorkspace` call sites
+## Scroll — wire `forgetChat` on chat deletion (workspace half done)
 
-**What:** `ScrollPositionService.forgetChat(workspaceId, chatId)` and `forgetWorkspace(workspaceId)` are implemented and tested but never called from the rest of the app. The only similar wiring that exists is `forgetFile` from `FileTabsService.closeFor`. Chat deletion + workspace deletion currently leak their scroll positions + per-chat follow modes until the app relaunches.
+**What:** `ScrollPositionService.forgetWorkspace(workspaceId)` is now wired into `WorkspacesFacade.archive` and `removeForProject` (commit `9058d35`) — workspace deletion no longer leaks per-tab scroll positions. The chat half is harder: `ChatFacade.closeChat` would need to call `scrollPosition.forgetChat(workspaceId, chatId)`, but `chat-data-access` can't depend on `workspaces-data-access` without creating a circular dependency (workspaces-data-access already imports `ChatFacade` for `WorkspaceTabResolver`). Today `forgetChat` doesn't exist on the service — it was deleted in the same commit since nothing could call it without restructuring the dep graph.
 
-**Why:** Today's blast radius is small — in-memory maps capped by a session's chat/workspace count. But the API is misleading: a dev reading `forgetChat` and assuming "OK so deleting a chat cleans up" would be wrong. And on long sessions with many created/deleted chats, the maps grow.
+**Why:** Per-chat scroll positions leak within a session — bounded by total chat closures, trivial in memory (each entry is a Map key + a number). Not a correctness bug. Worth fixing only if a long-running session shows real memory growth or if the dep graph gets restructured for other reasons.
 
-**How to apply:** Find the chat-delete and workspace-delete code paths (likely in `ChatFacade` and `WorkspacesFacade`). On delete, inject `ScrollPositionService` and call `forgetChat(workspaceId, chatId)` / `forgetWorkspace(workspaceId)`. Mirror the pattern used in `FileTabsService.closeFor`. Add a regression spec.
+**How to apply:** Three options, in increasing scope: (a) Move `ScrollPositionService` to a shared util lib that both `chat-data-access` and `workspaces-data-access` can import without a cycle — clean but a refactor for one method. (b) Emit a chat-deletion event from `ChatFacade` (signal or RxJS) that `workspaces-data-access` subscribes to — keeps the dep direction one-way; adds an event bus for one consumer. (c) Move `WorkspaceTabResolver` (the thing forcing the existing direction) to a feature lib so `workspaces-data-access` no longer imports `chat-data-access`, then add the direct call. Option (c) is the architecturally correct fix but the largest scope.
 
-**Depends on:** Knowing the exact delete code paths — small investigation needed.
+**Depends on:** A real signal — long sessions with many chat closures showing memory growth, or a separate refactor moving the resolver.
 
 ## Sandbox — real OS-level filesystem fence for the Claude subprocess (load-bearing)
 
