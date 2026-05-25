@@ -50,28 +50,30 @@ const TYPE_CHARS_PER_FRAME = 2;
       class="prose prose-sm dark:prose-invert max-w-none text-foreground select-text prose-p:my-3 prose-headings:my-3 prose-code:bg-muted/40 prose-code:text-foreground prose-code:font-normal prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted/30 prose-pre:border prose-pre:border-border prose-pre:text-foreground"
       [innerHTML]="_html()"
     ></div>
-    @if (streaming()) {
-      <span
-        aria-hidden="true"
-        class="message-body__cursor inline-block align-baseline"
-      ></span>
-    }
   `,
+  // The streaming cursor lives INSIDE the marked-rendered HTML (see
+  // `_html` below) so it stays inline with the last paragraph rather
+  // than getting bumped to a new line below a trailing block element
+  // (`<ul>`, `<pre>`, …). `:host ::ng-deep` is needed because the
+  // span doesn't carry an `_ngcontent-*` attribute — innerHTML
+  // bypasses Angular's emulated encapsulation.
   styles: `
     @keyframes message-body-pulse {
       0%, 100% { opacity: 0.3; }
       50%      { opacity: 1; }
     }
-    .message-body__cursor {
+    :host ::ng-deep .message-body__cursor {
+      display: inline-block;
       width: 6px;
       height: 6px;
       margin-left: 4px;
+      vertical-align: baseline;
       border-radius: 9999px;
       background: currentColor;
       animation: message-body-pulse 1.2s ease-in-out infinite;
     }
     @media (prefers-reduced-motion: reduce) {
-      .message-body__cursor { animation: none; opacity: 0.6; }
+      :host ::ng-deep .message-body__cursor { animation: none; opacity: 0.6; }
     }
   `,
 })
@@ -111,6 +113,16 @@ export class MessageBody {
 
   protected readonly _html = computed<string>(() => {
     const visible = this._displayedText();
-    return visible ? (marked.parse(visible, { async: false }) as string) : '';
+    if (!visible) return '';
+    // Append the cursor span to the raw text BEFORE marked parses,
+    // so marked treats it as inline content of the last paragraph.
+    // Otherwise the cursor sits as a sibling block element below the
+    // prose container and can end up clipped against the composer
+    // overlay's top edge when the last message lands flush.
+    const raw = this.streaming()
+      ? visible +
+        '<span class="message-body__cursor" aria-hidden="true"></span>'
+      : visible;
+    return marked.parse(raw, { async: false }) as string;
   });
 }

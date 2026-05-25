@@ -61,6 +61,9 @@ import { UserMessage } from './ui-user-message';
       </div>
     }
     @if (_showInFlightSpacer()) {
+      <!-- In-flight spacer height = CHAT_IN_FLIGHT_SPACER_VH (50vh).
+           Keep the class string in sync with the constant in
+           libs/desktop-chat-util/src/lib/chat-layout.constants.ts. -->
       <div aria-hidden="true" class="h-[50vh] shrink-0"></div>
     }
   `,

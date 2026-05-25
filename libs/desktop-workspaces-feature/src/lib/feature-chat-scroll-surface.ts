@@ -13,6 +13,10 @@ import {
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
+  CHAT_AT_BOTTOM_THRESHOLD_PX,
+  CHAT_COMPOSER_OVERLAY_PX,
+} from '@mozart/desktop-chat-util';
+import {
   ChatScrollOrchestrator,
   ScrollPositionService,
   chatTabKey,
@@ -20,26 +24,11 @@ import {
 import { NEVER, animationFrameScheduler, combineLatest, fromEvent } from 'rxjs';
 import { auditTime, filter, finalize, switchMap, tap } from 'rxjs/operators';
 
-// Distance-from-content-end threshold (px) for the at-bottom
-// detector. Under this, the chat is considered attached (auto-follow
-// stream); over, it's detached (the user has scrolled up to read
-// history). Measured from the bottom of the last real message, not
-// from `scrollHeight` — `MessageList` appends a 50vh in-flight
-// spacer that would otherwise keep the detector permanently
-// detached.
-const AT_BOTTOM_THRESHOLD_PX = 80;
-
-// Effective vertical footprint of the composer overlay measured from
-// the bottom of the scroll surface viewport. The composer is
-// absolutely positioned over the bottom of WorkspaceTabContent, so
-// any scrollTop math that wants the newest message to land just
-// above it needs to subtract this from `clientHeight`. The inner
-// scroll wrapper's `pb-48` (192px) keeps content from clipping at
-// rest ; this constant is the smaller working zone the auto-follow
-// targets while streaming. Measured against the real composer
-// chrome height (~120–140px depending on mode selectors) plus
-// breathing room.
-const COMPOSER_OVERLAY_PX = 160;
+// Layout magic numbers — `CHAT_COMPOSER_OVERLAY_PX`,
+// `CHAT_AT_BOTTOM_THRESHOLD_PX`, etc. — live in
+// `libs/desktop-chat-util/src/lib/chat-layout.constants.ts`. Iterate
+// them there ; this file just imports them and applies the matching
+// Tailwind classes inline (the JIT scan needs literal strings).
 
 // Type-guard for combineLatest predicates that wait on two
 // "resolved" sources (a workspace + mainEl pair, a key + mainEl pair,
@@ -83,24 +72,27 @@ function bothResolved<A, B>(
   // (absolute is positioned relative to WorkspaceTabContent, which
   // would translate with main's scrollTop). Scoping scroll to this
   // surface keeps the composer overlay pinned at viewport bottom.
-  host: { class: 'flex min-h-0 w-full flex-col overflow-y-auto' },
+  //
+  // Top fade : applied via `mask-image` on the scroll container
+  // itself — fades the top 40px of the visible area to transparent
+  // so content scrolling under the workspace header softens instead
+  // of clipping at a hard edge. Sticky overlay didn't work reliably
+  // inside this flex column ; the mask sits in container space and
+  // moves naturally with the user's scroll. CHAT_TOP_FADE_HEIGHT_PX
+  // (40px) drives the gradient stop — keep in sync with the
+  // arbitrary-value class string here.
+  host: {
+    class:
+      'flex min-h-0 w-full flex-col overflow-y-auto [mask-image:linear-gradient(to_bottom,transparent_0,black_40px)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0,black_40px)]',
+  },
   template: `
-    <!-- Top fade : a sticky gradient pinned to the top of the
-         scroll surface viewport. Softens the hard line where chat
-         content used to clip against the workspace header as the
-         user scrolled. Lives as a sibling before the inner wrapper
-         so flex layout doesn't compress its height. -->
-    <div
-      class="pointer-events-none sticky top-0 z-10 h-8 -mb-8 bg-linear-to-b from-background to-transparent dark:from-background"
-      aria-hidden="true"
-    ></div>
     <!-- Inner wrapper centers chat content + caps width. Bottom padding
          clears the absolutely-positioned composer overlay (composer
          chrome ≈ 120–140px) so the last message stays visible above
-         it. pb-48 = 192px mirrors COMPOSER_OVERLAY_PX (160px) plus
+         it. pb-48 = 192px mirrors CHAT_COMPOSER_OVERLAY_PX (160px) plus
          32px of breathing room — measured during dogfood, text used
          to land flush against the composer chrome with pb-32. -->
-    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-4 pb-48">
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-5 pb-48">
       <ng-content />
     </div>
   `,
@@ -204,7 +196,7 @@ export class FeatureChatScrollSurface {
             // haven't seen yet" — without anchoring on the message
             // element we'd be permanently detached.
             const distance = distanceFromContentEnd(el);
-            const atBottom = distance < AT_BOTTOM_THRESHOLD_PX;
+            const atBottom = distance < CHAT_AT_BOTTOM_THRESHOLD_PX;
             const currentlyAttached = this.scroll.isAttached(chatId);
 
             if (atBottom && !currentlyAttached) {
@@ -339,14 +331,14 @@ export class FeatureChatScrollSurface {
           // anything below this line is obscured by the absolutely-
           // positioned composer, so we treat it as off-screen.
           const visibleBottom =
-            main.scrollTop + main.clientHeight - COMPOSER_OVERLAY_PX;
+            main.scrollTop + main.clientHeight - CHAT_COMPOSER_OVERLAY_PX;
           // Content still fits above the composer — don't move.
           if (contentBottom <= visibleBottom) return;
           // Otherwise pull scrollTop just enough to bring the
           // message bottom flush with the unobscured visible bottom
           // (just above the composer chrome).
           main.scrollTop =
-            contentBottom - main.clientHeight + COMPOSER_OVERLAY_PX;
+            contentBottom - main.clientHeight + CHAT_COMPOSER_OVERLAY_PX;
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -389,7 +381,7 @@ function distanceFromContentEnd(main: HTMLElement): number {
   }
   const contentBottom = lastMsg.offsetTop + lastMsg.offsetHeight;
   const visibleBottom =
-    main.scrollTop + main.clientHeight - COMPOSER_OVERLAY_PX;
+    main.scrollTop + main.clientHeight - CHAT_COMPOSER_OVERLAY_PX;
   return contentBottom - visibleBottom;
 }
 
