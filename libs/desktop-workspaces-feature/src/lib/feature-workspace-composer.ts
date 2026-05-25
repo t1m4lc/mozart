@@ -31,7 +31,7 @@ import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
 import {
   ChatScrollOrchestrator,
-  ScrollPositionService,
+  ScrollSurfaceRegistry,
   WorkspacesFacade,
 } from '@mozart/desktop-workspaces-data-access';
 
@@ -50,11 +50,12 @@ import {
  *   - Self-owned focus management — workspaceId change + streaming
  *     false-edge both refocus the textarea
  *
- * Does NOT own the chat scroll surface. The at-bottom detector,
- * per-chat scroll persistence, and message-arrival auto-follow live
- * in `FeatureChatScrollSurface`, communicating via
- * `ChatScrollOrchestrator` (DOM seam) and `ScrollPositionService`
- * (attach/detach state).
+ * Does NOT own the chat scroll surface. The at-bottom detector
+ * (IntersectionObserver on a sentinel), per-chat scroll persistence,
+ * and message-arrival auto-follow (overflow-anchor) all live on the
+ * MzScrollSurface directive applied inside FeatureChatScrollSurface.
+ * The composer reaches that surface via ScrollSurfaceRegistry
+ * (workspaceId-keyed seam) — no DOM coupling, no orchestrator timer.
  */
 @Component({
   selector: 'app-feature-workspace-composer',
@@ -108,7 +109,7 @@ export class FeatureWorkspaceComposer {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly router = inject(Router);
   private readonly injector = inject(Injector);
-  private readonly scroll = inject(ScrollPositionService);
+  private readonly registry = inject(ScrollSurfaceRegistry);
   private readonly orchestrator = inject(ChatScrollOrchestrator);
   private readonly uiState = inject(UiStateFacade);
 
@@ -160,14 +161,18 @@ export class FeatureWorkspaceComposer {
 
   // Composer auto-follow indicator. Forced to `true` on a file tab
   // (P2.2 D3) so the scroll-to-bottom overlay stays hidden — there's
-  // no chat scroll surface registered with the orchestrator in that
-  // mode. On a chat tab, sources the per-chat attach mode from
-  // ScrollPositionService.
+  // no chat scroll surface registered in that mode. On a chat tab,
+  // reads the registered surface's isAtBottom signal: an IntersectionO-
+  // bserver on the message-list sentinel drives this, replacing the
+  // legacy 50px-threshold scroll-event listener.
+  private readonly _isAtBottomSignal = computed(() => {
+    const id = this.workspaceId();
+    return id ? this.registry.isAtBottom(id) : null;
+  });
   protected readonly autoFollowChat = computed(() => {
     if (this.activeTabKind() === 'file') return true;
-    const chatId = this._activeChatId();
-    if (!chatId) return true;
-    return this.scroll.followModeFor(chatId)() === 'attached';
+    const sig = this._isAtBottomSignal();
+    return sig ? sig() : true;
   });
 
   protected readonly hasNextUnreadInProject =
@@ -259,16 +264,15 @@ export class FeatureWorkspaceComposer {
   protected onSend(event: ComposerSendEvent): void {
     const id = this.workspaceId();
     if (!id) return;
-    // Sending implicitly re-engages auto-follow — the user wants to
-    // see the assistant's reply land.
     const chatId = this._activeChatId();
-    if (chatId) this.scroll.setAttached(chatId);
-    // Only request a chat scroll-to-bottom when a chat surface can
-    // receive it. On a file tab the orchestrator has no registered
-    // mainEl and would no-op anyway, but the explicit gate spells
-    // out the intent (D3).
+    // Only request a chat scroll-to-bottom when a chat surface is
+    // registered (chat tab). On a file tab the registry returns null
+    // and the explicit gate also spells out the intent (D3).
+    // Auto-follow re-engages automatically: smooth-scrolling to the
+    // bottom moves the IO sentinel into view, the directive's
+    // isAtBottom flips to true, and the composer's overlay hides.
     if (this.activeTabKind() !== 'file') {
-      this.orchestrator.scrollToBottom(id, true);
+      this.registry.get(id)?.scrollToBottom(true);
     }
     void this.facade.sendUserMessage(id, event.text, event.mode);
     if (chatId) this.uiState.clearChatDraft(id, chatId);
@@ -306,9 +310,7 @@ export class FeatureWorkspaceComposer {
     if (this.activeTabKind() === 'file') return;
     const id = this.workspaceId();
     if (!id) return;
-    const chatId = this._activeChatId();
-    if (chatId) this.scroll.setAttached(chatId);
-    this.orchestrator.scrollToBottom(id, true);
+    this.registry.get(id)?.scrollToBottom(true);
   }
 
   protected onNextUnreadWorkspace(): void {

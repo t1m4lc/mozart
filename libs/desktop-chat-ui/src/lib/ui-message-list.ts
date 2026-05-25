@@ -7,8 +7,9 @@ import { UserMessage } from './ui-user-message';
 
 // Pure presentational @for over messages, switching on role. Owns no
 // scroll behavior — chat scroll is orchestrated from
-// FeatureChatScrollSurface against the shell's <main> overflow surface,
-// using ScrollPositionService for per-tab persistence and attach mode.
+// FeatureChatScrollSurface via [mzScrollSurface], with the trailing
+// [data-scroll-sentinel] below as the IntersectionObserver target for
+// at-bottom detection.
 //
 // TODO(perf): see TODOS.md — virtual scrolling is captured there.
 @Component({
@@ -36,6 +37,10 @@ import { UserMessage } from './ui-user-message';
         }
       </div>
     }
+    <!-- Bottom sentinel for MzScrollSurface's IntersectionObserver
+         (autoFollow=true). Stays in normal flow at the trailing edge
+         of the scroll content so the observer reads natural geometry. -->
+    <div data-scroll-sentinel aria-hidden="true" class="h-px w-full"></div>
   `,
 })
 export class MessageList {

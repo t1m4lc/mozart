@@ -1,4 +1,4 @@
-import { signal } from '@angular/core';
+import { signal, type Signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
@@ -6,11 +6,38 @@ import { describe, expect, it, vi } from 'vitest';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   ChatScrollOrchestrator,
-  ScrollPositionService,
+  ScrollSurfaceRegistry,
   WorkspacesFacade,
+  type ScrollSurface,
 } from '@mozart/desktop-workspaces-data-access';
 
 import { FeatureWorkspaceComposer } from './feature-workspace-composer';
+
+interface MockSurfaceHandle {
+  surface: ScrollSurface;
+  atBottom: ReturnType<typeof signal<boolean>>;
+}
+
+function registerMockSurface(
+  registry: ScrollSurfaceRegistry,
+  id: string,
+  isAtBottom = true,
+): MockSurfaceHandle {
+  const atBottom = signal<boolean>(isAtBottom);
+  const el = signal<HTMLElement | null>(null);
+  const surface: ScrollSurface = {
+    isAtBottom: atBottom.asReadonly() as Signal<boolean>,
+    element: el.asReadonly() as Signal<HTMLElement | null>,
+    setKey: vi.fn(),
+    scrollToBottom: vi.fn(),
+    scrollIntoView: vi.fn(),
+    scrollTo: vi.fn(),
+    snapshot: vi.fn(),
+    detach: vi.fn(),
+  };
+  registry.register(id, surface);
+  return { surface, atBottom };
+}
 
 interface FakeChat {
   id: string;
@@ -74,17 +101,17 @@ function configure(state: ChatFacadeStubState) {
     ],
   });
 
-  // ScrollPositionService and ChatScrollOrchestrator are simple
+  // ScrollSurfaceRegistry and ChatScrollOrchestrator are simple
   // root-providedIn services with no Tauri dependency — use the real
   // ones so the wiring is exercised end-to-end.
-  const scroll = TestBed.inject(ScrollPositionService);
+  const registry = TestBed.inject(ScrollSurfaceRegistry);
   const orchestrator = TestBed.inject(ChatScrollOrchestrator);
 
   return {
     chatFacade,
     workspacesFacade,
     router,
-    scroll,
+    registry,
     orchestrator,
     activeChatSignal,
     streamingSignal,
@@ -144,36 +171,36 @@ describe('FeatureWorkspaceComposer', () => {
       );
     });
 
-    it('does NOT trigger orchestrator scrollToBottom on file tab', () => {
+    it('does NOT trigger registered surface scrollToBottom on file tab', () => {
       const stubs = configure({ activeChat: makeChat(), streaming: false });
+      const handle = registerMockSurface(stubs.registry, 'ws-1');
       const fixture = mountComposer({
         workspaceId: 'ws-1',
         activeTabKind: 'file',
       });
-      const spy = vi.spyOn(stubs.orchestrator, 'scrollToBottom');
       const cmp = fixture.componentInstance as unknown as {
         onSend: (e: { text: string; mode: 'agent' }) => void;
       };
 
       cmp.onSend({ text: 'silent send', mode: 'agent' });
 
-      expect(spy).not.toHaveBeenCalled();
+      expect(handle.surface.scrollToBottom).not.toHaveBeenCalled();
     });
 
-    it('triggers orchestrator scrollToBottom on chat tab', () => {
+    it('triggers registered surface scrollToBottom on chat tab', () => {
       const stubs = configure({ activeChat: makeChat(), streaming: false });
+      const handle = registerMockSurface(stubs.registry, 'ws-1');
       const fixture = mountComposer({
         workspaceId: 'ws-1',
         activeTabKind: 'chat',
       });
-      const spy = vi.spyOn(stubs.orchestrator, 'scrollToBottom');
       const cmp = fixture.componentInstance as unknown as {
         onSend: (e: { text: string; mode: 'agent' }) => void;
       };
 
       cmp.onSend({ text: 'with scroll', mode: 'agent' });
 
-      expect(spy).toHaveBeenCalledWith('ws-1', true);
+      expect(handle.surface.scrollToBottom).toHaveBeenCalledWith(true);
     });
 
     it('is a no-op when workspaceId is null', () => {
@@ -195,10 +222,10 @@ describe('FeatureWorkspaceComposer', () => {
   describe('scroll-to-bottom overlay gate (D3)', () => {
     it('autoFollowChat is forced true on file tab', () => {
       const stubs = configure({ activeChat: makeChat(), streaming: false });
-      // Mark chat as detached in ScrollPositionService — on a chat
-      // tab this would surface the scroll-to-bottom overlay. On a
-      // file tab it must be ignored.
-      stubs.scroll.setDetached('chat-1');
+      // Register a surface in the detached state — on a chat tab this
+      // would surface the scroll-to-bottom overlay. On a file tab it
+      // must be ignored.
+      registerMockSurface(stubs.registry, 'ws-1', /* isAtBottom */ false);
 
       const fixture = mountComposer({
         workspaceId: 'ws-1',
@@ -211,9 +238,9 @@ describe('FeatureWorkspaceComposer', () => {
       expect(cmp.autoFollowChat()).toBe(true);
     });
 
-    it('autoFollowChat reflects ScrollPositionService on chat tab', () => {
+    it('autoFollowChat reflects the registered surface isAtBottom on chat tab', () => {
       const stubs = configure({ activeChat: makeChat(), streaming: false });
-      stubs.scroll.setDetached('chat-1');
+      const handle = registerMockSurface(stubs.registry, 'ws-1', false);
 
       const fixture = mountComposer({
         workspaceId: 'ws-1',
@@ -224,22 +251,26 @@ describe('FeatureWorkspaceComposer', () => {
         autoFollowChat: () => boolean;
       };
       expect(cmp.autoFollowChat()).toBe(false);
+
+      handle.atBottom.set(true);
+      fixture.detectChanges();
+      expect(cmp.autoFollowChat()).toBe(true);
     });
 
     it('onScrollToBottom is a no-op on file tab', () => {
       const stubs = configure({ activeChat: makeChat(), streaming: false });
+      const handle = registerMockSurface(stubs.registry, 'ws-1');
       const fixture = mountComposer({
         workspaceId: 'ws-1',
         activeTabKind: 'file',
       });
-      const spy = vi.spyOn(stubs.orchestrator, 'scrollToBottom');
       const cmp = fixture.componentInstance as unknown as {
         onScrollToBottom: () => void;
       };
 
       cmp.onScrollToBottom();
 
-      expect(spy).not.toHaveBeenCalled();
+      expect(handle.surface.scrollToBottom).not.toHaveBeenCalled();
     });
   });
 
