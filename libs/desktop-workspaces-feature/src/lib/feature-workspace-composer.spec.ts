@@ -185,30 +185,9 @@ describe('FeatureWorkspaceComposer', () => {
       expect(handle.surface.scrollToBottom).not.toHaveBeenCalled();
     });
 
-    it('rides up the latest user message via scrollIntoView on chat tab', async () => {
+    it('scrolls to bottom on chat tab — min-height: 100cqh handles rides-up', async () => {
       const stubs = configure({ activeChat: makeChat(), streaming: false });
-      // Surface exposes an element so the composer can querySelector
-      // for the trailing app-user-message. Seed two user messages and
-      // assert the LAST one rides up.
-      const scrollEl = document.createElement('div');
-      const u1 = document.createElement('app-user-message');
-      const u2 = document.createElement('app-user-message');
-      scrollEl.append(u1, u2);
-      document.body.appendChild(scrollEl);
-
-      const atBottom = signal(true);
-      const elSignal = signal<HTMLElement | null>(scrollEl);
-      const surface: ScrollSurface = {
-        isAtBottom: atBottom.asReadonly(),
-        element: elSignal.asReadonly(),
-        setKey: vi.fn(),
-        scrollToBottom: vi.fn(),
-        scrollIntoView: vi.fn(),
-        scrollTo: vi.fn(),
-        snapshot: vi.fn(),
-        detach: vi.fn(),
-      };
-      stubs.registry.register('ws-1', surface);
+      const handle = registerMockSurface(stubs.registry, 'ws-1');
 
       const fixture = mountComposer({
         workspaceId: 'ws-1',
@@ -224,14 +203,14 @@ describe('FeatureWorkspaceComposer', () => {
       await fixture.whenStable();
       await new Promise((r) => setTimeout(r, 0));
 
-      expect(surface.scrollIntoView).toHaveBeenCalledTimes(1);
-      const [target, opts] = (
-        surface.scrollIntoView as unknown as { mock: { calls: unknown[][] } }
-      ).mock.calls[0];
-      expect(target).toBe(u2);
-      expect(opts).toEqual({ block: 'start', behavior: 'smooth' });
-
-      document.body.removeChild(scrollEl);
+      // scrollToBottom(false) — instant, not smooth — so the auto-follow
+      // effect on the surface doesn't fight a 500ms animation if
+      // streaming tokens start arriving immediately.
+      expect(handle.surface.scrollToBottom).toHaveBeenCalledWith(false);
+      // No scrollIntoView call: the min-height: 100cqh rule on the
+      // last turn does the rides-up effect naturally when we scroll
+      // to the bottom — works for short AND long user messages.
+      expect(handle.surface.scrollIntoView).not.toHaveBeenCalled();
     });
 
     it('is a no-op when workspaceId is null', () => {

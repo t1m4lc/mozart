@@ -263,31 +263,29 @@ export class FeatureWorkspaceComposer {
     void this.facade.sendUserMessage(id, event.text, event.mode);
     if (chatId) this.uiState.clearChatDraft(id, chatId);
     this.value.set('');
-    // ChatGPT "rides up" (M17): after the user message is appended to
-    // the DOM, smooth-scroll IT to the top of the visible viewport so
-    // empty space sits below for the assistant response to fill.
-    // `min-height: 100cqh` on .chat-turn:last-of-type reserves that
-    // empty space; `overflow-anchor` keeps the assistant text pinned
-    // as tokens stream in. On a file tab the chat surface isn't
-    // registered — early-return.
+    // After the user message is appended to the DOM, scroll to the
+    // bottom of the scroll container. The `.chat-turn:last-of-type
+    // { min-height: 100cqh }` CSS rule on the new turn does the
+    // ChatGPT "rides up" effect naturally:
+    //   - Short user message: scrollTop = scrollHeight - clientHeight
+    //     puts the top of the just-grown 100cqh turn at viewport-top,
+    //     so the user message sits at the top with empty space below
+    //     for the assistant response to fill.
+    //   - Long user message (taller than viewport): the bottom of the
+    //     user message + the empty/assistant area is visible.
+    //   - Auto-follow engages immediately: the IO sentinel intersects
+    //     (we ARE at bottom), so the auditTime effect in the chat
+    //     scroll surface tracks each new token.
+    // Earlier impl used `scrollIntoView(userMessageEl, { block:'start' })`
+    // which broke for long user messages: top-of-message landed at
+    // viewport top but the response area was off-screen, AND the
+    // sentinel sat far below viewport (isAtBottom=false → no auto-
+    // follow). scrollToBottom is the unambiguously correct primitive.
     if (this.activeTabKind() === 'file') return;
     const surface = this.registry.get(id);
     if (!surface) return;
     afterNextRender(
-      () => {
-        const scrollEl = surface.element();
-        if (!scrollEl) return;
-        const userMessages = scrollEl.querySelectorAll<HTMLElement>(
-          'app-user-message',
-        );
-        const last = userMessages[userMessages.length - 1];
-        if (last) {
-          surface.scrollIntoView(last, { block: 'start', behavior: 'smooth' });
-        } else {
-          // Empty chat-turn case (rare) — fall back to bottom.
-          surface.scrollToBottom(true);
-        }
-      },
+      () => surface.scrollToBottom(false),
       { injector: this.injector },
     );
   }

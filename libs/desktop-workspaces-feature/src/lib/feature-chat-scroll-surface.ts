@@ -5,8 +5,14 @@ import {
   inject,
   input,
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { animationFrameScheduler } from 'rxjs';
+import { auditTime } from 'rxjs/operators';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
-import { chatTabKey } from '@mozart/desktop-workspaces-data-access';
+import {
+  ScrollSurfaceRegistry,
+  chatTabKey,
+} from '@mozart/desktop-workspaces-data-access';
 import { MzScrollSurface } from './mz-scroll-surface.directive';
 
 /**
@@ -58,6 +64,7 @@ export class FeatureChatScrollSurface {
   readonly workspaceId = input<string | null>(null);
 
   private readonly facade = inject(ChatFacade);
+  private readonly registry = inject(ScrollSurfaceRegistry);
 
   private readonly _activeChatId = computed(() => {
     const id = this.workspaceId();
@@ -71,4 +78,36 @@ export class FeatureChatScrollSurface {
     if (!ws || !chatId) return null;
     return chatTabKey(ws, chatId);
   });
+
+  // Messages-for-workspace signal feeds the auto-follow effect below.
+  private readonly _messages = this.facade.messagesForWorkspace(
+    this.workspaceId,
+  );
+
+  constructor() {
+    // Auto-follow during streaming. When the registered surface reports
+    // isAtBottom=true (IO sentinel intersects), each new message
+    // emission scrolls to the new bottom. When the user scrolls up, IO
+    // flips to false, this effect no-ops, and the page just gets taller
+    // below the user's view — they stay where they are.
+    //
+    // `overflow-anchor: auto` alone DOES NOT do bottom-pin: it keeps an
+    // anchor stable when content shifts *above* it, but it does not
+    // push the viewport *down* when content grows *below* visible
+    // content. The explicit scrollToBottom() here is the missing piece.
+    //
+    // auditTime(0, animationFrameScheduler) coalesces per-token bursts
+    // (50+/sec on fast streams) to one write per frame. behavior:'auto'
+    // (instant, not smooth) avoids fighting user scroll inputs and the
+    // ride-up on send.
+    toObservable(this._messages)
+      .pipe(auditTime(0, animationFrameScheduler), takeUntilDestroyed())
+      .subscribe(() => {
+        const ws = this.workspaceId();
+        if (!ws) return;
+        const surface = this.registry.get(ws);
+        if (!surface || !surface.isAtBottom()) return;
+        surface.scrollToBottom(false);
+      });
+  }
 }
