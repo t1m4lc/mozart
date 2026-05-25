@@ -8,6 +8,7 @@ import {
   output,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { anyVisibleAt } from './_density.util';
 import { DoneMarker } from './done-marker';
 import { ErrorMarker } from './error-marker';
 import { FileChipBus } from './file-chip-bus';
@@ -16,6 +17,7 @@ import { Timeline } from './timeline';
 import { TurnBody } from './turn-body';
 import { TurnHeader } from './turn-header';
 import type {
+  TimelineDensity,
   TurnFileChipEvent,
   TurnState,
 } from './turn-state.types';
@@ -43,33 +45,56 @@ import type {
       [streaming]="state().isStreaming"
       [(collapsed)]="collapsed"
     />
-    <mz-turn-body [collapsed]="collapsed()">
-      @if (_hasItems()) {
-        <mz-timeline [items]="state().items" />
-      }
-      @if (_hasText()) {
-        <mz-message-body
-          [class.mt-1]="_hasItems()"
-          [text]="state().text"
-          [streaming]="state().isStreaming"
-        />
-      }
-      @if (_showDone()) {
-        <mz-done-marker class="mt-1" />
-      } @else if (_showError()) {
-        <mz-error-marker class="mt-1" [label]="_errorLabel()" />
-      }
-    </mz-turn-body>
+    @if (_hasBody()) {
+      <mz-turn-body [collapsed]="collapsed()">
+        @if (_hasItems()) {
+          <mz-timeline [items]="state().items" [density]="density()" />
+        }
+        @if (_showDone()) {
+          <mz-done-marker [class.mt-1]="_hasItems()" />
+        } @else if (_showError()) {
+          <mz-error-marker
+            [class.mt-1]="_hasItems()"
+            [label]="_errorLabel()"
+          />
+        }
+      </mz-turn-body>
+    }
+    @if (_hasText()) {
+      <mz-message-body
+        class="mt-2"
+        [text]="state().text"
+        [streaming]="state().isStreaming"
+      />
+    }
   `,
 })
 export class TurnContainer {
   readonly state = input.required<TurnState>();
   readonly collapsed = model<boolean>(false);
+  // Forwarded to <mz-timeline>. AgentMessage reads it from
+  // TimelinePrefsService and binds it here.
+  readonly density = input<TimelineDensity>('normal');
 
   readonly fileChipClick = output<TurnFileChipEvent>();
 
   protected readonly _hasText = computed(() => this.state().text.length > 0);
-  protected readonly _hasItems = computed(() => this.state().items.length > 0);
+  // True only when at least one item would actually render at the
+  // current density. Using the unfiltered count here would mount an
+  // empty <mz-timeline> in `compact` mode and add a stray top margin
+  // around the markers.
+  protected readonly _hasItems = computed(() =>
+    anyVisibleAt(this.state().items, this.density()),
+  );
+
+  // True when the collapsible <mz-turn-body> has anything to show
+  // (timeline rows OR a terminal marker). When false we skip mounting
+  // the body entirely so the assistant prose sits directly under the
+  // header. The assistant prose itself lives OUTSIDE the body so it
+  // stays visible after the user collapses the technical detail.
+  protected readonly _hasBody = computed(
+    () => this._hasItems() || this._showDone() || this._showError(),
+  );
 
   protected readonly _showDone = computed(
     () => this.state().showDoneMarker && this.state().outcome === 'done',

@@ -6,6 +6,10 @@ import {
   FeatureConnections,
   FeatureNotificationPrefs,
 } from '@mozart/desktop-profile-feature';
+import {
+  TimelinePrefsService,
+  type TimelineDensity,
+} from '@mozart/desktop-ui-state-data-access';
 import { ThemeService, type ThemeMode } from '@mozart/shared-util-theme';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmSelectImports } from '@spartan-ui/select';
@@ -90,6 +94,34 @@ const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
             </hlm-select-content>
           </hlm-select>
         </div>
+        <div
+          class="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-4"
+        >
+          <div class="space-y-1">
+            <p class="text-sm font-medium">Timeline density</p>
+            <p class="text-xs text-muted-foreground">
+              Choose how much of the agent's activity shows up in the chat.
+            </p>
+          </div>
+          <hlm-select
+            [value]="_timelinePrefs.density()"
+            (valueChange)="onSetDensity($any($event))"
+            [itemToString]="_densityToString"
+          >
+            <hlm-select-trigger class="w-28 h-8 text-xs">
+              <hlm-select-value />
+            </hlm-select-trigger>
+            <hlm-select-content *hlmSelectPortal>
+              <hlm-select-group>
+                @for (opt of _densityOptions; track opt.value) {
+                  <hlm-select-item [value]="opt.value">
+                    {{ opt.label }}
+                  </hlm-select-item>
+                }
+              </hlm-select-group>
+            </hlm-select-content>
+          </hlm-select>
+        </div>
       </section>
 
       <section class="space-y-4">
@@ -137,6 +169,7 @@ export class SettingsPage {
   private readonly auth = inject(AuthFacade);
   private readonly externalLink = inject(ExternalLinkService);
   protected readonly _theme = inject(ThemeService);
+  protected readonly _timelinePrefs = inject(TimelinePrefsService);
 
   protected readonly _themeModes: { label: string; value: ThemeMode }[] = [
     { label: 'System', value: 'system' },
@@ -144,11 +177,27 @@ export class SettingsPage {
     { label: 'Dark', value: 'dark' },
   ];
 
+  protected readonly _densityOptions: {
+    label: string;
+    value: TimelineDensity;
+  }[] = [
+    { label: 'Compact', value: 'compact' },
+    { label: 'Normal', value: 'normal' },
+    { label: 'Detailed', value: 'detailed' },
+  ];
+
   protected readonly _modeToString = (mode: ThemeMode): string =>
     this._themeModes.find((o) => o.value === mode)?.label ?? '';
 
+  protected readonly _densityToString = (level: TimelineDensity): string =>
+    this._densityOptions.find((o) => o.value === level)?.label ?? '';
+
   protected onSetMode(mode: ThemeMode): void {
     this._theme.setMode(mode);
+  }
+
+  protected onSetDensity(level: TimelineDensity): void {
+    this._timelinePrefs.setDensity(level);
   }
 
   protected onSignOut(): void {

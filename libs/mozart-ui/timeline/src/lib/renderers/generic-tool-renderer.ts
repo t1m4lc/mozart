@@ -3,6 +3,7 @@ import {
   Component,
   computed,
   input,
+  linkedSignal,
 } from '@angular/core';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { provideIcons } from '@ng-icons/core';
@@ -12,10 +13,14 @@ import { TimelineItem } from '../timeline-item';
 import type { TurnItem } from '../turn-state.types';
 
 // Phase 3b — fallback renderer for any TurnItemKind without a
-// specific component yet. Atom 2 ships this as the universal renderer
-// (every kind in the registry maps here). Atoms 3-4 swap in the
-// kind-specific renderers (thinking/file/shell/search) — this
-// remains the catch-all for `kind === 'generic'`.
+// specific component yet. Atom 2 shipped this as the universal
+// renderer ; atoms 3-4 swapped in kind-specific renderers
+// (thinking/file/shell/search) — this remains the catch-all for
+// `kind === 'generic'` (MCP tools, unknown providers, …).
+//
+// Per the per-item collapse pattern (docs/tmp/2026-05-25 §F): when
+// the item carries a body (typically a tool result summary), the
+// title row is clickable and toggles a scrollable detail view.
 
 @Component({
   selector: 'mz-generic-tool-renderer',
@@ -35,17 +40,43 @@ import type { TurnItem } from '../turn-state.types';
         size="xs"
         [class]="_iconClass()"
       />
-      <p
-        class="text-sm"
-        [class.shimmer-text]="_isActive()"
-        [class.text-destructive]="_isError()"
-        [class.text-foreground]="_isDone()"
-      >
-        {{ item().title }}
-      </p>
+      <div>
+        <button
+          type="button"
+          (click)="_toggle()"
+          [disabled]="!_hasBody()"
+          class="flex w-full cursor-pointer items-center gap-2 text-left text-sm transition-colors enabled:hover:text-foreground disabled:cursor-default"
+          [class.shimmer-text]="_isActive()"
+          [class.text-destructive]="_isError()"
+          [class.text-foreground]="_isDone() && !_isError()"
+          [class.text-muted-foreground]="!_isDone() && !_isActive() && !_isError()"
+        >
+          <span>{{ item().title }}</span>
+        </button>
+        @if (_hasBody()) {
+          <div
+            class="generic-body grid"
+            [style.grid-template-rows]="_expanded() ? '1fr' : '0fr'"
+          >
+            <div class="min-h-0 overflow-hidden">
+              <pre
+                class="mt-1 max-h-96 overflow-y-auto whitespace-pre-wrap break-all rounded-md border border-border bg-muted/30 p-2 font-mono text-xs text-muted-foreground"
+              >{{ item().body }}</pre>
+            </div>
+          </div>
+        }
+      </div>
     </mz-timeline-item>
   `,
-  styles: [SHIMMER_TEXT_STYLES],
+  styles: [
+    SHIMMER_TEXT_STYLES,
+    `
+      .generic-body { transition: grid-template-rows 200ms ease; }
+      @media (prefers-reduced-motion: reduce) {
+        .generic-body { transition: none; }
+      }
+    `,
+  ],
 })
 export class GenericToolRenderer {
   readonly item = input.required<TurnItem>();
@@ -57,6 +88,9 @@ export class GenericToolRenderer {
   );
   protected readonly _isError = computed(() => this.item().state === 'error');
   protected readonly _isDone = computed(() => this.item().state === 'done');
+  protected readonly _hasBody = computed(
+    () => (this.item().body?.length ?? 0) > 0,
+  );
 
   protected readonly _iconClass = computed(() => {
     const state = this.item().state;
@@ -64,4 +98,14 @@ export class GenericToolRenderer {
     if (state === 'active') return 'text-foreground';
     return 'text-muted-foreground';
   });
+
+  protected readonly _expanded = linkedSignal<TurnItem, boolean>({
+    source: () => this.item(),
+    computation: (item, prev) => item.defaultExpanded ?? prev?.value ?? false,
+  });
+
+  protected _toggle(): void {
+    if (!this._hasBody()) return;
+    this._expanded.update((v) => !v);
+  }
 }

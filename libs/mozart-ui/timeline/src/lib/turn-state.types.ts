@@ -18,6 +18,20 @@ export type TurnItemKind =
   | 'search'
   | 'generic';
 
+// Display role for filtering by `TimelineDensity`. `result` items are
+// the user-facing payload (plan steps, final outcomes — always visible
+// across all densities). `detail` items are work-in-progress signal
+// (thinking, file reads, shell, tool calls) — filtered out at
+// `compact` density, partially filtered at `normal`, all-visible at
+// `detailed`. See docs/tmp/2026-05-25 §B.
+export type TurnItemRole = 'result' | 'detail';
+
+// User-controlled global display density. Filters which items the
+// timeline renders. `compact` shows only `result` items + errors ;
+// `normal` adds `detail` items that signal real workspace impact
+// (file edits/creates, shell runs) ; `detailed` shows everything.
+export type TimelineDensity = 'compact' | 'normal' | 'detailed';
+
 export interface TurnFileChip {
   readonly label: string;
   readonly added?: number;

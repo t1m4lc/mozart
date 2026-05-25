@@ -34,4 +34,9 @@ export const appRoutes: Route[] = [
     loadComponent: () =>
       import('./file-diff-card.sandbox').then((m) => m.FileDiffCardSandbox),
   },
+  {
+    path: 'timeline',
+    loadComponent: () =>
+      import('./timeline.sandbox').then((m) => m.TimelineSandbox),
+  },
 ];

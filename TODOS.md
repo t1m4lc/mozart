@@ -549,3 +549,39 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** None. Self-contained polish.
 
 ---
+
+## LLM pipeline — provider-agnostic refactor (multi-provider router)
+
+**What:** Rename `apps/desktop-tauri/src/claude_cli/` → `llm_runners/claude_cli/`, extend `AgentEvent` union with `run.*`, `tool.*`, `file.*`, `command.*`, `mcp.*` variants, introduce an `LlmProviderRouter` (libs/desktop-llm-model-data-access) that dispatches by `chats.llm_id`, add a 2nd adapter (Codex/OpenAI or Anthropic Messages API).
+
+**Why:** Today the pipeline is implicitly coupled to Claude CLI — directory naming, Rust `StreamEvent` shape calqué on what Claude emits, no `providerId` on `commands::start_agent_run`. The full audit lives in `docs/tmp/2026-05-25-provider-architecture-and-timeline-refactor.md` §1.3. The architecture is already ~70% provider-agnostic (LlmAdapter port, AgentEvent canonical, EnvelopeRenderer Rust trait), so the lift is mostly renames + additive types + 1 sibling Rust module.
+
+**How to apply:** Follow `docs/tmp/2026-05-25-provider-architecture-and-timeline-refactor.md` §5.1, §5.2, §5.4 (sections marked [DÉFÉRÉ]). 4 incremental PRs: (1) renames, (2) AgentEvent v2 additive, (3) router DI, (4) Codex adapter + fixtures. Trigger: concrete decision to integrate a 2nd provider (Codex CLI or Anthropic API direct).
+
+**Depends on:** A concrete intention to ship a 2nd provider. Until then this is theoretical complexity — defer.
+
+---
+
+## Timeline renderers — DRY the icon-state computation
+
+**What:** Every timeline renderer (`file-edit`, `file-create`, `file-read`, `shell`, `search`, `thinking`, `generic`) duplicates the same `_iconClass` computed: `state === 'error' ? 'text-destructive' : state === 'active' ? 'text-foreground' : 'text-muted-foreground'`. Factor into a shared util `iconClassForState(state)` (or a Spartan-style directive).
+
+**Why:** Pre-existing duplication, made slightly worse as Étape 3 (UX timeline) extends the per-item expand pattern to more renderers. Trivial mechanical refactor that pays off whenever a new renderer lands.
+
+**How to apply:** Create `libs/mozart-ui/timeline/src/lib/_icon-state.util.ts` exporting `iconClassForState(state: TurnItemState): string`. Replace inline computed in each renderer with a call. Single-commit grep-and-replace ; tests existants restent verts.
+
+**Depends on:** Étape 3 (UX timeline) mergé first to avoid merge conflicts on the touched renderers.
+
+---
+
+## Timeline — MCP-aware renderer
+
+**What:** Add a dedicated `mcp-call-renderer.ts` (libs/mozart-ui/timeline) that surfaces server name + tool name distinctly when a tool call originates from an MCP server (e.g. `mcp__nx-mcp__nx_docs` today shows up as a `generic` tool).
+
+**Why:** MCP tool names are encoded as `mcp__<server>__<tool>` strings. Today they hit `mapToolNameToKind` and fall to `generic` because no rule matches. A dedicated renderer would give an instant read on "which server, which tool" instead of an opaque mono-name. Useful as MCP usage grows.
+
+**How to apply:** Depends on the LLM pipeline refactor above (specifically `AgentEvent` v2 with `tool.started.source: 'mcp'` + dedicated `mcp.*` variants). Once those land: add `'mcp'` to `TurnItemKind`, add row in `TOOL_RENDERERS` registry + `TOOL_ROLES` (probably `'detail'`), write the renderer that parses the `mcp__server__tool` name pattern. Total ~1 file + 2 registry lines.
+
+**Depends on:** LLM pipeline provider-agnostic refactor (TODO above).
+
+---

@@ -15,10 +15,6 @@ import { HlmButtonImports } from '@spartan-ui/button';
           Dogfooding surface for the design-system components in
           isolation. Pick a component below.
         </p>
-        <p class="text-xs text-muted-foreground">
-          Timeline sandbox still lives in apps/desktop at /sandbox/timeline
-          until llm-model is promoted to a lib.
-        </p>
       </header>
 
       <ul class="flex flex-col gap-2">
@@ -45,6 +41,11 @@ import { HlmButtonImports } from '@spartan-ui/button';
         <li>
           <a hlmBtn variant="outline" routerLink="/file-diff-card">
             MzFileDiffCard →
+          </a>
+        </li>
+        <li>
+          <a hlmBtn variant="outline" routerLink="/timeline">
+            MzTimeline →
           </a>
         </li>
       </ul>
