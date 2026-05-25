@@ -1,4 +1,5 @@
 @import "tailwindcss" source("../src/app/");
+@plugin "@tailwindcss/typography";
 
 @import "../../../libs/mozart-design-tokens/src/index.css";
 /* xterm.js renderer styles — required for the Terminal tab. */

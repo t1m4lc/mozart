@@ -1,4 +1,5 @@
 @import "tailwindcss" source("../src/app/");
+@plugin "@tailwindcss/typography";
 
 @import "../../../libs/mozart-design-tokens/src/index.css";
 
@@ -16,6 +17,7 @@
 @source "../../../libs/mozart-ui/file-diff-card";
 @source "../../../libs/mozart-ui/file-tab-header";
 @source "../../../libs/mozart-ui/hunk-expand-bar";
+@source "../../../libs/mozart-ui/loader";
 @source "../../../libs/mozart-ui/review-progress";
 @source "../../../libs/mozart-ui/timeline";
 @source "../../../libs/shared-util-theme";

@@ -11,30 +11,33 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
-import {
-  animationFrameScheduler,
-  combineLatest,
-  fromEvent,
-  NEVER,
-} from 'rxjs';
-import {
-  auditTime,
-  filter,
-  finalize,
-  switchMap,
-  tap,
-} from 'rxjs/operators';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import {
   ChatScrollOrchestrator,
   ScrollPositionService,
   chatTabKey,
 } from '@mozart/desktop-workspaces-data-access';
+import { NEVER, animationFrameScheduler, combineLatest, fromEvent } from 'rxjs';
+import { auditTime, filter, finalize, switchMap, tap } from 'rxjs/operators';
 
-// Distance-from-bottom threshold (px) for the at-bottom detector.
-// Under this, the chat is considered attached (auto-follow stream);
-// over, it's detached (the user has scrolled up to read history).
-const AT_BOTTOM_THRESHOLD_PX = 50;
+// Distance-from-content-end threshold (px) for the at-bottom
+// detector. Under this, the chat is considered attached (auto-follow
+// stream); over, it's detached (the user has scrolled up to read
+// history). Measured from the bottom of the last real message, not
+// from `scrollHeight` — `MessageList` appends a 50vh in-flight
+// spacer that would otherwise keep the detector permanently
+// detached.
+const AT_BOTTOM_THRESHOLD_PX = 80;
+
+// Effective vertical footprint of the composer overlay measured from
+// the bottom of the scroll surface viewport. The composer is
+// absolutely positioned over the bottom of WorkspaceTabContent, so
+// any scrollTop math that wants the newest message to land just
+// above it needs to subtract this from `clientHeight`. The inner
+// scroll wrapper's `pb-40` (160px) keeps content from clipping at
+// rest ; this constant is the smaller working zone the auto-follow
+// targets while streaming.
+const COMPOSER_OVERLAY_PX = 120;
 
 // Type-guard for combineLatest predicates that wait on two
 // "resolved" sources (a workspace + mainEl pair, a key + mainEl pair,
@@ -82,7 +85,10 @@ function bothResolved<A, B>(
   template: `
     <!-- Inner wrapper centers chat content + caps width. Bottom padding
          clears the absolutely-positioned composer overlay (composer
-         chrome ≈ 100px) so the last message stays visible above it. -->
+         chrome ≈ 100px) so the last message stays visible above it.
+         pb-40 = 160px gives ~60px of breathing room above the composer
+         even for very short turns (e.g. plain-text replies where the
+         entire turn is a single prose line, no header, no timeline). -->
     <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-2.5 pb-32">
       <ng-content />
     </div>
@@ -181,8 +187,12 @@ export class FeatureChatScrollSurface {
             const chatId = this._activeChatId();
             if (!chatId) return;
 
-            const distance =
-              el.scrollHeight - currScrollTop - el.clientHeight;
+            // Distance from the visible (unobscured) bottom to the
+            // bottom of the last real message. The in-flight 50vh
+            // spacer past `lastMsg` doesn't count as "content I
+            // haven't seen yet" — without anchoring on the message
+            // element we'd be permanently detached.
+            const distance = distanceFromContentEnd(el);
             const atBottom = distance < AT_BOTTOM_THRESHOLD_PX;
             const currentlyAttached = this.scroll.isAttached(chatId);
 
@@ -207,10 +217,7 @@ export class FeatureChatScrollSurface {
     // changes — finalize fires before tap.subscribe of the new
     // inner, so the order is unregister(old) → register(new) and
     // the Map never double-holds.
-    combineLatest([
-      toObservable(this.workspaceId),
-      toObservable(this._mainEl),
-    ])
+    combineLatest([toObservable(this.workspaceId), toObservable(this._mainEl)])
       .pipe(
         filter(bothResolved),
         switchMap(([ws, el]) =>
@@ -237,10 +244,7 @@ export class FeatureChatScrollSurface {
     // never fires — the user lands at scrollTop 0 on every first
     // chat mount instead of the bottom default. Same shape as the
     // orchestrator stream above.
-    combineLatest([
-      toObservable(this._chatTabKey),
-      toObservable(this._mainEl),
-    ])
+    combineLatest([toObservable(this._chatTabKey), toObservable(this._mainEl)])
       .pipe(
         filter(bothResolved),
         switchMap(([key, main]) =>
@@ -295,6 +299,17 @@ export class FeatureChatScrollSurface {
     // detached), and without re-checking we'd write scrollTop after
     // their manual scroll — undoing it. Both filters are pure
     // predicates; tap is the only side-effect site.
+    //
+    // Scroll target (post 2026-05-25 dogfood) : aim at the BOTTOM of
+    // the last real message element, not `scrollHeight`. MessageList
+    // appends a 50vh in-flight spacer below the last message so the
+    // assistant prose has room to land — targeting scrollHeight would
+    // park scrollTop at the bottom of that spacer (empty), pushing
+    // the assistant text off the top of the viewport. Targeting the
+    // last message's offsetBottom keeps the newest text visible just
+    // above the spacer. Browser clamps to scrollHeight - clientHeight
+    // when content + spacer fit in viewport (early conversation), so
+    // this is still safe in tiny cases.
     toObservable(this._messages)
       .pipe(
         filter(() => this._isAttachedToActiveChat()),
@@ -303,7 +318,24 @@ export class FeatureChatScrollSurface {
         tap(() => {
           const main = this.mainEl;
           if (!main) return;
-          main.scrollTop = main.scrollHeight;
+          const lastMsg = lastMessageEl(main);
+          if (!lastMsg) {
+            main.scrollTop = main.scrollHeight;
+            return;
+          }
+          const contentBottom = lastMsg.offsetTop + lastMsg.offsetHeight;
+          // Effective visible bottom excludes the composer overlay —
+          // anything below this line is obscured by the absolutely-
+          // positioned composer, so we treat it as off-screen.
+          const visibleBottom =
+            main.scrollTop + main.clientHeight - COMPOSER_OVERLAY_PX;
+          // Content still fits above the composer — don't move.
+          if (contentBottom <= visibleBottom) return;
+          // Otherwise pull scrollTop just enough to bring the
+          // message bottom flush with the unobscured visible bottom
+          // (just above the composer chrome).
+          main.scrollTop =
+            contentBottom - main.clientHeight + COMPOSER_OVERLAY_PX;
         }),
         takeUntilDestroyed(this.destroyRef),
       )
@@ -319,6 +351,35 @@ export class FeatureChatScrollSurface {
     if (!chatId || !this.mainEl) return false;
     return this.scroll.isAttached(chatId);
   }
+}
+
+// Find the bottom-most rendered message element inside the scroll
+// surface. Used by the auto-follow tap to anchor scroll on the real
+// content instead of the in-flight spacer that MessageList appends.
+// Returns null when no message is mounted yet (cold load).
+function lastMessageEl(scope: HTMLElement): HTMLElement | null {
+  const selectors =
+    'app-agent-message, app-user-message, app-system-info-message, app-setup-progress-message';
+  const all = scope.querySelectorAll<HTMLElement>(selectors);
+  return all.length === 0 ? null : all[all.length - 1] ?? null;
+}
+
+// Pixels between the bottom of the last real message and the
+// effective (composer-aware) visible bottom of the scroll surface.
+// Positive when the message extends below the unobscured viewport
+// (content hidden behind composer), negative when the message ends
+// above the composer — i.e., room to spare.
+function distanceFromContentEnd(main: HTMLElement): number {
+  const lastMsg = lastMessageEl(main);
+  if (!lastMsg) {
+    // No content yet — fall back to the scrollHeight delta so the
+    // initial state still resolves as "at bottom" on empty chats.
+    return main.scrollHeight - main.scrollTop - main.clientHeight;
+  }
+  const contentBottom = lastMsg.offsetTop + lastMsg.offsetHeight;
+  const visibleBottom =
+    main.scrollTop + main.clientHeight - COMPOSER_OVERLAY_PX;
+  return contentBottom - visibleBottom;
 }
 
 // Walks up the DOM looking for the first ancestor whose computed

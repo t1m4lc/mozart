@@ -40,18 +40,21 @@ import type {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <mz-turn-header
-      [summary]="state().summary"
-      [streaming]="state().isStreaming"
-      [(collapsed)]="collapsed"
-    />
+    @if (_hasHeader()) {
+      <mz-turn-header
+        [summary]="state().summary"
+        [streaming]="state().isStreaming"
+        [startedAt]="state().startedAt"
+        [(collapsed)]="collapsed"
+      />
+    }
     @if (_hasBody()) {
       <mz-turn-body [collapsed]="collapsed()">
         @if (_hasItems()) {
           <mz-timeline [items]="state().items" [density]="density()" />
         }
         @if (_showDone()) {
-          <mz-done-marker [class.mt-1]="_hasItems()" />
+          <mz-done-marker class="mt-1" />
         } @else if (_showError()) {
           <mz-error-marker
             [class.mt-1]="_hasItems()"
@@ -62,7 +65,7 @@ import type {
     }
     @if (_hasText()) {
       <mz-message-body
-        class="mt-2"
+        [class.mt-2]="_hasHeader() || _hasBody()"
         [text]="state().text"
         [streaming]="state().isStreaming"
       />
@@ -87,17 +90,36 @@ export class TurnContainer {
     anyVisibleAt(this.state().items, this.density()),
   );
 
-  // True when the collapsible <mz-turn-body> has anything to show
-  // (timeline rows OR a terminal marker). When false we skip mounting
-  // the body entirely so the assistant prose sits directly under the
-  // header. The assistant prose itself lives OUTSIDE the body so it
-  // stays visible after the user collapses the technical detail.
+  // Whether the agent did anything technical this turn — items,
+  // thinking, errors. Unfiltered (density-independent) on purpose:
+  // a tool-heavy turn at compact density still has technical work
+  // to attach the header to.
+  protected readonly _hasTechnicalWork = computed(
+    () => this.state().items.length > 0 || this._showError(),
+  );
+
+  // Show the header iff there's something to announce: the agent is
+  // working (streaming), there's technical work, or there's an
+  // error. Pure text replies that completed cleanly skip the header
+  // entirely and render as a plain chat message.
+  protected readonly _hasHeader = computed(
+    () => this.state().isStreaming || this._hasTechnicalWork(),
+  );
+
+  // The collapsible body mounts only when there's something to show
+  // at the current density (visible items) or an error to surface.
+  // The done marker is the visual cap to the timeline — without
+  // items it would be orphan visual noise (the header summary
+  // already carries the "Done" signal).
   protected readonly _hasBody = computed(
-    () => this._hasItems() || this._showDone() || this._showError(),
+    () => this._hasItems() || this._showError(),
   );
 
   protected readonly _showDone = computed(
-    () => this.state().showDoneMarker && this.state().outcome === 'done',
+    () =>
+      this.state().showDoneMarker &&
+      this.state().outcome === 'done' &&
+      this._hasItems(),
   );
 
   protected readonly _showError = computed(() => {
