@@ -254,7 +254,7 @@ pub(crate) async fn create_project_folder_impl(
     }
 
     let parent_path = std::path::Path::new(parent_trim);
-    // Ensure parent exists (Quick start may seed `<home>/mozart/repos`
+    // Ensure parent exists (Quick start may seed `<home>/mozart/projects`
     // even if the user has never used that folder before).
     std::fs::create_dir_all(parent_path)
         .map_err(|e| AppError::Io(format!("create {}: {e}", parent_path.display())))?;

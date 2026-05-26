@@ -32,7 +32,7 @@ import {
 import { DIALOG_ADAPTER } from '@mozart/desktop-projects-data-access';
 
 export interface CloneRepoContext {
-  // Pre-resolved default location (e.g. `<home>/mozart/repos`). The
+  // Pre-resolved default location (e.g. `<home>/mozart/projects`). The
   // dialog seeds the Location field with this. The flow that opens the
   // dialog precomputes it so the dialog stays synchronous on first paint.
   defaultLocation: string;
@@ -109,25 +109,29 @@ const MAX_VISIBLE_REPOS = 8;
           <label hlmLabel for="repo-search">Your repos</label>
           @if (pickedRepoFullName(); as picked) {
             <div
-              class="flex items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 text-sm"
+              class="flex w-full min-w-0 items-center gap-2 rounded-md border border-emerald-500/40 bg-emerald-500/5 px-3 py-2 text-sm"
             >
               <ng-icon
                 name="lucideCheck"
-                class="text-emerald-600 dark:text-emerald-400"
+                class="shrink-0 text-emerald-600 dark:text-emerald-400"
                 aria-hidden="true"
               />
               <ng-icon
                 name="lucideGithub"
-                class="text-muted-foreground"
+                class="shrink-0 text-muted-foreground"
                 aria-hidden="true"
               />
-              <span class="font-medium truncate flex-1">{{ picked }}</span>
+              <span
+                class="min-w-0 flex-1 truncate font-medium"
+                [title]="picked"
+                >{{ picked }}</span
+              >
               <button
                 hlmBtn
                 variant="ghost"
                 size="sm"
                 type="button"
-                class="h-6 px-2 text-xs"
+                class="h-6 shrink-0 px-2 text-xs"
                 (click)="clearPickedRepo()"
                 [disabled]="cloning()"
               >
@@ -170,32 +174,44 @@ const MAX_VISIBLE_REPOS = 8;
                 No repo matches "{{ repoFilter() }}".
               </p>
             } @else if (filteredRepos().length > 0) {
-              <ul class="max-h-64 overflow-y-auto rounded-md border border-border/60 bg-card">
+              <!-- max-h: ~5 rows; w-full + an inner-flex min-w-0
+                   chain so long repo names truncate INSIDE the dialog
+                   instead of stretching it past sm:max-w-lg. -->
+              <ul
+                class="max-h-64 w-full overflow-y-auto overflow-x-hidden rounded-md border border-border/60 bg-card"
+              >
                 @for (r of filteredRepos(); track r.fullName) {
                   <li>
                     <button
                       type="button"
-                      class="w-full flex items-start gap-2 px-3 py-2 text-left text-sm hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none border-b border-border/40 last:border-b-0"
+                      class="flex w-full min-w-0 items-start gap-2 border-b border-border/40 px-3 py-2 text-left text-sm last:border-b-0 hover:bg-muted/40 focus-visible:bg-muted/40 focus-visible:outline-none"
                       [disabled]="cloning()"
                       (click)="pickRepo(r)"
                     >
                       <ng-icon
                         name="lucideGithub"
-                        class="mt-0.5 text-[14px] text-muted-foreground shrink-0"
+                        class="mt-0.5 shrink-0 text-[14px] text-muted-foreground"
                       />
-                      <span class="min-w-0 flex-1">
-                        <span class="flex items-center gap-1.5">
-                          <span class="font-medium truncate">{{ r.fullName }}</span>
+                      <span class="flex min-w-0 flex-1 flex-col">
+                        <span class="flex min-w-0 items-center gap-1.5">
+                          <span
+                            class="min-w-0 flex-1 truncate font-medium"
+                            [title]="r.fullName"
+                            >{{ r.fullName }}</span
+                          >
                           @if (r.private) {
                             <ng-icon
                               name="lucideLock"
-                              class="text-[10px] text-muted-foreground"
+                              class="shrink-0 text-[10px] text-muted-foreground"
                               aria-label="Private"
                             />
                           }
                         </span>
                         @if (r.description) {
-                          <span class="block text-xs text-muted-foreground truncate">
+                          <span
+                            class="block min-w-0 truncate text-xs text-muted-foreground"
+                            [title]="r.description"
+                          >
                             {{ r.description }}
                           </span>
                         }

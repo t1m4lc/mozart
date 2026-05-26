@@ -6,7 +6,8 @@ import { InjectionToken } from '@angular/core';
 export interface DialogAdapter {
   pickFolder(opts?: { defaultPath?: string }): Promise<string | null>;
   // Absolute path to the user's home directory. Used by dialogs that
-  // need to seed a default Location (e.g. Clone -> `<home>/mozart/repos`).
+  // need to seed a default Location (Clone + Create both resolve to
+  // `<home>/mozart/projects` — same root, different operation).
   homeDir(): Promise<string>;
 }
 

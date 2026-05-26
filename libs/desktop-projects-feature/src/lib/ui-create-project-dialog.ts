@@ -22,7 +22,7 @@ import { DIALOG_ADAPTER } from '@mozart/desktop-projects-data-access';
 import { UiRadioCard } from '@mozart/desktop-projects-ui';
 
 export interface CreateProjectContext {
-  // Pre-resolved default parent location (e.g. `<home>/mozart/repos`).
+  // Pre-resolved default parent location (e.g. `<home>/mozart/projects`).
   defaultParent: string;
   // Called once the folder is created — gives the flow the absolute
   // path of the new project root. Flow handles init + register + nav.

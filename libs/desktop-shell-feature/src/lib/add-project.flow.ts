@@ -44,11 +44,11 @@ export class AddProjectFlow {
   }
 
   // Dashboard card 2 entry point. Computes the default location
-  // (`<home>/mozart/repos`) and opens the Clone dialog. On clone
+  // (`<home>/mozart/projects`) and opens the Clone dialog. On clone
   // success, hands the cloned path to the shared add-project path so
   // the user lands in a freshly-created workspace just like card 1.
   async openCloneDialog(): Promise<void> {
-    const defaultLocation = await this._defaultReposDir();
+    const defaultLocation = await this._defaultProjectsDir();
     const context: CloneRepoContext = {
       defaultLocation,
       doClone: (url, destDir) => this.projects.cloneRepo(url, destDir),
@@ -69,7 +69,7 @@ export class AddProjectFlow {
   // CreateProjectDialog UX is finalized. Keeping the method body
   // commented (not deleted) so the wiring is one uncomment away.
   // async openCreateDialog(): Promise<void> {
-  //   const defaultParent = await this._defaultReposDir();
+  //   const defaultParent = await this._defaultProjectsDir();
   //   const context: CreateProjectContext = {
   //     defaultParent,
   //     doCreate: (parent, name) => this.projects.createProjectFolder(parent, name),
@@ -202,12 +202,15 @@ export class AddProjectFlow {
     return 'Unknown error';
   }
 
-  // Default `<home>/mozart/repos` used as the seed for Clone (Location)
-  // and Create (Parent folder) dialogs. Honors the host OS separator so
-  // Windows users get a backslash path.
-  private async _defaultReposDir(): Promise<string> {
+  // Single source of truth for the user-facing default location used
+  // by Clone (Location) and Create (Parent folder) dialogs. Honors the
+  // host OS separator so Windows users get a backslash path. Stays
+  // distinct from `~/.mozart/projects` (the leading-dot Mozart-internal
+  // sandbox dir) — this one is a top-level `mozart/projects` folder
+  // the user owns and can move freely.
+  private async _defaultProjectsDir(): Promise<string> {
     const home = await this.dialog.homeDir();
     const sep = home.includes('\\') ? '\\' : '/';
-    return `${home}${sep}mozart${sep}repos`;
+    return `${home}${sep}mozart${sep}projects`;
   }
 }
