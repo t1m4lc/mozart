@@ -2,7 +2,7 @@
 # CF Pages _redirects only supports path-based sources, no host matching.
 
 # Vanity short URLs for social profiles.
-# Keep destinations in sync with apps/landing/src/app/shell/site-config.ts (SITE_CONFIG.social).
+# Keep destinations in sync with libs/shared-util-mozart-links/src/lib/mozart-links.ts (MOZART_LINKS).
 # 302 keeps the door open to rotate destinations (e.g. Discord invite refresh) without 301 caching.
 /discord https://discord.gg/BpTAyFf7qk 302
 /github https://github.com/t1m4lc 302

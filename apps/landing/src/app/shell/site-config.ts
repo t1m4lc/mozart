@@ -1,3 +1,5 @@
+import { MOZART_LINKS } from '@mozart/shared-util-mozart-links';
+
 export interface PromoStripConfig {
   readonly enabled: boolean;
   readonly label: string;
@@ -27,8 +29,10 @@ export interface SiteConfig {
   readonly social: SocialConfig;
 }
 
-const tally = 'https://tally.so/r/eq07lQ';
-
+// Landing-only knobs (version label, copyright, promo strip copy) stay
+// here. External URLs (social, beta signup, community) are sourced from
+// @mozart/shared-util-mozart-links so the desktop app and the landing
+// site never drift on the destinations.
 export const SITE_CONFIG: SiteConfig = {
   version: 'v0.1.0-beta.1',
   company: 'Mozart',
@@ -36,17 +40,16 @@ export const SITE_CONFIG: SiteConfig = {
   promoStrip: {
     enabled: true,
     label: 'Get early access to the Mozart beta →',
-    href: tally,
+    href: MOZART_LINKS.betaSignup,
   },
   downloads: {
-    beta: tally,
+    beta: MOZART_LINKS.betaSignup,
   },
-  // configure link in apps/landing/public/_redirects
   social: {
     // youtube: 'https://youtube.com/@mozartbuild',
     // reddit: 'https://reddit.com/r/mozartbuild',
-    linkedin: '/linkedin',
-    discord: '/discord', // Mozart Club
-    github: '/github',
+    linkedin: MOZART_LINKS.social.linkedin,
+    discord: MOZART_LINKS.community.discordInvite,
+    github: MOZART_LINKS.social.github,
   },
 } as const;

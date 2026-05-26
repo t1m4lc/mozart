@@ -193,6 +193,9 @@
       "@spartan-ui/utils": [
         "./libs/spartan-ui/utils/src/index.ts"
       ],
+      "@mozart/shared-util-mozart-links": [
+        "./libs/shared-util-mozart-links/src/index.ts"
+      ],
       "@mozart/shared-util-os": [
         "./libs/shared-util-os/src/index.ts"
       ],

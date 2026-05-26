@@ -7,12 +7,9 @@ import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmSidebarImports } from '@spartan-ui/sidebar';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideCircleQuestionMark,
-  lucidePanelLeft,
-  lucideSettings,
-} from '@ng-icons/lucide';
+import { lucidePanelLeft, lucideSettings } from '@ng-icons/lucide';
 import { AddProjectFlow } from './add-project.flow';
+import { ShellHelpMenu } from './shell-help-menu';
 import { FeatureFlagsService } from '@mozart/desktop-core-util';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { MacWindowControls } from '@mozart/desktop-core-ui';
@@ -47,12 +44,12 @@ import { ShellSidePanel } from './shell-side-panel';
     FeatureChatList,
     GroupByFilter,
     ProjectsHeaderContextMenu,
+    ShellHelpMenu,
     ShellProjectList,
     ShellSidePanel,
   ],
   providers: [
     provideIcons({
-      lucideCircleQuestionMark,
       lucidePanelLeft,
       lucideSettings,
     }),
@@ -150,19 +147,7 @@ import { ShellSidePanel } from './shell-side-panel';
           hlmSidebarFooter
           class="flex-row justify-end border-t border-sidebar-border"
         >
-          <button
-            disabled
-            hlmBtn
-            variant="ghost"
-            size="icon-xs"
-            type="button"
-            aria-label="Help"
-            class="size-7 rounded-md text-muted-foreground"
-            hlmTooltip="Help"
-            position="top"
-          >
-            <ng-icon hlm name="lucideCircleQuestionMark" size="xs" />
-          </button>
+          <app-shell-help-menu />
           <button
             hlmBtn
             variant="ghost"

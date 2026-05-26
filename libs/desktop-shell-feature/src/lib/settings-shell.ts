@@ -1,13 +1,16 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideArrowLeft } from '@ng-icons/lucide';
+import { lucideArrowLeft, lucideSettings } from '@ng-icons/lucide';
+import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmSidebarImports } from '@spartan-ui/sidebar';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { OsService } from '@mozart/shared-util-os';
 import { ReturnRouteService } from '@mozart/desktop-ui-state-data-access';
 import { MacWindowControls, NonMacWindowControls } from '@mozart/desktop-core-ui';
 import { SHELL_LEFT_PANEL_WIDTH } from './shell-panel.constants';
+import { ShellHelpMenu } from './shell-help-menu';
 
 @Component({
   selector: 'app-settings-shell',
@@ -16,12 +19,15 @@ import { SHELL_LEFT_PANEL_WIDTH } from './shell-panel.constants';
     RouterLinkActive,
     RouterOutlet,
     NgIcon,
+    HlmButtonImports,
     HlmIconImports,
     HlmSidebarImports,
+    HlmTooltipImports,
     MacWindowControls,
     NonMacWindowControls,
+    ShellHelpMenu,
   ],
-  providers: [provideIcons({ lucideArrowLeft })],
+  providers: [provideIcons({ lucideArrowLeft, lucideSettings })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-screen w-screen bg-background text-foreground' },
   template: `
@@ -81,6 +87,26 @@ import { SHELL_LEFT_PANEL_WIDTH } from './shell-panel.constants';
               </ul>
             </div>
           </div>
+        </div>
+        <div
+          hlmSidebarFooter
+          class="flex-row justify-end border-t border-sidebar-border"
+        >
+          <app-shell-help-menu />
+          <button
+            hlmBtn
+            variant="ghost"
+            size="icon-xs"
+            type="button"
+            disabled
+            aria-label="Settings"
+            aria-current="page"
+            class="size-7 rounded-md text-brand! disabled:opacity-100"
+            hlmTooltip="Settings"
+            position="top"
+          >
+            <ng-icon hlm name="lucideSettings" size="sm" />
+          </button>
         </div>
       </hlm-sidebar>
       <main hlmSidebarInset class="flex-1 min-w-0 overflow-auto relative">
