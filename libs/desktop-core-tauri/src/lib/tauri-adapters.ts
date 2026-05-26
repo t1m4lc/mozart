@@ -209,6 +209,18 @@ function provideProjectsAdapter(): Provider {
       async setRunCommand(id, command) {
         unwrap(await commands.setRepoRunCommand(id, command));
       },
+      async setSetupCommand(id, command) {
+        unwrap(await commands.setRepoSetupCommand(id, command));
+      },
+      async readDetectedScripts(id) {
+        try {
+          const config = unwrap(await commands.readProjectConfig(id));
+          return parseRunJsonScripts(config.runJson);
+        } catch (err) {
+          console.warn('[projects] readDetectedScripts failed:', err);
+          return { setup: null, run: null };
+        }
+      },
       async getMergeMode(id) {
         const config = unwrap(await commands.readProjectConfig(id));
         return config.mergeMode === 'local' ? 'local' : 'pr';
@@ -603,6 +615,13 @@ function provideRunsAdapter(): Provider {
           await commands.startWorkspaceRun(workspaceId, cols, rows, channel),
         );
       },
+      async openSetup(workspaceId, cols, rows, onEvent) {
+        const channel = new Channel<TerminalEventDto>();
+        channel.onmessage = (ev) => onEvent(toTerminalEventModel(ev));
+        unwrap(
+          await commands.startWorkspaceSetup(workspaceId, cols, rows, channel),
+        );
+      },
       async stopRun(workspaceId) {
         unwrap(await commands.stopWorkspaceRun(workspaceId));
       },
@@ -615,6 +634,32 @@ function toTerminalEventModel(ev: TerminalEventDto): TerminalEventModel {
     return { kind: 'output', data: ev.data };
   }
   return { kind: 'exited', code: ev.code };
+}
+
+// `.mozart/run.json` is `{ "scripts": { "setup": "...", "run": "..." } }`.
+// Robust to malformed JSON / unexpected shapes — returns nulls so the
+// frontend's "effective command" merge just falls back to the DB column.
+function parseRunJsonScripts(raw: string): {
+  setup: string | null;
+  run: string | null;
+} {
+  try {
+    const parsed = JSON.parse(raw) as {
+      scripts?: { setup?: unknown; run?: unknown };
+    };
+    return {
+      setup: cleanScript(parsed?.scripts?.setup),
+      run: cleanScript(parsed?.scripts?.run),
+    };
+  } catch {
+    return { setup: null, run: null };
+  }
+}
+
+function cleanScript(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 export function provideTauriAdapters(): Provider[] {

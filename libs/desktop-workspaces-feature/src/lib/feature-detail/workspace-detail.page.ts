@@ -156,7 +156,14 @@ export class WorkspaceDetailPage {
     return this.runs.ensureEntry(id).status();
   });
 
-  protected readonly hasRunCommand = computed(() => !!this.project()?.runCommand);
+  // Effective run command (DB column OR `.mozart/run.json`). Mirrors
+  // `FeatureWorkspaceProcesses.hasRunCommand` so the page-level
+  // toolbar agrees with the right-aside toolbar.
+  protected readonly hasRunCommand = computed(() => {
+    const pid = this.project()?.id;
+    if (!pid) return false;
+    return !!this.projects.effectiveCommandsFor(pid)().runCommand;
+  });
 
   protected readonly frozen = computed(() => {
     const id = this.workspaceId();
@@ -179,6 +186,15 @@ export class WorkspaceDetailPage {
         // chat tab. Idempotent; facade is the single source of truth.
         this.chatFacade.ensureChatForWorkspace(id);
       }
+    });
+
+    // Probe `.mozart/run.json` so the page-toolbar Run/Stop button
+    // reflects script presence even when the DB column is null.
+    // Idempotent on second visit (facade dedupes).
+    effect(() => {
+      const pid = this.project()?.id;
+      if (!pid) return;
+      void this.projects.ensureDetectedScripts(pid);
     });
 
     // Mirror workspace branch fields into the detail store on workspace

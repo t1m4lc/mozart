@@ -78,8 +78,28 @@ export const appRoutes: Route[] = [
     children: [
       {
         path: '',
+        pathMatch: 'full',
         loadComponent: () =>
           import('./pages/settings.page').then((m) => m.SettingsPage),
+      },
+      // Projects section — lives under /settings so the sidebar
+      // chrome (Back to app + section list) and the routing entry
+      // point match the global settings page. `/settings/projects`
+      // renders the picker / first-project landing; `:projectId`
+      // selects an individual project for editing.
+      {
+        path: 'projects',
+        loadComponent: () =>
+          import('./pages/project-settings.page').then(
+            (m) => m.ProjectSettingsPage,
+          ),
+      },
+      {
+        path: 'projects/:projectId',
+        loadComponent: () =>
+          import('./pages/project-settings.page').then(
+            (m) => m.ProjectSettingsPage,
+          ),
       },
     ],
   },

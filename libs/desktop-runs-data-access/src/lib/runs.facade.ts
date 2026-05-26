@@ -17,6 +17,15 @@ export class RunsFacade {
     return this.adapter.openRun(workspaceId, cols, rows, onEvent);
   }
 
+  openSetup(
+    workspaceId: string,
+    cols: number,
+    rows: number,
+    onEvent: (e: TerminalEvent) => void,
+  ): Promise<void> {
+    return this.adapter.openSetup(workspaceId, cols, rows, onEvent);
+  }
+
   stopRun(workspaceId: string): Promise<void> {
     return this.adapter.stopRun(workspaceId);
   }

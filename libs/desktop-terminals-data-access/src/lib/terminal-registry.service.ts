@@ -2,7 +2,11 @@ import { Injectable, effect, inject } from '@angular/core';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import { ThemeService } from '@mozart/shared-util-theme';
-import { createXterm, loadXterm } from '@mozart/desktop-core-util';
+import {
+  createXterm,
+  loadXterm,
+  resolveXtermTheme,
+} from '@mozart/desktop-core-util';
 import { TerminalsFacade } from './terminals.facade';
 
 /** xterm.js + addons + Rust unsubscribe handle for one workspace. */
@@ -138,30 +142,3 @@ export class TerminalRegistry {
   }
 }
 
-// Resolves the active theme's `--background` / `--foreground` HSL triples
-// and returns an xterm-compatible theme object. xterm wants actual color
-// strings, not CSS vars, so we read them at terminal instantiation. The
-// values are HSL triples like "0 0% 100%"; wrapping in `hsl(...)` yields
-// valid CSS color strings.
-//
-// CRITICAL: read from `document.body`, NOT `documentElement`. The theme
-// CSS selector is `:root .theme-mozart { --background: …; }` — the
-// `.theme-mozart` class lives on <body>, so `--background` is only
-// defined on <body> and its descendants. Reading from <html> returns an
-// empty string and falls back to white, which is exactly the
-// "terminal stays light in dark mode" bug.
-function resolveXtermTheme(): {
-  background: string;
-  foreground: string;
-  cursor: string;
-} {
-  const source = document.body ?? document.documentElement;
-  const styles = getComputedStyle(source);
-  const bg = styles.getPropertyValue('--background').trim() || '0 0% 100%';
-  const fg = styles.getPropertyValue('--foreground').trim() || '0 0% 0%';
-  return {
-    background: `hsl(${bg})`,
-    foreground: `hsl(${fg})`,
-    cursor: `hsl(${fg})`,
-  };
-}

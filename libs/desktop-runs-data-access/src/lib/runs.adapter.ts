@@ -15,6 +15,15 @@ export interface RunsAdapter {
     onEvent: (event: TerminalEvent) => void,
   ): Promise<void>;
 
+  /** Spawn the setup_command PTY. Same lifecycle + event shape as
+   *  `openRun`; the registry shares one xterm between the two. */
+  openSetup(
+    workspaceId: string,
+    cols: number,
+    rows: number,
+    onEvent: (event: TerminalEvent) => void,
+  ): Promise<void>;
+
   stopRun(workspaceId: string): Promise<void>;
 }
 

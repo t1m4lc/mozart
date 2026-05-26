@@ -1,10 +1,14 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import type { Project } from '@mozart/desktop-projects-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { DIALOG_ADAPTER } from './dialog.adapter';
-import type { Project } from '@mozart/desktop-projects-util';
 import type { GroupBy } from './project.store';
 import { ProjectStore } from './project.store';
-import { PROJECTS_ADAPTER, type MergeMode } from './projects.adapter';
+import {
+  PROJECTS_ADAPTER,
+  type DetectedScripts,
+  type MergeMode,
+} from './projects.adapter';
 
 // Status ids whose group-rows the `Collapse all` action targets when
 // the user is grouping by status. Mirrors workspaces' UI_WORKSPACE_STATUSES
@@ -50,6 +54,18 @@ export class ProjectsFacade {
     new Map(),
   );
   private readonly isGithubRemoteInflight = new Map<string, Promise<boolean>>();
+
+  // Per-project `.mozart/run.json` script cache. Lazy + de-duped, same
+  // shape as the other caches. Powers `effectiveCommandsFor` so the
+  // Setup / Run buttons stay enabled even when only the `.mozart/run.json`
+  // file is present (DB columns null).
+  private readonly detectedScriptsCache = signal<
+    ReadonlyMap<string, DetectedScripts>
+  >(new Map());
+  private readonly detectedScriptsInflight = new Map<
+    string,
+    Promise<DetectedScripts>
+  >();
 
   // Reads
   readonly all = this.store.projects;
@@ -136,6 +152,55 @@ export class ProjectsFacade {
       }
     })();
     this.isGithubRemoteInflight.set(id, p);
+    return p;
+  }
+
+  /** Reactive view of `(runCommand, setupCommand)` merging the DB
+   *  columns with `.mozart/run.json` (file wins per the precedence
+   *  rule). Returns nulls while the detection probe is still loading.
+   *  Consumers should call `ensureDetectedScripts(id)` once at mount
+   *  to kick the probe. */
+  effectiveCommandsFor(id: string) {
+    return computed<{ runCommand: string | null; setupCommand: string | null }>(
+      () => {
+        const project = this.byId(id)();
+        const detected = this.detectedScriptsCache().get(id);
+        return {
+          runCommand: detected?.run ?? project?.runCommand ?? null,
+          setupCommand: detected?.setup ?? project?.setupCommand ?? null,
+        };
+      },
+    );
+  }
+
+  /** Kick the lazy `.mozart/run.json` read for `id`. Idempotent —
+   *  concurrent calls share the same promise; subsequent calls after
+   *  the cache is warm short-circuit. Failures cache empty nulls so a
+   *  bad project doesn't hammer Tauri on every signal read. */
+  ensureDetectedScripts(id: string): Promise<DetectedScripts> {
+    const cached = this.detectedScriptsCache().get(id);
+    if (cached) return Promise.resolve(cached);
+    const inflight = this.detectedScriptsInflight.get(id);
+    if (inflight) return inflight;
+    const p = (async () => {
+      try {
+        const result = await this.adapter.readDetectedScripts(id);
+        const next = new Map(this.detectedScriptsCache());
+        next.set(id, result);
+        this.detectedScriptsCache.set(next);
+        return result;
+      } catch (err) {
+        console.warn('[projects] readDetectedScripts failed:', err);
+        const fallback: DetectedScripts = { setup: null, run: null };
+        const next = new Map(this.detectedScriptsCache());
+        next.set(id, fallback);
+        this.detectedScriptsCache.set(next);
+        return fallback;
+      } finally {
+        this.detectedScriptsInflight.delete(id);
+      }
+    })();
+    this.detectedScriptsInflight.set(id, p);
     return p;
   }
 
@@ -279,25 +344,25 @@ export class ProjectsFacade {
     }
   }
 
-  /** Persist the project's run command. Optimistic; rolls back on
-   *  Tauri failure so the UI stays consistent. */
-  async setRunCommand(id: string, command: string | null): Promise<void> {
-    const current = this.byId(id)();
-    if (!current) return;
-    const next = command && command.trim().length > 0 ? command.trim() : null;
-    this.store.setRunCommand(id, next);
-    try {
-      await this.adapter.setRunCommand(id, next);
-    } catch (err) {
-      this.store.setRunCommand(id, current.runCommand);
-      throw err;
-    }
-  }
-
   // Pessimistic: adapter (Tauri DB delete) first, store update second.
   // Optimistic order was unsafe for project deletion — a partial failure
   // left workspaces/tasks (wiped by the caller) inconsistent with the
   // still-present project row.
+  /** Persist the project's setup/install command. Same optimistic
+   *  pattern as `setRunCommand`. */
+  async setSetupCommand(id: string, command: string | null): Promise<void> {
+    const current = this.byId(id)();
+    if (!current) return;
+    const next = command && command.trim().length > 0 ? command.trim() : null;
+    this.store.setSetupCommand(id, next);
+    try {
+      await this.adapter.setSetupCommand(id, next);
+    } catch (err) {
+      this.store.setSetupCommand(id, current.setupCommand);
+      throw err;
+    }
+  }
+
   async remove(id: string): Promise<void> {
     await this.adapter.remove(id);
     this.store.removeProject(id);

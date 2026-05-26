@@ -19,8 +19,6 @@ export class ReturnRouteService {
     this.router.events.subscribe((event) => {
       if (!(event instanceof NavigationEnd)) return;
       const url = event.urlAfterRedirects;
-      // Don't overwrite previous when navigating into /settings — we
-      // want to remember where we came FROM, not the settings route.
       if (this.isSettings(url)) return;
       this._previous.set(url || DEFAULT_RETURN);
     });

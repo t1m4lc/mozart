@@ -992,10 +992,30 @@ export const commands = {
     }
   },
   /**
+   * Update the project's `setup_command`. Pass `None` to clear it.
+   * Setup command is the "install / prepare" half of the per-project
+   * runner pair (e.g. `pnpm install`). Mirrors `set_repo_run_command`.
+   */
+  async setRepoSetupCommand(
+    repoId: string,
+    command: string | null,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('set_repo_setup_command', { repoId, command }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Spawn the project's `run_command` in a PTY rooted at the workspace's
    * worktree. Streams output through `on_event`. Replaces any prior run
    * PTY for the same workspace (the previous run is killed). Returns
-   * `Validation` if the project has no `run_command` set.
+   * `Validation` if neither `.mozart/run.json scripts.run` nor
+   * `repos.run_command` is set.
    */
   async startWorkspaceRun(
     workspaceId: string,
@@ -1007,6 +1027,34 @@ export const commands = {
       return {
         status: 'ok',
         data: await TAURI_INVOKE('start_workspace_run', {
+          workspaceId,
+          cols,
+          rows,
+          onEvent,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Spawn the project's `setup_command` (install / prepare) in a PTY
+   * rooted at the workspace's worktree. Same lifecycle as
+   * `start_workspace_run` — replaces any prior PTY for the workspace.
+   * Reads `.mozart/run.json scripts.setup` with `repos.setup_command`
+   * as a fallback.
+   */
+  async startWorkspaceSetup(
+    workspaceId: string,
+    cols: number,
+    rows: number,
+    onEvent: TAURI_CHANNEL<TerminalEvent>,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('start_workspace_setup', {
           workspaceId,
           cols,
           rows,
@@ -2192,6 +2240,13 @@ export type Repo = {
    * invokes inside a workspace's worktree.
    */
   run_command: string | null;
+  /**
+   * Optional setup/install command (e.g. `pnpm install`). Runs as
+   * the Setup-tab CTA. Both setup_command and run_command can be
+   * overridden by a project-level `.mozart/run.json` file at run
+   * time (file takes precedence).
+   */
+  setup_command: string | null;
 };
 export type StreamEvent =
   | { kind: 'stream_token'; text: string }

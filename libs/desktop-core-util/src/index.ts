@@ -5,6 +5,7 @@ export {
   type CreateXtermOptions,
   createXterm,
   loadXterm,
+  resolveXtermTheme,
 } from './lib/util-xterm';
 export { memoize } from './lib/util-memoize';
 export {

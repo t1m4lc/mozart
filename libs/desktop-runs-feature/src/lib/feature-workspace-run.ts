@@ -10,21 +10,44 @@ import {
   output,
   viewChild,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmEmptyImports } from '@spartan-ui/empty';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlay } from '@ng-icons/lucide';
+import { lucideExternalLink, lucidePlay } from '@ng-icons/lucide';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import type { RunStatus } from '@mozart/desktop-runs-util';
 
 @Component({
   selector: 'app-feature-workspace-run',
-  imports: [NgIcon, HlmButtonImports, HlmEmptyImports, HlmIconImports],
-  providers: [provideIcons({ lucidePlay })],
+  imports: [NgIcon, RouterLink, HlmButtonImports, HlmEmptyImports, HlmIconImports],
+  providers: [provideIcons({ lucideExternalLink, lucidePlay })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
+    @if (detectedUrl(); as url) {
+      <!-- Open-in-browser bar. Sits above xterm whenever a localhost
+           URL has been detected in the run output (Vite/Webpack/Next
+           all log a "Local: http://localhost:…" line). Stays visible
+           after the process exits so the user can revisit the link. -->
+      <div
+        class="flex shrink-0 items-center gap-2 border-b border-sidebar-border bg-sidebar px-2 py-1.5 text-xs"
+      >
+        <span class="text-muted-foreground">Server ready:</span>
+        <button
+          hlmBtn
+          variant="ghost"
+          size="sm"
+          class="h-7 gap-1.5 px-2 text-xs font-medium text-brand"
+          (click)="onOpenUrl(url)"
+        >
+          <ng-icon hlm name="lucideExternalLink" size="xs" />
+          <span class="font-mono">{{ url }}</span>
+        </button>
+      </div>
+    }
     @if (status() === 'idle' && !mounted) {
       <!-- Empty state with an inline "Run workspace" CTA. The host
            emits (requestStart) which the parent (workspace-aside)
@@ -56,10 +79,13 @@ import type { RunStatus } from '@mozart/desktop-runs-util';
           <ng-icon hlm name="lucidePlay" size="sm" />
           Run workspace
         </button>
-        @if (!hasRunCommand()) {
-          <p class="text-[11px] text-muted-foreground/70">
-            No run command configured. Add one in project settings.
-          </p>
+        @if (!hasRunCommand() && projectId(); as pid) {
+          <a
+            class="text-[11px] text-muted-foreground/80 underline-offset-2 hover:text-foreground hover:underline"
+            [routerLink]="['/settings/projects', pid]"
+          >
+            No run command configured — set one in project settings →
+          </a>
         }
       </div>
     }
@@ -78,6 +104,9 @@ export class FeatureWorkspaceRun {
   /** True when the workspace's project has a run command configured.
    *  Drives the empty-state CTA's disabled state + helper caption. */
   readonly hasRunCommand = input<boolean>(false);
+  /** Project id for building the "set one in project settings" link.
+   *  Null while the workspace is still resolving. */
+  readonly projectId = input<string | null>(null);
   /** User clicked the empty-state CTA. Parent hooks this to RunRegistry. */
   readonly requestStart = output<void>();
 
@@ -85,12 +114,27 @@ export class FeatureWorkspaceRun {
     viewChild.required<ElementRef<HTMLDivElement>>('host');
   private readonly registry = inject(RunRegistry);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly externalLink = inject(ExternalLinkService);
 
   protected readonly status = computed<RunStatus>(() => {
     const id = this.workspaceId();
     if (!id) return 'idle';
     return this.registry.ensureEntry(id).status();
   });
+
+  protected readonly detectedUrl = computed<string | null>(() => {
+    const id = this.workspaceId();
+    if (!id) return null;
+    return this.registry.ensureEntry(id).detectedUrl();
+  });
+
+  protected async onOpenUrl(url: string): Promise<void> {
+    try {
+      await this.externalLink.openExternal(url);
+    } catch (err) {
+      console.warn('[run] openExternal failed:', err);
+    }
+  }
 
   protected mounted: string | null = null;
   private resizeObserver: ResizeObserver | null = null;

@@ -129,6 +129,9 @@ export const ProjectStore = signalStore(
       setRunCommand(projectId: string, runCommand: string | null): void {
         mutateProject(projectId, (p) => ({ ...p, runCommand }));
       },
+      setSetupCommand(projectId: string, setupCommand: string | null): void {
+        mutateProject(projectId, (p) => ({ ...p, setupCommand }));
+      },
       removeProject(projectId: string): void {
         patchState(store, {
           projects: store.projects().filter((p) => p.id !== projectId),

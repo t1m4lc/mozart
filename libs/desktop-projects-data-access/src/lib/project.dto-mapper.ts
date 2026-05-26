@@ -13,6 +13,7 @@ export interface ProjectDto {
   readonly sort_index: number;
   readonly added_at: number;
   readonly run_command?: string | null;
+  readonly setup_command?: string | null;
 }
 
 export function projectFromDto(dto: ProjectDto): Project {
@@ -25,5 +26,6 @@ export function projectFromDto(dto: ProjectDto): Project {
     sortIndex: dto.sort_index,
     addedAt: new Date(dto.added_at),
     runCommand: dto.run_command ?? null,
+    setupCommand: dto.setup_command ?? null,
   };
 }
