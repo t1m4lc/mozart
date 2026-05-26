@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  output,
+} from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFolderOpen, lucideGithub, lucideZap } from '@ng-icons/lucide';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
@@ -31,10 +36,22 @@ import { HlmIconImports } from '@spartan-ui/icon';
     <button
       hlmDropdownMenuItem
       type="button"
-      (triggered)="openGithubProject.emit()"
+      [disabled]="!githubConnected()"
+      [attr.aria-disabled]="!githubConnected() ? true : null"
+      [attr.title]="
+        githubConnected()
+          ? null
+          : 'Connect GitHub in Settings to clone a repo'
+      "
+      (triggered)="onGithubTriggered()"
     >
       <ng-icon hlm name="lucideGithub" size="sm" />
-      Clone from Git
+      Clone from GitHub
+      @if (!githubConnected()) {
+        <span class="ml-auto text-[10px] text-muted-foreground">
+          Connect first
+        </span>
+      }
     </button>
     <!-- Quickstart kept visible but disabled — CreateProjectDialog
          flow is on ice until the underlying create-folder UX lands. -->
@@ -45,6 +62,17 @@ import { HlmIconImports } from '@spartan-ui/icon';
   `,
 })
 export class AddProjectMenuItems {
+  /** True when the user has a GitHub identity hooked up (PAT or
+   *  Clerk OAuth). When false, the Clone-from-GitHub action is
+   *  disabled — clicking it would just throw "not connected" on the
+   *  Tauri side. The parent reads `ProfileFacade.githubConnected()`. */
+  readonly githubConnected = input<boolean>(false);
+
   readonly openProject = output<void>();
   readonly openGithubProject = output<void>();
+
+  protected onGithubTriggered(): void {
+    if (!this.githubConnected()) return;
+    this.openGithubProject.emit();
+  }
 }

@@ -17,6 +17,7 @@ import { FeatureFlagsService } from '@mozart/desktop-core-util';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { MacWindowControls } from '@mozart/desktop-core-ui';
 import { FeatureChatList } from '@mozart/desktop-chat-feature';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { GroupByFilter } from '@mozart/desktop-projects-feature';
 import {
@@ -114,6 +115,7 @@ import { ShellSidePanel } from './shell-side-panel';
                 [class.hidden]="projects.visible().length === 0"
               />
               <app-feature-add-project
+                [githubConnected]="profile.githubConnected()"
                 (openProject)="addProjectFlow.openPickerAndOpen()"
                 (openGithubProject)="addProjectFlow.openCloneDialog()"
               />
@@ -122,6 +124,7 @@ import { ShellSidePanel } from './shell-side-panel';
 
             <ng-template #projectsHeaderCtxMenu>
               <app-projects-header-context-menu
+                [githubConnected]="profile.githubConnected()"
                 (expandAll)="projects.expandAll()"
                 (collapseAll)="projects.collapseAll()"
                 (openFilter)="filter.open()"
@@ -182,6 +185,7 @@ export class ShellLeft {
   protected readonly isMac = inject(OsService).isMac();
   protected readonly layout = inject(LayoutService);
   protected readonly projects = inject(ProjectsFacade);
+  protected readonly profile = inject(ProfileFacade);
   protected readonly addProjectFlow = inject(AddProjectFlow);
   protected readonly flags = inject(FeatureFlagsService);
 

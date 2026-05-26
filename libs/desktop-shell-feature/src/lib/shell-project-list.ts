@@ -10,6 +10,7 @@ import {
 import { Router } from '@angular/router';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
@@ -215,6 +216,7 @@ import { ShellProjectRow } from './shell-project-row';
     <ng-template #emptyProjectsCtxMenuTpl>
       <hlm-dropdown-menu class="w-52">
         <app-add-project-menu-items
+          [githubConnected]="profile.githubConnected()"
           (openProject)="addProjectFlow.openPickerAndOpen()"
           (openGithubProject)="addProjectFlow.openCloneDialog()"
         />
@@ -283,6 +285,7 @@ import { ShellProjectRow } from './shell-project-row';
 export class ShellProjectList {
   protected readonly projects = inject(ProjectsFacade);
   protected readonly workspaces = inject(WorkspacesFacade);
+  protected readonly profile = inject(ProfileFacade);
   protected readonly addProjectFlow = inject(AddProjectFlow);
   private readonly _chat = inject(ChatFacade);
   private readonly _dialogService = inject(HlmDialogService);

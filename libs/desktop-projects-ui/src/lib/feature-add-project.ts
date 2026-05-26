@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, output } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  input,
+  output,
+} from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFolderPlus } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ui/button';
@@ -39,6 +44,7 @@ import { AddProjectMenuItems } from './add-project-menu-items';
     <ng-template #addMenu>
       <hlm-dropdown-menu>
         <app-add-project-menu-items
+          [githubConnected]="githubConnected()"
           (openProject)="openProject.emit()"
           (openGithubProject)="openGithubProject.emit()"
         />
@@ -47,6 +53,7 @@ import { AddProjectMenuItems } from './add-project-menu-items';
   `,
 })
 export class FeatureAddProject {
+  readonly githubConnected = input<boolean>(false);
   readonly openProject = output<void>();
   readonly openGithubProject = output<void>();
   // readonly quickStart = output<void>();

@@ -2456,17 +2456,46 @@ pub async fn get_github_token_kind() -> Result<Option<GithubTokenKindDto>, AppEr
     Ok(keyring_store::get_github_token_kind()?.map(GithubTokenKindDto::from))
 }
 
-/// List up to 100 GitHub repos visible to the user's Clerk-linked
-/// GitHub account, sorted by recent activity. Used by the clone-repo
-/// dialog to render an autocomplete list. Does NOT require a GitHub
-/// token to be stored in the keyring — the listing goes through the
-/// same `/api/github/oauth-token`-style backend path with the Clerk
-/// session JWT.
+/// List up to 100 GitHub repos visible to the connected GitHub
+/// account, sorted by recent activity. Used by the clone-repo dialog
+/// to render an autocomplete list.
+///
+/// Resolution order:
+///   1. If a token is stored in the keyring (PAT or Clerk-issued
+///      OAuth), hit `api.github.com/user/repos` directly. Works for
+///      both PAT-only users AND OAuth-Clerk users.
+///   2. Otherwise fall back to the Mozart web backend's Clerk path
+///      (`{WEB_BASE_URL}/api/github/repos`) which uses the Clerk
+///      session JWT — covers the case where the user is signed into
+///      Mozart and has linked GitHub via Clerk OAuth but no token
+///      ever landed in the local keyring.
+///   3. If neither path is available, return a clear Validation
+///      error so the UI can prompt the user to connect.
 #[tauri::command]
 #[specta::specta]
 pub async fn list_clerk_github_repos() -> Result<Vec<github::ClerkGithubRepo>, AppError> {
-    let session = auth_store::load_session()?
-        .ok_or_else(|| AppError::Validation("no Mozart session — sign in first".into()))?;
+    if let Some(token) = keyring_store::get_github_token()? {
+        match github::fetch_user_repos_with_token(&token).await {
+            github::ClerkGithubReposResult::Ok { repos } => return Ok(repos),
+            github::ClerkGithubReposResult::Unauthorized => {
+                // Fall through to the Clerk path — the stored token
+                // may be a stale OAuth token Clerk can refresh.
+            }
+            github::ClerkGithubReposResult::NotLinked => {
+                return Err(AppError::Validation(
+                    "no GitHub account linked".into(),
+                ));
+            }
+            github::ClerkGithubReposResult::ServerError { message } => {
+                return Err(AppError::Io(format!("github repos: {message}")));
+            }
+        }
+    }
+    let Some(session) = auth_store::load_session()? else {
+        return Err(AppError::Validation(
+            "GitHub not connected — connect via Settings".into(),
+        ));
+    };
     match github::fetch_clerk_github_repos(&session.token).await {
         github::ClerkGithubReposResult::Ok { repos } => Ok(repos),
         github::ClerkGithubReposResult::NotLinked => Err(AppError::Validation(

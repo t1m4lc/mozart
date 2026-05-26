@@ -318,6 +318,98 @@ pub async fn fetch_clerk_github_repos(session_jwt: &str) -> ClerkGithubReposResu
     }
 }
 
+/// Same return shape as `fetch_clerk_github_repos`, but talks to
+/// `api.github.com/user/repos` directly with whatever token the user
+/// has stored (PAT or Clerk-issued OAuth token). Bypasses the Mozart
+/// web backend entirely — used as the primary path for the clone
+/// dialog so PAT-only users (no Clerk-linked GitHub) still get a
+/// repo list, and OAuth-Clerk users can fall back to it when the
+/// backend `/api/github/repos` endpoint is unreachable.
+pub async fn fetch_user_repos_with_token(token: &str) -> ClerkGithubReposResult {
+    #[derive(Debug, Deserialize)]
+    struct GhRepoRow {
+        full_name: String,
+        html_url: String,
+        clone_url: String,
+        #[serde(default)]
+        private: bool,
+        #[serde(default)]
+        default_branch: Option<String>,
+        #[serde(default)]
+        description: Option<String>,
+        #[serde(default)]
+        updated_at: Option<String>,
+        owner: GhRepoOwner,
+        name: String,
+    }
+    #[derive(Debug, Deserialize)]
+    struct GhRepoOwner {
+        login: String,
+    }
+    let client = match reqwest::Client::builder().user_agent(USER_AGENT).build() {
+        Ok(c) => c,
+        Err(e) => {
+            return ClerkGithubReposResult::ServerError {
+                message: format!("github client: {e}"),
+            }
+        }
+    };
+    // `affiliation=owner,collaborator,organization_member` covers the
+    // three cases a developer expects to see in the picker. `per_page=100`
+    // matches the cap we apply on the Mozart-backend side. `sort=updated`
+    // surfaces the user's recent work first.
+    let url = "https://api.github.com/user/repos\
+               ?per_page=100&sort=updated&affiliation=owner,collaborator,organization_member";
+    let resp = match client
+        .get(url)
+        .bearer_auth(token)
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .send()
+        .await
+    {
+        Ok(r) => r,
+        Err(e) => {
+            return ClerkGithubReposResult::ServerError {
+                message: format!("github request: {e}"),
+            }
+        }
+    };
+    let status = resp.status();
+    if status == reqwest::StatusCode::UNAUTHORIZED
+        || status == reqwest::StatusCode::FORBIDDEN
+    {
+        return ClerkGithubReposResult::Unauthorized;
+    }
+    if !status.is_success() {
+        return ClerkGithubReposResult::ServerError {
+            message: format!("github HTTP {}", status.as_u16()),
+        };
+    }
+    match resp.json::<Vec<GhRepoRow>>().await {
+        Ok(rows) => {
+            let repos = rows
+                .into_iter()
+                .map(|r| ClerkGithubRepo {
+                    owner: r.owner.login,
+                    name: r.name,
+                    full_name: r.full_name,
+                    html_url: r.html_url,
+                    clone_url: r.clone_url,
+                    private: r.private,
+                    default_branch: r.default_branch,
+                    description: r.description,
+                    updated_at: r.updated_at,
+                })
+                .collect();
+            ClerkGithubReposResult::Ok { repos }
+        }
+        Err(e) => ClerkGithubReposResult::ServerError {
+            message: format!("response parse: {e}"),
+        },
+    }
+}
+
 /// Parse `git remote get-url origin` output to `(owner, repo)`.
 /// Accepts both SSH (`git@github.com:owner/repo.git`) and HTTPS
 /// (`https://github.com/owner/repo.git` or `.../owner/repo`) forms.
