@@ -29,7 +29,10 @@ import {
 } from '@ng-icons/lucide';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { MzDiffView, type FetchContextLines } from '@mozart-ui/diff-view';
-import { MzFileTabHeader } from '@mozart-ui/file-tab-header';
+import {
+  MzFileTabHeader,
+  type FileTabHeaderPathTruncate,
+} from '@mozart-ui/file-tab-header';
 
 /** Header + outer-frame variant.
  *  - `card` (default) — full chrome: outer border, rounded corners,
@@ -121,7 +124,12 @@ interface PathDisplay {
   host: { class: 'block' },
   template: `
     <article
-      class="block w-full"
+      class="w-full"
+      [class.block]="chrome() === 'card'"
+      [class.flex]="chrome() === 'flush'"
+      [class.h-full]="chrome() === 'flush'"
+      [class.min-h-0]="chrome() === 'flush'"
+      [class.flex-col]="chrome() === 'flush'"
       [class.border-border]="chrome() === 'card'"
       [class.bg-card]="chrome() === 'card'"
       [class.text-card-foreground]="chrome() === 'card'"
@@ -131,7 +139,7 @@ interface PathDisplay {
       [class.ring-ring/30]="active()"
       data-slot="file-diff-card"
     >
-      <mz-file-tab-header>
+      <mz-file-tab-header [pathTruncate]="pathTruncate()">
         @if (_showChevron()) {
           <button
             mzFileTabHeaderLeading
@@ -155,23 +163,21 @@ interface PathDisplay {
           </button>
         }
 
-        @if (chrome() === 'card') {
-          <span [title]="_pathTitle()" data-slot="card-path">
-            @if (_pathDisplay().kind === 'rename') {
-              <span class="text-muted-foreground/80">{{ _pathDisplay().from }}</span>
-              <ng-icon
-                hlm
-                name="lucideArrowRight"
-                size="xs"
-                class="text-muted-foreground/60 mx-1 inline-block align-middle"
-                aria-hidden="true"
-              />
-              <span class="text-foreground">{{ _pathDisplay().to }}</span>
-            } @else {
-              <span class="text-foreground">{{ _pathDisplay().to }}</span>
-            }
-          </span>
-        }
+        <span [title]="_pathTitle()" data-slot="card-path">
+          @if (_pathDisplay().kind === 'rename') {
+            <span class="text-muted-foreground/80">{{ _pathDisplay().from }}</span>
+            <ng-icon
+              hlm
+              name="lucideArrowRight"
+              size="xs"
+              class="text-muted-foreground/60 mx-1 inline-block align-middle"
+              aria-hidden="true"
+            />
+            <span class="text-foreground">{{ _pathDisplay().to }}</span>
+          } @else {
+            <span class="text-foreground">{{ _pathDisplay().to }}</span>
+          }
+        </span>
 
         <div mzFileTabHeaderActions class="contents">
           <button
@@ -272,6 +278,8 @@ interface PathDisplay {
             />
             Viewed
           </button>
+
+          <ng-content select="[mzFileDiffCardTrailing]" />
         </div>
       </mz-file-tab-header>
 
@@ -279,7 +287,11 @@ interface PathDisplay {
         @switch (_bodyMode()) {
           @case ('diff') {
             <mz-diff-view
-              class="block max-h-[60vh] w-full overflow-auto"
+              class="w-full overflow-auto"
+              [class.block]="chrome() === 'card'"
+              [class.max-h-[60vh]]="chrome() === 'card'"
+              [class.flex-1]="chrome() === 'flush'"
+              [class.min-h-0]="chrome() === 'flush'"
               [path]="path()"
               [diffText]="diffText()"
               [loading]="loading()"
@@ -355,6 +367,10 @@ export class MzFileDiffCard {
   // embedded inside a pane that already provides its own framing
   // (e.g. the file-tab body in `feature-file-content.ts`).
   readonly chrome = input<FileDiffCardChrome>('card');
+  // Truncation strategy for the path slot. `'end'` (default) keeps the
+  // standalone-card sandbox visual stable; `'start'` is for file-tab
+  // embedding where the filename matters more than the workspace prefix.
+  readonly pathTruncate = input<FileTabHeaderPathTruncate>('end');
   // Whether the card can collapse. `false` removes the chevron and
   // keeps the body painted. `chrome='flush'` also forces this off; the
   // two inputs are independent so a future card consumer can opt out

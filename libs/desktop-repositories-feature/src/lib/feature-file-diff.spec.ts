@@ -32,11 +32,9 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
   });
 }
 
-// Regression suite for the FeatureFileDiff host. Verifies that the
-// migration to <mz-file-diff-card> preserves the lifecycle behavior
-// that previously lived against MzDiffView directly: diff fetching,
-// preview-mode switching for markdown, per-path context-line cache,
-// stale-response discipline, and copy-output forwarding.
+// Regression suite for the FeatureFileDiff host. Verifies diff
+// fetching, per-path context-line cache, stale-response discipline,
+// and copy-output forwarding through MzFileDiffCard.
 
 interface FacadeStub {
   loadFileDiff: ReturnType<typeof vi.fn>;
@@ -86,9 +84,6 @@ async function mountWith(
   opts: MountOpts = {},
   fileViews: FileViewsFacadeStub = makeFileViewsFacade(),
 ): Promise<ComponentFixture<FeatureFileDiff>> {
-  // The @defer block in the template forces async compilation; the
-  // chain form (configure + compile) is what Angular 21's
-  // @angular/build:unit-test executor wires up correctly.
   await TestBed.configureTestingModule({
     imports: [FeatureFileDiff],
     providers: [
@@ -111,8 +106,7 @@ async function settle(fixture: ComponentFixture<unknown>): Promise<void> {
   await fixture.whenStable();
   // @defer (on viewport) wraps <mz-file-diff-card> in production for bundle
   // size. jsdom never fires viewport triggers, so render every pending
-  // defer block to Complete so the tests see the real card instead of the
-  // placeholder.
+  // defer block to Complete so the tests see the real card.
   for (const block of await fixture.getDeferBlocks()) {
     await block.render(DeferBlockState.Complete);
   }
@@ -124,81 +118,36 @@ function getCard(fixture: ComponentFixture<unknown>): MzFileDiffCard | null {
   return de ? (de.componentInstance as MzFileDiffCard) : null;
 }
 
-describe('FeatureFileDiff — mode switching', () => {
+describe('FeatureFileDiff — rendering', () => {
+  it('renders the file-diff card for markdown paths', async () => {
+    const fixture = await mountWith(makeFacade(), { path: 'README.md' });
+    await settle(fixture);
+    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeTruthy();
+  });
+
   it('renders the file-diff card for non-markdown paths', async () => {
     const fixture = await mountWith(makeFacade(), { path: 'src/foo.ts' });
     await settle(fixture);
     expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeTruthy();
   });
 
-  it('renders preview mode (no card) for markdown paths', async () => {
-    const fixture = await mountWith(makeFacade({ file: '# Hello' }), {
-      path: 'README.md',
-    });
-    await settle(fixture);
-    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeNull();
-    const text = fixture.nativeElement.textContent ?? '';
-    expect(text).toContain('Preview');
-    expect(text).toContain('Diff');
-  });
-
-  it('switches to diff mode when the Diff tab is clicked for a markdown file', async () => {
-    const fixture = await mountWith(makeFacade({ file: '# Hi' }), {
-      path: 'docs/INDEX.md',
-    });
-    await settle(fixture);
-    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeNull();
-
-    const buttons = fixture.debugElement.queryAll(By.css('button'));
-    const diffBtn = buttons.find(
-      (b) => (b.nativeElement.textContent ?? '').trim() === 'Diff',
-    );
-    if (!diffBtn) throw new Error('expected a Diff tab button');
-    diffBtn.nativeElement.click();
-    fixture.detectChanges();
-    await settle(fixture);
-    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeTruthy();
-  });
-
-  it('resets mode when switching from markdown to non-markdown', async () => {
-    const fixture = await mountWith(makeFacade({ file: '# Hi' }), {
-      path: 'README.md',
-    });
-    await settle(fixture);
-    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeNull();
-
-    fixture.componentRef.setInput('path', 'src/foo.ts');
-    fixture.detectChanges();
-    await settle(fixture);
-    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeTruthy();
-  });
-
-  // P1.4 regression — D3 in the eng review locked the contract that
-  // markdown Preview default + tab strip survive the header refactor.
-  // If a future change reverts the diff branch to a hard pass-through,
-  // these assertions break before the user ever sees the regression.
-  it('opens markdown to Preview by default with a Preview/Diff tab strip', async () => {
-    const fixture = await mountWith(makeFacade({ file: '# Hi' }), {
-      path: 'README.md',
-    });
-    await settle(fixture);
-    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeNull();
-
-    const buttons = fixture.debugElement.queryAll(By.css('button'));
-    const labels = buttons.map((b) =>
-      (b.nativeElement.textContent ?? '').trim(),
-    );
-    expect(labels).toContain('Preview');
-    expect(labels).toContain('Diff');
-  });
-
-  it('passes chrome=flush + collapsible=false to the card for non-markdown', async () => {
+  it('passes chrome=flush + collapsible=false + pathTruncate=start to the card', async () => {
     const fixture = await mountWith(makeFacade(), { path: 'src/foo.ts' });
     await settle(fixture);
     const card = getCard(fixture);
     if (!card) throw new Error('expected card');
     expect(card.chrome()).toBe('flush');
     expect(card.collapsible()).toBe(false);
+    expect(card.pathTruncate()).toBe('start');
+  });
+
+  it('forwards the status input to the card', async () => {
+    const fixture = await mountWith(makeFacade(), { path: 'src/foo.ts' });
+    fixture.componentRef.setInput('status', 'added');
+    await settle(fixture);
+    const card = getCard(fixture);
+    if (!card) throw new Error('expected card');
+    expect(card.status()).toBe('added');
   });
 
   it('wires viewedChange to FileViewsFacade.markViewed / clearViewed', async () => {

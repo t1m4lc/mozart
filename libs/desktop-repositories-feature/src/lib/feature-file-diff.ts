@@ -5,137 +5,63 @@ import {
   effect,
   inject,
   input,
-  linkedSignal,
   output,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
 import { type FetchContextLines } from '@mozart-ui/diff-view';
-import { MzFileDiffCard } from '@mozart-ui/file-diff-card';
-import { MzMessageMarkdown } from '@mozart-ui/message-markdown';
+import {
+  MzFileDiffCard,
+  type FileDiffStatus,
+} from '@mozart-ui/file-diff-card';
 import {
   FileViewsFacade,
   RepositoriesFacade,
 } from '@mozart/desktop-repositories-data-access';
 
-type ViewMode = 'diff' | 'preview';
-
-const MARKDOWN_EXTENSIONS = ['.md', '.markdown', '.mdx'];
-
-function isMarkdownPath(path: string | null): boolean {
-  if (!path) return false;
-  const lower = path.toLowerCase();
-  return MARKDOWN_EXTENSIONS.some((ext) => lower.endsWith(ext));
-}
-
-// Smart wrapper around `MzFileDiffCard` + `MzMessageMarkdown`. Picks
-// the right renderer for the selected file :
+// Smart wrapper around `MzFileDiffCard`. Owns diff fetching, file-body
+// caching for P2.3 expand-bar context fetches, and Viewed persistence
+// via `FileViewsFacade`. Stale-response discipline via per-channel
+// fetch ids so out-of-order resolutions never clobber visible content.
 //
-//   - `.md` / `.markdown` / `.mdx` → defaults to **Preview** (rendered
-//     markdown). A header tab toggle exposes Diff for users who want
-//     the unified diff anyway.
-//   - everything else → MzFileDiffCard only (no tab toggle).
-//
-// `RepositoriesFacade.loadFile` fetches the raw content for preview ;
-// `loadFileDiff` is unchanged. Both calls are tagged with a monotonic
-// `fetchId` so out-of-order responses (user clicks foo then bar) never
-// clobber the visible content.
-//
-// `MzFileDiffCard` accepts a context-fetch callback so P2.3 expand
-// bars can reveal unchanged lines between hunks. The callback lazy
-// loads the full file body the first time it's needed and slices the
-// requested range from a per-path cache; subsequent expansions on the
-// same file pay no Tauri round-trip.
+// Header content (Diff/Edit mode toggle, etc.) is projected via the
+// `[mzFileDiffCardTrailing]` slot so the parent file-tab can attach
+// its segmented control without this component knowing about modes.
 @Component({
   selector: 'app-feature-file-diff',
-  imports: [MzFileDiffCard, MzMessageMarkdown, HlmButtonImports],
+  imports: [MzFileDiffCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
-    @if (showTabs()) {
-      <div
-        class="border-sidebar-border flex h-8 shrink-0 items-center gap-1 border-b px-2"
-      >
-        @if (mode() === 'preview') {
-          <span
-            class="text-muted-foreground min-w-0 flex-1 truncate text-[11px] font-medium"
-          >
-            {{ path() }}
-          </span>
-        } @else {
-          <span class="flex-1"></span>
-        }
-        <button
-          hlmBtn
-          variant="ghost"
-          size="xs"
-          type="button"
-          class="text-muted-foreground hover:text-foreground h-6 px-2 text-[11px]"
-          [class.bg-muted]="mode() === 'preview'"
-          [class.text-foreground]="mode() === 'preview'"
-          (click)="mode.set('preview')"
-        >
-          Preview
-        </button>
-        <button
-          hlmBtn
-          variant="ghost"
-          size="xs"
-          type="button"
-          class="text-muted-foreground hover:text-foreground h-6 px-2 text-[11px]"
-          [class.bg-muted]="mode() === 'diff'"
-          [class.text-foreground]="mode() === 'diff'"
-          (click)="mode.set('diff')"
-        >
-          Diff
-        </button>
-      </div>
-    }
-
     <div class="min-h-0 flex-1">
-      @if (mode() === 'preview') {
-        @if (previewLoading() && !previewText()) {
-          <p class="text-muted-foreground px-3 py-3 text-xs">Loading…</p>
-        } @else if (previewError(); as err) {
-          <p class="text-destructive px-3 py-3 text-xs">
-            Failed to read file: {{ err }}
-          </p>
-        } @else {
-          <!-- Defer the markdown renderer : the marked dependency is
-               only needed for .md / .mdx previews. With @defer it
-               lands in its own chunk, loaded on first preview. -->
-          @defer (on viewport) {
-            <mz-message-markdown [source]="previewText()" />
-          } @placeholder {
-            <p class="text-muted-foreground px-3 py-3 text-xs">
-              Loading preview…
-            </p>
-          }
-        }
-      } @else {
-        <!-- @defer (on viewport) so the CodeMirror chunk (~270 kB)
-             stays out of the eager bundle. The diff card only renders
-             once the workspace tab actually scrolls it into view. -->
-        @defer (on viewport) {
-          <mz-file-diff-card
-            chrome="flush"
-            [collapsible]="false"
-            [path]="path() ?? ''"
-            [diffText]="diffText()"
-            [loading]="loading()"
-            [error]="error()"
-            [fetchContext]="fetchContext"
-            [fileLineCount]="fileLineCount()"
-            [scrollPaddingBottom]="scrollPaddingBottom()"
-            [viewed]="viewed()"
-            (refresh)="reload()"
-            (pathCopy)="pathCopy.emit($event)"
-            (copyError)="copyError.emit($event)"
-            (viewedChange)="onViewedChange($event)"
+      <!-- @defer (on viewport) so the CodeMirror chunk (~270 kB) stays
+           out of the eager bundle. The diff card only renders once the
+           workspace tab actually scrolls it into view. -->
+      @defer (on viewport) {
+        <mz-file-diff-card
+          chrome="flush"
+          pathTruncate="start"
+          [collapsible]="false"
+          [path]="path() ?? ''"
+          [status]="status()"
+          [diffText]="diffText()"
+          [loading]="loading()"
+          [error]="error()"
+          [fetchContext]="fetchContext"
+          [fileLineCount]="fileLineCount()"
+          [scrollPaddingBottom]="scrollPaddingBottom()"
+          [viewed]="viewed()"
+          (refresh)="reload()"
+          (pathCopy)="pathCopy.emit($event)"
+          (copyError)="copyError.emit($event)"
+          (viewedChange)="onViewedChange($event)"
+        >
+          <ng-content
+            select="[mzFileDiffCardTrailing]"
+            ngProjectAs="[mzFileDiffCardTrailing]"
           />
-        } @placeholder {
-          <p class="text-muted-foreground px-3 py-3 text-xs">Loading diff…</p>
-        }
+        </mz-file-diff-card>
+      } @placeholder {
+        <p class="text-muted-foreground px-3 py-3 text-xs">Loading diff…</p>
       }
     </div>
   `,
@@ -143,6 +69,7 @@ function isMarkdownPath(path: string | null): boolean {
 export class FeatureFileDiff {
   readonly workspaceId = input<string | null>(null);
   readonly path = input<string | null>(null);
+  readonly status = input<FileDiffStatus>('modified');
   // Forwarded to the inner MzFileDiffCard / MzDiffView. Bottom padding
   // (px) inside the diff CodeMirror so the last hunk can scroll past
   // a fixed overlay below (workspace composer on file tabs). 0
@@ -159,9 +86,7 @@ export class FeatureFileDiff {
   private readonly fileViews = inject(FileViewsFacade);
 
   // Mirror the `MzFileDiffCard` Viewed state from FileViewsFacade so
-  // the toggle reflects on-disk truth across tab switches. The card is
-  // the canonical place for Viewed after the P1.4 header refactor —
-  // see [[plan-p1-4]].
+  // the toggle reflects on-disk truth across tab switches.
   protected readonly viewed = computed(() => {
     const ws = this.workspaceId();
     const p = this.path();
@@ -186,24 +111,7 @@ export class FeatureFileDiff {
   protected readonly loading = signal(false);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly previewText = signal<string>('');
-  protected readonly previewLoading = signal(false);
-  protected readonly previewError = signal<string | null>(null);
-
-  /** Whether the path looks like a markdown file. Drives the tab
-   *  toggle visibility + initial view mode. */
-  private readonly isMarkdown = computed(() => isMarkdownPath(this.path()));
-  protected readonly showTabs = computed(() => this.isMarkdown());
-  // Defaults to preview for markdown, diff for everything else. Writable
-  // so the header tab toggle can override the default.
-  protected readonly mode = linkedSignal<ViewMode>(() =>
-    this.isMarkdown() ? 'preview' : 'diff',
-  );
-
-  // Tracks the most recent fetch identifier per channel so out-of-order
-  // responses don't clobber the visible content.
   private diffFetchId = 0;
-  private previewFetchId = 0;
 
   // Per-path file-body cache for P2.3 expand-bar context fetches.
   // Stays populated across switches so re-opening a file with prior
@@ -214,8 +122,7 @@ export class FeatureFileDiff {
   protected readonly fileLineCount = signal<number | null>(null);
 
   // Stable callback identity so MzDiffView's effect doesn't tear down
-  // on every change-detection pass. Reads the current workspaceId/path
-  // through signals at call time.
+  // on every change-detection pass.
   protected readonly fetchContext: FetchContextLines = (from, to) =>
     this.loadContextLines(from, to);
 
@@ -234,21 +141,6 @@ export class FeatureFileDiff {
       void this.fetchDiff(id, p);
     });
 
-    // Re-fetch preview content whenever the active file is markdown +
-    // the mode is preview. The fetch is cheap (small README typically)
-    // so we just re-run on every input change.
-    effect(() => {
-      const id = this.workspaceId();
-      const p = this.path();
-      this.refreshTick();
-      if (!id || !p || !isMarkdownPath(p)) {
-        this.previewText.set('');
-        this.previewError.set(null);
-        return;
-      }
-      void this.fetchPreview(id, p);
-    });
-
     // FS-watcher invalidation: clear the imperative per-file body cache
     // (Maps, not signals) when the watcher tick bumps. Hunks shift on
     // edit; the cached lines would be stale.
@@ -264,9 +156,6 @@ export class FeatureFileDiff {
     const p = this.path();
     if (!id || !p) return;
     void this.fetchDiff(id, p);
-    if (isMarkdownPath(p)) {
-      void this.fetchPreview(id, p);
-    }
   }
 
   private async fetchDiff(workspaceId: string, path: string): Promise<void> {
@@ -284,25 +173,6 @@ export class FeatureFileDiff {
     } finally {
       if (myId === this.diffFetchId) {
         this.loading.set(false);
-      }
-    }
-  }
-
-  private async fetchPreview(workspaceId: string, path: string): Promise<void> {
-    const myId = ++this.previewFetchId;
-    this.previewLoading.set(true);
-    this.previewError.set(null);
-    try {
-      const text = await this.repos.loadFile(workspaceId, path);
-      if (myId !== this.previewFetchId) return;
-      this.previewText.set(text);
-    } catch (err) {
-      if (myId !== this.previewFetchId) return;
-      this.previewError.set(err instanceof Error ? err.message : String(err));
-      this.previewText.set('');
-    } finally {
-      if (myId === this.previewFetchId) {
-        this.previewLoading.set(false);
       }
     }
   }
