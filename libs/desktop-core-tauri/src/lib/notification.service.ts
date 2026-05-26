@@ -109,6 +109,21 @@ export class TauriNotificationService extends NotificationService {
     this._playSound();
   }
 
+  /** Play the chime IF `sound` preference is enabled. Fires whenever
+   *  an agent turn ends — even when the user is focused on the
+   *  workspace — so the audible alert remains. The visual desktop
+   *  popup is still gated separately by the caller's userIsHere
+   *  check. Hydrates prefs cache on first call. */
+  override playSoundIfEnabled(): void {
+    if (!this._prefsHydrated) {
+      void this._ensurePrefs().then(() => {
+        if (this._prefs().sound) this._playSound();
+      });
+      return;
+    }
+    if (this._prefs().sound) this._playSound();
+  }
+
   // Audio API is browser-native — no heavy import — so this stays in
   // the sync half of the service.
   private _playSound(): void {

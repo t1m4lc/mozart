@@ -19,6 +19,14 @@ export abstract class NotificationService {
   abstract setPreferences(prefs: NotificationPrefsCache): void;
 
   /** Play the chime only — no desktop notification, no permission
-   *  prompt. Used by the Settings "test sound" button. */
+   *  prompt. Used by the Settings "test sound" button (plays
+   *  unconditionally so the user can audit volume). */
   abstract playSound(): void;
+
+  /** Play the chime IF the user has the `sound` preference enabled.
+   *  Hydrates the prefs cache on first call. Used by the agent-end
+   *  path so the audible alert fires even when the user is focused
+   *  on the workspace (the visual desktop notification is still
+   *  gated by `userIsHere` upstream). */
+  abstract playSoundIfEnabled(): void;
 }

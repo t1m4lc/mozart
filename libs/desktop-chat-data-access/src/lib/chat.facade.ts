@@ -44,6 +44,32 @@ function firstLine(text: string): string {
   return line.length > 80 ? line.slice(0, 77) + '…' : line;
 }
 
+/**
+ * Pure decision for what to surface when an agent turn ends.
+ *
+ * - `sound-only`: user is already looking at the workspace, so the
+ *   chime is enough.
+ *  - `popup-and-sound`: user is off-screen or on a different workspace,
+ *   so we want the desktop notification, the unread flag, and the
+ *   chime that `NotificationService.notify` plays internally.
+ *
+ * Exported so the trigger condition is unit-testable without touching
+ * the streaming machinery. The caller is still responsible for
+ * checking the user-facing `desktop` / `sound` preferences via
+ * `NotificationService` — this function only decides the surface, not
+ * whether the surface is enabled.
+ */
+export type TurnEndNotificationDecision = 'sound-only' | 'popup-and-sound';
+
+export function decideTurnEndNotification(input: {
+  readonly focused: boolean;
+  readonly isActiveWorkspace: boolean;
+}): TurnEndNotificationDecision {
+  return input.focused && input.isActiveWorkspace
+    ? 'sound-only'
+    : 'popup-and-sound';
+}
+
 // Minimum gap between non-text agent events for the fake adapter's
 // pacing. The Tauri adapter delivers real-time events; the parser
 // uses `event.kind !== 'text'` to apply the gate, so real streams
@@ -656,21 +682,29 @@ export class ChatFacade {
     }
   }
 
-  // On terminal `done` / `error`, if the user isn't focused on this
-  // workspace, emit a desktop notification + sound and flip the
-  // workspace's `unread` flag (already wired to bold styling in the
-  // sidebar). `stopped` is user-initiated so it's intentionally not
-  // notified.
+  // On terminal `done` / `error`, the audible chime always fires
+  // (gated by the `sound` pref) so the user gets an alert even while
+  // focused on the workspace. The visual desktop popup + `unread`
+  // flip are suppressed when the user is here — they're already
+  // looking at the result. `stopped` is user-initiated so it's
+  // intentionally not notified.
   private _maybeNotifyTurnEnd(workspaceId: string, content: string): void {
-    const userIsHere =
-      this.windowFocus.isWindowFocused() &&
-      this.workspaces.activeId() === workspaceId;
-    if (userIsHere) return;
+    const decision = decideTurnEndNotification({
+      focused: this.windowFocus.isWindowFocused(),
+      isActiveWorkspace: this.workspaces.activeId() === workspaceId,
+    });
+
+    if (decision === 'sound-only') {
+      this.notify.playSoundIfEnabled();
+      return;
+    }
 
     const ws = this.workspaces.workspaceById(workspaceId)();
     if (ws && !ws.unread) {
       void this.workspaces.toggleUnread(workspaceId);
     }
+    // `notify()` plays the sound internally (when sound pref is on),
+    // so we don't need a separate playSoundIfEnabled() here.
     void this.notify.notify({
       title: ws?.name ?? 'Mozart',
       body: firstLine(content),
