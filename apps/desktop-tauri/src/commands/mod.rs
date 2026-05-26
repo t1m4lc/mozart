@@ -2127,25 +2127,6 @@ pub async fn start_workspace_setup(
     .await
 }
 
-pub(crate) async fn start_workspace_run_impl(
-    db: &DbState,
-    registry: &WorkspaceRunRegistry,
-    workspace_id: String,
-    cols: u16,
-    rows: u16,
-    on_event: Channel<TerminalEvent>,
-) -> Result<(), AppError> {
-    start_workspace_command_impl(
-        db,
-        registry,
-        workspace_id,
-        cols,
-        rows,
-        on_event,
-        WorkspaceCommandKind::Run,
-    )
-    .await
-}
 
 async fn start_workspace_command_impl(
     db: &DbState,
@@ -4803,8 +4784,16 @@ mod tests {
         mark_workspace_done(&db, &ws_id);
 
         let on_event: Channel<TerminalEvent> = Channel::new(|_| Ok(()));
-        let result =
-            start_workspace_run_impl(&db, &registry, ws_id.clone(), 80, 24, on_event).await;
+        let result = start_workspace_command_impl(
+            &db,
+            &registry,
+            ws_id.clone(),
+            80,
+            24,
+            on_event,
+            WorkspaceCommandKind::Run,
+        )
+        .await;
         assert_frozen(result, &ws_id);
     }
 

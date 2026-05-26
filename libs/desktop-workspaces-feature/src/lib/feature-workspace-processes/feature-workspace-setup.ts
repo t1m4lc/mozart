@@ -14,9 +14,11 @@ import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import type { RunStatus } from '@mozart/desktop-runs-util';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { MzLoader } from '@mozart-ui/loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowRight,
+  lucideCircleCheck,
   lucideListTree,
   lucidePlay,
   lucideSquare,
@@ -40,10 +42,11 @@ import { HlmIconImports } from '@spartan-ui/icon';
 // usable once setup exits.
 @Component({
   selector: 'app-feature-workspace-setup',
-  imports: [NgIcon, RouterLink, HlmButtonImports, HlmIconImports],
+  imports: [MzLoader, NgIcon, RouterLink, HlmButtonImports, HlmIconImports],
   providers: [
     provideIcons({
       lucideArrowRight,
+      lucideCircleCheck,
       lucideListTree,
       lucidePlay,
       lucideSquare,
@@ -75,19 +78,23 @@ import { HlmIconImports } from '@spartan-ui/icon';
             Stop
           </button>
         } @else {
-          <span class="text-muted-foreground">Setup finished</span>
+          <span class="flex items-center gap-1.5 text-muted-foreground">
+            <ng-icon hlm name="lucideCircleCheck" size="xs" class="text-brand" />
+            Setup finished
+          </span>
           <span class="flex-1"></span>
-          <button
-            hlmBtn
-            variant="ghost"
-            size="sm"
-            class="h-7 gap-1.5 px-2 text-xs"
-            [disabled]="!canStart()"
-            (click)="onRunSetup()"
-          >
-            <ng-icon hlm name="lucidePlay" size="xs" />
-            Run again
-          </button>
+          @if (projectId(); as pid) {
+            <a
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              class="h-7 gap-1.5 px-2 text-xs"
+              [routerLink]="['/settings/projects', pid]"
+            >
+              Edit command
+              <ng-icon hlm name="lucideArrowRight" size="xs" />
+            </a>
+          }
         }
       </div>
     }
@@ -96,24 +103,65 @@ import { HlmIconImports } from '@spartan-ui/icon';
       class="min-h-0 flex-1 overflow-hidden p-1"
       [class.hidden]="status() === 'idle' && !mounted"
     ></div>
-    @if (status() === 'idle' && !mounted) {
+    @if (status() === 'idle' && !mounted && setupInProgress()) {
+      <!-- Auto-detected install is running (no PTY surfaced — Tauri's
+           installPackages is one-shot). Show a centered loader so the
+           user knows something is happening; the Setup tab will swap
+           to the "completed" view once installFor flips to success. -->
+      <div
+        class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
+      >
+        <mz-loader size="md" class="text-brand" />
+        <div class="space-y-1">
+          <p class="text-sm font-medium text-foreground">
+            Installing dependencies…
+          </p>
+          <p class="max-w-sm text-xs text-muted-foreground">
+            Mozart is preparing this workspace. Run is paused until setup
+            finishes.
+          </p>
+        </div>
+      </div>
+    } @else if (status() === 'idle' && !mounted) {
       <div
         class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
       >
         <ng-icon
           hlm
-          name="lucideListTree"
+          [name]="setupAlreadyDone() ? 'lucideCircleCheck' : 'lucideListTree'"
           size="md"
-          class="text-muted-foreground/60"
+          [class]="setupAlreadyDone() ? 'text-brand' : 'text-muted-foreground/60'"
         />
-        @if (hasSetupCommand()) {
+        @if (setupAlreadyDone()) {
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-foreground">
+              Setup completed
+            </p>
+            <p class="max-w-sm text-xs text-muted-foreground">
+              Setup is a one-time command Mozart runs when this workspace is
+              initialized. It already finished — there's nothing to do here
+              unless you want to change the command.
+            </p>
+          </div>
+          @if (projectId(); as pid) {
+            <a
+              hlmBtn
+              variant="outline"
+              [routerLink]="['/settings/projects', pid]"
+            >
+              Edit setup command
+              <ng-icon hlm name="lucideArrowRight" size="sm" />
+            </a>
+          }
+        } @else if (hasSetupCommand()) {
           <div class="space-y-1">
             <p class="text-sm font-medium text-foreground">
               Set up your workspace
             </p>
-            <p class="text-xs text-muted-foreground">
-              Install dependencies, build the project, or run any setup command
-              defined for this workspace.
+            <p class="max-w-sm text-xs text-muted-foreground">
+              The setup command runs once when this workspace is initialized.
+              It hasn't finished yet — start it now to install dependencies or
+              prepare the project.
             </p>
           </div>
           <button
@@ -126,6 +174,14 @@ import { HlmIconImports } from '@spartan-ui/icon';
             <ng-icon hlm name="lucidePlay" size="sm" />
             Start setup
           </button>
+          @if (projectId(); as pid) {
+            <a
+              class="text-[11px] text-muted-foreground/80 underline-offset-2 hover:text-foreground hover:underline"
+              [routerLink]="['/settings/projects', pid]"
+            >
+              Edit setup command in project settings →
+            </a>
+          }
         } @else if (hasRunCommand()) {
           <div class="space-y-1">
             <p class="text-sm font-medium text-foreground">
@@ -204,13 +260,39 @@ export class FeatureWorkspaceSetup {
     return this.runs.ensureSetupEntry(id).status();
   });
 
-  /** True only when nothing — setup *or* run — is currently executing
-   *  for this workspace. Mirrors `RunRegistry.isBusy` but kept on the
-   *  component for template binding. */
+  /** True once setup has run to completion in this session — either
+   *  through the auto-install kicked at workspace bootstrap
+   *  (WorkspacesFacade.installFor → 'success' | 'no_package') or
+   *  through a manual Setup-tab click that exited. Drives the
+   *  template's "Setup completed" state, which hides the Start /
+   *  Run-again CTAs and points the user at project settings if they
+   *  want to change the command. */
+  protected readonly setupAlreadyDone = computed<boolean>(() => {
+    const id = this.workspaceId();
+    if (!id) return false;
+    const install = this.workspaces.installFor(id);
+    if (install.state === 'success' || install.state === 'no_package') {
+      return true;
+    }
+    return this.status() === 'exited';
+  });
+
+  /** True while the workspace's setup PTY OR the auto-detected
+   *  installPackages flow is mid-run. Drives both the "Installing
+   *  dependencies…" loader and the disabled state of the start CTAs. */
+  protected readonly setupInProgress = computed<boolean>(() => {
+    const id = this.workspaceId();
+    if (!id) return false;
+    return this.workspaces.installFor(id).state === 'running';
+  });
+
+  /** True only when no PTY (run or setup) and no auto-install are
+   *  currently executing — i.e. it's safe to start a setup PTY. */
   protected readonly canStart = computed<boolean>(() => {
     const id = this.workspaceId();
     if (!id) return false;
     if (!this.hasSetupCommand()) return false;
+    if (this.setupInProgress()) return false;
     return !this.runs.isBusy(id);
   });
 

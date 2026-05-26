@@ -15,8 +15,7 @@ describe('messageFromDto — system_info parsing (R0.3.F)', () => {
         kind: 'system_info',
         lines: [
           'Branched mozart/bjork from main in mozart-go.',
-          'bjork ready with 0 files.',
-          'Compose your first instruction and let the magic begin!',
+          'You can start to chat.',
         ],
       }),
       created_at: 1,
@@ -26,8 +25,7 @@ describe('messageFromDto — system_info parsing (R0.3.F)', () => {
       kind: 'system_info',
       lines: [
         'Branched mozart/bjork from main in mozart-go.',
-        'bjork ready with 0 files.',
-        'Compose your first instruction and let the magic begin!',
+        'You can start to chat.',
       ],
     });
     expect(msg.turnState).toBeUndefined();

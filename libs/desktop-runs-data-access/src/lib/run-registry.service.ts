@@ -94,22 +94,52 @@ export class RunRegistry {
 
   /** Spawn the project's setup command (install / prepare). Same
    *  exclusivity rule as `start` — refuses if a run is already
-   *  underway. Output streams into the dedicated setup xterm. */
+   *  underway. Output streams into the dedicated setup xterm.
+   *
+   *  Unlike `start`, this promise resolves only when the PTY *exits*
+   *  (setup commands are finite: install, build, etc.). Callers that
+   *  need to chain follow-up work — e.g. `WorkspacesFacade.runInstall`
+   *  flipping `installFor` to `'success'` — await it; the Setup tab's
+   *  button stays disabled (`canStart` reads `isBusy`) until exit. */
   async startSetup(workspaceId: string): Promise<void> {
     if (this.isBusy(workspaceId)) return;
     const entry = this.ensureSetupEntry(workspaceId);
     entry.status.set('running');
+
+    const exited = new Promise<void>((resolve) => {
+      const queue = this.setupExitWaiters.get(workspaceId) ?? [];
+      queue.push(resolve);
+      this.setupExitWaiters.set(workspaceId, queue);
+    });
+
     try {
       await this.facade.openSetup(
         workspaceId,
         entry.term.cols,
         entry.term.rows,
-        (ev) => this.handleEvent(entry, ev),
+        (ev) => {
+          this.handleEvent(entry, ev);
+          if (ev.kind === 'exited') this.flushSetupExits(workspaceId);
+        },
       );
     } catch (err) {
       entry.status.set('idle');
+      this.flushSetupExits(workspaceId);
       throw err;
     }
+
+    await exited;
+  }
+
+  // One-shot exit waiters: `startSetup` awaits these so its promise
+  // resolves on the PTY's actual exit (not just the spawn ack).
+  private readonly setupExitWaiters = new Map<string, Array<() => void>>();
+
+  private flushSetupExits(workspaceId: string): void {
+    const queue = this.setupExitWaiters.get(workspaceId);
+    if (!queue) return;
+    this.setupExitWaiters.delete(workspaceId);
+    for (const resolve of queue) resolve();
   }
 
   /** Kill whichever PTY is alive (run or setup). The `exited` event

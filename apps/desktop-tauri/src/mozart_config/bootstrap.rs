@@ -267,7 +267,7 @@ fn write_system_info(
 /// vocabulary rule when you next revise CLAUDE.md.
 fn build_system_info_payload(
     project_name: &str,
-    workspace_name: &str,
+    _workspace_name: &str,
     branch_name: &str,
     base_branch: &str,
 ) -> serde_json::Value {
@@ -275,8 +275,7 @@ fn build_system_info_payload(
         "kind": "system_info",
         "lines": [
             format!("Branched {branch_name} from {base_branch} in {project_name}."),
-            format!("{workspace_name} ready with 0 files."),
-            "Compose your first instruction and let the magic begin!",
+            "You can start to chat.",
         ],
     })
 }
@@ -721,21 +720,14 @@ mod tests {
             .expect("system_info payload present");
         assert_eq!(payload["kind"], "system_info");
         let lines = payload["lines"].as_array().unwrap();
-        assert_eq!(lines.len(), 3, "expected exactly 3 lines, got {lines:?}");
+        assert_eq!(lines.len(), 2, "expected exactly 2 lines, got {lines:?}");
         assert!(
             lines[0].as_str().unwrap().starts_with("Branched ")
                 && lines[0].as_str().unwrap().contains(" from main in repo."),
             "got: {}",
             lines[0]
         );
-        assert_eq!(
-            lines[1].as_str().unwrap(),
-            "get-started ready with 0 files."
-        );
-        assert_eq!(
-            lines[2].as_str().unwrap(),
-            "Compose your first instruction and let the magic begin!"
-        );
+        assert_eq!(lines[1].as_str().unwrap(), "You can start to chat.");
 
         // setup_progress entry was also written (setup command present).
         assert!(
@@ -814,7 +806,7 @@ mod tests {
         // repo vs local distinction surfaced (no action behind it yet).
         let payload = system_info_payload(&db, &result.start_chat_id).unwrap();
         let lines = payload["lines"].as_array().unwrap();
-        assert_eq!(lines.len(), 3);
+        assert_eq!(lines.len(), 2);
         assert!(lines.iter().all(|l| !l.as_str().unwrap().contains("Settings")));
 
         restore_root(prev);
@@ -868,10 +860,10 @@ mod tests {
         assert_eq!(local.run_json, r#"{"scripts":{}}"#);
         drop(conn);
 
-        // No setup or run → fallback still renders 3 conversational lines.
+        // No setup or run → fallback still renders the conversational lines.
         let payload = system_info_payload(&db, &result.start_chat_id).unwrap();
         let lines = payload["lines"].as_array().unwrap();
-        assert_eq!(lines.len(), 3);
+        assert_eq!(lines.len(), 2);
         assert!(
             lines[0].as_str().unwrap().contains(" from main in repo."),
             "branch line should still render even without setup"

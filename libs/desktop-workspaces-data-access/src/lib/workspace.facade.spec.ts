@@ -1,3 +1,4 @@
+import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -5,7 +6,9 @@ import {
   PROJECTS_ADAPTER,
 } from '@mozart/desktop-projects-data-access';
 import { REPOSITORIES_ADAPTER } from '@mozart/desktop-repositories-data-access';
+import { RUNS_ADAPTER } from '@mozart/desktop-runs-data-access';
 import { TASKS_ADAPTER } from '@mozart/desktop-tasks-data-access';
+import { provideTheme } from '@mozart/shared-util-theme';
 import type { UiWorkspaceStatus, Workspace } from '@mozart/desktop-workspaces-util';
 import { WorkspacesFacade } from './workspace.facade';
 import { WorkspaceStore } from './workspace.store';
@@ -98,6 +101,23 @@ function configureModule(overrides: {
       },
       { provide: PROJECTS_ADAPTER, useValue: {} },
       { provide: TASKS_ADAPTER, useValue: {} },
+      // RunRegistry → RunsFacade → RUNS_ADAPTER. The facade pulls it in
+      // for runInstall's setupCommand pathway; tests under this file
+      // never exercise that branch, so a no-op stub is enough.
+      {
+        provide: RUNS_ADAPTER,
+        useValue: {
+          openRun: vi.fn(),
+          openSetup: vi.fn(),
+          stopRun: vi.fn(),
+        },
+      },
+      // RunRegistry's constructor effect reads ThemeService, which
+      // needs THEME_CONFIG. Mozart's light defaults are fine for tests.
+      provideTheme({ theme: 'mozart', mode: 'light' }),
+      // Force the server platform so ThemeService skips
+      // matchMedia(...) (jsdom doesn't ship it).
+      { provide: PLATFORM_ID, useValue: 'server' },
     ],
   });
   return { workspacesAdapter, repositoriesAdapter };

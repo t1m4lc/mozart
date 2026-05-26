@@ -66,7 +66,6 @@ type FileTabIntent = 'preview' | 'pin';
                 [workspaceName]="workspaceName()"
                 [sourceBranch]="store.currentBranch()"
                 [targetBranch]="store.targetBranch() || 'main'"
-                [numberOfFiles]="0"
                 [installState]="install().state"
                 [installManager]="install().manager"
               />

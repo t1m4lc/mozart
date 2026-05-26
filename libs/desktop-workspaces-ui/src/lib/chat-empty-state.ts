@@ -117,11 +117,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
                 class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
                 >{{ workspaceName() }}</code
               >
-              ready with
-              <span class="font-medium text-foreground">{{
-                numberOfFiles()
-              }}</span>
-              files.
+              is ready.
               @if (
                 installState() !== 'idle' && installState() !== 'no_package'
               ) {
@@ -148,7 +144,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
               <ng-icon hlm name="lucideSparkles" size="10px" />
             </span>
             <p class="text-sm font-light leading-none text-foreground">
-              Compose your first instruction and let the magic begin!
+              You can start to chat.
             </p>
           </li>
         </ol>
@@ -162,7 +158,6 @@ export class ChatEmptyState {
   readonly workspaceName = input.required<string>();
   readonly sourceBranch = input.required<string>();
   readonly targetBranch = input.required<string>();
-  readonly numberOfFiles = input.required<number>();
   // Step 4 lifecycle. 'idle' renders the original "Setup script
   // completed." copy; the other states swap icon + label.
   readonly installState = input<InstallState>('idle');

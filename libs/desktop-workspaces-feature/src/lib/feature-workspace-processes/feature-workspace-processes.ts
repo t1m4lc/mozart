@@ -178,13 +178,16 @@ export class FeatureWorkspaceProcesses {
     return this.runs.ensureEntry(id).status();
   });
 
-  // True while the setup PTY is alive. The toolbar's Run button greys
-  // out until setup exits so the two PTYs never try to share the
-  // workspace's single slot.
+  // True while ANY setup-side work is in flight — the RunRegistry
+  // setup PTY (user-configured setupCommand) OR the auto-detected
+  // installPackages flow. Both paths register through
+  // `WorkspacesFacade.installFor`, which is the unified source. Drives
+  // the toolbar Run button's greyed-out state so the user can't fire
+  // the run command mid-install.
   protected readonly setupRunning = computed(() => {
     const id = this.workspaces.activeId();
     if (!id) return false;
-    return this.runs.ensureSetupEntry(id).status() === 'running';
+    return this.workspaces.installFor(id).state === 'running';
   });
 
   // Effective run command considers BOTH the DB column and the
@@ -235,6 +238,20 @@ export class FeatureWorkspaceProcesses {
           replaceUrl: true,
         });
       }
+    });
+
+    // Workspace-init auto-jump: when the workspace opens with an active
+    // setup PTY (auto-fired at bootstrap or via createForPrompt), surface
+    // the Setup tab so the install output is the first thing the user
+    // sees. Gated on `hasAsideEntry === false` — once the user (or this
+    // effect itself) writes any tab state, the default is locked in and
+    // we never override their choice on subsequent re-runs.
+    effect(() => {
+      const id = this.workspaceId();
+      if (!id) return;
+      if (this.uiState.hasAsideEntry(id)) return;
+      if (this.workspaces.installFor(id).state !== 'running') return;
+      this.uiState.updateWorkspaceAsideState(id, { bottomTab: 'setup' });
     });
   }
 
