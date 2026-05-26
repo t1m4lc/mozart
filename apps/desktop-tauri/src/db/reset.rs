@@ -251,6 +251,7 @@ mod seed {
                 hidden: false,
                 sort_index: 0,
                 run_command: Some("pnpm nx serve desktop".into()),
+                setup_command: None,
             },
             Repo {
                 repo_id: ids::REPO_DOCS.into(),
@@ -261,6 +262,7 @@ mod seed {
                 hidden: false,
                 sort_index: 1,
                 run_command: None,
+                setup_command: None,
             },
             Repo {
                 repo_id: ids::REPO_LANDING.into(),
@@ -271,6 +273,7 @@ mod seed {
                 hidden: false,
                 sort_index: 2,
                 run_command: Some("pnpm nx serve landing".into()),
+                setup_command: None,
             },
             Repo {
                 repo_id: ids::REPO_RLS.into(),
@@ -281,6 +284,7 @@ mod seed {
                 hidden: false,
                 sort_index: 3,
                 run_command: None,
+                setup_command: None,
             },
             Repo {
                 // Path that won't resolve on disk → surfaces as "inaccessible" in the UI.
@@ -292,6 +296,7 @@ mod seed {
                 hidden: false,
                 sort_index: 4,
                 run_command: None,
+                setup_command: None,
             },
             Repo {
                 repo_id: ids::REPO_EMPTY.into(),
@@ -302,6 +307,7 @@ mod seed {
                 hidden: false,
                 sort_index: 5,
                 run_command: None,
+                setup_command: None,
             },
             Repo {
                 repo_id: ids::REPO_AI.into(),
@@ -312,6 +318,7 @@ mod seed {
                 hidden: false,
                 sort_index: 6,
                 run_command: Some("uv run main.py".into()),
+                setup_command: None,
             },
         ];
         for r in &rows {

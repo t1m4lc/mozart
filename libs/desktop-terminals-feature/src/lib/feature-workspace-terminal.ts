@@ -42,10 +42,11 @@ const FIRST_OPEN_SETTLE_MS = 300;
       <div #host class="h-full w-full p-2" [class.invisible]="loading()"></div>
       @if (loading()) {
         <div
-          class="pointer-events-none absolute inset-0 flex items-center justify-center"
+          class="pointer-events-none absolute inset-0 flex flex-col items-center justify-center gap-2"
           aria-hidden="true"
         >
           <mz-loader size="sm" class="text-brand" />
+          <span class="text-xs text-muted-foreground">Connecting…</span>
         </div>
       }
     </div>
@@ -81,7 +82,13 @@ export class FeatureWorkspaceTerminal {
   // First-mount tracking — second+ visits skip the settle delay since
   // the PTY's already initialized.
   private readonly initialized = new Set<string>();
-  protected readonly loading = signal(false);
+  // Starts `true` so the "Connecting…" placeholder paints in the same
+  // frame as the lazy template materializes — closes the microtask gap
+  // between component construction and `mount()` calling `loading.set`.
+  // `mount()` flips this to `false` once xterm has settled (or skips
+  // the wait entirely on warm mounts), and `detach()` resets it for
+  // teardown.
+  protected readonly loading = signal(true);
 
   // Plan P0.2 freeze gate — `done`/`canceled` workspaces are read-only.
   // We toggle xterm's `disableStdin` so keystrokes never reach the PTY,

@@ -1,6 +1,7 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
+import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { generateWorkspaceName } from '@mozart/desktop-workspaces-util';
@@ -33,6 +34,7 @@ export class WorkspacesFacade {
   private readonly store = inject(WorkspaceStore);
   private readonly adapter = inject(WORKSPACES_ADAPTER);
   private readonly projects = inject(ProjectsFacade);
+  private readonly runs = inject(RunRegistry);
   private readonly tasks = inject(TasksFacade);
   private readonly repos = inject(RepositoriesFacade);
   private readonly ideDetection = inject(IdeDetectionService);
@@ -236,6 +238,12 @@ export class WorkspacesFacade {
 
       this.store.removeById(pendingId);
       this.store.upsertOne(workspaceFromDto(dto, input.projectId));
+      // Kick the setup auto-run for the new worktree. Fire-and-forget
+      // so navigation isn't blocked; `installFor` carries the lifecycle
+      // for the Setup tab + chat Start tab. Mirrors AddProjectFlow's
+      // first-workspace bootstrap so every workspace gets the same
+      // treatment.
+      void this.runInstall(dto.workspace_id);
       return dto.workspace_id;
     } catch (err) {
       this.store.removeById(pendingId);
@@ -251,15 +259,47 @@ export class WorkspacesFacade {
     new Map(),
   );
 
+  /** Live install lifecycle for `workspaceId`. Unifies two sources:
+   *  RunRegistry's setup-entry status (when the user has a custom
+   *  `setupCommand` and we ran it via Tauri's `start_workspace_setup`)
+   *  and the `_installs` map written by the auto-detected
+   *  `installPackages` path. RunRegistry wins when its entry has been
+   *  exercised because it carries fresh PTY output the user can see
+   *  in the Setup tab. */
   installFor(workspaceId: string): WorkspaceInstall {
+    const entry = this.runs.ensureSetupEntry(workspaceId);
+    const status = entry.status();
+    if (status === 'running') return { state: 'running', manager: '' };
+    if (status === 'exited') return { state: 'success', manager: '' };
     return this._installs().get(workspaceId) ?? NO_INSTALL;
   }
 
-  // Detect package manager in the workspace's worktree and run install,
-  // tracking lifecycle state in the local signal Map. Replaces the
-  // toast-based feedback — the chat Start tab is the single source of
-  // truth for install progress now.
+  /** Auto-setup hook: fired at workspace creation (first workspace via
+   *  `AddProjectFlow` AND additional workspaces via `createForPrompt`).
+   *  Two paths:
+   *    - If the project has an effective `setupCommand` (DB column or
+   *      `.mozart/run.json scripts.setup`), spawn it via RunRegistry so
+   *      output lands in the Setup tab xterm and `installFor` picks up
+   *      the lifecycle.
+   *    - Otherwise fall back to the auto-detected package-manager
+   *      install (`installPackages`), tracked in the `_installs` map.
+   *    Either path keeps the chat Start-tab `setup_progress` entry
+   *    accurate via the unified `installFor` signal. */
   async runInstall(workspaceId: string): Promise<void> {
+    const ws = this.workspaceById(workspaceId)();
+    if (ws) {
+      await this.projects.ensureDetectedScripts(ws.projectId);
+      const effective = this.projects.effectiveCommandsFor(ws.projectId)();
+      if (effective.setupCommand) {
+        try {
+          await this.runs.startSetup(workspaceId);
+        } catch (err) {
+          console.warn('[workspaces] setupCommand run failed', workspaceId, err);
+        }
+        return;
+      }
+    }
+
     this._setInstall(workspaceId, { state: 'running', manager: '' });
     try {
       const result: InstallPackagesResult =

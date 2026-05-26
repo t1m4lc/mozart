@@ -46,7 +46,7 @@ mod tests {
     use crate::db::models::{AgentRun, Repo, Task, Thread, Workspace};
 
     fn seed_run(conn: &Connection) -> String {
-        let r = Repo { repo_id: new_id(), path: format!("/r-{}", new_id()), display_name: "r".into(), added_at: now_ms(), icon: None, hidden: false, sort_index: 0, run_command: None };
+        let r = Repo { repo_id: new_id(), path: format!("/r-{}", new_id()), display_name: "r".into(), added_at: now_ms(), icon: None, hidden: false, sort_index: 0, run_command: None, setup_command: None };
         repos::create(conn, &r).unwrap();
         let t = Task { task_id: new_id(), repo_id: r.repo_id, title: "t".into(), task_text: "t".into(), status: "active".into(), created_at: now_ms() };
         tasks::create(conn, &t).unwrap();

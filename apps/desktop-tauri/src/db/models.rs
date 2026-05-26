@@ -22,6 +22,11 @@ pub struct Repo {
     /// Optional dev/run command (e.g. `pnpm dev`) Phase 4e's Run tab
     /// invokes inside a workspace's worktree.
     pub run_command: Option<String>,
+    /// Optional setup/install command (e.g. `pnpm install`). Runs as
+    /// the Setup-tab CTA. Both setup_command and run_command can be
+    /// overridden by a project-level `.mozart/run.json` file at run
+    /// time (file takes precedence).
+    pub setup_command: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

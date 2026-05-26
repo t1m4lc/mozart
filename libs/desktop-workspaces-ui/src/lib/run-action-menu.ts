@@ -80,6 +80,10 @@ export class RunActionMenu {
   readonly status = input.required<RunStatus>();
   /** Disabled until a run command is configured for the project. */
   readonly hasCommand = input<boolean>(false);
+  /** True when *another* per-workspace PTY (typically the setup
+   *  command) is already executing. Locks the toolbar Run button so
+   *  the user can't try to start two PTYs at once. */
+  readonly busy = input<boolean>(false);
 
   // eslint-disable-next-line @angular-eslint/no-output-native
   readonly start = output<void>();
@@ -91,9 +95,11 @@ export class RunActionMenu {
     return s === 'running' || s === 'starting';
   });
 
-  protected readonly primaryDisabled = computed(
-    () => !this.isRunning() && !this.hasCommand(),
-  );
+  protected readonly primaryDisabled = computed(() => {
+    if (this.isRunning()) return false;
+    if (!this.hasCommand()) return true;
+    return this.busy();
+  });
 
   protected readonly primaryLabel = computed(() =>
     this.isRunning() ? 'Stop' : 'Run',
@@ -107,6 +113,9 @@ export class RunActionMenu {
     if (this.isRunning()) return 'Stop the run';
     if (!this.hasCommand()) {
       return 'No run command configured. Add one in project settings.';
+    }
+    if (this.busy()) {
+      return 'Setup is still running. Wait for it to finish.';
     }
     return 'Run the configured command';
   });

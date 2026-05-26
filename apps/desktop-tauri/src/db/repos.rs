@@ -6,12 +6,12 @@ use crate::db::models::Repo;
 use crate::error::AppError;
 
 const COLS: &str =
-    "repo_id, path, display_name, added_at, icon, hidden, sort_index, run_command";
+    "repo_id, path, display_name, added_at, icon, hidden, sort_index, run_command, setup_command";
 
 pub fn create(conn: &Connection, repo: &Repo) -> Result<(), AppError> {
     conn.execute(
-        "INSERT INTO repos(repo_id, path, display_name, added_at, icon, hidden, sort_index, run_command) \
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO repos(repo_id, path, display_name, added_at, icon, hidden, sort_index, run_command, setup_command) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
         params![
             repo.repo_id,
             repo.path,
@@ -21,6 +21,7 @@ pub fn create(conn: &Connection, repo: &Repo) -> Result<(), AppError> {
             repo.hidden as i64,
             repo.sort_index,
             repo.run_command,
+            repo.setup_command,
         ],
     )?;
     Ok(())
@@ -94,6 +95,21 @@ pub fn set_run_command(
 ) -> Result<(), AppError> {
     let n = conn.execute(
         "UPDATE repos SET run_command = ?2 WHERE repo_id = ?1",
+        params![repo_id, command],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("repo_id={repo_id}")));
+    }
+    Ok(())
+}
+
+pub fn set_setup_command(
+    conn: &Connection,
+    repo_id: &str,
+    command: Option<&str>,
+) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE repos SET setup_command = ?2 WHERE repo_id = ?1",
         params![repo_id, command],
     )?;
     if n == 0 {
@@ -253,6 +269,7 @@ fn row_to_repo(row: &rusqlite::Row<'_>) -> rusqlite::Result<Repo> {
         hidden: row.get::<_, i64>(5)? != 0,
         sort_index: row.get(6)?,
         run_command: row.get(7)?,
+        setup_command: row.get(8)?,
     })
 }
 
@@ -271,6 +288,7 @@ mod tests {
             hidden: false,
             sort_index: 0,
             run_command: None,
+            setup_command: None,
         }
     }
 

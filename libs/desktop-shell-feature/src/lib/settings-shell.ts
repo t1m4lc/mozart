@@ -68,6 +68,16 @@ import { SHELL_LEFT_PANEL_WIDTH } from './shell-panel.constants';
                     <span>General</span>
                   </a>
                 </li>
+                <li hlmSidebarMenuItem>
+                  <a
+                    hlmSidebarMenuButton
+                    routerLink="/settings/projects"
+                    routerLinkActive="bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
+                    class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
+                  >
+                    <span>Projects</span>
+                  </a>
+                </li>
               </ul>
             </div>
           </div>

@@ -108,6 +108,7 @@ pub(crate) async fn add_repo_impl(db: &DbState, path: String) -> Result<Repo, Ap
         hidden: false,
         sort_index: 0,
         run_command: None,
+        setup_command: None,
     };
     repos::create(&conn, &r)?;
     Ok(r)
@@ -1989,10 +1990,94 @@ pub async fn set_repo_run_command(
     repos::set_run_command(&conn, &repo_id, command.as_deref())
 }
 
+/// Update the project's `setup_command`. Pass `None` to clear it.
+/// Setup command is the "install / prepare" half of the per-project
+/// runner pair (e.g. `pnpm install`). Mirrors `set_repo_run_command`.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_repo_setup_command(
+    db: State<'_, DbState>,
+    repo_id: String,
+    command: Option<String>,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    repos::set_setup_command(&conn, &repo_id, command.as_deref())
+}
+
+/// Which half of the project's runner pair to launch: the setup
+/// command (e.g. `pnpm install`) or the run command (e.g. `pnpm dev`).
+/// `.mozart/run.json` at the project root takes precedence over the
+/// DB column for the corresponding script; the DB column is the
+/// fallback.
+#[derive(Copy, Clone)]
+enum WorkspaceCommandKind {
+    Run,
+    Setup,
+}
+
+impl WorkspaceCommandKind {
+    fn script_key(self) -> &'static str {
+        match self {
+            Self::Run => "run",
+            Self::Setup => "setup",
+        }
+    }
+
+    fn label(self) -> &'static str {
+        match self {
+            Self::Run => "run",
+            Self::Setup => "setup",
+        }
+    }
+}
+
+/// Resolve the effective command for `(repo, kind)`. Checks the
+/// project's `.mozart/run.json` (`scripts.<kind>`) first, falling back
+/// to the matching DB column. Returns a `Validation` error when
+/// neither source has a non-empty command.
+fn resolve_repo_command(
+    repo: &crate::db::models::Repo,
+    kind: WorkspaceCommandKind,
+) -> Result<String, AppError> {
+    let from_json =
+        read_repo_run_json_script(std::path::Path::new(&repo.path), kind.script_key());
+    if let Some(cmd) = from_json {
+        return Ok(cmd);
+    }
+    let from_db = match kind {
+        WorkspaceCommandKind::Run => repo.run_command.clone(),
+        WorkspaceCommandKind::Setup => repo.setup_command.clone(),
+    };
+    from_db
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| {
+            AppError::Validation(format!(
+                "no {} command configured for this project",
+                kind.label()
+            ))
+        })
+}
+
+/// Best-effort read of `<project-root>/.mozart/run.json` →
+/// `scripts.<key>`. Returns `None` on any failure (missing file, bad
+/// JSON, missing key, empty value) so the caller can fall through to
+/// the DB column. Never errors — the file is optional.
+fn read_repo_run_json_script(project_path: &std::path::Path, key: &str) -> Option<String> {
+    let body = std::fs::read_to_string(project_path.join(".mozart").join("run.json")).ok()?;
+    let parsed: serde_json::Value = serde_json::from_str(&body).ok()?;
+    let value = parsed.get("scripts")?.get(key)?.as_str()?.trim().to_string();
+    if value.is_empty() {
+        None
+    } else {
+        Some(value)
+    }
+}
+
 /// Spawn the project's `run_command` in a PTY rooted at the workspace's
 /// worktree. Streams output through `on_event`. Replaces any prior run
 /// PTY for the same workspace (the previous run is killed). Returns
-/// `Validation` if the project has no `run_command` set.
+/// `Validation` if neither `.mozart/run.json scripts.run` nor
+/// `repos.run_command` is set.
 #[tauri::command]
 #[specta::specta]
 pub async fn start_workspace_run(
@@ -2003,24 +2088,54 @@ pub async fn start_workspace_run(
     rows: u16,
     on_event: Channel<TerminalEvent>,
 ) -> Result<(), AppError> {
-    start_workspace_run_impl(
+    start_workspace_command_impl(
         db.inner(),
         registry.inner(),
         workspace_id,
         cols,
         rows,
         on_event,
+        WorkspaceCommandKind::Run,
     )
     .await
 }
 
-pub(crate) async fn start_workspace_run_impl(
+/// Spawn the project's `setup_command` (install / prepare) in a PTY
+/// rooted at the workspace's worktree. Same lifecycle as
+/// `start_workspace_run` — replaces any prior PTY for the workspace.
+/// Reads `.mozart/run.json scripts.setup` with `repos.setup_command`
+/// as a fallback.
+#[tauri::command]
+#[specta::specta]
+pub async fn start_workspace_setup(
+    db: State<'_, DbState>,
+    registry: State<'_, WorkspaceRunRegistry>,
+    workspace_id: String,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<TerminalEvent>,
+) -> Result<(), AppError> {
+    start_workspace_command_impl(
+        db.inner(),
+        registry.inner(),
+        workspace_id,
+        cols,
+        rows,
+        on_event,
+        WorkspaceCommandKind::Setup,
+    )
+    .await
+}
+
+
+async fn start_workspace_command_impl(
     db: &DbState,
     registry: &WorkspaceRunRegistry,
     workspace_id: String,
     cols: u16,
     rows: u16,
     on_event: Channel<TerminalEvent>,
+    kind: WorkspaceCommandKind,
 ) -> Result<(), AppError> {
     let (ws, command) = {
         let conn = db.lock();
@@ -2029,11 +2144,7 @@ pub(crate) async fn start_workspace_run_impl(
         let ws = workspaces::get(&conn, &workspace_id)?;
         let task = tasks::get(&conn, &ws.task_id)?;
         let repo = repos::get(&conn, &task.repo_id)?;
-        let cmd = repo.run_command.ok_or_else(|| {
-            AppError::Validation(
-                "no run_command configured for this project".into(),
-            )
-        })?;
+        let cmd = resolve_repo_command(&repo, kind)?;
         (ws, cmd)
     };
 
@@ -3171,6 +3282,7 @@ mod tests {
             hidden: false,
             sort_index: 0,
             run_command: None,
+            setup_command: None,
         };
         repos::create(&conn, &r).unwrap();
         r.repo_id
@@ -4672,8 +4784,16 @@ mod tests {
         mark_workspace_done(&db, &ws_id);
 
         let on_event: Channel<TerminalEvent> = Channel::new(|_| Ok(()));
-        let result =
-            start_workspace_run_impl(&db, &registry, ws_id.clone(), 80, 24, on_event).await;
+        let result = start_workspace_command_impl(
+            &db,
+            &registry,
+            ws_id.clone(),
+            80,
+            24,
+            on_event,
+            WorkspaceCommandKind::Run,
+        )
+        .await;
         assert_frozen(result, &ws_id);
     }
 

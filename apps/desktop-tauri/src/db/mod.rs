@@ -186,6 +186,9 @@ fn patch_repos_user_state_columns(conn: &Connection) -> Result<(), AppError> {
     if !cols.iter().any(|c| c == "run_command") {
         conn.execute_batch("ALTER TABLE repos ADD COLUMN run_command TEXT")?;
     }
+    if !cols.iter().any(|c| c == "setup_command") {
+        conn.execute_batch("ALTER TABLE repos ADD COLUMN setup_command TEXT")?;
+    }
     Ok(())
 }
 

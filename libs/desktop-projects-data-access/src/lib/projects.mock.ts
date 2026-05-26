@@ -11,6 +11,7 @@ export const PROJECTS_MOCK: Project[] = [
     sortIndex: 0,
     addedAt: new Date('2025-04-01T10:00:00'),
     runCommand: null,
+    setupCommand: null,
   },
   {
     id: 'p2',
@@ -21,6 +22,7 @@ export const PROJECTS_MOCK: Project[] = [
     sortIndex: 1,
     addedAt: new Date('2025-04-05T10:00:00'),
     runCommand: null,
+    setupCommand: null,
   },
   {
     id: 'p3',
@@ -31,5 +33,6 @@ export const PROJECTS_MOCK: Project[] = [
     sortIndex: 2,
     addedAt: new Date('2025-04-07T10:00:00'),
     runCommand: null,
+    setupCommand: null,
   },
 ];

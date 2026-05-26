@@ -101,6 +101,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
           <app-run-action-menu
             [status]="runStatus()"
             [hasCommand]="hasRunCommand()"
+            [busy]="setupRunning()"
             (start)="onStartRun()"
             (stop)="onStopRun()"
           />
@@ -114,14 +115,18 @@ function coerceBottomTab(raw: string | null): BottomTab {
         class="flex min-h-0 flex-col"
         [style.height]="WORKSPACE_PROCESSES_PANEL_HEIGHT"
       >
-        <div hlmTabsContent="setup" class="h-full overflow-auto">
-          <app-feature-workspace-setup />
+        <div hlmTabsContent="setup" class="h-full overflow-hidden">
+          <app-feature-workspace-setup
+            class="block h-full w-full"
+            [active]="bottomTab() === 'setup'"
+          />
         </div>
 
         <div hlmTabsContent="run" class="h-full overflow-hidden">
           <app-feature-workspace-run
             class="block h-full w-full"
             [workspaceId]="workspaceId()"
+            [projectId]="projectId()"
             [active]="bottomTab() === 'run'"
             [hasRunCommand]="hasRunCommand()"
             (requestStart)="onStartRun()"
@@ -155,21 +160,43 @@ export class FeatureWorkspaceProcesses {
 
   protected readonly workspaceId = this.workspaces.activeId;
 
-  // Live status of the active workspace's run. Drives the Run/Stop
-  // button.
+  // Project id for the active workspace — passed down so child tabs
+  // can build links into `/project/:projectId/settings` (Run-tab
+  // empty-state CTA).
+  protected readonly projectId = computed<string | null>(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return null;
+    const ws = this.workspaces.workspaceById(id)();
+    return ws?.projectId ?? null;
+  });
+
+  // Live status of the active workspace's RUN command (not setup).
+  // Drives the Run/Stop button label + variant.
   protected readonly runStatus = computed(() => {
     const id = this.workspaces.activeId();
     if (!id) return 'idle' as const;
     return this.runs.ensureEntry(id).status();
   });
 
-  protected readonly hasRunCommand = computed(() => {
+  // True while ANY setup-side work is in flight — the RunRegistry
+  // setup PTY (user-configured setupCommand) OR the auto-detected
+  // installPackages flow. Both paths register through
+  // `WorkspacesFacade.installFor`, which is the unified source. Drives
+  // the toolbar Run button's greyed-out state so the user can't fire
+  // the run command mid-install.
+  protected readonly setupRunning = computed(() => {
     const id = this.workspaces.activeId();
     if (!id) return false;
-    const ws = this.workspaces.workspaceById(id)();
-    if (!ws) return false;
-    const project = this.projects.byId(ws.projectId)();
-    return !!project?.runCommand;
+    return this.workspaces.installFor(id).state === 'running';
+  });
+
+  // Effective run command considers BOTH the DB column and the
+  // project's `.mozart/run.json` (file wins). Keeps the toolbar Run
+  // button enabled for projects that only have a run.json checked in.
+  protected readonly hasRunCommand = computed(() => {
+    const pid = this.projectId();
+    if (!pid) return false;
+    return !!this.projects.effectiveCommandsFor(pid)().runCommand;
   });
 
   // Per-workspace tab state, persisted via UiStateStore.
@@ -182,6 +209,16 @@ export class FeatureWorkspaceProcesses {
   private readonly hydratedFromUrl = new Set<string>();
 
   constructor() {
+    // Kick the `.mozart/run.json` probe for the active workspace's
+    // project. Idempotent — once the cache holds the result, the
+    // computed `hasRunCommand` flips on. Without this kick the setup /
+    // run scripts stay invisible to the toolbar.
+    effect(() => {
+      const pid = this.projectId();
+      if (!pid) return;
+      void this.projects.ensureDetectedScripts(pid);
+    });
+
     effect(() => {
       const id = this.workspaceId();
       if (!id || this.hydratedFromUrl.has(id)) return;
@@ -201,6 +238,20 @@ export class FeatureWorkspaceProcesses {
           replaceUrl: true,
         });
       }
+    });
+
+    // Workspace-init auto-jump: when the workspace opens with an active
+    // setup PTY (auto-fired at bootstrap or via createForPrompt), surface
+    // the Setup tab so the install output is the first thing the user
+    // sees. Gated on `hasAsideEntry === false` — once the user (or this
+    // effect itself) writes any tab state, the default is locked in and
+    // we never override their choice on subsequent re-runs.
+    effect(() => {
+      const id = this.workspaceId();
+      if (!id) return;
+      if (this.uiState.hasAsideEntry(id)) return;
+      if (this.workspaces.installFor(id).state !== 'running') return;
+      this.uiState.updateWorkspaceAsideState(id, { bottomTab: 'setup' });
     });
   }
 

@@ -1,6 +1,25 @@
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal, ITheme } from '@xterm/xterm';
 
+// Read `--background` / `--foreground` off the body's computed style.
+// The `.theme-mozart` class lives on <body>, so the CSS variables only
+// resolve there; reading from <html> returns empty strings and falls
+// back to white/black, which is the "terminal stays light in dark
+// mode" bug. Domains that own a long-lived xterm pair this with a
+// signal-driven effect that re-applies the theme on
+// ThemeService.isDark() / activeTheme() change.
+export function resolveXtermTheme(): ITheme {
+  const source = document.body ?? document.documentElement;
+  const styles = getComputedStyle(source);
+  const bg = styles.getPropertyValue('--background').trim() || '0 0% 100%';
+  const fg = styles.getPropertyValue('--foreground').trim() || '0 0% 0%';
+  return {
+    background: `hsl(${bg})`,
+    foreground: `hsl(${fg})`,
+    cursor: `hsl(${fg})`,
+  };
+}
+
 const DEFAULT_COLS = 80;
 const DEFAULT_ROWS = 24;
 const FONT_FAMILY =

@@ -46,6 +46,14 @@ export interface ProjectsAdapter {
   setSort(orderedIds: readonly string[]): Promise<void>;
   /** Persist the project's run command. Pass `null` to clear. */
   setRunCommand(id: string, command: string | null): Promise<void>;
+  /** Persist the project's setup/install command. Pass `null` to clear. */
+  setSetupCommand(id: string, command: string | null): Promise<void>;
+  /** Best-effort read of `.mozart/run.json` for the project. Returns
+   *  null entries when the file is absent / malformed / missing the
+   *  key. Powers the run/setup precedence rule on the frontend: a
+   *  detected script enables the Run / Start setup CTAs even when the
+   *  DB column is empty. */
+  readDetectedScripts(id: string): Promise<DetectedScripts>;
   /** P2.6 / AD-02 — read the persisted `project_local_config.merge_mode`
    *  (`'pr'` or `'local'`). Falls back to `'pr'` if the project hasn't
    *  bootstrapped a local config yet. */
@@ -59,6 +67,14 @@ export interface ProjectsAdapter {
 }
 
 export type MergeMode = 'pr' | 'local';
+
+/** Effective scripts parsed from a project's `.mozart/run.json`. The
+ *  `setup` and `run` entries are independent — only one may be
+ *  present in the file. */
+export interface DetectedScripts {
+  readonly setup: string | null;
+  readonly run: string | null;
+}
 
 export const PROJECTS_ADAPTER = new InjectionToken<ProjectsAdapter>(
   'PROJECTS_ADAPTER',

@@ -9,6 +9,11 @@ export interface Project {
   sortIndex: number;
   addedAt: Date;
   /** Optional dev/run command (e.g. `pnpm dev`). Set via the Run tab.
-   *  `null` until the user configures it. */
+   *  `null` until the user configures it. A `.mozart/run.json` file
+   *  at the project root takes precedence at run time. */
   runCommand: string | null;
+  /** Optional install/setup command (e.g. `pnpm install`). Wired to
+   *  the Setup tab's "Start setup" CTA. Same precedence rule as
+   *  `runCommand`. */
+  setupCommand: string | null;
 }
