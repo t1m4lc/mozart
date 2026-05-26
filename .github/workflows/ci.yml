@@ -4,7 +4,11 @@ on:
   push:
     branches:
       - main
+    tags:
+      - 'v*'
   pull_request:
+    branches:
+      - main
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -69,37 +73,59 @@ jobs:
       - run: pnpm nx fix-ci
         if: always()
 
-  # Cheap gate: figure out once whether desktop is affected, so the rust
-  # matrix jobs can short-circuit without each spinning up a runner.
+  # Gate for the Rust matrix. Two independent signals decide whether to run
+  # and how broad the matrix should be:
+  #   - path-filter on apps/desktop-tauri/** (Nx's `affected` flags Tauri on
+  #     any Angular change via implicitDependencies, which over-triggers).
+  #   - event type: PRs get Linux-only; main pushes and `v*` tags get the
+  #     full Linux/macOS/Windows matrix.
+  # Tag pushes always run the full matrix regardless of path-filter.
   rust-gate:
     runs-on: ubuntu-latest
     outputs:
-      run: ${{ steps.affected.outputs.run }}
+      run: ${{ steps.gate.outputs.run }}
+      os_list: ${{ steps.gate.outputs.os_list }}
     steps:
       - uses: actions/checkout@v4
         with:
           filter: tree:0
           fetch-depth: 0
-      - uses: pnpm/action-setup@v4
+
+      - name: Detect Rust/Tauri path changes
+        id: paths
+        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        uses: dorny/paths-filter@v3
         with:
-          version: 11.0.8
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - uses: nrwl/nx-set-shas@v5
-      - id: affected
-        # `nx show projects --affected` emits a JSON array on one line
-        # (e.g. `["desktop","desktop-tauri",...]`), so `grep -qx` will
-        # never match. Filter to `--projects desktop-tauri` instead — Nx
-        # returns `["desktop-tauri"]` when affected and `[]` when not, so
-        # `grep -q desktop-tauri` is a reliable presence check.
+          filters: |
+            rust:
+              - 'apps/desktop-tauri/**'
+              - '.github/workflows/ci.yml'
+
+      - name: Decide run + matrix
+        id: gate
         run: |
-          if pnpm nx show projects --projects desktop-tauri --affected --base="$NX_BASE" --head="$NX_HEAD" | grep -q desktop-tauri; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
+          full='["ubuntu-latest","macos-latest","windows-latest"]'
+          linux='["ubuntu-latest"]'
+          none='[]'
+
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            echo "os_list=$full" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ steps.paths.outputs.rust }}" != "true" ]]; then
+            echo 'run=false' >> "$GITHUB_OUTPUT"
+            echo "os_list=$none" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            echo "os_list=$full" >> "$GITHUB_OUTPUT"
           else
-            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo 'run=true' >> "$GITHUB_OUTPUT"
+            echo "os_list=$linux" >> "$GITHUB_OUTPUT"
           fi
 
   rust-check:
@@ -108,7 +134,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(needs.rust-gate.outputs.os_list) }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
