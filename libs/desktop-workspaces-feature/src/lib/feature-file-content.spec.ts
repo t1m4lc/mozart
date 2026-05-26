@@ -176,3 +176,79 @@ describe('FeatureFileContent — edit-mode header (P1.4)', () => {
     expect((editBtn.nativeElement as HTMLButtonElement).disabled).toBe(true);
   });
 });
+
+// Regression — see commit message. `editorValue` used to be a
+// `linkedSignal` whose computation read `uiState.readEdit(...)`. That
+// read tracked the `_dirtyEdits` writable signal, so the post-save
+// `clearEdit()` snapped the buffer back to `''` and wiped the editor.
+// The fix makes `editorValue` a plain signal seeded by an effect on
+// (workspace, path) via `untracked`. This test guards against a
+// regression.
+describe('FeatureFileContent — save preserves editor buffer', () => {
+  it('does NOT wipe editorValue when save() clears the dirty-edits map', async () => {
+    const saveFile = vi.fn(async () => 'new-hash');
+    await TestBed.configureTestingModule({
+      imports: [FeatureFileContent],
+      providers: [
+        {
+          provide: RepositoriesFacade,
+          useValue: {
+            loadFile: vi.fn(async () => ''),
+            saveFile,
+            loadFileDiff: vi.fn(async () => ''),
+            cachedChangedFilesFor: vi.fn(() => computed(() => null)),
+          },
+        },
+        { provide: UiStateFacade, useValue: makeUiState() },
+        {
+          provide: ScrollPositionService,
+          useValue: { recall: vi.fn(() => null), remember: vi.fn() },
+        },
+        {
+          provide: FileTabsService,
+          useValue: { findTab: vi.fn(() => null), pinForPath: vi.fn() },
+        },
+        {
+          provide: WorkspaceMutationsFacade,
+          useValue: { softRefreshAfterMutation: vi.fn() },
+        },
+        {
+          provide: FileViewsFacade,
+          useValue: {
+            entryFor: vi.fn(() => undefined),
+            markViewed: vi.fn(async () => undefined),
+            clearViewed: vi.fn(async () => undefined),
+          },
+        },
+        provideTheme(),
+        provideZonelessChangeDetection(),
+      ],
+    }).compileComponents();
+
+    const fixture = TestBed.createComponent(FeatureFileContent);
+    fixture.componentRef.setInput('workspaceId', 'ws1');
+    fixture.componentRef.setInput('filePath', 'src/foo.ts');
+    fixture.componentRef.setInput('canEdit', true);
+    fixture.detectChanges();
+
+    // Bypass the deferred CodeMirror editor — simulate a user edit
+    // directly through the protected method the editor would call.
+    const instance = fixture.componentInstance as unknown as {
+      onEditorChange: (next: string) => void;
+      save: () => Promise<void>;
+      editorValue: { (): string };
+    };
+
+    instance.onEditorChange('hello world');
+    fixture.detectChanges();
+    expect(instance.editorValue()).toBe('hello world');
+
+    await instance.save();
+    fixture.detectChanges();
+
+    // Critical assertion: the editor buffer survives save().
+    expect(instance.editorValue()).toBe('hello world');
+    // And the content actually reached the persistence call.
+    expect(saveFile).toHaveBeenCalledWith('ws1', 'src/foo.ts', 'hello world', '');
+  });
+});

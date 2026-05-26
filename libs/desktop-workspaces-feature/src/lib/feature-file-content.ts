@@ -12,6 +12,7 @@ import {
   input,
   linkedSignal,
   signal,
+  untracked,
 } from '@angular/core';
 // Direct symbol import (not via the *Imports array) so Angular's
 // @defer analyzer can tell mz-code-editor is referenced only inside a
@@ -90,11 +91,11 @@ const TEXT_ENCODER = new TextEncoder();
     provideIcons({ lucideCheck, lucideCopy, lucideFileDiff, lucideFilePen }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex h-full w-full flex-col' },
+  host: { class: 'relative flex h-full w-full flex-col' },
   template: `
     <ng-template #modeToggle let-pushLeft="pushLeft">
       <div
-        class="bg-muted/40 inline-flex h-7 shrink-0 items-center gap-0.5 rounded-md p-0.5"
+        class="bg-muted/40 inline-flex h-7 shrink-0 items-center gap-1 rounded-md p-0.5"
         [class.ml-auto]="pushLeft"
         role="tablist"
         aria-label="File mode"
@@ -135,10 +136,11 @@ const TEXT_ENCODER = new TextEncoder();
 
     @if (mode() === 'diff') {
       <app-feature-file-diff
-        class="flex min-h-0 flex-1 flex-col pb-40"
+        class="flex min-h-0 flex-1 flex-col"
         [workspaceId]="workspaceId()"
         [path]="filePath()"
         [status]="fileChangeStatus()"
+        [scrollPaddingBottom]="EDITOR_BOTTOM_PADDING_PX"
       >
         <div mzFileDiffCardTrailing class="contents">
           <ng-container
@@ -184,42 +186,17 @@ const TEXT_ENCODER = new TextEncoder();
             >{{ badge.label }}</span>
           }
 
-          @if (saving()) {
-            <span class="text-muted-foreground ml-auto text-[11px]">Saving…</span>
-          } @else if (dirty()) {
-            <span class="text-muted-foreground ml-auto text-[11px]">Unsaved</span>
-          }
-          <button
-            type="button"
-            hlmBtn
-            variant="outline"
-            size="xs"
-            class="h-6 px-2 text-[11px]"
-            [class.ml-auto]="!saving() && !dirty()"
-            [disabled]="!dirty() || saving() || !canEdit()"
-            (click)="save()"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            hlmBtn
-            variant="ghost"
-            size="xs"
-            class="text-muted-foreground h-6 px-2 text-[11px]"
-            [disabled]="!dirty() || saving()"
-            (click)="discardEdits()"
-          >
-            Discard
-          </button>
-
-          <ng-container *ngTemplateOutlet="modeToggle" />
+          <ng-container
+            *ngTemplateOutlet="modeToggle; context: { pushLeft: true }"
+          />
         </div>
       </mz-file-tab-header>
 
-      <!-- pb-40 (160px) reserves bottom space for the absolutely-
-           positioned workspace composer. -->
-      <div class="flex min-h-0 flex-1 flex-col pb-40">
+      <!-- The composer is absolutely positioned by the parent shell, so
+           the editor extends the full panel height. CodeMirror's
+           scrollPaddingBottom keeps the last line clear of the composer
+           and the floating Save/Discard overlay below. -->
+      <div class="relative flex min-h-0 flex-1 flex-col">
         @if (loadError(); as err) {
           <div
             class="flex flex-1 items-center justify-center p-6 text-sm text-destructive"
@@ -300,6 +277,7 @@ const TEXT_ENCODER = new TextEncoder();
               [path]="p"
               [readOnly]="!canEdit()"
               [theme]="editorTheme()"
+              [scrollPaddingBottom]="EDITOR_BOTTOM_PADDING_PX"
               (valueChange)="onEditorChange($event)"
             />
           } @placeholder {
@@ -315,6 +293,54 @@ const TEXT_ENCODER = new TextEncoder();
           </div>
         }
       </div>
+
+      <!-- Floating Save/Discard overlay. Anchored to the component host
+           (relative). Sits just above the workspace composer (z-30) and
+           below it stays clear of pointer events via pointer-events-none
+           on the wrapper; the inner card re-enables them with
+           pointer-events-auto so the buttons remain clickable. -->
+      <div
+        class="pointer-events-none absolute inset-x-0 bottom-[112px] z-20 flex justify-center px-3"
+        aria-live="polite"
+      >
+        <div
+          class="bg-popover/95 pointer-events-auto flex items-center gap-2 rounded-full border border-border px-2 py-1 shadow-md backdrop-blur transition-all duration-150"
+          [class.opacity-0]="!dirty() && !saving()"
+          [class.translate-y-1]="!dirty() && !saving()"
+          [class.opacity-100]="dirty() || saving()"
+          [class.translate-y-0]="dirty() || saving()"
+        >
+          <span class="text-muted-foreground px-1.5 text-[11px]">
+            @if (saving()) {
+              Saving…
+            } @else {
+              Unsaved changes
+            }
+          </span>
+          <button
+            type="button"
+            hlmBtn
+            variant="ghost"
+            size="xs"
+            class="text-muted-foreground hover:text-foreground h-7 px-2 text-[11px]"
+            [disabled]="!dirty() || saving()"
+            (click)="discardEdits()"
+          >
+            Discard
+          </button>
+          <button
+            type="button"
+            hlmBtn
+            variant="default"
+            size="xs"
+            class="h-7 px-3 text-[11px]"
+            [disabled]="!dirty() || saving() || !canEdit()"
+            (click)="save()"
+          >
+            Save
+          </button>
+        </div>
+      </div>
     }
   `,
 })
@@ -322,6 +348,12 @@ export class FeatureFileContent {
   readonly workspaceId = input<string | null>(null);
   readonly filePath = input<string | null>(null);
   readonly canEdit = input<boolean>(true);
+
+  // Inner bottom padding (px) for the CodeMirror surface (edit + diff).
+  // Keeps the last line / hunk clear of the floating Save/Discard
+  // overlay (~50 px) plus the workspace composer (~95 px). Read by the
+  // template via `EDITOR_BOTTOM_PADDING_PX`.
+  protected readonly EDITOR_BOTTOM_PADDING_PX = 160;
 
   private readonly repos = inject(RepositoriesFacade);
   private readonly themeService = inject(ThemeService);
@@ -379,15 +411,12 @@ export class FeatureFileContent {
     this.resetKey();
     return '';
   });
-  // Editor buffer. Initialized from any in-memory edit buffer for this
-  // (ws, path) so unsaved edits survive tab switches within the
-  // session.
-  protected readonly editorValue = linkedSignal<string>(() => {
-    const key = this.resetKey();
-    const [ws, path] = decodeResetKey(key);
-    if (!ws || !path) return '';
-    return this.uiState.readEdit(ws, path)?.content ?? '';
-  });
+  // Editor buffer. Plain signal — NOT a linkedSignal — because reading
+  // `readEdit` inside a linkedSignal subscribes to `_dirtyEdits`, and a
+  // post-save `clearEdit()` would then snap the buffer back to '' and
+  // wipe the editor. Seeded/reset by an effect on (workspace, path) via
+  // `untracked` so the dirty-edits map is NOT a dependency.
+  protected readonly editorValue = signal<string>('');
   protected readonly loading = signal(false);
   protected readonly loadError = linkedSignal<string | null>(() => {
     this.resetKey();
@@ -432,6 +461,24 @@ export class FeatureFileContent {
   });
 
   constructor() {
+    // Seed/reset editorValue on (workspace, path) change ONLY. Reading
+    // `readEdit` in `untracked` keeps `_dirtyEdits` out of the dep list,
+    // so a post-save `clearEdit()` does NOT trigger this and wipe the
+    // editor buffer. If no in-memory edit exists, leave the buffer empty;
+    // `loadFile()` will populate it once the disk read settles.
+    effect(() => {
+      const key = this.resetKey();
+      untracked(() => {
+        const [ws, path] = decodeResetKey(key);
+        if (!ws || !path) {
+          this.editorValue.set('');
+          return;
+        }
+        const edit = this.uiState.readEdit(ws, path);
+        this.editorValue.set(edit?.content ?? '');
+      });
+    });
+
     effect(() => {
       const ws = this.workspaceId();
       const p = this.filePath();
