@@ -366,6 +366,7 @@ export class FeatureChatArea {
     // User scrolling up disengages autoFollow
     this.scroller()!.elementScrolled().pipe(
       debounceTime(50),
+      takeUntilDestroyed()
     ).subscribe(() => {
       if (!this.anchorVisible() && this.autoFollowChat()) {
         this.autoFollowChat.set(false);

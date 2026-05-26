@@ -2,6 +2,7 @@
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/mozart-ui/theme-toggle";
+@source "../../../libs/shared-util-mozart-links";
 @source "../../../libs/shared-util-os";
 @source "../../../libs/shared-util-theme";
 @source "../../../libs/spartan-ui/button";

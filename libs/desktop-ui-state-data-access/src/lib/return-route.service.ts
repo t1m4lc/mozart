@@ -1,4 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router } from '@angular/router';
 
 const SETTINGS_PREFIX = '/settings';
@@ -16,7 +17,7 @@ export class ReturnRouteService {
   readonly previous = this._previous.asReadonly();
 
   constructor() {
-    this.router.events.subscribe((event) => {
+    this.router.events.pipe(takeUntilDestroyed()).subscribe((event) => {
       if (!(event instanceof NavigationEnd)) return;
       const url = event.urlAfterRedirects;
       if (this.isSettings(url)) return;
