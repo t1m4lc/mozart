@@ -6,8 +6,10 @@ import {
   input,
   type Type,
 } from '@angular/core';
+import { isItemVisibleAt } from './_density.util';
 import { TOOL_RENDERERS } from './renderers/tool-renderers.registry';
 import type { TurnItem } from './turn-state.types';
+import type { TimelineDensity } from './turn-state.types';
 
 // Phase 3b — vertical timeline of agent activity. Renders each item
 // via the renderer registry (kind → component, dispatched through
@@ -20,6 +22,13 @@ import type { TurnItem } from './turn-state.types';
 // response, which itself is rendered between the timeline and the
 // marker. Putting the marker inside this component would lock it to
 // the end of the items list, above the text.
+//
+// `density` filters the input items in-place — the host's TurnState
+// is never mutated. Filter rules (docs/tmp/2026-05-25 §C):
+//   - errors AND `result`-role items: always visible
+//   - `compact`: nothing else
+//   - `normal`: `detail` items whose kind is in PROMOTE_TO_NORMAL
+//   - `detailed`: every item
 
 interface TimelineRow {
   readonly item: TurnItem;
@@ -50,10 +59,14 @@ interface TimelineRow {
 })
 export class Timeline {
   readonly items = input.required<readonly TurnItem[]>();
+  readonly density = input<TimelineDensity>('normal');
 
   protected readonly _rows = computed<readonly TimelineRow[]>(() => {
-    const items = this.items();
-    return items.map((item, index) => ({
+    const level = this.density();
+    const visible = this.items().filter((item) =>
+      isItemVisibleAt(item, level),
+    );
+    return visible.map((item, index) => ({
       item,
       component: TOOL_RENDERERS[item.kind] ?? TOOL_RENDERERS.generic,
       // First row joins the message body above without a spacer; the

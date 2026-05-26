@@ -27,8 +27,8 @@ describe('applyAgentEvent — text-only fixture', () => {
     expect(final.text).toBe('Hello, Phase 3a!');
   });
 
-  it('keeps the last status as summary', () => {
-    expect(final.summary).toBe('Thinking…');
+  it('overrides the last status with "Done" on terminal done event', () => {
+    expect(final.summary).toBe('Done');
   });
 
   it('flips outcome to "done" + records elapsedMs + shows the done marker', () => {
@@ -194,5 +194,16 @@ describe('applyAgentEvent — invariants', () => {
     expect(next.showDoneMarker).toBe(false);
     expect(next.isStreaming).toBe(false);
     expect(next.elapsedMs).toBe(100);
+    expect(next.summary).toBe('Stopped');
+  });
+
+  it('terminal events override the in-progress summary', () => {
+    let s = EMPTY_TURN_STATE(0);
+    s = applyAgentEvent(s, { kind: 'tool_call', id: 't', toolName: 'read_file' });
+    expect(s.summary).toBe('Reading files…');
+    const done = applyAgentEvent(s, { kind: 'done' }, () => 1);
+    expect(done.summary).toBe('Done');
+    const err = applyAgentEvent(s, { kind: 'error', message: 'boom' }, () => 1);
+    expect(err.summary).toBe('Error');
   });
 });

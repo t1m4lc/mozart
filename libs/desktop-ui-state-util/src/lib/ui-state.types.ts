@@ -8,6 +8,12 @@ export type WorkspaceAsideFilesView = 'all' | 'changes';
 export type WorkspaceFileContentMode = 'edit' | 'diff';
 export type WorkspaceFileOpenSource = 'all-files' | 'changes';
 
+// Global user-controlled timeline display density. Drives which items
+// `<mz-timeline>` renders. Mirror-typed (structurally identical) on
+// `libs/mozart-ui/timeline/src/lib/turn-state.types.ts` so the UI lib
+// stays self-contained without crossing the data-access boundary.
+export type TimelineDensity = 'compact' | 'normal' | 'detailed';
+
 export interface WorkspaceFileOpenOptions {
   mode: WorkspaceFileContentMode;
   source: WorkspaceFileOpenSource;

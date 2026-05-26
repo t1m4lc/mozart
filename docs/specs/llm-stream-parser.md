@@ -257,24 +257,36 @@ Transition rules :
 ### 5.3 Expand / collapse
 
 - The whole `<TurnBody>` collapses via the header chevron.
-- Individual items have their own expand/collapse :
-  - **Thinking items** : collapsed by default, expand to show
-    reasoning text. If text is long, cap at `max-height: 200px`
-    with a fade-out gradient and a _"Show more"_ affordance.
-  - **File-edit items** : title + file chip with diff stats visible
-    by default ; the diff body itself is collapsed behind a _"View
-    diff"_ affordance. Clicking the file chip opens the full diff
-    in a side panel (placeholder in v0.1.0-beta.1, full panel in v0.1.0).
-  - **File-read items** : collapsed by default ; no expand needed
-    unless inspecting raw input.
-  - **Shell items** : expand to show stdout / stderr.
-  - **Web items** : never expand — the row IS the result (favicon +
-    title + domain + external-link arrow).
+- Individual items have their own expand/collapse, governed by a
+  single per-renderer pattern (post-`/plan-eng-review` 2026-05-25,
+  see docs/tmp/2026-05-25 §F) — title row is clickable and toggles
+  a `grid-template-rows: 0fr → 1fr` body with `max-h-96
+  overflow-y-auto` on the inner content. Collapsed-by-default
+  everywhere except shell (active output is the useful signal) :
+  - **Thinking items** : title-click toggles full reasoning text.
+    Collapsed by default. (Drops the v1 spec's 200/600 max-height
+    + fade + "Show more" affordance — replaced by the unified
+    pattern.)
+  - **File-edit / file-create items** : title + file chip with diff
+    stats visible by default ; **no body expand**. Clicking the file
+    chip routes to the workspace's Files tab in diff mode (wired by
+    `FeatureChatContent` → `FileTabsService.navigateToFileTab`).
+  - **File-read items** : no body — just a chip with the path. Lives
+    behind `density: 'detailed'` since reads are silent signal.
+  - **Shell items** : default **expanded** when a body is present —
+    stdout/stderr is the payload the user actually came for.
+  - **Search items** : title-click toggles result body. Collapsed
+    by default.
+  - **Generic items** : title-click toggles a mono-block of the tool
+    result summary. Collapsed by default. Used as fallback for MCP
+    tool calls and any unrecognized tool name.
+  - **Web items** (post-MVP) : never expand — the row IS the result
+    (favicon + title + domain + external-link arrow).
 
-Animation : smooth height transition. The reference uses
-`max-height` with `transition-[max-height] duration-300 ease-out`
-(see §A.5) ; if jank is observed on dynamic content, swap to the
-`grid-template-rows: 0fr → 1fr` pattern.
+Animation : `grid-template-rows: 0fr → 1fr` with a 200 ms ease
+transition ; disabled under `prefers-reduced-motion: reduce`. The
+v1 `max-height` approach is retained only for the v0.1.0-beta.1
+sandbox until the renderers migrate fully.
 
 ### 5.4 Auto-scroll
 

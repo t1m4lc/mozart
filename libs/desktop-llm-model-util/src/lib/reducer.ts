@@ -118,6 +118,7 @@ export function applyAgentEvent(
       return {
         ...state,
         items,
+        summary: 'Error',
         isStreaming: false,
         outcome: 'error',
         elapsedMs: now() - state.startedAt,
@@ -129,6 +130,7 @@ export function applyAgentEvent(
       return {
         ...state,
         items,
+        summary: 'Done',
         isStreaming: false,
         showDoneMarker: true,
         outcome: 'done',
@@ -141,6 +143,7 @@ export function applyAgentEvent(
       return {
         ...state,
         items,
+        summary: 'Stopped',
         isStreaming: false,
         outcome: 'stopped',
         elapsedMs: now() - state.startedAt,

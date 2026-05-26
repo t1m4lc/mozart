@@ -3,10 +3,13 @@ import {
   Component,
   computed,
   input,
+  output,
 } from '@angular/core';
 import { MessageBody, TurnContainer } from '@mozart-ui/timeline';
-import type { TurnFileChipEvent } from '@mozart-ui/timeline';
-import { toast } from '@spartan-ng/brain/sonner';
+import type {
+  TimelineDensity,
+  TurnFileChipEvent,
+} from '@mozart-ui/timeline';
 import { MzLoader } from '@mozart-ui/loader';
 import type { Message } from '@mozart/desktop-chat-util';
 
@@ -20,7 +23,8 @@ import type { Message } from '@mozart/desktop-chat-util';
       @if (message().turnState; as ts) {
         <mz-turn-container
           [state]="ts"
-          (fileChipClick)="onFileChipClick($event)"
+          [density]="density()"
+          (fileChipClick)="fileChipClick.emit($event)"
         />
       } @else if (_isLoading()) {
         <mz-loader size="sm" class="text-brand" />
@@ -35,6 +39,15 @@ import type { Message } from '@mozart/desktop-chat-util';
 })
 export class AgentMessage {
   readonly message = input.required<Message>();
+  // Density forwarded by `MessageList` from `FeatureChatContent`,
+  // which reads it off `TimelinePrefsService`. UI lib stays pure —
+  // no data-access import needed here.
+  readonly density = input<TimelineDensity>('normal');
+
+  // Emitted when the user clicks a file chip in the timeline. The
+  // feature wrapper resolves it against `WorkspacesFacade` +
+  // `FileTabsService` to navigate to the Files tab in diff mode.
+  readonly fileChipClick = output<TurnFileChipEvent>();
 
   protected readonly _isStreaming = computed(
     () => this.message().status === 'streaming',
@@ -45,15 +58,4 @@ export class AgentMessage {
     if (msg.status === 'pending' || msg.status === 'queued') return true;
     return msg.status === 'streaming' && !msg.content && !msg.turnState;
   });
-
-  // v0.1.0-beta.1 fallback: copy the path to the clipboard. The Phase 4 diff
-  // aside lands separately; once it does, this routes there instead.
-  protected async onFileChipClick(event: TurnFileChipEvent): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(event.path);
-      toast.success('Path copied', { description: event.path });
-    } catch {
-      toast.error('Could not copy path');
-    }
-  }
 }

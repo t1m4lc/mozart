@@ -1,8 +1,13 @@
 @import "tailwindcss" source("../src/app/");
+@plugin "@tailwindcss/typography";
 
 @import "../../../libs/mozart-design-tokens/src/index.css";
 
 /* nx-tailwind-sources:start */
+@source "../../../libs/desktop-llm-model-data-access";
+@source "../../../libs/desktop-llm-model-util";
+@source "../../../libs/desktop-ui-state-data-access";
+@source "../../../libs/desktop-ui-state-util";
 @source "../../../libs/mozart-ui/code-editor";
 @source "../../../libs/mozart-ui/codemirror-theme";
 @source "../../../libs/mozart-ui/composer";
@@ -12,7 +17,9 @@
 @source "../../../libs/mozart-ui/file-diff-card";
 @source "../../../libs/mozart-ui/file-tab-header";
 @source "../../../libs/mozart-ui/hunk-expand-bar";
+@source "../../../libs/mozart-ui/loader";
 @source "../../../libs/mozart-ui/review-progress";
+@source "../../../libs/mozart-ui/timeline";
 @source "../../../libs/shared-util-theme";
 @source "../../../libs/spartan-ui/badge";
 @source "../../../libs/spartan-ui/button";

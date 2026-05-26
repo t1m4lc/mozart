@@ -8,6 +8,7 @@ import {
   output,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { anyVisibleAt } from './_density.util';
 import { DoneMarker } from './done-marker';
 import { ErrorMarker } from './error-marker';
 import { FileChipBus } from './file-chip-bus';
@@ -16,6 +17,7 @@ import { Timeline } from './timeline';
 import { TurnBody } from './turn-body';
 import { TurnHeader } from './turn-header';
 import type {
+  TimelineDensity,
   TurnFileChipEvent,
   TurnState,
 } from './turn-state.types';
@@ -38,41 +40,86 @@ import type {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <mz-turn-header
-      [summary]="state().summary"
-      [streaming]="state().isStreaming"
-      [(collapsed)]="collapsed"
-    />
-    <mz-turn-body [collapsed]="collapsed()">
-      @if (_hasItems()) {
-        <mz-timeline [items]="state().items" />
-      }
-      @if (_hasText()) {
-        <mz-message-body
-          [class.mt-1]="_hasItems()"
-          [text]="state().text"
-          [streaming]="state().isStreaming"
-        />
-      }
-      @if (_showDone()) {
-        <mz-done-marker class="mt-1" />
-      } @else if (_showError()) {
-        <mz-error-marker class="mt-1" [label]="_errorLabel()" />
-      }
-    </mz-turn-body>
+    @if (_hasHeader()) {
+      <mz-turn-header
+        [summary]="state().summary"
+        [streaming]="state().isStreaming"
+        [startedAt]="state().startedAt"
+        [(collapsed)]="collapsed"
+      />
+    }
+    @if (_hasBody()) {
+      <mz-turn-body [collapsed]="collapsed()">
+        @if (_hasItems()) {
+          <mz-timeline [items]="state().items" [density]="density()" />
+        }
+        @if (_showDone()) {
+          <mz-done-marker class="mt-1" />
+        } @else if (_showError()) {
+          <mz-error-marker
+            [class.mt-1]="_hasItems()"
+            [label]="_errorLabel()"
+          />
+        }
+      </mz-turn-body>
+    }
+    @if (_hasText()) {
+      <mz-message-body
+        [class.mt-2]="_hasHeader() || _hasBody()"
+        [text]="state().text"
+        [streaming]="state().isStreaming"
+      />
+    }
   `,
 })
 export class TurnContainer {
   readonly state = input.required<TurnState>();
   readonly collapsed = model<boolean>(false);
+  // Forwarded to <mz-timeline>. AgentMessage reads it from
+  // TimelinePrefsService and binds it here.
+  readonly density = input<TimelineDensity>('normal');
 
   readonly fileChipClick = output<TurnFileChipEvent>();
 
   protected readonly _hasText = computed(() => this.state().text.length > 0);
-  protected readonly _hasItems = computed(() => this.state().items.length > 0);
+  // True only when at least one item would actually render at the
+  // current density. Using the unfiltered count here would mount an
+  // empty <mz-timeline> in `compact` mode and add a stray top margin
+  // around the markers.
+  protected readonly _hasItems = computed(() =>
+    anyVisibleAt(this.state().items, this.density()),
+  );
+
+  // Whether the agent did anything technical this turn — items,
+  // thinking, errors. Unfiltered (density-independent) on purpose:
+  // a tool-heavy turn at compact density still has technical work
+  // to attach the header to.
+  protected readonly _hasTechnicalWork = computed(
+    () => this.state().items.length > 0 || this._showError(),
+  );
+
+  // Show the header iff there's something to announce: the agent is
+  // working (streaming), there's technical work, or there's an
+  // error. Pure text replies that completed cleanly skip the header
+  // entirely and render as a plain chat message.
+  protected readonly _hasHeader = computed(
+    () => this.state().isStreaming || this._hasTechnicalWork(),
+  );
+
+  // The collapsible body mounts only when there's something to show
+  // at the current density (visible items) or an error to surface.
+  // The done marker is the visual cap to the timeline — without
+  // items it would be orphan visual noise (the header summary
+  // already carries the "Done" signal).
+  protected readonly _hasBody = computed(
+    () => this._hasItems() || this._showError(),
+  );
 
   protected readonly _showDone = computed(
-    () => this.state().showDoneMarker && this.state().outcome === 'done',
+    () =>
+      this.state().showDoneMarker &&
+      this.state().outcome === 'done' &&
+      this._hasItems(),
   );
 
   protected readonly _showError = computed(() => {
