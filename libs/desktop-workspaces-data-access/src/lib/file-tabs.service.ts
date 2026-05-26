@@ -178,10 +178,19 @@ export class FileTabsService {
 
   /** One-call helper used by both `feature-workspace-files` (tree) and
    *  `feature-changes-list` (Changes pane): records the per-path UI
-   *  state (mode + source defaulting to false splitDiff), then
-   *  navigates with the intent threaded through `Router` state extras.
-   *  `WorkspaceTabContent` reads the intent and dispatches
-   *  `previewForPath` vs `pinForPath`. */
+   *  state (mode + source defaulting to false splitDiff), eagerly
+   *  applies the preview/pin mutation, then navigates with the intent
+   *  threaded through `Router` state extras for any consumer that
+   *  reads the URL (deep links, back/forward).
+   *
+   *  Why both? Angular's Router defaults to
+   *  `onSameUrlNavigation: 'ignore'` — a second single-click on the
+   *  already-active file, or a double-click on a tab that's already
+   *  open as preview, never re-fires `NavigationEnd`. The route effect
+   *  in `WorkspaceTabContent` therefore can't promote preview → pin
+   *  in those cases. Running the mutation here makes the click handler
+   *  the source of truth and keeps the route effect as the fallback
+   *  for navigations that actually change the URL. */
   async navigateToFileTab(opts: NavigateFileTabOptions): Promise<boolean> {
     const tabId = this.tabsRegistry.fileTabId(opts.path);
     if (!tabId) return false;
@@ -189,6 +198,15 @@ export class FileTabsService {
       mode: opts.mode,
       source: opts.source,
     });
+    // Apply tab-list mutation BEFORE router.navigate so re-clicks on
+    // the same URL still promote preview→pinned or activate an existing
+    // tab. Both methods are idempotent (no-op on already-matching state)
+    // so the route effect's redundant dispatch is harmless.
+    if (opts.intent === 'preview') {
+      this.previewForPath(opts.workspaceId, opts.path);
+    } else {
+      this.pinForPath(opts.workspaceId, opts.path);
+    }
     return this.router.navigate(
       workspaceTabRouteCommands(opts.projectId, opts.workspaceId, tabId),
       {

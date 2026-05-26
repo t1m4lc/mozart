@@ -230,4 +230,81 @@ describe('FileTabsService — navigateToFileTab', () => {
       replaceUrl: false,
     });
   });
+
+  // Eager mutation: covers the regression where the router's default
+  // `onSameUrlNavigation: 'ignore'` silently drops re-clicks. The
+  // service applies preview/pin BEFORE router.navigate so the click
+  // handler is the source of truth.
+  it('eagerly opens a preview tab even when router.navigate is a same-URL no-op', async () => {
+    const { svc, router } = setupWithRouterMock();
+    vi.mocked(router.navigate).mockResolvedValue(false);
+
+    await svc.navigateToFileTab({
+      projectId: projectA,
+      workspaceId: wsA,
+      path: 'src/a.ts',
+      intent: 'preview',
+      mode: 'edit',
+      source: 'all-files',
+    });
+
+    expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts']);
+    expect(svc.isPreviewFor(wsA, 'src/a.ts')).toBe(true);
+  });
+
+  it('eagerly promotes preview → pinned when a dblclick navigates to an already-open path', async () => {
+    const { svc, router } = setupWithRouterMock();
+    // Simulate Angular's default same-URL behavior — second nav resolves
+    // false (route ignored) — to prove the pin still happens locally.
+    vi.mocked(router.navigate).mockResolvedValueOnce(true);
+    vi.mocked(router.navigate).mockResolvedValueOnce(false);
+
+    await svc.navigateToFileTab({
+      projectId: projectA,
+      workspaceId: wsA,
+      path: 'src/a.ts',
+      intent: 'preview',
+      mode: 'edit',
+      source: 'all-files',
+    });
+    expect(svc.isPreviewFor(wsA, 'src/a.ts')).toBe(true);
+
+    await svc.navigateToFileTab({
+      projectId: projectA,
+      workspaceId: wsA,
+      path: 'src/a.ts',
+      intent: 'pin',
+      mode: 'edit',
+      source: 'all-files',
+    });
+
+    expect(svc.isPreviewFor(wsA, 'src/a.ts')).toBe(false);
+    expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts']);
+  });
+
+  it('eagerly reuses an already-open tab on re-click (no duplicate entries)', async () => {
+    const { svc, router } = setupWithRouterMock();
+    vi.mocked(router.navigate).mockResolvedValue(true);
+
+    await svc.navigateToFileTab({
+      projectId: projectA,
+      workspaceId: wsA,
+      path: 'src/a.ts',
+      intent: 'pin',
+      mode: 'edit',
+      source: 'all-files',
+    });
+    await svc.navigateToFileTab({
+      projectId: projectA,
+      workspaceId: wsA,
+      path: 'src/a.ts',
+      intent: 'preview',
+      mode: 'edit',
+      source: 'all-files',
+    });
+
+    // Already pinned → preview is a no-op for the list AND the slot.
+    expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts']);
+    expect(svc.isPreviewFor(wsA, 'src/a.ts')).toBe(false);
+  });
 });
