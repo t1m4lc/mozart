@@ -502,6 +502,28 @@ export class ShellProjectList {
       hasUncommittedChanges,
       prNotSent,
       onConfirm: async () => {
+        // Cancel any in-flight LLM turn for this workspace. Rust's
+        // `archive_workspace` already kills the terminal + run PTYs and
+        // the file watcher, but the chat-streaming handle lives in TS
+        // and would otherwise keep writing tokens into a row that's
+        // about to vanish.
+        this._chat.cancelActive(workspace.id);
+
+        // If the workspace being removed is the one currently in view,
+        // route away first so the detail page unsubscribes before the
+        // row disappears. Prefer the next sibling in the same project;
+        // fall back to home when no sibling remains.
+        if (this.workspaces.activeId() === workspace.id) {
+          const next = this.workspaces
+            .byProject(workspace.projectId)()
+            .find((w) => w.id !== workspace.id);
+          await this._router.navigate(
+            next
+              ? workspaceRouteCommands(workspace.projectId, next.id)
+              : ['/'],
+          );
+        }
+
         // `archive` flips the workspace store's loading flag for its
         // own duration; no local tracking needed here.
         try {
