@@ -9,7 +9,7 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
-import { MzLoader } from '@mozart-ui/loader';
+import { MzDotLoader } from '@mozart-ui/loader';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
 import type { Workspace } from '@mozart/desktop-workspaces-util';
 import {
@@ -36,7 +36,7 @@ function statusLabel(status: Workspace['status']): string {
     HlmHoverCardImports,
     HlmSidebarImports,
     HlmIconImports,
-    MzLoader,
+    MzDotLoader,
     MzDiffStats,
     MzStatusIcon,
   ],
@@ -97,8 +97,8 @@ function statusLabel(status: Workspace['status']): string {
           routerLinkActive="bg-brand/10 hover:bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
           class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
         >
-          @if (isStreaming()) {
-            <mz-loader size="xs" variant="simple" class="text-brand" />
+          @if (isStreaming() || isBusy()) {
+            <mz-dot-loader />
           } @else {
             @if (workspace().pinned) {
               <ng-icon
@@ -160,6 +160,10 @@ export class WorkspaceRow {
   // True while an agent run is streaming for this workspace. Drives
   // the loader-in-place-of-branch-icon affordance.
   readonly isStreaming = input<boolean>(false);
+  // True while the workspace has a live run or setup PTY (dev server
+  // / install command). Shares the spinner slot with `isStreaming` —
+  // either condition shows the loader.
+  readonly isBusy = input<boolean>(false);
   // Title of the first/active chat for this workspace. Empty string =
   // fall back to workspace name; non-empty + not 'Start' is shown
   // instead of the workspace name in the row (better reflects user

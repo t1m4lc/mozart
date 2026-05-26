@@ -41,6 +41,11 @@ export class RunRegistry {
   private readonly runEntries = new Map<string, RunEntry>();
   private readonly setupEntries = new Map<string, RunEntry>();
 
+  // Workspace ids with a live run OR setup PTY. Mirrors `isBusy()` but
+  // reactive — sidebar rows subscribe to drive a spinner indicator.
+  private readonly _busyIds = signal<ReadonlySet<string>>(new Set());
+  readonly busyIds = this._busyIds.asReadonly();
+
   constructor() {
     // Re-apply the xterm palette whenever the active theme/mode flips
     // so the Run/Setup terminals stay in sync with the rest of the app.
@@ -79,15 +84,17 @@ export class RunRegistry {
     // shouldn't be clickable while the new process is still booting.
     entry.detectedUrl.set(null);
     entry.status.set('running');
+    this.markBusy(workspaceId, true);
     try {
       await this.facade.openRun(
         workspaceId,
         entry.term.cols,
         entry.term.rows,
-        (ev) => this.handleEvent(entry, ev),
+        (ev) => this.handleEvent(workspaceId, entry, ev),
       );
     } catch (err) {
       entry.status.set('idle');
+      this.recomputeBusy(workspaceId);
       throw err;
     }
   }
@@ -105,6 +112,7 @@ export class RunRegistry {
     if (this.isBusy(workspaceId)) return;
     const entry = this.ensureSetupEntry(workspaceId);
     entry.status.set('running');
+    this.markBusy(workspaceId, true);
 
     const exited = new Promise<void>((resolve) => {
       const queue = this.setupExitWaiters.get(workspaceId) ?? [];
@@ -118,12 +126,13 @@ export class RunRegistry {
         entry.term.cols,
         entry.term.rows,
         (ev) => {
-          this.handleEvent(entry, ev);
+          this.handleEvent(workspaceId, entry, ev);
           if (ev.kind === 'exited') this.flushSetupExits(workspaceId);
         },
       );
     } catch (err) {
       entry.status.set('idle');
+      this.recomputeBusy(workspaceId);
       this.flushSetupExits(workspaceId);
       throw err;
     }
@@ -199,6 +208,7 @@ export class RunRegistry {
   }
 
   private handleEvent(
+    workspaceId: string,
     entry: RunEntry,
     ev: { kind: 'output'; data: string } | { kind: 'exited'; code: number },
   ): void {
@@ -215,6 +225,24 @@ export class RunRegistry {
       }
     } else {
       entry.status.set('exited');
+      this.recomputeBusy(workspaceId);
     }
+  }
+
+  private markBusy(workspaceId: string, on: boolean): void {
+    const current = this._busyIds();
+    const has = current.has(workspaceId);
+    if (on === has) return;
+    const next = new Set(current);
+    if (on) next.add(workspaceId);
+    else next.delete(workspaceId);
+    this._busyIds.set(next);
+  }
+
+  // Re-derive busy state for `workspaceId` from the live entry statuses.
+  // Cheaper than tracking it imperatively at every transition; both PTYs
+  // must be idle/exited for the id to drop from the set.
+  private recomputeBusy(workspaceId: string): void {
+    this.markBusy(workspaceId, this.isBusy(workspaceId));
   }
 }

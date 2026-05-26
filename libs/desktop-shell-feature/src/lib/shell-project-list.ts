@@ -140,6 +140,7 @@ import { ShellProjectRow } from './shell-project-row';
                         [workspace]="workspace"
                         [editing]="editingWorkspaceId() === workspace.id"
                         [isStreaming]="streamingIds().has(workspace.id)"
+                        [isBusy]="busyIds().has(workspace.id)"
                         [chatTitle]="chatTitleFor(workspace.id)"
                         [lastActivity]="lastActivityFor(workspace.id)"
                         [diffStats]="diffStatsFor(workspace.id)"
@@ -297,6 +298,9 @@ export class ShellProjectList {
   // `streamingIds().has(workspace.id)` rather than a per-id computed —
   // one Set lookup per render beats N computed signals.
   protected readonly streamingIds = this._chat.streamingWorkspaceIds;
+  // Workspace ids with a live run/setup PTY. Drives the same spinner
+  // slot as `streamingIds` on the sidebar row.
+  protected readonly busyIds = this.workspaces.busyWorkspaceIds;
 
   // Returns the first chat's title for a workspace, or '' when none
   // is loaded. The row falls back to workspace.name when this is empty

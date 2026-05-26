@@ -1,12 +1,14 @@
-import { Injectable, effect, inject } from '@angular/core';
-import type { FitAddon } from '@xterm/addon-fit';
-import type { Terminal } from '@xterm/xterm';
-import { ThemeService } from '@mozart/shared-util-theme';
+import { Injectable, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   createXterm,
   loadXterm,
   resolveXtermTheme,
 } from '@mozart/desktop-core-util';
+import { ThemeService } from '@mozart/shared-util-theme';
+import type { FitAddon } from '@xterm/addon-fit';
+import type { Terminal } from '@xterm/xterm';
+import { Subject, debounceTime, groupBy, mergeMap } from 'rxjs';
 import { TerminalsFacade } from './terminals.facade';
 
 /** xterm.js + addons + Rust unsubscribe handle for one workspace. */
@@ -15,6 +17,9 @@ export interface TerminalEntry {
   readonly fit: FitAddon;
   readonly close: () => Promise<void>;
 }
+
+// How long the shell PTY can stay silent before we consider it idle.
+const SHELL_IDLE_MS = 1000;
 
 /**
  * Per-workspace xterm.js + PTY lifetime manager. Lives at app scope so
@@ -28,6 +33,12 @@ export class TerminalRegistry {
   private readonly facade = inject(TerminalsFacade);
   private readonly theme = inject(ThemeService);
   private readonly entries = new Map<string, TerminalEntry>();
+
+  // Any PTY chunk flips the workspace busy synchronously; SHELL_IDLE_MS
+  // after the last chunk the per-id debounceTime fires it back to idle.
+  private readonly tick$ = new Subject<string>();
+  private readonly _busyIds = signal<ReadonlySet<string>>(new Set());
+  readonly busyIds = this._busyIds.asReadonly();
 
   constructor() {
     // Re-apply the xterm theme to every live terminal whenever the
@@ -44,6 +55,14 @@ export class TerminalRegistry {
         entry.term.options.theme = next;
       }
     });
+
+    this.tick$
+      .pipe(
+        groupBy((id) => id),
+        mergeMap((group$) => group$.pipe(debounceTime(SHELL_IDLE_MS))),
+        takeUntilDestroyed(),
+      )
+      .subscribe((id) => this.markBusy(id, false));
   }
 
   /** Idempotent: returns the existing entry for `workspaceId`, or
@@ -96,6 +115,8 @@ export class TerminalRegistry {
       (event) => {
         if (event.kind === 'output') {
           term.write(event.data);
+          this.markBusy(workspaceId, true);
+          this.tick$.next(workspaceId);
         } else {
           // 'exited' — dispose the entry so subsequent getOrCreate
           // reopens a fresh PTY.
@@ -131,6 +152,7 @@ export class TerminalRegistry {
     const entry = this.entries.get(workspaceId);
     if (!entry) return;
     this.entries.delete(workspaceId);
+    this.markBusy(workspaceId, false);
     try {
       entry.term.dispose();
     } catch (err) {
@@ -140,5 +162,14 @@ export class TerminalRegistry {
       console.warn('[terminal] close PTY failed:', err);
     });
   }
-}
 
+  private markBusy(workspaceId: string, on: boolean): void {
+    const current = this._busyIds();
+    const has = current.has(workspaceId);
+    if (on === has) return;
+    const next = new Set(current);
+    if (on) next.add(workspaceId);
+    else next.delete(workspaceId);
+    this._busyIds.set(next);
+  }
+}

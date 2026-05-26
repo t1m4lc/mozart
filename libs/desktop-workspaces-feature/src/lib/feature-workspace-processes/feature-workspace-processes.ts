@@ -6,17 +6,19 @@ import {
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
-import { HlmTabsImports } from '@spartan-ui/tabs';
-import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '@mozart/desktop-workspaces-util';
+import { MzDotLoader } from '@mozart-ui/loader';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
-import { FeatureWorkspaceRun } from '@mozart/desktop-runs-feature';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
+import { FeatureWorkspaceRun } from '@mozart/desktop-runs-feature';
+import { TerminalRegistry } from '@mozart/desktop-terminals-data-access';
 import { FeatureWorkspaceTerminal } from '@mozart/desktop-terminals-feature';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { WorkspaceAsideBottomTab } from '@mozart/desktop-ui-state-util';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { RunActionMenu } from '@mozart/desktop-workspaces-ui';
+import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '@mozart/desktop-workspaces-util';
+import { HlmTabsImports } from '@spartan-ui/tabs';
 import { FeatureWorkspaceSetup } from './feature-workspace-setup';
 
 // Bottom half of the workspace aside: Setup / Run / Terminal tabs +
@@ -43,6 +45,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
   selector: 'app-feature-workspace-processes',
   imports: [
     HlmTabsImports,
+    MzDotLoader,
     RunActionMenu,
     FeatureWorkspaceSetup,
     FeatureWorkspaceRun,
@@ -65,9 +68,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
            exactly 37px (36px + 1px border-b). The bg-sidebar color
            change vs the file-tree content above is the visual
            separator (previously border-y added a top border too). -->
-      <div
-        class="flex items-stretch border-b border-sidebar-border bg-sidebar"
-      >
+      <div class="flex items-stretch border-b border-sidebar-border bg-sidebar">
         <hlm-tabs-list
           variant="line"
           class="flex items-stretch gap-0! bg-transparent p-0"
@@ -80,22 +81,31 @@ function coerceBottomTab(raw: string | null): BottomTab {
           @if (hasPackageJson()) {
             <button
               hlmTabsTrigger="setup"
-              class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+              class="relative flex h-full items-center gap-1.5 rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
             >
               Setup
+              @if (setupRunning()) {
+                <mz-dot-loader />
+              }
             </button>
             <button
               hlmTabsTrigger="run"
-              class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+              class="relative flex h-full items-center gap-1.5 rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
             >
               Run
+              @if (runStatus() === 'running') {
+                <mz-dot-loader />
+              }
             </button>
           }
           <button
             hlmTabsTrigger="terminal"
-            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+            class="relative flex h-full items-center gap-1.5 rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
           >
             Terminal
+            @if (terminalRunning()) {
+              <mz-dot-loader />
+            }
           </button>
         </hlm-tabs-list>
 
@@ -163,6 +173,7 @@ export class FeatureWorkspaceProcesses {
   private readonly projects = inject(ProjectsFacade);
   private readonly repos = inject(RepositoriesFacade);
   private readonly runs = inject(RunRegistry);
+  private readonly terminals = inject(TerminalRegistry);
   private readonly uiState = inject(UiStateFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
@@ -189,6 +200,14 @@ export class FeatureWorkspaceProcesses {
     const id = this.workspaces.activeId();
     if (!id) return 'idle' as const;
     return this.runs.ensureEntry(id).status();
+  });
+
+  // Shell PTY activity for the active workspace. Drives the Terminal
+  // tab's dot indicator.
+  protected readonly terminalRunning = computed(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return false;
+    return this.terminals.busyIds().has(id);
   });
 
   // True while ANY setup-side work is in flight — the RunRegistry

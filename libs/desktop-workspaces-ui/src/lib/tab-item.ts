@@ -11,7 +11,7 @@ import {
 } from '@angular/core';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
-import { MzLoader } from '@mozart-ui/loader';
+import { MzDotLoader } from '@mozart-ui/loader';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFileCode, lucidePencil, lucideX } from '@ng-icons/lucide';
 import { LlmIcon } from './llm-icon';
@@ -21,7 +21,7 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
 // pen icon) and close (✕); file variant is read-only.
 @Component({
   selector: 'app-tab-item',
-  imports: [NgIcon, LlmIcon, MzLoader, HlmButtonImports, HlmIconImports],
+  imports: [NgIcon, LlmIcon, MzDotLoader, HlmButtonImports, HlmIconImports],
   providers: [provideIcons({ lucideFileCode, lucidePencil, lucideX })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
@@ -38,7 +38,7 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
   template: `
     @if (tab().kind === 'chat') {
       @if ($any(tab()).isStreaming) {
-        <mz-loader size="xs" variant="simple" class="text-brand" />
+        <mz-dot-loader />
       } @else {
         <app-llm-icon [llmId]="$any(tab()).llmId" />
       }

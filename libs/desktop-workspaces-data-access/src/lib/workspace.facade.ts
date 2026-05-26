@@ -3,6 +3,7 @@ import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
+import { TerminalRegistry } from '@mozart/desktop-terminals-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { generateWorkspaceName } from '@mozart/desktop-workspaces-util';
 import { IdeDetectionService } from './ide-detection.service';
@@ -35,6 +36,7 @@ export class WorkspacesFacade {
   private readonly adapter = inject(WORKSPACES_ADAPTER);
   private readonly projects = inject(ProjectsFacade);
   private readonly runs = inject(RunRegistry);
+  private readonly terminals = inject(TerminalRegistry);
   private readonly tasks = inject(TasksFacade);
   private readonly repos = inject(RepositoriesFacade);
   private readonly ideDetection = inject(IdeDetectionService);
@@ -49,6 +51,20 @@ export class WorkspacesFacade {
   // explicit `setLoading` writes and any `pending: true` ghost rows
   // so consumers don't have to combine the two themselves.
   readonly loadingIds = this.store.loadingSet;
+  // Workspace ids with a live run/setup PTY (RunRegistry) or an
+  // in-flight auto-detected install (installPackages, which bypasses
+  // RunRegistry). Sidebar rows read this to paint a spinner-in-place-
+  // of-branch-icon — distinct from `loadingIds` which drives the
+  // heavier skeleton swap for archive / delete flows.
+  readonly busyWorkspaceIds = computed<ReadonlySet<string>>(() => {
+    const set = new Set<string>();
+    for (const id of this.runs.busyIds()) set.add(id);
+    for (const id of this.terminals.busyIds()) set.add(id);
+    for (const [id, install] of this._installs()) {
+      if (install.state === 'running') set.add(id);
+    }
+    return set;
+  });
 
   /** Per-id signal — true when the workspace is loading for any
    *  reason (delete in flight, post-bootstrap initialize, future
