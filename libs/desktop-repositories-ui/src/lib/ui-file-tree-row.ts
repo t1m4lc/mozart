@@ -5,8 +5,8 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmBadgeImports } from '@spartan-ui/badge';
-import { HlmIconImports } from '@spartan-ui/icon';
+import { MzDiffStats } from '@mozart-ui/diff-stats';
+import type { FileNode } from '@mozart/desktop-repositories-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronDown,
@@ -15,8 +15,8 @@ import {
   lucideFolder,
   lucideFolderOpen,
 } from '@ng-icons/lucide';
-import type { FileNode } from '@mozart/desktop-repositories-util';
-import { MzDiffStats } from '@mozart-ui/diff-stats';
+import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { statusBadge } from './util-status-badge';
 
 @Component({
@@ -37,7 +37,7 @@ import { statusBadge } from './util-status-badge';
     <button
       type="button"
       [attr.aria-current]="active() ? 'true' : null"
-      class="flex h-6 w-full items-center gap-1 rounded text-left text-xs hover:bg-muted/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring/50 aria-[current=true]:bg-brand/15 aria-[current=true]:text-foreground"
+      class="flex h-6 w-full  items-center gap-1 pr-4 text-left text-xs hover:bg-muted/50 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring/50 aria-[current=true]:bg-brand/15 aria-[current=true]:text-foreground"
       [class.opacity-50]="node().ignored"
       [class.px-2]="isFolder()"
       (click)="onClick()"
@@ -57,7 +57,7 @@ import { statusBadge } from './util-status-badge';
           class="shrink-0 text-muted-foreground"
         />
       } @else {
-        <span class="inline-block w-3"></span>
+        <span class="inline-block w-1.5"></span>
         <ng-icon
           hlm
           name="lucideFile"

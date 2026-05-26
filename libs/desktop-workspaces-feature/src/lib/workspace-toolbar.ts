@@ -11,8 +11,10 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { HlmBreadcrumbImports } from '@spartan-ui/breadcrumb';
 import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmSheetImports } from '@spartan-ui/sheet';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
@@ -20,6 +22,8 @@ import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { FeatureWorkspaceAside } from './feature-workspace-aside';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideCheck,
+  lucideChevronDown,
   lucideCircleStop,
   lucideGitBranch,
   lucideGitCommitVertical,
@@ -29,7 +33,12 @@ import {
 } from '@ng-icons/lucide';
 import { ShellTopBar } from '@mozart/desktop-core-ui';
 import type { RunStatus } from '@mozart/desktop-runs-util';
-import type { OpenInTool } from '@mozart/desktop-workspaces-util';
+import {
+  UI_WORKSPACE_STATUSES,
+  getUiStatusMeta,
+  type OpenInTool,
+  type UiWorkspaceStatus,
+} from '@mozart/desktop-workspaces-util';
 import {
   BranchPicker,
   OpenInMenu,
@@ -41,10 +50,12 @@ import {
     NgIcon,
     NgTemplateOutlet,
     BranchPicker,
+    MzStatusIcon,
     OpenInMenu,
     ShellTopBar,
     HlmBreadcrumbImports,
     HlmButtonImports,
+    HlmDropdownMenuImports,
     HlmIconImports,
     HlmSheetImports,
     HlmTooltipImports,
@@ -52,6 +63,8 @@ import {
   ],
   providers: [
     provideIcons({
+      lucideCheck,
+      lucideChevronDown,
       lucideCircleStop,
       lucideGitBranch,
       lucideGitCommitVertical,
@@ -151,9 +164,33 @@ import {
             [disabled]="frozen()"
             (click)="commit.emit()"
           >
-            <ng-icon hlm name="lucideGitCommitVertical" size="xs" />
+            <ng-icon hlm name="lucideGitCommitVertical" size="sm" />
             <span>Commit</span>
           </button>
+
+          @if (workspaceStatus(); as s) {
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              type="button"
+              [hlmDropdownMenuTrigger]="statusMenu"
+              align="start"
+              side="bottom"
+              hlmTooltip="Workspace status"
+              position="bottom"
+              class="h-7 gap-1.5 px-2 text-xs font-normal text-muted-foreground"
+            >
+              <mz-status-icon [status]="s" [size]="14" />
+              <span>{{ statusLabel(s) }}</span>
+              <ng-icon
+                hlm
+                name="lucideChevronDown"
+                size="xs"
+                class="text-muted-foreground"
+              />
+            </button>
+          }
 
           @if (availableTools().length > 0 && lastUsedTool()) {
             <app-open-in-menu
@@ -181,7 +218,7 @@ import {
               position="bottom"
               class="size-7 rounded-md text-muted-foreground"
             >
-              <ng-icon hlm name="lucidePanelRight" size="xs" />
+              <ng-icon hlm name="lucidePanelRight" size="sm" />
             </button>
             <hlm-sheet-content
               *hlmSheetPortal="let ctx"
@@ -204,11 +241,30 @@ import {
             class="size-7 rounded-md text-muted-foreground"
             (click)="toggleRightPanel.emit(); $any($event.currentTarget).blur()"
           >
-            <ng-icon hlm name="lucidePanelRight" size="xs" />
+            <ng-icon hlm name="lucidePanelRight" size="sm" />
           </button>
         }
       </div>
     </app-shell-top-bar>
+
+    <ng-template #statusMenu>
+      <hlm-dropdown-menu class="w-44">
+        @for (s of statuses; track s.id) {
+          <button
+            hlmDropdownMenuItem
+            type="button"
+            class="cursor-pointer"
+            (triggered)="workspaceStatusChange.emit(s.id)"
+          >
+            <mz-status-icon [status]="s.id" />
+            {{ s.label }}
+            @if (workspaceStatus() === s.id) {
+              <ng-icon hlm name="lucideCheck" size="xs" class="ms-auto" />
+            }
+          </button>
+        }
+      </hlm-dropdown-menu>
+    </ng-template>
   `,
 })
 export class WorkspaceToolbar {
@@ -233,6 +289,10 @@ export class WorkspaceToolbar {
   readonly githubConnected = input<boolean>(false);
   readonly runStatus = input<RunStatus>('idle');
   readonly hasRunCommand = input<boolean>(false);
+  // Linear-style workspace status surfaced as a dropdown between
+  // Commit and Open-in IDE. Null hides the button (no active
+  // workspace, or the facade hasn't resolved one yet).
+  readonly workspaceStatus = input<UiWorkspaceStatus | null>(null);
   // Toolbar-level read-only state. Disables Commit, locks the
   // BranchPicker, and refuses to enter rename mode. Open in IDE
   // stays enabled (read-only browsing in an external editor is fine).
@@ -246,6 +306,13 @@ export class WorkspaceToolbar {
   readonly createPr = output<void>();
   readonly run = output<void>();
   readonly stopRun = output<void>();
+  readonly workspaceStatusChange = output<UiWorkspaceStatus>();
+
+  protected readonly statuses = UI_WORKSPACE_STATUSES;
+
+  protected statusLabel(s: UiWorkspaceStatus): string {
+    return getUiStatusMeta(s).label;
+  }
 
   protected readonly renaming = signal(false);
   private readonly renameInput =

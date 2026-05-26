@@ -1,10 +1,11 @@
-import { ChangeDetectionStrategy, Component, inject, signal } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  signal,
+} from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
 import { HlmThemeToggle } from '@mozart-ui/theme-toggle';
-import { HlmButton } from '@spartan-ui/button';
-import { HlmDialogService } from '@spartan-ui/dialog';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -13,6 +14,10 @@ import {
   lucideMenu,
   lucideX,
 } from '@ng-icons/lucide';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { AnalyticsService } from './analytics/analytics.service';
 import { detectOsTag } from './analytics/detect-os';
 import { pageSection } from './analytics/page-section';
@@ -67,7 +72,7 @@ import { PRIMARY_NAV } from './nav-model';
           @for (link of nav; track link.href) {
             <a
               [routerLink]="link.href"
-              routerLinkActive="text-foreground"
+              routerLinkActive="text-foreground hover:text-foreground/70"
               [routerLinkActiveOptions]="{ exact: false }"
               class="text-foreground/70 hover:text-foreground whitespace-nowrap text-sm transition-colors"
             >

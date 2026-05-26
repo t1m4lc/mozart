@@ -52,7 +52,7 @@ import { PROVIDER_SETUP_ADAPTER } from '@mozart/desktop-onboarding-data-access';
           Detecting Claude Code session…
         </p>
       } @else if (state() === 'failed') {
-        <p class="text-center text-xs text-red-600">
+        <p class="text-center text-xs text-destructive">
           No Claude Code session detected. Try again or use an API key.
         </p>
       }

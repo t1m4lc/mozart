@@ -92,24 +92,46 @@
     --sidebar-ring: 262 70% 58%;
     --selection-foreground: 262 80% 18%;
 
-    /* Diff semantic tokens — translucent backgrounds let the diff blend
-     * with whatever surface it's painted on; marker foregrounds carry
-     * the strong green/red signal in the +/− column. Consumed via
-     * `bg-[var(--diff-add-bg)]` / `text-[var(--diff-add-marker-fg)]`
-     * in mozart-ui/diff-view. */
-    /* Two-tier diff backgrounds: the soft variant tints the line body
-     * (≈ tailwind green-100/red-100/blue-100) and the strong variant
-     * paints the gutter columns next to it (≈ green-200/red-200/
-     * blue-200). The column shade reads as a label band, the line
-     * shade keeps the code legible. */
-    --diff-add-bg: hsl(149 80% 90%);
-    --diff-add-bg-strong: hsl(149 80% 83%);
-    --diff-remove-bg: hsl(0 86% 94%);
-    --diff-remove-bg-strong: hsl(0 96% 89%);
-    --diff-hunk-bg: hsl(214 95% 93%);
-    --diff-hunk-bg-strong: hsl(214 97% 87%);
-    --diff-add-marker-fg: hsl(145 60% 30%);
-    --diff-remove-marker-fg: hsl(0 70% 40%);
+    /* App-zoom hook — bound to <html> via the `font-size` rule below.
+     * Anything sized in rem (every Tailwind utility, the --icon-* tokens)
+     * scales automatically when this flips. Reserved for a future
+     * Ctrl+/Ctrl-/Ctrl0 AppZoomService; today it's a dormant 1. */
+    --app-zoom: 1;
+
+    /* Lucide stroke weight. 1.75 reads as more refined than the default
+     * 2 at small sizes without losing presence. Tuned in one place via
+     * the `ng-icon[hlm] svg *` rule below. Custom inline SVGs in
+     * mozart-ui (mz-status-icon, mz-loader) sit outside ng-icon and
+     * keep their authored strokes. */
+    --icon-stroke: 1.75;
+
+    /* Diff semantic tokens — refined low-chroma palette aligned with
+     * Mozart's warm-stone surface + violet brand. Authored in oklch
+     * for perceptual evenness across hues; backgrounds tint the line
+     * body / gutter, marker fg carries the +/− signal and labels the
+     * status badges. Consumed via `bg-[var(--diff-add-bg)]` /
+     * `text-[var(--diff-add-marker-fg)]` in mozart-ui/diff-view and
+     * via the --status-* aliases below. */
+    --diff-add-bg:           oklch(0.94 0.04 155);
+    --diff-add-bg-strong:    oklch(0.88 0.07 155);
+    --diff-add-marker-fg:    oklch(0.42 0.10 155);
+    --diff-remove-bg:        oklch(0.94 0.04 25);
+    --diff-remove-bg-strong: oklch(0.88 0.08 25);
+    --diff-remove-marker-fg: oklch(0.45 0.13 25);
+    --diff-hunk-bg:          oklch(0.94 0.03 240);
+    --diff-hunk-bg-strong:   oklch(0.88 0.05 240);
+    --diff-hunk-marker-fg:   oklch(0.45 0.08 240);
+
+    /* Status tokens — single source of truth for file-status letters
+     * (M/A/D), diff-stats counters, connection dots. Aliased to the
+     * diff palette so badges and gutter agree; modified/busy use a
+     * warm amber instead of red to keep the deleted/error reserved. */
+    --status-added-fg:    var(--diff-add-marker-fg);
+    --status-modified-fg: oklch(0.55 0.12 75);
+    --status-deleted-fg:  var(--diff-remove-marker-fg);
+    --status-ok:    var(--diff-add-marker-fg);
+    --status-busy:  oklch(0.65 0.12 75);
+    --status-error: hsl(var(--destructive));
   }
 
   :root.dark {
@@ -119,16 +141,40 @@
     --sidebar-ring: 262 70% 68%;
     --selection-foreground: 262 30% 95%;
 
-    --diff-add-bg: hsl(149 30% 18%);
-    --diff-add-bg-strong: hsl(149 40% 25%);
-    --diff-remove-bg: hsl(0 35% 22%);
-    --diff-remove-bg-strong: hsl(0 45% 29%);
-    --diff-hunk-bg: hsl(214 40% 22%);
-    --diff-hunk-bg-strong: hsl(214 50% 29%);
-    --diff-add-marker-fg: hsl(145 60% 70%);
-    --diff-remove-marker-fg: hsl(0 70% 75%);
+    --diff-add-bg:           oklch(0.22 0.04 155);
+    --diff-add-bg-strong:    oklch(0.28 0.06 155);
+    --diff-add-marker-fg:    oklch(0.78 0.12 155);
+    --diff-remove-bg:        oklch(0.22 0.05 25);
+    --diff-remove-bg-strong: oklch(0.28 0.08 25);
+    --diff-remove-marker-fg: oklch(0.78 0.14 25);
+    --diff-hunk-bg:          oklch(0.22 0.03 240);
+    --diff-hunk-bg-strong:   oklch(0.28 0.05 240);
+    --diff-hunk-marker-fg:   oklch(0.72 0.07 240);
+
+    --status-added-fg:    var(--diff-add-marker-fg);
+    --status-modified-fg: oklch(0.78 0.10 75);
+    --status-deleted-fg:  var(--diff-remove-marker-fg);
+    --status-ok:    var(--diff-add-marker-fg);
+    --status-busy:  oklch(0.75 0.10 75);
+    --status-error: hsl(var(--destructive));
   }
-  
+
+  /* Root-scale hook — multiplies the browser default 16px by --app-zoom.
+   * With --app-zoom: 1 this is a no-op; flipping the variable at runtime
+   * is the entire mechanism for future browser-style Ctrl+/Ctrl- zoom. */
+  html {
+    font-size: calc(16px * var(--app-zoom, 1));
+  }
+
+  /* Lucide icon stroke override. Lucide ships every icon with
+   * stroke-width="2" on the root <svg>; children don't carry their own
+   * stroke-width attribute, so a CSS rule on the descendants wins over
+   * the inherited presentation attribute. Scoped to ng-icon so custom
+   * inline SVGs elsewhere keep their authored stroke weights. */
+  ng-icon[hlm] svg * {
+    stroke-width: var(--icon-stroke);
+  }
+
   html,
   body {
     font-family: var(--font-sans);
@@ -154,6 +200,20 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Status utility classes. Pair with the --status-* tokens so feature
+   * components can opt into a token via a real class name (works with
+   * Angular's `[class.X]="bool"` bindings, which don't support the
+   * bracketed `text-[var(--x)]` arbitrary-value form). */
+  .text-status-ok       { color: var(--status-ok); }
+  .text-status-busy     { color: var(--status-busy); }
+  .text-status-error    { color: var(--status-error); }
+  .text-status-added    { color: var(--status-added-fg); }
+  .text-status-modified { color: var(--status-modified-fg); }
+  .text-status-deleted  { color: var(--status-deleted-fg); }
+  .bg-status-ok    { background-color: var(--status-ok); }
+  .bg-status-busy  { background-color: var(--status-busy); }
+  .bg-status-error { background-color: var(--status-error); }
 
   button {
     cursor: pointer;

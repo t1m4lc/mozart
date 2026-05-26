@@ -396,12 +396,17 @@ export class MzDiffView {
       this.readOnlyCompartment.of(EditorState.readOnly.of(true)),
     ];
 
+    // Pin scrollPaddingBottom directly on `.cm-content` via an inline
+    // style attribute. Inline styles beat any theme rule's specificity,
+    // so the padding sticks even when the mozart-theme sets a `padding`
+    // shorthand on `.cm-content`. Without this guarantee, the last
+    // hunks stay hidden behind the workspace composer overlay.
     const pb = this.scrollPaddingBottom();
     if (pb > 0) {
       extensions.push(
-        EditorView.theme({
-          '.cm-content': { paddingBottom: `${pb}px` },
-        }),
+        EditorView.contentAttributes.of(() => ({
+          style: `padding-bottom: ${pb}px;`,
+        })),
       );
     }
 

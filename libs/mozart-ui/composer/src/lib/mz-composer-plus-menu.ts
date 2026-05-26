@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
 import { HlmIconImports } from '@spartan-ui/icon';
@@ -31,8 +31,9 @@ import {
       aria-label="Add to message"
       class="size-6 rounded-md text-muted-foreground"
       [hlmDropdownMenuTrigger]="addMenu"
+      [disabled]="disabled()"
     >
-      <ng-icon hlm name="lucidePlus" size="xs" />
+      <ng-icon hlm name="lucidePlus" size="sm" />
     </button>
     <ng-template #addMenu>
       <hlm-dropdown-menu class="w-56">
@@ -102,4 +103,9 @@ import {
     </ng-template>
   `,
 })
-export class MzComposerPlusMenu {}
+export class MzComposerPlusMenu {
+  // Locks the trigger while an agent run is in-flight — matches the
+  // mode / effort / model selects so the composer chrome reads as a
+  // single locked unit during streaming.
+  readonly disabled = input(false);
+}

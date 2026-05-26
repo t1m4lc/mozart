@@ -31,7 +31,11 @@ import {
 } from '@mozart/desktop-repositories-feature';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { IdeDetectionService } from '@mozart/desktop-workspaces-data-access';
-import { OPEN_IN_TOOLS, type OpenInTool } from '@mozart/desktop-workspaces-util';
+import {
+  OPEN_IN_TOOLS,
+  type OpenInTool,
+  type UiWorkspaceStatus,
+} from '@mozart/desktop-workspaces-util';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { WorkspaceToolbar } from '../workspace-toolbar';
 import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
@@ -72,6 +76,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       [githubConnected]="profile.githubConnected()"
       [runStatus]="runStatus()"
       [hasRunCommand]="hasRunCommand()"
+      [workspaceStatus]="workspaceStatus()"
       [frozen]="frozen()"
       data-tour="aside-header-buttons"
       (targetBranchChange)="store.setTargetBranch($event)"
@@ -82,6 +87,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       (createPr)="onCreatePr()"
       (run)="onRun()"
       (stopRun)="onStopRun()"
+      (workspaceStatusChange)="onWorkspaceStatusChange($event)"
     />
 
     <section class="flex min-h-0 flex-1 flex-col">
@@ -102,7 +108,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
         class="size-7 rounded-md text-muted-foreground"
         (click)="layout.toggleLeftPanel(); $any($event.currentTarget).blur()"
       >
-        <ng-icon hlm name="lucidePanelLeft" size="xs" />
+        <ng-icon hlm name="lucidePanelLeft" size="sm" />
       </button>
     </ng-template>
   `,
@@ -170,6 +176,13 @@ export class WorkspaceDetailPage {
     if (!id) return false;
     return this.workspaces.isFrozen(id)();
   });
+
+  // Linear-style status of the active workspace. Surfaces in the
+  // toolbar's Status dropdown (between Commit and Open-in IDE). Null
+  // means no workspace resolved yet — the toolbar hides the trigger.
+  protected readonly workspaceStatus = computed<UiWorkspaceStatus | null>(
+    () => this.workspace()?.status ?? null,
+  );
 
   protected readonly sidebarHeader =
     viewChild.required<TemplateRef<unknown>>('sidebarHeaderTpl');
@@ -254,6 +267,12 @@ export class WorkspaceDetailPage {
   protected async onRun(): Promise<void> {
     const id = this.workspaceId();
     if (!id) return;
+    // Mirror the toolbar's disabled-when-no-command rule at the
+    // handler level too: the toolbar's Run/Stop split-button already
+    // disables itself when `hasRunCommand` is false, but a stale
+    // toolbar binding or a keyboard shortcut could still fire this
+    // path. Guarding here keeps the backend from rejecting the call.
+    if (!this.hasRunCommand()) return;
     try {
       await this.runs.start(id);
     } catch (err) {
@@ -269,6 +288,14 @@ export class WorkspaceDetailPage {
     } catch (err) {
       console.warn('[detail] run stop failed:', err);
     }
+  }
+
+  protected onWorkspaceStatusChange(next: UiWorkspaceStatus): void {
+    const id = this.workspaceId();
+    if (!id) return;
+    void this.workspaces.setStatus(id, next).catch((err) => {
+      console.warn('[detail] setStatus failed:', err);
+    });
   }
 
   protected async onCreatePr(): Promise<void> {

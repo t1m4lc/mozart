@@ -9,17 +9,19 @@ import {
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
-import { HlmHoverCardImports } from '@spartan-ui/hover-card';
-import { HlmIconImports } from '@spartan-ui/icon';
 import { MzLoader } from '@mozart-ui/loader';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
-import { HlmSidebarImports } from '@spartan-ui/sidebar';
+import type { Workspace } from '@mozart/desktop-workspaces-util';
+import {
+  getUiStatusMeta,
+  relativeTime,
+  workspaceRouteCommands,
+} from '@mozart/desktop-workspaces-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideGitBranch, lucideLoader, lucidePin } from '@ng-icons/lucide';
-import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
-import { getUiStatusMeta } from '@mozart/desktop-workspaces-util';
-import type { Workspace } from '@mozart/desktop-workspaces-util';
-import { relativeTime } from '@mozart/desktop-workspaces-util';
+import { HlmHoverCardImports } from '@spartan-ui/hover-card';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmSidebarImports } from '@spartan-ui/sidebar';
 
 function statusLabel(status: Workspace['status']): string {
   return getUiStatusMeta(status).label;
@@ -69,7 +71,7 @@ function statusLabel(status: Workspace['status']): string {
           <ng-icon
             hlm
             name="lucidePin"
-            size="10px"
+            size="2xs"
             class="shrink-0 text-brand"
           />
         }
@@ -92,7 +94,7 @@ function statusLabel(status: Workspace['status']): string {
           [showDelay]="800"
           align="right"
           [routerLink]="workspaceLink()"
-          routerLinkActive="bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
+          routerLinkActive="bg-brand/10 hover:bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
           class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
         >
           @if (isStreaming()) {

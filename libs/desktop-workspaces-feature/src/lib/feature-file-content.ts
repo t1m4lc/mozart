@@ -91,12 +91,18 @@ const TEXT_ENCODER = new TextEncoder();
     provideIcons({ lucideCheck, lucideCopy, lucideFileDiff, lucideFilePen }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'relative flex h-full w-full flex-col' },
+  // `min-h-0 + flex-1` are added by the parent (workspace-tab-content)
+  // via a class binding so this component participates in the parent's
+  // flex layout cleanly. We deliberately omit `h-full` here — combining
+  // it with `flex-1` made the diff-mode child fight the flex algorithm
+  // and visually pushed the composer behind the file content. The
+  // `relative` anchor keeps the floating Save/Discard banner pinned
+  // inside this surface.
+  host: { class: 'relative flex w-full flex-col' },
   template: `
-    <ng-template #modeToggle let-pushLeft="pushLeft">
+    <ng-template #modeToggle>
       <div
-        class="bg-muted/40 inline-flex h-7 shrink-0 items-center gap-1 rounded-md p-0.5"
-        [class.ml-auto]="pushLeft"
+        class="bg-muted/40 ml-auto inline-flex h-7 shrink-0 items-center gap-1 rounded-md p-0.5"
         role="tablist"
         aria-label="File mode"
       >
@@ -111,7 +117,7 @@ const TEXT_ENCODER = new TextEncoder();
           hlmTooltip="Review (diff)"
           (click)="setMode('diff')"
         >
-          <ng-icon hlm name="lucideFileDiff" size="xs" />
+          <ng-icon hlm name="lucideFileDiff" size="md" />
           <span>Diff</span>
         </button>
         <button
@@ -128,7 +134,7 @@ const TEXT_ENCODER = new TextEncoder();
           "
           (click)="setMode('edit')"
         >
-          <ng-icon hlm name="lucideFilePen" size="xs" />
+          <ng-icon hlm name="lucideFilePen" size="md" />
           <span>Edit</span>
         </button>
       </div>
@@ -140,12 +146,9 @@ const TEXT_ENCODER = new TextEncoder();
         [workspaceId]="workspaceId()"
         [path]="filePath()"
         [status]="fileChangeStatus()"
-        [scrollPaddingBottom]="EDITOR_BOTTOM_PADDING_PX"
       >
         <div mzFileDiffCardTrailing class="contents">
-          <ng-container
-            *ngTemplateOutlet="modeToggle; context: { pushLeft: true }"
-          />
+          <ng-container *ngTemplateOutlet="modeToggle" />
         </div>
       </app-feature-file-diff>
     } @else {
@@ -169,8 +172,8 @@ const TEXT_ENCODER = new TextEncoder();
               <ng-icon
                 hlm
                 [name]="copyState() === 'copied' ? 'lucideCheck' : 'lucideCopy'"
-                size="xs"
-                [class.text-emerald-500]="copyState() === 'copied'"
+                size="md"
+                [class.text-status-ok]="copyState() === 'copied'"
                 [class.text-destructive]="copyState() === 'err'"
               />
             </button>
@@ -186,16 +189,15 @@ const TEXT_ENCODER = new TextEncoder();
             >{{ badge.label }}</span>
           }
 
-          <ng-container
-            *ngTemplateOutlet="modeToggle; context: { pushLeft: true }"
-          />
+          <ng-container *ngTemplateOutlet="modeToggle" />
         </div>
       </mz-file-tab-header>
 
-      <!-- The composer is absolutely positioned by the parent shell, so
-           the editor extends the full panel height. CodeMirror's
-           scrollPaddingBottom keeps the last line clear of the composer
-           and the floating Save/Discard overlay below. -->
+      <!-- File content + composer are now two distinct flex rows in
+           the workspace tab layout. The editor lives in this scrolling
+           region; the composer sits below in its own row. No
+           scrollPaddingBottom is needed because nothing overlaps the
+           editor's last line. -->
       <div class="relative flex min-h-0 flex-1 flex-col">
         @if (loadError(); as err) {
           <div
@@ -277,7 +279,6 @@ const TEXT_ENCODER = new TextEncoder();
               [path]="p"
               [readOnly]="!canEdit()"
               [theme]="editorTheme()"
-              [scrollPaddingBottom]="EDITOR_BOTTOM_PADDING_PX"
               (valueChange)="onEditorChange($event)"
             />
           } @placeholder {
@@ -298,14 +299,16 @@ const TEXT_ENCODER = new TextEncoder();
     <!-- Floating Save/Discard overlay. Anchored to the component host
          (relative) and rendered OUTSIDE the diff/edit branches so a
          user who dirties the buffer in Edit mode and switches to Diff
-         to glance at the change can still reach Save. The 190 px
-         bottom inset clears the workspace composer chrome (~140-180
-         px). pointer-events-none on the wrapper + pointer-events-auto
-         on the card keeps the rest of the surface clickable.
-         aria-hidden flips with the visibility state so screen readers
-         ignore the overlay when it's faded out. -->
+         to glance at the change can still reach Save. The composer is
+         now a sibling row below file-content (not an overlay), so the
+         button sits a comfortable 12 px above the file-content's
+         bottom edge — the composer chrome handles its own spacing.
+         pointer-events-none on the wrapper + pointer-events-auto on
+         the card keeps the rest of the surface clickable. aria-hidden
+         flips with the visibility state so screen readers ignore the
+         overlay when it's faded out. -->
     <div
-      class="pointer-events-none absolute inset-x-0 bottom-[190px] z-20 flex justify-center px-3"
+      class="pointer-events-none absolute inset-x-0 bottom-3 z-20 flex justify-center px-3"
       aria-live="polite"
       [attr.aria-hidden]="!dirty() && !saving()"
     >
@@ -353,16 +356,6 @@ export class FeatureFileContent {
   readonly workspaceId = input<string | null>(null);
   readonly filePath = input<string | null>(null);
   readonly canEdit = input<boolean>(true);
-
-  // Inner bottom padding (px) for the CodeMirror surface (edit + diff).
-  // The composer overlay is absolutely positioned at the bottom of the
-  // workspace tab and runs ~140–180 px tall depending on textarea
-  // growth (mz-composer textarea: min-h-24 to max-h-72 plus chrome).
-  // 240 px clears the composer (≈180 max) + the floating Save/Discard
-  // overlay (~40 px) + breathing room, so the last line/hunk is visible
-  // when scrolled to the bottom. Mirrors the chat-scroll-surface's
-  // `pb-48` (192 px) pattern, plus extra for the floating overlay.
-  protected readonly EDITOR_BOTTOM_PADDING_PX = 240;
 
   private readonly repos = inject(RepositoriesFacade);
   private readonly themeService = inject(ThemeService);

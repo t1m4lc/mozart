@@ -1,10 +1,10 @@
 import { Directive } from '@angular/core';
-import { hlm } from '@spartan-ui/utils';
 import {
   BrnTooltip,
   BrnTooltipPosition,
   provideBrnTooltipDefaultOptions,
 } from '@spartan-ng/brain/tooltip';
+import { hlm } from '@spartan-ui/utils';
 import { cva } from 'class-variance-authority';
 
 export const DEFAULT_TOOLTIP_SVG_CLASS = 'hidden size-0';
@@ -15,7 +15,7 @@ export const DEFAULT_TOOLTIP_CONTENT_CLASSES =
   'data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-[0.90] ' +
   'data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=closed]:zoom-out-[0.90]';
 
-export const DEFAULT_TOOLTIP_SHOW_DELAY = 400;
+export const DEFAULT_TOOLTIP_SHOW_DELAY = 300;
 
 export const tooltipPositionVariants = cva('absolute', {
   variants: {

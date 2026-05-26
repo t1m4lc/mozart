@@ -5,18 +5,18 @@ import {
   effect,
   inject,
 } from '@angular/core';
-import { OsService } from '@mozart/shared-util-os';
-import { HlmDialogService } from '@spartan-ui/dialog';
-import { HlmSidebarImports } from '@spartan-ui/sidebar';
-import { toast } from '@spartan-ng/brain/sonner';
-import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { NonMacWindowControls } from '@mozart/desktop-core-ui';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
-import type { MergeAction } from '@mozart/desktop-workspaces-util';
-import { MergeActionMenu } from '@mozart/desktop-workspaces-ui';
 import { FeatureWorkspaceAside } from '@mozart/desktop-workspaces-feature';
+import { MergeActionMenu } from '@mozart/desktop-workspaces-ui';
+import type { MergeAction } from '@mozart/desktop-workspaces-util';
+import { OsService } from '@mozart/shared-util-os';
+import { toast } from '@spartan-ng/brain/sonner';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmSidebarImports } from '@spartan-ui/sidebar';
 import { SHELL_RIGHT_PANEL_WIDTH } from './shell-panel.constants';
 import { ShellSidePanel } from './shell-side-panel';
 
@@ -56,7 +56,7 @@ import { ShellSidePanel } from './shell-side-panel';
         <div
           hlmSidebarHeader
           data-tauri-drag-region
-          class="h-10 flex-row items-center justify-end gap-1 bg-sidebar px-1 border-b border-sidebar-border"
+          class="h-10 flex-row items-center gap-2 bg-sidebar px-2 border-b border-sidebar-border"
         >
           <span class="flex-1" data-tauri-drag-region></span>
           <div class="flex gap-2">

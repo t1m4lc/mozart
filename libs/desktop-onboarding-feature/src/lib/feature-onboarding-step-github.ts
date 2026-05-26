@@ -52,14 +52,14 @@ import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
       <div class="flex flex-col items-center gap-3">
         @if (profile.githubConnected()) {
           <div
-            class="border-brand/40 bg-brand-subtle flex items-center gap-2 rounded-md border px-4 py-3"
+            class="border-green-500/40 bg-green-500/10 flex items-center gap-2 rounded-md border px-4 py-3"
             role="status"
           >
             <span
-              class="bg-brand inline-block size-2 shrink-0 rounded-full"
+              class="bg-green-500 inline-block size-2 shrink-0 rounded-full"
               aria-hidden="true"
             ></span>
-            <ng-icon hlm name="lucideCheck" size="sm" class="text-brand" />
+            <ng-icon hlm name="lucideCheck" size="sm" class="text-green-600 dark:text-green-500" />
             <span class="text-sm">
               Connected as <strong>{{ profile.githubLogin() }}</strong>
             </span>

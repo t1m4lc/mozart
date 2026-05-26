@@ -47,7 +47,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
         <span
           class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
         >
-          <ng-icon hlm name="lucideSparkles" size="10px" />
+          <ng-icon hlm name="lucideSparkles" size="2xs" />
         </span>
         <p class="text-sm font-light leading-none text-foreground">
           Ready when you are — what should we do next?
@@ -65,7 +65,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
             <span
               class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
             >
-              <ng-icon hlm name="lucideGitBranch" size="10px" />
+              <ng-icon hlm name="lucideGitBranch" size="2xs" />
             </span>
             <p class="text-sm font-light leading-none text-foreground">
               Branched
@@ -101,14 +101,14 @@ const SETUP_LABEL: Record<InstallState, string> = {
                 <span
                   class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive [--ng-icon__stroke-width:1.5]"
                 >
-                  <ng-icon hlm name="lucideCircleAlert" size="10px" />
+                  <ng-icon hlm name="lucideCircleAlert" size="2xs" />
                 </span>
               }
               @default {
                 <span
                   class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 [--ng-icon__stroke-width:1.5]"
                 >
-                  <ng-icon hlm name="lucideCheck" size="10px" />
+                  <ng-icon hlm name="lucideCheck" size="2xs" />
                 </span>
               }
             }
@@ -141,7 +141,7 @@ const SETUP_LABEL: Record<InstallState, string> = {
             <span
               class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
             >
-              <ng-icon hlm name="lucideSparkles" size="10px" />
+              <ng-icon hlm name="lucideSparkles" size="2xs" />
             </span>
             <p class="text-sm font-light leading-none text-foreground">
               You can start to chat.

@@ -93,7 +93,10 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
             <ng-icon hlm name="lucideGitCompareArrows" size="xs" />
             <span>Changes</span>
             @if (changedFilesCount() > 0) {
-              <kbd hlmKbd class="font-mono">{{ changedFilesCount() }}</kbd>
+              <kbd
+                hlmKbd
+                class="bg-accent text-foreground font-mono"
+              >{{ changedFilesCount() }}</kbd>
             }
           </button>
         </hlm-tabs-list>

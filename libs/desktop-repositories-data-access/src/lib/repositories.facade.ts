@@ -156,6 +156,43 @@ export class RepositoriesFacade {
     return this.fileTreeCache.revisionFor(workspaceId);
   }
 
+  /** Does the workspace's worktree have a top-level `package.json`?
+   *  Reads through the cached tree — null while the tree is still
+   *  loading, true/false once the tree resolves. Powers the gate
+   *  for the Setup / Run bottom-panel tabs in feature-workspace-
+   *  processes: those tabs are pointless without a package.json
+   *  (no install / no run command surface), so we hide them entirely
+   *  until the probe confirms the file is there. */
+  hasPackageJsonFor(workspaceId: Signal<string | null>): Signal<boolean> {
+    return computed(() => {
+      const id = workspaceId();
+      if (!id) return false;
+      // Read both the workspace's own cached tree and (as a fallback
+      // during the very first paint after navigation) the project-
+      // level sibling cache. A sibling tree is "approximately correct"
+      // since branches of the same repo share ~99% of files, and
+      // package.json placement is stable.
+      const ownEntry = this.fileTreeCache.byWorkspace()[id];
+      const ownRev = this.fileTreeCache.revisionByWorkspace()[id] ?? 0;
+      const tree =
+        ownEntry && ownEntry.revision === ownRev ? ownEntry.tree : null;
+      if (tree) return hasRootPackageJson(tree);
+      // Sibling fallback — find any fresh tree from the same project.
+      const byWorkspace = this.fileTreeCache.byWorkspace();
+      const revisions = this.fileTreeCache.revisionByWorkspace();
+      const pid = ownEntry?.projectId;
+      if (!pid) return false;
+      for (const [otherId, entry] of Object.entries(byWorkspace)) {
+        if (otherId === id) continue;
+        if (entry.projectId !== pid) continue;
+        const rev = revisions[otherId] ?? 0;
+        if (entry.revision !== rev) continue;
+        return hasRootPackageJson(entry.tree);
+      }
+      return false;
+    });
+  }
+
   /** Persist a freshly-fetched tree. Silently discarded if the
    *  workspace's revision moved while the fetch was in flight. */
   cacheTree(
@@ -254,4 +291,15 @@ export class RepositoriesFacade {
   ): void {
     this.fileTreeCache.cacheChangedFiles(workspaceId, files, capturedRevision);
   }
+}
+
+// Does the FileNode tree contain a top-level `package.json`? Module-
+// scoped (not a method) so the computed in `hasPackageJsonFor` stays a
+// pure value reader — no `this` capture, no extra GC churn from the
+// closure.
+function hasRootPackageJson(tree: readonly FileNode[]): boolean {
+  for (const node of tree) {
+    if (node.kind === 'file' && node.name === 'package.json') return true;
+  }
+  return false;
 }

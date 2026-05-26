@@ -5,16 +5,16 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronDown,
   lucideCircleStop,
   lucidePlay,
 } from '@ng-icons/lucide';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
 
 export type RunStatus = 'idle' | 'starting' | 'running' | 'exited';
 
@@ -117,7 +117,7 @@ export class RunActionMenu {
     if (this.busy()) {
       return 'Setup is still running. Wait for it to finish.';
     }
-    return 'Run the configured command';
+    return 'Run command';
   });
 
   protected primary(): void {

@@ -55,9 +55,9 @@ import type { OpenInTool } from '@mozart/desktop-workspaces-util';
         (click)="openIn.emit(lastUsed())"
       >
         @if (lastUsed().iconPath; as path) {
-          <img [src]="path" alt="" aria-hidden="true" class="size-3.5 shrink-0" />
+          <img [src]="path" alt="" aria-hidden="true" class="size-4 shrink-0" />
         } @else {
-          <ng-icon hlm [name]="lastUsed().icon" size="xs" />
+          <ng-icon hlm [name]="lastUsed().icon" size="sm" />
         }
         @if (subtitle()) {
           <span
@@ -78,7 +78,7 @@ import type { OpenInTool } from '@mozart/desktop-workspaces-util';
         side="bottom"
         class="h-7 rounded-l-none rounded-r-md px-1.5 hover:bg-accent"
       >
-        <ng-icon hlm name="lucideChevronDown" size="xs" />
+        <ng-icon hlm name="lucideChevronDown" size="sm" />
       </button>
     </div>
 

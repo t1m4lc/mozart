@@ -46,7 +46,7 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
       <ng-icon
         hlm
         name="lucideFileCode"
-        size="11px"
+        size="xs"
         class="shrink-0 text-muted-foreground"
       />
     }
@@ -87,7 +87,7 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
             class="size-4 rounded-full text-muted-foreground"
             (click)="startRename($event)"
           >
-            <ng-icon hlm name="lucidePencil" size="8px" />
+            <ng-icon hlm name="lucidePencil" size="3xs" />
           </button>
         }
 
@@ -102,7 +102,7 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
             [disabled]="isChatStreaming()"
             (click)="onClose($event)"
           >
-            <ng-icon hlm name="lucideX" size="9px" />
+            <ng-icon hlm name="lucideX" size="3xs" />
           </button>
         }
       </div>

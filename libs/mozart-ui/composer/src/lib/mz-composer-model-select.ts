@@ -68,13 +68,14 @@ const DEFAULT_PROVIDERS: Record<ProviderId, ProviderInfo> = {
   template: `
     <hlm-select
       [value]="selectedModelId()"
+      [disabled]="disabled()"
       (valueChange)="_onValueChange($event)"
     >
       <hlm-select-trigger
         size="auto"
         class="h-6 w-auto gap-1 rounded-md border-transparent px-2.5 py-0 text-xs shadow-none [&>ng-icon:last-child]:text-xs [&>ng-icon:last-child]:transition-transform [&>ng-icon:last-child]:duration-150 [&[aria-expanded=true]>ng-icon:last-child]:rotate-180"
       >
-        <ng-icon hlm [name]="_triggerIcon()" size="xs" />
+        <ng-icon hlm [name]="_triggerIcon()" size="sm" />
         <span class="text-xs">{{ _triggerLabel() }}</span>
       </hlm-select-trigger>
       <hlm-select-content *hlmSelectPortal class="w-64">
@@ -120,6 +121,10 @@ export class ComposerModelSelect {
   readonly providers =
     input<Record<ProviderId, ProviderInfo>>(DEFAULT_PROVIDERS);
   readonly selectedModelId = input.required<string>();
+  // Locks the trigger while an agent run is in-flight — same rule as
+  // the mode / effort selects. Switching models mid-stream would
+  // bind the wrong model to the in-flight turn.
+  readonly disabled = input(false);
   readonly modelChange = output<string>();
 
   protected readonly _selectedModel = computed<ModelOption | undefined>(

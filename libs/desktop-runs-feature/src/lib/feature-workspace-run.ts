@@ -16,14 +16,14 @@ import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmEmptyImports } from '@spartan-ui/empty';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideExternalLink, lucidePlay } from '@ng-icons/lucide';
+import { lucideArrowRight, lucideExternalLink, lucidePlay } from '@ng-icons/lucide';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import type { RunStatus } from '@mozart/desktop-runs-util';
 
 @Component({
   selector: 'app-feature-workspace-run',
   imports: [NgIcon, RouterLink, HlmButtonImports, HlmEmptyImports, HlmIconImports],
-  providers: [provideIcons({ lucideExternalLink, lucidePlay })],
+  providers: [provideIcons({ lucideArrowRight, lucideExternalLink, lucidePlay })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
@@ -49,10 +49,12 @@ import type { RunStatus } from '@mozart/desktop-runs-util';
       </div>
     }
     @if (status() === 'idle' && !mounted) {
-      <!-- Empty state with an inline "Run workspace" CTA. The host
-           emits (requestStart) which the parent (workspace-aside)
-           wires to the run registry — keeps this component free of
-           run-orchestration knowledge. -->
+      <!-- Empty state. With a command configured we show the inline
+           Run-workspace CTA (parent wires requestStart to the run
+           registry). Without a command we replace the button with a
+           clear no-command message + a link to project settings —
+           surfacing a disabled button there only made the backend
+           reject the action when the click slipped through. -->
       <div
         class="flex h-full flex-col items-center justify-center gap-3 p-6 text-center"
       >
@@ -62,30 +64,44 @@ import type { RunStatus } from '@mozart/desktop-runs-util';
           size="md"
           class="text-muted-foreground/60"
         />
-        <div class="space-y-1">
-          <p class="text-sm font-medium text-foreground">Run your workspace</p>
-          <p class="text-xs text-muted-foreground">
-            Start the configured run command to see logs, ports, and exit
-            status streamed here.
-          </p>
-        </div>
-        <button
-          hlmBtn
-          variant="outline"
-          type="button"
-          [disabled]="!hasRunCommand()"
-          (click)="requestStart.emit()"
-        >
-          <ng-icon hlm name="lucidePlay" size="sm" />
-          Run workspace
-        </button>
-        @if (!hasRunCommand() && projectId(); as pid) {
-          <a
-            class="text-[11px] text-muted-foreground/80 underline-offset-2 hover:text-foreground hover:underline"
-            [routerLink]="['/settings/projects', pid]"
+        @if (hasRunCommand()) {
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-foreground">Run your workspace</p>
+            <p class="text-xs text-muted-foreground">
+              Start the configured run command to see logs, ports, and exit
+              status streamed here.
+            </p>
+          </div>
+          <button
+            hlmBtn
+            variant="outline"
+            type="button"
+            (click)="requestStart.emit()"
           >
-            No run command configured — set one in project settings →
-          </a>
+            <ng-icon hlm name="lucidePlay" size="sm" />
+            Run workspace
+          </button>
+        } @else {
+          <div class="space-y-1">
+            <p class="text-sm font-medium text-foreground">
+              No run command configured
+            </p>
+            <p class="max-w-sm text-xs text-muted-foreground">
+              Add a run command in project settings — or commit a
+              <code class="font-mono">.mozart/run.json</code> — and this tab
+              will be able to launch it.
+            </p>
+          </div>
+          @if (projectId(); as pid) {
+            <a
+              hlmBtn
+              variant="outline"
+              [routerLink]="['/settings/projects', pid]"
+            >
+              Open project settings
+              <ng-icon hlm name="lucideArrowRight" size="sm" />
+            </a>
+          }
         }
       </div>
     }

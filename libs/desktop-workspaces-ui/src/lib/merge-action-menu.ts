@@ -57,7 +57,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
         [disabled]="primaryDisabled()"
         (click)="primary()"
       >
-        <ng-icon hlm [name]="primaryIcon()" size="xs" />
+        <ng-icon hlm [name]="primaryIcon()" size="sm" />
         <span>{{ primaryLabel() }}</span>
       </button>
       <button
@@ -70,7 +70,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
         side="bottom"
         class="h-7 rounded-l-none rounded-r-md px-1.5"
       >
-        <ng-icon hlm name="lucideChevronDown" size="xs" />
+        <ng-icon hlm name="lucideChevronDown" size="sm" />
       </button>
     </div>
 

@@ -83,7 +83,7 @@ export interface CreatePrDialogContext {
           @if (profile.githubConnected()) {
             <div class="flex items-center gap-2">
               <span
-                class="inline-block size-2 rounded-full bg-emerald-500"
+                class="inline-block size-2 rounded-full bg-status-ok"
                 aria-hidden="true"
               ></span>
               <span class="text-foreground">
@@ -97,7 +97,7 @@ export interface CreatePrDialogContext {
           } @else {
             <div class="flex items-center gap-2">
               <span
-                class="inline-block size-2 rounded-full bg-amber-500"
+                class="inline-block size-2 rounded-full bg-status-busy"
                 aria-hidden="true"
               ></span>
               <span class="text-foreground">GitHub not connected</span>

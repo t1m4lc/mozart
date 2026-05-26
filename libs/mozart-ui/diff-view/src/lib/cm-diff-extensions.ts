@@ -201,13 +201,13 @@ const ADD_LINE_DECO = Decoration.line({
 const REMOVE_LINE_DECO = Decoration.line({
   attributes: { style: 'background-color: var(--diff-remove-bg);' },
 });
-// Hunk-row text is metadata, not code. Dim it (muted-foreground) and
-// italicize so a glance separates "this row describes the diff" from
-// "this row IS the diff".
+// Hunk-row text is metadata, not code. Tint with the hunk marker fg so
+// it pairs with the row background, and italicize so a glance separates
+// "this row describes the diff" from "this row IS the diff".
 const HUNK_LINE_DECO = Decoration.line({
   attributes: {
     style:
-      'background-color: var(--diff-hunk-bg); color: var(--muted-foreground); font-style: italic;',
+      'background-color: var(--diff-hunk-bg); color: var(--diff-hunk-marker-fg); font-style: italic;',
     class: 'mz-diff-cm-hunk-row',
   },
 });

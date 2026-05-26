@@ -30,14 +30,24 @@ import {
   selector: 'app-feature-file-diff',
   imports: [MzFileDiffCard],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex h-full w-full flex-col' },
+  // Parent (feature-file-content) supplies `min-h-0 flex-1 flex-col`
+  // via the class binding. We add `flex flex-col` here so the inner
+  // diff-card (whose own host is `block`) participates in flex sizing
+  // and never collapses behind the workspace composer below.
+  host: { class: 'flex w-full flex-col' },
   template: `
-    <div class="min-h-0 flex-1">
+    <!-- Inner wrapper is a flex column so mz-file-diff-card (a block
+         host) can use min-h-0 + flex-1 to fill the available space.
+         Without this, the card article (which uses h-full) computes
+         against an auto-height container and collapses, leaving the
+         workspace composer visually overlapping the diff. -->
+    <div class="flex min-h-0 flex-1 flex-col">
       <!-- @defer (on viewport) so the CodeMirror chunk (~270 kB) stays
            out of the eager bundle. The diff card only renders once the
            workspace tab actually scrolls it into view. -->
       @defer (on viewport) {
         <mz-file-diff-card
+          class="flex min-h-0 flex-1 flex-col"
           chrome="flush"
           pathTruncate="start"
           [collapsible]="false"

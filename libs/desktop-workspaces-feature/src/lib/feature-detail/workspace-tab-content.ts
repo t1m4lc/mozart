@@ -8,21 +8,23 @@ import {
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, type Navigation } from '@angular/router';
-import { filter, map, startWith } from 'rxjs';
-import { HlmSkeletonImports } from '@spartan-ui/skeleton';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { FeatureChatContent } from '@mozart/desktop-chat-feature';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
-import { FileTabsService } from '@mozart/desktop-workspaces-data-access';
-import { WorkspaceTabRegistry } from '@mozart/desktop-workspaces-data-access';
-import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
-import { FeatureChatTabBar } from '../feature-chat-tab-bar';
+import {
+  FileTabsService,
+  WorkspaceDetailStore,
+  WorkspacesFacade,
+  WorkspaceTabRegistry,
+} from '@mozart/desktop-workspaces-data-access';
+import { ChatEmptyState } from '@mozart/desktop-workspaces-ui';
+import { HlmSkeletonImports } from '@spartan-ui/skeleton';
+import { filter, map, startWith } from 'rxjs';
 import { FeatureChatScrollSurface } from '../feature-chat-scroll-surface';
+import { FeatureChatTabBar } from '../feature-chat-tab-bar';
 import { FeatureFileContent } from '../feature-file-content';
 import { FeatureWorkspaceComposer } from '../feature-workspace-composer';
-import { ChatEmptyState } from '@mozart/desktop-workspaces-ui';
-import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
 
 type FileTabIntent = 'preview' | 'pin';
 
@@ -97,14 +99,14 @@ type FileTabIntent = 'preview' | 'pin';
     }
 
     <!-- Always-mounted composer host: visible on chat AND file tabs
-         (P2.2). Absolutely positioned at WorkspaceTabContent's bottom
-         so it overlays whatever content is in the @switch — chat
-         scrolls behind it inside chat-scroll-surface, and the file
-         editor extends full-height with the composer floating over
-         the bottom region. -->
+         (P2.2). Rendered as a normal flex row at the bottom of the
+         column on every tab kind — no absolute overlay anywhere. The
+         opaque background + top border draw a clear separator above
+         it so file diff, file editor, and chat surface each get their
+         own scrollable region above without any visual bleed-through. -->
     @if (workspaceIdOrNull(); as ws) {
       <app-feature-workspace-composer
-        class="absolute inset-x-0 bottom-0 z-30"
+        class="shrink-0 bg-background"
         [workspaceId]="ws"
         [frozen]="frozen()"
         [activeTabKind]="composerTabKind()"
@@ -169,12 +171,10 @@ export class WorkspaceTabContent {
   // Narrow the parsed tab kind to the one the composer cares about
   // (chat vs file). Other kinds (review/run/terminal) collapse to
   // null — composer treats null the same as "no special tab gate".
-  protected readonly composerTabKind = computed<'chat' | 'file' | null>(
-    () => {
-      const k = this.tab()?.kind;
-      return k === 'chat' || k === 'file' ? k : null;
-    },
-  );
+  protected readonly composerTabKind = computed<'chat' | 'file' | null>(() => {
+    const k = this.tab()?.kind;
+    return k === 'chat' || k === 'file' ? k : null;
+  });
 
   private readonly workspace = computed(() => {
     const id = this.workspaceId();

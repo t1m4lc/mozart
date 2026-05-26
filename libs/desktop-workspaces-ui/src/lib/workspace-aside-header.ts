@@ -15,6 +15,7 @@ import { HlmBadgeImports } from '@spartan-ui/badge';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
+import { MzStatusIcon, type MzStatusIconStatus } from '@mozart-ui/status-icon';
 import { OpenInMenu } from './open-in-menu';
 
 @Component({
@@ -26,6 +27,7 @@ import { OpenInMenu } from './open-in-menu';
     HlmButtonImports,
     HlmIconImports,
     HlmTooltipImports,
+    MzStatusIcon,
   ],
   providers: [
     provideIcons({
@@ -40,6 +42,10 @@ import { OpenInMenu } from './open-in-menu';
     <div
       class="flex h-9 items-center gap-1 border-b border-sidebar-border bg-sidebar px-2"
     >
+      @if (status(); as s) {
+        <mz-status-icon [status]="s" [size]="16" />
+      }
+
       <span
         hlmBadge
         variant="secondary"
@@ -47,7 +53,7 @@ import { OpenInMenu } from './open-in-menu';
         position="bottom"
         class="min-w-0 max-w-35 gap-1 font-normal"
       >
-        <ng-icon hlm name="lucideGitBranch" size="xs" />
+        <ng-icon hlm name="lucideGitBranch" size="sm" />
         <span class="truncate font-mono">{{ branch() || '—' }}</span>
       </span>
 
@@ -69,7 +75,7 @@ import { OpenInMenu } from './open-in-menu';
         position="bottom"
         (click)="commit.emit()"
       >
-        <ng-icon hlm name="lucideGitCommitVertical" size="xs" />
+        <ng-icon hlm name="lucideGitCommitVertical" size="sm" />
         <span>Commit</span>
       </button>
 
@@ -84,7 +90,7 @@ import { OpenInMenu } from './open-in-menu';
           position="bottom"
           (click)="createPr.emit()"
         >
-          <ng-icon hlm name="lucideGitPullRequest" size="xs" />
+          <ng-icon hlm name="lucideGitPullRequest" size="sm" />
           <span>PR</span>
         </button>
       }
@@ -97,6 +103,7 @@ export class WorkspaceAsideHeader {
   readonly lastUsedTool = input.required<OpenInTool>();
   readonly workspaceName = input<string>('');
   readonly githubConnected = input<boolean>(false);
+  readonly status = input<MzStatusIconStatus | null>(null);
 
   readonly openIn = output<OpenInTool>();
   readonly commit = output<void>();

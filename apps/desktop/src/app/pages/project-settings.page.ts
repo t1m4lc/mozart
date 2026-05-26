@@ -9,10 +9,10 @@ import {
   signal,
 } from '@angular/core';
 import { Router, RouterLink, RouterLinkActive } from '@angular/router';
-import { toast } from '@spartan-ng/brain/sonner';
 import { commands } from '@mozart/desktop-core-tauri';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { ReturnRouteService } from '@mozart/desktop-ui-state-data-access';
+import { toast } from '@spartan-ng/brain/sonner';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmInputImports } from '@spartan-ui/input';
 import { HlmLabelImports } from '@spartan-ui/label';
@@ -70,7 +70,7 @@ import { HlmLabelImports } from '@spartan-ui/label';
                   <a
                     class="flex items-center gap-2 rounded-sm px-2 py-1.5 text-sm text-muted-foreground hover:bg-accent/60 hover:text-foreground"
                     [routerLink]="['/settings/projects', item.id]"
-                    routerLinkActive="bg-brand/10 text-foreground!"
+                    routerLinkActive="bg-brand/10 text-foreground! hover:bg-brand/10"
                   >
                     @if (item.icon) {
                       <span aria-hidden="true">{{ item.icon }}</span>
@@ -102,7 +102,9 @@ import { HlmLabelImports } from '@spartan-ui/label';
             </div>
           } @else {
             <header class="flex items-baseline justify-between gap-4">
-              <h2 class="truncate text-lg font-semibold">{{ projectName() }}</h2>
+              <h2 class="truncate text-lg font-semibold">
+                {{ projectName() }}
+              </h2>
             </header>
 
             <div
@@ -155,9 +157,9 @@ import { HlmLabelImports } from '@spartan-ui/label';
                 <p
                   class="rounded-sm bg-brand/10 px-2 py-1.5 text-[11px] text-foreground/80"
                 >
-                  This project has a <code>.mozart/run.json</code> file at
-                  its root — those scripts take precedence over the values
-                  saved here.
+                  This project has a <code>.mozart/run.json</code> file at its
+                  root — those scripts take precedence over the values saved
+                  here.
                 </p>
               }
 

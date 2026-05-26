@@ -102,16 +102,17 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
         ></textarea>
 
         <div class="flex items-center gap-1 p-2 max-h-10">
-          <mz-composer-plus-menu />
+          <mz-composer-plus-menu [disabled]="_chromeLocked()" />
 
           <mz-composer-effort-select
             [effort]="effort()"
+            [disabled]="_chromeLocked()"
             (effortChange)="effort.set($event)"
           />
 
           <mz-composer-mode-select
             [mode]="_effectiveMode()"
-            [disabled]="isRunning() || disabled() || askOnly()"
+            [disabled]="_chromeLocked() || askOnly()"
             (modeChange)="mode.set($event)"
           />
 
@@ -122,6 +123,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
               [models]="models()"
               [providers]="providers()"
               [selectedModelId]="selectedModelId()"
+              [disabled]="_chromeLocked()"
               (modelChange)="modelChange.emit($event)"
             />
           }
@@ -138,7 +140,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
                 (click)="_emitStop()"
                 aria-label="Stop current run"
               >
-                <ng-icon hlm name="lucideCircleStop" size="xs" />
+                <ng-icon hlm name="lucideCircleStop" size="sm" />
               </button>
             }
             @case ('queue') {
@@ -152,7 +154,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
                 hlmTooltip="Send to queue — current run keeps going"
                 aria-label="Queue message"
               >
-                <ng-icon hlm name="lucidePlus" size="xs" />
+                <ng-icon hlm name="lucidePlus" size="sm" />
               </button>
             }
             @default {
@@ -172,7 +174,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
                       : 'Send message'
                 "
               >
-                <ng-icon hlm name="lucideArrowUp" size="xs" />
+                <ng-icon hlm name="lucideArrowUp" size="sm" />
               </button>
             }
           }
@@ -237,6 +239,14 @@ export class MzComposer {
 
   protected readonly _canSubmit = computed(
     () => !this.disabled() && this.value().trim().length > 0,
+  );
+
+  // Chrome lock: when an agent run is in-flight (or the host has
+  // disabled the whole composer), the mode / effort / model / plus
+  // controls are all read-only so the user can't swap the model
+  // mid-stream or change the effort half a turn through.
+  protected readonly _chromeLocked = computed(
+    () => this.isRunning() || this.disabled(),
   );
 
   // The host can be frozen (askOnly = true). Rather than mutating the

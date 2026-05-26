@@ -339,6 +339,12 @@ export class FeatureWorkspaceSetup {
   protected async onRunSetup(): Promise<void> {
     const id = this.workspaceId();
     if (!id) return;
+    // Belt-and-braces: the Start-setup CTA is only rendered when
+    // `hasSetupCommand()` is true, but defending here keeps the
+    // backend from surfacing a "command not configured" error if a
+    // stale click ever slips through (e.g. keybindings, programmatic
+    // navigation while the probe is still resolving).
+    if (!this.hasSetupCommand()) return;
     try {
       await this.runs.startSetup(id);
     } catch (err) {

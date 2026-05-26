@@ -158,7 +158,7 @@ interface PathDisplay {
               [name]="
                 _effectiveCollapsed() ? 'lucideChevronRight' : 'lucideChevronDown'
               "
-              size="xs"
+              size="md"
             />
           </button>
         }
@@ -194,8 +194,8 @@ interface PathDisplay {
             <ng-icon
               hlm
               [name]="_copyState() === 'copied' ? 'lucideCheck' : 'lucideCopy'"
-              size="xs"
-              [class.text-emerald-500]="_copyState() === 'copied'"
+              size="md"
+              [class.text-status-ok]="_copyState() === 'copied'"
               [class.text-destructive]="_copyState() === 'err'"
             />
           </button>
@@ -219,7 +219,7 @@ interface PathDisplay {
                 [name]="
                   _allExpanded() ? 'lucideFoldVertical' : 'lucideUnfoldVertical'
                 "
-                size="xs"
+                size="md"
               />
             </button>
           }
@@ -253,18 +253,19 @@ interface PathDisplay {
             <ng-icon
               hlm
               name="lucideRefreshCw"
-              size="xs"
+              size="md"
               [class.animate-spin]="loading()"
             />
           </button>
 
           <button
             hlmBtn
-            variant="ghost"
+            variant="outline"
             size="xs"
             type="button"
-            class="text-muted-foreground hover:text-foreground h-6 shrink-0 gap-1 px-2 text-[11px]"
+            class="text-muted-foreground hover:text-foreground hover:bg-accent h-6 shrink-0 gap-1.5 rounded-full px-2.5 text-[11px]"
             [class.text-foreground]="_viewed()"
+            [class.bg-accent]="_viewed()"
             [hlmTooltip]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
             [attr.aria-pressed]="_viewed()"
             [attr.aria-label]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
@@ -274,7 +275,7 @@ interface PathDisplay {
             <ng-icon
               hlm
               [name]="_viewed() ? 'lucideSquareCheck' : 'lucideSquare'"
-              size="xs"
+              size="md"
             />
             Viewed
           </button>

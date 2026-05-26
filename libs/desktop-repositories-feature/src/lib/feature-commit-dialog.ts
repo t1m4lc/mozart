@@ -94,9 +94,7 @@ type LoadState =
                     />
                     <span
                       class="inline-block w-4 text-center font-mono text-[10px]"
-                      [class.text-green-600]="file.status === 'added'"
-                      [class.text-yellow-600]="file.status === 'modified'"
-                      [class.text-red-600]="file.status === 'deleted'"
+                      [class]="statusFgClass(file.status)"
                       >{{ statusLetter(file.status) }}</span
                     >
                     <span class="min-w-0 flex-1 truncate font-mono">{{ file.path }}</span>
@@ -228,6 +226,17 @@ export class FeatureCommitDialog {
         return 'D';
       default:
         return 'M';
+    }
+  }
+
+  protected statusFgClass(status: ChangedFile['status']): string {
+    switch (status) {
+      case 'added':
+        return 'text-status-added';
+      case 'deleted':
+        return 'text-status-deleted';
+      default:
+        return 'text-status-modified';
     }
   }
 

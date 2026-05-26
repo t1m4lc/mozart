@@ -9,6 +9,7 @@ import { ActivatedRoute, Router } from '@angular/router';
 import { HlmTabsImports } from '@spartan-ui/tabs';
 import { WORKSPACE_PROCESSES_PANEL_HEIGHT } from '@mozart/desktop-workspaces-util';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { FeatureWorkspaceRun } from '@mozart/desktop-runs-feature';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { FeatureWorkspaceTerminal } from '@mozart/desktop-terminals-feature';
@@ -72,18 +73,24 @@ function coerceBottomTab(raw: string | null): BottomTab {
           class="flex items-stretch gap-0! bg-transparent p-0"
           aria-label="Workspace processes"
         >
-          <button
-            hlmTabsTrigger="setup"
-            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
-          >
-            Setup
-          </button>
-          <button
-            hlmTabsTrigger="run"
-            class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
-          >
-            Run
-          </button>
+          <!-- Setup + Run only make sense for projects that have a
+               top-level package.json (install / npm-style run scripts).
+               When it's absent we hide both tab triggers AND their
+               panels so the Run/Stop button has nothing to bind to. -->
+          @if (hasPackageJson()) {
+            <button
+              hlmTabsTrigger="setup"
+              class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+            >
+              Setup
+            </button>
+            <button
+              hlmTabsTrigger="run"
+              class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
+            >
+              Run
+            </button>
+          }
           <button
             hlmTabsTrigger="terminal"
             class="relative flex h-full items-center rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
@@ -96,16 +103,19 @@ function coerceBottomTab(raw: string | null): BottomTab {
 
         <!-- Split-button Run/Stop + dropdown chevron (chevron is
              disabled for now — no run variants yet). Mirrors the
-             merge-action-menu pattern in the shell-aside header. -->
-        <div class="my-1 mr-2 flex items-center">
-          <app-run-action-menu
-            [status]="runStatus()"
-            [hasCommand]="hasRunCommand()"
-            [busy]="setupRunning()"
-            (start)="onStartRun()"
-            (stop)="onStopRun()"
-          />
-        </div>
+             merge-action-menu pattern in the shell-aside header.
+             Same package.json gate as the Setup/Run tabs themselves. -->
+        @if (hasPackageJson()) {
+          <div class="my-1 mr-2 flex items-center">
+            <app-run-action-menu
+              [status]="runStatus()"
+              [hasCommand]="hasRunCommand()"
+              [busy]="setupRunning()"
+              (start)="onStartRun()"
+              (stop)="onStopRun()"
+            />
+          </div>
+        }
       </div>
 
       <!-- Tab content body — fixed expanded height, always visible.
@@ -115,23 +125,25 @@ function coerceBottomTab(raw: string | null): BottomTab {
         class="flex min-h-0 flex-col"
         [style.height]="WORKSPACE_PROCESSES_PANEL_HEIGHT"
       >
-        <div hlmTabsContent="setup" class="h-full overflow-hidden">
-          <app-feature-workspace-setup
-            class="block h-full w-full"
-            [active]="bottomTab() === 'setup'"
-          />
-        </div>
+        @if (hasPackageJson()) {
+          <div hlmTabsContent="setup" class="h-full overflow-hidden">
+            <app-feature-workspace-setup
+              class="block h-full w-full"
+              [active]="bottomTab() === 'setup'"
+            />
+          </div>
 
-        <div hlmTabsContent="run" class="h-full overflow-hidden">
-          <app-feature-workspace-run
-            class="block h-full w-full"
-            [workspaceId]="workspaceId()"
-            [projectId]="projectId()"
-            [active]="bottomTab() === 'run'"
-            [hasRunCommand]="hasRunCommand()"
-            (requestStart)="onStartRun()"
-          />
-        </div>
+          <div hlmTabsContent="run" class="h-full overflow-hidden">
+            <app-feature-workspace-run
+              class="block h-full w-full"
+              [workspaceId]="workspaceId()"
+              [projectId]="projectId()"
+              [active]="bottomTab() === 'run'"
+              [hasRunCommand]="hasRunCommand()"
+              (requestStart)="onStartRun()"
+            />
+          </div>
+        }
 
         <div hlmTabsContent="terminal" class="h-full overflow-hidden">
           <ng-template hlmTabsContentLazy>
@@ -149,6 +161,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
 export class FeatureWorkspaceProcesses {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly projects = inject(ProjectsFacade);
+  private readonly repos = inject(RepositoriesFacade);
   private readonly runs = inject(RunRegistry);
   private readonly uiState = inject(UiStateFacade);
   private readonly route = inject(ActivatedRoute);
@@ -198,6 +211,15 @@ export class FeatureWorkspaceProcesses {
     if (!pid) return false;
     return !!this.projects.effectiveCommandsFor(pid)().runCommand;
   });
+
+  // Setup + Run tabs are only meaningful for npm-style projects; we
+  // gate their visibility (and the Run/Stop button) on the worktree
+  // having a top-level package.json. Falls back to false during the
+  // first file-tree fetch — `feature-workspace-files` kicks the
+  // tree load on mount so this signal resolves quickly.
+  protected readonly hasPackageJson = this.repos.hasPackageJsonFor(
+    this.workspaceId,
+  );
 
   // Per-workspace tab state, persisted via UiStateStore.
   protected readonly asideState = this.uiState.asideStateFor(this.workspaceId);
@@ -253,6 +275,20 @@ export class FeatureWorkspaceProcesses {
       if (this.workspaces.installFor(id).state !== 'running') return;
       this.uiState.updateWorkspaceAsideState(id, { bottomTab: 'setup' });
     });
+
+    // Force-switch to Terminal if the currently-selected tab is
+    // setup/run and the workspace has no package.json. Covers the
+    // case where the user previously persisted bottomTab='run' for a
+    // project that's since lost its package.json (or moved to a
+    // workspace from a non-npm project).
+    effect(() => {
+      const id = this.workspaceId();
+      if (!id) return;
+      if (this.hasPackageJson()) return;
+      const tab = this.bottomTab();
+      if (tab !== 'setup' && tab !== 'run') return;
+      this.uiState.updateWorkspaceAsideState(id, { bottomTab: 'terminal' });
+    });
   }
 
   // BrnTabs's `tabActivated` emits a plain `string`. Narrow before
@@ -268,6 +304,11 @@ export class FeatureWorkspaceProcesses {
   protected async onStartRun(): Promise<void> {
     const id = this.workspaces.activeId();
     if (!id) return;
+    // Belt-and-braces: the RunActionMenu already disables itself when
+    // `hasRunCommand` is false, but a missing run.json + a stale
+    // streamed click would otherwise reach Rust and surface as a
+    // "command not configured" backend error. Bail out here.
+    if (!this.hasRunCommand()) return;
     try {
       await this.runs.start(id);
       // Auto-jump to the Run tab so the user sees output the instant

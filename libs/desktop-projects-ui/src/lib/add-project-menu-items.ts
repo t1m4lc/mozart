@@ -25,13 +25,9 @@ import { HlmIconImports } from '@spartan-ui/icon';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
-    <button
-      hlmDropdownMenuItem
-      type="button"
-      (triggered)="openProject.emit()"
-    >
+    <button hlmDropdownMenuItem type="button" (triggered)="openProject.emit()">
       <ng-icon hlm name="lucideFolderOpen" size="sm" />
-      Open a project from your machine
+      Open a project
     </button>
     <button
       hlmDropdownMenuItem
@@ -39,9 +35,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
       [disabled]="!githubConnected()"
       [attr.aria-disabled]="!githubConnected() ? true : null"
       [attr.title]="
-        githubConnected()
-          ? null
-          : 'Connect GitHub in Settings to clone a repo'
+        githubConnected() ? null : 'Connect GitHub in Settings to clone a repo'
       "
       (triggered)="onGithubTriggered()"
     >
@@ -57,7 +51,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
          flow is on ice until the underlying create-folder UX lands. -->
     <button hlmDropdownMenuItem type="button" disabled>
       <ng-icon hlm name="lucideZap" size="sm" />
-      Start with Quickstart
+      Quickstart
     </button>
   `,
 })

@@ -72,7 +72,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
         <ng-icon
           hlm
           [name]="stagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
-          size="9px"
+          size="3xs"
         />
         <span>Staged ({{ stagedFiles().length }})</span>
       </button>
@@ -97,7 +97,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
           <ng-icon
             hlm
             [name]="unstagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
-            size="9px"
+            size="3xs"
           />
           <span>Changes ({{ unstagedFiles().length }})</span>
         </button>
@@ -138,9 +138,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
       >
         <span
           class="inline-block w-4 shrink-0 text-center font-mono text-[10px]"
-          [class.text-green-600]="file.status === 'added'"
-          [class.text-yellow-600]="file.status === 'modified'"
-          [class.text-red-600]="file.status === 'deleted'"
+          [class]="statusFgClass(file.status)"
         >
           {{ statusLetter(file.status) }}
         </span>
@@ -227,6 +225,17 @@ export class FeatureChangesList {
         return 'M';
       case 'deleted':
         return 'D';
+    }
+  }
+
+  protected statusFgClass(status: ChangedFile['status']): string {
+    switch (status) {
+      case 'added':
+        return 'text-status-added';
+      case 'modified':
+        return 'text-status-modified';
+      case 'deleted':
+        return 'text-status-deleted';
     }
   }
 

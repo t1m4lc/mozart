@@ -72,7 +72,7 @@ import { ShellSidePanel } from './shell-side-panel';
             <app-mac-window-controls />
           } @else {
             <img
-              src="/assets/shared/logos/mozart-logo.svg"
+              src="/assets/shared/logos/mozart-logo-icon.svg"
               alt="Mozart desktop"
               class="size-6 shrink-0 cursor-default "
             />
@@ -90,7 +90,7 @@ import { ShellSidePanel } from './shell-side-panel';
               layout.toggleLeftPanel(); $any($event.currentTarget).blur()
             "
           >
-            <ng-icon hlm name="lucidePanelLeft" size="xs" />
+            <ng-icon hlm name="lucidePanelLeft" size="sm" />
           </button>
         </div>
 
@@ -101,7 +101,7 @@ import { ShellSidePanel } from './shell-side-panel';
               [hlmContextMenuTrigger]="projectsHeaderCtxMenu"
             >
               <span
-                class="text-sidebar-foreground/70 flex-1 text-xs font-medium"
+                class="text-sidebar-foreground/70 flex-1 text-[13px] font-medium tracking-tight"
               >
                 Projects
               </span>
@@ -159,7 +159,7 @@ import { ShellSidePanel } from './shell-side-panel';
             hlmTooltip="Settings"
             position="top"
           >
-            <ng-icon hlm name="lucideSettings" size="xs" />
+            <ng-icon hlm name="lucideSettings" size="sm" />
           </button>
         </div>
       </hlm-sidebar>

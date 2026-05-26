@@ -86,13 +86,11 @@ function bothResolved<A, B>(
       'flex min-h-0 w-full flex-col overflow-y-auto [mask-image:linear-gradient(to_bottom,transparent_0,black_40px)] [-webkit-mask-image:linear-gradient(to_bottom,transparent_0,black_40px)]',
   },
   template: `
-    <!-- Inner wrapper centers chat content + caps width. Bottom padding
-         clears the absolutely-positioned composer overlay (composer
-         chrome ≈ 120–140px) so the last message stays visible above
-         it. pb-48 = 192px mirrors CHAT_COMPOSER_OVERLAY_PX (160px) plus
-         32px of breathing room — measured during dogfood, text used
-         to land flush against the composer chrome with pb-32. -->
-    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-5 pb-48">
+    <!-- Inner wrapper centers chat content + caps width. The composer
+         no longer overlays this surface (it sits as a flex row below
+         in workspace-tab-content), so we only need a small bottom
+         padding for breathing room above the composer's top border. -->
+    <div class="mx-auto flex w-full max-w-5xl flex-1 flex-col pt-5 pb-4">
       <ng-content />
     </div>
   `,

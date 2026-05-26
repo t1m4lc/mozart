@@ -1,14 +1,22 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import {
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import {
+  MacWindowControls,
+  NonMacWindowControls,
+} from '@mozart/desktop-core-ui';
+import { ReturnRouteService } from '@mozart/desktop-ui-state-data-access';
+import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowLeft, lucideSettings } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmSidebarImports } from '@spartan-ui/sidebar';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
-import { OsService } from '@mozart/shared-util-os';
-import { ReturnRouteService } from '@mozart/desktop-ui-state-data-access';
-import { MacWindowControls, NonMacWindowControls } from '@mozart/desktop-core-ui';
 import { SHELL_LEFT_PANEL_WIDTH } from './shell-panel.constants';
 import { ShellHelpMenu } from './shell-help-menu';
 
@@ -67,7 +75,7 @@ import { ShellHelpMenu } from './shell-help-menu';
                   <a
                     hlmSidebarMenuButton
                     routerLink="/settings"
-                    routerLinkActive="bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
+                    routerLinkActive="bg-brand/10 hover:bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
                     [routerLinkActiveOptions]="{ exact: true }"
                     class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
                   >
@@ -78,7 +86,7 @@ import { ShellHelpMenu } from './shell-help-menu';
                   <a
                     hlmSidebarMenuButton
                     routerLink="/settings/projects"
-                    routerLinkActive="bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
+                    routerLinkActive="bg-brand/10 hover:bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
                     class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
                   >
                     <span>Projects</span>

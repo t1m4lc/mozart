@@ -63,7 +63,7 @@ import { filter, pairwise, tap } from 'rxjs/operators';
   host: { class: 'block w-full px-3' },
   template: `
     <mz-composer
-      class="bg-background mx-auto w-full max-w-5xl overflow-hidden pb-2.5 shadow-[0_-4px_16px_-2px_rgb(0_0_0_/_0.06)] dark:shadow-[0_-4px_16px_-2px_rgb(0_0_0_/_0.3)]"
+      class="bg-background mx-auto w-full max-w-5xl overflow-hidden pb-2.5 shadow-md"
       data-tour="composer-mode"
       #composerEl
       [(value)]="value"

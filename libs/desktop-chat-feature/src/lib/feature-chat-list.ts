@@ -5,18 +5,18 @@ import {
   inject,
 } from '@angular/core';
 import { RouterLink, RouterLinkActive } from '@angular/router';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmEmptyImports } from '@spartan-ui/empty';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideMessageSquare, lucidePlus } from '@ng-icons/lucide';
-import dayjs from 'dayjs';
 import {
   ChatFacade,
   WorkspaceChatPort,
 } from '@mozart/desktop-chat-data-access';
 import type { Chat } from '@mozart/desktop-chat-util';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideMessageSquare, lucidePlus } from '@ng-icons/lucide';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmEmptyImports } from '@spartan-ui/empty';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
+import dayjs from 'dayjs';
 
 // Mirrors the workspaces lib's route convention. Kept inline so the
 // chat feature lib doesn't reach into the workspaces domain — the
@@ -76,7 +76,9 @@ function bucketFor(createdAt: number, now: number): Bucket {
   host: { class: 'contents' },
   template: `
     <div class="flex h-8 items-center gap-0.5">
-      <span class="text-sidebar-foreground/70 flex-1 text-xs font-medium">
+      <span
+        class="text-sidebar-foreground/70 flex-1 text-[13px] font-medium tracking-tight"
+      >
         Chats
       </span>
       <button
@@ -90,7 +92,7 @@ function bucketFor(createdAt: number, now: number): Bucket {
         aria-label="New ask chat"
         class="size-7 rounded-md text-muted-foreground"
       >
-        <ng-icon hlm name="lucidePlus" size="xs" />
+        <ng-icon hlm name="lucidePlus" size="sm" />
       </button>
     </div>
 
@@ -117,7 +119,7 @@ function bucketFor(createdAt: number, now: number): Bucket {
                 size="sm"
                 class="relative h-7 w-full justify-start gap-2 truncate px-2 text-sm font-normal text-foreground"
                 [routerLink]="chatRoute(chat.workspaceId)"
-                routerLinkActive="bg-brand/15 text-foreground before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-r-full before:bg-brand before:shadow-[0_0_10px_hsl(var(--brand)/0.7)] [&_ng-icon]:text-brand!"
+                routerLinkActive="bg-brand/15 hover:bg-brand/15 text-foreground before:absolute before:left-0 before:top-1 before:bottom-1 before:w-1 before:rounded-r-full before:bg-brand before:shadow-[0_0_10px_hsl(var(--brand)/0.7)] [&_ng-icon]:text-brand!"
               >
                 <ng-icon
                   hlm
