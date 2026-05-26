@@ -7,6 +7,7 @@ import {
   type Type,
 } from '@angular/core';
 import { isItemVisibleAt } from './_density.util';
+import { FileEditGroupRenderer } from './renderers/file-edit-group-renderer';
 import { TOOL_RENDERERS } from './renderers/tool-renderers.registry';
 import type { TurnItem } from './turn-state.types';
 import type { TimelineDensity } from './turn-state.types';
@@ -31,10 +32,17 @@ import type { TimelineDensity } from './turn-state.types';
 //   - `detailed`: every item
 
 interface TimelineRow {
-  readonly item: TurnItem;
+  /** Stable key for *ngFor tracking. For groups, the first item's id
+   *  with a `:group` suffix so adding a chip to an existing group
+   *  reuses the same DOM node. */
+  readonly trackId: string;
   readonly component: Type<unknown>;
+  /** Inputs forwarded to the renderer. Single rows pass `{ item }`;
+   *  grouped rows pass `{ items }`. Pre-merged with `showSpacer` so
+   *  the template only has to append the position-dependent
+   *  `showConnector` flag at bind time. */
+  readonly inputs: Record<string, unknown>;
   readonly showSpacer: boolean;
-  readonly showConnector: boolean;
 }
 
 @Component({
@@ -43,15 +51,11 @@ interface TimelineRow {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-col' },
   template: `
-    @for (row of _rows(); track row.item.id; let last = $last) {
+    @for (row of _rows(); track row.trackId; let last = $last) {
       <ng-container
         *ngComponentOutlet="
           row.component;
-          inputs: {
-            item: row.item,
-            showSpacer: row.showSpacer,
-            showConnector: !last
-          }
+          inputs: row.inputs
         "
       />
     }
@@ -66,15 +70,58 @@ export class Timeline {
     const visible = this.items().filter((item) =>
       isItemVisibleAt(item, level),
     );
-    return visible.map((item, index) => ({
-      item,
-      component: TOOL_RENDERERS[item.kind] ?? TOOL_RENDERERS.generic,
-      // First row joins the message body above without a spacer; the
-      // rest get the 8px connector spacer (per spec §A.3 / §A.7.4).
-      showSpacer: index > 0,
-      // showConnector is overridden per row in the template using $last
-      // so the visually-last item stops its trailing line cleanly.
-      showConnector: true,
-    }));
+    return groupConsecutiveEdits(visible);
   });
+}
+
+// Fold consecutive `file-edit` items into a single virtual row so
+// the timeline doesn't render "edit, edit, edit" cascades. A single
+// file-edit stays as the per-item renderer — the group renderer only
+// activates when ≥ 2 edits sit next to each other in the filtered
+// stream. Every other kind passes through unchanged.
+//
+// Exported for unit testing.
+export function groupConsecutiveEdits(
+  items: readonly TurnItem[],
+): readonly TimelineRow[] {
+  const raw: Array<Omit<TimelineRow, 'inputs'> & { payload: object }> = [];
+  let i = 0;
+  while (i < items.length) {
+    const item = items[i];
+    if (item.kind === 'file-edit') {
+      let j = i + 1;
+      while (j < items.length && items[j].kind === 'file-edit') j++;
+      const run = items.slice(i, j);
+      if (run.length >= 2) {
+        raw.push({
+          trackId: `${run[0].id}:edit-group`,
+          component: FileEditGroupRenderer,
+          payload: { items: run },
+          showSpacer: raw.length > 0,
+        });
+        i = j;
+        continue;
+      }
+    }
+    raw.push({
+      trackId: item.id,
+      component: TOOL_RENDERERS[item.kind] ?? TOOL_RENDERERS.generic,
+      payload: { item },
+      showSpacer: raw.length > 0,
+    });
+    i += 1;
+  }
+  // Bake the position-dependent connector flag into each row's
+  // inputs map so the template can hand the same object directly
+  // to NgComponentOutlet (no per-render allocation).
+  return raw.map((r, idx) => ({
+    trackId: r.trackId,
+    component: r.component,
+    showSpacer: r.showSpacer,
+    inputs: {
+      ...r.payload,
+      showSpacer: r.showSpacer,
+      showConnector: idx < raw.length - 1,
+    },
+  }));
 }

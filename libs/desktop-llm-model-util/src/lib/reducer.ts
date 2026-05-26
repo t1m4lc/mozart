@@ -130,7 +130,7 @@ export function applyAgentEvent(
       return {
         ...state,
         items,
-        summary: 'Done',
+        summary: 'Completed',
         isStreaming: false,
         showDoneMarker: true,
         outcome: 'done',

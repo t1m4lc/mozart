@@ -46,7 +46,7 @@ export type FileChipVariant = 'read' | 'edit' | 'create' | 'delete';
         }
         @if (_hasRemoved()) {
           <span
-            class="border-l border-border px-1.5 py-0.5 font-medium text-destructive"
+            class="border-l border-border px-1.5 py-0.5 font-medium text-red-600 dark:text-red-500"
             >−{{ chip().removed }}</span
           >
         }

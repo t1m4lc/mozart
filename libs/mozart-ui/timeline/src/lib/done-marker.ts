@@ -21,9 +21,9 @@ import { TimelineItem } from './timeline-item';
         hlm
         name="lucideCircleCheck"
         size="xs"
-        class="text-emerald-600 dark:text-emerald-500"
+        class="text-status-ok"
       />
-      <p class="text-sm text-muted-foreground">Done</p>
+      <p class="text-sm text-muted-foreground">Completed</p>
     </mz-timeline-item>
   `,
 })
