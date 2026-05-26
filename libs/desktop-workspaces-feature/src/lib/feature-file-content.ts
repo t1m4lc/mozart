@@ -1,3 +1,4 @@
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -19,12 +20,17 @@ import {
 import { MzCodeEditor } from '@mozart-ui/code-editor';
 import { MzFileTabHeader } from '@mozart-ui/file-tab-header';
 import { ThemeService } from '@mozart/shared-util-theme';
+import { HlmBadgeImports } from '@spartan-ui/badge';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmTabsImports } from '@spartan-ui/tabs';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideFileDiff, lucideFilePen } from '@ng-icons/lucide';
+import {
+  lucideCheck,
+  lucideCopy,
+  lucideFileDiff,
+  lucideFilePen,
+} from '@ng-icons/lucide';
 import {
   FileTabsService,
   ScrollPositionService,
@@ -32,97 +38,164 @@ import {
   fileTabKey,
 } from '@mozart/desktop-workspaces-data-access';
 import { FeatureFileDiff } from '@mozart/desktop-repositories-feature';
-import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
+import {
+  RepositoriesFacade,
+  type ChangedFile,
+} from '@mozart/desktop-repositories-data-access';
+import {
+  type FileDiffStatus,
+} from '@mozart-ui/file-diff-card';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import type { WorkspaceFileContentMode } from '@mozart/desktop-ui-state-util';
 
 type FileContentMode = WorkspaceFileContentMode;
+type CopyState = 'idle' | 'copied' | 'err';
 
 interface SaveError {
   readonly kind: 'frozen' | 'stale' | 'other';
   readonly message: string;
 }
 
+interface StatusBadge {
+  readonly label: string;
+  readonly toneClass: string;
+}
+
+const STATUS_BADGE: Record<FileDiffStatus, StatusBadge> = {
+  modified: { label: 'MOD', toneClass: 'text-muted-foreground' },
+  added: { label: 'ADD', toneClass: 'text-[var(--diff-add-marker-fg)]' },
+  deleted: { label: 'DEL', toneClass: 'text-[var(--diff-remove-marker-fg)]' },
+  renamed: { label: 'REN', toneClass: 'text-muted-foreground' },
+  binary: { label: 'BIN', toneClass: 'text-muted-foreground/70' },
+  'too-large': { label: 'BIG', toneClass: 'text-muted-foreground/70' },
+  'no-diff': { label: 'NIL', toneClass: 'text-muted-foreground/70' },
+};
+
 const TEXT_ENCODER = new TextEncoder();
 
 @Component({
   selector: 'app-feature-file-content',
   imports: [
+    NgTemplateOutlet,
+    HlmBadgeImports,
     HlmButtonImports,
     HlmIconImports,
-    HlmTabsImports,
     HlmTooltipImports,
     NgIcon,
     FeatureFileDiff,
     MzCodeEditor,
     MzFileTabHeader,
   ],
-  providers: [provideIcons({ lucideFileDiff, lucideFilePen })],
+  providers: [
+    provideIcons({ lucideCheck, lucideCopy, lucideFileDiff, lucideFilePen }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full w-full flex-col' },
   template: `
-    <hlm-tabs
-      class="flex min-h-0 flex-1 flex-col"
-      [tab]="mode()"
-      (tabActivated)="setMode($any($event))"
-    >
-      <!--
-        Shared header layout: path + Diff/Edit toggle for every file
-        tab, regardless of mode. Viewed lives inside MzFileDiffCard (in
-        Diff mode) — the edit surface has no concept of "reviewed" per
-        the P1.4 D5 decision.
-      -->
-      <mz-file-tab-header>
-        <span
-          class="select-text text-muted-foreground"
-          [attr.title]="filePath()"
+    <ng-template #modeToggle let-pushLeft="pushLeft">
+      <div
+        class="bg-muted/40 inline-flex h-7 shrink-0 items-center gap-0.5 rounded-md p-0.5"
+        [class.ml-auto]="pushLeft"
+        role="tablist"
+        aria-label="File mode"
+      >
+        <button
+          type="button"
+          role="tab"
+          [attr.aria-selected]="mode() === 'diff'"
+          class="inline-flex h-6 items-center gap-1.5 rounded-sm px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          [class.bg-background]="mode() === 'diff'"
+          [class.text-foreground]="mode() === 'diff'"
+          [class.shadow-sm]="mode() === 'diff'"
+          hlmTooltip="Review (diff)"
+          (click)="setMode('diff')"
         >
+          <ng-icon hlm name="lucideFileDiff" size="xs" />
+          <span>Diff</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          [attr.aria-selected]="mode() === 'edit'"
+          class="inline-flex h-6 items-center gap-1.5 rounded-sm px-2 text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground disabled:opacity-50"
+          [class.bg-background]="mode() === 'edit'"
+          [class.text-foreground]="mode() === 'edit'"
+          [class.shadow-sm]="mode() === 'edit'"
+          [disabled]="!canEdit()"
+          [hlmTooltip]="
+            canEdit() ? 'Edit' : 'Workspace is done — edits disabled'
+          "
+          (click)="setMode('edit')"
+        >
+          <ng-icon hlm name="lucideFilePen" size="xs" />
+          <span>Edit</span>
+        </button>
+      </div>
+    </ng-template>
+
+    @if (mode() === 'diff') {
+      <app-feature-file-diff
+        class="flex min-h-0 flex-1 flex-col pb-40"
+        [workspaceId]="workspaceId()"
+        [path]="filePath()"
+        [status]="fileChangeStatus()"
+      >
+        <div mzFileDiffCardTrailing class="contents">
+          <ng-container
+            *ngTemplateOutlet="modeToggle; context: { pushLeft: true }"
+          />
+        </div>
+      </app-feature-file-diff>
+    } @else {
+      <mz-file-tab-header pathTruncate="start">
+        <span [attr.title]="filePath()" class="select-text text-foreground">
           {{ filePath() ?? '' }}
         </span>
 
-        <hlm-tabs-list
-          mzFileTabHeaderActions
-          variant="line"
-          class="flex h-7 items-center gap-1"
-          aria-label="File mode"
-        >
-          <button
-            hlmTabsTrigger="diff"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-2 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
-            hlmTooltip="Review (diff)"
-          >
-            <ng-icon hlm name="lucideFileDiff" size="xs" />
-            <span>Diff</span>
-          </button>
-          <button
-            hlmTabsTrigger="edit"
-            class="inline-flex h-7 items-center gap-1.5 rounded-md border-transparent! bg-transparent! px-2 text-xs font-normal text-muted-foreground! transition-colors hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none after:hidden!"
-            [disabled]="!canEdit()"
-            [hlmTooltip]="
-              canEdit() ? 'Edit' : 'Workspace is done — edits disabled'
-            "
-          >
-            <ng-icon hlm name="lucideFilePen" size="xs" />
-            <span>Edit</span>
-          </button>
-        </hlm-tabs-list>
-      </mz-file-tab-header>
+        <div mzFileTabHeaderActions class="contents">
+          @if (filePath()) {
+            <button
+              type="button"
+              hlmBtn
+              variant="ghost"
+              size="xs"
+              class="text-muted-foreground hover:text-foreground h-6 w-6 shrink-0 p-0"
+              [hlmTooltip]="copyTooltip()"
+              [attr.aria-label]="copyTooltip()"
+              (click)="copyPath()"
+            >
+              <ng-icon
+                hlm
+                [name]="copyState() === 'copied' ? 'lucideCheck' : 'lucideCopy'"
+                size="xs"
+                [class.text-emerald-500]="copyState() === 'copied'"
+                [class.text-destructive]="copyState() === 'err'"
+              />
+            </button>
+          }
 
-      @if (mode() === 'edit') {
-        <div
-          class="flex h-8 shrink-0 items-center justify-end gap-2 border-b border-border px-2 text-[11px]"
-        >
+          @if (statusBadge(); as badge) {
+            <span
+              hlmBadge
+              variant="outline"
+              class="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wider"
+              [class]="badge.toneClass"
+              [attr.aria-label]="'Status: ' + badge.label"
+            >{{ badge.label }}</span>
+          }
+
           @if (saving()) {
-            <span class="text-muted-foreground">Saving…</span>
+            <span class="text-muted-foreground ml-auto text-[11px]">Saving…</span>
           } @else if (dirty()) {
-            <span class="text-muted-foreground">Unsaved</span>
+            <span class="text-muted-foreground ml-auto text-[11px]">Unsaved</span>
           }
           <button
             type="button"
             hlmBtn
             variant="outline"
             size="xs"
-            class="h-7 px-2 text-[11px]"
+            class="h-6 px-2 text-[11px]"
+            [class.ml-auto]="!saving() && !dirty()"
             [disabled]="!dirty() || saving() || !canEdit()"
             (click)="save()"
           >
@@ -133,128 +206,116 @@ const TEXT_ENCODER = new TextEncoder();
             hlmBtn
             variant="ghost"
             size="xs"
-            class="h-7 px-2 text-[11px] text-muted-foreground"
+            class="text-muted-foreground h-6 px-2 text-[11px]"
             [disabled]="!dirty() || saving()"
             (click)="discardEdits()"
           >
             Discard
           </button>
+
+          <ng-container *ngTemplateOutlet="modeToggle" />
         </div>
-      }
+      </mz-file-tab-header>
 
       <!-- pb-40 (160px) reserves bottom space for the absolutely-
-           positioned workspace composer (chrome ~100px + gradient
-           overlay 32px + breathing room for multi-line drafts). The
-           editor/diff box ends visibly above the composer instead of
-           being overlaid by it. Mirrors the chat-scroll-surface's
-           inner pb-32 pattern. -->
-      <div hlmTabsContent="edit" class="flex min-h-0 flex-1 flex-col pb-40">
-        @if (mode() === 'edit') {
-          @if (loadError(); as err) {
-            <div
-              class="flex flex-1 items-center justify-center p-6 text-sm text-destructive"
-            >
-              <div class="text-center">
-                <p class="font-medium">Couldn't open file</p>
-                <p class="mt-1 text-xs">{{ err }}</p>
-                <button
-                  type="button"
-                  hlmBtn
-                  variant="outline"
-                  size="sm"
-                  class="mt-3"
-                  (click)="reloadFromDisk()"
-                >
-                  Retry
-                </button>
-              </div>
-            </div>
-          } @else if (loading()) {
-            <p class="px-3 py-3 text-xs text-muted-foreground">Loading…</p>
-          } @else if (filePath(); as p) {
-            @if (saveError(); as serr) {
-              <div
-                class="flex shrink-0 items-center justify-between gap-2 border-b border-amber-400/40 bg-amber-50/60 px-3 py-2 text-xs dark:bg-amber-950/30"
+           positioned workspace composer. -->
+      <div class="flex min-h-0 flex-1 flex-col pb-40">
+        @if (loadError(); as err) {
+          <div
+            class="flex flex-1 items-center justify-center p-6 text-sm text-destructive"
+          >
+            <div class="text-center">
+              <p class="font-medium">Couldn't open file</p>
+              <p class="mt-1 text-xs">{{ err }}</p>
+              <button
+                type="button"
+                hlmBtn
+                variant="outline"
+                size="sm"
+                class="mt-3"
+                (click)="reloadFromDisk()"
               >
-                <span class="text-amber-900 dark:text-amber-200">
-                  @if (serr.kind === 'stale') {
-                    File changed on disk. Reload to see the new version or keep
-                    editing and overwrite.
-                  } @else if (serr.kind === 'frozen') {
-                    This workspace is done and read-only.
-                  } @else {
-                    Save failed: {{ serr.message }}
-                  }
-                </span>
-                <span class="flex items-center gap-1">
-                  @if (serr.kind === 'stale') {
-                    <button
-                      type="button"
-                      hlmBtn
-                      variant="outline"
-                      size="xs"
-                      class="h-6 px-2 text-[11px]"
-                      (click)="reloadFromDisk()"
-                    >
-                      Reload
-                    </button>
-                    <button
-                      type="button"
-                      hlmBtn
-                      variant="ghost"
-                      size="xs"
-                      class="h-6 px-2 text-[11px]"
-                      (click)="dismissSaveError()"
-                    >
-                      Keep editing
-                    </button>
-                  } @else {
-                    <button
-                      type="button"
-                      hlmBtn
-                      variant="ghost"
-                      size="xs"
-                      class="h-6 px-2 text-[11px]"
-                      (click)="dismissSaveError()"
-                    >
-                      Dismiss
-                    </button>
-                  }
-                </span>
-              </div>
-            }
-            @defer (when mode() === 'edit') {
-              <mz-code-editor
-                class="flex-1 min-h-0"
-                [value]="editorValue()"
-                [path]="p"
-                [readOnly]="!canEdit()"
-                [theme]="editorTheme()"
-                (valueChange)="onEditorChange($event)"
-              />
-            } @placeholder {
-              <p class="px-3 py-3 text-xs text-muted-foreground">
-                Loading editor…
-              </p>
-            }
-          } @else {
+                Retry
+              </button>
+            </div>
+          </div>
+        } @else if (loading()) {
+          <p class="px-3 py-3 text-xs text-muted-foreground">Loading…</p>
+        } @else if (filePath(); as p) {
+          @if (saveError(); as serr) {
             <div
-              class="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground"
+              class="flex shrink-0 items-center justify-between gap-2 border-b border-amber-400/40 bg-amber-50/60 px-3 py-2 text-xs dark:bg-amber-950/30"
             >
-              No file selected.
+              <span class="text-amber-900 dark:text-amber-200">
+                @if (serr.kind === 'stale') {
+                  File changed on disk. Reload to see the new version or keep
+                  editing and overwrite.
+                } @else if (serr.kind === 'frozen') {
+                  This workspace is done and read-only.
+                } @else {
+                  Save failed: {{ serr.message }}
+                }
+              </span>
+              <span class="flex items-center gap-1">
+                @if (serr.kind === 'stale') {
+                  <button
+                    type="button"
+                    hlmBtn
+                    variant="outline"
+                    size="xs"
+                    class="h-6 px-2 text-[11px]"
+                    (click)="reloadFromDisk()"
+                  >
+                    Reload
+                  </button>
+                  <button
+                    type="button"
+                    hlmBtn
+                    variant="ghost"
+                    size="xs"
+                    class="h-6 px-2 text-[11px]"
+                    (click)="dismissSaveError()"
+                  >
+                    Keep editing
+                  </button>
+                } @else {
+                  <button
+                    type="button"
+                    hlmBtn
+                    variant="ghost"
+                    size="xs"
+                    class="h-6 px-2 text-[11px]"
+                    (click)="dismissSaveError()"
+                  >
+                    Dismiss
+                  </button>
+                }
+              </span>
             </div>
           }
+          @defer (when mode() === 'edit') {
+            <mz-code-editor
+              class="flex-1 min-h-0"
+              [value]="editorValue()"
+              [path]="p"
+              [readOnly]="!canEdit()"
+              [theme]="editorTheme()"
+              (valueChange)="onEditorChange($event)"
+            />
+          } @placeholder {
+            <p class="px-3 py-3 text-xs text-muted-foreground">
+              Loading editor…
+            </p>
+          }
+        } @else {
+          <div
+            class="flex flex-1 items-center justify-center p-6 text-sm text-muted-foreground"
+          >
+            No file selected.
+          </div>
         }
       </div>
-
-      <div hlmTabsContent="diff" class="flex min-h-0 flex-1 flex-col pb-40">
-        <app-feature-file-diff
-          class="flex-1 min-h-0"
-          [workspaceId]="workspaceId()"
-          [path]="filePath()"
-        />
-      </div>
-    </hlm-tabs>
+    }
   `,
 })
 export class FeatureFileContent {
@@ -284,6 +345,26 @@ export class FeatureFileContent {
     () => this.fileViewState().mode,
   );
 
+  private readonly cachedChangedFiles = this.repos.cachedChangedFilesFor(
+    this.workspaceId,
+  );
+  // Map the workspace-relative path to a `FileDiffStatus`. Defaults to
+  // 'modified' when the path is not in the changed-files cache (e.g.
+  // tracked-but-unchanged or the cache hasn't loaded yet) so the header
+  // badge keeps a sane neutral fallback.
+  protected readonly fileChangeStatus = computed<FileDiffStatus>(() => {
+    const p = this.filePath();
+    if (!p) return 'modified';
+    const files = this.cachedChangedFiles();
+    if (!files) return 'modified';
+    const match: ChangedFile | undefined = files.find((f) => f.path === p);
+    return match?.status ?? 'modified';
+  });
+  protected readonly statusBadge = computed<StatusBadge | null>(() => {
+    const status = this.fileChangeStatus();
+    return STATUS_BADGE[status] ?? null;
+  });
+
   // Key for resetting per-file edit state. Reading this in a linkedSignal
   // computation makes baseline/editorValue/etc. snap back to defaults when
   // the workspace or file changes.
@@ -300,8 +381,7 @@ export class FeatureFileContent {
   });
   // Editor buffer. Initialized from any in-memory edit buffer for this
   // (ws, path) so unsaved edits survive tab switches within the
-  // session. The buffer is flushed to disk on app close
-  // (`onCloseRequested` in app.config.ts) — no localStorage persistence.
+  // session.
   protected readonly editorValue = linkedSignal<string>(() => {
     const key = this.resetKey();
     const [ws, path] = decodeResetKey(key);
@@ -332,6 +412,19 @@ export class FeatureFileContent {
     this.themeService.isDark() ? 'dark' : 'light',
   );
 
+  protected readonly copyState = signal<CopyState>('idle');
+  protected readonly copyTooltip = computed(() => {
+    switch (this.copyState()) {
+      case 'copied':
+        return 'Copied!';
+      case 'err':
+        return 'Copy failed';
+      default:
+        return 'Copy path';
+    }
+  });
+  private copyResetTimer: ReturnType<typeof setTimeout> | null = null;
+
   private loadFetchId = 0;
   private readonly loadedEditKey = linkedSignal<string | null>(() => {
     this.resetKey();
@@ -353,11 +446,7 @@ export class FeatureFileContent {
     });
 
     // Auto-pin: first time the buffer becomes dirty for an active
-    // preview tab, promote it to pinned. Guarded per (ws, path) so
-    // Cmd-Z back to baseline + re-type does NOT fire a second
-    // pin-call (pinFor is idempotent but we avoid the cross-component
-    // churn). Resets on file/workspace change via `hasAutoPinned`'s
-    // linkedSignal.
+    // preview tab, promote it to pinned.
     effect(() => {
       if (!this.dirty()) return;
       if (this.hasAutoPinned()) return;
@@ -392,9 +481,7 @@ export class FeatureFileContent {
     // Diff-mode scroll persistence. The actual scroll surface is the
     // `<mz-diff-view>` host (in libs/mozart-ui/diff-view, marked
     // `overflow-auto`). We snapshot its scrollTop on cleanup, restore
-    // on activate via afterNextRender. The edit-mode editor owns its
-    // own scroll (CodeMirror's scrollDOM) and is intentionally NOT
-    // persisted here — captured as a follow-up in TODOS.md.
+    // on activate via afterNextRender.
     effect((onCleanup) => {
       const ws = this.workspaceId();
       const p = this.filePath();
@@ -427,19 +514,20 @@ export class FeatureFileContent {
       if (this.mode() !== 'diff' || !ws || !p) return;
       const el = this.findDiffScrollEl();
       if (el) this.scrollPosition.remember(fileTabKey(ws, p), el.scrollTop);
+      if (this.copyResetTimer !== null) {
+        clearTimeout(this.copyResetTimer);
+        this.copyResetTimer = null;
+      }
     });
   }
 
-  // The `<mz-diff-view>` element is the diff's scroll surface. Its host
-  // carries `overflow-auto`. Returns null when the diff view isn't
-  // mounted (e.g., in edit mode, during a re-render, or on first
-  // mount before afterNextRender fires).
   private findDiffScrollEl(): HTMLElement | null {
     return this.hostEl.nativeElement.querySelector('mz-diff-view');
   }
 
   protected setMode(value: string): void {
     if (value !== 'edit' && value !== 'diff') return;
+    if (value === 'edit' && !this.canEdit()) return;
     const ws = this.workspaceId();
     const p = this.filePath();
     if (!ws || !p) return;
@@ -467,6 +555,29 @@ export class FeatureFileContent {
     void this.loadFile(ws, p);
   }
 
+  protected async copyPath(): Promise<void> {
+    const path = this.filePath();
+    if (!path) return;
+    this.clearCopyResetTimer();
+    try {
+      await navigator.clipboard.writeText(path);
+      this.copyState.set('copied');
+    } catch {
+      this.copyState.set('err');
+    }
+    this.copyResetTimer = setTimeout(() => {
+      this.copyState.set('idle');
+      this.copyResetTimer = null;
+    }, 1500);
+  }
+
+  private clearCopyResetTimer(): void {
+    if (this.copyResetTimer !== null) {
+      clearTimeout(this.copyResetTimer);
+      this.copyResetTimer = null;
+    }
+  }
+
   protected async save(): Promise<void> {
     const ws = this.workspaceId();
     const p = this.filePath();
@@ -483,9 +594,6 @@ export class FeatureFileContent {
       const newHash = await this.repos.saveFile(ws, p, content, expected);
       this.baseline.set(content);
       this.baselineHash.set(newHash);
-      // Save success: drop the edit buffer AND nudge the Changes tab
-      // to refresh so the user's modification shows up without waiting
-      // for the FS-watcher debounce. saveError paths skip both.
       this.uiState.clearEdit(ws, p);
       this.mutations.softRefreshAfterMutation(ws);
     } catch (err) {

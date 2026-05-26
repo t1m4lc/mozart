@@ -1,4 +1,4 @@
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { computed, provideZonelessChangeDetection, signal } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideTheme } from '@mozart/shared-util-theme';
@@ -44,9 +44,11 @@ interface UiStateStub {
 }
 
 function makeUiState(): UiStateStub {
-  // Default to 'diff' so the @defer-wrapped mz-code-editor block stays
-  // dormant during the spec — fewer transitive deps to satisfy.
-  const state = signal({ mode: 'diff' as const, splitDiff: false });
+  // Default to 'edit' so the edit-mode header renders directly. The
+  // mz-code-editor lives inside an @defer block which stays as the
+  // placeholder under jsdom (no viewport trigger fires), keeping
+  // CodeMirror deps out of the spec.
+  const state = signal({ mode: 'edit' as const, splitDiff: false });
   return {
     fileViewStateFor: vi.fn(() => state),
     upsertFileView: vi.fn(),
@@ -75,6 +77,7 @@ async function mount(opts: {
           loadFile: vi.fn(async () => ''),
           saveFile: vi.fn(async () => ''),
           loadFileDiff: vi.fn(async () => ''),
+          cachedChangedFilesFor: vi.fn(() => computed(() => null)),
         },
       },
       { provide: UiStateFacade, useValue: uiState },

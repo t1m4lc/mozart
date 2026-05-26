@@ -580,9 +580,11 @@ describe('MzFileDiffCard — chrome variant', () => {
     expect(findBySlot(fixture, 'collapse-chevron')).toBeNull();
   });
 
-  it("chrome='flush' suppresses the path display in the header", () => {
+  it("chrome='flush' renders the path display in the header", () => {
     const fixture = mount({ chrome: 'flush', path: 'src/foo.ts' });
-    expect(findBySlot(fixture, 'card-path')).toBeNull();
+    const pathEl = findBySlot(fixture, 'card-path');
+    expect(pathEl).toBeTruthy();
+    expect(pathEl!.textContent).toContain('src/foo.ts');
   });
 
   it("chrome='card' renders the path display in the header", () => {
