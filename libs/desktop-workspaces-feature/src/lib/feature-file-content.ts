@@ -293,55 +293,60 @@ const TEXT_ENCODER = new TextEncoder();
           </div>
         }
       </div>
-
-      <!-- Floating Save/Discard overlay. Anchored to the component
-           host (relative). The 190 px bottom inset clears the
-           workspace composer chrome (~140-180 px). pointer-events-none
-           on the wrapper + pointer-events-auto on the card keeps the
-           rest of the editor surface clickable. -->
-      <div
-        class="pointer-events-none absolute inset-x-0 bottom-[190px] z-20 flex justify-center px-3"
-        aria-live="polite"
-      >
-        <div
-          class="bg-popover/95 pointer-events-auto flex items-center gap-2 rounded-full border border-border px-2 py-1 shadow-md backdrop-blur transition-all duration-150"
-          [class.opacity-0]="!dirty() && !saving()"
-          [class.translate-y-1]="!dirty() && !saving()"
-          [class.opacity-100]="dirty() || saving()"
-          [class.translate-y-0]="dirty() || saving()"
-        >
-          <span class="text-muted-foreground px-1.5 text-[11px]">
-            @if (saving()) {
-              Saving…
-            } @else {
-              Unsaved changes
-            }
-          </span>
-          <button
-            type="button"
-            hlmBtn
-            variant="ghost"
-            size="xs"
-            class="text-muted-foreground hover:text-foreground h-7 px-2 text-[11px]"
-            [disabled]="!dirty() || saving()"
-            (click)="discardEdits()"
-          >
-            Discard
-          </button>
-          <button
-            type="button"
-            hlmBtn
-            variant="default"
-            size="xs"
-            class="h-7 px-3 text-[11px]"
-            [disabled]="!dirty() || saving() || !canEdit()"
-            (click)="save()"
-          >
-            Save
-          </button>
-        </div>
-      </div>
     }
+
+    <!-- Floating Save/Discard overlay. Anchored to the component host
+         (relative) and rendered OUTSIDE the diff/edit branches so a
+         user who dirties the buffer in Edit mode and switches to Diff
+         to glance at the change can still reach Save. The 190 px
+         bottom inset clears the workspace composer chrome (~140-180
+         px). pointer-events-none on the wrapper + pointer-events-auto
+         on the card keeps the rest of the surface clickable.
+         aria-hidden flips with the visibility state so screen readers
+         ignore the overlay when it's faded out. -->
+    <div
+      class="pointer-events-none absolute inset-x-0 bottom-[190px] z-20 flex justify-center px-3"
+      aria-live="polite"
+      [attr.aria-hidden]="!dirty() && !saving()"
+    >
+      <div
+        class="bg-popover/95 pointer-events-auto flex items-center gap-2 rounded-full border border-border px-2 py-1 shadow-md backdrop-blur transition-all duration-150"
+        [class.opacity-0]="!dirty() && !saving()"
+        [class.translate-y-1]="!dirty() && !saving()"
+        [class.opacity-100]="dirty() || saving()"
+        [class.translate-y-0]="dirty() || saving()"
+      >
+        <span class="text-muted-foreground px-1.5 text-[11px]">
+          @if (saving()) {
+            Saving…
+          } @else {
+            Unsaved changes
+          }
+        </span>
+        <button
+          type="button"
+          hlmBtn
+          variant="ghost"
+          size="xs"
+          class="text-muted-foreground hover:text-foreground h-7 px-2 text-[11px]"
+          [disabled]="!dirty() || saving()"
+          (click)="discardEdits()"
+        >
+          Discard
+        </button>
+        <button
+          type="button"
+          hlmBtn
+          variant="default"
+          size="xs"
+          class="h-7 px-3 text-[11px]"
+          [disabled]="!dirty() || saving() || !canEdit()"
+          (click)="save()"
+        >
+          Save
+        </button>
+      </div>
+    </div>
   `,
 })
 export class FeatureFileContent {
@@ -559,16 +564,19 @@ export class FeatureFileContent {
 
     // Final snapshot on component destroy — covers chat-tab-switch
     // and route-navigate cases where the effect's cleanup didn't run.
+    // Copy-state timer cleanup runs unconditionally so an edit-mode
+    // destroy (the typical Copy click context) doesn't leak the timer
+    // closure or write to a destroyed signal.
     this.destroyRef.onDestroy(() => {
+      if (this.copyResetTimer !== null) {
+        clearTimeout(this.copyResetTimer);
+        this.copyResetTimer = null;
+      }
       const ws = this.workspaceId();
       const p = this.filePath();
       if (this.mode() !== 'diff' || !ws || !p) return;
       const el = this.findDiffScrollEl();
       if (el) this.scrollPosition.remember(fileTabKey(ws, p), el.scrollTop);
-      if (this.copyResetTimer !== null) {
-        clearTimeout(this.copyResetTimer);
-        this.copyResetTimer = null;
-      }
     });
   }
 
