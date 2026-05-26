@@ -37,6 +37,7 @@ import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import {
   RouterFacade,
   SessionStore,
+  UiStateFacade,
 } from '@mozart/desktop-ui-state-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
@@ -83,6 +84,7 @@ export const appConfig: ApplicationConfig = {
       const sessionStore = inject(SessionStore);
       const repos = inject(RepositoriesFacade);
       const router = inject(Router);
+      const uiState = inject(UiStateFacade);
 
       // Boot auth + onboarding first so route guards see the persisted
       // state before the router resolves the initial URL.
@@ -106,6 +108,19 @@ export const appConfig: ApplicationConfig = {
         await router.navigateByUrl(lastUrl).catch((err) => {
           console.warn('[boot] last-URL restore failed:', err);
         });
+      }
+
+      // Sidebar starts fully collapsed on boot. After the URL restore
+      // settles, expand ONLY the project that owns the active
+      // workspace — keeps the rest collapsed so the sidebar doesn't
+      // dump every project's workspaces on screen at once.
+      uiState.collapseAllProjects();
+      const activeWorkspaceId = routerFacade.activeWorkspaceId();
+      if (activeWorkspaceId) {
+        const ws = workspaces
+          .all()
+          .find((w) => w.id === activeWorkspaceId);
+        if (ws) uiState.expandProjects([ws.projectId]);
       }
 
       // Awaited so the close handler is registered before any user

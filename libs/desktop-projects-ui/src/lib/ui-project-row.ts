@@ -72,7 +72,9 @@ import type { Project } from '@mozart/desktop-projects-util';
       </span>
     </button>
 
-    <button
+    <!-- Project settings button is hidden until the settings surface
+         ships. Restore by uncommenting this block. -->
+    <!-- <button
       type="button"
       hlmTooltip="Project settings"
       position="top"
@@ -85,7 +87,7 @@ import type { Project } from '@mozart/desktop-projects-util';
              group-hover/trig:opacity-100"
     >
       <ng-icon hlm name="lucideFolderCog" size="xs" />
-    </button>
+    </button> -->
 
     <button
       type="button"

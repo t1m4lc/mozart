@@ -11,6 +11,7 @@ import { HlmDialogService } from '@spartan-ui/dialog';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import {
   WorkspacesFacade,
   type CreatedPr,
@@ -39,7 +40,19 @@ interface ProfileStub {
 
 interface WorkspacesStub {
   readonly createPr: ReturnType<typeof vi.fn>;
-  readonly workspaceById: (id: string) => () => { projectId: string } | null;
+  readonly workspaceById: (
+    id: string,
+  ) => () => { projectId: string; baseBranch: string } | null;
+}
+
+interface RepositoriesStub {
+  readonly listChangedFiles: ReturnType<typeof vi.fn>;
+}
+
+function makeRepositories(files: readonly unknown[] = []): RepositoriesStub {
+  return {
+    listChangedFiles: vi.fn(async () => files),
+  };
 }
 
 interface ProjectsStub {
@@ -86,7 +99,7 @@ function makeWorkspaces(opts: WorkspacesOpts = {}): WorkspacesStub {
         }
       );
     }),
-    workspaceById: () => () => ({ projectId: 'proj1' }),
+    workspaceById: () => () => ({ projectId: 'proj1', baseBranch: 'main' }),
   };
 }
 
@@ -98,6 +111,7 @@ interface MountOpts {
   readonly profile?: ProfileStub;
   readonly workspaces?: WorkspacesStub;
   readonly projects?: ProjectsStub;
+  readonly repositories?: RepositoriesStub;
   readonly dialogService?: DialogServiceStub;
   readonly context?: CreatePrDialogContext;
 }
@@ -107,11 +121,13 @@ function mount(opts: MountOpts = {}): {
   profile: ProfileStub;
   workspaces: WorkspacesStub;
   projects: ProjectsStub;
+  repositories: RepositoriesStub;
   dialogService: DialogServiceStub;
 } {
   const profile = opts.profile ?? makeProfile(true);
   const workspaces = opts.workspaces ?? makeWorkspaces();
   const projects = opts.projects ?? makeProjects(true);
+  const repositories = opts.repositories ?? makeRepositories();
   const dialogService = opts.dialogService ?? makeDialogService();
   const ctx: CreatePrDialogContext = opts.context ?? {
     workspaceId: 'ws1',
@@ -136,12 +152,13 @@ function mount(opts: MountOpts = {}): {
       { provide: ProfileFacade, useValue: profile },
       { provide: WorkspacesFacade, useValue: workspaces },
       { provide: ProjectsFacade, useValue: projects },
+      { provide: RepositoriesFacade, useValue: repositories },
       { provide: HlmDialogService, useValue: dialogService },
     ],
   });
   const fixture = TestBed.createComponent(FeatureCreatePrDialog);
   fixture.detectChanges();
-  return { fixture, profile, workspaces, projects, dialogService };
+  return { fixture, profile, workspaces, projects, repositories, dialogService };
 }
 
 function buttons(
@@ -193,7 +210,7 @@ describe('FeatureCreatePrDialog — no-remote state (priority over not-connected
       projects: makeProjects(false),
     });
     expect(alertEl(fixture)?.textContent).toContain(
-      "doesn't have a GitHub remote",
+      "isn't linked to a GitHub remote",
     );
     // No "Open pull request" button rendered.
     expect(buttonByText(fixture, 'Open pull request')).toBeNull();
@@ -205,7 +222,7 @@ describe('FeatureCreatePrDialog — no-remote state (priority over not-connected
   it('treats isGithubRemote=null (probe pending) as no-remote', () => {
     const { fixture } = mount({ projects: makeProjects(null) });
     expect(alertEl(fixture)?.textContent).toContain(
-      "doesn't have a GitHub remote",
+      "isn't linked to a GitHub remote",
     );
   });
 

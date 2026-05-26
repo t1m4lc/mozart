@@ -12,6 +12,14 @@ import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
 
 interface State {
   workspaces: Workspace[];
+  // Generic "this workspace is mid-transition" flag — reactive,
+  // cause-agnostic. Any caller (delete, initialize, future archive/
+  // restore flows) flips it via `setLoading` and the workspace row
+  // reacts the same way regardless of the reason. The boolean is kept
+  // as a separate Set so a row that's already `pending: true`
+  // (newly-created ghost) is still considered loading without
+  // overloading the entity model.
+  loadingIds: ReadonlySet<string>;
 }
 
 // v0.1.0-beta.1: hydrated from Tauri at boot via WorkspacesFacade.loadAll().
@@ -24,13 +32,14 @@ interface State {
 // store").
 const initialState: State = {
   workspaces: [],
+  loadingIds: new Set(),
 };
 
 export const WorkspaceStore = signalStore(
   { providedIn: 'root' },
   withState(initialState),
   withDevtools('workspaces'),
-  withComputed(({ workspaces }) => ({
+  withComputed(({ workspaces, loadingIds }) => ({
     byProject: computed(() => {
       const map = new Map<string, Workspace[]>();
       for (const w of workspaces()) {
@@ -41,6 +50,16 @@ export const WorkspaceStore = signalStore(
       return map;
     }),
     pending: computed(() => workspaces().filter((w) => w.pending)),
+    // Union view: `pending: true` ghost rows + every id flipped via
+    // `setLoading`. Consumers read this single Set instead of having
+    // to combine the two themselves.
+    loadingSet: computed(() => {
+      const ids = new Set(loadingIds());
+      for (const w of workspaces()) {
+        if (w.pending) ids.add(w.id);
+      }
+      return ids as ReadonlySet<string>;
+    }),
   })),
   withMethods((store) => {
     const mutate = (
@@ -125,6 +144,20 @@ export const WorkspaceStore = signalStore(
         action: MergeAction | null,
       ): void {
         mutate(workspaceId, (w) => ({ ...w, lastMergeAction: action }));
+      },
+
+      // Flip the transient "this workspace is currently in a loading
+      // transition" flag. Cause-agnostic — used by deletion, future
+      // initialize-after-bootstrap, archive, etc. Always returns a
+      // fresh Set so signal subscribers re-evaluate.
+      setLoading(workspaceId: string, loading: boolean): void {
+        const current = store.loadingIds();
+        const has = current.has(workspaceId);
+        if (loading === has) return;
+        const next = new Set(current);
+        if (loading) next.add(workspaceId);
+        else next.delete(workspaceId);
+        patchState(store, { loadingIds: next });
       },
     };
   }),

@@ -294,15 +294,13 @@ export class ProjectsFacade {
     }
   }
 
+  // Pessimistic: adapter (Tauri DB delete) first, store update second.
+  // Optimistic order was unsafe for project deletion — a partial failure
+  // left workspaces/tasks (wiped by the caller) inconsistent with the
+  // still-present project row.
   async remove(id: string): Promise<void> {
-    const snapshot = this.store.projects();
+    await this.adapter.remove(id);
     this.store.removeProject(id);
-    try {
-      await this.adapter.remove(id);
-    } catch (err) {
-      this.store.replaceAll(snapshot);
-      throw err;
-    }
   }
 
   // Optimistic reorder. Mirrors the array immediately so the drop

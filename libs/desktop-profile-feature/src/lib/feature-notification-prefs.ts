@@ -25,26 +25,13 @@ import {
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div class="space-y-4 rounded-md border border-border/60 bg-muted/30 p-4">
+    <div class="rounded-md border border-border/60 bg-muted/30 p-4">
       <div class="flex items-center justify-between gap-3">
         <div class="space-y-0.5">
           <p class="text-sm font-medium">Desktop notifications</p>
           <p class="text-xs text-muted-foreground">
             Mozart pings you when the agent finishes a turn in a workspace
-            you're not currently viewing.
-          </p>
-        </div>
-        <hlm-switch
-          [checked]="_prefs().desktop"
-          (checkedChange)="onDesktopToggle($event)"
-        />
-      </div>
-      <div class="flex items-center justify-between gap-3">
-        <div class="space-y-0.5">
-          <p class="text-sm font-medium">Notification sound</p>
-          <p class="text-xs text-muted-foreground">
-            Play the default OS notification sound. Off keeps the popup
-            silent.
+            you're not currently viewing. Uses the OS notification sound.
           </p>
         </div>
         <div class="flex items-center gap-2">
@@ -53,15 +40,15 @@ import {
             variant="ghost"
             size="icon-sm"
             type="button"
-            aria-label="Play test sound"
-            [disabled]="!_prefs().sound"
+            aria-label="Play test notification sound"
+            [disabled]="!_prefs().desktop"
             (click)="onTestSound()"
           >
             <ng-icon hlm name="lucideVolume2" size="sm" />
           </button>
           <hlm-switch
-            [checked]="_prefs().sound"
-            (checkedChange)="onSoundToggle($event)"
+            [checked]="_prefs().desktop"
+            (checkedChange)="onDesktopToggle($event)"
           />
         </div>
       </div>
@@ -92,11 +79,9 @@ export class FeatureNotificationPrefs {
   }
 
   protected onDesktopToggle(value: boolean): void {
-    this._prefs.update((p) => ({ ...p, desktop: value }));
-  }
-
-  protected onSoundToggle(value: boolean): void {
-    this._prefs.update((p) => ({ ...p, sound: value }));
+    // `sound` stays pinned to `desktop` — they're conceptually one
+    // user-facing setting now (the row was merged in v0.1.0-beta.1).
+    this._prefs.update((p) => ({ ...p, desktop: value, sound: value }));
   }
 
   /** Play only the chime — doesn't fire a desktop notification. Lets

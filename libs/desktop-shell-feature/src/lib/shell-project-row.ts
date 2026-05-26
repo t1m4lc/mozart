@@ -9,6 +9,7 @@ import {
   output,
 } from '@angular/core';
 import { HlmContextMenuImports } from '@spartan-ui/context-menu';
+import { HlmSkeletonImports } from '@spartan-ui/skeleton';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import type { Project } from '@mozart/desktop-projects-util';
@@ -19,6 +20,8 @@ import {
   WorkspaceEmptyState,
   WorkspaceRow,
 } from '@mozart/desktop-workspaces-ui';
+
+const EMPTY_DELETING_IDS: ReadonlySet<string> = new Set();
 
 // Per-project sidebar row + nested workspaces list. Owned by the shell
 // layer (the legal cross-domain composer). Reads its data straight off
@@ -35,6 +38,7 @@ import {
   selector: 'app-shell-project-row',
   imports: [
     HlmContextMenuImports,
+    ...HlmSkeletonImports,
     ProjectRow,
     WorkspaceRow,
     WorkspaceEmptyState,
@@ -79,18 +83,29 @@ import {
             [hlmContextMenuTrigger]="workspaceCtxMenu()"
             [hlmContextMenuTriggerData]="{ $implicit: workspace }"
           >
-            <app-workspace-row
-              [workspace]="workspace"
-              [editing]="editingWorkspaceId() === workspace.id"
-              [isStreaming]="streamingIds().has(workspace.id)"
-              [chatTitle]="chatTitleFor(workspace.id)"
-              [lastActivity]="lastActivityFor(workspace.id)"
-              [diffStats]="diffStatsFor(workspace.id)"
-              (renameCommit)="
-                renameCommit.emit({ id: workspace.id, name: $event })
-              "
-              (renameCancel)="editingWorkspaceId.set(null)"
-            />
+            @if (deletingWorkspaceIds().has(workspace.id)) {
+              <div
+                class="flex h-8 items-center gap-1.5 px-2"
+                aria-busy="true"
+                aria-label="Removing workspace"
+              >
+                <hlm-skeleton class="size-3 shrink-0 rounded-full" />
+                <hlm-skeleton class="h-3 flex-1" />
+              </div>
+            } @else {
+              <app-workspace-row
+                [workspace]="workspace"
+                [editing]="editingWorkspaceId() === workspace.id"
+                [isStreaming]="streamingIds().has(workspace.id)"
+                [chatTitle]="chatTitleFor(workspace.id)"
+                [lastActivity]="lastActivityFor(workspace.id)"
+                [diffStats]="diffStatsFor(workspace.id)"
+                (renameCommit)="
+                  renameCommit.emit({ id: workspace.id, name: $event })
+                "
+                (renameCancel)="editingWorkspaceId.set(null)"
+              />
+            }
           </li>
         }
       </ul>
@@ -107,6 +122,13 @@ export class ShellProjectRow {
   readonly workspaceCtxMenu = input.required<TemplateRef<unknown>>();
   readonly emptyWorkspacesCtxMenu = input.required<TemplateRef<unknown>>();
   readonly editingWorkspaceId = model<string | null>(null);
+  // Per-row mirror of the parent shell-project-list's deleting set —
+  // used to flip each workspace row to a skeleton while its Tauri
+  // archive is in flight. Default is an empty Set so spec-light parent
+  // mounts don't have to thread the input.
+  readonly deletingWorkspaceIds = input<ReadonlySet<string>>(
+    EMPTY_DELETING_IDS,
+  );
 
   readonly createWorkspace = output<string>();
   readonly renameCommit = output<{ id: string; name: string }>();

@@ -1,4 +1,5 @@
 import { CdkDrag, CdkDragDrop, CdkDropList } from '@angular/cdk/drag-drop';
+import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
@@ -10,6 +11,8 @@ import { Router } from '@angular/router';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { TasksFacade } from '@mozart/desktop-tasks-data-access';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
   AddProjectMenuItems,
   ConfirmDeleteProjectDialog,
@@ -42,6 +45,7 @@ import { HlmDialogService } from '@spartan-ui/dialog';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmSidebarImports } from '@spartan-ui/sidebar';
+import { HlmSkeletonImports } from '@spartan-ui/skeleton';
 import { AddProjectFlow } from './add-project.flow';
 import { ShellProjectRow } from './shell-project-row';
 
@@ -53,10 +57,12 @@ import { ShellProjectRow } from './shell-project-row';
   imports: [
     CdkDropList,
     CdkDrag,
+    NgTemplateOutlet,
     HlmContextMenuImports,
     HlmDropdownMenuImports,
     HlmIconImports,
     HlmSidebarImports,
+    ...HlmSkeletonImports,
     NgIcon,
     MzStatusIcon,
     WorkspaceRow,
@@ -124,16 +130,22 @@ import { ShellProjectRow } from './shell-project-row';
                     [hlmContextMenuTrigger]="workspaceCtxMenuTpl"
                     [hlmContextMenuTriggerData]="{ $implicit: workspace }"
                   >
-                    <app-workspace-row
-                      [workspace]="workspace"
-                      [editing]="editingWorkspaceId() === workspace.id"
-                      [isStreaming]="streamingIds().has(workspace.id)"
-                      [chatTitle]="chatTitleFor(workspace.id)"
-                      [lastActivity]="lastActivityFor(workspace.id)"
-                      [diffStats]="diffStatsFor(workspace.id)"
-                      (renameCommit)="onRenameCommit(workspace.id, $event)"
-                      (renameCancel)="editingWorkspaceId.set(null)"
-                    />
+                    @if (deletingWorkspaceIds().has(workspace.id)) {
+                      <ng-container
+                        [ngTemplateOutlet]="workspaceSkeletonTpl"
+                      />
+                    } @else {
+                      <app-workspace-row
+                        [workspace]="workspace"
+                        [editing]="editingWorkspaceId() === workspace.id"
+                        [isStreaming]="streamingIds().has(workspace.id)"
+                        [chatTitle]="chatTitleFor(workspace.id)"
+                        [lastActivity]="lastActivityFor(workspace.id)"
+                        [diffStats]="diffStatsFor(workspace.id)"
+                        (renameCommit)="onRenameCommit(workspace.id, $event)"
+                        (renameCancel)="editingWorkspaceId.set(null)"
+                      />
+                    }
                   </li>
                 }
               </ul>
@@ -151,15 +163,26 @@ import { ShellProjectRow } from './shell-project-row';
       >
         @for (project of visibleProjects(); track project.id) {
           <li hlmSidebarMenuItem cdkDrag [cdkDragData]="project">
-            <app-shell-project-row
-              [project]="project"
-              [projectCtxMenu]="projectCtxMenuTpl"
-              [workspaceCtxMenu]="workspaceCtxMenuTpl"
-              [emptyWorkspacesCtxMenu]="emptyWorkspacesCtxMenuTpl"
-              [(editingWorkspaceId)]="editingWorkspaceId"
-              (createWorkspace)="createWorkspace($event)"
-              (renameCommit)="onRenameCommit($event.id, $event.name)"
-            />
+            @if (deletingProjectIds().has(project.id)) {
+              <ng-container
+                [ngTemplateOutlet]="projectSkeletonTpl"
+                [ngTemplateOutletContext]="{
+                  expanded: projects.isExpanded(project.id),
+                  workspaceCount: workspaceCountFor(project.id)
+                }"
+              />
+            } @else {
+              <app-shell-project-row
+                [project]="project"
+                [projectCtxMenu]="projectCtxMenuTpl"
+                [workspaceCtxMenu]="workspaceCtxMenuTpl"
+                [emptyWorkspacesCtxMenu]="emptyWorkspacesCtxMenuTpl"
+                [deletingWorkspaceIds]="deletingWorkspaceIds()"
+                [(editingWorkspaceId)]="editingWorkspaceId"
+                (createWorkspace)="createWorkspace($event)"
+                (renameCommit)="onRenameCommit($event.id, $event.name)"
+              />
+            }
           </li>
         }
       </ul>
@@ -210,6 +233,51 @@ import { ShellProjectRow } from './shell-project-row';
         </button>
       </hlm-dropdown-menu>
     </ng-template>
+
+    <!-- Skeleton placeholders shown in the row's exact slot while a
+         delete is in flight. Keeps the sidebar's vertical rhythm so
+         the surrounding rows don't reflow when a project or workspace
+         vanishes. -->
+    <ng-template
+      #projectSkeletonTpl
+      let-expanded="expanded"
+      let-workspaceCount="workspaceCount"
+    >
+      <div
+        class="flex h-8 items-center gap-1.5 px-2"
+        aria-busy="true"
+        aria-label="Removing project"
+      >
+        <hlm-skeleton class="size-5 shrink-0 rounded-sm" />
+        <hlm-skeleton class="h-3 flex-1" />
+      </div>
+      @if (expanded) {
+        <ul
+          class="mt-0.5 ml-3 flex flex-col gap-0.5 border-l border-sidebar-border pl-2"
+          aria-hidden="true"
+        >
+          @for (
+            i of skeletonRowsFor(workspaceCount);
+            track $index
+          ) {
+            <li>
+              <ng-container [ngTemplateOutlet]="workspaceSkeletonTpl" />
+            </li>
+          }
+        </ul>
+      }
+    </ng-template>
+
+    <ng-template #workspaceSkeletonTpl>
+      <div
+        class="flex h-8 items-center gap-1.5 px-2"
+        aria-busy="true"
+        aria-label="Removing workspace"
+      >
+        <hlm-skeleton class="size-3 shrink-0 rounded-full" />
+        <hlm-skeleton class="h-3 flex-1" />
+      </div>
+    </ng-template>
   `,
 })
 export class ShellProjectList {
@@ -219,6 +287,8 @@ export class ShellProjectList {
   private readonly _chat = inject(ChatFacade);
   private readonly _dialogService = inject(HlmDialogService);
   private readonly _router = inject(Router);
+  private readonly _tasks = inject(TasksFacade);
+  private readonly _uiState = inject(UiStateFacade);
 
   // Workspace ids currently streaming. Each row reads
   // `streamingIds().has(workspace.id)` rather than a per-id computed —
@@ -249,6 +319,40 @@ export class ShellProjectList {
 
   protected readonly editingWorkspaceId = signal<string | null>(null);
   protected readonly visibleProjects = this.projects.visible;
+
+  // Ids the user has confirmed a delete on but whose Tauri call is
+  // still in flight. The row renders a skeleton in this slot so the
+  // sidebar's vertical rhythm stays stable until the row actually
+  // vanishes. Cleared in `finally` so an error path doesn't leave a
+  // permanent placeholder.
+  //
+  // Project ids are tracked here (no project-level loading store yet);
+  // workspace ids live in the workspace store's `loadingIds` Set so
+  // the state is reactive cause-agnostically (delete, initialize,
+  // future archive flows all flip the same signal).
+  protected readonly deletingProjectIds = signal<ReadonlySet<string>>(
+    new Set(),
+  );
+  protected readonly deletingWorkspaceIds = this.workspaces.loadingIds;
+
+  // Mirrors the expanded-project row's nested workspace count so the
+  // skeleton renders the same number of placeholder rows. Reading off
+  // the live workspace store works here — the rows are still in the
+  // store during the in-flight delete (they're swept right after the
+  // Tauri call resolves).
+  protected workspaceCountFor(projectId: string): number {
+    return this.workspaces.all().filter((w) => w.projectId === projectId)
+      .length;
+  }
+
+  // Fixed-length sentinel array for the `@for` skeleton loop. Caps at 4
+  // so a project with dozens of workspaces doesn't render dozens of
+  // skeleton rows — the visual is "loading, this row is going away",
+  // not "preview of what's about to vanish".
+  protected skeletonRowsFor(workspaceCount: number): readonly null[] {
+    const n = Math.max(1, Math.min(4, workspaceCount));
+    return Array.from({ length: n }, () => null);
+  }
 
   // Group-by-Status render: one section per non-empty status, ordered
   // by the canonical UI_WORKSPACE_STATUSES list. Only workspaces whose
@@ -336,17 +440,54 @@ export class ShellProjectList {
     const context: ConfirmDeleteProjectContext = {
       project,
       onConfirm: async () => {
-        this.workspaces.removeForProject(project.id);
+        // Pessimistic order: commit the backend delete first, then
+        // sweep every in-memory store. The previous order wiped
+        // workspaces optimistically and only rolled back the project
+        // store on adapter failure, which left the project row visible
+        // (with stale workspace count) when the adapter failed AND left
+        // orphan task/ui-state rows when it succeeded.
+        const activeId = this.workspaces.activeId();
+        const active = activeId
+          ? this.workspaces.workspaceById(activeId)()
+          : null;
+        if (active?.projectId === project.id) {
+          await this._router.navigate(['/']);
+        }
+        this.markProjectDeleting(project.id, true);
         try {
           await this.projects.remove(project.id);
         } catch (err) {
           toast.error('Could not remove project', {
             description: errorMessage(err),
           });
+          this.markProjectDeleting(project.id, false);
+          return;
         }
+        this.workspaces.removeForProject(project.id);
+        this._tasks.removeForProject(project.id);
+        this._uiState.setExpandedProjects(
+          [...this._uiState.expandedProjectIds()].filter(
+            (id) => id !== project.id,
+          ),
+        );
+        // Row has now vanished from `visibleProjects()` — drop the
+        // deleting flag so the Set doesn't grow unbounded across the
+        // session.
+        this.markProjectDeleting(project.id, false);
       },
     };
     this._dialogService.open(ConfirmDeleteProjectDialog, { context });
+  }
+
+  // Flip the project-deleting flag. Workspaces route through the
+  // workspace facade's `setLoading` (driven from `archive`), so this
+  // helper only owns the project side. Returns a new Set each call so
+  // signal subscribers re-evaluate.
+  private markProjectDeleting(projectId: string, on: boolean): void {
+    const next = new Set(this.deletingProjectIds());
+    if (on) next.add(projectId);
+    else next.delete(projectId);
+    this.deletingProjectIds.set(next);
   }
 
   protected openRemoveWorkspaceDialog(workspace: Workspace): void {
@@ -358,6 +499,8 @@ export class ShellProjectList {
       hasUncommittedChanges,
       prNotSent,
       onConfirm: async () => {
+        // `archive` flips the workspace store's loading flag for its
+        // own duration; no local tracking needed here.
         try {
           await this.workspaces.archive(workspace.id);
         } catch (err) {

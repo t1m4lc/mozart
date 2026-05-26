@@ -23,14 +23,16 @@ import { HlmIconImports } from '@spartan-ui/icon';
   template: `
     <hlm-dropdown-menu class="w-52">
       <hlm-dropdown-menu-group>
-        <button
+        <!-- Project settings is hidden until the project-level settings
+             surface ships. Restore by uncommenting this block. -->
+        <!-- <button
           hlmDropdownMenuItem
           type="button"
           class="cursor-pointer"
           (triggered)="settings.emit()"
         >
           <ng-icon hlm name="lucideSettings" size="xs" /> Project settings
-        </button>
+        </button> -->
         <button
           hlmDropdownMenuItem
           type="button"

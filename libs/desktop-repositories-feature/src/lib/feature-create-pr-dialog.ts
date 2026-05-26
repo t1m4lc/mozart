@@ -15,6 +15,7 @@ import { lucideExternalLink, lucideGithub } from '@ng-icons/lucide';
 import { toast } from '@spartan-ng/brain/sonner';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 export interface CreatePrDialogContext {
@@ -119,10 +120,39 @@ export interface CreatePrDialogContext {
         <div class="px-6 pt-3">
           <div hlmAlert variant="default">
             <p hlmAlertDescription>
-              This workspace's project doesn't have a GitHub remote yet. Add a
-              <code class="font-mono">github.com</code> URL as the
-              <code class="font-mono">origin</code> remote (or push the repo
-              to a GitHub fork), then come back here to open the PR.
+              This workspace's project isn't linked to a GitHub remote. To
+              open a pull request:
+            </p>
+            <ol
+              class="mt-2 list-decimal space-y-1 pl-5 text-xs text-muted-foreground"
+            >
+              <li>
+                Create a repository on GitHub (or fork an existing one).
+              </li>
+              <li>
+                Add it as the <code class="font-mono">origin</code> remote
+                inside your project:
+                <code class="font-mono"
+                  >git remote add origin git&#64;github.com:&lt;owner&gt;/&lt;repo&gt;.git</code
+                >
+              </li>
+              <li>
+                Push the base branch:
+                <code class="font-mono">git push -u origin {{ baseBranchLabel() }}</code>
+              </li>
+              <li>Re-open this dialog — Mozart will pick up the remote.</li>
+            </ol>
+          </div>
+        </div>
+      }
+
+      @if (hasUncommittedChanges()) {
+        <div class="px-6 pt-3">
+          <div hlmAlert variant="destructive">
+            <p hlmAlertDescription>
+              You have uncommitted changes in this workspace. Commit them
+              first — Mozart pushes the branch as-is and a PR opened from a
+              dirty tree won't include your local edits.
             </p>
           </div>
         </div>
@@ -171,11 +201,21 @@ export class FeatureCreatePrDialog {
   protected readonly profile = inject(ProfileFacade);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly projects = inject(ProjectsFacade);
+  private readonly repos = inject(RepositoriesFacade);
   private readonly dialogService = inject(HlmDialogService);
 
   protected readonly submitting = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly createdUrl = signal<string | null>(null);
+  // Pulled fresh on dialog open via `listChangedFiles`. Null = pending;
+  // any working-tree file (staged or unstaged) flips this true so the
+  // user gets a clear "commit first" warning before pushing.
+  protected readonly hasUncommittedChanges = signal<boolean>(false);
+
+  protected readonly baseBranchLabel = computed(() => {
+    const ws = this.workspaces.workspaceById(this.ctx.workspaceId)();
+    return ws?.baseBranch ?? 'main';
+  });
 
   // Auto-title — workspace name from context, with a defensive
   // fallback so the GitHub API never sees an empty title.
@@ -224,16 +264,26 @@ export class FeatureCreatePrDialog {
     // user opens PR from a keyboard shortcut). Idempotent.
     const pid = this.projectId();
     if (pid) void this.projects.ensureIsGithubRemote(pid);
+    // Working-tree probe — surfaces a hard block when the user has
+    // edits the upcoming `git push` wouldn't carry to the PR. Fire and
+    // forget; the warning row stays hidden until this resolves.
+    void this.repos
+      .listChangedFiles(this.ctx.workspaceId)
+      .then((files) => this.hasUncommittedChanges.set(files.length > 0))
+      .catch((err) => {
+        console.warn('[create-pr] list changed files failed:', err);
+      });
   }
 
-  // Submit fires only when both gates pass: GitHub auth + GitHub
-  // remote on the project. The persistent status row above keeps
-  // those gates visible to the user when one of them is failing.
+  // Submit fires only when all gates pass: GitHub auth + GitHub remote
+  // on the project + a clean working tree. The persistent status rows
+  // above keep those gates visible to the user.
   protected readonly canSubmit = computed(
     () =>
       !this.submitting() &&
       this.profile.githubConnected() &&
-      this.isGithubRemote(),
+      this.isGithubRemote() &&
+      !this.hasUncommittedChanges(),
   );
 
   protected async onSubmit(): Promise<void> {

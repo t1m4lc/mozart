@@ -124,8 +124,17 @@ pub fn set_sort(conn: &mut Connection, ordered_ids: &[String]) -> Result<(), App
 ///   -> workspaces -> tasks -> repos
 /// Any pre-existing orphan (a leaf row whose parent already vanished)
 /// is still removed because the predicate joins back to repo_id.
+///
+/// The transaction defers foreign-key checks until commit
+/// (`PRAGMA defer_foreign_keys = ON`) — without it, deleting
+/// `agent_runs` before `messages`/`workspace_changes` (both of which
+/// carry `run_id` FKs) would trip a `FOREIGN KEY constraint failed`.
+/// Defer-mode lets the leaf-first deletes still happen, but the
+/// integrity check moves to commit time where every dependent row is
+/// already gone.
 pub fn delete(conn: &mut Connection, repo_id: &str) -> Result<(), AppError> {
     let tx = conn.transaction()?;
+    tx.execute_batch("PRAGMA defer_foreign_keys = ON")?;
     // 1. agent_events (events of runs of threads of workspaces of tasks of this repo)
     tx.execute(
         "DELETE FROM agent_events WHERE run_id IN (
@@ -623,5 +632,109 @@ mod tests {
             (0, 0),
             "envelope and summary rows must be deleted alongside their parent repo"
         );
+    }
+
+    // Regression for the `FOREIGN KEY constraint failed` the user hit
+    // on Remove project. Pre-fix, the cascade deleted `agent_runs`
+    // BEFORE `messages`, and `messages.run_id` (nullable) carries an
+    // FK to `agent_runs(run_id)`. With `PRAGMA foreign_keys = ON` and
+    // a real assistant message linked to a run, that intermediate
+    // step aborted the transaction. `PRAGMA defer_foreign_keys` on
+    // the tx keeps the leaf-first order but moves the integrity check
+    // to commit time, where every dependent row is already gone.
+    #[test]
+    fn delete_succeeds_when_messages_reference_agent_runs() {
+        use crate::db::models::{AgentRun, Chat, Message, Task, Thread, Workspace};
+        use crate::db::{agent_runs, chats, messages, tasks, threads, workspaces};
+
+        let db = init_db_memory().unwrap();
+        let mut conn = db.lock();
+        let r = sample("/cascade-message-run");
+        create(&conn, &r).unwrap();
+        let t = Task {
+            task_id: new_id(),
+            repo_id: r.repo_id.clone(),
+            title: "t".into(),
+            task_text: "t".into(),
+            status: "active".into(),
+            created_at: now_ms(),
+        };
+        tasks::create(&conn, &t).unwrap();
+        let ws = Workspace {
+            workspace_id: new_id(),
+            task_id: t.task_id.clone(),
+            name: "ws".into(),
+            worktree_path: format!("/wt-{}", new_id()),
+            branch_name: "agent/wip".into(),
+            base_branch: "main".into(),
+            status: "ready".into(),
+            pinned: false,
+            unread: false,
+            created_at: now_ms(),
+            deletion_intent: 0,
+            ui_status: "backlog".into(),
+            last_merge_action: None,
+            sandbox_level: "L2Project".into(),
+        };
+        workspaces::create(&conn, &ws).unwrap();
+        let th = Thread {
+            thread_id: new_id(),
+            workspace_id: ws.workspace_id.clone(),
+            created_at: now_ms(),
+        };
+        threads::create(&conn, &th).unwrap();
+        let c = Chat {
+            chat_id: new_id(),
+            workspace_id: ws.workspace_id.clone(),
+            title: "Untitled".into(),
+            llm_id: None,
+            mode: "agent".into(),
+            effort: "medium".into(),
+            last_read_message_id: None,
+            closed_at: None,
+            created_at: now_ms(),
+        };
+        chats::create(&conn, &c).unwrap();
+        let run = AgentRun {
+            run_id: new_id(),
+            thread_id: th.thread_id.clone(),
+            prompt: "p".into(),
+            status: "done".into(),
+            started_at: now_ms(),
+            ended_at: Some(now_ms()),
+            exit_code: Some(0),
+            error_message: None,
+            checkpoint_sha: None,
+            prompt_source: "message_content".into(),
+        };
+        agent_runs::create(&conn, &run).unwrap();
+        // The crucial bit: a message that points back at the run.
+        let m = Message {
+            message_id: new_id(),
+            chat_id: c.chat_id.clone(),
+            run_id: Some(run.run_id.clone()),
+            role: "assistant".into(),
+            content: "hello".into(),
+            mode: None,
+            status: "done".into(),
+            timeline_json: None,
+            created_at: now_ms(),
+        };
+        messages::insert(&conn, &m).unwrap();
+
+        // Without the `defer_foreign_keys` pragma this fails with
+        // `FOREIGN KEY constraint failed`.
+        delete(&mut conn, &r.repo_id).unwrap();
+
+        let n_msg: i64 = conn
+            .query_row("SELECT COUNT(*) FROM messages", [], |row| row.get(0))
+            .unwrap();
+        let n_run: i64 = conn
+            .query_row("SELECT COUNT(*) FROM agent_runs", [], |row| row.get(0))
+            .unwrap();
+        let n_repo: i64 = conn
+            .query_row("SELECT COUNT(*) FROM repos", [], |row| row.get(0))
+            .unwrap();
+        assert_eq!((n_msg, n_run, n_repo), (0, 0, 0));
     }
 }

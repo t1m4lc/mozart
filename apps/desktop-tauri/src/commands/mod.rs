@@ -406,8 +406,71 @@ pub async fn remove_repo(db: State<'_, DbState>, repo_id: String) -> Result<(), 
 }
 
 pub(crate) async fn remove_repo_impl(db: &DbState, repo_id: String) -> Result<(), AppError> {
-    let mut conn = db.lock();
-    repos::delete(&mut conn, &repo_id)
+    // Snapshot the on-disk state we own BEFORE the DB rows vanish.
+    // After the cascade delete, `workspaces.worktree_path` and
+    // `repos.path` are unreachable — so capture both here.
+    let (repo_path, worktree_paths) = {
+        let conn = db.lock();
+        let repo = repos::get(&conn, &repo_id)?;
+        let task_rows = tasks::list_by_repo(&conn, &repo_id)?;
+        let mut wt_paths: Vec<std::path::PathBuf> = Vec::new();
+        for t in &task_rows {
+            for w in workspaces::list_by_task(&conn, &t.task_id)? {
+                wt_paths.push(std::path::PathBuf::from(w.worktree_path));
+            }
+        }
+        (std::path::PathBuf::from(repo.path), wt_paths)
+    };
+
+    // 1. Drop every DB row associated with this repo (in one tx with
+    //    deferred FKs — order-tolerant). Failure here aborts before
+    //    the filesystem wipe, so the user can retry without leftover
+    //    DB ghosts.
+    {
+        let mut conn = db.lock();
+        repos::delete(&mut conn, &repo_id)?;
+    }
+
+    // 2. Best-effort filesystem cleanup. Anything that fails here is
+    //    logged + skipped: the DB rows are already gone, so a stuck
+    //    worktree shouldn't surface as a "couldn't remove project"
+    //    toast. `cleanup_orphans` (called elsewhere on next workspace
+    //    list) will sweep up any leftover dirs.
+    //
+    //    Order: each workspace's worktree first, then the per-project
+    //    parent dir, then the `~/.mozart/projects/<seg>` sandbox dir.
+    let mut project_parents: std::collections::HashSet<std::path::PathBuf> =
+        std::collections::HashSet::new();
+    for wt_path in &worktree_paths {
+        if let Err(e) = worktree::remove(&repo_path, wt_path).await {
+            eprintln!(
+                "[remove_repo] worktree::remove({}) failed: {e:?}",
+                wt_path.display()
+            );
+        }
+        if let Some(parent) = wt_path.parent() {
+            project_parents.insert(parent.to_path_buf());
+        }
+    }
+    // `remove_dir` only succeeds on an empty dir — exactly what we
+    // want, so a project_seg dir shared with another (unrelated) repo
+    // never gets wiped accidentally.
+    for parent in &project_parents {
+        let _ = std::fs::remove_dir(parent);
+    }
+    // Sandbox dir at `~/.mozart/projects/<project_seg>`. Inferred from
+    // the worktree parent basename — same slug derivation as
+    // `worktree::create_for_workspace`. Best-effort: missing or
+    // shared-by-another-project leaves it alone.
+    if let Ok(projects_root) = sandbox::canonical_projects_root() {
+        for parent in &project_parents {
+            if let Some(seg) = parent.file_name() {
+                let dir = projects_root.join(seg);
+                let _ = std::fs::remove_dir_all(&dir);
+            }
+        }
+    }
+    Ok(())
 }
 
 #[tauri::command]

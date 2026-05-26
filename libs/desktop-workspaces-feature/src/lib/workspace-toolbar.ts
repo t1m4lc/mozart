@@ -68,7 +68,10 @@ import {
         <ng-container [ngTemplateOutlet]="leadingSlot()!" />
       }
 
-      <div class="flex min-w-0 flex-1 items-center gap-1 px-1">
+      <div
+        class="flex min-w-0 flex-1 items-center gap-1 px-1"
+        data-tauri-drag-region
+      >
         <nav
           hlmBreadcrumb
           aria-label="Workspace"
@@ -131,7 +134,7 @@ import {
         </nav>
       </div>
 
-      <div class="flex shrink-0 items-center gap-1">
+      <div class="flex shrink-0 items-center gap-1" data-tauri-drag-region>
         @if (workspaceTitle()) {
           <button
             hlmBtn

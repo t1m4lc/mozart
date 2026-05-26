@@ -23,9 +23,24 @@ import { HlmButtonImports } from '@spartan-ui/button';
         "
         aria-hidden="true"
       ></span>
-      <div class="min-w-0 flex-1 text-sm">
-        <span class="font-medium">GitHub</span>
-        <p class="truncate text-xs text-muted-foreground">{{ subtitle() }}</p>
+      <div class="min-w-0 flex-1">
+        @if (connected()) {
+          <p class="truncate text-sm">
+            <span class="font-medium">GitHub</span>
+            @if (login(); as login) {
+              <span class="text-muted-foreground"> · </span>
+              <span class="font-medium">&commat;{{ login }}</span>
+            }
+          </p>
+          <p class="truncate text-xs text-muted-foreground">
+            {{ provenance() }}
+          </p>
+        } @else {
+          <p class="text-sm font-medium">GitHub</p>
+          <p class="truncate text-xs text-muted-foreground">
+            Push branches and open pull requests
+          </p>
+        }
       </div>
       @if (connected()) {
         <button
@@ -52,17 +67,15 @@ export class UiGithubCard {
   readonly connect = output<void>();
   readonly disconnect = output<void>();
 
-  protected readonly subtitle = computed(() => {
-    if (!this.connected()) {
-      return 'Push branches and open pull requests';
+  protected readonly provenance = computed(() => {
+    if (!this.connected()) return '';
+    switch (this.kind()) {
+      case 'oauth_clerk':
+        return 'Connected via OAuth';
+      case 'pat':
+        return 'Connected via personal access token';
+      default:
+        return 'Connected';
     }
-    const login = this.login();
-    const handle = login ? `Connected as @${login}` : 'Connected';
-    const provenance = this.kind() === 'oauth_clerk'
-      ? ' · via OAuth'
-      : this.kind() === 'pat'
-        ? ' · via personal access token'
-        : '';
-    return `${handle}${provenance}`;
   });
 }

@@ -17,7 +17,11 @@ import { ChangeDetectionStrategy, Component } from '@angular/core';
   host: {
     class:
       'flex h-10 shrink-0 items-center gap-1 border-b border-sidebar-border bg-sidebar px-1',
-    'data-tauri-drag-region': '',
+    // Non-empty value: Angular's host attribute binding can drop empty
+    // strings in some setups, leaving Tauri's drag-region hook without
+    // the attribute to walk back from on mousedown. Any truthy value
+    // satisfies Tauri's `[data-tauri-drag-region]` matcher.
+    'data-tauri-drag-region': 'true',
   },
   template: `<ng-content />`,
 })

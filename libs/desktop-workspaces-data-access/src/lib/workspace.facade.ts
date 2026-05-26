@@ -43,6 +43,25 @@ export class WorkspacesFacade {
   // exposes it as a signal. The facade re-exposes for legacy consumers.
   readonly activeId = this.uiState.activeWorkspaceId;
   readonly pending = this.store.pending;
+  // Reactive "this workspace is mid-transition" Set. Folds in both
+  // explicit `setLoading` writes and any `pending: true` ghost rows
+  // so consumers don't have to combine the two themselves.
+  readonly loadingIds = this.store.loadingSet;
+
+  /** Per-id signal — true when the workspace is loading for any
+   *  reason (delete in flight, post-bootstrap initialize, future
+   *  archive/restore flows). Workspace row consumes this to render a
+   *  skeleton in place of the entity-driven content. */
+  isLoading(workspaceId: string) {
+    return computed(() => this.store.loadingSet().has(workspaceId));
+  }
+
+  /** Flip the transient loading flag for `workspaceId`. Callers wrap
+   *  the load-bearing async work between `setLoading(id, true)` and
+   *  `setLoading(id, false)` (typically in `finally`). */
+  setLoading(workspaceId: string, loading: boolean): void {
+    this.store.setLoading(workspaceId, loading);
+  }
 
   // Per-workspace aggregate diff stats. Sidebar workspace rows read
   // their `+N` / `−N` from this map. Refreshed on hydrate + whenever a
@@ -279,9 +298,18 @@ export class WorkspacesFacade {
   }
 
   async archive(id: string): Promise<void> {
-    await this.adapter.archive(id);
-    this.store.removeById(id);
-    this.uiState.pruneWorkspace(id);
+    // Flip the loading flag for the duration of the Tauri call so the
+    // sidebar row paints a skeleton in place of the live entity. The
+    // `finally` clears it even on a thrown adapter — callers above
+    // re-toast the error but the row goes back to its live state.
+    this.store.setLoading(id, true);
+    try {
+      await this.adapter.archive(id);
+      this.store.removeById(id);
+      this.uiState.pruneWorkspace(id);
+    } finally {
+      this.store.setLoading(id, false);
+    }
   }
 
   removeForProject(projectId: string): void {

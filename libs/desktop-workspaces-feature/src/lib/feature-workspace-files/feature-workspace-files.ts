@@ -193,12 +193,18 @@ export class FeatureWorkspaceFiles {
       const id = this.workspaceId();
       if (!id) return;
       if (this.cachedChangedFiles() !== null) return;
-      const capturedRevision = this.repos.treeRevisionFor(id);
+      // Re-read the revision after the fetch resolves: if a watcher
+      // event bumped it mid-flight, capturing the pre-fetch revision
+      // would silently drop the write inside `cacheChangedFiles`,
+      // leaving the Changes pane empty until the next watcher tick.
+      // Reading after the fetch makes the write land under the latest
+      // revision the user has seen.
       void this.repos
         .listChangedFiles(id)
         .then((files) => {
           if (this.workspaceId() !== id) return;
-          this.repos.cacheChangedFiles(id, files, capturedRevision);
+          const revision = this.repos.treeRevisionFor(id);
+          this.repos.cacheChangedFiles(id, files, revision);
         })
         .catch((err) => {
           console.warn('[ws-files] list changed files failed:', err);

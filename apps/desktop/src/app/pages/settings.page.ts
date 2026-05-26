@@ -94,7 +94,11 @@ const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
             </hlm-select-content>
           </hlm-select>
         </div>
-        <div
+        <!-- Timeline density is hidden until the timeline density
+             behavior is solid enough to ship. Restore by uncommenting
+             this block (the wired-up handlers + select options below
+             stay in place). -->
+        <!-- <div
           class="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-muted/30 p-4"
         >
           <div class="space-y-1">
@@ -121,7 +125,7 @@ const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
               </hlm-select-group>
             </hlm-select-content>
           </hlm-select>
-        </div>
+        </div> -->
       </section>
 
       <section class="space-y-4">

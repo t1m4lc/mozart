@@ -206,11 +206,14 @@ export class RepositoriesFacade {
   /** Background refresh of the cached changed-files list. Same
    *  contract as `refreshTreeInBackground`: keeps the old list on
    *  screen until the fresh fetch completes, then swaps atomically.
-   *  No-op when there's no existing entry. */
+   *
+   *  Populates a cold cache too — previously this short-circuited when
+   *  there was no existing entry, which left the Changes pane empty if
+   *  the initial fetch's revision was bumped mid-flight by a watcher
+   *  tick (the stale fetch silently drops in `cacheChangedFiles`, and
+   *  no later refresh recovered it). The post-fetch revision check in
+   *  `cacheChangedFiles` still keeps writes consistent. */
   async refreshChangedFilesInBackground(workspaceId: string): Promise<void> {
-    const existing =
-      this.fileTreeCache.changedFilesByWorkspace()[workspaceId];
-    if (!existing) return;
     const captured = this.fileTreeCache.revisionFor(workspaceId);
     try {
       const files = await this.listChangedFiles(workspaceId);
