@@ -124,7 +124,12 @@ interface PathDisplay {
   host: { class: 'block' },
   template: `
     <article
-      class="block w-full"
+      class="w-full"
+      [class.block]="chrome() === 'card'"
+      [class.flex]="chrome() === 'flush'"
+      [class.h-full]="chrome() === 'flush'"
+      [class.min-h-0]="chrome() === 'flush'"
+      [class.flex-col]="chrome() === 'flush'"
       [class.border-border]="chrome() === 'card'"
       [class.bg-card]="chrome() === 'card'"
       [class.text-card-foreground]="chrome() === 'card'"
@@ -282,7 +287,11 @@ interface PathDisplay {
         @switch (_bodyMode()) {
           @case ('diff') {
             <mz-diff-view
-              class="block max-h-[60vh] w-full overflow-auto"
+              class="w-full overflow-auto"
+              [class.block]="chrome() === 'card'"
+              [class.max-h-[60vh]]="chrome() === 'card'"
+              [class.flex-1]="chrome() === 'flush'"
+              [class.min-h-0]="chrome() === 'flush'"
               [path]="path()"
               [diffText]="diffText()"
               [loading]="loading()"

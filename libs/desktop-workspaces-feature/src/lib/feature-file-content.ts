@@ -294,13 +294,13 @@ const TEXT_ENCODER = new TextEncoder();
         }
       </div>
 
-      <!-- Floating Save/Discard overlay. Anchored to the component host
-           (relative). Sits just above the workspace composer (z-30) and
-           below it stays clear of pointer events via pointer-events-none
-           on the wrapper; the inner card re-enables them with
-           pointer-events-auto so the buttons remain clickable. -->
+      <!-- Floating Save/Discard overlay. Anchored to the component
+           host (relative). The 190 px bottom inset clears the
+           workspace composer chrome (~140-180 px). pointer-events-none
+           on the wrapper + pointer-events-auto on the card keeps the
+           rest of the editor surface clickable. -->
       <div
-        class="pointer-events-none absolute inset-x-0 bottom-[112px] z-20 flex justify-center px-3"
+        class="pointer-events-none absolute inset-x-0 bottom-[190px] z-20 flex justify-center px-3"
         aria-live="polite"
       >
         <div
@@ -350,10 +350,14 @@ export class FeatureFileContent {
   readonly canEdit = input<boolean>(true);
 
   // Inner bottom padding (px) for the CodeMirror surface (edit + diff).
-  // Keeps the last line / hunk clear of the floating Save/Discard
-  // overlay (~50 px) plus the workspace composer (~95 px). Read by the
-  // template via `EDITOR_BOTTOM_PADDING_PX`.
-  protected readonly EDITOR_BOTTOM_PADDING_PX = 160;
+  // The composer overlay is absolutely positioned at the bottom of the
+  // workspace tab and runs ~140–180 px tall depending on textarea
+  // growth (mz-composer textarea: min-h-24 to max-h-72 plus chrome).
+  // 240 px clears the composer (≈180 max) + the floating Save/Discard
+  // overlay (~40 px) + breathing room, so the last line/hunk is visible
+  // when scrolled to the bottom. Mirrors the chat-scroll-surface's
+  // `pb-48` (192 px) pattern, plus extra for the floating overlay.
+  protected readonly EDITOR_BOTTOM_PADDING_PX = 240;
 
   private readonly repos = inject(RepositoriesFacade);
   private readonly themeService = inject(ThemeService);
