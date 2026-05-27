@@ -102,17 +102,17 @@ jobs:
             nx-landing-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             nx-landing-${{ runner.os }}-
 
-      # Write apps/landing/.env.local from GitHub Variables (main only).
-      # Vite loads .env.local at build time for VITE_* variables.
-      # PR previews build without this file → analytics no-ops.
-      - name: Write PostHog env for build
+      # Write environment.prod.ts from GitHub Variables (main only).
+      # PR previews build without this step → analytics no-ops (empty defaults).
+      - name: Write environment.prod.ts for build
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
           POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
         run: |
-          printf 'VITE_POSTHOG_KEY=%s\n' "$POSTHOG_KEY" > apps/landing/.env.local
-          printf 'VITE_POSTHOG_HOST=%s\n' "$POSTHOG_HOST" >> apps/landing/.env.local
+          printf 'export const environment = {\n  posthogKey: "%s",\n  posthogHost: "%s",\n};\n' \
+            "$POSTHOG_KEY" "$POSTHOG_HOST" \
+            > apps/landing/src/environments/environment.prod.ts
 
       # seo-check transitively depends on generate-llms → post-build-seo → build
       - run: pnpm nx run landing:seo-check

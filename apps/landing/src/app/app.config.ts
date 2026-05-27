@@ -9,6 +9,7 @@ import { provideClientHydration, withEventReplay } from '@angular/platform-brows
 import { withInMemoryScrolling, withViewTransitions } from '@angular/router';
 import { POSTHOG_HOST, POSTHOG_KEY } from '@mozart/shared-util-analytics';
 import { provideTheme } from '@mozart/shared-util-theme';
+import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -23,7 +24,7 @@ export const appConfig: ApplicationConfig = {
     ),
     provideContent(withMarkdownRenderer(), withPrismHighlighter()),
     provideTheme({ theme: 'mozart', mode: 'light' }),
-    { provide: POSTHOG_KEY, useValue: import.meta.env['VITE_POSTHOG_KEY'] ?? '' },
-    { provide: POSTHOG_HOST, useValue: import.meta.env['VITE_POSTHOG_HOST'] ?? '' },
+    { provide: POSTHOG_KEY, useValue: environment.posthogKey },
+    { provide: POSTHOG_HOST, useValue: environment.posthogHost },
   ],
 };

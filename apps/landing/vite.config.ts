@@ -220,6 +220,12 @@ export default defineConfig(({ mode }) => ({
   },
   resolve: {
     mainFields: ['module'],
+    alias: mode === 'production' ? [
+      {
+        find: /\/environments\/environment$/,
+        replacement: resolve(__dirname, 'src/environments/environment.prod.ts'),
+      },
+    ] : [],
   },
   optimizeDeps: {
     include: ['front-matter', 'marked', 'prismjs', 'prismjs/components/index.js'],
