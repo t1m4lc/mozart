@@ -78,6 +78,15 @@ tauri-plugin-single-instance = { version = "2", features = ["deep-link"] }
 # we cannot be tricked into opening arbitrary URLs.
 tauri-plugin-shell = "2"
 
+# Auto-updater (beta.1+): app boots → checks the GitHub Releases
+# `latest.json` manifest → downloads + verifies signature against the
+# minisign pubkey in tauri.conf.json → exposes "update ready" to JS,
+# which calls `relaunch()` (process plugin) when the user clicks
+# the Restart-to-install button. Distribution flow lives in
+# docs/cloud-app/desktop-release-automation.md.
+tauri-plugin-updater = "2"
+tauri-plugin-process = "2"
+
 # Phase 5 follow-up : localhost HTTP callback server. The `mozart://`
 # scheme handoff from browsers is unreliable on Linux (Chrome / Firefox
 # silently drop the launch despite "Launched external handler" log).

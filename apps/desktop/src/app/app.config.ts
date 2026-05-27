@@ -40,6 +40,7 @@ import {
   UiStateFacade,
 } from '@mozart/desktop-ui-state-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { UpdaterService } from '@mozart/desktop-shell-feature';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -85,6 +86,7 @@ export const appConfig: ApplicationConfig = {
       const repos = inject(RepositoriesFacade);
       const router = inject(Router);
       const uiState = inject(UiStateFacade);
+      const updater = inject(UpdaterService);
 
       // Boot auth + onboarding first so route guards see the persisted
       // state before the router resolves the initial URL.
@@ -133,6 +135,11 @@ export const appConfig: ApplicationConfig = {
       void workspaces.detectIdes();
       void profile.initialize();
       void profile.initializeGithub();
+
+      // Background updater check. Non-awaited — boot keeps moving and
+      // the UpdateAvailableBanner flips on when downloadAndInstall
+      // resolves. Silent failure: a broken updater never blocks usage.
+      void updater.checkOnBoot();
     }),
   ],
 };

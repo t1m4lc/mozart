@@ -46,6 +46,12 @@
       "desktop": {
         "schemes": ["mozart"]
       }
+    },
+    "updater": {
+      "endpoints": [
+        "https://github.com/t1m4lc/mozart/releases/latest/download/latest.json"
+      ],
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg2RTZGMDNGMkJERDNFQzAKUldUQVB0MHJQL0RtaG45N2RkTVpJajkzdDhmVzVzY21nSndYTzNvUnhXWUhXVk40dnZzY0JqVi8K"
     }
   }
 }

@@ -129,6 +129,13 @@ pub fn run() {
         .plugin(tauri_plugin_notification::init())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_shell::init())
+        // Auto-updater (beta.1+). The plugin reads `plugins.updater`
+        // from tauri.conf.json (endpoints + pubkey) — no Rust config
+        // needed here. The matching `tauri-plugin-process` exposes
+        // `relaunch()` to JS so the UpdaterService can restart after
+        // installing the new bundle.
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .invoke_handler(specta_builder.invoke_handler())
         .setup(move |app| {
             // Preserve the debug-only log plugin from the pre-1.7 lib.rs.
