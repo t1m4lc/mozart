@@ -1,0 +1,111 @@
+name: Release Desktop
+
+# Triggered by tags `v*` (e.g. v0.1.0-beta.1). Builds and signs the
+# desktop bundles for the 4-platform matrix, then creates a GitHub
+# Release in DRAFT with the bundles + latest.json updater manifest
+# attached. tauri-action handles bundling + signing + release creation;
+# the human reviews the draft and clicks "Publish release" to make it
+# discoverable by the auto-updater.
+#
+# See docs/cloud-app/release-runbook.md for the human-facing flow,
+# docs/cloud-app/desktop-release-automation.md for architecture.
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to (re)release, e.g. v0.1.0-beta.1'
+        required: true
+
+permissions:
+  contents: write   # createRelease + uploadReleaseAsset
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            args: '--target aarch64-apple-darwin'
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            args: '--target x86_64-apple-darwin'
+          - platform: ubuntu-latest
+            target: ''
+            args: ''
+          - platform: windows-latest
+            target: ''
+            args: ''
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          filter: tree:0
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Linux Tauri prerequisites
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+
+      - name: Add Rust target (macOS only)
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop-tauri -> target
+          key: ${{ matrix.target }}
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # ed25519 key from `pnpm tauri signer generate`. Used to sign
+          # both the bundle and the matching updater signature shipped
+          # in latest.json. Public counterpart lives in tauri.conf.json
+          # → plugins.updater.pubkey.
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          projectPath: apps/desktop-tauri
+          tagName: ${{ inputs.tag || github.ref_name }}
+          releaseName: 'Mozart ${{ inputs.tag || github.ref_name }}'
+          # Drives the GitHub Release description. Points users at the
+          # human-readable landing changelog rather than dumping the
+          # full CHANGELOG.md (the developer log).
+          releaseBody: |
+            See https://mozart.build/changelog/${{ inputs.tag || github.ref_name }} for the full changelog.
+
+            Auto-updater: installed apps will detect this release at next launch and download in the background. Click "Restart now" in the banner when ready.
+          # Draft so a human reviews the artifact set before users see
+          # latest.json. Publishing is a manual click in the GitHub UI.
+          releaseDraft: true
+          # Beta / alpha / RC tags get prerelease=true so GitHub's
+          # `/releases/latest` endpoint keeps pointing at the last
+          # stable. Stable v0.1.0+ gets prerelease=false.
+          prerelease: ${{ contains(inputs.tag || github.ref_name, 'beta') || contains(inputs.tag || github.ref_name, 'alpha') || contains(inputs.tag || github.ref_name, 'rc') }}
+          args: ${{ matrix.args }}
+          # Tells tauri-action to emit the updater manifest
+          # (latest.json) alongside the bundle artifacts. The plugin in
+          # the installed app reads /releases/latest/download/latest.json.
+          includeUpdaterJson: true
