@@ -33,15 +33,16 @@
         ],
         "styles": [
           "apps/web/src/styles.css"
-        ],
-        "define": {
-          "import.meta.env.CLERK_PUBLISHABLE_KEY": "\"\"",
-          "import.meta.env.POSTHOG_KEY": "\"\"",
-          "import.meta.env.POSTHOG_HOST": "\"\""
-        }
+        ]
       },
       "configurations": {
         "production": {
+          "fileReplacements": [
+            {
+              "replace": "apps/web/src/environments/environment.ts",
+              "with": "apps/web/src/environments/environment.prod.ts"
+            }
+          ],
           "budgets": [
             {
               "type": "initial",

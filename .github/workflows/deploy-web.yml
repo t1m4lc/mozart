@@ -90,25 +90,22 @@ jobs:
             nx-web-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             nx-web-${{ runner.os }}-
 
-      # Write apps/web/.env from GitHub Variables.
+      # Write environment.prod.ts from GitHub Variables before the Angular build.
       # On main: full set → analytics enabled.
-      # On PR previews: Clerk key only → analytics silenced.
-      - name: Write apps/web/.env for build
+      # On PR previews: Clerk key only → analytics silenced (posthogKey stays empty).
+      - name: Write environment.prod.ts for build
         env:
           CLERK_PUBLISHABLE_KEY: ${{ vars.CLERK_PUBLISHABLE_KEY }}
           POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
-        run: |
-          printf 'CLERK_PUBLISHABLE_KEY=%s\n' "$CLERK_PUBLISHABLE_KEY" > apps/web/.env
-          printf 'POSTHOG_HOST=%s\n' "$POSTHOG_HOST" >> apps/web/.env
-
-      - name: Add PostHog key (main only)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        env:
           POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
-        run: printf 'POSTHOG_KEY=%s\n' "$POSTHOG_KEY" >> apps/web/.env
-
-      - name: Inject .env values into Angular define
-        run: node apps/web/inject-define.mjs
+        run: |
+          PHOG_KEY=""
+          if [[ "$GITHUB_REF" == "refs/heads/main" && "$GITHUB_EVENT_NAME" == "push" ]]; then
+            PHOG_KEY="$POSTHOG_KEY"
+          fi
+          printf 'export const environment = {\n  clerkPublishableKey: "%s",\n  posthogKey: "%s",\n  posthogHost: "%s",\n};\n' \
+            "$CLERK_PUBLISHABLE_KEY" "$PHOG_KEY" "$POSTHOG_HOST" \
+            > apps/web/src/environments/environment.prod.ts
 
       - run: pnpm nx run web:build:production
 
