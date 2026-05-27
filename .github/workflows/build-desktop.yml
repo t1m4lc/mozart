@@ -90,8 +90,9 @@ jobs:
           # Linux: .AppImage + .deb
           find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/appimage -name '*.AppImage' -exec cp {} bundle-out/ \; 2>/dev/null || true
           find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/deb -name '*.deb' -exec cp {} bundle-out/ \; 2>/dev/null || true
-          # Windows: .msi + .exe
-          find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/msi -name '*.msi' -exec cp {} bundle-out/ \; 2>/dev/null || true
+          # Windows: NSIS .exe (MSI is intentionally disabled in
+          # tauri.conf.json — its version format rejects -beta / -rc
+          # pre-release suffixes, which we use on every release).
           find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/nsis -name '*.exe' -exec cp {} bundle-out/ \; 2>/dev/null || true
           ls -la bundle-out/
 
