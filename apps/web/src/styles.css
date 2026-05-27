@@ -4,6 +4,7 @@
 
 /* nx-tailwind-sources:start */
 @source "../../../libs/clerk";
+@source "../../../libs/shared-util-analytics";
 @source "../../../libs/shared-util-theme";
 @source "../../../libs/spartan-ui/avatar";
 @source "../../../libs/spartan-ui/badge";
