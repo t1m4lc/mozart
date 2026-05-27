@@ -1,0 +1,9 @@
+; Clerk production DNS records for mozart.build
+; Import via: Cloudflare DNS → Import and Export → Import
+; All records must be DNS only (no proxy)
+
+clerk            300  IN  CNAME  frontend-api.clerk.services.
+accounts         300  IN  CNAME  accounts.clerk.services.
+clkmail          300  IN  CNAME  mail.4bf0rxueplko.clerk.services.
+clk._domainkey   300  IN  CNAME  dkim1.4bf0rxueplko.clerk.services.
+clk2._domainkey  300  IN  CNAME  dkim2.4bf0rxueplko.clerk.services.

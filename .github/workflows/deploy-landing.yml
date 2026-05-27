@@ -6,6 +6,7 @@ on:
     paths:
       - 'apps/landing/**'
       - 'libs/mozart-assets/**'
+      - 'libs/shared-util-analytics/**'
       - 'libs/shared-util-theme/**'
       - 'libs/mozart-design-tokens/**'
       - 'package.json'
@@ -17,6 +18,7 @@ on:
     paths:
       - 'apps/landing/**'
       - 'libs/mozart-assets/**'
+      - 'libs/shared-util-analytics/**'
       - 'libs/shared-util-theme/**'
       - 'libs/mozart-design-tokens/**'
       - 'package.json'
@@ -100,16 +102,17 @@ jobs:
             nx-landing-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
             nx-landing-${{ runner.os }}-
 
-      # Inject public PostHog env vars only on main → keeps PR previews silent.
-      # Vite doesn't auto-read process.env, so we write a .env.local
-      # (gitignored) that Vite loads at build time.
+      # Write apps/landing/.env.local from GitHub Variables (main only).
+      # Vite loads .env.local at build time for VITE_* variables.
+      # PR previews build without this file → analytics no-ops.
       - name: Write PostHog env for build
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
         run: |
-          cat > apps/landing/.env.local <<EOF
-          VITE_POSTHOG_KEY=${{ vars.VITE_POSTHOG_KEY }}
-          VITE_POSTHOG_HOST=${{ vars.VITE_POSTHOG_HOST }}
-          EOF
+          printf 'VITE_POSTHOG_KEY=%s\n' "$POSTHOG_KEY" > apps/landing/.env.local
+          printf 'VITE_POSTHOG_HOST=%s\n' "$POSTHOG_HOST" >> apps/landing/.env.local
 
       # seo-check transitively depends on generate-llms → post-build-seo → build
       - run: pnpm nx run landing:seo-check

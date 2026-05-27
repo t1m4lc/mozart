@@ -10,7 +10,7 @@ import {
   lucideArrowRight,
   lucideDownload,
 } from '@ng-icons/lucide';
-import { AnalyticsService } from '../../shell/analytics/analytics.service';
+import { AnalyticsService } from '@mozart/shared-util-analytics';
 import { detectOsTag } from '../../shell/analytics/detect-os';
 import { pageSection } from '../../shell/analytics/page-section';
 import {

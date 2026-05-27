@@ -199,6 +199,9 @@
       "@mozart/shared-util-os": [
         "./libs/shared-util-os/src/index.ts"
       ],
+      "@mozart/shared-util-analytics": [
+        "./libs/shared-util-analytics/src/index.ts"
+      ],
       "@mozart/shared-util-theme": [
         "./libs/shared-util-theme/src/index.ts"
       ],

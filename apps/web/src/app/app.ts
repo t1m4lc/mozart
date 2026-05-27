@@ -1,12 +1,24 @@
-import { ChangeDetectionStrategy, Component } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  afterNextRender,
+  inject,
+} from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AnalyticsService } from '@mozart/shared-util-analytics';
 
-// Root component — the router-outlet renders the `WebShell` (configured
-// as the layout component for every route in `app.routes.ts`).
 @Component({
   selector: 'app-root',
   imports: [RouterOutlet],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `<router-outlet />`,
 })
-export class App {}
+export class App {
+  private readonly analytics = inject(AnalyticsService);
+
+  constructor() {
+    afterNextRender(() => {
+      void this.analytics.init();
+    });
+  }
+}

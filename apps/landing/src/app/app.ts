@@ -6,7 +6,7 @@ import {
   inject,
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { AnalyticsService } from './shell/analytics/analytics.service';
+import { AnalyticsService } from '@mozart/shared-util-analytics';
 import { injectCurrentPath } from './shell/current-path';
 import { PromoStripComponent } from './shell/promo-strip.component';
 import { SiteFooterComponent } from './shell/site-footer.component';

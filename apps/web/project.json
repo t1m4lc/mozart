@@ -33,6 +33,9 @@
         ],
         "styles": [
           "apps/web/src/styles.css"
+        ],
+        "plugins": [
+          "apps/web/esbuild.env.mjs"
         ]
       },
       "configurations": {

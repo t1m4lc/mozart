@@ -4,8 +4,8 @@ import {
 } from '@angular/core';
 import { provideRouter, withComponentInputBinding } from '@angular/router';
 import { provideClerk } from '@mozart/clerk';
+import { POSTHOG_HOST, POSTHOG_KEY } from '@mozart/shared-util-analytics';
 import { provideTheme } from '@mozart/shared-util-theme';
-import { env } from '../env';
 import { appRoutes } from './app.routes';
 
 export const appConfig: ApplicationConfig = {
@@ -13,10 +13,8 @@ export const appConfig: ApplicationConfig = {
     provideBrowserGlobalErrorListeners(),
     provideRouter(appRoutes, withComponentInputBinding()),
     provideTheme(),
-    // Loads the Clerk SDK once at bootstrap. `AuthFacade` and any
-    // page can inject `ClerkService` directly afterwards. The
-    // publishable key lives in `apps/web/src/env.ts` — see
-    // docs/setup-clerk.md for the Clerk dashboard walkthrough.
-    provideClerk({ publishableKey: env.clerkPublishableKey }),
+    provideClerk({ publishableKey: import.meta.env.CLERK_PUBLISHABLE_KEY }),
+    { provide: POSTHOG_KEY, useValue: import.meta.env.POSTHOG_KEY },
+    { provide: POSTHOG_HOST, useValue: import.meta.env.POSTHOG_HOST },
   ],
 };

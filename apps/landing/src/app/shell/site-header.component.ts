@@ -18,7 +18,7 @@ import { HlmButton } from '@spartan-ui/button';
 import { HlmDialogService } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
-import { AnalyticsService } from './analytics/analytics.service';
+import { AnalyticsService } from '@mozart/shared-util-analytics';
 import { detectOsTag } from './analytics/detect-os';
 import { pageSection } from './analytics/page-section';
 import {

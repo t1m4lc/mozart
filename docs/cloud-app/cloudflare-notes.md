@@ -1,43 +1,48 @@
 # Cloudflare Pages — Mozart cloud app deploy notes
 
+just repush
+
 Sister doc to [`docs/landing/cloudflare-notes.md`](../landing/cloudflare-notes.md).
 Captures the one-time Cloudflare Pages setup for `app.mozart.build` — the cloud
 companion that hosts the authenticated SPA (`apps/web`) **plus** the Pages
 Functions that the desktop calls (currently just `/api/github/oauth-token`).
 
-The deploy itself is performed by Cloudflare's GitHub App once the project is
-connected; there is no in-repo deploy workflow.
+The deploy is driven by **`.github/workflows/deploy-web.yml`** via
+`wrangler-action@v3`. Cloudflare's GitHub App is **not** used — our CI owns
+the build so it can inject GitHub Variables into `apps/web/.env` before the
+Angular build runs.
 
 ## 1. Build settings (Cloudflare Pages dashboard)
 
-| Field                   | Value                                  |
-| ----------------------- | -------------------------------------- |
-| Framework preset        | None / Static                          |
-| Build command           | `pnpm nx run web:build:production`     |
-| Build output directory  | `dist/apps/web/browser`                |
-| Root directory          | _(repository root — leave empty)_      |
-| Node version            | 20 (matches CI)                        |
-| Package manager         | pnpm 11 (set `PNPM_VERSION=11.0.8`)    |
+| Field                  | Value                               |
+| ---------------------- | ----------------------------------- |
+| Framework preset       | None / Static                       |
+| Build command          | `pnpm nx run web:build:production`  |
+| Build output directory | `dist/apps/web/browser`             |
+| Root directory         | _(repository root — leave empty)_   |
+| Node version           | 20 (matches CI)                     |
+| Package manager        | pnpm 11 (set `PNPM_VERSION=11.0.8`) |
 
 Cloudflare auto-discovers Pages Functions in `apps/web/functions/**` because
 the Pages build picks up the `functions/` directory at the repository root of
-the *project*. Since the build command's CWD is the repo root, set the
+the _project_. Since the build command's CWD is the repo root, set the
 Pages project's "Root directory" to `apps/web` if Cloudflare's auto-detection
 misses the functions folder.
 
 ## 2. Environment bindings
 
-Set these in **Cloudflare Pages → Settings → Environment variables**
-(both **Production** and **Preview**):
+Only **one** runtime binding is needed in CF Pages. The deploy workflow syncs
+it automatically via `wrangler pages secret bulk` — you don't set it manually
+in the dashboard unless the first deploy hasn't run yet.
 
-| Binding              | Type             | Purpose |
-| -------------------- | ---------------- | ------- |
-| `CLERK_SECRET_KEY`   | Secret           | Used by `functions/api/github/oauth-token.ts` to call Clerk's Backend SDK and retrieve the user's GitHub OAuth access token. Never bundled into the SPA. |
-| `CLERK_PUBLISHABLE_KEY` | Plaintext (optional) | Echoed at build time into the SPA bundle by `env.ts` if you want CI-driven keys instead of the committed `env.ts`. |
+| Binding            | Type   | Where set                                          | Purpose                                                                            |
+| ------------------ | ------ | -------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `CLERK_SECRET_KEY` | Secret | Auto-synced by `deploy-web.yml` from GitHub Secret | Used by `functions/api/github/oauth-token.ts` at runtime. Never in the SPA bundle. |
 
-> The Clerk publishable key (`pk_test_…` / `pk_live_…`) is also baked into
-> `apps/web/src/env.ts` today. Keep the binding optional until we move env
-> handling to build-time injection.
+All other values (`CLERK_PUBLISHABLE_KEY`, `POSTHOG_KEY`, `POSTHOG_HOST`) are
+**build-time** — they come from GitHub Variables, written to `apps/web/.env`
+by the workflow, and baked into the Angular bundle by the esbuild plugin.
+They are NOT set in the Cloudflare dashboard.
 
 ## 3. Custom domain / DNS
 
@@ -106,6 +111,82 @@ exactly the way it talks to production — no special dev casing in Rust.
 4. With a valid Clerk session JWT in `Authorization: Bearer …`, the same
    endpoint returns either `{ "kind": "ok", "token": "ghu_…", "login": "…" }`
    (Clerk-linked GitHub user) or `{ "kind": "not_linked" }` (Google-only user).
+
+## 8. Anti-crawl
+
+`app.mozart.build` is an authenticated app with no public SEO value. Two layers
+prevent indexing:
+
+**`apps/web/public/robots.txt`** (served at `https://app.mozart.build/robots.txt`):
+
+```
+User-agent: *
+Disallow: /
+```
+
+**`apps/web/src/index.html`** head:
+
+```html
+<meta name="robots" content="noindex,nofollow" />
+```
+
+The meta tag is a safety net — if a bot ignores `robots.txt`, the directive in
+the HTML still signals no-index. The marketing site at `mozart.build` handles
+all public SEO; `app.mozart.build` should never appear in search results.
+
+---
+
+## 9. SPA routing — `_redirects`
+
+Angular's client-side router handles `/#!` navigation in the browser, but
+Cloudflare Pages serves files directly. Without a fallback rule, any deep-link
+(e.g. `https://app.mozart.build/dashboard`) returns a 404 from CF instead of
+the Angular shell.
+
+**`apps/web/public/_redirects`**:
+
+```
+/* /index.html 200
+```
+
+This rule rewrites every unmatched path to `index.html` with a 200 status,
+letting Angular's router take over from there.
+
+---
+
+## 10. Deploy workflow
+
+The deploy is driven by **`.github/workflows/deploy-web.yml`** (mirroring the
+landing deploy pattern). It runs on every push to `main` that touches
+`apps/web/**` or its shared dependencies.
+
+**GitHub secrets required** (Settings → Secrets → Actions):
+
+| Secret                  | Purpose                                                 |
+| ----------------------- | ------------------------------------------------------- |
+| `CLOUDFLARE_API_TOKEN`  | wrangler deploy auth (same as landing)                  |
+| `CLOUDFLARE_ACCOUNT_ID` | CF account ID (same as landing)                         |
+| `CLERK_SECRET_KEY`      | Synced to CF Pages env via `wrangler pages secret bulk` |
+
+**GitHub variables required** (Settings → Variables → Actions):
+
+| Variable                | Purpose                                                                                 |
+| ----------------------- | --------------------------------------------------------------------------------------- |
+| `CLERK_PUBLISHABLE_KEY` | Production Clerk publishable key `pk_live_…` (written to `apps/web/.env` at build time) |
+| `POSTHOG_KEY`           | PostHog ingest key for `app.mozart.build` (main only — PR previews build without it)    |
+| `POSTHOG_HOST`          | PostHog API host, e.g. `https://eu.i.posthog.com`                                       |
+
+**`.env` pattern :** The workflow writes `apps/web/.env` from these GitHub Variables
+before running `pnpm nx run web:build:production`. The esbuild plugin
+(`apps/web/esbuild.env.mjs`) reads this file and injects each variable as
+`import.meta.env.VAR_NAME` at build time. No TypeScript env files involved.
+
+For local dev: copy `apps/web/.env.example` → `apps/web/.env` and fill in your keys.
+
+The PostHog key is written only on pushes to `main`; PR previews build with an
+empty key so analytics are silenced there.
+
+---
 
 ## 7. Explicitly NOT added in this initial setup
 

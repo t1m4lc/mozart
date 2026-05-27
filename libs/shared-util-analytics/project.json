@@ -1,0 +1,22 @@
+{
+  "name": "shared-util-analytics",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/shared-util-analytics/src",
+  "prefix": "lib",
+  "projectType": "library",
+  "tags": [
+    "scope:shared"
+  ],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/shared-util-analytics/tsconfig.spec.json"
+      }
+    }
+  }
+}

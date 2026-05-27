@@ -13,7 +13,7 @@ import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight } from '@ng-icons/lucide';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
-import { AnalyticsService } from './analytics/analytics.service';
+import { AnalyticsService } from '@mozart/shared-util-analytics';
 import { detectOsTag } from './analytics/detect-os';
 import { type PageSection, pageSection } from './analytics/page-section';
 import { SITE_CONFIG } from './site-config';

@@ -6,6 +6,7 @@ import {
 } from '@angular/core';
 import { HlmAvatarImports } from '@spartan-ui/avatar';
 import { HlmBadgeImports } from '@spartan-ui/badge';
+import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmCardImports } from '@spartan-ui/card';
 import { HlmTypographyImports } from '@spartan-ui/typography';
 import { AuthFacade } from '../domains/auth';
@@ -21,6 +22,7 @@ import { WebTopBar } from '../shell/web-top-bar';
     WebTopBar,
     HlmAvatarImports,
     HlmBadgeImports,
+    HlmButtonImports,
     HlmCardImports,
     HlmTypographyImports,
   ],
@@ -42,25 +44,33 @@ import { WebTopBar } from '../shell/web-top-bar';
         <section hlmCard>
           <div hlmCardHeader>
             <h2 hlmCardTitle>Profile</h2>
-            <p hlmCardDescription>
-              How you appear across Mozart.
-              <!-- TODO: link to Clerk-hosted user profile for edits. -->
-            </p>
+            <p hlmCardDescription>How you appear across Mozart.</p>
           </div>
-          <div hlmCardContent class="flex items-center gap-4">
+          <div hlmCardContent class="flex items-center justify-between gap-4">
             @if (user(); as u) {
-              <hlm-avatar class="size-16">
-                <img hlmAvatarImage [src]="u.imageUrl" [alt]="u.name || u.email" />
-                <span hlmAvatarFallback>{{ initials() }}</span>
-              </hlm-avatar>
-              <div class="flex min-w-0 flex-col">
-                <span class="text-foreground truncate text-base font-medium">
-                  {{ u.name || u.email }}
-                </span>
-                <span class="text-muted-foreground truncate text-sm">
-                  {{ u.email }}
-                </span>
+              <div class="flex min-w-0 items-center gap-4">
+                <hlm-avatar class="size-16">
+                  <img hlmAvatarImage [src]="u.imageUrl" [alt]="u.name || u.email" />
+                  <span hlmAvatarFallback>{{ initials() }}</span>
+                </hlm-avatar>
+                <div class="flex min-w-0 flex-col">
+                  <span class="text-foreground truncate text-base font-medium">
+                    {{ u.name || u.email }}
+                  </span>
+                  <span class="text-muted-foreground truncate text-sm">
+                    {{ u.email }}
+                  </span>
+                </div>
               </div>
+              <a
+                hlmBtn
+                variant="outline"
+                href="https://accounts.mozart.build"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Edit profile
+              </a>
             }
           </div>
         </section>

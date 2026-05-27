@@ -16,15 +16,6 @@ const SET_INTERNAL_ENDPOINT = '/api/analytics/set-internal-device';
 
 type IsInternalResponse = { readonly isInternalDevice: boolean };
 
-/**
- * Owns everything about the "internal device" marker:
- *   - reading the opt-in token from the current URL
- *   - asking the server to persist the cookie (token validation is server-side)
- *   - resolving the authoritative boolean via the API endpoint
- *
- * The cookie itself is set by the Cloudflare Function, not by this service.
- * Client-side cookie read goes through CookieService for sync fallback only.
- */
 @Injectable({ providedIn: 'root' })
 export class InternalDeviceService {
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
@@ -32,7 +23,6 @@ export class InternalDeviceService {
   private readonly router = inject(Router);
   private resolved: boolean | null = null;
 
-  /** Authoritative resolution: opts in if needed, then queries the API. */
   async resolve(): Promise<boolean> {
     if (!this.isBrowser) return false;
     await this.maybeOptIn();
@@ -41,7 +31,6 @@ export class InternalDeviceService {
     return fromApi;
   }
 
-  /** Sync best-effort: cached API result if available, else raw cookie hint. */
   snapshot(): boolean {
     if (this.resolved !== null) return this.resolved;
     return this.cookies.has(INTERNAL_DEVICE_COOKIE);
@@ -68,10 +57,7 @@ export class InternalDeviceService {
     if (ok) window.alert(OPT_IN_WELCOME);
   }
 
-  // Route through Angular Router (not history.replaceState) so Router's
-  // internal URL state matches the bar. Otherwise withViewTransitions /
-  // scroll restoration can re-navigate to the captured URL and re-introduce
-  // the query param after we've stripped it.
+  // Route through Angular Router so Router's internal URL state matches the bar.
   private async scrubTokenFromUrl(): Promise<void> {
     const url = new URL(window.location.href);
     if (!url.searchParams.has(INTERNAL_DEVICE_TOKEN_PARAM)) return;
