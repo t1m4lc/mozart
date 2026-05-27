@@ -34,9 +34,11 @@
         "styles": [
           "apps/web/src/styles.css"
         ],
-        "plugins": [
-          "apps/web/esbuild.env.mjs"
-        ]
+        "define": {
+          "import.meta.env.CLERK_PUBLISHABLE_KEY": "\"\"",
+          "import.meta.env.POSTHOG_KEY": "\"\"",
+          "import.meta.env.POSTHOG_HOST": "\"\""
+        }
       },
       "configurations": {
         "production": {
