@@ -1,0 +1,103 @@
+name: Build Desktop (manual)
+
+# Manual-only workflow used to produce desktop bundles for beta.0
+# Drive distribution. No tag, no signing, no GitHub Release —
+# just artifacts you download and upload to Drive.
+#
+# Once the updater is configured (see docs/cloud-app/desktop-release-automation.md),
+# this workflow is superseded by release.yml (tag-triggered, signed, auto-published).
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            target: aarch64-apple-darwin
+            bundle_dir: aarch64-apple-darwin/release/bundle
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            bundle_dir: x86_64-apple-darwin/release/bundle
+          - platform: ubuntu-latest
+            target: ''
+            bundle_dir: release/bundle
+          - platform: windows-latest
+            target: ''
+            bundle_dir: release/bundle
+
+    runs-on: ${{ matrix.platform }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Install Linux Tauri prerequisites
+        if: matrix.platform == 'ubuntu-latest'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
+            librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+
+      - name: Add Rust target (macOS only)
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: apps/desktop-tauri -> target
+          key: ${{ matrix.target }}
+
+      - name: Build frontend
+        run: pnpm nx build desktop
+
+      - name: Build Tauri bundle
+        working-directory: apps/desktop-tauri
+        run: |
+          if [ -n "${{ matrix.target }}" ]; then
+            pnpm tauri build --target ${{ matrix.target }}
+          else
+            pnpm tauri build
+          fi
+        shell: bash
+
+      - name: Collect bundle artifacts
+        shell: bash
+        run: |
+          mkdir -p bundle-out
+          # macOS: .dmg + .app.tar.gz
+          find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/dmg -name '*.dmg' -exec cp {} bundle-out/ \; 2>/dev/null || true
+          find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/macos -name '*.app.tar.gz' -exec cp {} bundle-out/ \; 2>/dev/null || true
+          # Linux: .AppImage + .deb
+          find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/appimage -name '*.AppImage' -exec cp {} bundle-out/ \; 2>/dev/null || true
+          find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/deb -name '*.deb' -exec cp {} bundle-out/ \; 2>/dev/null || true
+          # Windows: .msi + .exe
+          find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/msi -name '*.msi' -exec cp {} bundle-out/ \; 2>/dev/null || true
+          find apps/desktop-tauri/target/${{ matrix.bundle_dir }}/nsis -name '*.exe' -exec cp {} bundle-out/ \; 2>/dev/null || true
+          ls -la bundle-out/
+
+      - name: Upload bundle artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mozart-${{ matrix.platform }}${{ matrix.target && format('-{0}', matrix.target) || '' }}
+          path: bundle-out/*
+          retention-days: 14
