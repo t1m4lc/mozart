@@ -6,6 +6,23 @@ Pour le détail technique (CI, updater, signing), voir
 
 ---
 
+## Convention de versioning
+
+Mozart suit [SemVer](https://semver.org/) avec les pre-release suffixes :
+
+| Suffixe | Audience | Critère pour passer à la suivante |
+|---|---|---|
+| `alpha.N` | Interne uniquement | Boots, builds, tests passent |
+| `beta.N` | Beta-testeurs invités | Feature-complete pour le scope déclaré, pas de regressions critiques |
+| `rc.N` | Tous les beta-testeurs | Aucun blocker connu pendant 1 semaine d'usage réel |
+| (rien) | Public | Stable. La version `0.1.0` ouvre le download public. |
+
+Les suffixes peuvent s'empiler : `v0.1.0-beta.1-rc.1` = "premier candidat pour devenir beta.1". Utile pour le dry-run (voir plus bas).
+
+Côté CI, les tags `-alpha`, `-beta`, `-rc` reçoivent automatiquement `prerelease: true` dans la GitHub Release — ils n'apparaissent pas comme "Latest release" sur la page d'accueil GitHub. Seul `v0.1.0` (sans suffixe) devient `Latest`.
+
+---
+
 ## Principe — landing libre, web + desktop en lockstep
 
 Trois surfaces, deux rythmes différents :
@@ -169,6 +186,37 @@ ou équivalent OS) pour voir si l'updater a hit le bon endpoint.
 Cas où communiquer reste utile :
 - Breaking changes (config migration, re-login forcé, etc.) → mail aux beta-testers AVANT le tag
 - Nouvelle feature majeure → tweet / post Linear / Discord avec lien `mozart.build/changelog/...`
+
+---
+
+## Dry-run — valider le pipeline avant de tagger pour de vrai
+
+Tester `release.yml` SANS faire de release officielle. À faire avant chaque nouvelle "vraie" release si tu as modifié release.yml, ou avant chaque release tout court tant que la beta phase dure.
+
+1. Choisis un tag de test (suffixe `-rc.N`) :
+   ```bash
+   node tools/release-bump.mjs 0.1.0-beta.2-rc.1
+   git add -A && git commit -m "chore(release): dry-run v0.1.0-beta.2-rc.1"
+   git tag v0.1.0-beta.2-rc.1
+   git push origin main --tags
+   ```
+2. Sur https://github.com/t1m4lc/mozart/actions, vérifier que `Release Desktop` se lance et que les 4 jobs (macOS arm, macOS intel, Linux, Windows) finissent en vert.
+3. Sur https://github.com/t1m4lc/mozart/releases, ouvrir la draft `v0.1.0-beta.2-rc.1` :
+   - 4 bundles présents (`.dmg` arm + intel, `.msi`, `.AppImage`)
+   - `latest.json` présent
+   - Tous les fichiers de signature `.sig` adjacents
+4. **Ne PAS publier la draft.** Cliquer "Delete" sur la draft.
+5. Nettoyer le tag :
+   ```bash
+   git tag -d v0.1.0-beta.2-rc.1
+   git push origin :refs/tags/v0.1.0-beta.2-rc.1
+   ```
+6. Reverter le commit de bump (ou squash + amend) :
+   ```bash
+   git reset --hard HEAD~1   # si rien d'autre n'est dessus
+   ```
+
+Si le pipeline a passé, tu peux tagger la "vraie" version avec confiance.
 
 ---
 

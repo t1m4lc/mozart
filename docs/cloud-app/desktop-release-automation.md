@@ -399,6 +399,124 @@ se mettre à jour.
 
 ---
 
+## 7.5. Canary releases & monitoring PostHog (futur)
+
+Tout ce qui suit est **à implémenter quand on aura 100+ users**. Pour la
+phase beta actuelle (~10 testeurs), la release tout-le-monde-en-même-temps
+suffit. Mais autant documenter l'architecture cible maintenant.
+
+### 7.5.1 Pourquoi canary
+
+Releaser à 100% des users d'un coup = si la version est broken, tout le
+monde est cassé en même temps. Canary = on déploie d'abord à un sous-ensemble,
+on monitore (crash rate, errors, latency), on généralise si OK, on rollback
+si pas OK. Standard pour toute app desktop qui a une vraie base d'users
+(VS Code "Insiders", Figma desktop beta channel, etc.).
+
+### 7.5.2 Channel-based (étape 1, simple)
+
+Deux channels : `stable` (défaut) et `canary` (opt-in via Settings).
+
+- App stocke `channel: 'stable' | 'canary'` en local (préférence user).
+- `UpdaterService` détermine l'endpoint au boot :
+  - `stable` → `https://github.com/t1m4lc/mozart/releases/latest/download/latest.json`
+  - `canary` → `https://github.com/t1m4lc/mozart/releases/download/<canary-tag>/latest.json`
+- `release.yml` tagge en `v0.1.0-beta.2-canary.1` pour les canary, en `v0.1.0-beta.2` pour stable. Une fois la canary stabilisée pendant N jours, on retag la même SHA en `v0.1.0-beta.2` → users stable l'auront.
+
+Côté UI : Settings → "Receive canary updates" toggle. Quand activé, restart pour switcher l'endpoint.
+
+Pas besoin de Cloudflare Worker ni d'identité user — c'est juste un choix local.
+
+### 7.5.3 Percentage rollout (étape 2, sophistiqué)
+
+Pour déployer "à 10% des users" sans qu'ils choisissent : il faut un serveur entre l'app et GitHub Releases.
+
+**Architecture** :
+
+```
+App boot
+  ↓ GET https://updates.mozart.build/latest.json?uid=<hash>
+  ↓
+CF Worker
+  ├─ Read PostHog feature flag `update_rollout_v0.1.0-beta.2` for user <hash>
+  ├─ If flag = true: return latest.json pointing at new bundles
+  └─ Else: return latest.json pointing at previous version's bundles
+  ↓
+App
+  ├─ Compare with current version
+  └─ Download + install if newer
+```
+
+**Pièces à mettre en place** :
+1. Le custom Cloudflare Worker à `updates.mozart.build` qui sert les `latest.json` dynamiquement
+2. Stable user identifier (hash du machine ID Tauri — déjà émis par PostHog)
+3. PostHog feature flag `desktop_update_rollout_<version>` configuré à X% rollout
+4. Endpoint dans `tauri.conf.json` qui pointe sur le worker au lieu de GitHub direct
+
+Cette approche permet aussi un **kill-switch** : si la nouvelle version a un bug grave, désactive le feature flag dans PostHog → tous les users qui boot après revoient l'ancien `latest.json` → pas de regression supplémentaire. Les users qui ont déjà installé doivent rollback manuellement (downgrade depuis GitHub Releases).
+
+### 7.5.4 Monitoring PostHog
+
+Track les events updater à chaque étape pour avoir une vue claire de la santé d'une release :
+
+```typescript
+// libs/desktop-shell-feature/src/lib/updater.service.ts
+async checkOnBoot() {
+  posthog.capture('app_boot', { version: APP_VERSION });
+  try {
+    const update = await check();
+    if (!update) {
+      posthog.capture('updater_no_update_available');
+      return;
+    }
+    posthog.capture('updater_update_available', {
+      from_version: APP_VERSION,
+      to_version: update.version,
+    });
+    await update.downloadAndInstall();
+    posthog.capture('updater_download_completed', {
+      from_version: APP_VERSION,
+      to_version: update.version,
+    });
+    this.updateReady.set({ version: update.version });
+  } catch (err) {
+    posthog.capture('updater_failed', {
+      error: String(err),
+      version: APP_VERSION,
+    });
+  }
+}
+
+async restart() {
+  posthog.capture('updater_restart_clicked');
+  await relaunch();
+}
+```
+
+**Dashboards PostHog à monter** :
+
+| Insight | Détecte |
+|---|---|
+| Version distribution (pie de `app_boot` group by version) | Combien d'users sur chaque version |
+| Conversion funnel `updater_update_available` → `updater_download_completed` → `updater_restart_clicked` | Combien d'users finissent par restart |
+| Crash rate par version (events JS error group by version) | Si une nouvelle version est plus crashy que l'ancienne |
+| Time-to-restart histogram (timestamp `updater_restart_clicked` - `updater_update_available`) | Combien de temps les users diffèrent l'update |
+| Geographic / OS breakdown des erreurs `updater_failed` | Si une plateforme spécifique fail |
+
+**Alertes PostHog** (Insights → Alerts) :
+- Crash rate v0.1.0-beta.2 > 5% sur 1h → email
+- `updater_failed` > 10% des `updater_update_available` → email
+
+### 7.5.5 Roadmap d'adoption
+
+| Phase | Quand | Quoi |
+|---|---|---|
+| Beta (~10 users) | Maintenant | Pas de canary. Channel unique. Tracker les events PostHog dès beta.2. |
+| Beta élargi (~100 users) | Q3 2026 | Channel-based canary (§7.5.2). Settings toggle "Insiders". |
+| Public (~1000+) | v0.1.0 stable | Percentage rollout via CF Worker (§7.5.3). Kill-switch flag PostHog. |
+
+---
+
 ## 8. TODOs avant beta.1
 
 - [x] Générer la paire de clés updater (§3.1)
