@@ -1,8 +1,14 @@
 name: Deploy Web
 
 on:
+  # Web prod ships in lockstep with desktop via the v* tag: tagging
+  # bumps both surfaces atomically (release.yml fires in parallel).
+  # Pushes to main on their own no longer deploy prod — they're free
+  # to land WIP work without bumping users. Use workflow_dispatch if
+  # you ever need to redeploy main outside of a tag.
   push:
-    branches: [main]
+    tags: ['v*']
+  pull_request:
     paths:
       - 'apps/web/**'
       - 'libs/mozart-assets/**'
@@ -91,7 +97,7 @@ jobs:
             nx-web-${{ runner.os }}-
 
       # Write environment.prod.ts from GitHub Variables before the Angular build.
-      # On main: full set → analytics enabled.
+      # On tag (prod release): full set → analytics enabled.
       # On PR previews: Clerk key only → analytics silenced (posthogKey stays empty).
       - name: Write environment.prod.ts for build
         env:
@@ -100,7 +106,7 @@ jobs:
           POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
         run: |
           PHOG_KEY=""
-          if [[ "$GITHUB_REF" == "refs/heads/main" && "$GITHUB_EVENT_NAME" == "push" ]]; then
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
             PHOG_KEY="$POSTHOG_KEY"
           fi
           printf 'export const environment = {\n  clerkPublishableKey: "%s",\n  posthogKey: "%s",\n  posthogHost: "%s",\n};\n' \
@@ -162,14 +168,20 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           wranglerVersion: "4"
+          # CF Pages routes deployments to the "production" CF branch
+          # (= the prod custom domain app.mozart.build) when --branch
+          # matches the project's configured production branch (default:
+          # `main`). On tag pushes we force `--branch=main` so the deploy
+          # lands on the prod slot. PRs deploy to their own branch slot
+          # and get a *.mozart-web.pages.dev preview URL.
           command: >-
             pages deploy dist
             --project-name=mozart-web
-            --branch=${{ github.head_ref || github.ref_name }}
+            --branch=${{ startsWith(github.ref, 'refs/tags/') && 'main' || github.head_ref || github.ref_name }}
 
       # Sync secret after deploy so the project is guaranteed to exist.
       - name: Sync CLERK_SECRET_KEY to Cloudflare Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: startsWith(github.ref, 'refs/tags/')
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
