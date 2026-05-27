@@ -1,5 +1,5 @@
 export const environment = {
-  clerkPublishableKey: 'pk_test_REPLACE_WITH_YOUR_DEV_KEY',
+  clerkPublishableKey: 'pk_test_c3dlZXQtc25ha2UtMS5jbGVyay5hY2NvdW50cy5kZXYk',
   posthogKey: '',
-  posthogHost: 'https://eu.i.posthog.com',
+  posthogHost: 'https://t.mozart.build',
 };
