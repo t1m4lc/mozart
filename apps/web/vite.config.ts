@@ -24,7 +24,7 @@ function mozartSharedAssetsPlugin(): Plugin {
   return {
     name: 'mozart-shared-assets',
     configResolved(cfg) {
-      outDir = cfg.build.outDir;
+      if (cfg.command === 'build') outDir = cfg.build.outDir;
     },
     configureServer(server) {
       server.middlewares.use('/assets/shared', (req, res, next) => {
@@ -88,6 +88,7 @@ export default defineConfig(({ mode }) => ({
   test: {
     globals: true,
     environment: 'jsdom',
+    setupFiles: ['src/test-setup.ts'],
     include: ['src/**/*.spec.ts'],
     reporters: ['default'],
     coverage: {
