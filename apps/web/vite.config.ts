@@ -60,6 +60,15 @@ export default defineConfig(({ mode }) => ({
     target: ['es2022'],
     reportCompressedSize: true,
   },
+  resolve: {
+    mainFields: ['module'],
+    alias: mode === 'production' ? [
+      {
+        find: /\/environments\/environment$/,
+        replacement: resolve(__dirname, 'src/environments/environment.prod.ts'),
+      },
+    ] : [],
+  },
   server: {
     port: 4201,
     proxy: {
