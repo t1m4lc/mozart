@@ -107,6 +107,9 @@ jobs:
           POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
         run: printf 'POSTHOG_KEY=%s\n' "$POSTHOG_KEY" >> apps/web/.env
 
+      - name: Inject .env values into Angular define
+        run: node apps/web/inject-define.mjs
+
       - run: pnpm nx run web:build:production
 
       # Pages Functions live in apps/web/functions/ but wrangler discovers

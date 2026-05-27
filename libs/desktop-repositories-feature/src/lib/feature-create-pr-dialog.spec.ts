@@ -1,6 +1,7 @@
 import {
   provideZonelessChangeDetection,
   signal,
+  type Signal,
   type WritableSignal,
 } from '@angular/core';
 import { TestBed, type ComponentFixture } from '@angular/core/testing';
@@ -36,6 +37,8 @@ vi.mock('@mozart/desktop-profile-feature', () => ({
 
 interface ProfileStub {
   readonly githubConnected: WritableSignal<boolean>;
+  readonly githubLogin: Signal<string | null>;
+  readonly githubKind: Signal<string | null>;
 }
 
 interface WorkspacesStub {
@@ -66,7 +69,11 @@ interface DialogServiceStub {
 }
 
 function makeProfile(connected = true): ProfileStub {
-  return { githubConnected: signal(connected) };
+  return {
+    githubConnected: signal(connected),
+    githubLogin: signal(null),
+    githubKind: signal(null),
+  };
 }
 
 function makeProjects(isGithubRemote: boolean | null = true): ProjectsStub {
@@ -204,7 +211,7 @@ function inlineErrorEl(
 }
 
 describe('FeatureCreatePrDialog — no-remote state (priority over not-connected)', () => {
-  it('shows guidance and only a Close button when isGithubRemote=false', () => {
+  it('shows the no-remote alert and blocks submit when isGithubRemote=false', () => {
     const { fixture } = mount({
       profile: makeProfile(false),
       projects: makeProjects(false),
@@ -212,11 +219,8 @@ describe('FeatureCreatePrDialog — no-remote state (priority over not-connected
     expect(alertEl(fixture)?.textContent).toContain(
       "isn't linked to a GitHub remote",
     );
-    // No "Open pull request" button rendered.
-    expect(buttonByText(fixture, 'Open pull request')).toBeNull();
-    // No "Connect GitHub" CTA rendered either — no-remote takes priority.
-    expect(buttonByText(fixture, 'Connect GitHub')).toBeNull();
-    expect(buttonByText(fixture, 'Close')).not.toBeNull();
+    // Submit is blocked — canSubmit() requires isGithubRemote=true.
+    expect(buttonByText(fixture, 'Open pull request')?.disabled).toBe(true);
   });
 
   it('treats isGithubRemote=null (probe pending) as no-remote', () => {
@@ -239,12 +243,11 @@ describe('FeatureCreatePrDialog — not-connected state', () => {
       profile: makeProfile(false),
       projects: makeProjects(true),
     });
-    expect(alertEl(fixture)?.textContent).toContain(
-      'GitHub personal access token',
-    );
+    // No alert in the not-connected state — only the inline status bar.
+    expect(alertEl(fixture)).toBeNull();
     expect(buttonByText(fixture, 'Connect GitHub')).not.toBeNull();
-    // The "Open pull request" button is NOT rendered in this state.
-    expect(buttonByText(fixture, 'Open pull request')).toBeNull();
+    // "Open pull request" IS rendered but disabled — canSubmit() is false.
+    expect(buttonByText(fixture, 'Open pull request')?.disabled).toBe(true);
   });
 
   it('Connect-GitHub button opens the UiGithubConnectDialog via the dialog service', async () => {
@@ -268,10 +271,12 @@ describe('FeatureCreatePrDialog — not-connected state', () => {
   it('reactively flips to the ready state when githubConnected goes true', () => {
     const profile = makeProfile(false);
     const { fixture } = mount({ profile, projects: makeProjects(true) });
-    expect(buttonByText(fixture, 'Open pull request')).toBeNull();
+    // Initially disabled — not connected.
+    expect(buttonByText(fixture, 'Open pull request')?.disabled).toBe(true);
     profile.githubConnected.set(true);
     fixture.detectChanges();
-    expect(buttonByText(fixture, 'Open pull request')).not.toBeNull();
+    // canSubmit() is now true — button becomes enabled.
+    expect(buttonByText(fixture, 'Open pull request')?.disabled).toBe(false);
     expect(alertEl(fixture)).toBeNull();
   });
 });

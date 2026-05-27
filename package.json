@@ -7,6 +7,7 @@
     "dev": "pnpm nx run desktop-tauri:tauri-dev",
     "dev:web": "trap 'kill 0' EXIT INT TERM; pnpm dev:web:functions & pnpm nx serve web",
     "dev:web:functions": "cd apps/web && wrangler pages dev functions --port 8788 --compatibility-date=2025-05-01",
+    "web:inject-env": "node apps/web/inject-define.mjs",
     "typecheck": "pnpm nx run-many -t typecheck",
     "lint": "pnpm nx run-many -t lint",
     "test": "pnpm nx run-many -t test",
