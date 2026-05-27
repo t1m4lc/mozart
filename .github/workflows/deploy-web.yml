@@ -125,6 +125,26 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      # Wrangler bundles Pages Functions with esbuild at deploy time and
+      # needs to resolve runtime deps (@clerk/backend, etc.) from
+      # node_modules. Without these install steps the bundle fails with
+      # "Could not resolve '@clerk/backend'".
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 1
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.8
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
       - uses: actions/download-artifact@v4
         with:
           name: web-dist
