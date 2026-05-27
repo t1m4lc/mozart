@@ -64,7 +64,7 @@ export default defineConfig(({ mode }) => ({
     mainFields: ['module'],
     alias: mode === 'production' ? [
       {
-        find: /\/environments\/environment$/,
+        find: /^.+\/environments\/environment$/,
         replacement: resolve(__dirname, 'src/environments/environment.prod.ts'),
       },
     ] : [],
@@ -88,7 +88,6 @@ export default defineConfig(({ mode }) => ({
   test: {
     globals: true,
     environment: 'jsdom',
-    setupFiles: ['@analogjs/vite-plugin-angular/setup-vitest'],
     include: ['src/**/*.spec.ts'],
     reporters: ['default'],
     coverage: {

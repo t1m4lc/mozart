@@ -222,7 +222,7 @@ export default defineConfig(({ mode }) => ({
     mainFields: ['module'],
     alias: mode === 'production' ? [
       {
-        find: /\/environments\/environment$/,
+        find: /^.+\/environments\/environment$/,
         replacement: resolve(__dirname, 'src/environments/environment.prod.ts'),
       },
     ] : [],
