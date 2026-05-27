@@ -23,20 +23,23 @@ signe les bundles → CI crée la GitHub Release avec les bundles + `latest.json
 démarrage → téléchargent silencieusement → bouton "Restart to install"
 apparaît dans l'UI → l'user clique quand il veut.
 
-### Modèle de déploiement : tag = prod, main = preview
+### Modèle de déploiement : tag pour web/desktop, main pour landing
 
-À partir de beta.1, on découple les deploys web/landing du push main :
+Les trois surfaces n'ont pas le même rythme de release :
 
-- **`git push origin main`** → déploie en **preview** uniquement
-  (`<branch>.mozart-web.pages.dev`, `<branch>.mozart-landing.pages.dev`).
-  Aucun user ne voit. Tu peux pousser autant que tu veux entre deux releases.
-- **`git tag v* && git push --tags`** → déclenche les trois prods
-  simultanément : `app.mozart.build`, `mozart.build`, et la GitHub Release
-  desktop. Un tag = un événement de release atomique.
+- **Landing** (`mozart.build`) → push sur main déploie en prod. Contenu
+  marketing, change souvent (blog posts, changelog narratif, fixes copy).
+  Pas besoin de tag pour publier une typo.
+- **Web** (`app.mozart.build`) → tag `v*` déploie en prod. Pousser sur main
+  ne touche pas la prod, seulement les PR créent des previews.
+- **Desktop** → tag `v*` build + signe + publie GitHub Release. Idem web,
+  les deux surfaces partagent les contrats auth/protocole et doivent
+  bouger ensemble.
 
-Implémentation : changer le trigger dans `deploy-web.yml` et `deploy-landing.yml`
-de `push: branches: [main]` à `push: tags: ['v*']` pour la prod, et garder
-`pull_request:` pour les previews. Détail dans §4.5.
+Concrètement : `deploy-landing.yml` reste sur le trigger `push: branches: [main]`.
+`deploy-web.yml` passe à `push: tags: ['v*']` (avec `pull_request:` pour
+les previews). Tag → web prod + desktop release en parallèle. Détail
+dans §4.5.
 
 ---
 
@@ -244,50 +247,51 @@ fois la release publiée manuellement, `latest.json` devient accessible via
 `/releases/latest/download/latest.json` — l'updater commence à voir
 la nouvelle version.
 
-### 4.5 Modifier `deploy-web.yml` et `deploy-landing.yml` — tag-only prod
+### 4.5 Modifier `deploy-web.yml` — tag-only prod
 
-Aujourd'hui ces deux workflows déploient en prod sur chaque push main.
-On veut : prod = tag uniquement, main = preview seulement.
-
-Changement dans les triggers :
+Seul `deploy-web.yml` change. `deploy-landing.yml` reste sur `push: branches: [main]`.
 
 ```yaml
-# AVANT
+# deploy-web.yml AVANT
 on:
   push:
     branches: [main]
     paths: [...]
   pull_request:
     paths: [...]
-  workflow_dispatch:
 
-# APRÈS
+# deploy-web.yml APRÈS
 on:
   push:
-    tags: ['v*']                 # tag = prod deploy
+    tags: ['v*']
   pull_request:
-    paths: [...]                 # PR = preview deploy
-  workflow_dispatch:
+    paths: [...]
 ```
 
-Et dans la step de deploy :
+Dans la step de deploy on garde CF Pages tel quel — pas besoin de
+reconfigurer la "production branch" côté CF. On force `--branch=main`
+sur les tag pushes pour que le deploy atterrisse sur le slot que CF
+considère déjà comme prod :
 
 ```yaml
 # AVANT
 --branch=${{ github.head_ref || github.ref_name }}
 
-# APRÈS — sur tag, force la branche CF "production"
---branch=${{ startsWith(github.ref, 'refs/tags/') && 'production' || github.head_ref || github.ref_name }}
+# APRÈS
+--branch=${{ startsWith(github.ref, 'refs/tags/') && 'main' || github.head_ref || github.ref_name }}
 ```
 
-Côté CF Pages, configurer `app.mozart.build` et `mozart.build` pour pointer
-sur la branche `production` (pas `main`). Les autres branches (PR previews,
-pushes main directs si on garde un trigger main) restent en
-`<branch>.mozart-*.pages.dev`.
+Effet :
+- Tag push → wrangler déploie sur la branche CF `main` (= prod, car
+  c'est le default production branch de CF Pages) → `app.mozart.build`
+  mis à jour.
+- PR → wrangler déploie sur la branche CF du PR → URL preview
+  `<branch>.mozart-web.pages.dev`.
+- Push direct sur main → ne déclenche plus le workflow (les fixes web
+  passent par tag ou PR).
 
-**Option** : garder un trigger `push: branches: [main]` qui déploie sur une
-branche CF nommée `staging` accessible via `staging.mozart-web.pages.dev`.
-Utile pour QA continu sans toucher la prod. Pas obligatoire pour beta.1.
+Les steps gated `if: github.event_name == 'push' && github.ref == 'refs/heads/main'`
+(sync secrets Clerk) deviennent `if: startsWith(github.ref, 'refs/tags/')`.
 
 ---
 
@@ -397,13 +401,12 @@ se mettre à jour.
 
 ## 8. TODOs avant beta.1
 
-- [ ] Générer la paire de clés updater (§3.1)
-- [ ] Ajouter `TAURI_SIGNING_PRIVATE_KEY` dans GitHub Secrets
-- [ ] Configurer le plugin updater dans `tauri.conf.json` + `lib.rs` + bootstrap Angular
-- [ ] Créer `UpdaterService` (Angular) + composant UI bouton "Restart to install" (§3.2)
-- [ ] Créer `tools/release-bump.mjs` (script de version sync, §2)
-- [ ] Créer `.github/workflows/release.yml` (§4)
-- [ ] Modifier `deploy-web.yml` + `deploy-landing.yml` : trigger sur tag, plus sur main (§4.5)
-- [ ] Reconfigurer CF Pages : `app.mozart.build` et `mozart.build` pointent sur la branche CF `production`
-- [ ] Créer `CHANGELOG.md` à la racine
+- [x] Générer la paire de clés updater (§3.1)
+- [x] Ajouter `TAURI_SIGNING_PRIVATE_KEY` dans GitHub Secrets
+- [x] Configurer le plugin updater dans `tauri.conf.json` + `lib.rs` + bootstrap Angular
+- [x] Créer `UpdaterService` + entrée discrète dans le menu Help (§3.2)
+- [x] Créer `tools/release-bump.mjs` (§2)
+- [x] Créer `.github/workflows/release.yml` (§4)
+- [x] Modifier `deploy-web.yml` : trigger sur tag (§4.5). `deploy-landing.yml` inchangé.
+- [x] Créer `CHANGELOG.md` à la racine
 - [ ] Test dry-run du workflow release sur un tag de test (ex: `v0.1.0-beta.1-rc.1`)

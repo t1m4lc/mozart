@@ -6,14 +6,24 @@ Pour le détail technique (CI, updater, signing), voir
 
 ---
 
-## Principe — un tag = trois prods qui bougent ensemble
+## Principe — landing libre, web + desktop en lockstep
+
+Trois surfaces, deux rythmes différents :
+
+| Surface | Trigger | URL prod |
+|---|---|---|
+| **Landing** (`mozart.build`) | `git push origin main` (touche `apps/landing/**`) | Déploie tout de suite |
+| **Web** (`app.mozart.build`) | Tag `v*` uniquement | Lockstep avec desktop |
+| **Desktop** (GitHub Release + auto-updater) | Tag `v*` uniquement | Lockstep avec web |
+
+Concrètement :
 
 | Action | Conséquence |
 |---|---|
-| `git push origin main` | Deploy **preview** uniquement : `<sha>.mozart-web.pages.dev`. Aucun user ne voit. |
-| `git tag v0.1.0-beta.2 && git push --tags` | Déclenche TOUT : web prod (`app.mozart.build`), landing prod (`mozart.build`), desktop build matrix (macOS/Win/Linux), GitHub Release draft. |
+| `git push origin main` avec changements landing | Deploy landing prod. PR previews créées si touche web. |
+| `git tag v0.1.0-beta.2 && git push --tags` | Déclenche **web prod** + **desktop release** en parallèle, atomique. Le landing changelog est déjà en prod (étape précédente du runbook). |
 
-Tu peux push sur main aussi souvent que tu veux entre deux releases — rien ne touche les users. Ce sont les tags qui font la prod.
+Pourquoi cette asymétrie : le landing est du contenu marketing qui change souvent (blog, changelog narratif, fixes copy). Pas besoin de tagger pour publier un fix de typo. Web + desktop partagent les contrats d'auth et de protocole — ils doivent bouger ensemble.
 
 ---
 
@@ -105,14 +115,18 @@ Le tag doit avoir le préfixe `v`. C'est ce qui déclenche `release.yml`.
 
 ## Étape 5 — Attendre la CI (~15 min)
 
-Sur `https://github.com/t1m4lc/mozart/actions` tu dois voir trois workflows
-se lancer :
+Sur `https://github.com/t1m4lc/mozart/actions` tu dois voir deux workflows
+se lancer en parallèle après le tag :
 
 | Workflow | Quoi | Durée |
 |---|---|---|
-| **Deploy Web** | Déploie `app.mozart.build` (prod, branche `production` côté CF Pages) | ~3 min |
-| **Deploy Landing** | Déploie `mozart.build` + prérend `/changelog/v-0-1-0-beta-2` | ~5 min |
+| **Deploy Web** | Déploie `app.mozart.build` (prod) | ~3 min |
 | **Release Desktop** | Build macOS arm + intel, Windows, Linux. Signe avec ta clé updater. Crée la GitHub Release (en **draft**) | ~15 min |
+
+**Deploy Landing** s'est déjà déclenché plus tôt — lors du `git push origin main`
+de l'étape 4, dès que tu as commit le `apps/landing/src/content/changelog/v0-1-0-beta-2.md`.
+La page `/changelog/v-0-1-0-beta-2` est donc déjà live au moment où tu publies
+la GitHub Release.
 
 ---
 
@@ -183,16 +197,19 @@ attendre le check au boot.
 
 ## La toute première release (`v0.1.0-beta.1`) — différences
 
-Beta.1 sera la première à passer par ce process. Avant de pouvoir tagger,
-il faut faire le **setup one-time** (§8 de `desktop-release-automation.md`) :
+Beta.1 sera la première à passer par ce process. Le **setup one-time**
+(§8 de `desktop-release-automation.md`) est déjà fait :
 
-1. Générer la paire de clés updater (`pnpm tauri signer generate`)
-2. Ajouter `TAURI_SIGNING_PRIVATE_KEY` dans GitHub Secrets
-3. Configurer le plugin updater dans `tauri.conf.json` + `lib.rs` + Angular
-4. Écrire `tools/release-bump.mjs`
-5. Écrire `.github/workflows/release.yml`
-6. Découpler `deploy-web.yml` et `deploy-landing.yml` du push main → ne déployer en prod que sur tag
-7. Créer `CHANGELOG.md` à la racine
+1. ✅ Paire de clés updater générée
+2. ✅ `TAURI_SIGNING_PRIVATE_KEY` dans GitHub Secrets
+3. ✅ Plugin updater configuré (`tauri.conf.json` + `lib.rs` + Angular)
+4. ✅ `tools/release-bump.mjs` créé
+5. ✅ `.github/workflows/release.yml` créé
+6. ✅ `deploy-web.yml` ne déploie qu'au tag (`deploy-landing.yml` reste sur main push)
+7. ✅ `CHANGELOG.md` à la racine
+
+Reste à faire avant d'envoyer beta.1 aux users :
+- Dry-run du workflow release sur un tag de test (ex: `v0.1.0-beta.1-rc.1`) — vérifier que les 4 artefacts buildent et que la draft GitHub Release contient `latest.json`. Supprimer la draft, supprimer le tag local + remote, repartir propre.
 
 Les beta.0 testers (sur Drive) devront télécharger manuellement la beta.1
 depuis la GitHub Release — leur version Drive n'a pas l'updater. À partir
