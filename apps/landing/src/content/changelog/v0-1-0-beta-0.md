@@ -1,6 +1,6 @@
 ---
-version: '0.1.0-beta.1'
-date: 2026-05-16
+version: '0.1.0-beta.0'
+date: 2026-05-27
 title: First private beta
 ---
 
