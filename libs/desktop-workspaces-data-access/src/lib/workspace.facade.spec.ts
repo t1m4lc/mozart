@@ -8,6 +8,7 @@ import {
 import { REPOSITORIES_ADAPTER } from '@mozart/desktop-repositories-data-access';
 import { RUNS_ADAPTER } from '@mozart/desktop-runs-data-access';
 import { TASKS_ADAPTER } from '@mozart/desktop-tasks-data-access';
+import { TERMINALS_ADAPTER } from '@mozart/desktop-terminals-data-access';
 import { provideTheme } from '@mozart/shared-util-theme';
 import type { UiWorkspaceStatus, Workspace } from '@mozart/desktop-workspaces-util';
 import { WorkspacesFacade } from './workspace.facade';
@@ -101,6 +102,16 @@ function configureModule(overrides: {
       },
       { provide: PROJECTS_ADAPTER, useValue: {} },
       { provide: TASKS_ADAPTER, useValue: {} },
+      // WorkspacesFacade → TerminalRegistry → TerminalsFacade → TERMINALS_ADAPTER.
+      // None of the methods under test exercise terminal IO; an empty stub suffices.
+      {
+        provide: TERMINALS_ADAPTER,
+        useValue: {
+          open: vi.fn(),
+          write: vi.fn(),
+          resize: vi.fn(),
+        },
+      },
       // RunRegistry → RunsFacade → RUNS_ADAPTER. The facade pulls it in
       // for runInstall's setupCommand pathway; tests under this file
       // never exercise that branch, so a no-op stub is enough.
