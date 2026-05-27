@@ -112,12 +112,12 @@ jobs:
       # Pages Functions live in apps/web/functions/ but wrangler discovers
       # them at <deploy-dir>/functions/. Copy them into the build tree first.
       - name: Bundle Pages Functions into deploy tree
-        run: cp -r apps/web/functions dist/apps/web/browser/functions
+        run: cp -r apps/web/functions dist/apps/web/functions
 
       - uses: actions/upload-artifact@v4
         with:
           name: web-dist
-          path: dist/apps/web/browser
+          path: dist/apps/web
           retention-days: 1
 
   deploy:
