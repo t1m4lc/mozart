@@ -26,7 +26,7 @@ import { SITE_CONFIG } from '../shell/site-config';
         rel="noopener"
         class="text-sm font-medium underline underline-offset-4"
       >
-        Get early access →
+        Request beta access →
       </a>
     </main>
   `,

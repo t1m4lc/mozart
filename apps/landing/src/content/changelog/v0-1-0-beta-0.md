@@ -4,47 +4,32 @@ date: 2026-05-27
 title: First private beta
 ---
 
-This is the first non-public beta of Mozart (`v0.1.0-beta.1`). The first public release is reserved for `v0.1.0`. Expect rough edges — we're shipping early so the developers who will actually use Mozart can help shape it.
+`v0.1.0-beta.0` is the first release of Mozart, shipped manually to invited beta testers via Google Drive — no public download, no auto-updater yet. The first public release is reserved for `v0.1.0`. Expect rough edges: this build exists so the developers who will actually use Mozart can shape it before we open the doors.
 
-### Projects
+### Projects & Workspaces
 
-- Open any local repository as a Mozart **Project**.
-- Quick-start a new Project: Mozart creates the folder, runs `git init`, and (if GitHub is connected) creates a private repo and pushes the first commit.
-- Sidebar lists every Project with its Workspaces nested underneath.
+- Open any local repo as a **Project**, or quick-start one (Mozart runs `git init`, and pushes to a private GitHub repo if connected).
+- Every Project gets an auto-named first **Workspace** — an isolated, reviewable attempt at a Task.
+- Package manager (npm / pnpm / yarn) is detected and dependencies are installed on first entry.
 
-### Workspaces
+### Threads, Composer & Agent runs
 
-- Every Project gets an auto-named first **Workspace** on open (`bob-marley-1`, `radiohead-2`, …).
-- A Workspace is an isolated, reviewable attempt at a Task — Changes stay scoped until you ship them.
-- Mozart detects your package manager (npm / pnpm / yarn) and installs dependencies the first time you enter the Workspace.
-
-### Threads + Composer
-
-- Send messages in three modes: **Agent**, **Plan**, **Ask**. Mode is switchable between every message, not locked at first send.
+- Three modes per message — **Agent**, **Plan**, **Ask** — switchable at any point.
 - Up to four Threads per Workspace, each with its own mode, generated title, and unread counter.
-- Composer keeps the model and effort selectors visible at all times. Five effort levels: low / medium / high / xhigh / max.
+- Model and effort selectors stay visible in the Composer (five effort levels: low / medium / high / xhigh / max).
+- Claude streams straight into the **Timeline** with tool use, file edits, and shell output rendered live.
 
-### Agent Runs
+### Changes, Diff & Git
 
-- Claude streams responses straight into the **Timeline**, rendering tool use, file edits, and shell output as they happen.
-- File edits land in your repository immediately — open it in your IDE on the Workspace branch and watch them appear live.
-- Streams survive tab switches; the Composer sticks an indicator on the tab while a Run is in flight.
+- Right aside file tree, live-watched on disk and `.gitignore`-aware, with `A` / `M` / `D` badges against the base branch.
+- Click any changed file for a clean diff — Git internals stay out of the UI.
+- Commit Changes from the aside header (per-file checkboxes, message field) and open draft or ready-for-review PRs directly from Mozart.
 
-### Changes + Diff
+### Terminal, Run & IDE
 
-- Right aside file tree with `A` / `M` / `D` badges against the base branch, watched live on disk (`.gitignore`-aware, toggleable).
-- Click any changed file to open a clean diff. Base branch and current state are surfaced; Git internals stay out of the UI.
-
-### Terminal + Run + IDE
-
-- xterm.js Terminal scoped to each Workspace, persisted across navigation.
-- Per-Project **Run** command with `idle` / `running` / `exited(code)` / `crashed` status and output streamed to a read-only xterm panel.
+- xterm.js **Terminal** scoped to each Workspace, persisted across navigation.
+- Per-Project **Run** command with `idle` / `running` / `exited(code)` / `crashed` status and output streamed to a read-only panel.
 - **Open in IDE** dropdown auto-detects VS Code, Cursor, Windsurf, the JetBrains family, Zed, and Sublime — the last-used one is remembered per user.
-
-### Commit + Create PR
-
-- Commit Changes from the aside header: per-file checkboxes (all checked by default) and a message field.
-- Create draft or ready-for-review pull requests directly from Mozart when GitHub is connected, with title and body prefilled from the most recent commit.
 
 ### Authentication
 
@@ -52,22 +37,17 @@ This is the first non-public beta of Mozart (`v0.1.0-beta.1`). The first public 
 - Tokens live in the system keyring (Keychain / Credential Manager / secret-service) — never in plaintext, never in the local DB.
 - Boots offline once you've signed in, as long as you have at least one local provider configured.
 
-### Onboarding
+### Onboarding & UI
 
-- Four-step first-run setup: Git detection, LLM provider, optional GitHub connection, optional product tour.
-- Git is detected via `git --version`; if missing, Mozart shows OS-specific install instructions with copy-paste commands.
-- Replay the tour any time from Settings.
-
-### Theme + UI
-
+- Four-step first-run setup: Git detection, LLM provider, optional GitHub connection, optional product tour. Replay the tour any time from Settings.
 - Two palettes — **mozart** (warm stone, default) and **zinc** (cool slate) — each with light, dark, and system-aware modes.
-- Subtle violet brand accent (`#7C3AED`) shared across both themes; borders, cards, and inputs stay neutral in dark mode.
-- `prefers-reduced-motion` honored across animations and transitions.
+- Subtle violet brand accent (`#7C3AED`); `prefers-reduced-motion` honored across animations and transitions.
 
-### Known limitations
+### Current limits
 
-- No public download yet; access is invite-only during the preview.
+- Invite-only — no public download, distribution is manual via Google Drive.
+- No auto-updater in beta.0 — the next build will require a manual re-download.
 - `app.mozart.build` handles sign-in only; the cloud companion is not online yet.
-- Claude is the only model provider wired in. OpenAI, OpenRouter, and local models are coming.
-- Workspace aside width is fixed; resizable layout, merge UI, conflict resolution, and in-app PR review are deferred.
-- Skills (`/`) and context shortcuts (`@`) in the Composer are post-MVP.
+- Claude is the only model provider wired in.
+- Workspace aside width is fixed; no resizable layout, merge UI, conflict resolution, or in-app PR review.
+- Skills (`/`) and context shortcuts (`@`) in the Composer are not in this build.
