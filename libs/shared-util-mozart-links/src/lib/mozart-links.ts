@@ -8,6 +8,7 @@
 export interface MozartLinks {
   readonly site: string;
   readonly docs: string;
+  readonly changelog: string;
   readonly betaSignup: string;
   readonly community: {
     readonly discordInvite: string;
@@ -27,6 +28,10 @@ const DISCORD_INVITE = 'https://discord.gg/BpTAyFf7qk';
 export const MOZART_LINKS: MozartLinks = {
   site: 'https://mozart.build',
   docs: 'https://mozart.build/docs',
+  // Per-release slug appended at the call site, e.g.
+  // `${MOZART_LINKS.changelog}/v0-1-0-beta-2`. Matches the file naming
+  // convention in apps/landing/src/content/changelog/v<slug>.md.
+  changelog: 'https://mozart.build/changelog',
   betaSignup: 'https://tally.so/r/eq07lQ',
   community: {
     discordInvite: DISCORD_INVITE,

@@ -15,7 +15,6 @@ import { ReturnRouteService } from '@mozart/desktop-ui-state-data-access';
 import { FeatureTour } from '@mozart/desktop-onboarding-feature';
 import { ShellLeft } from './shell-left';
 import { ShellRight } from './shell-right';
-import { UpdateAvailableBanner } from './update-available-banner';
 
 // Root shell composer. Owns the 3-pane horizontal layout
 // (left | main | right), the global toaster, the offline notice, and
@@ -31,7 +30,6 @@ import { UpdateAvailableBanner } from './update-available-banner';
     FeatureTour,
     ShellLeft,
     ShellRight,
-    UpdateAvailableBanner,
   ],
   providers: [provideIcons({ lucideWifiOff })],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -68,8 +66,6 @@ import { UpdateAvailableBanner } from './update-available-banner';
         </div>
       </div>
     }
-
-    <app-update-available-banner />
 
     @if (tourActive()) {
       <!-- Tour overlay renders synchronously when the ?tour=on query
