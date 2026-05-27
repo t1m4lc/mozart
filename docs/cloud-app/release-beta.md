@@ -1,5 +1,11 @@
 # Release process — Mozart beta
 
+> **Note (post-beta.0)** — ce doc décrit le process manuel utilisé pour
+> beta.0 (distribution via Google Drive). Pour beta.1 et après, voir
+> [`desktop-release-automation.md`](./desktop-release-automation.md) qui
+> couvre l'auto-updater, le workflow CI `release.yml`, et le cycle
+> récurrent sans Drive ni emails.
+
 Step-by-step pour une release beta desktop + web.
 
 ---
