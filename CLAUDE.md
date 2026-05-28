@@ -132,6 +132,14 @@ Use skeletons/loaders when needed.
 - Prefer explicit code.
 - Keep files/components reasonably small.
 
+## Comments
+
+- Default to no comments. Let well-named code speak.
+- Only comment a non-obvious WHY: hidden constraint, workaround for a known bug, surprising behavior.
+- Keep them short. One line if possible, never multi-paragraph.
+- No "what" comments (the code says it).
+- No PR/issue refs, no "added for X flow" — those rot.
+
 ---
 
 # Module Boundaries
