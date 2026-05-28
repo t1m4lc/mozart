@@ -147,6 +147,42 @@ export class AuthFacade {
     this.cancelSignInTimeout$.next();
   }
 
+  // Sync the local onboarding-complete signal back to Clerk so any
+  // surface that reads `user.unsafeMetadata.onboarding` (apps/web's
+  // account page, future cross-device flows) sees the right value.
+  // Uses the user's own session token against Clerk Frontend API —
+  // unsafe_metadata is writable by the authenticated user, no backend
+  // round-trip needed. iss claim carries the Frontend API origin so we
+  // don't hardcode dev/prod URLs.
+  async markOnboardingComplete(): Promise<void> {
+    const session = this._session();
+    if (!session) return;
+    const claims = decodeJwt(session.token);
+    const apiOrigin = claims?.iss;
+    if (!apiOrigin) {
+      console.warn('[auth] markOnboardingComplete — no iss claim in token');
+      return;
+    }
+    try {
+      const res = await fetch(`${apiOrigin}/v1/me`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${session.token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ unsafe_metadata: { onboarding: true } }),
+      });
+      if (!res.ok) {
+        console.warn(
+          '[auth] markOnboardingComplete — Clerk responded',
+          res.status,
+        );
+      }
+    } catch (err) {
+      console.warn('[auth] markOnboardingComplete failed:', err);
+    }
+  }
+
   async signOut(): Promise<void> {
     try {
       await this.adapter.clearSession();

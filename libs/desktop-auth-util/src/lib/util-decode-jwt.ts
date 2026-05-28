@@ -14,10 +14,11 @@
 export interface JwtClaims {
   readonly exp: number; // seconds since epoch (Unix time)
   readonly onboarding: boolean;
-  /** GitHub username from `user.external_accounts.github.username` —
-   *  present only when the user signed in via the GitHub social
-   *  connection in Clerk. Drives the auto-connect-GitHub path. */
   readonly githubUsername: string | null;
+  // Clerk Frontend API origin (e.g. https://clerk.mozart.build in prod,
+  // https://<slug>.clerk.accounts.dev in dev). Used by the desktop to
+  // PATCH /v1/me back to Clerk without hardcoding the URL.
+  readonly iss: string | null;
 }
 
 export function decodeJwt(token: string): JwtClaims | null {
@@ -49,8 +50,9 @@ export function decodeJwt(token: string): JwtClaims | null {
     typeof rawGh === 'string' && rawGh.length > 0 && rawGh !== 'null'
       ? rawGh
       : null;
+  const iss = typeof obj['iss'] === 'string' ? (obj['iss'] as string) : null;
 
-  return { exp, onboarding, githubUsername };
+  return { exp, onboarding, githubUsername, iss };
 }
 
 function base64UrlDecode(input: string): string {

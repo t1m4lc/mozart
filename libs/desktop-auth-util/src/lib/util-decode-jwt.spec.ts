@@ -20,6 +20,7 @@ describe('decodeJwt', () => {
       exp: 1_700_000_000,
       onboarding: true,
       githubUsername: null,
+      iss: null,
     });
   });
 
@@ -29,6 +30,7 @@ describe('decodeJwt', () => {
       exp: 1_700_000_000,
       onboarding: false,
       githubUsername: null,
+      iss: null,
     });
   });
 
@@ -42,7 +44,17 @@ describe('decodeJwt', () => {
       exp: 1_700_000_000,
       onboarding: true,
       githubUsername: 'octocat',
+      iss: null,
     });
+  });
+
+  it('extracts iss when present (Clerk Frontend API URL)', () => {
+    const token = makeJwt({
+      exp: 1_700_000_000,
+      onboarding: false,
+      iss: 'https://clerk.mozart.build',
+    });
+    expect(decodeJwt(token)?.iss).toBe('https://clerk.mozart.build');
   });
 
   it('treats Clerk-rendered "null" string github_username as no link', () => {

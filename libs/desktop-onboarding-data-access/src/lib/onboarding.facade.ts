@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
+import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
@@ -28,6 +29,7 @@ import {
 export class OnboardingFacade {
   private readonly adapter = inject(ONBOARDING_ADAPTER);
   private readonly getStartedAdapter = inject(GET_STARTED_PROJECT_ADAPTER);
+  private readonly auth = inject(AuthFacade);
   private readonly projects = inject(ProjectsFacade);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly router = inject(Router);
@@ -113,6 +115,12 @@ export class OnboardingFacade {
       // Soft-fail : continue to the workspace either way. The local
       // mirror will be retried on next bootstrap.
     }
+
+    // Best-effort sync to Clerk unsafe_metadata so cross-surface
+    // reads (apps/web account page) reflect the completion. Awaited
+    // so the user lands on the workspace AFTER Clerk acknowledges —
+    // avoids the badge still showing Pending on a quick tab switch.
+    await this.auth.markOnboardingComplete();
 
     try {
       const result = await this.getStartedAdapter.ensure();
