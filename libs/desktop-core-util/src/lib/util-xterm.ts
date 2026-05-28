@@ -46,6 +46,15 @@ let cached: { xterm: XtermModule; fit: FitAddonModule } | null = null;
 let inFlight: Promise<{ xterm: XtermModule; fit: FitAddonModule }> | null =
   null;
 
+// `@xterm/xterm` and `@xterm/addon-fit` ship as UMD. esbuild in dev
+// surfaces named exports synthetically; the Angular prod optimizer
+// strips them, leaving only `default`. Normalize here so call sites
+// can always reach `.Terminal` / `.FitAddon` without a guard.
+function interop<T extends object>(mod: T): T {
+  const m = mod as T & { default?: T };
+  return m.default ?? m;
+}
+
 export function loadXterm(): Promise<{
   xterm: XtermModule;
   fit: FitAddonModule;
@@ -56,7 +65,7 @@ export function loadXterm(): Promise<{
     import('@xterm/xterm'),
     import('@xterm/addon-fit'),
   ]).then(([xterm, fit]) => {
-    cached = { xterm, fit };
+    cached = { xterm: interop(xterm), fit: interop(fit) };
     inFlight = null;
     return cached;
   });
