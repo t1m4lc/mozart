@@ -107,33 +107,56 @@ export class OnboardingFacade {
    *  two entry points to start it on demand.
    */
   async complete(): Promise<void> {
+    console.debug('[onboarding] complete() start');
+
     try {
       await this.adapter.set(true);
       this._isCompleted.set(true);
+      console.debug('[onboarding] flag persisted');
     } catch (err) {
-      console.error('[onboarding] complete failed:', err);
-      // Soft-fail : continue to the workspace either way. The local
-      // mirror will be retried on next bootstrap.
+      console.error('[onboarding] adapter.set failed:', err);
+      // Soft-fail : keep going so the user isn't stranded on /onboarding.
+      // The local mirror is set so the in-memory guard passes.
+      this._isCompleted.set(true);
     }
 
-    // Best-effort sync to Clerk unsafe_metadata so cross-surface
-    // reads (apps/web account page) reflect the completion. Awaited
-    // so the user lands on the workspace AFTER Clerk acknowledges —
-    // avoids the badge still showing Pending on a quick tab switch.
-    await this.auth.markOnboardingComplete();
+    try {
+      await this.auth.markOnboardingComplete();
+    } catch (err) {
+      console.warn('[onboarding] markOnboardingComplete threw:', err);
+    }
 
+    let target: readonly string[] | null = null;
     try {
       const result = await this.getStartedAdapter.ensure();
+      console.debug('[onboarding] get-started ensured', result.workspace.id);
       await this.projects.loadAll();
       await this.workspaces.loadAll();
-      void this.router.navigate(
-        workspaceRouteCommands(result.workspace.projectId, result.workspace.id),
+      target = workspaceRouteCommands(
+        result.workspace.projectId,
+        result.workspace.id,
       );
     } catch (err) {
       console.error('[onboarding] get-started bootstrap failed:', err);
-      // Fall back to the dashboard rather than getting stuck —
-      // the user can still add their own project from there.
-      void this.router.navigate(['/']);
+    }
+
+    const commands = target ?? ['/'];
+    try {
+      const ok = await this.router.navigate([...commands]);
+      console.debug('[onboarding] navigate', commands.join('/'), '→', ok);
+      if (!ok && target) {
+        // Workspace nav refused (guard/resolver) — land on dashboard
+        // instead of leaving the OnboardingPage frozen mid-transition.
+        const dashOk = await this.router.navigate(['/']);
+        console.warn('[onboarding] workspace nav refused, → /', dashOk);
+      }
+    } catch (err) {
+      console.error('[onboarding] router.navigate threw:', err);
+      try {
+        await this.router.navigateByUrl('/');
+      } catch (e) {
+        console.error('[onboarding] fallback navigate also failed:', e);
+      }
     }
   }
 
