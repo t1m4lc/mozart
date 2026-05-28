@@ -6,7 +6,7 @@ import {
 } from '@angular/core';
 import { ActivatedRoute } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideGithub, lucideMail } from '@ng-icons/lucide';
+import { lucideGithub } from '@ng-icons/lucide';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmSpinnerImports } from '@spartan-ui/spinner';
@@ -30,7 +30,7 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
     HlmTypographyImports,
     UiAuthCard,
   ],
-  providers: [provideIcons({ lucideGithub, lucideMail })],
+  providers: [provideIcons({ lucideGithub })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <app-ui-auth-card>
@@ -65,7 +65,12 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
           <hlm-spinner class="size-4" />
           Connecting to Google…
         } @else {
-          <ng-icon hlm name="lucideMail" size="sm" />
+          <img
+            src="/assets/shared/icons/google-g.svg"
+            alt=""
+            class="size-4"
+            draggable="false"
+          />
           Sign in with Google
         }
       </button>
