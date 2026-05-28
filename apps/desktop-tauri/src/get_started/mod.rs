@@ -1,19 +1,13 @@
-//! Phase 6 / Atom 6 — bundled "Get started" project for the tour.
+//! Bundled "Get started" project for the onboarding tour.
 //!
-//! Two files (README.md + hello.js) are embedded via `include_str!`
-//! and materialized to `~/Mozart/get-started/` on first call. The
-//! command is idempotent : if the folder already exists as a valid
-//! git repo it's reused, only the workspace creation runs.
+//! On first call, shallow-clones the template repo from GitHub into
+//! `~/Mozart/get-started/` and wires it as a Mozart project with a
+//! `welcome-1` workspace on `main`. Idempotent — repeated calls reuse
+//! the existing clone + workspace pair.
 //!
-//! Lifecycle :
-//! 1. Materialize folder + files.
-//! 2. `git init` + initial commit (empty, from git_query::init_repo).
-//! 3. `git add . && git commit` of the two starter files.
-//! 4. `add_repo_impl` registers the repo in the DB (idempotent on path).
-//! 5. `workspace_service::create_workspace` creates the `welcome-1`
-//!    workspace on `main`.
-//! 6. Return the Repo + Workspace to the front-end so the page can
-//!    navigate to `/workspaces/<welcome-1.id>`.
+//! The template URL is fixed at build time but can be overridden via
+//! the `MOZART_GET_STARTED_URL` env var for testing alternative
+//! templates / forks.
 
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -27,12 +21,11 @@ use crate::db::DbState;
 use crate::error::AppError;
 use crate::{git_query, workspace_service};
 
-const README: &str = include_str!("README.md");
-const HELLO_JS: &str = include_str!("hello.js");
-
+const TEMPLATE_URL: &str = "https://github.com/t1m4lc/mozart-get-started.git";
 const PROJECT_FOLDER_NAME: &str = "Mozart/get-started";
 const WORKSPACE_NAME: &str = "welcome-1";
-const WELCOME_TASK_TEXT: &str = "Try one of the prompts in the README to see Mozart's loop end-to-end.";
+const WELCOME_TASK_TEXT: &str =
+    "Play the orchestra — follow the prompts in the README to grow the cast and remix the loop.";
 
 /// Return type — pairs the registered repo with the auto-created
 /// workspace. The TS bindings expose this as `GetStartedProject`.
@@ -42,13 +35,11 @@ pub struct GetStartedProject {
     pub workspace: Workspace,
 }
 
-/// Materialize the bundled project (if missing) and ensure a workspace
-/// exists. Idempotent — repeated calls return the same repo /
-/// workspace pair.
+/// Clone the template (if missing) and ensure a workspace exists.
+/// Idempotent — repeated calls return the same repo / workspace pair.
 pub async fn create(db: &DbState) -> Result<GetStartedProject, AppError> {
     let path = target_path()?;
-    materialize_files(&path).await?;
-    ensure_git_repo(&path).await?;
+    ensure_template(&path).await?;
 
     let path_string = path
         .to_str()
@@ -108,62 +99,61 @@ fn home_dir_or_cwd() -> PathBuf {
     PathBuf::from(".")
 }
 
-async fn materialize_files(path: &Path) -> Result<(), AppError> {
-    std::fs::create_dir_all(path)
-        .map_err(|e| AppError::Io(format!("create get-started dir: {e}")))?;
-    let readme = path.join("README.md");
-    if !readme.exists() {
-        std::fs::write(&readme, README)
-            .map_err(|e| AppError::Io(format!("write README.md: {e}")))?;
-    }
-    let hello = path.join("hello.js");
-    if !hello.exists() {
-        std::fs::write(&hello, HELLO_JS)
-            .map_err(|e| AppError::Io(format!("write hello.js: {e}")))?;
-    }
-    Ok(())
+fn template_url() -> String {
+    std::env::var("MOZART_GET_STARTED_URL")
+        .ok()
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| TEMPLATE_URL.to_string())
 }
 
-async fn ensure_git_repo(path: &Path) -> Result<(), AppError> {
-    // Already a git repo? `validate_repo` returns Ok for any usable
-    // repo, NotARepo when missing. Other variants we surface as-is —
-    // they indicate the user has manually broken the folder.
-    match git_query::validate_repo(path).await {
-        Ok(()) => return Ok(()),
-        Err(git_query::RepoIssue::NotARepo) => {}
-        Err(other) => {
-            return Err(AppError::Validation(format!(
-                "get-started repo not usable: {other:?}"
-            )));
+/// Make sure `path` is a usable clone of the template.
+///
+/// - Folder missing → fresh `git clone --depth=1`.
+/// - Folder exists and validates as a git repo → reuse (idempotent ;
+///   the existing clone is whatever the user has, including their
+///   local edits — Mozart never overwrites it).
+/// - Folder exists but is NOT a git repo → return a clear error so
+///   the user knows their on-disk state needs cleanup.
+async fn ensure_template(path: &Path) -> Result<(), AppError> {
+    if path.exists() {
+        match git_query::validate_repo(path).await {
+            Ok(()) => return Ok(()),
+            Err(git_query::RepoIssue::NotARepo) => {
+                return Err(AppError::Validation(format!(
+                    "{} exists but is not a git repo — move or delete it and retry",
+                    path.display()
+                )));
+            }
+            Err(other) => {
+                return Err(AppError::Validation(format!(
+                    "get-started clone unusable: {other:?}"
+                )));
+            }
         }
     }
-    git_query::init_repo(path).await?;
-    // Stage + commit the bundled files. The empty initial commit from
-    // init_repo gives us a base branch ; this second commit gives us
-    // visible content for the tour.
-    run_git(path, &["add", "."])?;
-    run_git(
-        path,
-        &[
-            "commit",
-            "--no-gpg-sign",
-            "-m",
-            "Add Mozart get-started starter files",
-        ],
-    )?;
-    Ok(())
-}
 
-fn run_git(cwd: &Path, args: &[&str]) -> Result<(), AppError> {
+    let parent = path
+        .parent()
+        .ok_or_else(|| AppError::Io("get-started target has no parent dir".into()))?;
+    std::fs::create_dir_all(parent)
+        .map_err(|e| AppError::Io(format!("create parent dir: {e}")))?;
+
+    let url = template_url();
     let status = Command::new("git")
-        .args(args)
-        .current_dir(cwd)
+        .arg("clone")
+        .arg("--depth=1")
+        .arg(&url)
+        .arg(path)
         .status()
-        .map_err(|e| AppError::Io(format!("git spawn: {e}")))?;
+        .map_err(|e| AppError::Io(format!("git clone spawn: {e}")))?;
+
     if !status.success() {
+        // Tear down a partial clone so the next retry doesn't see a
+        // bogus directory and hit the "not a git repo" branch above.
+        let _ = std::fs::remove_dir_all(path);
         return Err(AppError::Io(format!(
-            "git {} failed (exit {:?})",
-            args.join(" "),
+            "git clone {} failed (exit {:?}). Check your network and that the template repo is reachable.",
+            url,
             status.code()
         )));
     }
