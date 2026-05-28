@@ -54,6 +54,7 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "4.2.4",
     "@tauri-apps/cli": "^2.11.1",
+    "@vitejs/plugin-basic-ssl": "^2.0.0",
     "@types/node": "20.19.9",
     "@typescript-eslint/utils": "^8.40.0",
     "angular-eslint": "^21.2.0",

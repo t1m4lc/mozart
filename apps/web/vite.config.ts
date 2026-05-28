@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import angular from '@analogjs/vite-plugin-angular';
+import basicSsl from '@vitejs/plugin-basic-ssl';
 import { nxViteTsPaths } from '@nx/vite/plugins/nx-tsconfig-paths.plugin';
 import tailwindcss from '@tailwindcss/vite';
 import { cpSync, createReadStream, statSync } from 'node:fs';
@@ -84,6 +85,12 @@ export default defineConfig(({ mode }) => ({
     nxViteTsPaths(),
     tailwindcss(),
     mozartSharedAssetsPlugin(),
+    // Self-signed HTTPS on the dev server (port 4201). The desktop's
+    // auth flow opens `https://localhost:4201/login?…` — without TLS
+    // the browser returns ERR_SSL_PROTOCOL_ERROR. Cert is regenerated
+    // on each cold start; accept the warning in the browser once per
+    // session. Build/prod is unaffected (plugin is dev-only).
+    basicSsl(),
   ],
   test: {
     globals: true,
