@@ -6,14 +6,18 @@ import {
 import { commands } from './_bindings';
 import type { NotificationImpl } from './notification-impl';
 
-const SOUND_URL = '/assets/desktop/sounds/message-done.ogg';
-const SOUND_VOLUME = 0.4;
-
-// Desktop notifications + a subtle chime when an agent turn finishes
-// off-screen. Phase 6 / Atom 10 — the desktop pop-up and the audio
-// chime are independently gated by user preferences stored in the
-// `config` table (notifications_desktop / notifications_sound). Both
-// default to true on a fresh install.
+// Desktop notifications on agent turn end. The audible chime is now
+// delegated to the OS notification daemon via the Tauri plugin's
+// `sound: 'default'` option — we no longer play a bundled .ogg through
+// HTML <audio>, which required GStreamer base/good plugins on Linux
+// and silently failed on machines that didn't have them.
+//
+// Independent gates from the `config` table:
+//   - notifications_desktop: should we fire the OS popup at all?
+//   - notifications_sound:   if firing, should it play the OS sound?
+// Both default to true. desktop=false short-circuits everything (the
+// previous "sound without popup" combo no longer applies — that path
+// relied on the HTML <audio> we removed).
 //
 // Tauri-bound impl of the abstract `NotificationService` declared in
 // `desktop-core-data-access`. Bound via
@@ -21,24 +25,17 @@ const SOUND_VOLUME = 0.4;
 // in app.config so libs can `inject(NotificationService)` without
 // touching `_bindings` or `@tauri-apps/plugin-notification`.
 //
-// Async-injection pattern : the `@tauri-apps/plugin-notification`
+// Async-injection pattern: the `@tauri-apps/plugin-notification`
 // dependency lives in a sibling file (`notification-impl.ts`) and is
 // only fetched via `import()` on the first call to `notify()`. The
 // service surface stays sync-friendly — consumers still do
-// `inject(NotificationService)` exactly as before. This is the
-// closest pattern Angular 22 has to a hypothetical `injectAsync` :
-// the consumer keeps the sync DI ergonomics ; the heavy module
-// boundary moves into the service itself.
+// `inject(NotificationService)` exactly as before.
 //
-// This is the canonical notification path : real `message_end`
+// This is the canonical notification path: real `message_end`
 // events AND the Settings "Send test notification" button both go
 // through `notify()` so the permission prompt fires consistently
-// on first use (a Rust-side `emit_message_end_notification` command
-// exists in the bindings but is no longer wired).
+// on first use.
 
-// Cached impl loader. Lives at module scope so multiple service
-// instances (shouldn't happen with providedIn: 'root', but defensive)
-// share one chunk fetch.
 let _implPromise: Promise<NotificationImpl> | null = null;
 
 async function loadImpl(): Promise<NotificationImpl> {
@@ -62,20 +59,17 @@ export class TauriNotificationService extends NotificationService {
   }): Promise<void> {
     await this._ensurePrefs();
     const prefs = this._prefs();
-    if (prefs.desktop) {
-      const impl = await loadImpl();
-      // Always attach a catch so any rejection escaping the inner
-      // try/catch (e.g., a Tauri capability error that the IPC
-      // layer raises synchronously around the await boundary)
-      // doesn't surface as an unhandled-promise-rejection in the
-      // webview console.
-      impl.sendDesktopNotification(opts).catch((err) => {
+    if (!prefs.desktop) return;
+    const impl = await loadImpl();
+    impl
+      .sendDesktopNotification({
+        title: opts.title,
+        body: opts.body,
+        sound: prefs.sound,
+      })
+      .catch((err) => {
         console.warn('[notification] sendDesktopNotification rejected', err);
       });
-    }
-    if (prefs.sound) {
-      this._playSound();
-    }
   }
 
   /** Push preferences from the settings UI so the next notify() uses
@@ -102,37 +96,24 @@ export class TauriNotificationService extends NotificationService {
     }
   }
 
-  /** Play the chime only — no desktop notification, no permission
-   *  prompt. Used by the Settings "test sound" button so the user can
-   *  audit volume without firing a fake message-end. */
+  /** "Test sound" button in Settings → Notifications. Fires a real
+   *  notification (visual + native sound) so the user verifies both
+   *  channels at once. The button is already gated on the desktop
+   *  pref upstream. */
   override playSound(): void {
-    this._playSound();
+    void this.notify({
+      title: 'Mozart',
+      body: 'Notification test',
+    });
   }
 
-  /** Play the chime IF `sound` preference is enabled. Fires whenever
-   *  an agent turn ends — even when the user is focused on the
-   *  workspace — so the audible alert remains. The visual desktop
-   *  popup is still gated separately by the caller's userIsHere
-   *  check. Hydrates prefs cache on first call. */
+  /** Historically fired a sound-only chime when the user was focused
+   *  on the active workspace. The HTML <audio> backing this path
+   *  required GStreamer on Linux and was dropped — when the user is
+   *  already looking at the timeline, the visible update is enough.
+   *  Kept as a no-op for binary compat with existing call sites.
+   *  Safe to remove once chat.facade stops calling it. */
   override playSoundIfEnabled(): void {
-    if (!this._prefsHydrated) {
-      void this._ensurePrefs().then(() => {
-        if (this._prefs().sound) this._playSound();
-      });
-      return;
-    }
-    if (this._prefs().sound) this._playSound();
-  }
-
-  // Audio API is browser-native — no heavy import — so this stays in
-  // the sync half of the service.
-  private _playSound(): void {
-    try {
-      const audio = new Audio(SOUND_URL);
-      audio.volume = SOUND_VOLUME;
-      void audio.play().catch(() => undefined);
-    } catch (err) {
-      console.warn('[notification] sound playback failed', err);
-    }
+    // intentionally empty
   }
 }
