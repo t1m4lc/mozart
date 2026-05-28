@@ -1,5 +1,6 @@
 export { AuthFacade } from './lib/auth.facade';
 export { AUTH_ADAPTER, type AuthAdapter } from './lib/auth.adapter';
+export { WEB_BASE_URL } from './lib/web-base-url.token';
 export {
   type AuthSessionDto,
   sessionFromDto,

@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
-import { AuthFacade } from '@mozart/desktop-auth-data-access';
+import { AuthFacade, WEB_BASE_URL } from '@mozart/desktop-auth-data-access';
 import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { FeatureGitStatus } from '@mozart/desktop-onboarding-feature';
 import {
@@ -13,10 +13,6 @@ import {
 import { ThemeService, type ThemeMode } from '@mozart/shared-util-theme';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmSelectImports } from '@spartan-ui/select';
-
-// Web account URL. Mirrors `buildSignInUrl` — same dev origin, just a
-// different path. Production deploy will swap this to app.mozart.build.
-const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
 
 @Component({
   selector: 'app-settings-page',
@@ -172,6 +168,7 @@ const WEB_ACCOUNT_URL = 'https://app.mozart.build/account';
 export class SettingsPage {
   private readonly auth = inject(AuthFacade);
   private readonly externalLink = inject(ExternalLinkService);
+  private readonly webBaseUrl = inject(WEB_BASE_URL);
   protected readonly _theme = inject(ThemeService);
   protected readonly _timelinePrefs = inject(TimelinePrefsService);
 
@@ -209,6 +206,6 @@ export class SettingsPage {
   }
 
   protected onOpenAccount(): void {
-    void this.externalLink.openExternal(WEB_ACCOUNT_URL);
+    void this.externalLink.openExternal(`${this.webBaseUrl}/account`);
   }
 }

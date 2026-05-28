@@ -25,7 +25,7 @@ import {
   TauriExternalLinkService,
   TauriNotificationService,
 } from '@mozart/desktop-core-tauri';
-import { AuthFacade } from '@mozart/desktop-auth-data-access';
+import { AuthFacade, WEB_BASE_URL } from '@mozart/desktop-auth-data-access';
 import {
   ChatFacade,
   WorkspaceChatPort,
@@ -41,6 +41,7 @@ import {
 } from '@mozart/desktop-ui-state-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { UpdaterService } from '@mozart/desktop-shell-feature';
+import { environment } from '../environments/environment';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -72,6 +73,9 @@ export const appConfig: ApplicationConfig = {
     // workspaceById + call markRead / toggleUnread without a
     // chat→workspaces lib dep.
     { provide: WorkspaceChatPort, useExisting: WorkspacesFacade },
+    // apps/web origin for Clerk sign-in + /account links. Swapped at
+    // production build via fileReplacements in project.json.
+    { provide: WEB_BASE_URL, useValue: environment.webBaseUrl },
     provideAppInitializer(async () => {
       // All inject() calls MUST happen synchronously before any await —
       // Angular's injection context is lost across microtasks.

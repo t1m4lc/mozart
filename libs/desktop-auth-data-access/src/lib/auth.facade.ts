@@ -11,6 +11,7 @@ import {
   type WelcomeState,
 } from '@mozart/desktop-auth-util';
 import { AUTH_ADAPTER } from './auth.adapter';
+import { WEB_BASE_URL } from './web-base-url.token';
 
 // User-facing timeout : if the deep-link doesn't arrive within 5 min
 // after clicking Sign in, the welcome screen flips to a "timed-out"
@@ -36,6 +37,7 @@ export class AuthFacade {
   private readonly adapter = inject(AUTH_ADAPTER);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
+  private readonly webBaseUrl = inject(WEB_BASE_URL);
 
   private readonly _session = signal<AuthSession | null>(null);
   readonly session = computed(() => this._session());
@@ -92,7 +94,7 @@ export class AuthFacade {
     if (this.welcomeState() === 'opening') return;
     const state = generateState();
     this.pendingState = state;
-    const url = buildSignInUrl(state, this.callbackPort);
+    const url = buildSignInUrl(this.webBaseUrl, state, this.callbackPort);
     this._signInUrl.set(url);
     this.welcomeState.set('opening');
     this.armTimeout();
