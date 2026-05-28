@@ -6,27 +6,29 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 @Component({
   selector: 'app-ui-onboarding-step-shell',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex h-full flex-col items-center justify-center' },
+  host: {
+    class: 'relative flex h-full flex-col items-center justify-center',
+  },
   template: `
+    <div
+      class="absolute left-1/2 top-12 flex -translate-x-1/2 gap-2"
+      role="progressbar"
+      [attr.aria-valuenow]="stepIndex()"
+      [attr.aria-valuemin]="1"
+      [attr.aria-valuemax]="totalSteps()"
+      [attr.aria-label]="
+        'Onboarding step ' + stepIndex() + ' of ' + totalSteps()
+      "
+    >
+      @for (i of dots(); track i) {
+        <span
+          class="size-2 rounded-full transition-colors"
+          [class.bg-foreground]="i <= stepIndex()"
+          [class.bg-muted]="i > stepIndex()"
+        ></span>
+      }
+    </div>
     <div class="w-full max-w-xl space-y-8 px-6 py-12">
-      <div
-        class="flex justify-center gap-2"
-        role="progressbar"
-        [attr.aria-valuenow]="stepIndex()"
-        [attr.aria-valuemin]="1"
-        [attr.aria-valuemax]="totalSteps()"
-        [attr.aria-label]="
-          'Onboarding step ' + stepIndex() + ' of ' + totalSteps()
-        "
-      >
-        @for (i of dots(); track i) {
-          <span
-            class="size-2 rounded-full transition-colors"
-            [class.bg-foreground]="i <= stepIndex()"
-            [class.bg-muted]="i > stepIndex()"
-          ></span>
-        }
-      </div>
       <div class="space-y-6">
         <ng-content />
       </div>
