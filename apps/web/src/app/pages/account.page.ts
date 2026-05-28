@@ -9,6 +9,7 @@ import { HlmBadgeImports } from '@spartan-ui/badge';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmCardImports } from '@spartan-ui/card';
 import { HlmTypographyImports } from '@spartan-ui/typography';
+import { ClerkService } from '@mozart/clerk';
 import { AuthFacade } from '../domains/auth';
 import { WebTopBar } from '../shell/web-top-bar';
 
@@ -62,15 +63,14 @@ import { WebTopBar } from '../shell/web-top-bar';
                   </span>
                 </div>
               </div>
-              <a
+              <button
                 hlmBtn
                 variant="outline"
-                href="https://accounts.mozart.build"
-                target="_blank"
-                rel="noopener noreferrer"
+                type="button"
+                (click)="openUserProfile()"
               >
                 Edit profile
-              </a>
+              </button>
             }
           </div>
         </section>
@@ -130,7 +130,12 @@ import { WebTopBar } from '../shell/web-top-bar';
 })
 export class AccountPage {
   private readonly auth = inject(AuthFacade);
+  private readonly clerk = inject(ClerkService);
   protected readonly user = this.auth.user;
+
+  protected openUserProfile(): void {
+    this.clerk.openUserProfile();
+  }
 
   protected readonly firstName = computed(
     () => this.user()?.firstName || 'there',

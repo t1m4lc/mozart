@@ -246,6 +246,14 @@ export class ClerkService {
     await clerk.user?.reload();
   }
 
+  // Open Clerk's hosted User Profile inside an in-page modal. Avoids
+  // the cross-subdomain redirect chain to accounts.<domain> that needs
+  // a __client cookie shared across all subdomains.
+  openUserProfile(): void {
+    const clerk = this.requireClerk();
+    clerk.openUserProfile();
+  }
+
   /**
    * Tell Clerk to process the redirect-back URL from a custom OAuth
    * flow. Reads the `__clerk_db_jwt` (or hash) query param the
