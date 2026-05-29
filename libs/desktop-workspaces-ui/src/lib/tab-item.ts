@@ -27,10 +27,8 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
   host: {
     class:
       'group/tab relative flex h-9 shrink-0 cursor-pointer items-center gap-1.5 px-2 first:pl-2 transition-[width,background-color] duration-150 text-muted-foreground hover:bg-accent/60 aria-selected:bg-brand/10 aria-selected:text-foreground',
-    '[class.w-36]': '!renaming()',
+    '[class.w-32]': '!renaming()',
     '[class.w-56]': 'renaming()',
-    '[class.pr-2]': 'renaming() || !showActions()',
-    '[class.pr-12]': '!renaming() && showActions()',
     '[attr.role]': '"tab"',
     '[attr.aria-selected]': 'active()',
     '(click)': 'activate.emit()',
@@ -75,7 +73,7 @@ import type { WorkspaceTab } from '@mozart/desktop-workspaces-util';
 
     @if (showActions() && !renaming()) {
       <div
-        class="absolute right-1 top-1/2 -translate-y-1/2 flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 group-hover/tab:opacity-100"
+        class="absolute inset-y-0 right-0 flex shrink-0 items-center gap-0.5 bg-gradient-to-l from-accent via-accent to-transparent pl-4 pr-1 opacity-0 transition-opacity duration-150 group-hover/tab:opacity-100"
       >
         @if (isChat()) {
           <button
