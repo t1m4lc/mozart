@@ -61,6 +61,17 @@ describe('FileTabsService — preview / pin model', () => {
     expect(svc.isPreviewFor(wsA, 'src/b.ts')).toBe(true);
   });
 
+  it('previewForPath reuses an existing tab instead of opening a second', () => {
+    const svc = setup();
+    svc.pinForPath(wsA, 'src/a.ts');
+    svc.pinForPath(wsA, 'src/b.ts');
+    // No active file tab + no preview slot → reuse the last open tab.
+    svc.previewForPath(wsA, 'src/c.ts');
+
+    expect(svc.forWorkspace(wsA)()).toEqual(['src/a.ts', 'src/c.ts']);
+    expect(svc.isPreviewFor(wsA, 'src/c.ts')).toBe(true);
+  });
+
   it('previewForPath on an already-pinned path is a no-op', () => {
     const svc = setup();
     svc.pinForPath(wsA, 'src/a.ts');
@@ -129,8 +140,11 @@ describe('FileTabsService — closeFor', () => {
 
   it('clears the preview slot when the closing tab was the preview', () => {
     const svc = setup();
-    svc.pinForPath(wsA, 'src/pinned.ts');
+    // Preview first, then pin a DIFFERENT file: single-click reuses the
+    // sole open tab, so a preview + pinned pair only forms when the
+    // preview exists before the pin appends alongside it.
     svc.previewForPath(wsA, 'src/preview.ts');
+    svc.pinForPath(wsA, 'src/pinned.ts');
     expect(svc.isPreviewFor(wsA, 'src/preview.ts')).toBe(true);
 
     svc.closeFor(wsA, 'src/preview.ts');

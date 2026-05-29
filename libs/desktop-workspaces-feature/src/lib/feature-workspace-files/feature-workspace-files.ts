@@ -28,6 +28,7 @@ import {
   WorkspacesFacade,
 } from '@mozart/desktop-workspaces-data-access';
 import { FeatureChangesList } from './feature-changes-list';
+import { createClickIntentGuard } from './click-intent-guard';
 
 // Shared empty array — returning the same reference on cache miss
 // keeps `changedFiles`'s computed reference-stable so downstream
@@ -137,6 +138,7 @@ export class FeatureWorkspaceFiles {
   private readonly destroyRef = inject(DestroyRef);
   private readonly fileTabs = inject(FileTabsService);
   private readonly uiState = inject(UiStateFacade);
+  private readonly clickGuard = createClickIntentGuard();
 
   protected readonly workspaceId = this.workspaces.activeId;
 
@@ -184,6 +186,7 @@ export class FeatureWorkspaceFiles {
       onCleanup(() => this.detachWatcher());
     });
     this.destroyRef.onDestroy(() => this.detachWatcher());
+    this.destroyRef.onDestroy(() => this.clickGuard.dispose());
 
     // Initial fetch of the changed-files list on workspace switch.
     // Subsequent updates flow through the FS-watcher's soft-refresh
@@ -273,19 +276,18 @@ export class FeatureWorkspaceFiles {
     this.uiState.updateWorkspaceAsideState(id, { filesView: view });
   }
 
-  // Tree single-click: open as preview (italic title; next single-
-  // click replaces). Native dblclick also fires `click` twice — the
-  // second click reads `intent='preview'` against an already-active
-  // preview (no-op), then `dblclick` pins.
+  // Tree single-click: reuse the active file tab (preview intent).
+  // Deferred via the guard so a following double-click cancels it
+  // before the destructive reuse runs.
   protected onFileSelected(node: FileNode): void {
     if (node.kind === 'directory') return;
-    void this.navigateToFile(node.path, 'preview');
+    this.clickGuard.single(() => void this.navigateToFile(node.path, 'preview'));
   }
 
-  // Tree double-click: pin the tab.
+  // Tree double-click: pin a new tab.
   protected onFileDoubleSelected(node: FileNode): void {
     if (node.kind === 'directory') return;
-    void this.navigateToFile(node.path, 'pin');
+    this.clickGuard.double(() => void this.navigateToFile(node.path, 'pin'));
   }
 
   private navigateToFile(

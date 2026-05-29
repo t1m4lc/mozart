@@ -2,6 +2,7 @@ import { NgTemplateOutlet } from '@angular/common';
 import {
   ChangeDetectionStrategy,
   Component,
+  DestroyRef,
   computed,
   inject,
 } from '@angular/core';
@@ -25,6 +26,7 @@ import {
   WorkspaceMutationsFacade,
   WorkspacesFacade,
 } from '@mozart/desktop-workspaces-data-access';
+import { createClickIntentGuard } from './click-intent-guard';
 
 // Shared empty array — keeps `changedFiles` reference-stable on cache
 // miss so downstream filters (stagedFiles/unstagedFiles) don't re-run
@@ -135,6 +137,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
         "
         class="flex w-full items-center gap-2 px-3 py-1 text-left text-xs hover:bg-accent hover:text-accent-foreground aria-[current=true]:bg-brand/10 aria-[current=true]:text-foreground"
         (click)="onChangedFileClick(file)"
+        (dblclick)="onChangedFileDblClick(file)"
       >
         <span
           class="inline-block w-4 shrink-0 text-center font-mono text-[10px]"
@@ -159,8 +162,13 @@ export class FeatureChangesList {
   private readonly mutations = inject(WorkspaceMutationsFacade);
   private readonly dialogService = inject(HlmDialogService);
   private readonly uiState = inject(UiStateFacade);
+  private readonly clickGuard = createClickIntentGuard();
 
   private readonly workspaceId = this.workspaces.activeId;
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => this.clickGuard.dispose());
+  }
 
   // Per-workspace group-open state, persisted via UiStateStore.
   private readonly asideState = this.uiState.asideStateFor(this.workspaceId);
@@ -213,8 +221,14 @@ export class FeatureChangesList {
     });
   }
 
+  // Single-click: open the diff in the reusable file tab (deferred so a
+  // double-click can cancel it). Double-click: pin a new tab.
   protected onChangedFileClick(file: ChangedFile): void {
-    this.openFileFromChanges(file.path);
+    this.clickGuard.single(() => this.openFileFromChanges(file.path, 'preview'));
+  }
+
+  protected onChangedFileDblClick(file: ChangedFile): void {
+    this.clickGuard.double(() => this.openFileFromChanges(file.path, 'pin'));
   }
 
   protected statusLetter(status: ChangedFile['status']): string {
@@ -292,20 +306,22 @@ export class FeatureChangesList {
     this.dialogService.open(UiConfirmDiscardChangesDialog, { context });
   }
 
-  private openFileFromChanges(path: string): void {
+  private openFileFromChanges(
+    path: string,
+    intent: 'preview' | 'pin',
+  ): void {
     const id = this.workspaceId();
     if (!id) return;
     const workspace = this.workspaces.workspaceById(id)();
     if (!workspace) return;
-    // Changes-list clicks always pin (no preview state). Routes via
-    // FileTabsService.navigateToFileTab so router state + per-path
-    // mode are set in one place; the tab effect in
-    // `WorkspaceTabContent` reads intent=pin (absent) and dispatches.
+    // Routes via FileTabsService.navigateToFileTab so router state +
+    // per-path mode are set in one place; the tab effect in
+    // `WorkspaceTabContent` reads the intent and dispatches.
     void this.fileTabs.navigateToFileTab({
       projectId: workspace.projectId,
       workspaceId: id,
       path,
-      intent: 'pin',
+      intent,
       mode: 'diff',
       source: 'changes',
     });

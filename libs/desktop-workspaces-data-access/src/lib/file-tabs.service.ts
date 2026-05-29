@@ -12,9 +12,10 @@ import {
 import { ScrollPositionService } from './scroll-position.service';
 import { WorkspaceTabRegistry } from './workspace-tab-registry';
 
-// Intent threading: tree single-click opens a preview tab (italic
-// title, replaces on next single-click). Anything else (tree
-// double-click, Changes-list click, deep link) pins.
+// Intent threading: a single-click reuses the one "preview" file tab
+// (italic title) by replacing the active file tab's path in place, so
+// single-click never spawns a second tab. Double-click (tree or
+// Changes list) and deep links PIN a new tab.
 export type FileTabIntent = 'preview' | 'pin';
 
 export interface NavigateFileTabOptions {
@@ -51,14 +52,19 @@ export class FileTabsService {
    *  workspace's file tab (if any) is "active" — other workspaces'
    *  in-session last position lives in `RouterFacade.lastTabFor`. */
   activeFor(workspaceId: string): Signal<string | null> {
-    return computed(() => {
-      if (this.routerFacade.activeWorkspaceId() !== workspaceId) return null;
-      if (this.routerFacade.activeTabKind() !== 'file') return null;
-      const tabId = this.routerFacade.activeTabId();
-      if (!tabId) return null;
-      const parsed = this.tabsRegistry.parse(tabId);
-      return parsed?.kind === 'file' ? parsed.path : null;
-    });
+    return computed(() => this.activeFilePathNow(workspaceId));
+  }
+
+  // Synchronous read of the active file path — shared by `activeFor`'s
+  // computed and `previewForPath` (which needs the pre-navigation
+  // active tab as its reuse target, read once at click time).
+  private activeFilePathNow(workspaceId: string): string | null {
+    if (this.routerFacade.activeWorkspaceId() !== workspaceId) return null;
+    if (this.routerFacade.activeTabKind() !== 'file') return null;
+    const tabId = this.routerFacade.activeTabId();
+    if (!tabId) return null;
+    const parsed = this.tabsRegistry.parse(tabId);
+    return parsed?.kind === 'file' ? parsed.path : null;
   }
 
   /** Currently-previewing path for `workspaceId`, or null. */
@@ -102,33 +108,40 @@ export class FileTabsService {
     };
   }
 
-  /** Open `path` as a preview tab in `workspaceId`. If a different
-   *  path already occupies the preview slot, that tab's path is
-   *  REPLACED with `path` (one preview per workspace). If `path` is
-   *  already open and pinned, this is a no-op apart from any preview
-   *  slot transitions. Caller drives the route navigation; this method
-   *  only mutates session state. */
+  /** Single-click intent: open `path` in the workspace's one reusable
+   *  file tab. Behaviour:
+   *   - `path` already open (pinned or preview) → no list change; the
+   *     caller's navigation just activates it (idempotent so the route
+   *     effect's redundant dispatch is harmless);
+   *   - no file tab yet → create one;
+   *   - file tab(s) exist → REPLACE the active file tab's path in place
+   *     (fallback: the current preview slot, then the last tab, for
+   *     single-clicks fired from a non-file tab). One reusable tab —
+   *     single-click never spawns a second; `pinForPath` (double-click)
+   *     is what opens an additional tab.
+   *  Caller drives the route navigation; this only mutates session
+   *  state. */
   previewForPath(workspaceId: string, path: string): void {
-    const currentPreview = this.session.previewFor(workspaceId);
     const tabs = this.session.fileTabsFor(workspaceId);
     const list = tabs.map((t) => t.path);
 
-    // Already open as pinned → no list change needed.
-    if (list.includes(path) && currentPreview !== path) return;
+    if (list.includes(path)) return;
 
-    // Already the active preview → no-op.
-    if (currentPreview === path) return;
-
-    let nextList: readonly string[];
-    if (currentPreview && list.includes(currentPreview)) {
-      // Replace prior preview path in-place to preserve tab position.
-      const idx = list.indexOf(currentPreview);
-      nextList = [...list.slice(0, idx), path, ...list.slice(idx + 1)];
-      // Forget the displaced preview's scroll position.
-      this.scrollPosition.forgetFile(workspaceId, currentPreview);
-    } else {
-      nextList = [...list, path];
+    if (list.length === 0) {
+      this.session.setOpenTabs(workspaceId, [{ path }]);
+      this.session.setPreview(workspaceId, path);
+      return;
     }
+
+    const active = this.activeFilePathNow(workspaceId);
+    const target =
+      active && list.includes(active)
+        ? active
+        : this.session.previewFor(workspaceId) ?? list[list.length - 1];
+    const idx = list.indexOf(target);
+    const nextList = [...list.slice(0, idx), path, ...list.slice(idx + 1)];
+    // Forget the displaced file's scroll position.
+    this.scrollPosition.forgetFile(workspaceId, target);
     this.session.setOpenTabs(
       workspaceId,
       nextList.map((p) => ({ path: p })),
