@@ -7,6 +7,7 @@ import { ProjectStore } from './project.store';
 import {
   PROJECTS_ADAPTER,
   type DetectedScripts,
+  type GithubRemoteStatus,
   type MergeMode,
 } from './projects.adapter';
 
@@ -46,14 +47,17 @@ export class ProjectsFacade {
   );
   private readonly mergeModeInflight = new Map<string, Promise<MergeMode>>();
 
-  // P1.1 D9 — per-project isGithubRemote cache. The right-aside merge
-  // action menu reads this signal to differentiate "GitHub not
-  // connected" from "this repo isn't on GitHub". Lazy + de-duped on
-  // concurrent reads, same shape as mergeModeCache.
-  private readonly isGithubRemoteCache = signal<ReadonlyMap<string, boolean>>(
-    new Map(),
-  );
-  private readonly isGithubRemoteInflight = new Map<string, Promise<boolean>>();
+  // P1.1 D9 — per-project GitHub-remote-status cache. The right-aside
+  // merge menu reads it to gate the PR action; the create-PR dialog
+  // reads it for precise messaging (no-remote vs non-GitHub vs error).
+  // Lazy + de-duped on concurrent reads, same shape as mergeModeCache.
+  private readonly githubRemoteCache = signal<
+    ReadonlyMap<string, GithubRemoteStatus>
+  >(new Map());
+  private readonly githubRemoteInflight = new Map<
+    string,
+    Promise<GithubRemoteStatus>
+  >();
 
   // Per-project `.mozart/run.json` script cache. Lazy + de-duped, same
   // shape as the other caches. Powers `effectiveCommandsFor` so the
@@ -114,45 +118,53 @@ export class ProjectsFacade {
     return p;
   }
 
-  /** P1.1 D9 — reactive view of the cached `isGithubRemote` boolean.
-   *  Returns `null` until the value is loaded via
-   *  `ensureIsGithubRemote(id)`. Consumers should treat `null` and
-   *  `false` the same for gating purposes — defensive default until
-   *  the probe lands. */
-  isGithubRemoteFor(id: string) {
-    return computed(() => this.isGithubRemoteCache().get(id) ?? null);
+  /** P1.1 D9 — reactive view of the cached GitHub-remote status.
+   *  Returns `null` until loaded via `ensureGithubRemoteStatus(id)`.
+   *  Consumers treat `null` (pending) defensively. */
+  githubRemoteStatusFor(id: string) {
+    return computed(() => this.githubRemoteCache().get(id) ?? null);
   }
 
-  /** Kick the lazy read. Idempotent under concurrency. Failures fall
-   *  back to `false` AND cache the defensive default so a persistently
-   *  failing project id doesn't hammer the backend on every signal
-   *  read. The Rust command already swallows transient git errors and
-   *  returns Ok(false); reaching the catch here means a structural
-   *  failure (missing repo row, IPC drop) that won't self-heal. */
-  ensureIsGithubRemote(id: string): Promise<boolean> {
-    const cached = this.isGithubRemoteCache().get(id);
+  /** Convenience boolean for gating surfaces (merge menu): true only
+   *  when a usable github.com remote was found. */
+  isGithubRemoteFor(id: string) {
+    return computed(() => this.githubRemoteCache().get(id)?.kind === 'github');
+  }
+
+  /** Kick the lazy read. Idempotent under concurrency. A structural
+   *  failure (missing repo row, IPC drop) is cached as an `error`
+   *  status so a persistently failing id doesn't hammer the backend on
+   *  every signal read; the dialog surfaces the message. */
+  ensureGithubRemoteStatus(id: string): Promise<GithubRemoteStatus> {
+    const cached = this.githubRemoteCache().get(id);
     if (cached !== undefined) return Promise.resolve(cached);
-    const inflight = this.isGithubRemoteInflight.get(id);
+    const inflight = this.githubRemoteInflight.get(id);
     if (inflight) return inflight;
     const p = (async () => {
       try {
-        const result = await this.adapter.isGithubRemote(id);
-        const next = new Map(this.isGithubRemoteCache());
-        next.set(id, result);
-        this.isGithubRemoteCache.set(next);
+        const result = await this.adapter.githubRemoteStatus(id);
+        this.writeGithubRemote(id, result);
         return result;
       } catch (err) {
-        console.warn('[projects] isGithubRemote failed:', err);
-        const next = new Map(this.isGithubRemoteCache());
-        next.set(id, false);
-        this.isGithubRemoteCache.set(next);
-        return false;
+        console.warn('[projects] githubRemoteStatus failed:', err);
+        const fallback: GithubRemoteStatus = {
+          kind: 'error',
+          message: err instanceof Error ? err.message : String(err),
+        };
+        this.writeGithubRemote(id, fallback);
+        return fallback;
       } finally {
-        this.isGithubRemoteInflight.delete(id);
+        this.githubRemoteInflight.delete(id);
       }
     })();
-    this.isGithubRemoteInflight.set(id, p);
+    this.githubRemoteInflight.set(id, p);
     return p;
+  }
+
+  private writeGithubRemote(id: string, status: GithubRemoteStatus): void {
+    const next = new Map(this.githubRemoteCache());
+    next.set(id, status);
+    this.githubRemoteCache.set(next);
   }
 
   /** Reactive view of `(runCommand, setupCommand)` merging the DB

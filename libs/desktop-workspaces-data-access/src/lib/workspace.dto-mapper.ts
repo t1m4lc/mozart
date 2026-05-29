@@ -21,6 +21,9 @@ export interface WorkspaceDto {
   readonly created_at: number;
   readonly deletion_intent: number;
   readonly last_merge_action: string | null;
+  readonly pr_url: string | null;
+  readonly pr_number: number | null;
+  readonly pr_state: string | null;
 }
 
 // DTO -> Model mapper. `projectId` is supplied by the caller — for
@@ -43,6 +46,16 @@ export function workspaceFromDto(
     pending: false,
     createdAt: new Date(dto.created_at),
     lastMergeAction: coerceMergeAction(dto.last_merge_action),
+    pr: prFromDto(dto),
+  };
+}
+
+function prFromDto(dto: WorkspaceDto) {
+  if (dto.pr_url == null || dto.pr_number == null) return null;
+  return {
+    url: dto.pr_url,
+    number: dto.pr_number,
+    state: dto.pr_state ?? 'open',
   };
 }
 

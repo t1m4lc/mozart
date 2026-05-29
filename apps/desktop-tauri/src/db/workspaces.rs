@@ -7,16 +7,16 @@ use crate::error::AppError;
 
 pub fn create(conn: &Connection, ws: &Workspace) -> Result<(), AppError> {
     conn.execute(
-        "INSERT INTO workspaces(workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)",
-        params![ws.workspace_id, ws.task_id, ws.name, ws.worktree_path, ws.branch_name, ws.base_branch, ws.status, ws.pinned, ws.unread, ws.created_at, ws.deletion_intent, ws.ui_status, ws.last_merge_action, ws.sandbox_level],
+        "INSERT INTO workspaces(workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level, pr_url, pr_number, pr_state)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14, ?15, ?16, ?17)",
+        params![ws.workspace_id, ws.task_id, ws.name, ws.worktree_path, ws.branch_name, ws.base_branch, ws.status, ws.pinned, ws.unread, ws.created_at, ws.deletion_intent, ws.ui_status, ws.last_merge_action, ws.sandbox_level, ws.pr_url, ws.pr_number, ws.pr_state],
     )?;
     Ok(())
 }
 
 pub fn get(conn: &Connection, workspace_id: &str) -> Result<Workspace, AppError> {
     conn.query_row(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level, pr_url, pr_number, pr_state
          FROM workspaces WHERE workspace_id = ?1",
         [workspace_id],
         row_to_workspace,
@@ -31,7 +31,7 @@ pub fn get(conn: &Connection, workspace_id: &str) -> Result<Workspace, AppError>
 
 pub fn list_by_task(conn: &Connection, task_id: &str) -> Result<Vec<Workspace>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level, pr_url, pr_number, pr_state
          FROM workspaces WHERE task_id = ?1 ORDER BY created_at DESC",
     )?;
     let rows = stmt.query_map([task_id], row_to_workspace)?;
@@ -42,7 +42,7 @@ pub fn list_by_task(conn: &Connection, task_id: &str) -> Result<Vec<Workspace>, 
 
 pub fn list_all(conn: &Connection) -> Result<Vec<Workspace>, AppError> {
     let mut stmt = conn.prepare(
-        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level
+        "SELECT workspace_id, task_id, name, worktree_path, branch_name, base_branch, status, pinned, unread, created_at, deletion_intent, ui_status, last_merge_action, sandbox_level, pr_url, pr_number, pr_state
          FROM workspaces ORDER BY created_at DESC",
     )?;
     let rows = stmt.query_map([], row_to_workspace)?;
@@ -74,7 +74,7 @@ pub fn list_active_siblings_for_project(
     let mut stmt = conn.prepare(
         "SELECT w.workspace_id, w.task_id, w.name, w.worktree_path, w.branch_name, w.base_branch,
                 w.status, w.pinned, w.unread, w.created_at, w.deletion_intent, w.ui_status,
-                w.last_merge_action, w.sandbox_level
+                w.last_merge_action, w.sandbox_level, w.pr_url, w.pr_number, w.pr_state
          FROM workspaces w
          INNER JOIN tasks t ON w.task_id = t.task_id
          LEFT JOIN threads th ON th.workspace_id = w.workspace_id
@@ -202,7 +202,30 @@ fn row_to_workspace(row: &rusqlite::Row<'_>) -> rusqlite::Result<Workspace> {
         ui_status: row.get(11)?,
         last_merge_action: row.get(12)?,
         sandbox_level: row.get(13)?,
+        pr_url: row.get(14)?,
+        pr_number: row.get(15)?,
+        pr_state: row.get(16)?,
     })
+}
+
+/// Persist the PR creation result on the workspace row. Called after a
+/// successful `POST /pulls` so "Open in GitHub" + PR status survive a
+/// dialog close / app restart. Idempotent — re-running overwrites.
+pub fn set_pr(
+    conn: &Connection,
+    workspace_id: &str,
+    pr_url: &str,
+    pr_number: i64,
+    pr_state: &str,
+) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE workspaces SET pr_url = ?1, pr_number = ?2, pr_state = ?3 WHERE workspace_id = ?4",
+        params![pr_url, pr_number, pr_state, workspace_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("workspace id={workspace_id}")));
+    }
+    Ok(())
 }
 
 pub fn set_name(conn: &Connection, workspace_id: &str, name: &str) -> Result<(), AppError> {
@@ -339,7 +362,44 @@ mod tests {
             ui_status: "backlog".into(),
             last_merge_action: None,
             sandbox_level: "L2Project".into(),
+            pr_url: None,
+            pr_number: None,
+            pr_state: None,
         }
+    }
+
+    #[test]
+    fn pr_fields_default_null_and_set_pr_round_trips() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let task_id = seed_task(&conn);
+        let ws = make_ws(&task_id, "pr");
+        create(&conn, &ws).unwrap();
+        let got = get(&conn, &ws.workspace_id).unwrap();
+        assert!(got.pr_url.is_none());
+        assert!(got.pr_number.is_none());
+        assert!(got.pr_state.is_none());
+
+        set_pr(
+            &conn,
+            &ws.workspace_id,
+            "https://github.com/o/r/pull/7",
+            7,
+            "open",
+        )
+        .unwrap();
+        let got = get(&conn, &ws.workspace_id).unwrap();
+        assert_eq!(got.pr_url.as_deref(), Some("https://github.com/o/r/pull/7"));
+        assert_eq!(got.pr_number, Some(7));
+        assert_eq!(got.pr_state.as_deref(), Some("open"));
+    }
+
+    #[test]
+    fn set_pr_missing_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let err = set_pr(&conn, "no-such-ws", "u", 1, "open").unwrap_err();
+        assert!(matches!(err, AppError::NotFound(_)));
     }
 
     #[test]

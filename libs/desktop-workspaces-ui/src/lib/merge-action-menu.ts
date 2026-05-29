@@ -9,6 +9,7 @@ import type { MergeAction } from '@mozart/desktop-workspaces-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideChevronDown,
+  lucideExternalLink,
   lucideGitMerge,
   lucideGitPullRequest,
 } from '@ng-icons/lucide';
@@ -26,9 +27,11 @@ import { HlmIconImports } from '@spartan-ui/icon';
 //
 // "Create PR" stays clickable even when GitHub isn't connected or the
 // remote isn't GitHub — the dialog (FeatureCreatePrDialog) shows a
-// state-explaining alert and gates Submit instead. "Merge now" is
-// still gated behind `localMergeDisabled` (P1.1 D5) until the flow
-// ships.
+// state-explaining alert and gates Submit instead. Once a PR exists
+// (`prUrl` set) the PR affordance flips to "View PR" and emits `viewPr`
+// to open it in the browser instead of re-opening the create dialog.
+// "Merge now" is still gated behind `localMergeDisabled` (P1.1 D5)
+// until the flow ships.
 @Component({
   selector: 'app-merge-action-menu',
   imports: [
@@ -41,6 +44,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
   providers: [
     provideIcons({
       lucideChevronDown,
+      lucideExternalLink,
       lucideGitMerge,
       lucideGitPullRequest,
     }),
@@ -81,10 +85,10 @@ import { HlmIconImports } from '@spartan-ui/icon';
           type="button"
           class="cursor-pointer"
           [disabled]="prRowDisabled()"
-          (triggered)="onPick('pr')"
+          (triggered)="onPrRow()"
         >
-          <ng-icon hlm name="lucideGitPullRequest" size="xs" />
-          <span>Create PR</span>
+          <ng-icon hlm [name]="prRowIcon()" size="xs" />
+          <span>{{ prRowLabel() }}</span>
         </button>
         <button
           hlmDropdownMenuItem
@@ -111,7 +115,7 @@ export class MergeActionMenu {
   readonly githubConnected = input.required<boolean>();
   /** P1.1 D9 — whether the active project's `origin` remote resolves
    *  to a github.com URL. The parent (shell-right) loads this lazily
-   *  via `ProjectsFacade.ensureIsGithubRemote`; until the probe lands
+   *  via `ProjectsFacade.ensureGithubRemoteStatus`; until the probe lands
    *  the parent passes `false` (defensive — better to gate than to
    *  surface a misleading enabled button). */
   readonly isGithubRemote = input.required<boolean>();
@@ -121,12 +125,20 @@ export class MergeActionMenu {
    *  passes `true` explicitly from shell-right. Flip to `false` when
    *  the local-merge feature is ready to ship. */
   readonly localMergeDisabled = input<boolean>(true);
+  /** When set, a PR already exists for this workspace: the PR affordance
+   *  becomes "View PR" and emits `viewPr` (opens the URL) instead of
+   *  routing to the create dialog. `null` = no PR yet. */
+  readonly prUrl = input<string | null>(null);
 
   readonly pick = output<MergeAction>();
+  readonly viewPr = output<void>();
+
+  protected readonly hasPr = computed(() => !!this.prUrl());
 
   protected readonly primaryDisabled = computed(() => {
     if (this.primaryAction() === 'pr') {
-      // PR always clickable — the dialog explains and gates Submit.
+      // PR always clickable — the dialog explains and gates Submit, and
+      // when a PR exists this is a "View PR" link.
       return false;
     }
     // primaryAction === 'local' — mirror the dropdown row's gating so
@@ -135,23 +147,44 @@ export class MergeActionMenu {
     return this.localMergeDisabled();
   });
 
-  protected readonly primaryLabel = computed(() =>
-    this.primaryAction() === 'pr' ? 'Create PR' : 'Merge now',
-  );
+  protected readonly primaryLabel = computed(() => {
+    if (this.primaryAction() !== 'pr') return 'Merge now';
+    return this.hasPr() ? 'View PR' : 'Create PR';
+  });
 
-  protected readonly primaryIcon = computed(() =>
-    this.primaryAction() === 'pr' ? 'lucideGitPullRequest' : 'lucideGitMerge',
-  );
+  protected readonly primaryIcon = computed(() => {
+    if (this.primaryAction() !== 'pr') return 'lucideGitMerge';
+    return this.hasPr() ? 'lucideExternalLink' : 'lucideGitPullRequest';
+  });
 
+  protected readonly prRowLabel = computed(() =>
+    this.hasPr() ? 'View PR' : 'Create PR',
+  );
+  protected readonly prRowIcon = computed(() =>
+    this.hasPr() ? 'lucideExternalLink' : 'lucideGitPullRequest',
+  );
   // PR row stays clickable; the dialog explains and gates Submit.
   protected readonly prRowDisabled = computed(() => false);
 
   protected primary(): void {
+    if (this.primaryAction() === 'pr') {
+      this.emitPrAction();
+      return;
+    }
     if (this.primaryDisabled()) return;
     this.pick.emit(this.primaryAction());
   }
 
   protected onPick(action: MergeAction): void {
     this.pick.emit(action);
+  }
+
+  protected onPrRow(): void {
+    this.emitPrAction();
+  }
+
+  private emitPrAction(): void {
+    if (this.hasPr()) this.viewPr.emit();
+    else this.pick.emit('pr');
   }
 }

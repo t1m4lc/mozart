@@ -6,6 +6,7 @@ import {
   inject,
 } from '@angular/core';
 import { NonMacWindowControls } from '@mozart/desktop-core-ui';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
@@ -65,8 +66,10 @@ import { ShellSidePanel } from './shell-side-panel';
                 [primaryAction]="mergePrimaryAction"
                 [githubConnected]="profile.githubConnected()"
                 [isGithubRemote]="isGithubRemote()"
+                [prUrl]="prUrl()"
                 [localMergeDisabled]="true"
                 (pick)="onMergeActionPick($event)"
+                (viewPr)="onViewPr()"
               />
             }
             @if (!isMac) {
@@ -95,6 +98,15 @@ export class ShellRight {
   protected readonly layout = inject(LayoutService);
   private readonly projects = inject(ProjectsFacade);
   private readonly dialog = inject(HlmDialogService);
+  private readonly externalLink = inject(ExternalLinkService);
+
+  // URL of the PR already opened from the active workspace, if any.
+  // Drives the merge menu's "View PR" affordance.
+  protected readonly prUrl = computed(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return null;
+    return this.workspaces.workspaceById(id)()?.pr?.url ?? null;
+  });
 
   // Right pane is only meaningful inside a workspace context, and the
   // user can additionally toggle it via the workspace toolbar. Fed
@@ -123,19 +135,19 @@ export class ShellRight {
     if (!id) return false;
     const ws = this.workspaces.workspaceById(id)();
     if (!ws) return false;
-    return this.projects.isGithubRemoteFor(ws.projectId)() ?? false;
+    return this.projects.isGithubRemoteFor(ws.projectId)();
   });
 
   constructor() {
-    // Kick the lazy isGithubRemote read for the active workspace's
-    // project. De-duped inside `ensureIsGithubRemote`, so re-firing on
-    // every active-workspace change is cheap.
+    // Kick the lazy GitHub-remote-status read for the active workspace's
+    // project. De-duped inside `ensureGithubRemoteStatus`, so re-firing
+    // on every active-workspace change is cheap.
     effect(() => {
       const id = this.workspaces.activeId();
       if (!id) return;
       const ws = this.workspaces.workspaceById(id)();
       if (!ws) return;
-      void this.projects.ensureIsGithubRemote(ws.projectId);
+      void this.projects.ensureGithubRemoteStatus(ws.projectId);
     });
   }
 
@@ -152,6 +164,13 @@ export class ShellRight {
     } else {
       await this.runLocalMerge(id);
     }
+  }
+
+  // Open the existing PR in the browser. Stays inside Mozart otherwise
+  // (no auto-navigation) — only fires on the explicit "View PR" click.
+  protected onViewPr(): void {
+    const url = this.prUrl();
+    if (url) void this.externalLink.openExternal(url);
   }
 
   private async openCreatePrDialog(workspaceId: string): Promise<void> {

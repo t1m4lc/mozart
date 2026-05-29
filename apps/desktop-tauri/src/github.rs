@@ -410,30 +410,120 @@ pub async fn fetch_user_repos_with_token(token: &str) -> ClerkGithubReposResult 
     }
 }
 
-/// Parse `git remote get-url origin` output to `(owner, repo)`.
-/// Accepts both SSH (`git@github.com:owner/repo.git`) and HTTPS
-/// (`https://github.com/owner/repo.git` or `.../owner/repo`) forms.
+/// Outcome of classifying a project's git remotes for PR creation.
+/// Drives both the merge-menu gating and the create-PR dialog's
+/// precise messaging — a bare boolean collapsed "no remote",
+/// "non-GitHub remote", and "couldn't parse the remote" into a single
+/// misleading "GitHub not found", which is exactly the bug this
+/// replaces.
+#[derive(Debug, Clone, Serialize, Deserialize, Type, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum GithubRemoteStatus {
+    /// A usable github.com remote was found. `remote_name` is the git
+    /// remote it came from (`origin` is preferred when present).
+    GithubRemote {
+        owner: String,
+        repo: String,
+        remote_name: String,
+    },
+    /// At least one remote exists but none point at github.com.
+    NonGithubRemote { url: String, remote_name: String },
+    /// The repository has no remotes configured.
+    NoRemote,
+    /// Reading the remotes failed (git missing, not a repo, …). The UI
+    /// shows the raw message rather than pretending there's no remote.
+    DetectError { message: String },
+}
+
+/// Parse a single git remote URL into `(owner, repo)` iff it points at
+/// github.com. Tolerant of the forms developers actually have:
+///   - HTTPS:     `https://github.com/owner/repo[.git][/]`
+///   - HTTPS+creds: `https://user[:token]@github.com/owner/repo.git`
+///   - SCP-SSH:   `[user@]github.com:owner/repo[.git]`
+///   - SSH URL:   `ssh://git@github.com[:port]/owner/repo.git`
+///   - git://     `git://github.com/owner/repo.git`
+/// Host match is case-insensitive and tolerates a leading `www.`.
 pub fn parse_github_remote(remote_url: &str) -> Option<(String, String)> {
     let trimmed = remote_url.trim();
-    let without_scheme = if let Some(rest) = trimmed.strip_prefix("git@github.com:") {
-        rest
-    } else if let Some(rest) = trimmed.strip_prefix("https://github.com/") {
-        rest
-    } else if let Some(rest) = trimmed.strip_prefix("http://github.com/") {
-        rest
-    } else if let Some(rest) = trimmed.strip_prefix("ssh://git@github.com/") {
-        rest
-    } else {
+    if trimmed.is_empty() {
         return None;
-    };
-    let without_suffix = without_scheme.strip_suffix(".git").unwrap_or(without_scheme);
-    let mut parts = without_suffix.splitn(2, '/');
-    let owner = parts.next()?.to_string();
-    let repo = parts.next()?.to_string();
+    }
+    let path = github_host_path(trimmed)?;
+    // Normalize the tail: drop a trailing slash, a `.git`, then any
+    // residual trailing slash (covers `repo`, `repo/`, `repo.git`,
+    // `repo.git/`).
+    let path = path.trim_end_matches('/');
+    let path = path.strip_suffix(".git").unwrap_or(path);
+    let path = path.trim_end_matches('/');
+
+    let mut parts = path.splitn(2, '/');
+    let owner = parts.next()?.trim();
+    let repo_rest = parts.next()?.trim();
+    // Defend against deep paths (`owner/repo/extra`) — keep owner+repo.
+    let repo = repo_rest.split('/').next().unwrap_or(repo_rest).trim();
     if owner.is_empty() || repo.is_empty() {
         return None;
     }
-    Some((owner, repo))
+    Some((owner.to_string(), repo.to_string()))
+}
+
+/// Return the `owner/repo…` path tail iff `url`'s host is github.com.
+/// Strips credentials (`user[:token]@`) and ports.
+fn github_host_path(url: &str) -> Option<&str> {
+    if let Some((_, after_scheme)) = url.split_once("://") {
+        // scheme://[creds@]host[:port]/path
+        let authority_and_path = after_scheme.rsplit_once('@').map_or(after_scheme, |(_, r)| r);
+        let (authority, path) = authority_and_path.split_once('/')?;
+        let host = authority.split(':').next().unwrap_or(authority);
+        return is_github_host(host).then_some(path);
+    }
+    // scp-like: [user@]host:owner/repo  (no scheme, host/path split on ':')
+    let after_user = url.rsplit_once('@').map_or(url, |(_, r)| r);
+    let (host, path) = after_user.split_once(':')?;
+    is_github_host(host).then_some(path)
+}
+
+fn is_github_host(host: &str) -> bool {
+    let h = host.trim().to_ascii_lowercase();
+    h == "github.com" || h == "www.github.com"
+}
+
+/// Pick the best remote for PR creation from `(name, url)` pairs.
+/// Prefers `origin` when it's a GitHub remote, then any GitHub remote,
+/// then reports a non-GitHub remote (so the UI can name it), else
+/// `NoRemote`. Pure — the command layer feeds it `git remote` output.
+pub fn classify_remotes(remotes: &[(String, String)]) -> GithubRemoteStatus {
+    if remotes.is_empty() {
+        return GithubRemoteStatus::NoRemote;
+    }
+    if let Some((name, url)) = remotes.iter().find(|(n, _)| n == "origin") {
+        if let Some((owner, repo)) = parse_github_remote(url) {
+            return GithubRemoteStatus::GithubRemote {
+                owner,
+                repo,
+                remote_name: name.clone(),
+            };
+        }
+    }
+    for (name, url) in remotes {
+        if let Some((owner, repo)) = parse_github_remote(url) {
+            return GithubRemoteStatus::GithubRemote {
+                owner,
+                repo,
+                remote_name: name.clone(),
+            };
+        }
+    }
+    // A remote exists but none are GitHub. Prefer origin's url for
+    // familiarity in the message.
+    let (name, url) = remotes
+        .iter()
+        .find(|(n, _)| n == "origin")
+        .unwrap_or(&remotes[0]);
+    GithubRemoteStatus::NonGithubRemote {
+        url: url.clone(),
+        remote_name: name.clone(),
+    }
 }
 
 #[cfg(test)]
@@ -450,6 +540,29 @@ mod tests {
             parse_github_remote("https://github.com/foo/bar.git"),
             Some(("foo".into(), "bar".into()))
         );
+        // Trailing slash, and `.git/` form.
+        assert_eq!(
+            parse_github_remote("https://github.com/foo/bar/"),
+            Some(("foo".into(), "bar".into()))
+        );
+        assert_eq!(
+            parse_github_remote("https://github.com/foo/bar.git/"),
+            Some(("foo".into(), "bar".into()))
+        );
+    }
+
+    #[test]
+    fn parse_remote_https_with_credentials() {
+        // The original prefix-only parser rejected these, which is the
+        // most common real-world "GitHub not found" trigger.
+        assert_eq!(
+            parse_github_remote("https://user@github.com/foo/bar.git"),
+            Some(("foo".into(), "bar".into()))
+        );
+        assert_eq!(
+            parse_github_remote("https://x-access-token:ghp_abc123@github.com/foo/bar.git"),
+            Some(("foo".into(), "bar".into()))
+        );
     }
 
     #[test]
@@ -459,7 +572,32 @@ mod tests {
             Some(("foo".into(), "bar".into()))
         );
         assert_eq!(
+            parse_github_remote("git@github.com:foo/bar"),
+            Some(("foo".into(), "bar".into()))
+        );
+        assert_eq!(
             parse_github_remote("ssh://git@github.com/foo/bar.git"),
+            Some(("foo".into(), "bar".into()))
+        );
+        // SSH URL with an explicit port.
+        assert_eq!(
+            parse_github_remote("ssh://git@github.com:22/foo/bar.git"),
+            Some(("foo".into(), "bar".into()))
+        );
+    }
+
+    #[test]
+    fn parse_remote_git_protocol_and_case_and_www() {
+        assert_eq!(
+            parse_github_remote("git://github.com/foo/bar.git"),
+            Some(("foo".into(), "bar".into()))
+        );
+        assert_eq!(
+            parse_github_remote("https://GitHub.com/Foo/Bar.git"),
+            Some(("Foo".into(), "Bar".into()))
+        );
+        assert_eq!(
+            parse_github_remote("https://www.github.com/foo/bar"),
             Some(("foo".into(), "bar".into()))
         );
     }
@@ -467,6 +605,55 @@ mod tests {
     #[test]
     fn parse_remote_rejects_non_github() {
         assert_eq!(parse_github_remote("https://gitlab.com/foo/bar"), None);
+        assert_eq!(parse_github_remote("git@gitlab.com:foo/bar.git"), None);
+        assert_eq!(parse_github_remote("https://github.example.com/foo/bar"), None);
         assert_eq!(parse_github_remote(""), None);
+        assert_eq!(parse_github_remote("not a url"), None);
+        // github host but missing the repo segment.
+        assert_eq!(parse_github_remote("https://github.com/owner"), None);
+    }
+
+    #[test]
+    fn classify_prefers_origin_then_any_github() {
+        // origin is GitHub → used directly.
+        let s = classify_remotes(&[
+            ("origin".into(), "git@github.com:o/r.git".into()),
+            ("upstream".into(), "https://github.com/up/stream.git".into()),
+        ]);
+        assert_eq!(
+            s,
+            GithubRemoteStatus::GithubRemote {
+                owner: "o".into(),
+                repo: "r".into(),
+                remote_name: "origin".into()
+            }
+        );
+
+        // origin is non-GitHub, but another remote is GitHub → fall through.
+        let s = classify_remotes(&[
+            ("origin".into(), "https://gitlab.com/o/r.git".into()),
+            ("github".into(), "git@github.com:gh/repo.git".into()),
+        ]);
+        assert_eq!(
+            s,
+            GithubRemoteStatus::GithubRemote {
+                owner: "gh".into(),
+                repo: "repo".into(),
+                remote_name: "github".into()
+            }
+        );
+    }
+
+    #[test]
+    fn classify_non_github_and_no_remote() {
+        let s = classify_remotes(&[("origin".into(), "https://gitlab.com/o/r.git".into())]);
+        assert_eq!(
+            s,
+            GithubRemoteStatus::NonGithubRemote {
+                url: "https://gitlab.com/o/r.git".into(),
+                remote_name: "origin".into()
+            }
+        );
+        assert_eq!(classify_remotes(&[]), GithubRemoteStatus::NoRemote);
     }
 }

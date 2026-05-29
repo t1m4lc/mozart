@@ -75,7 +75,7 @@ import { HlmSpinnerImports } from '@spartan-ui/spinner';
               role="status"
             >
               <span
-                class="bg-green-500 inline-block size-2 shrink-0 rounded-full"
+                class="bg-status-ok inline-block size-2 shrink-0 rounded-full"
                 aria-hidden="true"
               ></span>
               <span class="text-sm">Connected</span>
@@ -89,7 +89,7 @@ import { HlmSpinnerImports } from '@spartan-ui/spinner';
               (click)="onConnect()"
             >
               <ng-icon hlm name="lucideGithub" size="sm" />
-              Connect Github
+              Connect GitHub
             </button>
           }
         </div>

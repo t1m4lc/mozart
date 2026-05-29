@@ -17,7 +17,7 @@ use crate::commit::ChangedFile;
 use crate::error::AppError;
 use crate::file_tree::{FileNodeDto, FileTreeEvent};
 use crate::get_started::GetStartedProject;
-use crate::github::{CreatedPr, GithubProbeResult};
+use crate::github::{CreatedPr, GithubProbeResult, GithubRemoteStatus};
 use crate::ide_launch::DetectedIde;
 use crate::merge::MergeOutcome;
 use crate::terminal::TerminalEvent;
@@ -111,7 +111,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::get_github_token_kind,
                 commands::list_clerk_github_repos,
                 commands::disconnect_github,
-                commands::is_github_remote_for_project,
+                commands::detect_github_remote_for_project,
                 commands::push_workspace_branch,
                 commands::create_workspace_pr,
                 commands::merge_workspace_locally,
@@ -175,6 +175,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<commands::FileViewState>()
         .typ::<commands::FileViewStatus>()
         .typ::<GithubProbeResult>()
+        .typ::<GithubRemoteStatus>()
         .typ::<CreatedPr>()
         .typ::<AuthSessionDto>()
         .typ::<GetStartedProject>()

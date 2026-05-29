@@ -31,6 +31,17 @@ export interface Workspace {
    * `project_local_config.merge_mode` (set at bootstrap from the git
    * remote auto-detect). */
   lastMergeAction: MergeAction | null;
+  /** PR opened from this workspace, persisted on the workspace row so
+   * "Open in GitHub" + PR status survive dialog close / app restart.
+   * `null` until the first PR is opened. */
+  pr: WorkspacePr | null;
 }
 
 export type MergeAction = 'pr' | 'local';
+
+export interface WorkspacePr {
+  readonly url: string;
+  readonly number: number;
+  /** Mirrors the GitHub PR state — `'open'` on create. */
+  readonly state: string;
+}

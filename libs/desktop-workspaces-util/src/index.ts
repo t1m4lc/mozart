@@ -1,4 +1,8 @@
-export type { MergeAction, Workspace } from './lib/workspace.model';
+export type {
+  MergeAction,
+  Workspace,
+  WorkspacePr,
+} from './lib/workspace.model';
 export {
   UI_WORKSPACE_STATUSES,
   getUiStatusMeta,

@@ -19,6 +19,7 @@ interface MountOpts {
   readonly githubConnected?: boolean;
   readonly isGithubRemote?: boolean;
   readonly localMergeDisabled?: boolean;
+  readonly prUrl?: string | null;
 }
 
 function mount(opts: MountOpts = {}): ComponentFixture<MergeActionMenu> {
@@ -36,6 +37,7 @@ function mount(opts: MountOpts = {}): ComponentFixture<MergeActionMenu> {
     'localMergeDisabled',
     opts.localMergeDisabled ?? true,
   );
+  fixture.componentRef.setInput('prUrl', opts.prUrl ?? null);
   fixture.detectChanges();
   return fixture;
 }
@@ -150,6 +152,45 @@ describe('MergeActionMenu — dropdown PR row gating', () => {
   it('PR row stays clickable when !githubConnected (dialog gates Submit)', () => {
     const f = mount({ githubConnected: false, isGithubRemote: true });
     expect(internals(f).prRowDisabled()).toBe(false);
+  });
+});
+
+describe('MergeActionMenu — View PR when a PR already exists', () => {
+  it('primary flips to "View PR" when prUrl is set (primaryAction="pr")', () => {
+    const f = mount({ primaryAction: 'pr', prUrl: 'https://github.com/o/r/pull/3' });
+    expect(primaryButton(f).textContent).toContain('View PR');
+  });
+
+  it('primary "View PR" emits viewPr (not pick) and does not route to create', () => {
+    const f = mount({ primaryAction: 'pr', prUrl: 'https://github.com/o/r/pull/3' });
+    const picks: MergeAction[] = [];
+    let viewed = 0;
+    f.componentInstance.pick.subscribe((a) => picks.push(a));
+    f.componentInstance.viewPr.subscribe(() => (viewed += 1));
+    primaryButton(f).click();
+    expect(viewed).toBe(1);
+    expect(picks).toEqual([]);
+  });
+
+  it('falls back to "Create PR" + pick when prUrl is null', () => {
+    const f = mount({ primaryAction: 'pr', prUrl: null });
+    const picks: MergeAction[] = [];
+    let viewed = 0;
+    f.componentInstance.pick.subscribe((a) => picks.push(a));
+    f.componentInstance.viewPr.subscribe(() => (viewed += 1));
+    expect(primaryButton(f).textContent).toContain('Create PR');
+    primaryButton(f).click();
+    expect(picks).toEqual(['pr']);
+    expect(viewed).toBe(0);
+  });
+
+  it('keeps "Merge now" primary when primaryAction="local" even if a PR exists', () => {
+    const f = mount({
+      primaryAction: 'local',
+      localMergeDisabled: false,
+      prUrl: 'https://github.com/o/r/pull/3',
+    });
+    expect(primaryButton(f).textContent).toContain('Merge now');
   });
 });
 

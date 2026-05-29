@@ -64,6 +64,13 @@ pub struct Workspace {
     /// `'L2Project'` for existing rows; new workspaces inherit the
     /// same default. UI toggle is deferred to TODO-008.
     pub sandbox_level: String,
+    /// PR creation result, persisted so "Open in GitHub" + PR status
+    /// survive dialog close / app restart (and so a re-opened workspace
+    /// shows `already-has-pr`). `None` until the first PR is opened.
+    /// `pr_state` mirrors the GitHub PR state (`"open"` on create).
+    pub pr_url: Option<String>,
+    pub pr_number: Option<i64>,
+    pub pr_state: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]

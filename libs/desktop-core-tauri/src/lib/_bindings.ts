@@ -1404,19 +1404,17 @@ export const commands = {
    * project-level (not workspace-level) because git remotes are shared
    * across all worktrees of the same repo.
    *
-   * Returns `false` for any non-GitHub origin AND for any error
-   * reading the remote (no origin configured, missing path, git not
-   * installed, …). The "false on error" semantic is intentional and
-   * defensive: a misconfigured project should not light up a PR button
-   * that will then fail mid-flow.
+   * Returns a typed `GithubRemoteStatus` so the UI can tell "no remote",
+   * "non-GitHub remote", and "couldn't read remotes" apart — the old
+   * bare-bool collapsed all three into a misleading "GitHub not found".
    */
-  async isGithubRemoteForProject(
+  async detectGithubRemoteForProject(
     repoId: string,
-  ): Promise<Result<boolean, AppError>> {
+  ): Promise<Result<GithubRemoteStatus, AppError>> {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('is_github_remote_for_project', { repoId }),
+        data: await TAURI_INVOKE('detect_github_remote_for_project', { repoId }),
       };
     } catch (e) {
       if (e instanceof Error) throw e;
@@ -2147,6 +2145,16 @@ export type GithubProbeResult =
   | { kind: 'unauthorized' }
   | { kind: 'network'; message: string };
 /**
+ * Outcome of classifying a project's git remotes for PR creation.
+ * Drives both the merge-menu gating and the create-PR dialog's precise
+ * messaging.
+ */
+export type GithubRemoteStatus =
+  | { kind: 'github_remote'; owner: string; repo: string; remote_name: string }
+  | { kind: 'non_github_remote'; url: string; remote_name: string }
+  | { kind: 'no_remote' }
+  | { kind: 'detect_error'; message: string };
+/**
  * Provenance of the currently-stored GitHub token. Exposed to the UI
  * so settings + PR dialog can render "via OAuth" vs "via PAT". Returns
  * `null` if no token is stored or if the keyring lost the sibling kind
@@ -2328,6 +2336,14 @@ export type Workspace = {
    * same default. UI toggle is deferred to TODO-008.
    */
   sandbox_level: string;
+  /**
+   * PR creation result, persisted so "Open in GitHub" + PR status
+   * survive dialog close / app restart (and so a re-opened workspace
+   * shows `already-has-pr`). `null` until the first PR is opened.
+   */
+  pr_url: string | null;
+  pr_number: number | null;
+  pr_state: string | null;
 };
 export type WorkspaceChange = {
   change_id: number;

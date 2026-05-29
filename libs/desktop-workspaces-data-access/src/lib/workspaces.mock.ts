@@ -16,6 +16,7 @@ export const WORKSPACES_MOCK: Workspace[] = [
     pending: false,
     createdAt: new Date('2025-04-15T09:00:00'),
     lastMergeAction: null,
+    pr: null,
   },
   {
     id: 'w2',
@@ -29,6 +30,7 @@ export const WORKSPACES_MOCK: Workspace[] = [
     pending: false,
     createdAt: new Date('2025-04-10T09:00:00'),
     lastMergeAction: null,
+    pr: null,
   },
   {
     id: 'w3',
@@ -42,5 +44,6 @@ export const WORKSPACES_MOCK: Workspace[] = [
     pending: false,
     createdAt: new Date('2025-04-20T09:00:00'),
     lastMergeAction: null,
+    pr: null,
   },
 ];

@@ -8,7 +8,11 @@ import {
   withState,
 } from '@ngrx/signals';
 import type { UiWorkspaceStatus } from '@mozart/desktop-workspaces-util';
-import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
+import type {
+  MergeAction,
+  Workspace,
+  WorkspacePr,
+} from '@mozart/desktop-workspaces-util';
 
 interface State {
   workspaces: Workspace[];
@@ -144,6 +148,13 @@ export const WorkspaceStore = signalStore(
         action: MergeAction | null,
       ): void {
         mutate(workspaceId, (w) => ({ ...w, lastMergeAction: action }));
+      },
+
+      // Persist the PR opened from a workspace into the in-memory store
+      // so "Open in GitHub" + PR status render immediately, without a
+      // re-hydration round-trip. The Rust side already wrote the row.
+      setPr(workspaceId: string, pr: WorkspacePr | null): void {
+        mutate(workspaceId, (w) => ({ ...w, pr }));
       },
 
       // Flip the transient "this workspace is currently in a loading

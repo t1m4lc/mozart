@@ -100,6 +100,9 @@ pub async fn create_workspace(
             ui_status: "backlog".into(),
             last_merge_action: None,
             sandbox_level: "L2Project".into(),
+            pr_url: None,
+            pr_number: None,
+            pr_state: None,
     };
     {
         let conn = db.lock();

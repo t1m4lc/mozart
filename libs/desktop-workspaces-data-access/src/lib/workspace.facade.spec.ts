@@ -42,6 +42,7 @@ function makeWorkspace(overrides: Partial<Workspace> = {}): Workspace {
     pending: false,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     lastMergeAction: null,
+    pr: null,
     ...overrides,
   };
 }

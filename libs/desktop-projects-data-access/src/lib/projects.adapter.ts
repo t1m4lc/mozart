@@ -58,15 +58,27 @@ export interface ProjectsAdapter {
    *  (`'pr'` or `'local'`). Falls back to `'pr'` if the project hasn't
    *  bootstrapped a local config yet. */
   getMergeMode(id: string): Promise<MergeMode>;
-  /** P1.1 D9 — does this project's `origin` remote resolve to a
-   *  github.com URL? Used by the right-aside merge action menu to
-   *  differentiate "user not connected" from "this repo isn't on
-   *  GitHub". Returns `false` for any non-GitHub origin AND any error
-   *  reading the remote (defensive — see Rust command docs). */
-  isGithubRemote(id: string): Promise<boolean>;
+  /** P1.1 D9 — classify the project's git remotes for PR creation.
+   *  Enumerates all remotes, prefers `origin`, then any github.com
+   *  remote. Used by the right-aside merge menu (gating) and the
+   *  create-PR dialog (precise messaging) to distinguish "no remote",
+   *  "non-GitHub remote", and "couldn't read remotes". */
+  githubRemoteStatus(id: string): Promise<GithubRemoteStatus>;
 }
 
 export type MergeMode = 'pr' | 'local';
+
+/** Camel-cased domain view of the Rust `GithubRemoteStatus`. */
+export type GithubRemoteStatus =
+  | {
+      readonly kind: 'github';
+      readonly owner: string;
+      readonly repo: string;
+      readonly remoteName: string;
+    }
+  | { readonly kind: 'non-github'; readonly url: string; readonly remoteName: string }
+  | { readonly kind: 'no-remote' }
+  | { readonly kind: 'error'; readonly message: string };
 
 /** Effective scripts parsed from a project's `.mozart/run.json`. The
  *  `setup` and `run` entries are independent — only one may be

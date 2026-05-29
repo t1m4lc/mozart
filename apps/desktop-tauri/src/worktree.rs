@@ -509,6 +509,9 @@ mod tests {
                 ui_status: "backlog".into(),
                 last_merge_action: None,
                 sandbox_level: "L2Project".into(),
+                pr_url: None,
+                pr_number: None,
+                pr_state: None,
             };
             workspaces::create(&conn, &archived).unwrap();
         }
@@ -772,6 +775,9 @@ mod tests {
             ui_status: "backlog".into(),
             last_merge_action: None,
             sandbox_level: "L2Project".into(),
+            pr_url: None,
+            pr_number: None,
+            pr_state: None,
             };
             workspaces::create(&conn, &ws).unwrap();
         }
@@ -852,6 +858,9 @@ mod tests {
                     ui_status: "backlog".into(),
                     last_merge_action: None,
                     sandbox_level: "L2Project".into(),
+                    pr_url: None,
+                    pr_number: None,
+                    pr_state: None,
                 };
                 workspaces::create(&conn, &ws).unwrap();
             }

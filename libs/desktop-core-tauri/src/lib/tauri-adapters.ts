@@ -222,8 +222,23 @@ function provideProjectsAdapter(): Provider {
         const config = unwrap(await commands.readProjectConfig(id));
         return config.mergeMode === 'local' ? 'local' : 'pr';
       },
-      async isGithubRemote(id) {
-        return unwrap(await commands.isGithubRemoteForProject(id));
+      async githubRemoteStatus(id) {
+        const s = unwrap(await commands.detectGithubRemoteForProject(id));
+        switch (s.kind) {
+          case 'github_remote':
+            return {
+              kind: 'github',
+              owner: s.owner,
+              repo: s.repo,
+              remoteName: s.remote_name,
+            };
+          case 'non_github_remote':
+            return { kind: 'non-github', url: s.url, remoteName: s.remote_name };
+          case 'no_remote':
+            return { kind: 'no-remote' };
+          case 'detect_error':
+            return { kind: 'error', message: s.message };
+        }
       },
     } satisfies ProjectsAdapter,
   };

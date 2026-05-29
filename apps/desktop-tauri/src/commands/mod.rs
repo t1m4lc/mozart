@@ -2646,34 +2646,49 @@ pub async fn disconnect_github() -> Result<(), AppError> {
     keyring_store::clear_github_token()
 }
 
-/// P1.1 D9 — does this project's `origin` remote resolve to a github.com
-/// URL? Used by the right-aside merge action menu to disable the
-/// Create PR action with a "this repo isn't on GitHub" tooltip when
-/// the workspace's project doesn't have a GitHub remote. The check is
+/// P1.1 D9 — detect the project's GitHub remote for PR creation. Used
+/// by the right-aside merge menu (gating) and the create-PR dialog
+/// (precise messaging). Enumerates every configured git remote,
+/// prefers `origin`, then any github.com remote. The check is
 /// project-level (not workspace-level) because git remotes are shared
 /// across all worktrees of the same repo.
 ///
-/// Returns `false` for any non-GitHub origin AND for any error
-/// reading the remote (no origin configured, missing path, git not
-/// installed, …). The "false on error" semantic is intentional and
-/// defensive: a misconfigured project should not light up a PR button
-/// that will then fail mid-flow.
+/// Returns a typed `GithubRemoteStatus` so the UI can tell "no remote",
+/// "non-GitHub remote", and "couldn't read remotes" apart — the old
+/// bare-bool collapsed all three into a misleading "GitHub not found".
 #[tauri::command]
 #[specta::specta]
-pub async fn is_github_remote_for_project(
+pub async fn detect_github_remote_for_project(
     db: State<'_, DbState>,
     repo_id: String,
-) -> Result<bool, AppError> {
+) -> Result<github::GithubRemoteStatus, AppError> {
     let repo = {
         let conn = db.lock();
         repos::get(&conn, &repo_id)?
     };
-    let path = std::path::Path::new(&repo.path);
-    let origin_raw = match sandbox::run_git(path, &["remote", "get-url", "origin"]).await {
+    Ok(detect_github_remote_at(std::path::Path::new(&repo.path)).await)
+}
+
+/// Shared remote classification for the project probe and PR creation.
+/// Reads `git remote`, then `git remote get-url <name>` for each, and
+/// hands the `(name, url)` pairs to [`github::classify_remotes`].
+/// A failure to list remotes at all (git missing, not a repo) surfaces
+/// as `DetectError` — never as a misleading "no remote".
+async fn detect_github_remote_at(path: &std::path::Path) -> github::GithubRemoteStatus {
+    let names_raw = match sandbox::run_git(path, &["remote"]).await {
         Ok(s) => s,
-        Err(_) => return Ok(false),
+        Err(e) => return github::GithubRemoteStatus::DetectError { message: e.to_string() },
     };
-    Ok(github::parse_github_remote(origin_raw.trim()).is_some())
+    let mut remotes: Vec<(String, String)> = Vec::new();
+    for name in names_raw.lines().map(str::trim).filter(|n| !n.is_empty()) {
+        if let Ok(url) = sandbox::run_git(path, &["remote", "get-url", name]).await {
+            let url = url.trim().to_string();
+            if !url.is_empty() {
+                remotes.push((name.to_string(), url));
+            }
+        }
+    }
+    github::classify_remotes(&remotes)
 }
 
 /// Push the workspace's branch to `origin` (with `-u`) using the local
@@ -2708,8 +2723,14 @@ pub async fn push_workspace_branch(
 }
 
 /// Push the branch (idempotent) then create a PR via the GitHub REST
-/// API. Requires a stored GitHub token; the project's origin must
-/// resolve to `github.com/<owner>/<repo>`.
+/// API and persist the result on the workspace. Requires a stored
+/// GitHub token; the project must have a github.com remote (origin
+/// preferred, else any GitHub remote — see [`detect_github_remote_at`]).
+/// Pushes to the detected remote (not a hardcoded `origin`).
+///
+/// On success, `pr_url` / `pr_number` / `pr_state` are written to the
+/// workspace row so "Open in GitHub" and the workspace's PR status
+/// survive a dialog close / app restart.
 ///
 /// Self-healing: when the stored token is an OAuth token acquired via
 /// Clerk (`GithubTokenKind::OauthClerk`) and GitHub answers 401, the
@@ -2733,22 +2754,29 @@ pub async fn create_workspace_pr(
         workspaces::get(&conn, &workspace_id)?
     };
     let worktree = std::path::Path::new(&ws.worktree_path);
-    let origin_raw = sandbox::run_git(worktree, &["remote", "get-url", "origin"])
-        .await
-        .map_err(|e| match e {
-            AppError::GitCmd(_) => AppError::Validation(
-                "this project has no `origin` remote configured".into(),
-            ),
-            other => other,
-        })?;
-    let (owner, repo) = github::parse_github_remote(origin_raw.trim()).ok_or_else(
-        || AppError::Validation("origin is not a github.com URL".into()),
-    )?;
-    sandbox::run_git(
-        worktree,
-        &["push", "-u", "origin", &ws.branch_name],
-    )
-    .await?;
+    let (owner, repo, remote_name) = match detect_github_remote_at(worktree).await {
+        github::GithubRemoteStatus::GithubRemote {
+            owner,
+            repo,
+            remote_name,
+        } => (owner, repo, remote_name),
+        github::GithubRemoteStatus::NonGithubRemote { url, .. } => {
+            return Err(AppError::Validation(format!(
+                "PR creation currently requires a GitHub remote — this project's remote is {url}"
+            )));
+        }
+        github::GithubRemoteStatus::NoRemote => {
+            return Err(AppError::Validation(
+                "the source repository has no git remote configured — add a GitHub remote to open a PR".into(),
+            ));
+        }
+        github::GithubRemoteStatus::DetectError { message } => {
+            return Err(AppError::Validation(format!(
+                "could not read the project's git remotes: {message}"
+            )));
+        }
+    };
+    sandbox::run_git(worktree, &["push", "-u", &remote_name, &ws.branch_name]).await?;
     let first_attempt = github::create_pr(
         &token,
         &owner,
@@ -2760,8 +2788,8 @@ pub async fn create_workspace_pr(
         draft,
     )
     .await;
-    match first_attempt {
-        Ok(pr) => Ok(pr),
+    let created = match first_attempt {
+        Ok(pr) => pr,
         Err(github::CreatePrError::Unauthorized) => {
             if !matches!(
                 keyring_store::get_github_token_kind()?,
@@ -2787,10 +2815,15 @@ pub async fn create_workspace_pr(
                 draft,
             )
             .await
-            .map_err(AppError::from)
+            .map_err(AppError::from)?
         }
-        Err(other) => Err(other.into()),
+        Err(other) => return Err(other.into()),
+    };
+    {
+        let conn = db.lock();
+        workspaces::set_pr(&conn, &workspace_id, &created.html_url, created.number, "open")?;
     }
+    Ok(created)
 }
 
 /// Plan §P2.6 "Merge-now flow". Runs the local-merge state machine on
@@ -3373,6 +3406,9 @@ mod tests {
             ui_status: "backlog".into(),
             last_merge_action: None,
             sandbox_level: "L2Project".into(),
+            pr_url: None,
+            pr_number: None,
+            pr_state: None,
         };
         workspaces::create(&conn, &ws).unwrap();
         let th = Thread {
@@ -3863,6 +3899,9 @@ mod tests {
             ui_status: "backlog".into(),
             last_merge_action: None,
             sandbox_level: "L2Project".into(),
+            pr_url: None,
+            pr_number: None,
+            pr_state: None,
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -3967,6 +4006,9 @@ mod tests {
             ui_status: "backlog".into(),
             last_merge_action: None,
             sandbox_level: "L2Project".into(),
+            pr_url: None,
+            pr_number: None,
+            pr_state: None,
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -4277,6 +4319,9 @@ mod tests {
             ui_status: "backlog".into(),
             last_merge_action: None,
             sandbox_level: "L2Project".into(),
+            pr_url: None,
+            pr_number: None,
+            pr_state: None,
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -4411,6 +4456,9 @@ mod tests {
             ui_status: "backlog".into(),
             last_merge_action: None,
             sandbox_level: "L2Project".into(),
+            pr_url: None,
+            pr_number: None,
+            pr_state: None,
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -4555,6 +4603,9 @@ mod tests {
                 ui_status: "backlog".into(),
                 last_merge_action: None,
                 sandbox_level: "L2Project".into(),
+                pr_url: None,
+                pr_number: None,
+                pr_state: None,
             };
             workspaces::create(&conn, &ws).unwrap();
             let th = Thread {
@@ -4947,6 +4998,9 @@ mod tests {
                 ui_status: "backlog".into(),
                 last_merge_action: None,
                 sandbox_level: "L2Project".into(),
+                pr_url: None,
+                pr_number: None,
+                pr_state: None,
             };
             workspaces::create(&conn, &ws).unwrap();
             ws.workspace_id

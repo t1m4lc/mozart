@@ -223,6 +223,7 @@ export class WorkspacesFacade {
       pending: true,
       createdAt: new Date(),
       lastMergeAction: null,
+      pr: null,
     };
     this.store.upsertOne(pendingRow);
 
@@ -444,6 +445,13 @@ export class WorkspacesFacade {
     draft: boolean,
   ): Promise<{ readonly pr: CreatedPr; readonly statusFlipFailed: boolean }> {
     const pr = await this.adapter.createPr(workspaceId, title, body, draft);
+    // Reflect the persisted PR in the store so "Open in GitHub" + PR
+    // status render immediately (the Rust command already wrote the row).
+    this.store.setPr(workspaceId, {
+      url: pr.htmlUrl,
+      number: pr.number,
+      state: 'open',
+    });
     const result = await this.advanceStatusBestEffort(
       workspaceId,
       ['backlog', 'in_progress'],

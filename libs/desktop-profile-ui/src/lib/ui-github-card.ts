@@ -19,7 +19,7 @@ import { HlmButtonImports } from '@spartan-ui/button';
       <span
         [class]="
           'inline-block size-2 shrink-0 rounded-full ' +
-          (connected() ? 'bg-green-500' : 'bg-yellow-500')
+          (connected() ? 'bg-status-ok' : 'bg-status-busy')
         "
         aria-hidden="true"
       ></span>

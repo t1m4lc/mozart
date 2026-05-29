@@ -7,6 +7,7 @@ export {
 export {
   PROJECTS_ADAPTER,
   type BootstrapResult,
+  type GithubRemoteStatus,
   type MergeMode,
   type ProjectsAdapter,
 } from './lib/projects.adapter';

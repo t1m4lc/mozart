@@ -48,6 +48,7 @@ const MIGRATIONS: &[(i64, &str)] = &[
     (10, include_str!("../../migrations/010_workspace_sandbox_level.sql")),
     (11, include_str!("../../migrations/011_agent_run_envelopes.sql")),
     (12, include_str!("../../migrations/012_agent_turn_summaries.sql")),
+    (13, include_str!("../../migrations/013_workspace_pr.sql")),
 ];
 
 /// Tauri State wrapper around the shared connection.
@@ -156,6 +157,15 @@ fn patch_workspaces_columns(conn: &Connection) -> Result<(), AppError> {
         conn.execute_batch(
             "ALTER TABLE workspaces ADD COLUMN sandbox_level TEXT NOT NULL DEFAULT 'L2Project'",
         )?;
+    }
+    if !cols.iter().any(|c| c == "pr_url") {
+        conn.execute_batch("ALTER TABLE workspaces ADD COLUMN pr_url TEXT")?;
+    }
+    if !cols.iter().any(|c| c == "pr_number") {
+        conn.execute_batch("ALTER TABLE workspaces ADD COLUMN pr_number INTEGER")?;
+    }
+    if !cols.iter().any(|c| c == "pr_state") {
+        conn.execute_batch("ALTER TABLE workspaces ADD COLUMN pr_state TEXT")?;
     }
     Ok(())
 }
