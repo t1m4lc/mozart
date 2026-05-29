@@ -271,7 +271,13 @@ export class WorkspacesFacade {
     const entry = this.runs.ensureSetupEntry(workspaceId);
     const status = entry.status();
     if (status === 'running') return { state: 'running', manager: '' };
-    if (status === 'exited') return { state: 'success', manager: '' };
+    if (status === 'exited') {
+      // A setup PTY that exited is only a success on exit code 0 — a
+      // non-zero exit means the install command failed and must NOT be
+      // reported as "dependencies installed".
+      const ok = entry.exitCode() === 0;
+      return { state: ok ? 'success' : 'failed', manager: '' };
+    }
     return this._installs().get(workspaceId) ?? NO_INSTALL;
   }
 
@@ -299,17 +305,20 @@ export class WorkspacesFacade {
    *    Either path keeps the chat Start-tab `setup_progress` entry
    *    accurate via the unified `installFor` signal. */
   async runInstall(workspaceId: string): Promise<void> {
+    // Flip to `running` up front so the UI shows a real "setting up"
+    // state immediately instead of an `idle`/"ready" stand-in while we
+    // resolve which command to run.
+    this._setInstall(workspaceId, { state: 'running', manager: '' });
+
     const ws = this.workspaceById(workspaceId)();
     if (ws) {
       await this.projects.ensureDetectedScripts(ws.projectId);
       const effective = this.projects.effectiveCommandsFor(ws.projectId)();
       if (effective.setupCommand) {
-        // Custom setup command — runs as a PTY surfaced in the Setup
-        // tab. Mirror its lifecycle into `_installs` so the sidebar row
-        // and the ready-state share one source of truth. The PTY exit
-        // is treated as success (matching `installFor`); a spawn
-        // failure flips to 'failed' so the row shows an error.
-        this._setInstall(workspaceId, { state: 'running', manager: '' });
+        // The setup PTY's exit code is the source of truth here — the
+        // unified `installFor` reads it (running → success/failed). We
+        // only need to handle a spawn failure so the state doesn't
+        // stick on `running`.
         try {
           await this.runs.startSetup(workspaceId);
           this._setInstall(workspaceId, { state: 'success', manager: '' });
@@ -321,7 +330,6 @@ export class WorkspacesFacade {
       }
     }
 
-    this._setInstall(workspaceId, { state: 'running', manager: '' });
     try {
       const result: InstallPackagesResult =
         await this.adapter.installPackages(workspaceId);

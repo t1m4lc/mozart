@@ -22,6 +22,16 @@ const LOCALHOST_URL_RE =
 const SERVER_READY_RE =
   /\b(?:localhost|127\.0\.0\.1|\[::1\]|listening(?: on)?|local:|ready in|server (?:running|started)|started server)\b/i;
 
+// Strip ANSI/VT escape sequences so URL + ready detection runs against
+// plain text. Dev servers colorize their output — Vite even bolds the
+// port (`localhost:\x1b[1m5173`), which otherwise splits the URL and
+// breaks the regexes (the cause of the missing "Open localhost" button).
+// eslint-disable-next-line no-control-regex
+const ANSI_RE = /\x1b\[[0-9;?]*[ -/]*[@-~]/g;
+function stripAnsi(s: string): string {
+  return s.replace(ANSI_RE, '');
+}
+
 export interface RunEntry {
   readonly term: Terminal;
   readonly fit: FitAddon;
@@ -32,6 +42,11 @@ export interface RunEntry {
    *  signal too but it's effectively unused (install commands don't
    *  print URLs). */
   readonly detectedUrl: WritableSignal<string | null>;
+  /** Exit code from the last `exited` event, or null while the PTY is
+   *  idle/alive. Lets the setup lifecycle distinguish a successful
+   *  install (code 0) from a failed one — a non-zero exit must NOT be
+   *  reported as "dependencies installed". */
+  readonly exitCode: WritableSignal<number | null>;
 }
 
 type PtyKind = 'run' | 'setup';
@@ -48,8 +63,11 @@ export class RunRegistry {
   private readonly runEntries = new Map<string, RunEntry>();
   private readonly setupEntries = new Map<string, RunEntry>();
 
-  // Workspace ids with a live run OR setup PTY. Mirrors `isBusy()` but
-  // reactive — sidebar rows subscribe to drive a spinner indicator.
+  // Workspace ids that are mid-transition (run `starting` or setup
+  // running). Reactive — sidebar rows subscribe to drive a spinner.
+  // Clears once a run reaches the steady `running` state (see
+  // `recomputeBusy` / `isLoading`) so the row stops looking like it's
+  // still loading.
   private readonly _busyIds = signal<ReadonlySet<string>>(new Set());
   readonly busyIds = this._busyIds.asReadonly();
 
@@ -90,6 +108,7 @@ export class RunRegistry {
     // A fresh run starts with no URL — yesterday's `localhost:3000`
     // shouldn't be clickable while the new process is still booting.
     entry.detectedUrl.set(null);
+    entry.exitCode.set(null);
     // `starting` (not `running`) so the UI shows a loader only while the
     // command boots; the first ready-signal in the output flips it to
     // `running`. See handleEvent.
@@ -121,6 +140,7 @@ export class RunRegistry {
   async startSetup(workspaceId: string): Promise<void> {
     if (this.isBusy(workspaceId)) return;
     const entry = this.ensureSetupEntry(workspaceId);
+    entry.exitCode.set(null);
     entry.status.set('running');
     this.markBusy(workspaceId, true);
 
@@ -174,13 +194,25 @@ export class RunRegistry {
     }
   }
 
-  /** True when either the run or the setup PTY is currently
-   *  executing. Consumers use this to gate "Run" / "Start setup"
-   *  buttons so the user can't start a second PTY mid-flight. */
+  /** True when either the run or the setup PTY is currently alive
+   *  (starting or running). Consumers use this to gate "Run" / "Start
+   *  setup" buttons so the user can't start a second PTY mid-flight. */
   isBusy(workspaceId: string): boolean {
     return (
       isLive(this.runEntries.get(workspaceId)) ||
       isLive(this.setupEntries.get(workspaceId))
+    );
+  }
+
+  /** True only while something is *transitioning* and worth a spinner:
+   *  a run that's still booting (`starting`), or a setup/install PTY
+   *  mid-flight. A steadily `running` dev server is NOT loading — this
+   *  is what drives the sidebar row's spinner, so it must clear once the
+   *  server is up. */
+  private isLoading(workspaceId: string): boolean {
+    return (
+      this.runEntries.get(workspaceId)?.status() === 'starting' ||
+      this.setupEntries.get(workspaceId)?.status() === 'running'
     );
   }
 
@@ -212,6 +244,7 @@ export class RunRegistry {
       fit,
       status: signal<RunStatus>('idle'),
       detectedUrl: signal<string | null>(null),
+      exitCode: signal<number | null>(null),
     };
     map.set(workspaceId, entry);
     return entry;
@@ -224,25 +257,31 @@ export class RunRegistry {
   ): void {
     if (ev.kind === 'output') {
       entry.term.write(ev.data);
+      // Run detection against ANSI-stripped text — colorized output
+      // (and Vite's bolded port) otherwise hides the URL / ready signal.
+      const plain = stripAnsi(ev.data);
       // Lazy URL detection — skip the regex once we've already
       // surfaced a match, and ignore further "Network:" lines so the
       // chip stays anchored to the first URL printed.
       if (entry.detectedUrl() === null) {
-        const match = ev.data.match(LOCALHOST_URL_RE);
+        const match = plain.match(LOCALHOST_URL_RE);
         if (match) {
           entry.detectedUrl.set(match[0]);
         }
       }
-      // Clear the loader once the server announces itself. Only the
-      // run entry transitions through `starting`; setup entries go
-      // straight to `running` and never match here in practice.
+      // Clear the loader once the server announces itself: flip
+      // `starting` → `running` and recompute busy so the sidebar row
+      // stops spinning while the dev server runs steadily. Only the run
+      // entry transitions through `starting`.
       if (
         entry.status() === 'starting' &&
-        (entry.detectedUrl() !== null || SERVER_READY_RE.test(ev.data))
+        (entry.detectedUrl() !== null || SERVER_READY_RE.test(plain))
       ) {
         entry.status.set('running');
+        this.recomputeBusy(workspaceId);
       }
     } else {
+      entry.exitCode.set(ev.code);
       entry.status.set('exited');
       this.recomputeBusy(workspaceId);
     }
@@ -258,16 +297,16 @@ export class RunRegistry {
     this._busyIds.set(next);
   }
 
-  // Re-derive busy state for `workspaceId` from the live entry statuses.
-  // Cheaper than tracking it imperatively at every transition; both PTYs
-  // must be idle/exited for the id to drop from the set.
+  // Re-derive the sidebar spinner state for `workspaceId`. Driven by
+  // `isLoading` (transitional), NOT `isBusy` (alive) — a running dev
+  // server should not keep the row spinning.
   private recomputeBusy(workspaceId: string): void {
-    this.markBusy(workspaceId, this.isBusy(workspaceId));
+    this.markBusy(workspaceId, this.isLoading(workspaceId));
   }
 }
 
 // A PTY counts as "live" while it's spawning (`starting`) or up
-// (`running`) — both block a second PTY and keep the workspace busy.
+// (`running`) — both block a second PTY (the start/stop guard).
 function isLive(entry: RunEntry | undefined): boolean {
   const s = entry?.status();
   return s === 'running' || s === 'starting';

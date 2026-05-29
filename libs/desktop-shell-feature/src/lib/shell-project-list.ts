@@ -138,6 +138,7 @@ import { ShellProjectRow } from './shell-project-row';
                     } @else {
                       <app-workspace-row
                         [workspace]="workspace"
+                        [active]="workspaces.activeId() === workspace.id"
                         [editing]="editingWorkspaceId() === workspace.id"
                         [isStreaming]="streamingIds().has(workspace.id)"
                         [setupState]="workspaces.installStateFor(workspace.id)"

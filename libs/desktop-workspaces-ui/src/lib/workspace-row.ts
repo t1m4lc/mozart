@@ -7,7 +7,8 @@ import {
   output,
   viewChild,
 } from '@angular/core';
-import { RouterLink, RouterLinkActive } from '@angular/router';
+import { NgClass } from '@angular/common';
+import { RouterLink } from '@angular/router';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { MzDotLoader } from '@mozart-ui/loader';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
@@ -35,9 +36,9 @@ function statusLabel(status: Workspace['status']): string {
 @Component({
   selector: 'app-workspace-row',
   imports: [
+    NgClass,
     NgIcon,
     RouterLink,
-    RouterLinkActive,
     HlmHoverCardImports,
     HlmSidebarImports,
     HlmIconImports,
@@ -100,13 +101,22 @@ function statusLabel(status: Workspace['status']): string {
       </div>
     } @else {
       <hlm-hover-card class="contents">
+        <!-- Clicking the already-active row navigates to '/' instead of
+             re-opening it — toggling the workspace selection off and
+             returning to the dashboard. routerLinkActive can't drive the
+             highlight here (the link target flips to '/' when active), so
+             the active styling comes from the active() input. -->
         <a
           hlmSidebarMenuButton
           hlmHoverCardTrigger
           [showDelay]="800"
           align="right"
-          [routerLink]="workspaceLink()"
-          routerLinkActive="bg-brand/10 hover:bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
+          [routerLink]="active() ? ['/'] : workspaceLink()"
+          [ngClass]="
+            active()
+              ? 'bg-brand/10 hover:bg-brand/10 text-foreground [&_ng-icon]:text-brand!'
+              : ''
+          "
           class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
         >
           @if (isStreaming() || setupState() === 'running') {
@@ -176,6 +186,9 @@ function statusLabel(status: Workspace['status']): string {
 export class WorkspaceRow {
   readonly workspace = input.required<Workspace>();
   readonly editing = input<boolean>(false);
+  // True when this row's workspace is the active one (URL-selected).
+  // Drives the active highlight and the "click to deselect" link target.
+  readonly active = input<boolean>(false);
   // True while an agent run is streaming for this workspace. Drives
   // the loader-in-place-of-branch-icon affordance.
   readonly isStreaming = input<boolean>(false);

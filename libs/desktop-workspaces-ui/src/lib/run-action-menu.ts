@@ -44,7 +44,7 @@ export type RunStatus = 'idle' | 'starting' | 'running' | 'exited';
         size="sm"
         type="button"
         position="bottom"
-        class="h-7 rounded-r-none rounded-l-md border-r-0 px-2 text-xs font-normal"
+        class="h-7 rounded-r-none rounded-l-md border border-input border-r-0 px-2 text-xs font-normal"
         [disabled]="primaryDisabled()"
         (click)="primary()"
       >
@@ -69,7 +69,7 @@ export type RunStatus = 'idle' | 'starting' | 'running' | 'exited';
 export class RunActionMenu {
   /** Current run status. Drives the label/icon and the button variant
    *  (neutral `secondary` for Stop — stopping a dev server isn't a
-   *  destructive action). */
+   *  destructive action — with a visible border so it stays prominent). */
   readonly status = input.required<RunStatus>();
   /** Disabled until a run command is configured for the project. */
   readonly hasCommand = input<boolean>(false);

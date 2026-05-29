@@ -3,7 +3,6 @@ import { Router } from '@angular/router';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
-import { workspaceRouteCommands } from '@mozart/desktop-workspaces-util';
 import { GET_STARTED_PROJECT_ADAPTER } from './get-started-project.adapter';
 import { ONBOARDING_ADAPTER } from './onboarding.adapter';
 import {
@@ -97,14 +96,15 @@ export class OnboardingFacade {
     this._statuses.update((s) => ({ ...s, [step]: status }));
   }
 
-  /** Persist the completion flag + drop the user into the bundled
-   *  "Get started" workspace. Called from the GitHub step's Finish /
-   *  Skip-and-finish button.
+  /** Persist the completion flag, ensure the bundled "Get started"
+   *  project exists, then land the user on the **dashboard**. Called
+   *  from the GitHub step's Finish / Skip-and-finish button.
    *
-   *  We do **not** auto-launch the tour : the user typically wants to
-   *  look around before being walked through it. The README rendered
-   *  in the workspace + the Settings → "Replay tour" button are the
-   *  two entry points to start it on demand.
+   *  We deliberately do NOT open or select a workspace here — finishing
+   *  onboarding should leave the user on the neutral dashboard with the
+   *  project collapsed in the sidebar, not auto-expanded into a chat.
+   *  They open the project (and instantiate a workspace, which runs
+   *  setup) on demand. We also don't auto-launch the tour.
    */
   async complete(): Promise<void> {
     console.debug('[onboarding] complete() start');
@@ -126,28 +126,19 @@ export class OnboardingFacade {
       console.warn('[onboarding] markOnboardingComplete threw:', err);
     }
 
-    let target: readonly string[] | null = null;
     try {
-      const { project } = await this.getStartedAdapter.ensure();
+      await this.getStartedAdapter.ensure();
       await this.projects.loadAll();
       await this.workspaces.loadAll();
-      const workspaceId = await this.workspaces.ensureFirstWorkspace(project.id);
-      console.debug('[onboarding] get-started ensured', workspaceId);
-      target = workspaceRouteCommands(project.id, workspaceId);
+      console.debug('[onboarding] get-started project ensured');
     } catch (err) {
       console.error('[onboarding] get-started bootstrap failed:', err);
     }
 
-    const commands = target ?? ['/'];
+    // Land on the dashboard — never auto-open a workspace.
     try {
-      const ok = await this.router.navigate([...commands]);
-      console.debug('[onboarding] navigate', commands.join('/'), '→', ok);
-      if (!ok && target) {
-        // Workspace nav refused (guard/resolver) — land on dashboard
-        // instead of leaving the OnboardingPage frozen mid-transition.
-        const dashOk = await this.router.navigate(['/']);
-        console.warn('[onboarding] workspace nav refused, → /', dashOk);
-      }
+      const ok = await this.router.navigate(['/']);
+      console.debug('[onboarding] navigate / →', ok);
     } catch (err) {
       console.error('[onboarding] router.navigate threw:', err);
       try {

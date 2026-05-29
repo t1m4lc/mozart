@@ -169,8 +169,10 @@ export class ChatEmptyState {
           : 'install dependencies';
         return `Mozart couldn't ${what}. Check the Setup tab for details, then retry.`;
       }
+      // `idle` — no setup info yet (e.g. reopening an empty workspace).
+      // Stay neutral; never claim dependencies were installed.
       default:
-        return 'Setup completed successfully.';
+        return 'Workspace ready.';
     }
   });
 }
