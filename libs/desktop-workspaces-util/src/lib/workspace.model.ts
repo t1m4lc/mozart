@@ -2,10 +2,9 @@ import type { UiWorkspaceStatus } from './workspace-status';
 
 // UI ViewModel — purposefully free of any git/worktree vocabulary,
 // with one exception: `branch` (the workspace's own git branch, e.g.
-// "mozart/coltrane"). It is the only place where the model surfaces a
-// real branch name, and it exists solely so the BranchPicker can mark
-// it as "current" and filter it out of the selectable target list.
-// Never rendered as a raw label outside the picker.
+// "mozart/coltrane"). It surfaces only on the toolbar crumb tooltip
+// ("branch: … · forked from <base>"), never as a raw label in the
+// header itself, so the UI stays warm.
 //
 // `name` is the user-visible workspace name (singer pool — e.g. "eminem").
 // `projectId` links back to the owning Project (Tauri side: `repo_id`,

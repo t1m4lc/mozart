@@ -1,4 +1,3 @@
-export { BranchPicker } from './lib/branch-picker';
 export { ChatEmptyState } from './lib/chat-empty-state';
 export { LlmIcon } from './lib/llm-icon';
 export { MergeActionMenu } from './lib/merge-action-menu';

@@ -585,3 +585,39 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** LLM pipeline provider-agnostic refactor (TODO above).
 
 ---
+
+## Workspaces — editable PR base branch
+
+**What:** Let the user change a workspace's base/PR-target branch and have it actually take effect. Persist the chosen branch to `workspace.base_branch` so `create_workspace_pr` and `merge_workspace_locally` (both read `ws.base_branch`) use it.
+
+**Why:** §7 Q8 ("how should the user change the PR base branch"). Today's toolbar picker was *decorative* — `workspace-detail.store.setTargetBranch` only patched a UI signal, never persisted — so it was retired in the design review (D1) in favor of a read-only `base: main` chip. Restoring real edit-ability needs a deliberate design pass.
+
+**How to apply:** Decide the semantics first: a worktree's *fork point* is immutable, but the *PR target* can differ from the fork point. So this is "change the PR target", not "re-fork". Add a `set_workspace_base_branch` command (persist `base_branch`), an editable affordance on the base chip, and make the PR dialog show/confirm the target. Verify create_pr opens against the new value.
+
+**Depends on:** The read-only base chip (design-review D1) shipping first.
+
+---
+
+## Workspaces — source-repository view / affordance
+
+**What:** A way to see and open the source repository from Mozart (path, GitHub remote, default branch), beyond the small breadcrumb crumb that names it today.
+
+**Why:** §7 ("how should the user access the source repository"). The Project *is* the source repo in the model, but the only surface is a non-interactive breadcrumb crumb — no "open repo folder", "open on GitHub", or repo-info view.
+
+**How to apply:** Likely a popover/panel off the project crumb showing repo path + GitHub remote status (the `GithubRemoteStatus` from the PR-flow work already classifies this) + default branch, with "Open folder" / "Open on GitHub" actions (reuse `ExternalLinkService`). Keep it calm/app-UI, not a new page.
+
+**Depends on:** Nothing hard; `GithubRemoteStatus` + `ExternalLinkService` already exist.
+
+---
+
+## Workspaces — PR status badge on the workspace
+
+**What:** Surface "#N · Open in GitHub" on the workspace itself (toolbar/aside header or sidebar row), not only inside the create-PR dialog and the merge menu's "View PR".
+
+**Why:** §6/§7 "PR status on the workspace". The data already flows: `workspace.pr` (url/number/state) is persisted and mapped to the domain model by the PR-flow work. The workspace currently only signals a PR via the `in_review` kanban status — there's no direct link/number.
+
+**How to apply:** Add an optional PR input + `openPr` output to the relevant header component (e.g. `WorkspaceAsideHeader`, currently unused, or the toolbar), wire `openPr` → `ExternalLinkService.openExternal(workspace.pr.url)` in the hosting feature. Read-only display; reuse the `lucideExternalLink` + `lucideGitPullRequest` icons.
+
+**Depends on:** `workspace.pr` persistence (shipped in `feat(workspaces): make the PR creation flow reliable and guided`).
+
+---

@@ -4,6 +4,7 @@ import {
   Component,
   ElementRef,
   TemplateRef,
+  computed,
   effect,
   inject,
   input,
@@ -39,17 +40,13 @@ import {
   type OpenInTool,
   type UiWorkspaceStatus,
 } from '@mozart/desktop-workspaces-util';
-import {
-  BranchPicker,
-  OpenInMenu,
-} from '@mozart/desktop-workspaces-ui';
+import { OpenInMenu } from '@mozart/desktop-workspaces-ui';
 
 @Component({
   selector: 'app-workspace-toolbar',
   imports: [
     NgIcon,
     NgTemplateOutlet,
-    BranchPicker,
     MzStatusIcon,
     OpenInMenu,
     ShellTopBar,
@@ -129,19 +126,30 @@ import {
                     class="truncate"
                     [class.cursor-text]="!frozen()"
                     [class.cursor-default]="frozen()"
+                    [hlmTooltip]="branchTooltip()"
+                    position="bottom"
                     (dblclick)="startRename($event)"
                   >
                     {{ workspaceTitle() }}
                   </span>
                 }
               </span>
-              <app-branch-picker
-                [value]="targetBranch()"
-                [currentBranch]="currentBranch()"
-                [branches]="selectableBranches()"
-                [disabled]="frozen() || isStreaming()"
-                (valueChange)="targetBranchChange.emit($event)"
-              />
+              <!-- Read-only base-branch indicator. The workspace forked
+                   from this branch and its PR merges into it. Editing the
+                   base is a deferred follow-up (see TODOS.md). -->
+              <span
+                class="ms-1 inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs font-normal text-muted-foreground"
+                hlmTooltip="Base branch — this workspace forked from it and its pull request merges into it"
+                position="bottom"
+              >
+                <ng-icon
+                  hlm
+                  name="lucideGitPullRequest"
+                  size="xs"
+                  class="shrink-0"
+                />
+                <span class="font-mono">base: {{ baseBranch() }}</span>
+              </span>
             </li>
           </ol>
         </nav>
@@ -273,9 +281,13 @@ export class WorkspaceToolbar {
   readonly projectIcon = input.required<string | null>();
   readonly projectName = input.required<string>();
   readonly workspaceTitle = input.required<string>();
+  // The workspace's own git branch (e.g. "mozart/eminem"). Shown on the
+  // crumb tooltip, not as a raw label, so the header stays warm.
   readonly currentBranch = input.required<string>();
-  readonly targetBranch = input.required<string>();
-  readonly selectableBranches = input.required<readonly string[]>();
+  // The branch this workspace forked from and opens its PR against.
+  // Rendered as a read-only chip (the old editable picker was decorative
+  // — it never persisted; PR/merge read the stored base).
+  readonly baseBranch = input<string>('main');
   readonly isStreaming = input<boolean>(false);
   // When set, rendered before the breadcrumb (used to inject window controls
   // + sidebar toggle when the left panel is collapsed).
@@ -293,12 +305,11 @@ export class WorkspaceToolbar {
   // Commit and Open-in IDE. Null hides the button (no active
   // workspace, or the facade hasn't resolved one yet).
   readonly workspaceStatus = input<UiWorkspaceStatus | null>(null);
-  // Toolbar-level read-only state. Disables Commit, locks the
-  // BranchPicker, and refuses to enter rename mode. Open in IDE
-  // stays enabled (read-only browsing in an external editor is fine).
+  // Toolbar-level read-only state. Disables Commit and refuses to enter
+  // rename mode. Open in IDE stays enabled (read-only browsing in an
+  // external editor is fine).
   readonly frozen = input<boolean>(false);
 
-  readonly targetBranchChange = output<string>();
   readonly toggleRightPanel = output<void>();
   readonly workspaceTitleChange = output<string>();
   readonly openIn = output<OpenInTool>();
@@ -309,6 +320,15 @@ export class WorkspaceToolbar {
   readonly workspaceStatusChange = output<UiWorkspaceStatus>();
 
   protected readonly statuses = UI_WORKSPACE_STATUSES;
+
+  // Reveals the real git branch + fork source on hover so the friendly
+  // workspace name in the crumb maps to git truth without cluttering it.
+  protected readonly branchTooltip = computed(() => {
+    const branch = this.currentBranch();
+    const base = this.baseBranch();
+    if (!branch) return '';
+    return base ? `branch: ${branch} · forked from ${base}` : `branch: ${branch}`;
+  });
 
   protected statusLabel(s: UiWorkspaceStatus): string {
     return getUiStatusMeta(s).label;

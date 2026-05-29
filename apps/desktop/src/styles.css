@@ -72,7 +72,6 @@
 @source "../../../libs/spartan-ui/button";
 @source "../../../libs/spartan-ui/card";
 @source "../../../libs/spartan-ui/collapsible";
-@source "../../../libs/spartan-ui/combobox";
 @source "../../../libs/spartan-ui/context-menu";
 @source "../../../libs/spartan-ui/dialog";
 @source "../../../libs/spartan-ui/dropdown-menu";
@@ -80,7 +79,6 @@
 @source "../../../libs/spartan-ui/hover-card";
 @source "../../../libs/spartan-ui/icon";
 @source "../../../libs/spartan-ui/input";
-@source "../../../libs/spartan-ui/input-group";
 @source "../../../libs/spartan-ui/kbd";
 @source "../../../libs/spartan-ui/label";
 @source "../../../libs/spartan-ui/popover";

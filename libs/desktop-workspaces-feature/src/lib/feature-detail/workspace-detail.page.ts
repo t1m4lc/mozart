@@ -67,8 +67,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       [projectName]="projectName()"
       [workspaceTitle]="workspaceName()"
       [currentBranch]="store.currentBranch()"
-      [targetBranch]="store.targetBranch()"
-      [selectableBranches]="store.selectableBranches()"
+      [baseBranch]="workspace()?.baseBranch ?? 'main'"
       [isStreaming]="isStreaming()"
       [leadingSlot]="layout.leftPanelOpen() ? null : sidebarHeader()"
       [availableTools]="availableTools()"
@@ -79,7 +78,6 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       [workspaceStatus]="workspaceStatus()"
       [frozen]="frozen()"
       data-tour="aside-header-buttons"
-      (targetBranchChange)="store.setTargetBranch($event)"
       (toggleRightPanel)="layout.toggleRightPanel()"
       (workspaceTitleChange)="onRename($event)"
       (openIn)="onOpenIn($event)"
@@ -210,27 +208,13 @@ export class WorkspaceDetailPage {
       void this.projects.ensureDetectedScripts(pid);
     });
 
-    // Mirror workspace branch fields into the detail store on workspace
-    // change. Effect form is used because the store's setters are also
-    // called imperatively (e.g., the branch picker writes targetBranch
-    // directly). See TODO.md (signals cleanup) for the deferred store
-    // refactor that would let this become a reactive binding.
+    // Mirror the workspace's own branch into the detail store so the
+    // toolbar crumb tooltip can show it. Base branch is read from the
+    // workspace entity directly in the template.
     effect(() => {
       const ws = this.workspace();
       if (!ws) return;
       this.store.setCurrentBranch(ws.branch);
-      this.store.seedTargetBranch(ws.baseBranch);
-    });
-
-    effect(() => {
-      const ws = this.workspace();
-      if (!ws) return;
-      this.workspaces
-        .listBranchesForWorkspace(ws.id)
-        .then((branches) => this.store.setBranches(branches))
-        .catch((err) => {
-          console.warn('list branches failed', err);
-        });
     });
   }
 
