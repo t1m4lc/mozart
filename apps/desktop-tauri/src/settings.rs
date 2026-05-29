@@ -150,13 +150,20 @@ pub fn resolve(project_root: Option<&Path>) -> MozartSettings {
 }
 
 /// Persist the global settings file (pretty JSON), creating the config dir.
+/// Merges the known keys onto the raw on-disk JSON rather than round-tripping
+/// through `MozartSettings`, so any keys a newer build wrote that this build
+/// doesn't know about are preserved.
 pub fn save_global(settings: &MozartSettings) -> Result<(), AppError> {
     let path = crate::paths::global_settings_path()?;
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| AppError::Io(format!("create config dir: {e}")))?;
     }
-    let body = serde_json::to_string_pretty(settings)
+    let mut on_disk = load_layer(&path).unwrap_or_else(|| Value::Object(serde_json::Map::new()));
+    let incoming = serde_json::to_value(settings)
+        .map_err(|e| AppError::Validation(format!("serialize settings: {e}")))?;
+    deep_merge(&mut on_disk, incoming);
+    let body = serde_json::to_string_pretty(&on_disk)
         .map_err(|e| AppError::Validation(format!("serialize settings: {e}")))?;
     std::fs::write(&path, body).map_err(|e| AppError::Io(format!("write settings: {e}")))?;
     Ok(())
@@ -174,21 +181,30 @@ pub fn read_project(repo_root: &Path) -> Option<MozartSettings> {
     serde_json::from_value(merged).ok()
 }
 
-/// Persist `scripts` into `<repo>/.mozart/settings.json`, preserving any
-/// other keys already in the file (or starting from defaults). This is the
-/// repo-committed home for run/setup commands — it replaces `.mozart/run.json`.
+/// Persist `scripts` into `<repo>/.mozart/settings.json` as the only key this
+/// writes, preserving every other key already in the file. The project file
+/// stays minimal — it carries overrides only, never the bundled defaults, so a
+/// repo can't silently override a user's theme/notifications just by declaring
+/// scripts. Replaces `.mozart/run.json`.
 pub fn save_project_scripts(
     repo_root: &Path,
     scripts: Vec<(String, String)>,
 ) -> Result<(), AppError> {
-    let mut settings = read_project(repo_root).unwrap_or_default();
-    settings.scripts = scripts;
     let path = project_settings_path(repo_root);
+    let mut on_disk = match load_layer(&path) {
+        Some(Value::Object(map)) => map,
+        _ => serde_json::Map::new(),
+    };
+    let mut scripts_obj = serde_json::Map::with_capacity(scripts.len());
+    for (k, v) in scripts {
+        scripts_obj.insert(k, Value::String(v));
+    }
+    on_disk.insert("scripts".to_string(), Value::Object(scripts_obj));
     if let Some(parent) = path.parent() {
         std::fs::create_dir_all(parent)
             .map_err(|e| AppError::Io(format!("create .mozart dir: {e}")))?;
     }
-    let body = serde_json::to_string_pretty(&settings)
+    let body = serde_json::to_string_pretty(&Value::Object(on_disk))
         .map_err(|e| AppError::Validation(format!("serialize project settings: {e}")))?;
     std::fs::write(&path, body)
         .map_err(|e| AppError::Io(format!("write project settings: {e}")))?;
@@ -354,6 +370,70 @@ mod tests {
             Some(v) => std::env::set_var("MOZART_CONFIG_DIR", v),
             None => std::env::remove_var("MOZART_CONFIG_DIR"),
         }
+    }
+
+    // save_global must not drop keys it doesn't know about (forward-compat
+    // with files written by a newer build).
+    #[test]
+    fn save_global_preserves_unknown_keys() {
+        let _gate = crate::sandbox::test_env_gate()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let prev = std::env::var_os("MOZART_CONFIG_DIR");
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("MOZART_CONFIG_DIR", tmp.path());
+
+        let path = crate::paths::global_settings_path().unwrap();
+        std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+        std::fs::write(&path, r#"{ "futureKey": { "x": 1 } }"#).unwrap();
+
+        save_global(&MozartSettings::default()).unwrap();
+
+        let raw: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        assert_eq!(raw["futureKey"]["x"], 1, "unknown key must survive a save");
+        assert_eq!(raw["appearance"]["theme"], "mozart");
+
+        match prev {
+            Some(v) => std::env::set_var("MOZART_CONFIG_DIR", v),
+            None => std::env::remove_var("MOZART_CONFIG_DIR"),
+        }
+    }
+
+    // save_project_scripts writes ONLY the scripts key — never the bundled
+    // defaults — so a repo can't silently override a user's theme/notifs, and
+    // it preserves any other key already in the project file.
+    #[test]
+    fn save_project_scripts_writes_overrides_only() {
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path();
+        std::fs::create_dir_all(repo.join(".mozart")).unwrap();
+        std::fs::write(
+            repo.join(".mozart/settings.json"),
+            r#"{ "appearance": { "colorMode": "dark" } }"#,
+        )
+        .unwrap();
+
+        save_project_scripts(
+            repo,
+            vec![
+                ("setup".to_string(), "npm i".to_string()),
+                ("run".to_string(), "npm start".to_string()),
+            ],
+        )
+        .unwrap();
+
+        let raw: Value = serde_json::from_str(
+            &std::fs::read_to_string(repo.join(".mozart/settings.json")).unwrap(),
+        )
+        .unwrap();
+        let obj = raw.as_object().unwrap();
+        // Pre-existing override kept; scripts added; no defaults injected.
+        assert_eq!(raw["appearance"]["colorMode"], "dark");
+        assert_eq!(raw["scripts"]["setup"], "npm i");
+        assert!(!obj.contains_key("version"), "no bundled defaults: {raw}");
+        assert!(!obj.contains_key("notifications"), "no bundled defaults: {raw}");
+        assert!(!obj.contains_key("git"), "no bundled defaults: {raw}");
     }
 
     #[test]
