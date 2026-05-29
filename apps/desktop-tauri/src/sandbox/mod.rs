@@ -7,10 +7,10 @@
 //! `run_git` helper (D1.5-K) so error mapping lives in one place.
 //!
 //! Locked decisions (plan §4):
-//! - **D1.5-A / D1.5-B** — canonical worktrees root resolution honors
-//!   `MOZART_WORKTREES_ROOT` first (test override, mirrors
-//!   `MOZART_CLAUDE_BIN`), then `$HOME/.mozart/worktrees` on Unix and
-//!   `$USERPROFILE\.mozart\worktrees` on Windows. Failure → `Validation`.
+//! - **D1.5-A / D1.5-B** — workspace + project root resolution lives in
+//!   `crate::paths` (`workspaces_root` / `projects_root`), which honors
+//!   `MOZART_WORKTREES_ROOT` first (test seam) then the OS-standard data
+//!   dir. Failure → `Validation`.
 //! - **D1.5-K** — `run_git` is the single source of truth for git
 //!   invocation + stderr-passthrough error mapping. Spawn/wait failures
 //!   become `AppError::Io(format!("git {args:?}: {e}"))`; non-zero exits
@@ -19,7 +19,7 @@
 //!   that all sandbox tests AND (post S1.5.4) the runner integration
 //!   tests acquire before mutating `MOZART_*` env vars.
 
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::process::Command;
 
 use crate::error::AppError;
@@ -31,47 +31,6 @@ pub mod reset;
 pub use checkpoint::git_checkpoint;
 pub use diff::{capture_diff, DiffSummary};
 pub use reset::discard_changes_to;
-
-/// Resolve the canonical root under which all workspace worktrees must
-/// live (D1.5-B). Resolution order:
-/// 1. `MOZART_WORKTREES_ROOT` env override (test/dev seam — mirrors
-///    `MOZART_CLAUDE_BIN`).
-/// 2. `$HOME/.mozart/worktrees` on Unix.
-/// 3. `$USERPROFILE\.mozart\worktrees` on Windows.
-/// 4. `AppError::Validation` if no home dir is resolvable.
-pub(crate) fn canonical_worktrees_root() -> Result<PathBuf, AppError> {
-    if let Some(o) = std::env::var_os("MOZART_WORKTREES_ROOT") {
-        return Ok(PathBuf::from(o));
-    }
-    #[cfg(unix)]
-    let home = std::env::var_os("HOME");
-    #[cfg(windows)]
-    let home = std::env::var_os("USERPROFILE");
-    home.map(|h| PathBuf::from(h).join(".mozart").join("worktrees"))
-        .ok_or_else(|| AppError::Validation("home dir not resolvable".into()))
-}
-
-/// P0.1 S0.1.C — sibling of [`canonical_worktrees_root`] for the
-/// `~/.mozart/projects/` tree the sandbox L1 level whitelists alongside
-/// the worktrees root. Resolution mirrors `canonical_worktrees_root`
-/// exactly so the two roots share a single home-dir fallback / test
-/// override. Honors `MOZART_WORKTREES_ROOT` by deriving the projects
-/// root from its parent — keeps the integration-test seam consistent.
-pub(crate) fn canonical_projects_root() -> Result<PathBuf, AppError> {
-    if let Some(o) = std::env::var_os("MOZART_WORKTREES_ROOT") {
-        let wt = PathBuf::from(o);
-        return wt
-            .parent()
-            .map(|p| p.join("projects"))
-            .ok_or_else(|| AppError::Validation("MOZART_WORKTREES_ROOT has no parent".into()));
-    }
-    #[cfg(unix)]
-    let home = std::env::var_os("HOME");
-    #[cfg(windows)]
-    let home = std::env::var_os("USERPROFILE");
-    home.map(|h| PathBuf::from(h).join(".mozart").join("projects"))
-        .ok_or_else(|| AppError::Validation("home dir not resolvable".into()))
-}
 
 /// Single source of truth for git invocation + error mapping (D1.5-K).
 ///

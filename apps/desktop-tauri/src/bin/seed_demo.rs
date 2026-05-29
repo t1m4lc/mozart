@@ -104,41 +104,12 @@ fn main() {
     }
 
     fn resolve_db_path() -> PathBuf {
-        const BUNDLE: &str = "build.mozart.desktop";
-        const FILE: &str = "mozart.db";
-
-        if let Some(p) = std::env::var_os("MOZART_DB_PATH") {
-            return PathBuf::from(p);
+        match mozart_lib::paths::db_path() {
+            Ok(p) => p,
+            Err(e) => {
+                eprintln!("seed-demo: cannot resolve DB path ({e:?}); set MOZART_DB_PATH");
+                std::process::exit(1);
+            }
         }
-
-        let data_root = if cfg!(target_os = "linux") {
-            std::env::var_os("XDG_DATA_HOME")
-                .map(PathBuf::from)
-                .or_else(|| std::env::var_os("HOME").map(|h| {
-                    let mut p = PathBuf::from(h);
-                    p.push(".local/share");
-                    p
-                }))
-        } else if cfg!(target_os = "macos") {
-            std::env::var_os("HOME").map(|h| {
-                let mut p = PathBuf::from(h);
-                p.push("Library/Application Support");
-                p
-            })
-        } else if cfg!(target_os = "windows") {
-            std::env::var_os("APPDATA").map(PathBuf::from)
-        } else {
-            None
-        };
-
-        let mut path = data_root.unwrap_or_else(|| {
-            eprintln!(
-                "seed-demo: cannot resolve platform data dir; set MOZART_DB_PATH"
-            );
-            std::process::exit(1);
-        });
-        path.push(BUNDLE);
-        path.push(FILE);
-        path
     }
 }

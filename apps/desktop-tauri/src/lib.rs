@@ -18,6 +18,7 @@ pub mod ide_launch;
 pub mod merge;
 pub mod mozart_config;
 pub mod path_guard;
+pub mod paths;
 pub mod run_registry;
 pub mod sandbox;
 pub mod sound;
@@ -148,17 +149,12 @@ pub fn run() {
                 )?;
             }
 
-            // DB path: env override > app_data_dir/mozart.db
-            let db_path: PathBuf = std::env::var_os("MOZART_DB_PATH")
-                .map(PathBuf::from)
-                .unwrap_or_else(|| {
-                    let dir = app
-                        .path()
-                        .app_data_dir()
-                        .expect("app_data_dir unresolvable");
-                    std::fs::create_dir_all(&dir).ok();
-                    dir.join("mozart.db")
-                });
+            // DB path resolved by the central `paths` module (OS-standard
+            // app-data dir, or the `MOZART_DB_PATH` override).
+            let db_path = crate::paths::db_path().expect("db path unresolvable");
+            if let Some(parent) = db_path.parent() {
+                std::fs::create_dir_all(parent).ok();
+            }
             let db_state = db::init_db(&db_path).expect("db init failed");
 
             // CG-2 — flip any workspace whose worktree has a lingering

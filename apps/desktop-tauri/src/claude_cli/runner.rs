@@ -182,8 +182,8 @@ fn resolve_sandbox_roots(
         SandboxLevel::L1Mozart => Ok((
             Vec::new(),
             vec![
-                sandbox::canonical_worktrees_root()?,
-                sandbox::canonical_projects_root()?,
+                crate::paths::workspaces_root()?,
+                crate::paths::projects_root()?,
             ],
         )),
         SandboxLevel::L2Project => {

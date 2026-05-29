@@ -459,11 +459,11 @@ pub(crate) async fn remove_repo_impl(db: &DbState, repo_id: String) -> Result<()
     for parent in &project_parents {
         let _ = std::fs::remove_dir(parent);
     }
-    // Sandbox dir at `~/.mozart/projects/<project_seg>`. Inferred from
+    // Sandbox dir at `<data>/projects/<project_seg>`. Inferred from
     // the worktree parent basename — same slug derivation as
     // `worktree::create_for_workspace`. Best-effort: missing or
     // shared-by-another-project leaves it alone.
-    if let Ok(projects_root) = sandbox::canonical_projects_root() {
+    if let Ok(projects_root) = crate::paths::projects_root() {
         for parent in &project_parents {
             if let Some(seg) = parent.file_name() {
                 let dir = projects_root.join(seg);
@@ -3031,7 +3031,7 @@ pub async fn play_chime() -> Result<(), AppError> {
     crate::sound::play()
 }
 
-/// Materialize (if missing) the bundled `~/Mozart/get-started/` project,
+/// Materialize (if missing) the bundled "Get started" project,
 /// then ensure a `welcome-1` workspace exists on `main`. Idempotent —
 /// re-entry from Settings → "Revisit tour" reuses the existing repo +
 /// workspace instead of duplicating either.

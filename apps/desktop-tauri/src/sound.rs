@@ -27,7 +27,11 @@ pub fn play() -> Result<(), AppError> {
 /// repeated turns reuse the same file; re-written only if missing or the
 /// size drifts (e.g. the bundled asset changed across an update).
 fn ensure_chime_on_disk() -> Result<PathBuf, AppError> {
-    let path = std::env::temp_dir().join("mozart-chime.wav");
+    let path = crate::paths::chime_path()?;
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| AppError::Io(format!("create cache dir: {e}")))?;
+    }
     let stale = match std::fs::metadata(&path) {
         Ok(m) => m.len() != CHIME_WAV.len() as u64,
         Err(_) => true,
