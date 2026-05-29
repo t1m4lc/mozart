@@ -33,11 +33,17 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = {
 
 export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
   {
+    id: 'claude-opus-4-8',
+    name: 'Claude Opus 4.8',
+    provider: 'anthropic',
+    enabled: true,
+    isNew: true,
+  },
+  {
     id: 'claude-opus-4-7',
     name: 'Claude Opus 4.7',
     provider: 'anthropic',
     enabled: true,
-    isNew: true,
   },
   {
     id: 'claude-sonnet-4-6',
