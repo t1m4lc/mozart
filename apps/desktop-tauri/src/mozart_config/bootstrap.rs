@@ -5,7 +5,7 @@
 //!
 //! 1. Idempotently registers the repo row (`add_repo` semantics).
 //! 2. Probes the project (`detect::detect_project`).
-//! 3. If `.mozart/run.json` already exists, validates it and uses that.
+//! 3. If the repo's `.mozart/settings.json` carries `scripts`, uses that.
 //! 4. Otherwise writes a `project_local_config` row with the inferred
 //!    run config (the *silent local default* from
 //!    `[[mozart-repo-init-principle]]`).
@@ -71,7 +71,7 @@ pub struct BootstrapResult {
     pub first_workspace_id: String,
     pub start_chat_id: String,
     /// Where the run config came from:
-    /// - `"repo"`:     `.mozart/run.json` was present, valid, and read.
+    /// - `"repo"`:     `.mozart/settings.json` carries `scripts`.
     /// - `"local"`:    Inferred and written to `project_local_config`.
     /// - `"fallback"`: No probe matched; an empty row was still written
     ///                 so callers always find a config.
@@ -89,8 +89,8 @@ pub struct BootstrapResult {
 /// in the local DB and read back as `"local"`).
 ///
 /// `run_json` is the raw JSON text the frontend parses — keeps the
-/// `.mozart/run.json` key order intact through the FFI without having
-/// to teach `specta::Type` about the ordered-Vec representation.
+/// `scripts` key order intact through the FFI without having to teach
+/// `specta::Type` about the ordered-Vec representation.
 #[derive(Debug, Clone, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectConfig {
@@ -216,19 +216,17 @@ fn resolve_config_source(
     canonical: &Path,
     detection: &ProjectDetection,
 ) -> Result<String, AppError> {
-    if detection.has_mozart_dir {
-        // Read repo config inline — surfaces validation errors *now*
-        // rather than at first agent run. If the file is missing or
-        // unreadable we fall through to writing a local row.
-        if let Ok(cfg) = read_repo_run_json(canonical) {
-            validate_config(&cfg)?;
+    // Repo carries committed scripts in `.mozart/settings.json`? Then the
+    // repo is the source of truth and we never write a local row.
+    if let Some(settings) = crate::settings::read_project(canonical) {
+        if !settings.scripts.is_empty() {
             return Ok("repo".into());
         }
     }
 
     let now = now_ms();
     let run_json = serde_json::to_string(&detection.inferred_run)
-        .map_err(|e| AppError::Validation(format!("serialize run.json: {e}")))?;
+        .map_err(|e| AppError::Validation(format!("serialize scripts: {e}")))?;
     let row = ProjectLocalConfig {
         project_id: project_id.to_string(),
         run_json,
@@ -244,12 +242,6 @@ fn resolve_config_source(
     } else {
         "local".into()
     })
-}
-
-fn read_repo_run_json(root: &Path) -> Result<serde_json::Value, AppError> {
-    let body = std::fs::read_to_string(root.join(".mozart").join("run.json"))?;
-    serde_json::from_str(&body)
-        .map_err(|e| AppError::Validation(format!(".mozart/run.json parse: {e}")))
 }
 
 async fn resolve_base_branch(root: &Path) -> Result<String, AppError> {
@@ -332,10 +324,9 @@ fn validate_open_path(path: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Write the local fallback config out to `.mozart/run.json` (and a
-/// minimal `.mozart/settings.json`). Validates before writing, refuses
-/// to overwrite an existing `.mozart/*` file. Wired but not exposed in
-/// UI for v0 (TODO-006).
+/// Write the local fallback scripts into the repo's `.mozart/settings.json`
+/// (`scripts` key), preserving any other keys already there. Wired but not
+/// exposed in UI for v0 (TODO-006).
 pub async fn init_project_repo_from_local(
     db: &DbState,
     project_id: &str,
@@ -347,45 +338,15 @@ pub async fn init_project_repo_from_local(
         (repo.path, local.run_json)
     };
 
-    // Validate first.
-    let parsed: serde_json::Value = serde_json::from_str(&run_json)
+    let run: RunConfig = serde_json::from_str(&run_json)
         .map_err(|e| AppError::Validation(format!("run_json parse: {e}")))?;
-    validate_config(&parsed)?;
-
-    let mozart_dir = PathBuf::from(&repo_path).join(".mozart");
-    let run_path = mozart_dir.join("run.json");
-    let settings_path = mozart_dir.join("settings.json");
-
-    if run_path.exists() {
-        return Err(AppError::Validation(format!(
-            ".mozart/run.json already exists at {} — refusing to overwrite",
-            run_path.display()
-        )));
-    }
-    if settings_path.exists() {
-        return Err(AppError::Validation(format!(
-            ".mozart/settings.json already exists at {} — refusing to overwrite",
-            settings_path.display()
-        )));
-    }
-
-    tokio::fs::create_dir_all(&mozart_dir).await?;
-    let settings_body = serde_json::to_string_pretty(
-        &serde_json::json!({ "version": "0.1" }),
-    )
-    .map_err(|e| AppError::Validation(format!("serialize settings.json: {e}")))?;
-    tokio::fs::write(&settings_path, settings_body).await?;
-    let pretty_run = serde_json::to_string_pretty(&parsed)
-        .map_err(|e| AppError::Validation(format!("pretty run.json: {e}")))?;
-    tokio::fs::write(&run_path, pretty_run).await?;
-
-    Ok(())
+    crate::settings::save_project_scripts(Path::new(&repo_path), run.scripts)
 }
 
-/// Read the active config for `project_id`. If `.mozart/run.json` exists
-/// and validates, returns it with `source = "repo"`. Otherwise returns
-/// the local row with `source = "local"`. `merge_mode` always comes
-/// from the local row (it never appears in repo files).
+/// Read the active config for `project_id`. If the repo's
+/// `.mozart/settings.json` carries `scripts`, returns them with
+/// `source = "repo"`. Otherwise returns the local row with
+/// `source = "local"`. `merge_mode` always comes from the local row.
 pub fn read_project_config(
     db: &DbState,
     project_id: &str,
@@ -402,23 +363,20 @@ pub fn read_project_config(
         .map(|l| l.merge_mode.clone())
         .unwrap_or_else(|| DEFAULT_MERGE_MODE.to_string());
 
-    let run_path = PathBuf::from(&repo_path).join(".mozart").join("run.json");
-    if run_path.is_file() {
-        let body = std::fs::read_to_string(&run_path)?;
-        let parsed: serde_json::Value = serde_json::from_str(&body)
-            .map_err(|e| AppError::Validation(format!(".mozart/run.json parse: {e}")))?;
-        validate_config(&parsed)?;
-        // Round-trip through RunConfig so key order is normalized and
-        // any duplicate-key error fires at read time.
-        let run: RunConfig = serde_json::from_value(parsed)
-            .map_err(|e| AppError::Validation(format!(".mozart/run.json shape: {e}")))?;
-        let run_json = serde_json::to_string(&run)
-            .map_err(|e| AppError::Validation(format!("serialize repo run.json: {e}")))?;
-        return Ok(ProjectConfig {
-            run_json,
-            merge_mode,
-            source: "repo".into(),
-        });
+    // Repo-committed scripts in `.mozart/settings.json` win.
+    if let Some(settings) = crate::settings::read_project(Path::new(&repo_path)) {
+        if !settings.scripts.is_empty() {
+            let run = RunConfig {
+                scripts: settings.scripts,
+            };
+            let run_json = serde_json::to_string(&run)
+                .map_err(|e| AppError::Validation(format!("serialize repo scripts: {e}")))?;
+            return Ok(ProjectConfig {
+                run_json,
+                merge_mode,
+                source: "repo".into(),
+            });
+        }
     }
 
     let local = local
@@ -430,7 +388,7 @@ pub fn read_project_config(
     let run: RunConfig = serde_json::from_value(parsed)
         .map_err(|e| AppError::Validation(format!("local run_json shape: {e}")))?;
     let run_json = serde_json::to_string(&run)
-        .map_err(|e| AppError::Validation(format!("serialize local run.json: {e}")))?;
+        .map_err(|e| AppError::Validation(format!("serialize local scripts: {e}")))?;
     Ok(ProjectConfig {
         run_json,
         merge_mode,
@@ -585,8 +543,9 @@ mod tests {
         restore_root(prev);
     }
 
-    /// e2e #2 — bootstrap when the repo already carries `.mozart/run.json`.
-    /// Asserts: source="repo", no local row written, files left untouched.
+    /// e2e #2 — bootstrap when the repo already carries committed
+    /// `.mozart/settings.json` scripts.
+    /// Asserts: source="repo", no local row written, file left untouched.
     #[allow(clippy::await_holding_lock)]
     #[tokio::test]
     async fn bootstrap_with_existing_mozart_dir_reads_repo() {
@@ -610,14 +569,14 @@ mod tests {
 
         std::fs::create_dir_all(repo.join(".mozart")).unwrap();
         std::fs::write(
-            repo.join(".mozart/run.json"),
+            repo.join(".mozart/settings.json"),
             r#"{ "scripts": { "setup": "make setup", "run": "make dev" } }"#,
         )
         .unwrap();
         // Commit so the worktree is clean.
         Command::new("git")
             .current_dir(&repo)
-            .args(["add", ".mozart/run.json"])
+            .args(["add", ".mozart/settings.json"])
             .output()
             .unwrap();
         Command::new("git")
@@ -638,8 +597,8 @@ mod tests {
         assert!(local.is_none(), "no local row should be written when source=repo");
         drop(conn);
 
-        // Repo's .mozart/run.json must be untouched.
-        let body = std::fs::read_to_string(repo.join(".mozart/run.json")).unwrap();
+        // Repo's .mozart/settings.json must be untouched.
+        let body = std::fs::read_to_string(repo.join(".mozart/settings.json")).unwrap();
         assert!(body.contains("make setup"));
         let (clean, txt) = worktree_status_is_clean(&repo);
         assert!(clean, "expected clean worktree, got:\n{txt}");
@@ -717,63 +676,60 @@ mod tests {
         // touched one. The detector is stateless.
     }
 
-    /// REGRESSION-risk invariant from the spec: refuses to overwrite an
-    /// existing `.mozart/*` file.
+    /// `init_project_repo_from_local` is idempotent — re-running it merges
+    /// the latest scripts into `.mozart/settings.json` without erroring.
     #[allow(clippy::await_holding_lock)]
     #[tokio::test]
-    async fn init_repo_refuses_overwrite() {
+    async fn init_repo_overwrites_scripts_idempotently() {
         if !git_available() {
-            eprintln!("SKIP init_repo_refuses_overwrite: git not on PATH");
+            eprintln!("SKIP init_repo_overwrites_scripts_idempotently: git not on PATH");
             return;
         }
         let _gate = test_env_gate().lock().unwrap_or_else(|e| e.into_inner());
         let prev = std::env::var_os("MOZART_WORKTREES_ROOT");
 
         let root = TempDir::new().unwrap();
-        // MOZART_WORKTREES_ROOT must be a *sibling* dir, not an ancestor
-        // of `repo`, or the worktree creator would drop the worktree
-        // inside the repo's working tree (showing up as `?? get-started/`).
         let worktrees = root.path().join("worktrees");
         std::fs::create_dir_all(&worktrees).unwrap();
         std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);
         let repo = root.path().join("repo");
         std::fs::create_dir_all(&repo).unwrap();
         init_git_repo(&repo);
-        // Bootstrap into a local row.
-        std::fs::write(
-            repo.join("package.json"),
-            r#"{ "scripts": { "dev": "vite" } }"#,
-        )
-        .unwrap();
-        Command::new("git").current_dir(&repo).args(["add", "package.json"]).output().unwrap();
+        std::fs::write(repo.join("go.mod"), "module x\n").unwrap();
+        Command::new("git").current_dir(&repo).args(["add", "go.mod"]).output().unwrap();
         Command::new("git")
             .current_dir(&repo)
-            .args(["commit", "--no-gpg-sign", "-m", "pkg"])
+            .args(["commit", "--no-gpg-sign", "-m", "go"])
             .output()
             .unwrap();
         let db = init_db_memory().unwrap();
         let r = bootstrap_project(&db, &repo).await.expect("bootstrap ok");
-        // Pre-seed an existing .mozart/run.json so the next call collides.
-        std::fs::create_dir_all(repo.join(".mozart")).unwrap();
-        std::fs::write(repo.join(".mozart/run.json"), "{\"scripts\":{}}").unwrap();
 
-        let err = init_project_repo_from_local(&db, &r.project_id)
+        // Pre-seed a settings.json with an unrelated key — it must survive.
+        std::fs::create_dir_all(repo.join(".mozart")).unwrap();
+        std::fs::write(
+            repo.join(".mozart/settings.json"),
+            r#"{ "appearance": { "theme": "mozart", "colorMode": "dark" } }"#,
+        )
+        .unwrap();
+
+        init_project_repo_from_local(&db, &r.project_id)
             .await
-            .expect_err("should refuse to overwrite");
-        let msg = match err {
-            AppError::Validation(m) => m,
-            other => panic!("expected Validation, got {other:?}"),
-        };
-        assert!(msg.contains("refusing to overwrite"), "got: {msg}");
-        // The pre-existing body is untouched.
-        let body = std::fs::read_to_string(repo.join(".mozart/run.json")).unwrap();
-        assert_eq!(body, "{\"scripts\":{}}");
+            .expect("first init ok");
+        init_project_repo_from_local(&db, &r.project_id)
+            .await
+            .expect("second init ok (idempotent)");
+
+        let body = std::fs::read_to_string(repo.join(".mozart/settings.json")).unwrap();
+        assert!(body.contains("go mod download"), "scripts merged in: {body}");
+        assert!(body.contains("\"colorMode\": \"dark\""), "pre-existing key kept: {body}");
+        assert!(!repo.join(".mozart/run.json").exists());
 
         restore_root(prev);
     }
 
-    /// `init_project_repo_from_local` happy path — writes run.json +
-    /// settings.json with the local row's contents.
+    /// `init_project_repo_from_local` happy path — writes the local row's
+    /// scripts into `.mozart/settings.json`.
     #[allow(clippy::await_holding_lock)]
     #[tokio::test]
     async fn init_repo_writes_files() {
@@ -808,12 +764,12 @@ mod tests {
             .await
             .expect("init repo ok");
 
-        let run_body = std::fs::read_to_string(repo.join(".mozart/run.json")).unwrap();
-        let settings_body = std::fs::read_to_string(repo.join(".mozart/settings.json")).unwrap();
-        assert!(run_body.contains("go mod download"));
-        assert!(run_body.contains("go run ."));
-        assert!(settings_body.contains("\"version\""));
-        assert!(settings_body.contains("0.1"));
+        // No run.json is ever written now — scripts live in settings.json.
+        assert!(!repo.join(".mozart/run.json").exists());
+        let settings_body =
+            std::fs::read_to_string(repo.join(".mozart/settings.json")).unwrap();
+        assert!(settings_body.contains("go mod download"));
+        assert!(settings_body.contains("go run ."));
 
         restore_root(prev);
     }
@@ -879,7 +835,8 @@ mod tests {
         }
     }
 
-    /// `read_project_config` — repo wins over local when `.mozart/` is present.
+    /// `read_project_config` — repo wins over local when `.mozart/settings.json`
+    /// carries `scripts`.
     #[allow(clippy::await_holding_lock)]
     #[tokio::test]
     async fn read_config_prefers_repo_over_local() {
@@ -914,7 +871,7 @@ mod tests {
         // — read_project_config should report that one instead.
         std::fs::create_dir_all(repo.join(".mozart")).unwrap();
         std::fs::write(
-            repo.join(".mozart/run.json"),
+            repo.join(".mozart/settings.json"),
             r#"{ "scripts": { "run": "make special" } }"#,
         )
         .unwrap();

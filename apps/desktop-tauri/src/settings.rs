@@ -162,6 +162,39 @@ pub fn save_global(settings: &MozartSettings) -> Result<(), AppError> {
     Ok(())
 }
 
+/// Read a repo's committed project settings (`<repo>/.mozart/settings.json`)
+/// layered over defaults, so a partial file still deserializes. `None` when
+/// the file is absent or unparseable. Use `.scripts` to read the repo's
+/// committed run/setup commands (defaults carry no scripts, so anything here
+/// was declared by the repo).
+pub fn read_project(repo_root: &Path) -> Option<MozartSettings> {
+    let layer = load_layer(&project_settings_path(repo_root))?;
+    let mut merged = serde_json::to_value(MozartSettings::default()).ok()?;
+    deep_merge(&mut merged, layer);
+    serde_json::from_value(merged).ok()
+}
+
+/// Persist `scripts` into `<repo>/.mozart/settings.json`, preserving any
+/// other keys already in the file (or starting from defaults). This is the
+/// repo-committed home for run/setup commands — it replaces `.mozart/run.json`.
+pub fn save_project_scripts(
+    repo_root: &Path,
+    scripts: Vec<(String, String)>,
+) -> Result<(), AppError> {
+    let mut settings = read_project(repo_root).unwrap_or_default();
+    settings.scripts = scripts;
+    let path = project_settings_path(repo_root);
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| AppError::Io(format!("create .mozart dir: {e}")))?;
+    }
+    let body = serde_json::to_string_pretty(&settings)
+        .map_err(|e| AppError::Validation(format!("serialize project settings: {e}")))?;
+    std::fs::write(&path, body)
+        .map_err(|e| AppError::Io(format!("write project settings: {e}")))?;
+    Ok(())
+}
+
 fn load_global_value() -> Option<Value> {
     let path = crate::paths::global_settings_path().ok()?;
     load_layer(&path)

@@ -2010,8 +2010,8 @@ pub async fn set_repo_setup_command(
 
 /// Which half of the project's runner pair to launch: the setup
 /// command (e.g. `pnpm install`) or the run command (e.g. `pnpm dev`).
-/// `.mozart/run.json` at the project root takes precedence over the
-/// DB column for the corresponding script; the DB column is the
+/// The repo's committed `.mozart/settings.json` `scripts` take precedence
+/// over the DB column for the corresponding script; the DB column is the
 /// fallback.
 #[derive(Copy, Clone)]
 enum WorkspaceCommandKind {
@@ -2035,17 +2035,22 @@ impl WorkspaceCommandKind {
     }
 }
 
-/// Resolve the effective command for `(repo, kind)`. Checks the
-/// project's `.mozart/run.json` (`scripts.<kind>`) first, falling back
-/// to the matching DB column. Returns a `Validation` error when
-/// neither source has a non-empty command.
+/// Resolve the effective command for `(repo, kind)`. Checks the repo's
+/// committed `.mozart/settings.json` `scripts.<kind>` first (via the
+/// layered settings resolver), falling back to the matching DB column.
+/// Returns a `Validation` error when neither source has a non-empty command.
 fn resolve_repo_command(
     repo: &crate::db::models::Repo,
     kind: WorkspaceCommandKind,
 ) -> Result<String, AppError> {
-    let from_json =
-        read_repo_run_json_script(std::path::Path::new(&repo.path), kind.script_key());
-    if let Some(cmd) = from_json {
+    let key = kind.script_key();
+    let from_settings = crate::settings::resolve(Some(std::path::Path::new(&repo.path)))
+        .scripts
+        .into_iter()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v)
+        .filter(|s| !s.trim().is_empty());
+    if let Some(cmd) = from_settings {
         return Ok(cmd);
     }
     let from_db = match kind {
@@ -2062,25 +2067,10 @@ fn resolve_repo_command(
         })
 }
 
-/// Best-effort read of `<project-root>/.mozart/run.json` →
-/// `scripts.<key>`. Returns `None` on any failure (missing file, bad
-/// JSON, missing key, empty value) so the caller can fall through to
-/// the DB column. Never errors — the file is optional.
-fn read_repo_run_json_script(project_path: &std::path::Path, key: &str) -> Option<String> {
-    let body = std::fs::read_to_string(project_path.join(".mozart").join("run.json")).ok()?;
-    let parsed: serde_json::Value = serde_json::from_str(&body).ok()?;
-    let value = parsed.get("scripts")?.get(key)?.as_str()?.trim().to_string();
-    if value.is_empty() {
-        None
-    } else {
-        Some(value)
-    }
-}
-
 /// Spawn the project's `run_command` in a PTY rooted at the workspace's
 /// worktree. Streams output through `on_event`. Replaces any prior run
 /// PTY for the same workspace (the previous run is killed). Returns
-/// `Validation` if neither `.mozart/run.json scripts.run` nor
+/// `Validation` if neither `.mozart/settings.json` `scripts.run` nor
 /// `repos.run_command` is set.
 #[tauri::command]
 #[specta::specta]
@@ -3278,9 +3268,8 @@ pub(crate) async fn bootstrap_project_impl(
 }
 
 /// Deferred "Save config to repo" surface. Writes the local fallback
-/// config to `.mozart/run.json` + `.mozart/settings.json`, validating
-/// first and refusing to overwrite. Wired in P0.3 but not exposed in
-/// UI for v0 (TODO-006).
+/// scripts into the repo's `.mozart/settings.json` (`scripts` key).
+/// Wired in P0.3 but not exposed in UI for v0 (TODO-006).
 #[tauri::command]
 #[specta::specta]
 pub async fn init_project_repo_from_local(
@@ -3295,8 +3284,8 @@ pub async fn init_project_repo_from_local(
 }
 
 /// Read the active project config. Repo > local; falls back to the
-/// local DB row if `.mozart/run.json` is absent. Bootstrap guarantees
-/// at least one of the two sources exists.
+/// local DB row if the repo's `.mozart/settings.json` carries no
+/// `scripts`. Bootstrap guarantees at least one of the two sources exists.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_project_config(

@@ -23,7 +23,8 @@ use serde::{Deserialize, Serialize};
 use super::dto::RunConfig;
 
 /// Result of probing a project root. Caller persists `inferred_run` into
-/// `.mozart/run.json` (repo) or `project_local_config.run_json` (local DB).
+/// `project_local_config.run_json` (local DB); a repo commits its own
+/// scripts in `.mozart/settings.json`.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "camelCase")]
 pub struct ProjectDetection {
