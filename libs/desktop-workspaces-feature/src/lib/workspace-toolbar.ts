@@ -176,6 +176,27 @@ import { OpenInMenu } from '@mozart/desktop-workspaces-ui';
             <span>Commit</span>
           </button>
 
+          @if (prNumber(); as n) {
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              type="button"
+              class="h-7 gap-1.5 px-2 text-xs font-normal text-muted-foreground"
+              [hlmTooltip]="'Open pull request #' + n + ' on GitHub'"
+              position="bottom"
+              (click)="openPr.emit()"
+            >
+              <ng-icon
+                hlm
+                name="lucideGitPullRequest"
+                size="sm"
+                class="text-status-ok"
+              />
+              <span>PR #{{ n }}</span>
+            </button>
+          }
+
           @if (workspaceStatus(); as s) {
             <button
               hlmBtn
@@ -299,6 +320,10 @@ export class WorkspaceToolbar {
   readonly availableTools = input<readonly OpenInTool[]>([]);
   readonly lastUsedTool = input<OpenInTool | null>(null);
   readonly githubConnected = input<boolean>(false);
+  // PR opened from this workspace (persisted). When set, the header
+  // shows a "PR #N" chip that opens it in the browser via `openPr`.
+  readonly prUrl = input<string | null>(null);
+  readonly prNumber = input<number | null>(null);
   readonly runStatus = input<RunStatus>('idle');
   readonly hasRunCommand = input<boolean>(false);
   // Linear-style workspace status surfaced as a dropdown between
@@ -315,6 +340,7 @@ export class WorkspaceToolbar {
   readonly openIn = output<OpenInTool>();
   readonly commit = output<void>();
   readonly createPr = output<void>();
+  readonly openPr = output<void>();
   readonly run = output<void>();
   readonly stopRun = output<void>();
   readonly workspaceStatusChange = output<UiWorkspaceStatus>();

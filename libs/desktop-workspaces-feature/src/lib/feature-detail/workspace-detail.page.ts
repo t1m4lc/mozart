@@ -19,6 +19,7 @@ import { lucidePanelLeft } from '@ng-icons/lucide';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { MacWindowControls } from '@mozart/desktop-core-ui';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import {
@@ -73,6 +74,8 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       [availableTools]="availableTools()"
       [lastUsedTool]="effectiveLastUsedTool()"
       [githubConnected]="profile.githubConnected()"
+      [prUrl]="workspace()?.pr?.url ?? null"
+      [prNumber]="workspace()?.pr?.number ?? null"
       [runStatus]="runStatus()"
       [hasRunCommand]="hasRunCommand()"
       [workspaceStatus]="workspaceStatus()"
@@ -83,6 +86,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       (openIn)="onOpenIn($event)"
       (commit)="onCommit()"
       (createPr)="onCreatePr()"
+      (openPr)="onOpenPr()"
       (run)="onRun()"
       (stopRun)="onStopRun()"
       (workspaceStatusChange)="onWorkspaceStatusChange($event)"
@@ -126,6 +130,7 @@ export class WorkspaceDetailPage {
   private readonly dialog = inject(HlmDialogService);
   private readonly runs = inject(RunRegistry);
   private readonly chatFacade = inject(ChatFacade);
+  private readonly externalLink = inject(ExternalLinkService);
 
   protected readonly availableTools = this.ides.availableTools;
 
@@ -291,5 +296,12 @@ export class WorkspaceDetailPage {
       defaultTitle: ws?.name ?? '',
     };
     this.dialog.open(FeatureCreatePrDialog, { context });
+  }
+
+  // Open the workspace's existing PR in the browser (no auto-open; only
+  // on the explicit "PR #N" chip click).
+  protected onOpenPr(): void {
+    const url = this.workspace()?.pr?.url;
+    if (url) void this.externalLink.openExternal(url);
   }
 }

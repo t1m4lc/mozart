@@ -609,15 +609,3 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** Nothing hard; `GithubRemoteStatus` + `ExternalLinkService` already exist.
 
 ---
-
-## Workspaces — PR status badge on the workspace
-
-**What:** Surface "#N · Open in GitHub" on the workspace itself (toolbar/aside header or sidebar row), not only inside the create-PR dialog and the merge menu's "View PR".
-
-**Why:** §6/§7 "PR status on the workspace". The data already flows: `workspace.pr` (url/number/state) is persisted and mapped to the domain model by the PR-flow work. The workspace currently only signals a PR via the `in_review` kanban status — there's no direct link/number.
-
-**How to apply:** Add an optional PR input + `openPr` output to the relevant header component (e.g. `WorkspaceAsideHeader`, currently unused, or the toolbar), wire `openPr` → `ExternalLinkService.openExternal(workspace.pr.url)` in the hosting feature. Read-only display; reuse the `lucideExternalLink` + `lucideGitPullRequest` icons.
-
-**Depends on:** `workspace.pr` persistence (shipped in `feat(workspaces): make the PR creation flow reliable and guided`).
-
----
