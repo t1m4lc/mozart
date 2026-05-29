@@ -47,8 +47,8 @@ type LoadState =
       </h3>
     </div>
 
-    <div class="px-6 py-4 space-y-4">
-      <div>
+    <div class="min-w-0 px-6 py-4 space-y-4">
+      <div class="min-w-0">
       @switch (state().kind) {
         @case ('loading') {
           <p class="text-sm text-muted-foreground">Loading changes…</p>
@@ -84,20 +84,20 @@ type LoadState =
               @for (file of asLoaded(state()).files; track file.path) {
                 <li>
                   <label
-                    class="flex cursor-pointer items-center gap-2 px-2 py-1 text-xs hover:bg-muted/50"
+                    class="flex w-max min-w-full cursor-pointer items-center gap-2 px-2 py-1 text-xs hover:bg-muted/50"
                   >
                     <input
                       type="checkbox"
                       [checked]="isSelected(file.path)"
                       (change)="toggleSelection(file.path)"
-                      class="h-3 w-3 cursor-pointer"
+                      class="h-3 w-3 shrink-0 cursor-pointer"
                     />
                     <span
-                      class="inline-block w-4 text-center font-mono text-[10px]"
+                      class="inline-block w-4 shrink-0 text-center font-mono text-[10px]"
                       [class]="statusFgClass(file.status)"
                       >{{ statusLetter(file.status) }}</span
                     >
-                    <span class="min-w-0 flex-1 truncate font-mono">{{ file.path }}</span>
+                    <span class="whitespace-nowrap font-mono">{{ file.path }}</span>
                   </label>
                 </li>
               }
