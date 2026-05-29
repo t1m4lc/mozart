@@ -30,7 +30,7 @@ type FileTabIntent = 'preview' | 'pin';
 @Component({
   selector: 'app-workspace-tab-content',
   imports: [
-    ...HlmSkeletonImports,
+    HlmSkeletonImports,
     FeatureChatTabBar,
     FeatureChatScrollSurface,
     FeatureChatContent,
@@ -185,7 +185,9 @@ export class WorkspaceTabContent {
     return id ? this.workspaces.workspaceById(id)() : null;
   });
 
-  protected readonly branch = computed(() => this.workspaceEntity()?.branch ?? '');
+  protected readonly branch = computed(
+    () => this.workspaceEntity()?.branch ?? '',
+  );
   protected readonly baseBranch = computed(
     () => this.workspaceEntity()?.baseBranch ?? '',
   );
