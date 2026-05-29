@@ -97,7 +97,7 @@ const EMPTY_DELETING_IDS: ReadonlySet<string> = new Set();
                 [workspace]="workspace"
                 [editing]="editingWorkspaceId() === workspace.id"
                 [isStreaming]="streamingIds().has(workspace.id)"
-                [isBusy]="busyIds().has(workspace.id)"
+                [setupState]="workspaces.installStateFor(workspace.id)"
                 [chatTitle]="chatTitleFor(workspace.id)"
                 [lastActivity]="lastActivityFor(workspace.id)"
                 [diffStats]="diffStatsFor(workspace.id)"
@@ -135,7 +135,6 @@ export class ShellProjectRow {
   readonly renameCommit = output<{ id: string; name: string }>();
 
   protected readonly streamingIds = this._chat.streamingWorkspaceIds;
-  protected readonly busyIds = this.workspaces.busyWorkspaceIds;
 
   protected readonly projectWorkspaces = computed<readonly Workspace[]>(() => {
     const pid = this.project().id;

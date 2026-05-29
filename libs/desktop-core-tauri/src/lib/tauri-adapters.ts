@@ -58,7 +58,6 @@ import {
 import type { TerminalEvent as TerminalEventModel } from '@mozart/desktop-terminals-util';
 import {
   WORKSPACES_ADAPTER,
-  WorkspacesFacade,
   type WorkspacesAdapter,
 } from '@mozart/desktop-workspaces-data-access';
 import type { OpenInToolId as OpenInToolIdAlias } from '@mozart/desktop-workspaces-util';
@@ -122,9 +121,7 @@ function provideProviderSetupAdapter(): Provider {
 function provideGetStartedProjectAdapter(): Provider {
   return {
     provide: GET_STARTED_PROJECT_ADAPTER,
-    useFactory: (workspaces: WorkspacesFacade) =>
-      tauriGetStartedProjectAdapter(workspaces),
-    deps: [WorkspacesFacade],
+    useFactory: () => tauriGetStartedProjectAdapter(),
   };
 }
 
@@ -537,6 +534,19 @@ function provideRepositoriesAdapter(): Provider {
           // staged/unstaged split in the Changes pane. Older Tauri
           // builds (or stale bindings) may omit it → default to false.
           staged: f.staged ?? false,
+          added: f.added ?? 0,
+          removed: f.removed ?? 0,
+        }));
+      },
+      async listBranchDiffFiles(workspaceId) {
+        const list = unwrap(await commands.listBranchDiffFiles(workspaceId));
+        return list.map((f) => ({
+          path: f.path,
+          status:
+            f.status === 'added' || f.status === 'deleted'
+              ? f.status
+              : 'modified',
+          staged: false,
           added: f.added ?? 0,
           removed: f.removed ?? 0,
         }));

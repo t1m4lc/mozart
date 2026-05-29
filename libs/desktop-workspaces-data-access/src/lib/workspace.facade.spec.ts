@@ -79,6 +79,7 @@ function makeRepositoriesAdapterStub(commitWorkspaceImpl?: () => Promise<string>
     getFileDiff: vi.fn().mockResolvedValue(''),
     readFile: vi.fn().mockResolvedValue(''),
     listChangedFiles: vi.fn().mockResolvedValue([]),
+    listBranchDiffFiles: vi.fn().mockResolvedValue([]),
   };
 }
 

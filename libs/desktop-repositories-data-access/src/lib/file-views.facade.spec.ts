@@ -29,6 +29,7 @@ function makeAdapter(initial: readonly FileViewEntry[]): {
     readFile: () => Promise.reject(new Error('unused')),
     saveFile: () => Promise.reject(new Error('unused')),
     listChangedFiles: () => Promise.reject(new Error('unused')),
+    listBranchDiffFiles: () => Promise.reject(new Error('unused')),
     commitWorkspace: () => Promise.reject(new Error('unused')),
     stageFile: () => Promise.reject(new Error('unused')),
     unstageFile: () => Promise.reject(new Error('unused')),

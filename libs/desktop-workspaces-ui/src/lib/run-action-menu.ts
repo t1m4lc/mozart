@@ -14,7 +14,6 @@ import {
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
 import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
 
 export type RunStatus = 'idle' | 'starting' | 'running' | 'exited';
 
@@ -28,13 +27,7 @@ export type RunStatus = 'idle' | 'starting' | 'running' | 'exited';
 // The host owns the start/stop wiring; this component is pure UI.
 @Component({
   selector: 'app-run-action-menu',
-  imports: [
-    NgIcon,
-    HlmButtonImports,
-    HlmDropdownMenuImports,
-    HlmIconImports,
-    HlmTooltipImports,
-  ],
+  imports: [NgIcon, HlmButtonImports, HlmDropdownMenuImports, HlmIconImports],
   providers: [
     provideIcons({
       lucideChevronDown,
@@ -47,10 +40,9 @@ export type RunStatus = 'idle' | 'starting' | 'running' | 'exited';
     <div class="flex">
       <button
         hlmBtn
-        [variant]="isRunning() ? 'destructive' : 'outline'"
+        [variant]="isRunning() ? 'secondary' : 'outline'"
         size="sm"
         type="button"
-        [hlmTooltip]="primaryTooltip()"
         position="bottom"
         class="h-7 rounded-r-none rounded-l-md border-r-0 px-2 text-xs font-normal"
         [disabled]="primaryDisabled()"
@@ -75,8 +67,9 @@ export type RunStatus = 'idle' | 'starting' | 'running' | 'exited';
   `,
 })
 export class RunActionMenu {
-  /** Current run status. Drives label/icon and the destructive variant
-   *  for the Stop state. */
+  /** Current run status. Drives the label/icon and the button variant
+   *  (neutral `secondary` for Stop — stopping a dev server isn't a
+   *  destructive action). */
   readonly status = input.required<RunStatus>();
   /** Disabled until a run command is configured for the project. */
   readonly hasCommand = input<boolean>(false);
@@ -108,17 +101,6 @@ export class RunActionMenu {
   protected readonly primaryIcon = computed(() =>
     this.isRunning() ? 'lucideCircleStop' : 'lucidePlay',
   );
-
-  protected readonly primaryTooltip = computed(() => {
-    if (this.isRunning()) return 'Stop the run';
-    if (!this.hasCommand()) {
-      return 'No run command configured. Add one in project settings.';
-    }
-    if (this.busy()) {
-      return 'Setup is still running. Wait for it to finish.';
-    }
-    return 'Run command';
-  });
 
   protected primary(): void {
     if (this.primaryDisabled()) return;

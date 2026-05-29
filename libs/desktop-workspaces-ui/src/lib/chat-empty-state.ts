@@ -1,41 +1,40 @@
-import { ChangeDetectionStrategy, Component, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  input,
+  output,
+} from '@angular/core';
+import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
   lucideCircleAlert,
-  lucideGitBranch,
+  lucideRefreshCw,
   lucideSparkles,
 } from '@ng-icons/lucide';
 import type { InstallState } from '@mozart/desktop-workspaces-util';
 import { MzLoader } from '@mozart-ui/loader';
 
-// Step 4 copy lookup. Manager suffix is appended in the template when
-// state is `success` or `failed` and a manager name is known.
-const SETUP_LABEL: Record<InstallState, string> = {
-  idle: 'Setup script completed.',
-  no_package: 'No setup needed.',
-  running: 'Installing dependencies…',
-  success: 'Installed dependencies',
-  failed: 'Install failed',
-};
-
 /**
  * Rendered in the main chat area when the active chat tab has no
  * messages yet. Two variants:
- *   - 'start'    -> workspace initialization checklist (first tab)
- *   - 'untitled' -> light "waiting for your instructions" line
- * Provisional copy — wired to inputs so it can move to a smart wrapper
- * once the workspace store exposes branch/file/setup metadata.
+ *   - 'start'    -> the single unified "workspace ready" card. Shown by
+ *                   every creation path (manual open-project AND the
+ *                   generated-workspace / onboarding flow). Merges the
+ *                   branch line, the live setup lifecycle, and the
+ *                   start-chatting CTA into one screen.
+ *   - 'untitled' -> light "waiting for your instructions" line.
  */
 @Component({
   selector: 'app-chat-empty-state',
-  imports: [NgIcon, HlmIconImports, MzLoader],
+  imports: [NgIcon, HlmButtonImports, HlmIconImports, MzLoader],
   providers: [
     provideIcons({
       lucideCheck,
       lucideCircleAlert,
-      lucideGitBranch,
+      lucideRefreshCw,
       lucideSparkles,
     }),
   ],
@@ -54,116 +53,124 @@ const SETUP_LABEL: Record<InstallState, string> = {
         </p>
       </div>
     } @else {
-      <div class="w-full pl-12 pr-6 py-4">
-        <ol class="flex w-full flex-col">
-          <!-- 1 — branched into project -->
-          <li class="relative flex w-full items-center gap-3 pb-4">
+      <div
+        class="flex w-full items-start gap-3 px-6 py-4"
+        role="status"
+        aria-live="polite"
+      >
+        @switch (installState()) {
+          @case ('running') {
             <span
-              class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
-              aria-hidden="true"
-            ></span>
-            <span
-              class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
+              class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"
             >
-              <ng-icon hlm name="lucideGitBranch" size="2xs" />
+              <mz-loader size="xs" />
             </span>
-            <p class="text-sm font-light leading-none text-foreground">
-              Branched
-              <code
-                class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
-                >{{ sourceBranch() }}</code
-              >
-              from
-              <code
-                class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
-                >{{ targetBranch() }}</code
-              >
-              in <span class="font-medium">{{ projectName() }}</span
-              >.
-            </p>
-          </li>
-
-          <!-- 2 — ready (workspace + files + install lifecycle) -->
-          <li class="relative flex w-full items-center gap-3 pb-4">
+          }
+          @case ('failed') {
             <span
-              class="absolute left-[9.5px] top-5 bottom-0 w-px bg-border"
-              aria-hidden="true"
-            ></span>
-            @switch (installState()) {
-              @case ('running') {
-                <span
-                  class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-brand/10 text-brand"
-                >
-                  <mz-loader size="xs" />
-                </span>
-              }
-              @case ('failed') {
-                <span
-                  class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive [--ng-icon__stroke-width:1.5]"
-                >
-                  <ng-icon hlm name="lucideCircleAlert" size="2xs" />
-                </span>
-              }
-              @default {
-                <span
-                  class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 [--ng-icon__stroke-width:1.5]"
-                >
-                  <ng-icon hlm name="lucideCheck" size="2xs" />
-                </span>
-              }
-            }
-            <p class="text-sm font-light leading-none text-muted-foreground">
-              <code
-                class="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground"
-                >{{ workspaceName() }}</code
-              >
-              is ready.
-              @if (
-                installState() !== 'idle' && installState() !== 'no_package'
-              ) {
-                {{ setupLabel() }}
-                @if (
-                  installManager() &&
-                  (installState() === 'success' || installState() === 'failed')
-                ) {
-                  with
-                  <span class="font-medium text-foreground">{{
-                    installManager()
-                  }}</span>
-                }
-                .
-              }
-            </p>
-          </li>
-
-          <!-- 3 — CTA -->
-          <li class="relative flex w-full items-center gap-3">
-            <span
-              class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary [--ng-icon__stroke-width:1.5]"
+              class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-destructive/10 text-destructive [--ng-icon__stroke-width:1.5]"
             >
-              <ng-icon hlm name="lucideSparkles" size="2xs" />
+              <ng-icon hlm name="lucideCircleAlert" size="2xs" />
             </span>
-            <p class="text-sm font-light leading-none text-foreground">
-              You can start to chat.
+          }
+          @default {
+            <span
+              class="z-10 flex size-5 shrink-0 items-center justify-center rounded-full bg-emerald-500/10 text-emerald-600 [--ng-icon__stroke-width:1.5]"
+            >
+              <ng-icon hlm name="lucideCheck" size="2xs" />
+            </span>
+          }
+        }
+        <div class="flex-1 space-y-2">
+          @if (branchLine(); as line) {
+            <p class="text-xs font-light leading-relaxed text-muted-foreground">
+              {{ line }}
             </p>
-          </li>
-        </ol>
+          }
+          <p class="text-sm font-medium leading-relaxed text-foreground">
+            {{ headline() }}
+          </p>
+          <p class="text-sm font-light leading-relaxed text-muted-foreground">
+            {{ detail() }}
+          </p>
+          @if (installState() === 'failed') {
+            <button
+              hlmBtn
+              variant="outline"
+              size="sm"
+              type="button"
+              (click)="retry.emit()"
+            >
+              <ng-icon hlm name="lucideRefreshCw" size="sm" />
+              Retry setup
+            </button>
+          } @else if (isReady()) {
+            <p class="text-sm font-light leading-relaxed text-foreground">
+              You can start chatting now.
+            </p>
+          }
+        </div>
       </div>
     }
   `,
 })
 export class ChatEmptyState {
   readonly variant = input<'start' | 'untitled'>('start');
-  readonly projectName = input.required<string>();
-  readonly workspaceName = input.required<string>();
-  readonly sourceBranch = input.required<string>();
-  readonly targetBranch = input.required<string>();
-  // Step 4 lifecycle. 'idle' renders the original "Setup script
-  // completed." copy; the other states swap icon + label.
+  // Auto-run install lifecycle for the workspace. Drives the icon, copy
+  // and the retry affordance.
   readonly installState = input<InstallState>('idle');
   readonly installManager = input<string>('');
+  // Branch context for the ready card. The workspace's own branch (e.g.
+  // "mozart/coltrane"), the branch it was forked from (e.g. "main"), and
+  // the owning project name. When branch + project are present the card
+  // shows a "Branch … from … in …" line above the status.
+  readonly branch = input<string>('');
+  readonly baseBranch = input<string>('');
+  readonly projectName = input<string>('');
+  // Emitted from the failed-state Retry button. Parent re-runs setup.
+  readonly retry = output<void>();
 
-  protected setupLabel(): string {
-    return SETUP_LABEL[this.installState()];
-  }
+  protected readonly branchLine = computed<string | null>(() => {
+    const branch = this.branch().trim();
+    const project = this.projectName().trim();
+    if (!branch || !project) return null;
+    const base = this.baseBranch().trim();
+    return base
+      ? `Branch ${branch} from ${base} in ${project}`
+      : `Branch ${branch} in ${project}`;
+  });
+
+  protected readonly isReady = computed<boolean>(() => {
+    const state = this.installState();
+    return state === 'success' || state === 'no_package' || state === 'idle';
+  });
+
+  protected readonly headline = computed<string>(() => {
+    switch (this.installState()) {
+      case 'running':
+        return 'Setting up your workspace…';
+      case 'failed':
+        return 'Setup failed';
+      default:
+        return 'Workspace ready';
+    }
+  });
+
+  protected readonly detail = computed<string>(() => {
+    switch (this.installState()) {
+      case 'running':
+        return 'Mozart is installing dependencies and preparing the project.';
+      case 'no_package':
+        return 'No setup step was required for this project.';
+      case 'failed': {
+        const mgr = this.installManager();
+        const what = mgr
+          ? `install dependencies with ${mgr}`
+          : 'install dependencies';
+        return `Mozart couldn't ${what}. Check the Setup tab for details, then retry.`;
+      }
+      default:
+        return 'Setup completed successfully.';
+    }
+  });
 }

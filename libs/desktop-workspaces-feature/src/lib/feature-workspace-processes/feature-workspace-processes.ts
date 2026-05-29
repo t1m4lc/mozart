@@ -6,7 +6,12 @@ import {
   inject,
 } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import { lucideExternalLink } from '@ng-icons/lucide';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { MzDotLoader } from '@mozart-ui/loader';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
@@ -44,6 +49,9 @@ function coerceBottomTab(raw: string | null): BottomTab {
 @Component({
   selector: 'app-feature-workspace-processes',
   imports: [
+    NgIcon,
+    HlmButtonImports,
+    HlmIconImports,
     HlmTabsImports,
     MzDotLoader,
     RunActionMenu,
@@ -51,6 +59,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
     FeatureWorkspaceRun,
     FeatureWorkspaceTerminal,
   ],
+  providers: [provideIcons({ lucideExternalLink })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class:
@@ -93,7 +102,7 @@ function coerceBottomTab(raw: string | null): BottomTab {
               class="relative flex h-full items-center gap-1.5 rounded-none border-transparent! bg-transparent! px-2 text-xs font-light text-muted-foreground! transition-none! after:transition-none! hover:bg-accent/60! hover:text-foreground! data-[state=active]:bg-brand/10! data-[state=active]:text-foreground! data-[state=active]:shadow-none [&[data-state=active]]:after:absolute [&[data-state=active]]:after:inset-x-0 [&[data-state=active]]:after:-bottom-px [&[data-state=active]]:after:h-0.5 [&[data-state=active]]:after:rounded-full [&[data-state=active]]:after:bg-brand [&[data-state=active]]:after:shadow-[0_0_8px_hsl(var(--brand)/0.45)] [&[data-state=active]]:after:opacity-100"
             >
               Run
-              @if (runStatus() === 'running') {
+              @if (runStatus() === 'starting') {
                 <mz-dot-loader />
               }
             </button>
@@ -110,6 +119,24 @@ function coerceBottomTab(raw: string | null): BottomTab {
         </hlm-tabs-list>
 
         <span class="flex-1"></span>
+
+        <!-- Open-in-browser shortcut. Surfaces the dev-server URL
+             detected in the Run output so it's reachable from any tab,
+             not just the Run tab body. Hidden until a localhost URL is
+             seen. -->
+        @if (detectedUrl(); as url) {
+          <button
+            hlmBtn
+            variant="ghost"
+            size="sm"
+            type="button"
+            class="my-1 mr-1 h-7 gap-1.5 px-2 text-xs font-normal text-brand"
+            (click)="onOpenUrl(url)"
+          >
+            <span>Open localhost</span>
+            <ng-icon hlm name="lucideExternalLink" size="xs" />
+          </button>
+        }
 
         <!-- Split-button Run/Stop + dropdown chevron (chevron is
              disabled for now — no run variants yet). Mirrors the
@@ -177,6 +204,7 @@ export class FeatureWorkspaceProcesses {
   private readonly uiState = inject(UiStateFacade);
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly externalLink = inject(ExternalLinkService);
 
   // Exposed to the template for inline [style.height] binding.
   protected readonly WORKSPACE_PROCESSES_PANEL_HEIGHT =
@@ -200,6 +228,14 @@ export class FeatureWorkspaceProcesses {
     const id = this.workspaces.activeId();
     if (!id) return 'idle' as const;
     return this.runs.ensureEntry(id).status();
+  });
+
+  // Dev-server URL detected in the active workspace's run output, or
+  // null. Drives the "Open localhost" shortcut in the tab bar.
+  protected readonly detectedUrl = computed<string | null>(() => {
+    const id = this.workspaces.activeId();
+    if (!id) return null;
+    return this.runs.ensureEntry(id).detectedUrl();
   });
 
   // Shell PTY activity for the active workspace. Drives the Terminal
@@ -347,6 +383,14 @@ export class FeatureWorkspaceProcesses {
       await this.runs.stop(id);
     } catch (err) {
       console.warn('[ws-processes] run stop failed:', err);
+    }
+  }
+
+  protected async onOpenUrl(url: string): Promise<void> {
+    try {
+      await this.externalLink.openExternal(url);
+    } catch (err) {
+      console.warn('[ws-processes] openExternal failed:', err);
     }
   }
 }

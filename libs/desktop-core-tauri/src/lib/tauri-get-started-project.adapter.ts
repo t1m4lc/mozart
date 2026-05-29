@@ -1,6 +1,5 @@
 import { commands } from './_bindings';
 import { projectFromDto } from '@mozart/desktop-projects-data-access';
-import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import type { GetStartedProjectAdapter } from '@mozart/desktop-onboarding-data-access';
 
 function unwrap<T>(
@@ -13,22 +12,13 @@ function unwrap<T>(
 }
 
 // Tauri-backed GetStartedProjectAdapter. Idempotent — repeated calls
-// resolve to the same Project + Workspace IDs.
-//
-// The workspace DTO ↔ model mapping goes through
-// `WorkspacesFacade.fromBootstrapPayload(...)` so this adapter doesn't
-// reach into `workspaces/data/*` internals.
-export function tauriGetStartedProjectAdapter(
-  workspaces: WorkspacesFacade,
-): GetStartedProjectAdapter {
+// resolve to the same Project. The caller creates the first workspace
+// via the normal `createForPrompt` path.
+export function tauriGetStartedProjectAdapter(): GetStartedProjectAdapter {
   return {
     async ensure() {
       const dto = unwrap(await commands.createGetStartedProject());
-      const project = projectFromDto(dto.repo);
-      return {
-        project,
-        workspace: workspaces.fromBootstrapPayload(dto.workspace, project.id),
-      };
+      return { project: projectFromDto(dto.repo) };
     },
   };
 }

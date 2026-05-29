@@ -14,7 +14,6 @@ import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
   FileTabsService,
-  WorkspaceDetailStore,
   WorkspacesFacade,
   WorkspaceTabRegistry,
 } from '@mozart/desktop-workspaces-data-access';
@@ -64,12 +63,12 @@ type FileTabIntent = 'preview' | 'pin';
             <app-feature-chat-content [workspaceId]="workspaceIdOrNull()">
               <app-chat-empty-state
                 [variant]="activeTabIsFirst() ? 'start' : 'untitled'"
-                [projectName]="projectName()"
-                [workspaceName]="workspaceName()"
-                [sourceBranch]="store.currentBranch()"
-                [targetBranch]="store.targetBranch() || 'main'"
                 [installState]="install().state"
                 [installManager]="install().manager"
+                [branch]="branch()"
+                [baseBranch]="baseBranch()"
+                [projectName]="projectName()"
+                (retry)="onRetrySetup()"
               />
             </app-feature-chat-content>
           </app-feature-chat-scroll-surface>
@@ -123,13 +122,11 @@ export class WorkspaceTabContent {
   readonly workspaceId = input<string | undefined>();
   readonly tabId = input<string | undefined>();
 
-  protected readonly store = inject(WorkspaceDetailStore);
-
   private readonly tabs = inject(WorkspaceTabRegistry);
   private readonly workspaces = inject(WorkspacesFacade);
-  private readonly projects = inject(ProjectsFacade);
   private readonly chat = inject(ChatFacade);
   private readonly fileTabs = inject(FileTabsService);
+  private readonly projects = inject(ProjectsFacade);
   private readonly router = inject(Router);
   private readonly uiState = inject(UiStateFacade);
 
@@ -176,26 +173,25 @@ export class WorkspaceTabContent {
     return k === 'chat' || k === 'file' ? k : null;
   });
 
-  private readonly workspace = computed(() => {
-    const id = this.workspaceId();
-    return id ? this.workspaces.workspaceById(id)() : null;
-  });
-
-  private readonly project = computed(() => {
-    const ws = this.workspace();
-    return ws ? this.projects.byId(ws.projectId)() : null;
-  });
-
-  protected readonly projectName = computed(() => this.project()?.name ?? '');
-  protected readonly workspaceName = computed(
-    () => this.workspace()?.name ?? '',
-  );
-
   protected readonly install = computed(() => {
     const id = this.workspaceId();
     return id
       ? this.workspaces.installFor(id)
       : { state: 'idle' as const, manager: '' };
+  });
+
+  private readonly workspaceEntity = computed(() => {
+    const id = this.workspaceId();
+    return id ? this.workspaces.workspaceById(id)() : null;
+  });
+
+  protected readonly branch = computed(() => this.workspaceEntity()?.branch ?? '');
+  protected readonly baseBranch = computed(
+    () => this.workspaceEntity()?.baseBranch ?? '',
+  );
+  protected readonly projectName = computed(() => {
+    const pid = this.workspaceEntity()?.projectId;
+    return pid ? (this.projects.byId(pid)()?.name ?? '') : '';
   });
 
   protected readonly frozen = computed(() => {
@@ -251,6 +247,14 @@ export class WorkspaceTabContent {
         }
       }
     });
+  }
+
+  // Re-run the auto-detected setup after a failed install. Fired from
+  // the chat empty-state's Retry button.
+  protected onRetrySetup(): void {
+    const id = this.workspaceId();
+    if (!id) return;
+    void this.workspaces.runInstall(id);
   }
 }
 

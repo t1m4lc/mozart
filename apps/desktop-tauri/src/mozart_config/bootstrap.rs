@@ -24,10 +24,10 @@ use std::path::{Path, PathBuf};
 
 use serde::{Deserialize, Serialize};
 
-use crate::db::models::{Chat, Message, Repo};
+use crate::db::models::{Chat, Repo};
 use crate::db::project_local_config::ProjectLocalConfig;
 use crate::db::{
-    chats, messages, new_id, now_ms, project_local_config, repos, DbState,
+    chats, new_id, now_ms, project_local_config, repos, DbState,
 };
 use crate::error::AppError;
 use crate::git_query;
@@ -101,13 +101,20 @@ pub struct ProjectConfig {
 }
 
 const DEFAULT_MERGE_MODE: &str = "pr";
-/// First workspace label after Open project. Stable string — the user
-/// can rename it any time. Reads better than a singer-pool name for the
-/// very first workspace (which is conceptually "onboarding", not just
-/// "another attempt").
-const DEFAULT_FIRST_WORKSPACE_NAME: &str = "get-started";
 const DEFAULT_FIRST_TASK_TEXT: &str = "Project ready";
 const START_CHAT_TITLE: &str = "Start";
+
+/// Workspace-name pool — mirrors the frontend `WORKSPACE_NAME_POOL`
+/// (libs/desktop-workspaces-util/util-workspace-name.ts) so the very
+/// first workspace created by bootstrap gets the same kind of random
+/// artist name as every later one created via `createForPrompt`.
+const WORKSPACE_NAME_POOL: &[&str] = &[
+    "pavarotti", "callas", "sinatra", "aretha", "elvis", "bowie", "mercury",
+    "jackson", "marley", "eminem", "coltrane", "davis", "hendrix", "prince",
+    "lennon", "dylan", "beyonce", "madonna", "bjork", "aznavour", "piaf",
+    "gainsbourg", "daft-punk", "beethoven", "chopin", "tupac", "kendrick",
+    "whitney", "billie", "stevie",
+];
 
 /// Run the bootstrap orchestration. Atom R0.3.G's guard lives here so
 /// the invariant holds at the backend boundary — a devtools-fed bad
@@ -145,36 +152,15 @@ pub async fn bootstrap_project(
     )
     .await?;
 
-    // 5. Start chat.
+    // 5. Start chat. The first "ready" surface — branch line + setup
+    //    status + start-chatting CTA — is rendered live by the chat
+    //    empty-state from the workspace + install state. Bootstrap no
+    //    longer persists `system_info` / `setup_progress` timeline
+    //    cards, so the manual "open project" flow and the generated-
+    //    workspace flow (`createForPrompt`) show the exact same screen.
     let chat = create_start_chat(db, &ws.workspace_id)?;
 
-    // 6. One-time system_info entry into the Start chat. Stored, not
-    //    derived — subsequent app launches read it back like any other
-    //    message and never re-emit.
     let detected = DetectedSummary::from_detection(&detection);
-    let basename = canonical
-        .file_name()
-        .map(|s| s.to_string_lossy().into_owned())
-        .unwrap_or_else(|| path_str.clone());
-    write_system_info(
-        db,
-        &chat.chat_id,
-        &basename,
-        &ws.name,
-        &ws.branch_name,
-        &base_branch,
-    )?;
-
-    // 7. If a setup command is known, plant a `setup_progress` entry in
-    //    the running state so the timeline shows a spinner while the
-    //    frontend's runInstall finishes. The frontend flips this entry
-    //    to done/failed via update_message_timeline.
-    let setup_progress_message_id = write_setup_progress_if_any(
-        db,
-        &chat.chat_id,
-        detected.setup.as_deref(),
-        detected.stack.as_deref(),
-    )?;
 
     Ok(BootstrapResult {
         project_id,
@@ -182,101 +168,9 @@ pub async fn bootstrap_project(
         start_chat_id: chat.chat_id,
         source,
         detected,
-        setup_progress_message_id,
-    })
-}
-
-fn write_setup_progress_if_any(
-    db: &DbState,
-    chat_id: &str,
-    setup_command: Option<&str>,
-    stack: Option<&str>,
-) -> Result<Option<String>, AppError> {
-    let Some(cmd) = setup_command else {
-        return Ok(None);
-    };
-    let payload = serde_json::json!({
-        "kind": "setup_progress",
-        "status": "running",
-        "command": cmd,
-        // `manager` is what the renderer uses in copy ("Installing
-        // dependencies with pnpm…"). Falls back to the literal command
-        // when no toolchain was named.
-        "manager": stack.unwrap_or(""),
-    });
-    let timeline_json = serde_json::to_string(&payload)
-        .map_err(|e| AppError::Validation(format!("serialize setup_progress: {e}")))?;
-    let id = new_id();
-    let row = Message {
-        message_id: id.clone(),
-        chat_id: chat_id.to_string(),
-        run_id: None,
-        role: "system".into(),
-        content: String::new(),
-        mode: None,
-        status: "done".into(),
-        timeline_json: Some(timeline_json),
-        // Bumped by 1ms so list_for_chat (ORDER BY created_at ASC, message_id ASC)
-        // reliably places the progress entry after the system_info card.
-        created_at: now_ms() + 1,
-    };
-    let conn = db.lock();
-    messages::insert(&conn, &row)?;
-    Ok(Some(id))
-}
-
-fn write_system_info(
-    db: &DbState,
-    chat_id: &str,
-    project_name: &str,
-    workspace_name: &str,
-    branch_name: &str,
-    base_branch: &str,
-) -> Result<(), AppError> {
-    let timeline_json = serde_json::to_string(&build_system_info_payload(
-        project_name,
-        workspace_name,
-        branch_name,
-        base_branch,
-    ))
-    .map_err(|e| AppError::Validation(format!("serialize system_info: {e}")))?;
-    let row = Message {
-        message_id: new_id(),
-        chat_id: chat_id.to_string(),
-        run_id: None,
-        role: "system".into(),
-        content: String::new(),
-        mode: None,
-        status: "done".into(),
-        timeline_json: Some(timeline_json),
-        created_at: now_ms(),
-    };
-    let conn = db.lock();
-    messages::insert(&conn, &row)
-}
-
-/// Compose the `system_info` payload in the conversational tone the
-/// user kept from the pre-P0.3 flow. Three short paragraphs:
-///   1. Branch and base — orients the user in git terms.
-///   2. Workspace name + "ready with N files" (always 0 at bootstrap).
-///   3. The tagline.
-///
-/// Note: this surfaces `branch_name` / `base_branch` in copy. CLAUDE.md
-/// generally forbids those in UI labels, but the user explicitly asked
-/// for this phrasing back (May 2026 — see commit history). Update the
-/// vocabulary rule when you next revise CLAUDE.md.
-fn build_system_info_payload(
-    project_name: &str,
-    _workspace_name: &str,
-    branch_name: &str,
-    base_branch: &str,
-) -> serde_json::Value {
-    serde_json::json!({
-        "kind": "system_info",
-        "lines": [
-            format!("Branched {branch_name} from {base_branch} in {project_name}."),
-            "You can start to chat.",
-        ],
+        // Retained for wire compatibility; the timeline card it used to
+        // reference was removed in favor of the live empty-state.
+        setup_progress_message_id: None,
     })
 }
 
@@ -370,10 +264,12 @@ async fn resolve_base_branch(root: &Path) -> Result<String, AppError> {
 }
 
 fn pick_first_workspace_name() -> String {
-    // Rust-side singer pool would duplicate the frontend's
-    // `WORKSPACE_NAME_POOL`. Until that ships natively, the very first
-    // workspace gets a stable label that the user can rename.
-    DEFAULT_FIRST_WORKSPACE_NAME.to_string()
+    // Random pick from the artist pool. Uniqueness within a project
+    // isn't a concern here — this is always the very first workspace,
+    // so every pool entry is free. `now_ms()` is a dependency-free
+    // entropy source good enough for picking a label.
+    let idx = (now_ms() as usize) % WORKSPACE_NAME_POOL.len();
+    WORKSPACE_NAME_POOL[idx].to_string()
 }
 
 fn create_start_chat(db: &DbState, workspace_id: &str) -> Result<Chat, AppError> {
@@ -545,46 +441,10 @@ pub fn read_project_config(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::db::{
-        init_db_memory, messages as msgs, project_local_config as plc, repos,
-    };
+    use crate::db::{init_db_memory, project_local_config as plc, repos};
     use crate::sandbox::{git_available, test_env_gate};
     use std::process::Command;
     use tempfile::TempDir;
-
-    fn system_messages(db: &DbState, chat_id: &str) -> Vec<serde_json::Value> {
-        let conn = db.lock();
-        let list = msgs::list_for_chat(&conn, chat_id).expect("list ok");
-        list.into_iter()
-            .filter(|m| m.role == "system")
-            .filter_map(|m| m.timeline_json)
-            .filter_map(|j| serde_json::from_str(&j).ok())
-            .collect()
-    }
-
-    fn find_by_kind(
-        messages: &[serde_json::Value],
-        kind: &str,
-    ) -> Option<serde_json::Value> {
-        messages
-            .iter()
-            .find(|v| v["kind"].as_str() == Some(kind))
-            .cloned()
-    }
-
-    fn system_info_payload(
-        db: &DbState,
-        chat_id: &str,
-    ) -> Option<serde_json::Value> {
-        find_by_kind(&system_messages(db, chat_id), "system_info")
-    }
-
-    fn setup_progress_payload(
-        db: &DbState,
-        chat_id: &str,
-    ) -> Option<serde_json::Value> {
-        find_by_kind(&system_messages(db, chat_id), "setup_progress")
-    }
 
     fn init_git_repo(repo: &Path) {
         let s = Command::new("git")
@@ -714,31 +574,13 @@ mod tests {
         let (clean, txt) = worktree_status_is_clean(&repo);
         assert!(clean, "expected clean worktree, got:\n{txt}");
 
-        // system_info entry was persisted exactly once into the Start chat.
-        // Conversational tone — three sentences, no bullet labels.
-        let payload = system_info_payload(&db, &result.start_chat_id)
-            .expect("system_info payload present");
-        assert_eq!(payload["kind"], "system_info");
-        let lines = payload["lines"].as_array().unwrap();
-        assert_eq!(lines.len(), 2, "expected exactly 2 lines, got {lines:?}");
+        // Bootstrap no longer persists system_info / setup_progress
+        // timeline cards — the live chat empty-state renders the branch
+        // line + setup status instead, so the Start chat stays empty.
         assert!(
-            lines[0].as_str().unwrap().starts_with("Branched ")
-                && lines[0].as_str().unwrap().contains(" from main in repo."),
-            "got: {}",
-            lines[0]
+            result.setup_progress_message_id.is_none(),
+            "timeline card was removed; expected no setup_progress id"
         );
-        assert_eq!(lines[1].as_str().unwrap(), "You can start to chat.");
-
-        // setup_progress entry was also written (setup command present).
-        assert!(
-            result.setup_progress_message_id.is_some(),
-            "expected setup_progress message id when setup is known"
-        );
-        let progress = setup_progress_payload(&db, &result.start_chat_id)
-            .expect("setup_progress entry should exist");
-        assert_eq!(progress["status"], "running");
-        assert_eq!(progress["command"], "pnpm install");
-        assert_eq!(progress["manager"], "pnpm");
 
         restore_root(prev);
     }
@@ -802,13 +644,6 @@ mod tests {
         let (clean, txt) = worktree_status_is_clean(&repo);
         assert!(clean, "expected clean worktree, got:\n{txt}");
 
-        // Conversational tone is the same regardless of source — no
-        // repo vs local distinction surfaced (no action behind it yet).
-        let payload = system_info_payload(&db, &result.start_chat_id).unwrap();
-        let lines = payload["lines"].as_array().unwrap();
-        assert_eq!(lines.len(), 2);
-        assert!(lines.iter().all(|l| !l.as_str().unwrap().contains("Settings")));
-
         restore_root(prev);
     }
 
@@ -860,23 +695,11 @@ mod tests {
         assert_eq!(local.run_json, r#"{"scripts":{}}"#);
         drop(conn);
 
-        // No setup or run → fallback still renders the conversational lines.
-        let payload = system_info_payload(&db, &result.start_chat_id).unwrap();
-        let lines = payload["lines"].as_array().unwrap();
-        assert_eq!(lines.len(), 2);
-        assert!(
-            lines[0].as_str().unwrap().contains(" from main in repo."),
-            "branch line should still render even without setup"
-        );
-
-        // No setup command detected → no setup_progress entry.
+        // Timeline cards were removed — no setup_progress id regardless
+        // of detection outcome.
         assert!(
             result.setup_progress_message_id.is_none(),
-            "no setup command → no progress entry"
-        );
-        assert!(
-            setup_progress_payload(&db, &result.start_chat_id).is_none(),
-            "no setup_progress JSON should be present"
+            "no setup_progress entry is ever planted now"
         );
 
         restore_root(prev);

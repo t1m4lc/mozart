@@ -1,9 +1,10 @@
 //! Bundled "Get started" project for the onboarding tour.
 //!
 //! On first call, shallow-clones the template repo from GitHub into
-//! `~/Mozart/get-started/` and wires it as a Mozart project with a
-//! `welcome-1` workspace on `main`. Idempotent — repeated calls reuse
-//! the existing clone + workspace pair.
+//! `~/Mozart/get-started/` and registers it as a Mozart project.
+//! Idempotent — repeated calls reuse the existing clone + repo row.
+//! The first workspace is created frontend-side via the normal
+//! `createForPrompt` path (generated name + auto-install).
 //!
 //! The template URL is fixed at build time but can be overridden via
 //! the `MOZART_GET_STARTED_URL` env var for testing alternative
@@ -16,27 +17,25 @@ use serde::Serialize;
 use specta::Type;
 
 use crate::commands::add_repo_impl;
-use crate::db::models::{Repo, Workspace};
+use crate::db::models::Repo;
 use crate::db::DbState;
 use crate::error::AppError;
-use crate::{git_query, workspace_service};
+use crate::git_query;
 
 const TEMPLATE_URL: &str = "https://github.com/t1m4lc/mozart-get-started.git";
 const PROJECT_FOLDER_NAME: &str = "Mozart/get-started";
-const WORKSPACE_NAME: &str = "welcome-1";
-const WELCOME_TASK_TEXT: &str =
-    "Play the orchestra — follow the prompts in the README to grow the cast and remix the loop.";
 
-/// Return type — pairs the registered repo with the auto-created
-/// workspace. The TS bindings expose this as `GetStartedProject`.
+/// Return type — the registered repo for the bundled "Get started"
+/// project. The TS bindings expose this as `GetStartedProject`. The
+/// first workspace is created frontend-side via the normal
+/// `createForPrompt` path so it gets a generated name + auto-install.
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct GetStartedProject {
     pub repo: Repo,
-    pub workspace: Workspace,
 }
 
-/// Clone the template (if missing) and ensure a workspace exists.
-/// Idempotent — repeated calls return the same repo / workspace pair.
+/// Clone the template (if missing) and register it as a Mozart project.
+/// Idempotent — repeated calls reuse the existing clone + repo row.
 pub async fn create(db: &DbState) -> Result<GetStartedProject, AppError> {
     let path = target_path()?;
     ensure_template(&path).await?;
@@ -47,37 +46,7 @@ pub async fn create(db: &DbState) -> Result<GetStartedProject, AppError> {
         .to_string();
     let repo = add_repo_impl(db, path_string).await?;
 
-    // Reuse an existing workspace named welcome-1 in this repo if any,
-    // else create one. Keeps the tour re-entrant after the user
-    // finishes once (Settings -> Revisit tour).
-    let existing = {
-        let conn = db.lock();
-        let tasks = crate::db::tasks::list_by_repo(&conn, &repo.repo_id)?;
-        let mut found: Option<Workspace> = None;
-        for task in tasks {
-            let by_task = crate::db::workspaces::list_by_task(&conn, &task.task_id)?;
-            if let Some(w) = by_task.into_iter().find(|w| w.name == WORKSPACE_NAME) {
-                found = Some(w);
-                break;
-            }
-        }
-        found
-    };
-    let workspace = if let Some(w) = existing {
-        w
-    } else {
-        workspace_service::create_workspace(
-            db,
-            &repo.repo_id,
-            &path,
-            "main",
-            WELCOME_TASK_TEXT,
-            WORKSPACE_NAME,
-        )
-        .await?
-    };
-
-    Ok(GetStartedProject { repo, workspace })
+    Ok(GetStartedProject { repo })
 }
 
 fn target_path() -> Result<PathBuf, AppError> {

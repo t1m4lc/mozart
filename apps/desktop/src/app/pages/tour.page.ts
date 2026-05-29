@@ -66,13 +66,14 @@ export class TourPage {
 
   private async bootstrap(): Promise<void> {
     try {
-      const result = await this.adapter.ensure();
+      const { project } = await this.adapter.ensure();
       await this.projects.loadAll();
       await this.workspaces.loadAll();
+      const workspaceId = await this.workspaces.ensureFirstWorkspace(project.id);
       // Redirect into the workspace with the tour query param ; the
       // AppShell mounts the overlay when it sees `?tour=on`.
       void this.router.navigate(
-        workspaceRouteCommands(result.workspace.projectId, result.workspace.id),
+        workspaceRouteCommands(project.id, workspaceId),
         { queryParams: { tour: 'on' } },
       );
     } catch (err) {

@@ -60,6 +60,12 @@ export class RepositoriesFacade {
     return this.adapter.listChangedFiles(workspaceId);
   }
 
+  /** All files changed vs base branch, including committed. Use this
+   *  to populate the Changes tab cache. */
+  async listBranchDiffFiles(workspaceId: string): Promise<readonly ChangedFile[]> {
+    return this.adapter.listBranchDiffFiles(workspaceId);
+  }
+
   /** Stage + commit. Resolves to the new commit's sha. */
   async commitWorkspace(
     workspaceId: string,
@@ -244,16 +250,12 @@ export class RepositoriesFacade {
    *  contract as `refreshTreeInBackground`: keeps the old list on
    *  screen until the fresh fetch completes, then swaps atomically.
    *
-   *  Populates a cold cache too — previously this short-circuited when
-   *  there was no existing entry, which left the Changes pane empty if
-   *  the initial fetch's revision was bumped mid-flight by a watcher
-   *  tick (the stale fetch silently drops in `cacheChangedFiles`, and
-   *  no later refresh recovered it). The post-fetch revision check in
-   *  `cacheChangedFiles` still keeps writes consistent. */
+   *  Uses `listBranchDiffFiles` (git diff base_branch) so the Changes
+   *  tab reflects all changes vs base, including committed ones. */
   async refreshChangedFilesInBackground(workspaceId: string): Promise<void> {
     const captured = this.fileTreeCache.revisionFor(workspaceId);
     try {
-      const files = await this.listChangedFiles(workspaceId);
+      const files = await this.adapter.listBranchDiffFiles(workspaceId);
       this.fileTreeCache.cacheChangedFiles(workspaceId, files, captured);
     } catch (err) {
       console.warn('[repos] background changed-files refresh failed:', err);

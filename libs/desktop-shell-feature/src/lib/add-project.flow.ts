@@ -116,44 +116,12 @@ export class AddProjectFlow {
     await this.router.navigate(
       workspaceRouteCommands(result.project.id, result.firstWorkspaceId),
     );
-    // Track install progress on the setup_progress chat-timeline entry
-    // (planted by the backend in the running state). Fire-and-forget so
-    // navigation doesn't block on a long install, but `await` inside the
-    // promise so the entry actually flips when install resolves.
-    void this._trackSetupProgress(
-      result.firstWorkspaceId,
-      result.setupProgressMessageId,
-    );
-  }
-
-  private async _trackSetupProgress(
-    workspaceId: string,
-    setupProgressMessageId: string | null,
-  ): Promise<void> {
-    try {
-      await this.workspaces.runInstall(workspaceId);
-      if (!setupProgressMessageId) return;
-      const install = this.workspaces.installFor(workspaceId);
-      const status =
-        install.state === 'success'
-          ? 'done'
-          : install.state === 'no_package'
-            ? 'done'
-            : 'failed';
-      // Honor whatever manager the install detected at runtime — Mozart
-      // sometimes picks a different one than the bootstrap probe (e.g.
-      // when an unexpected lockfile shows up post-clone).
-      await this.chat.setSetupProgress(setupProgressMessageId, status, {
-        manager: install.manager || undefined,
-      });
-    } catch (err) {
-      if (setupProgressMessageId) {
-        await this.chat.setSetupProgress(setupProgressMessageId, 'failed', {
-          errorMessage: this._reasonFromError(err),
-        });
-      }
-      console.warn('[open-project] install tracking failed', workspaceId, err);
-    }
+    // Kick the setup auto-run for the new worktree. Fire-and-forget so
+    // navigation isn't blocked; `installFor` carries the lifecycle for
+    // the live chat ready-state + the Setup tab. Identical to the
+    // generated-workspace path (`createForPrompt`), so both flows land
+    // on the same screen.
+    void this.workspaces.runInstall(result.firstWorkspaceId);
   }
 
   // `add_repo` returns the sentinel `Validation("NotARepo")` when the

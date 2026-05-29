@@ -3,13 +3,12 @@ import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
-import { TerminalRegistry } from '@mozart/desktop-terminals-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { generateWorkspaceName } from '@mozart/desktop-workspaces-util';
 import { IdeDetectionService } from './ide-detection.service';
 import type { OpenInToolId } from '@mozart/desktop-workspaces-util';
 import type { UiWorkspaceStatus } from '@mozart/desktop-workspaces-util';
-import { workspaceFromDto, type WorkspaceDto } from './workspace.dto-mapper';
+import { workspaceFromDto } from './workspace.dto-mapper';
 import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
 import { WorkspaceStore } from './workspace.store';
 import {
@@ -36,7 +35,6 @@ export class WorkspacesFacade {
   private readonly adapter = inject(WORKSPACES_ADAPTER);
   private readonly projects = inject(ProjectsFacade);
   private readonly runs = inject(RunRegistry);
-  private readonly terminals = inject(TerminalRegistry);
   private readonly tasks = inject(TasksFacade);
   private readonly repos = inject(RepositoriesFacade);
   private readonly ideDetection = inject(IdeDetectionService);
@@ -51,20 +49,6 @@ export class WorkspacesFacade {
   // explicit `setLoading` writes and any `pending: true` ghost rows
   // so consumers don't have to combine the two themselves.
   readonly loadingIds = this.store.loadingSet;
-  // Workspace ids with a live run/setup PTY (RunRegistry) or an
-  // in-flight auto-detected install (installPackages, which bypasses
-  // RunRegistry). Sidebar rows read this to paint a spinner-in-place-
-  // of-branch-icon — distinct from `loadingIds` which drives the
-  // heavier skeleton swap for archive / delete flows.
-  readonly busyWorkspaceIds = computed<ReadonlySet<string>>(() => {
-    const set = new Set<string>();
-    for (const id of this.runs.busyIds()) set.add(id);
-    for (const id of this.terminals.busyIds()) set.add(id);
-    for (const [id, install] of this._installs()) {
-      if (install.state === 'running') set.add(id);
-    }
-    return set;
-  });
 
   /** Per-id signal — true when the workspace is loading for any
    *  reason (delete in flight, post-bootstrap initialize, future
@@ -155,15 +139,16 @@ export class WorkspacesFacade {
   }
 
   /**
-   * Map a workspace DTO returned by a one-shot bootstrap command
-   * (currently: the `/tour` "Get started" project flow) into the
-   * domain's `Workspace` model. Cross-domain callers (e.g.
-   * `tauri-get-started-project.adapter.ts`) use this instead of
-   * reaching into the private `workspaceFromDto` helper — keeps the
-   * DTO ↔ model contract on the facade.
+   * Resolve the first workspace for `projectId`, creating one when none
+   * exists yet. Used by the onboarding / tour "Get started" flows so the
+   * bundled project lands the user in a normally-named workspace (via
+   * `createForPrompt` — generated name + auto-install) instead of a
+   * hardcoded one. Idempotent: a re-run reuses the existing workspace.
    */
-  fromBootstrapPayload(dto: WorkspaceDto, projectId: string): Workspace {
-    return workspaceFromDto(dto, projectId);
+  async ensureFirstWorkspace(projectId: string): Promise<string> {
+    const existing = this.store.forProject(projectId);
+    if (existing.length > 0) return existing[0].id;
+    return this.createForPrompt({ projectId });
   }
 
   // Hydrate from Tauri. Loads tasks-for-each-project first so the
@@ -290,6 +275,18 @@ export class WorkspacesFacade {
     return this._installs().get(workspaceId) ?? NO_INSTALL;
   }
 
+  /** Cheap, reactive setup/install state for `workspaceId`, read
+   *  straight off the `_installs` signal. Unlike `installFor` it never
+   *  touches RunRegistry, so the sidebar can call it once per row
+   *  without spinning up an xterm. `runInstall` keeps `_installs`
+   *  populated for BOTH the custom-setup-command and the
+   *  auto-detected-install paths, so this is an accurate mirror of the
+   *  workspace's real setup lifecycle. Returns 'idle' before setup is
+   *  kicked. */
+  installStateFor(workspaceId: string): InstallState {
+    return this._installs().get(workspaceId)?.state ?? 'idle';
+  }
+
   /** Auto-setup hook: fired at workspace creation (first workspace via
    *  `AddProjectFlow` AND additional workspaces via `createForPrompt`).
    *  Two paths:
@@ -307,10 +304,18 @@ export class WorkspacesFacade {
       await this.projects.ensureDetectedScripts(ws.projectId);
       const effective = this.projects.effectiveCommandsFor(ws.projectId)();
       if (effective.setupCommand) {
+        // Custom setup command — runs as a PTY surfaced in the Setup
+        // tab. Mirror its lifecycle into `_installs` so the sidebar row
+        // and the ready-state share one source of truth. The PTY exit
+        // is treated as success (matching `installFor`); a spawn
+        // failure flips to 'failed' so the row shows an error.
+        this._setInstall(workspaceId, { state: 'running', manager: '' });
         try {
           await this.runs.startSetup(workspaceId);
+          this._setInstall(workspaceId, { state: 'success', manager: '' });
         } catch (err) {
           console.warn('[workspaces] setupCommand run failed', workspaceId, err);
+          this._setInstall(workspaceId, { state: 'failed', manager: '' });
         }
         return;
       }
@@ -414,6 +419,8 @@ export class WorkspacesFacade {
     message: string,
   ): Promise<{ readonly sha: string; readonly statusFlipFailed: boolean }> {
     const sha = await this.repos.commitWorkspace(workspaceId, paths, message);
+    // Refresh the Changes tab cache so it reflects the new committed state.
+    void this.repos.refreshChangedFilesInBackground(workspaceId);
     const result = await this.advanceStatusBestEffort(
       workspaceId,
       ['backlog'],

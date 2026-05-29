@@ -31,6 +31,7 @@ const stubAdapter = {
   getFileDiff: () => Promise.resolve(''),
   readFile: () => Promise.resolve(''),
   listChangedFiles: () => Promise.resolve([]),
+  listBranchDiffFiles: () => Promise.resolve([]),
   commitWorkspace: () => Promise.resolve(''),
 };
 

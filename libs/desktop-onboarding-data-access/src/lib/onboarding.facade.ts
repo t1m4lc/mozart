@@ -128,14 +128,12 @@ export class OnboardingFacade {
 
     let target: readonly string[] | null = null;
     try {
-      const result = await this.getStartedAdapter.ensure();
-      console.debug('[onboarding] get-started ensured', result.workspace.id);
+      const { project } = await this.getStartedAdapter.ensure();
       await this.projects.loadAll();
       await this.workspaces.loadAll();
-      target = workspaceRouteCommands(
-        result.workspace.projectId,
-        result.workspace.id,
-      );
+      const workspaceId = await this.workspaces.ensureFirstWorkspace(project.id);
+      console.debug('[onboarding] get-started ensured', workspaceId);
+      target = workspaceRouteCommands(project.id, workspaceId);
     } catch (err) {
       console.error('[onboarding] get-started bootstrap failed:', err);
     }

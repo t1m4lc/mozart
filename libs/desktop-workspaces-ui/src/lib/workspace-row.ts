@@ -11,14 +11,19 @@ import { RouterLink, RouterLinkActive } from '@angular/router';
 import { MzDiffStats } from '@mozart-ui/diff-stats';
 import { MzDotLoader } from '@mozart-ui/loader';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
-import type { Workspace } from '@mozart/desktop-workspaces-util';
+import type { InstallState, Workspace } from '@mozart/desktop-workspaces-util';
 import {
   getUiStatusMeta,
   relativeTime,
   workspaceRouteCommands,
 } from '@mozart/desktop-workspaces-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideGitBranch, lucideLoader, lucidePin } from '@ng-icons/lucide';
+import {
+  lucideCircleAlert,
+  lucideGitBranch,
+  lucideLoader,
+  lucidePin,
+} from '@ng-icons/lucide';
 import { HlmHoverCardImports } from '@spartan-ui/hover-card';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmSidebarImports } from '@spartan-ui/sidebar';
@@ -40,7 +45,14 @@ function statusLabel(status: Workspace['status']): string {
     MzDiffStats,
     MzStatusIcon,
   ],
-  providers: [provideIcons({ lucideGitBranch, lucideLoader, lucidePin })],
+  providers: [
+    provideIcons({
+      lucideCircleAlert,
+      lucideGitBranch,
+      lucideLoader,
+      lucidePin,
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block relative group/ws-item' },
   template: `
@@ -97,8 +109,15 @@ function statusLabel(status: Workspace['status']): string {
           routerLinkActive="bg-brand/10 hover:bg-brand/10 text-foreground [&_ng-icon]:text-brand!"
           class="cursor-pointer rounded-sm gap-1.5 pl-1.5 pr-2"
         >
-          @if (isStreaming() || isBusy()) {
+          @if (isStreaming() || setupState() === 'running') {
             <mz-dot-loader />
+          } @else if (setupState() === 'failed') {
+            <ng-icon
+              hlm
+              name="lucideCircleAlert"
+              size="xs"
+              class="text-destructive"
+            />
           } @else {
             @if (workspace().pinned) {
               <ng-icon
@@ -160,10 +179,12 @@ export class WorkspaceRow {
   // True while an agent run is streaming for this workspace. Drives
   // the loader-in-place-of-branch-icon affordance.
   readonly isStreaming = input<boolean>(false);
-  // True while the workspace has a live run or setup PTY (dev server
-  // / install command). Shares the spinner slot with `isStreaming` —
-  // either condition shows the loader.
-  readonly isBusy = input<boolean>(false);
+  // Real setup/install lifecycle for this workspace. Drives the row
+  // affordance independently of "recently created": a loader while
+  // setup is `running`, an error glyph when it `failed`, and the
+  // normal branch icon once it `succeeded` / was skipped (no_package)
+  // or hasn't run (idle).
+  readonly setupState = input<InstallState>('idle');
   // Title of the first/active chat for this workspace. Empty string =
   // fall back to workspace name; non-empty + not 'Start' is shown
   // instead of the workspace name in the row (better reflects user

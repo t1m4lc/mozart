@@ -1,15 +1,14 @@
 import { InjectionToken } from '@angular/core';
 import type { Project } from '@mozart/desktop-projects-util';
-import type { Workspace } from '@mozart/desktop-workspaces-util';
 
 // Port for the tour's "Get started" project bootstrap. Wraps the
 // `create_get_started_project` Tauri command : returns the registered
-// project + the auto-created `welcome-1` workspace. The DTO ↔ model
-// mapping happens in the Tauri impl ; consumers receive plain Project +
-// Workspace types from the existing domains.
+// project. The first workspace is created by the caller via the normal
+// `WorkspacesFacade.createForPrompt` path (generated name +
+// auto-install). The DTO ↔ model mapping happens in the Tauri impl ;
+// consumers receive a plain Project from the existing domain.
 export interface GetStartedResult {
   readonly project: Project;
-  readonly workspace: Workspace;
 }
 
 export interface GetStartedProjectAdapter {
