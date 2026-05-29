@@ -1,6 +1,13 @@
 import { ChangeDetectionStrategy, Component, output } from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucidePlus, lucideSettings, lucideTrash2 } from '@ng-icons/lucide';
+import {
+  lucideFolderGit2,
+  lucideFolderOpen,
+  lucideGithub,
+  lucidePlus,
+  lucideSettings,
+  lucideTrash2,
+} from '@ng-icons/lucide';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
 import { HlmIconImports } from '@spartan-ui/icon';
 
@@ -10,6 +17,9 @@ import { HlmIconImports } from '@spartan-ui/icon';
   providers: [
     provideIcons({
       // lucideEyeOff,
+      lucideFolderGit2,
+      lucideFolderOpen,
+      lucideGithub,
       lucidePlus,
       lucideSettings,
       // lucideSmile,
@@ -41,6 +51,17 @@ import { HlmIconImports } from '@spartan-ui/icon';
         >
           <ng-icon hlm name="lucidePlus" size="xs" /> New workspace
         </button>
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          [hlmDropdownMenuTrigger]="repoSub"
+          align="start"
+          side="right"
+        >
+          <ng-icon hlm name="lucideFolderGit2" size="xs" /> Source repository
+          <hlm-dropdown-menu-item-sub-indicator />
+        </button>
         <!-- <button
           hlmDropdownMenuItem
           type="button"
@@ -71,6 +92,27 @@ import { HlmIconImports } from '@spartan-ui/icon';
         </button>
       </hlm-dropdown-menu-group>
     </hlm-dropdown-menu>
+
+    <ng-template #repoSub>
+      <hlm-dropdown-menu class="w-52">
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="openRepoFolder.emit()"
+        >
+          <ng-icon hlm name="lucideFolderOpen" size="xs" /> Open repository folder
+        </button>
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="openRepoRemote.emit()"
+        >
+          <ng-icon hlm name="lucideGithub" size="xs" /> Open on GitHub
+        </button>
+      </hlm-dropdown-menu>
+    </ng-template>
   `,
 })
 export class ProjectContextMenu {
@@ -79,4 +121,8 @@ export class ProjectContextMenu {
   readonly changeIcon = output<void>();
   readonly hide = output<void>();
   readonly remove = output<void>();
+  // "Source repository" submenu — open the local folder or the GitHub
+  // remote. The parent (shell-project-list) resolves the path / URL.
+  readonly openRepoFolder = output<void>();
+  readonly openRepoRemote = output<void>();
 }

@@ -10,6 +10,7 @@ import {
 import { Router } from '@angular/router';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
@@ -195,6 +196,8 @@ import { ShellProjectRow } from './shell-project-row';
       <app-project-context-menu
         (newWorkspace)="createWorkspace(p.id)"
         (hide)="hideProject(p.id)"
+        (openRepoFolder)="onOpenRepoFolder(p)"
+        (openRepoRemote)="onOpenRepoRemote(p)"
         (remove)="openDeleteDialog(p)"
       />
     </ng-template>
@@ -290,6 +293,7 @@ export class ShellProjectList {
   protected readonly profile = inject(ProfileFacade);
   protected readonly addProjectFlow = inject(AddProjectFlow);
   private readonly _chat = inject(ChatFacade);
+  private readonly _externalLink = inject(ExternalLinkService);
   private readonly _dialogService = inject(HlmDialogService);
   private readonly _router = inject(Router);
   private readonly _tasks = inject(TasksFacade);
@@ -547,6 +551,24 @@ export class ShellProjectList {
       toast.error('Could not hide project', {
         description: errorMessage(err),
       });
+    }
+  }
+
+  // Open the project's source-repo folder in the OS file manager.
+  protected onOpenRepoFolder(project: Project): void {
+    if (project.path) void this._externalLink.revealPath(project.path);
+  }
+
+  // Open the project's source repo on GitHub. Resolves the remote on
+  // demand (the status may not be cached for a sidebar-only project).
+  protected async onOpenRepoRemote(project: Project): Promise<void> {
+    const status = await this.projects.ensureGithubRemoteStatus(project.id);
+    if (status.kind === 'github') {
+      void this._externalLink.openExternal(
+        `https://github.com/${status.owner}/${status.repo}`,
+      );
+    } else {
+      toast.error('This project has no GitHub remote.');
     }
   }
 
