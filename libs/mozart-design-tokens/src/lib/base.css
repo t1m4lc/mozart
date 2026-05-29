@@ -125,13 +125,13 @@
     /* Status tokens — single source of truth for file-status letters
      * (M/A/D), diff-stats counters, connection/success dots. The
      * file-status letters stay aliased to the diff palette so badges and
-     * gutter agree; modified/busy use a warm amber. `--status-ok` is its
-     * own clean success green (NOT the darkened diff-add-marker, which
-     * read muddy on a success dot). */
+     * gutter agree; modified/busy use a warm amber. `--status-ok` mirrors
+     * Tailwind `green-500` so success dots read identical to the Anthropic
+     * connection card (which uses `bg-green-500` directly). */
     --status-added-fg:    var(--diff-add-marker-fg);
     --status-modified-fg: oklch(0.55 0.12 75);
     --status-deleted-fg:  var(--diff-remove-marker-fg);
-    --status-ok:    oklch(0.62 0.17 150);
+    --status-ok:    oklch(0.723 0.219 149.579);
     --status-busy:  oklch(0.65 0.12 75);
     --status-error: hsl(var(--destructive));
   }
@@ -156,7 +156,7 @@
     --status-added-fg:    var(--diff-add-marker-fg);
     --status-modified-fg: oklch(0.78 0.10 75);
     --status-deleted-fg:  var(--diff-remove-marker-fg);
-    --status-ok:    oklch(0.72 0.17 150);
+    --status-ok:    oklch(0.723 0.219 149.579);
     --status-busy:  oklch(0.75 0.10 75);
     --status-error: hsl(var(--destructive));
   }
