@@ -4,7 +4,6 @@ export { MergeActionMenu } from './lib/merge-action-menu';
 export { OpenInMenu } from './lib/open-in-menu';
 export { RunActionMenu, type RunStatus } from './lib/run-action-menu';
 export { TabItem } from './lib/tab-item';
-export { WorkspaceAsideHeader } from './lib/workspace-aside-header';
 export { WorkspaceEmptyState } from './lib/workspace-empty-state';
 export { WorkspaceRow } from './lib/workspace-row';
 export { WorkspaceStatusMenu } from './lib/workspace-status-menu';

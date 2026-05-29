@@ -21,16 +21,11 @@ import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { MacWindowControls } from '@mozart/desktop-core-ui';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ExternalLinkService } from '@mozart/desktop-core-data-access';
-import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import {
   FeatureCommitDialog,
   type CommitDialogContext,
-} from '@mozart/desktop-repositories-feature';
-import {
-  FeatureCreatePrDialog,
-  type CreatePrDialogContext,
 } from '@mozart/desktop-repositories-feature';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { IdeDetectionService } from '@mozart/desktop-workspaces-data-access';
@@ -77,7 +72,6 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       [leadingSlot]="layout.leftPanelOpen() ? null : sidebarHeader()"
       [availableTools]="availableTools()"
       [lastUsedTool]="effectiveLastUsedTool()"
-      [githubConnected]="profile.githubConnected()"
       [prUrl]="workspace()?.pr?.url ?? null"
       [prNumber]="workspace()?.pr?.number ?? null"
       [runStatus]="runStatus()"
@@ -90,7 +84,6 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       (workspaceTitleChange)="onRename($event)"
       (openIn)="onOpenIn($event)"
       (commit)="onCommit()"
-      (createPr)="onCreatePr()"
       (openPr)="onOpenPr()"
       (openRepoFolder)="onOpenRepoFolder()"
       (openRepoRemote)="onOpenRepoRemote()"
@@ -129,7 +122,6 @@ export class WorkspaceDetailPage {
   protected readonly store = inject(WorkspaceDetailStore);
   protected readonly layout = inject(LayoutService);
   protected readonly isMac = inject(OsService).isMac();
-  protected readonly profile = inject(ProfileFacade);
 
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly projects = inject(ProjectsFacade);
@@ -322,17 +314,6 @@ export class WorkspaceDetailPage {
     void this.workspaces.setStatus(id, next).catch((err) => {
       console.warn('[detail] setStatus failed:', err);
     });
-  }
-
-  protected async onCreatePr(): Promise<void> {
-    const id = this.workspaceId();
-    if (!id) return;
-    const ws = this.workspaces.workspaceById(id)();
-    const context: CreatePrDialogContext = {
-      workspaceId: id,
-      defaultTitle: ws?.name ?? '',
-    };
-    this.dialog.open(FeatureCreatePrDialog, { context });
   }
 
   // Open the workspace's existing PR in the browser (no auto-open; only

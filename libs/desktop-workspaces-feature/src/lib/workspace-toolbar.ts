@@ -379,12 +379,12 @@ export class WorkspaceToolbar {
   // + sidebar toggle when the left panel is collapsed).
   readonly leadingSlot = input<TemplateRef<unknown> | null>(null);
 
-  // Open in IDE / Commit / Create PR live on the toolbar (moved off
-  // the right-aside header). Placeholder Lucide icons today; real IDE
-  // brand icons land via the OpenInTool catalog.
+  // Open in IDE / Commit live on the toolbar. Create PR lives in the
+  // right-aside merge menu (MergeActionMenu), not here. Placeholder
+  // Lucide icons today; real IDE brand icons land via the OpenInTool
+  // catalog.
   readonly availableTools = input<readonly OpenInTool[]>([]);
   readonly lastUsedTool = input<OpenInTool | null>(null);
-  readonly githubConnected = input<boolean>(false);
   // PR opened from this workspace (persisted). When set, the header
   // shows a "PR #N" chip that opens it in the browser via `openPr`.
   readonly prUrl = input<string | null>(null);
@@ -407,7 +407,6 @@ export class WorkspaceToolbar {
   readonly workspaceTitleChange = output<string>();
   readonly openIn = output<OpenInTool>();
   readonly commit = output<void>();
-  readonly createPr = output<void>();
   readonly openPr = output<void>();
   readonly openRepoFolder = output<void>();
   readonly openRepoRemote = output<void>();

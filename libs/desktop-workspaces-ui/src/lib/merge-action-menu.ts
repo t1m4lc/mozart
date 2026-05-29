@@ -12,6 +12,7 @@ import {
   lucideExternalLink,
   lucideGitMerge,
   lucideGitPullRequest,
+  lucideLoaderCircle,
 } from '@ng-icons/lucide';
 import { HlmBadgeImports } from '@spartan-ui/badge';
 import { HlmButtonImports } from '@spartan-ui/button';
@@ -47,6 +48,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
       lucideExternalLink,
       lucideGitMerge,
       lucideGitPullRequest,
+      lucideLoaderCircle,
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -61,7 +63,12 @@ import { HlmIconImports } from '@spartan-ui/icon';
         [disabled]="primaryDisabled()"
         (click)="primary()"
       >
-        <ng-icon hlm [name]="primaryIcon()" size="sm" />
+        <ng-icon
+          hlm
+          [name]="primaryIcon()"
+          size="sm"
+          [class.animate-spin]="spinning()"
+        />
         <span>{{ primaryLabel() }}</span>
       </button>
       <button
@@ -111,14 +118,10 @@ export class MergeActionMenu {
   /** Routed primary action: `'pr'` or `'local'`. The parent resolves
    *  workspace.lastMergeAction → project.mergeMode → default. */
   readonly primaryAction = input.required<MergeAction>();
-  /** Whether the user has a stored GitHub auth session (ProfileFacade). */
-  readonly githubConnected = input.required<boolean>();
-  /** P1.1 D9 — whether the active project's `origin` remote resolves
-   *  to a github.com URL. The parent (shell-right) loads this lazily
-   *  via `ProjectsFacade.ensureGithubRemoteStatus`; until the probe lands
-   *  the parent passes `false` (defensive — better to gate than to
-   *  surface a misleading enabled button). */
-  readonly isGithubRemote = input.required<boolean>();
+  /** True while the parent is pushing/opening a PR on the fast path
+   *  (clean tree). The primary button shows a spinner + "Creating…" and
+   *  goes disabled so the click can't fire twice. */
+  readonly busy = input<boolean>(false);
   /** P1.1 D5 — temporary policy: local-merge is hidden behind a Soon
    *  badge until the flow is finished. Defaults to `true` so any
    *  surface that mounts the menu without opting in stays safe; T5
@@ -135,10 +138,17 @@ export class MergeActionMenu {
 
   protected readonly hasPr = computed(() => !!this.prUrl());
 
+  // PR fast-path is in flight: spin the icon + relabel the button.
+  protected readonly spinning = computed(
+    () => this.busy() && this.primaryAction() === 'pr' && !this.hasPr(),
+  );
+
   protected readonly primaryDisabled = computed(() => {
+    // In flight on the PR fast path — block re-entry.
+    if (this.spinning()) return true;
     if (this.primaryAction() === 'pr') {
-      // PR always clickable — the dialog explains and gates Submit, and
-      // when a PR exists this is a "View PR" link.
+      // PR always clickable — the click router explains/gates, and when
+      // a PR exists this is a "View PR" link.
       return false;
     }
     // primaryAction === 'local' — mirror the dropdown row's gating so
@@ -149,12 +159,14 @@ export class MergeActionMenu {
 
   protected readonly primaryLabel = computed(() => {
     if (this.primaryAction() !== 'pr') return 'Merge now';
-    return this.hasPr() ? 'View PR' : 'Create PR';
+    if (this.hasPr()) return 'View PR';
+    return this.busy() ? 'Creating…' : 'Create PR';
   });
 
   protected readonly primaryIcon = computed(() => {
     if (this.primaryAction() !== 'pr') return 'lucideGitMerge';
-    return this.hasPr() ? 'lucideExternalLink' : 'lucideGitPullRequest';
+    if (this.hasPr()) return 'lucideExternalLink';
+    return this.busy() ? 'lucideLoaderCircle' : 'lucideGitPullRequest';
   });
 
   protected readonly prRowLabel = computed(() =>

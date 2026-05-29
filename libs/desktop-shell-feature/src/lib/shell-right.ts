@@ -4,13 +4,22 @@ import {
   computed,
   effect,
   inject,
+  signal,
 } from '@angular/core';
 import { NonMacWindowControls } from '@mozart/desktop-core-ui';
 import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
-import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
+import {
+  ProjectsFacade,
+  type GithubRemoteStatus,
+} from '@mozart/desktop-projects-data-access';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
+import type { CreatePrDialogContext } from '@mozart/desktop-repositories-feature';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
-import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import {
+  WorkspacesFacade,
+  decidePrAction,
+} from '@mozart/desktop-workspaces-data-access';
 import { FeatureWorkspaceAside } from '@mozart/desktop-workspaces-feature';
 import { MergeActionMenu } from '@mozart/desktop-workspaces-ui';
 import type { MergeAction } from '@mozart/desktop-workspaces-util';
@@ -64,9 +73,8 @@ import { ShellSidePanel } from './shell-side-panel';
             @if (workspaces.activeId()) {
               <app-merge-action-menu
                 [primaryAction]="mergePrimaryAction"
-                [githubConnected]="profile.githubConnected()"
-                [isGithubRemote]="isGithubRemote()"
                 [prUrl]="prUrl()"
+                [busy]="creatingPr()"
                 [localMergeDisabled]="true"
                 (pick)="onMergeActionPick($event)"
                 (viewPr)="onViewPr()"
@@ -97,8 +105,13 @@ export class ShellRight {
   protected readonly profile = inject(ProfileFacade);
   protected readonly layout = inject(LayoutService);
   private readonly projects = inject(ProjectsFacade);
+  private readonly repos = inject(RepositoriesFacade);
   private readonly dialog = inject(HlmDialogService);
   private readonly externalLink = inject(ExternalLinkService);
+
+  // True while a PR is being pushed/opened on the fast path (clean
+  // tree). Drives the merge menu's primary-button loader.
+  protected readonly creatingPr = signal(false);
 
   // URL of the PR already opened from the active workspace, if any.
   // Drives the merge menu's "View PR" affordance.
@@ -126,18 +139,6 @@ export class ShellRight {
   // the effect below.
   protected readonly mergePrimaryAction: MergeAction = 'pr';
 
-  // P1.1 D9 — gates the PR primary + dropdown row. Null until the
-  // backend probe resolves; treat null as `false` (defensive) so the
-  // button starts disabled and flips on once we've confirmed the
-  // origin really is github.com.
-  protected readonly isGithubRemote = computed(() => {
-    const id = this.workspaces.activeId();
-    if (!id) return false;
-    const ws = this.workspaces.workspaceById(id)();
-    if (!ws) return false;
-    return this.projects.isGithubRemoteFor(ws.projectId)();
-  });
-
   constructor() {
     // Kick the lazy GitHub-remote-status read for the active workspace's
     // project. De-duped inside `ensureGithubRemoteStatus`, so re-firing
@@ -160,7 +161,7 @@ export class ShellRight {
       console.warn('[shell-right] persist last merge action failed:', err);
     });
     if (action === 'pr') {
-      await this.openCreatePrDialog(id);
+      await this.startPrFlow(id);
     } else {
       await this.runLocalMerge(id);
     }
@@ -173,14 +174,118 @@ export class ShellRight {
     if (url) void this.externalLink.openExternal(url);
   }
 
-  private async openCreatePrDialog(workspaceId: string): Promise<void> {
+  // Pre-flight router for the "Create PR" click. Gathers the live gates
+  // (auth / remote / working tree) then performs exactly one action, so
+  // the user is only interrupted when something is actually required:
+  //   not connected → connect dialog · non-github → toast ·
+  //   dirty tree → commit dialog · ready → create directly (no modal).
+  private async startPrFlow(workspaceId: string): Promise<void> {
     const ws = this.workspaces.workspaceById(workspaceId)();
+    if (!ws) return;
+
+    let remote: GithubRemoteStatus | null = null;
+    let changedPaths: readonly string[] = [];
+    try {
+      [remote, changedPaths] = await Promise.all([
+        this.projects.ensureGithubRemoteStatus(ws.projectId),
+        this.repos.listChangedFiles(workspaceId).then((f) => f.map((c) => c.path)),
+      ]);
+    } catch (err) {
+      console.warn('[shell-right] pr pre-flight failed:', err);
+      toast.error("Couldn't check the workspace before creating a PR.", {
+        description: err instanceof Error ? err.message : String(err),
+      });
+      return;
+    }
+
+    const decision = decidePrAction({
+      connected: this.profile.githubConnected(),
+      remote,
+      changedPaths,
+    });
+
+    switch (decision.kind) {
+      case 'connect':
+        await this.openConnectGithubDialog();
+        return;
+      case 'blocked-remote':
+        toast.error(decision.message);
+        return;
+      case 'commit':
+        await this.openCommitAndPrDialog(workspaceId, ws.name, decision.paths);
+        return;
+      case 'create':
+        await this.createPrDirect(workspaceId, ws.name);
+        return;
+    }
+  }
+
+  private async openConnectGithubDialog(): Promise<void> {
+    const { UiGithubConnectDialog } = await import(
+      '@mozart/desktop-profile-feature'
+    );
+    this.dialog.open(UiGithubConnectDialog, {});
+  }
+
+  private async openCommitAndPrDialog(
+    workspaceId: string,
+    name: string,
+    changedPaths: readonly string[],
+  ): Promise<void> {
     const { FeatureCreatePrDialog } = await import(
       '@mozart/desktop-repositories-feature'
     );
-    this.dialog.open(FeatureCreatePrDialog, {
-      context: { workspaceId, defaultTitle: ws?.name ?? '' },
+    const context: CreatePrDialogContext = {
+      workspaceId,
+      defaultTitle: name,
+      changedPaths,
+      onCreated: (pr) => this.announcePrCreated(pr),
+    };
+    this.dialog.open(FeatureCreatePrDialog, { context });
+  }
+
+  private async createPrDirect(workspaceId: string, name: string): Promise<void> {
+    this.creatingPr.set(true);
+    try {
+      const { pr, statusFlipFailed } = await this.workspaces.createPr(
+        workspaceId,
+        name.trim() || 'Mozart pull request',
+        '',
+        false,
+      );
+      this.announcePrCreated({
+        url: pr.htmlUrl,
+        number: pr.number,
+        statusFlipFailed,
+      });
+    } catch (err) {
+      console.warn('[shell-right] create pr failed:', err);
+      toast.error('Failed to create the pull request.', {
+        description: err instanceof Error ? err.message : readAppErrorMessage(err),
+      });
+    } finally {
+      this.creatingPr.set(false);
+    }
+  }
+
+  // Single success surface for both the fast path and the commit dialog
+  // so the toast UX is identical. The PR chip + "View PR" affordance
+  // update reactively off the store (no refresh) — the toast just gives
+  // an immediate jump-to-GitHub action.
+  private announcePrCreated(pr: {
+    readonly url: string;
+    readonly number: number;
+    readonly statusFlipFailed: boolean;
+  }): void {
+    toast.success(`Pull request #${pr.number} opened`, {
+      action: {
+        label: 'Open in GitHub',
+        onClick: () => void this.externalLink.openExternal(pr.url),
+      },
     });
+    if (pr.statusFlipFailed) {
+      toast.error('PR opened, but status update failed — refresh to retry.');
+    }
   }
 
   // P2.6 — Merge-now flow. Toast copy is locked by the plan:
@@ -236,4 +341,18 @@ function readAppErrorKind(err: unknown): string | null {
     return (err as { kind: string }).kind;
   }
   return null;
+}
+
+// Same boundary shape, but pulls `.message` — so a raw `AppError`
+// renders its text in a toast instead of "[object Object]".
+function readAppErrorMessage(err: unknown): string {
+  if (
+    err &&
+    typeof err === 'object' &&
+    'message' in err &&
+    typeof (err as { message: unknown }).message === 'string'
+  ) {
+    return (err as { message: string }).message;
+  }
+  return String(err);
 }

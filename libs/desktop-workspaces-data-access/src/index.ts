@@ -53,3 +53,8 @@ export {
   tabMatcher,
   workspaceTabCanActivate,
 } from './lib/workspace-tab-routes';
+export {
+  decidePrAction,
+  type PrFlowDecision,
+  type PrFlowGates,
+} from './lib/pr-flow.decide';

@@ -5,19 +5,18 @@ import { describe, expect, it } from 'vitest';
 import type { MergeAction } from '@mozart/desktop-workspaces-util';
 import { MergeActionMenu } from './merge-action-menu';
 
-// T11 — covers D5 (localMergeDisabled defaults + Soon badge wiring).
-// PR primary + dropdown row are ALWAYS clickable; gating moved into
-// the FeatureCreatePrDialog which renders an alert and disables
-// Submit. Dropdown rows live inside an `<ng-template>` and only render
-// after the trigger opens the overlay, so dropdown-internal state is
-// asserted through the protected `prRowDisabled` computed via a typed
-// cast. The primary button is rendered eagerly and asserted against
-// the DOM directly.
+// Covers D5 (localMergeDisabled defaults + Soon badge wiring) and the
+// PR fast-path loader. The PR primary + dropdown row are ALWAYS
+// clickable; auth/remote/dirty gating now lives in the click router
+// (shell-right), not in this dumb component. Dropdown rows live inside
+// an `<ng-template>` and only render after the trigger opens the
+// overlay, so dropdown-internal state is asserted through the protected
+// `prRowDisabled` computed via a typed cast. The primary button is
+// rendered eagerly and asserted against the DOM directly.
 
 interface MountOpts {
   readonly primaryAction?: MergeAction;
-  readonly githubConnected?: boolean;
-  readonly isGithubRemote?: boolean;
+  readonly busy?: boolean;
   readonly localMergeDisabled?: boolean;
   readonly prUrl?: string | null;
 }
@@ -28,11 +27,7 @@ function mount(opts: MountOpts = {}): ComponentFixture<MergeActionMenu> {
   });
   const fixture = TestBed.createComponent(MergeActionMenu);
   fixture.componentRef.setInput('primaryAction', opts.primaryAction ?? 'pr');
-  fixture.componentRef.setInput(
-    'githubConnected',
-    opts.githubConnected ?? true,
-  );
-  fixture.componentRef.setInput('isGithubRemote', opts.isGithubRemote ?? true);
+  fixture.componentRef.setInput('busy', opts.busy ?? false);
   fixture.componentRef.setInput(
     'localMergeDisabled',
     opts.localMergeDisabled ?? true,
@@ -70,30 +65,8 @@ describe('MergeActionMenu — primary button rendering', () => {
 });
 
 describe('MergeActionMenu — primary button gating', () => {
-  it('PR primary is clickable when both GitHub gates are open', () => {
-    const f = mount({
-      primaryAction: 'pr',
-      githubConnected: true,
-      isGithubRemote: true,
-    });
-    expect(primaryButton(f).disabled).toBe(false);
-  });
-
-  it('PR primary stays clickable when !isGithubRemote (dialog gates Submit)', () => {
-    const f = mount({
-      primaryAction: 'pr',
-      githubConnected: true,
-      isGithubRemote: false,
-    });
-    expect(primaryButton(f).disabled).toBe(false);
-  });
-
-  it('PR primary stays clickable when !githubConnected (dialog gates Submit)', () => {
-    const f = mount({
-      primaryAction: 'pr',
-      githubConnected: false,
-      isGithubRemote: true,
-    });
+  it('PR primary is clickable by default (router gates after the click)', () => {
+    const f = mount({ primaryAction: 'pr' });
     expect(primaryButton(f).disabled).toBe(false);
   });
 
@@ -112,6 +85,35 @@ describe('MergeActionMenu — primary button gating', () => {
   });
 });
 
+describe('MergeActionMenu — PR fast-path loader (busy)', () => {
+  it('busy: disables the PR primary and shows "Creating…"', () => {
+    const f = mount({ primaryAction: 'pr', busy: true });
+    expect(primaryButton(f).disabled).toBe(true);
+    expect(primaryButton(f).textContent).toContain('Creating…');
+  });
+
+  it('busy: renders a spinning icon', () => {
+    const f = mount({ primaryAction: 'pr', busy: true });
+    expect(f.debugElement.query(By.css('ng-icon.animate-spin'))).not.toBeNull();
+  });
+
+  it('busy=false: no spinner, label is "Create PR"', () => {
+    const f = mount({ primaryAction: 'pr', busy: false });
+    expect(f.debugElement.query(By.css('ng-icon.animate-spin'))).toBeNull();
+    expect(primaryButton(f).textContent).toContain('Create PR');
+  });
+
+  it('does not spin when a PR already exists, even if busy', () => {
+    const f = mount({
+      primaryAction: 'pr',
+      busy: true,
+      prUrl: 'https://github.com/o/r/pull/3',
+    });
+    expect(primaryButton(f).textContent).toContain('View PR');
+    expect(f.debugElement.query(By.css('ng-icon.animate-spin'))).toBeNull();
+  });
+});
+
 describe('MergeActionMenu — pick output', () => {
   it('emits pick=primaryAction when primary is clicked while enabled', () => {
     const f = mount({ primaryAction: 'pr' });
@@ -121,12 +123,12 @@ describe('MergeActionMenu — pick output', () => {
     expect(picks).toEqual(['pr']);
   });
 
-  it('emits pick="pr" even when GitHub gates are closed (dialog explains)', () => {
-    const f = mount({ primaryAction: 'pr', isGithubRemote: false });
+  it('does not emit while busy (re-entry blocked)', () => {
+    const f = mount({ primaryAction: 'pr', busy: true });
     const picks: MergeAction[] = [];
     f.componentInstance.pick.subscribe((a) => picks.push(a));
     primaryButton(f).click();
-    expect(picks).toEqual(['pr']);
+    expect(picks).toEqual([]);
   });
 
   it('does not emit for primaryAction="local" while localMergeDisabled', () => {
@@ -139,18 +141,8 @@ describe('MergeActionMenu — pick output', () => {
 });
 
 describe('MergeActionMenu — dropdown PR row gating', () => {
-  it('PR row is enabled when both GitHub gates are open', () => {
-    const f = mount({ githubConnected: true, isGithubRemote: true });
-    expect(internals(f).prRowDisabled()).toBe(false);
-  });
-
-  it('PR row stays clickable when !isGithubRemote (dialog gates Submit)', () => {
-    const f = mount({ githubConnected: true, isGithubRemote: false });
-    expect(internals(f).prRowDisabled()).toBe(false);
-  });
-
-  it('PR row stays clickable when !githubConnected (dialog gates Submit)', () => {
-    const f = mount({ githubConnected: false, isGithubRemote: true });
+  it('PR row is clickable by default (router gates after the click)', () => {
+    const f = mount();
     expect(internals(f).prRowDisabled()).toBe(false);
   });
 });
