@@ -15,6 +15,13 @@ import type { RunStatus } from '@mozart/desktop-runs-util';
 const LOCALHOST_URL_RE =
   /\bhttps?:\/\/(?:localhost|127\.0\.0\.1|\[::1\])(?::\d+)?(?:\/[^\s"'<>`]*)?/i;
 
+// Broader "the dev server is up" signal. Flips `starting` → `running`
+// so the Run button stops showing a loader once the process announces
+// itself. Covers a loopback host/URL plus the common ready phrases
+// Vite/Next/webpack/node print (`Local:`, `Listening on`, `ready in`).
+const SERVER_READY_RE =
+  /\b(?:localhost|127\.0\.0\.1|\[::1\]|listening(?: on)?|local:|ready in|server (?:running|started)|started server)\b/i;
+
 export interface RunEntry {
   readonly term: Terminal;
   readonly fit: FitAddon;
@@ -83,7 +90,10 @@ export class RunRegistry {
     // A fresh run starts with no URL — yesterday's `localhost:3000`
     // shouldn't be clickable while the new process is still booting.
     entry.detectedUrl.set(null);
-    entry.status.set('running');
+    // `starting` (not `running`) so the UI shows a loader only while the
+    // command boots; the first ready-signal in the output flips it to
+    // `running`. See handleEvent.
+    entry.status.set('starting');
     this.markBusy(workspaceId, true);
     try {
       await this.facade.openRun(
@@ -156,7 +166,7 @@ export class RunRegistry {
   async stop(workspaceId: string): Promise<void> {
     const run = this.runEntries.get(workspaceId);
     const setup = this.setupEntries.get(workspaceId);
-    if (run?.status() !== 'running' && setup?.status() !== 'running') return;
+    if (!isLive(run) && !isLive(setup)) return;
     try {
       await this.facade.stopRun(workspaceId);
     } catch (err) {
@@ -169,8 +179,8 @@ export class RunRegistry {
    *  buttons so the user can't start a second PTY mid-flight. */
   isBusy(workspaceId: string): boolean {
     return (
-      this.runEntries.get(workspaceId)?.status() === 'running' ||
-      this.setupEntries.get(workspaceId)?.status() === 'running'
+      isLive(this.runEntries.get(workspaceId)) ||
+      isLive(this.setupEntries.get(workspaceId))
     );
   }
 
@@ -223,6 +233,15 @@ export class RunRegistry {
           entry.detectedUrl.set(match[0]);
         }
       }
+      // Clear the loader once the server announces itself. Only the
+      // run entry transitions through `starting`; setup entries go
+      // straight to `running` and never match here in practice.
+      if (
+        entry.status() === 'starting' &&
+        (entry.detectedUrl() !== null || SERVER_READY_RE.test(ev.data))
+      ) {
+        entry.status.set('running');
+      }
     } else {
       entry.status.set('exited');
       this.recomputeBusy(workspaceId);
@@ -245,4 +264,11 @@ export class RunRegistry {
   private recomputeBusy(workspaceId: string): void {
     this.markBusy(workspaceId, this.isBusy(workspaceId));
   }
+}
+
+// A PTY counts as "live" while it's spawning (`starting`) or up
+// (`running`) — both block a second PTY and keep the workspace busy.
+function isLive(entry: RunEntry | undefined): boolean {
+  const s = entry?.status();
+  return s === 'running' || s === 'starting';
 }

@@ -2109,10 +2109,12 @@ export type FileViewStatus = {
   viewed_at: number;
 };
 /**
- * Return type — pairs the registered repo with the auto-created
- * workspace. The TS bindings expose this as `GetStartedProject`.
+ * Return type — the registered repo for the bundled "Get started"
+ * project. The TS bindings expose this as `GetStartedProject`. The
+ * first workspace is created frontend-side via the normal
+ * `createForPrompt` path so it gets a generated name + auto-install.
  */
-export type GetStartedProject = { repo: Repo; workspace: Workspace };
+export type GetStartedProject = { repo: Repo };
 /**
  * Surface the user's global Git identity (`user.name` + `user.email`)
  * for the onboarding wizard's Git step. Returns `None` when either

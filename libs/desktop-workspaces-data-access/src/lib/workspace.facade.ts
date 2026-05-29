@@ -9,7 +9,7 @@ import { generateWorkspaceName } from '@mozart/desktop-workspaces-util';
 import { IdeDetectionService } from './ide-detection.service';
 import type { OpenInToolId } from '@mozart/desktop-workspaces-util';
 import type { UiWorkspaceStatus } from '@mozart/desktop-workspaces-util';
-import { workspaceFromDto, type WorkspaceDto } from './workspace.dto-mapper';
+import { workspaceFromDto } from './workspace.dto-mapper';
 import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
 import { WorkspaceStore } from './workspace.store';
 import {
@@ -155,15 +155,16 @@ export class WorkspacesFacade {
   }
 
   /**
-   * Map a workspace DTO returned by a one-shot bootstrap command
-   * (currently: the `/tour` "Get started" project flow) into the
-   * domain's `Workspace` model. Cross-domain callers (e.g.
-   * `tauri-get-started-project.adapter.ts`) use this instead of
-   * reaching into the private `workspaceFromDto` helper — keeps the
-   * DTO ↔ model contract on the facade.
+   * Resolve the first workspace for `projectId`, creating one when none
+   * exists yet. Used by the onboarding / tour "Get started" flows so the
+   * bundled project lands the user in a normally-named workspace (via
+   * `createForPrompt` — generated name + auto-install) instead of a
+   * hardcoded one. Idempotent: a re-run reuses the existing workspace.
    */
-  fromBootstrapPayload(dto: WorkspaceDto, projectId: string): Workspace {
-    return workspaceFromDto(dto, projectId);
+  async ensureFirstWorkspace(projectId: string): Promise<string> {
+    const existing = this.store.forProject(projectId);
+    if (existing.length > 0) return existing[0].id;
+    return this.createForPrompt({ projectId });
   }
 
   // Hydrate from Tauri. Loads tasks-for-each-project first so the

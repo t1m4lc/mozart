@@ -58,7 +58,6 @@ import {
 import type { TerminalEvent as TerminalEventModel } from '@mozart/desktop-terminals-util';
 import {
   WORKSPACES_ADAPTER,
-  WorkspacesFacade,
   type WorkspacesAdapter,
 } from '@mozart/desktop-workspaces-data-access';
 import type { OpenInToolId as OpenInToolIdAlias } from '@mozart/desktop-workspaces-util';
@@ -122,9 +121,7 @@ function provideProviderSetupAdapter(): Provider {
 function provideGetStartedProjectAdapter(): Provider {
   return {
     provide: GET_STARTED_PROJECT_ADAPTER,
-    useFactory: (workspaces: WorkspacesFacade) =>
-      tauriGetStartedProjectAdapter(workspaces),
-    deps: [WorkspacesFacade],
+    useFactory: () => tauriGetStartedProjectAdapter(),
   };
 }
 
