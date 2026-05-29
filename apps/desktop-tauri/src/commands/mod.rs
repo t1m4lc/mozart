@@ -2962,6 +2962,37 @@ pub async fn get_notification_preferences(
     })
 }
 
+/// Effective settings (bundled defaults ◀ global file ◀ project file).
+/// `project_id` selects the project whose `.mozart/settings.json` applies;
+/// `None` resolves defaults ◀ global only.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_resolved_settings(
+    db: State<'_, DbState>,
+    project_id: Option<String>,
+) -> Result<crate::settings::SettingsDto, AppError> {
+    let project_root = match project_id {
+        Some(id) => {
+            let conn = db.lock();
+            Some(std::path::PathBuf::from(repos::get(&conn, &id)?.path))
+        }
+        None => None,
+    };
+    Ok(crate::settings::SettingsDto::from(
+        crate::settings::resolve(project_root.as_deref()),
+    ))
+}
+
+/// Persist the editable global settings file. Preference fields come from
+/// the DTO; any `scripts` already in the global file are preserved.
+#[tauri::command]
+#[specta::specta]
+pub async fn save_global_settings(dto: crate::settings::SettingsDto) -> Result<(), AppError> {
+    let mut current = crate::settings::resolve(None);
+    dto.apply_to(&mut current);
+    crate::settings::save_global(&current)
+}
+
 /// Phase 6 / Atom 10 — persist notification preferences. Settings UI
 /// calls this on every toggle.
 #[tauri::command]

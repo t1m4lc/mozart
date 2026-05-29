@@ -21,7 +21,7 @@ use crate::error::AppError;
 /// Current settings schema version.
 pub const SCHEMA_VERSION: &str = "1";
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Appearance {
     /// Theme name from the catalog (e.g. `"mozart"`).
@@ -30,7 +30,7 @@ pub struct Appearance {
     pub color_mode: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Notifications {
     /// OS notification at end of turn when the workspace isn't focused.
@@ -39,14 +39,14 @@ pub struct Notifications {
     pub sound: bool,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Timeline {
     /// `"compact" | "normal" | "detailed"`.
     pub density: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Agent {
     /// Default model id; `null` = use the app's current default model.
@@ -57,7 +57,7 @@ pub struct Agent {
     pub effort: String,
 }
 
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
 #[serde(rename_all = "camelCase")]
 pub struct Git {
     /// Branch new workspaces fork from.
@@ -193,6 +193,46 @@ fn deep_merge(base: &mut Value, overlay: Value) {
             }
         }
         (b, o) => *b = o,
+    }
+}
+
+/// Frontend-facing settings: every key except `scripts` (which still flows
+/// through the project run-config path). Mirrors [`MozartSettings`] minus
+/// `scripts` so it stays clean over the typed IPC boundary.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
+#[serde(rename_all = "camelCase")]
+pub struct SettingsDto {
+    pub version: String,
+    pub appearance: Appearance,
+    pub notifications: Notifications,
+    pub timeline: Timeline,
+    pub agent: Agent,
+    pub git: Git,
+}
+
+impl From<MozartSettings> for SettingsDto {
+    fn from(s: MozartSettings) -> Self {
+        Self {
+            version: s.version,
+            appearance: s.appearance,
+            notifications: s.notifications,
+            timeline: s.timeline,
+            agent: s.agent,
+            git: s.git,
+        }
+    }
+}
+
+impl SettingsDto {
+    /// Overwrite the preference fields of `base` with this DTO's values,
+    /// leaving `base.scripts` untouched.
+    pub fn apply_to(self, base: &mut MozartSettings) {
+        base.version = self.version;
+        base.appearance = self.appearance;
+        base.notifications = self.notifications;
+        base.timeline = self.timeline;
+        base.agent = self.agent;
+        base.git = self.git;
     }
 }
 

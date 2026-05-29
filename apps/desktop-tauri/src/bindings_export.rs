@@ -135,7 +135,9 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::detect_project,
                 commands::bootstrap_project,
                 commands::init_project_repo_from_local,
-                commands::read_project_config
+                commands::read_project_config,
+                commands::get_resolved_settings,
+                commands::save_global_settings
                 $($extra)*
             ]
         };
@@ -183,4 +185,5 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<GetStartedProject>()
         .typ::<commands::NotificationPreferences>()
         .typ::<commands::GitIdentity>()
+        .typ::<crate::settings::SettingsDto>()
 }
