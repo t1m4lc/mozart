@@ -2781,12 +2781,8 @@ pub async fn create_workspace_pr(
         workspaces::get(&conn, &workspace_id)?
     };
     let worktree = std::path::Path::new(&ws.worktree_path);
-    let (owner, repo, remote_name) = match detect_github_remote_at(worktree).await {
-        github::GithubRemoteStatus::GithubRemote {
-            owner,
-            repo,
-            remote_name,
-        } => (owner, repo, remote_name),
+    let (owner, repo) = match detect_github_remote_at(worktree).await {
+        github::GithubRemoteStatus::GithubRemote { owner, repo, .. } => (owner, repo),
         github::GithubRemoteStatus::NonGithubRemote { url, .. } => {
             return Err(AppError::Validation(format!(
                 "PR creation currently requires a GitHub remote — this project's remote is {url}"
@@ -2803,7 +2799,11 @@ pub async fn create_workspace_pr(
             )));
         }
     };
-    sandbox::run_git(worktree, &["push", "-u", &remote_name, &ws.branch_name]).await?;
+    // Push via HTTPS with the stored token so the same credentials are
+    // used for both the push and the subsequent API call, regardless of
+    // how the repo was originally cloned (SSH, plain HTTPS, etc.).
+    let push_url = format!("https://x-access-token:{token}@github.com/{owner}/{repo}.git");
+    sandbox::run_git(worktree, &["push", &push_url, &ws.branch_name]).await?;
     let first_attempt = github::create_pr(
         &token,
         &owner,

@@ -185,11 +185,16 @@ export class ShellRight {
 
     let remote: GithubRemoteStatus | null = null;
     let changedPaths: readonly string[] = [];
+    let hasBranchChanges = false;
     try {
-      [remote, changedPaths] = await Promise.all([
+      const [r, changed, branchFiles] = await Promise.all([
         this.projects.ensureGithubRemoteStatus(ws.projectId),
-        this.repos.listChangedFiles(workspaceId).then((f) => f.map((c) => c.path)),
+        this.repos.listChangedFiles(workspaceId),
+        this.repos.listBranchDiffFiles(workspaceId),
       ]);
+      remote = r;
+      changedPaths = changed.map((f) => f.path);
+      hasBranchChanges = branchFiles.length > 0;
     } catch (err) {
       console.warn('[shell-right] pr pre-flight failed:', err);
       toast.error("Couldn't check the workspace before creating a PR.", {
@@ -202,6 +207,7 @@ export class ShellRight {
       connected: this.profile.githubConnected(),
       remote,
       changedPaths,
+      hasBranchChanges,
     });
 
     switch (decision.kind) {
@@ -210,6 +216,9 @@ export class ShellRight {
         return;
       case 'blocked-remote':
         toast.error(decision.message);
+        return;
+      case 'no-changes':
+        toast.error('Nothing to create a PR for — make and commit some changes first.');
         return;
       case 'commit':
         await this.openCommitAndPrDialog(workspaceId, ws.name, decision.paths);
