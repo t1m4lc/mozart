@@ -61,7 +61,7 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
   template: `
     @if (changedFiles().length === 0) {
       <p class="p-4 text-xs text-muted-foreground">
-        No changes since the base branch.
+        No uncommitted changes.
       </p>
     } @else if (stagedFiles().length > 0) {
       <button
