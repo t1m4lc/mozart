@@ -57,7 +57,13 @@ import { HlmTooltipImports } from '@spartan-ui/tooltip';
       </button>
     }
 
-    <div class="flex w-full max-w-4xl flex-col gap-6">
+    <div class="flex w-full max-w-4xl flex-col gap-12">
+      <img
+        [src]="wordmarkSrc"
+        alt="Mozart"
+        class="h-16 w-auto self-center"
+      />
+
       <div class="grid grid-cols-1 gap-6 md:grid-cols-3">
         <button
           type="button"
@@ -116,6 +122,11 @@ import { HlmTooltipImports } from '@spartan-ui/tooltip';
 export class DashboardPage {
   private readonly addProjectFlow = inject(AddProjectFlow);
   protected readonly layout = inject(LayoutService);
+
+  // Unique query per mount so the wordmark's intro animation replays
+  // every time the dashboard reappears — webviews otherwise reuse the
+  // cached, already-finished SVG image and skip it.
+  protected readonly wordmarkSrc = `/assets/shared/logos/mozart-wordmark.svg?v=${Date.now()}`;
 
   // No imperative "clear active workspace" needed — `RouterFacade`
   // derives `activeWorkspaceId` from the URL, which is `/` while this
