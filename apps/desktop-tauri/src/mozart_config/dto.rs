@@ -78,7 +78,7 @@ impl<'de> Deserialize<'de> for RunConfig {
     }
 }
 
-fn ser_scripts<S: Serializer>(
+pub(crate) fn ser_scripts<S: Serializer>(
     scripts: &Vec<(String, String)>,
     s: S,
 ) -> Result<S::Ok, S::Error> {
@@ -89,7 +89,7 @@ fn ser_scripts<S: Serializer>(
     map.end()
 }
 
-fn de_scripts<'de, D: Deserializer<'de>>(
+pub(crate) fn de_scripts<'de, D: Deserializer<'de>>(
     d: D,
 ) -> Result<Vec<(String, String)>, D::Error> {
     struct OrderedMapVisitor;

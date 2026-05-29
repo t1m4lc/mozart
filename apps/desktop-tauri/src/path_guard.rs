@@ -29,7 +29,6 @@ use crate::claude_cli::sandbox_policy::{SandboxLevel, L2_SIBLING_CAP};
 use crate::db::models::Workspace;
 use crate::db::{workspaces, DbState};
 use crate::error::AppError;
-use crate::sandbox;
 
 /// Reject workspace-relative paths that fail the cheap invariants:
 /// non-empty, no leading `/`, no NUL bytes, no `..` segments. Pair
@@ -58,7 +57,7 @@ pub fn validate_workspace_relative_path(path: &str) -> Result<(), AppError> {
 /// canonicalized so `validate_agent_path` can do a fast prefix
 /// match.
 ///
-/// - `L1Mozart`   → `[~/.mozart/worktrees, ~/.mozart/projects]`
+/// - `L1Mozart`   → `[<data>/workspaces, <data>/projects]`
 /// - `L2Project`  → sibling worktrees from
 ///   [`workspaces::list_active_siblings_for_project`], force-includes
 ///   the active worktree (mirrors the runner). Capped at 20 per CG-1.
@@ -78,8 +77,8 @@ pub fn resolve_allowed_roots(
         SandboxLevel::from_str(&workspace.sandbox_level).unwrap_or(SandboxLevel::DEFAULT);
     let raw: Vec<PathBuf> = match level {
         SandboxLevel::L1Mozart => vec![
-            sandbox::canonical_worktrees_root()?,
-            sandbox::canonical_projects_root()?,
+            crate::paths::workspaces_root()?,
+            crate::paths::projects_root()?,
         ],
         SandboxLevel::L2Project => workspaces::enumerate_l2_siblings(conn, workspace, L2_SIBLING_CAP)?
             .into_iter()

@@ -1,0 +1,24 @@
+{
+  "version": "1",
+  "appearance": {
+    "theme": "mozart",
+    "colorMode": "system"
+  },
+  "notifications": {
+    "desktop": true,
+    "sound": true
+  },
+  "timeline": {
+    "density": "normal"
+  },
+  "agent": {
+    "model": null,
+    "mode": "agent",
+    "effort": "medium"
+  },
+  "git": {
+    "baseBranch": "main",
+    "mergeAction": "pr"
+  },
+  "scripts": {}
+}

@@ -12,6 +12,7 @@ import type { GithubRemoteStatus } from '@mozart/desktop-projects-data-access';
 export type PrFlowDecision =
   | { readonly kind: 'connect' }
   | { readonly kind: 'blocked-remote'; readonly message: string }
+  | { readonly kind: 'no-changes' }
   | { readonly kind: 'commit'; readonly paths: readonly string[] }
   | { readonly kind: 'create' };
 
@@ -19,12 +20,17 @@ export interface PrFlowGates {
   readonly connected: boolean;
   readonly remote: GithubRemoteStatus | null;
   readonly changedPaths: readonly string[];
+  /** True when the branch has any changes vs base (committed or uncommitted). */
+  readonly hasBranchChanges: boolean;
 }
 
 export function decidePrAction(gates: PrFlowGates): PrFlowDecision {
   if (!gates.connected) return { kind: 'connect' };
   if (gates.remote?.kind !== 'github') {
     return { kind: 'blocked-remote', message: remoteBlockMessage(gates.remote) };
+  }
+  if (!gates.hasBranchChanges) {
+    return { kind: 'no-changes' };
   }
   if (gates.changedPaths.length > 0) {
     return { kind: 'commit', paths: gates.changedPaths };

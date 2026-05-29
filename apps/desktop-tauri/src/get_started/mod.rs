@@ -1,7 +1,7 @@
 //! Bundled "Get started" project for the onboarding tour.
 //!
-//! On first call, shallow-clones the template repo from GitHub into
-//! `~/Mozart/get-started/` and registers it as a Mozart project.
+//! On first call, shallow-clones the template repo from GitHub into the
+//! projects root (`get-started/`) and registers it as a Mozart project.
 //! Idempotent — repeated calls reuse the existing clone + repo row.
 //! The first workspace is created frontend-side via the normal
 //! `createForPrompt` path (generated name + auto-install).
@@ -23,7 +23,6 @@ use crate::error::AppError;
 use crate::git_query;
 
 const TEMPLATE_URL: &str = "https://github.com/t1m4lc/mozart-get-started.git";
-const PROJECT_FOLDER_NAME: &str = "Mozart/get-started";
 
 /// Return type — the registered repo for the bundled "Get started"
 /// project. The TS bindings expose this as `GetStartedProject`. The
@@ -50,22 +49,7 @@ pub async fn create(db: &DbState) -> Result<GetStartedProject, AppError> {
 }
 
 fn target_path() -> Result<PathBuf, AppError> {
-    let home = home_dir_or_cwd();
-    Ok(home.join(PROJECT_FOLDER_NAME))
-}
-
-fn home_dir_or_cwd() -> PathBuf {
-    if let Ok(home) = std::env::var("HOME") {
-        if !home.is_empty() {
-            return PathBuf::from(home);
-        }
-    }
-    if let Ok(profile) = std::env::var("USERPROFILE") {
-        if !profile.is_empty() {
-            return PathBuf::from(profile);
-        }
-    }
-    PathBuf::from(".")
+    crate::paths::get_started_dir()
 }
 
 fn template_url() -> String {

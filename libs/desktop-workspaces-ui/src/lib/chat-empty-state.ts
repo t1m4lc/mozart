@@ -90,9 +90,11 @@ import { MzLoader } from '@mozart-ui/loader';
           <p class="text-sm font-medium leading-relaxed text-foreground">
             {{ headline() }}
           </p>
-          <p class="text-sm font-light leading-relaxed text-muted-foreground">
-            {{ detail() }}
-          </p>
+          @if (detail(); as d) {
+            <p class="text-sm font-light leading-relaxed text-muted-foreground">
+              {{ d }}
+            </p>
+          }
           @if (installState() === 'failed') {
             <button
               hlmBtn
@@ -169,10 +171,11 @@ export class ChatEmptyState {
           : 'install dependencies';
         return `Mozart couldn't ${what}. Check the Setup tab for details, then retry.`;
       }
-      // `idle` — no setup info yet (e.g. reopening an empty workspace).
-      // Stay neutral; never claim dependencies were installed.
+      // success / `idle` — the headline already says "Workspace ready" and
+      // the ready block below adds the start-chatting CTA, so a detail line
+      // here would only repeat the headline.
       default:
-        return 'Workspace ready.';
+        return '';
     }
   });
 }

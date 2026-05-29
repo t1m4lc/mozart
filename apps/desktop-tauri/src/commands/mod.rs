@@ -459,11 +459,11 @@ pub(crate) async fn remove_repo_impl(db: &DbState, repo_id: String) -> Result<()
     for parent in &project_parents {
         let _ = std::fs::remove_dir(parent);
     }
-    // Sandbox dir at `~/.mozart/projects/<project_seg>`. Inferred from
+    // Sandbox dir at `<data>/projects/<project_seg>`. Inferred from
     // the worktree parent basename — same slug derivation as
     // `worktree::create_for_workspace`. Best-effort: missing or
     // shared-by-another-project leaves it alone.
-    if let Ok(projects_root) = sandbox::canonical_projects_root() {
+    if let Ok(projects_root) = crate::paths::projects_root() {
         for parent in &project_parents {
             if let Some(seg) = parent.file_name() {
                 let dir = projects_root.join(seg);
@@ -1219,13 +1219,17 @@ pub(crate) async fn create_chat_impl(
     title: String,
     llm_id: Option<String>,
 ) -> Result<Chat, AppError> {
+    // New-chat defaults come from the resolved settings (bundled
+    // defaults ◀ global settings.json). An explicit `llm_id` from the
+    // caller still wins over the settings default model.
+    let defaults = crate::settings::resolve(None).agent;
     let c = Chat {
         chat_id: new_id(),
         workspace_id,
         title,
-        llm_id,
-        mode: "agent".into(),
-        effort: "medium".into(),
+        llm_id: llm_id.or(defaults.model),
+        mode: defaults.mode,
+        effort: defaults.effort,
         last_read_message_id: None,
         closed_at: None,
         created_at: now_ms(),
@@ -2006,8 +2010,8 @@ pub async fn set_repo_setup_command(
 
 /// Which half of the project's runner pair to launch: the setup
 /// command (e.g. `pnpm install`) or the run command (e.g. `pnpm dev`).
-/// `.mozart/run.json` at the project root takes precedence over the
-/// DB column for the corresponding script; the DB column is the
+/// The repo's committed `.mozart/settings.json` `scripts` take precedence
+/// over the DB column for the corresponding script; the DB column is the
 /// fallback.
 #[derive(Copy, Clone)]
 enum WorkspaceCommandKind {
@@ -2031,17 +2035,22 @@ impl WorkspaceCommandKind {
     }
 }
 
-/// Resolve the effective command for `(repo, kind)`. Checks the
-/// project's `.mozart/run.json` (`scripts.<kind>`) first, falling back
-/// to the matching DB column. Returns a `Validation` error when
-/// neither source has a non-empty command.
+/// Resolve the effective command for `(repo, kind)`. Checks the repo's
+/// committed `.mozart/settings.json` `scripts.<kind>` first (via the
+/// layered settings resolver), falling back to the matching DB column.
+/// Returns a `Validation` error when neither source has a non-empty command.
 fn resolve_repo_command(
     repo: &crate::db::models::Repo,
     kind: WorkspaceCommandKind,
 ) -> Result<String, AppError> {
-    let from_json =
-        read_repo_run_json_script(std::path::Path::new(&repo.path), kind.script_key());
-    if let Some(cmd) = from_json {
+    let key = kind.script_key();
+    let from_settings = crate::settings::resolve(Some(std::path::Path::new(&repo.path)))
+        .scripts
+        .into_iter()
+        .find(|(k, _)| k == key)
+        .map(|(_, v)| v)
+        .filter(|s| !s.trim().is_empty());
+    if let Some(cmd) = from_settings {
         return Ok(cmd);
     }
     let from_db = match kind {
@@ -2058,25 +2067,10 @@ fn resolve_repo_command(
         })
 }
 
-/// Best-effort read of `<project-root>/.mozart/run.json` →
-/// `scripts.<key>`. Returns `None` on any failure (missing file, bad
-/// JSON, missing key, empty value) so the caller can fall through to
-/// the DB column. Never errors — the file is optional.
-fn read_repo_run_json_script(project_path: &std::path::Path, key: &str) -> Option<String> {
-    let body = std::fs::read_to_string(project_path.join(".mozart").join("run.json")).ok()?;
-    let parsed: serde_json::Value = serde_json::from_str(&body).ok()?;
-    let value = parsed.get("scripts")?.get(key)?.as_str()?.trim().to_string();
-    if value.is_empty() {
-        None
-    } else {
-        Some(value)
-    }
-}
-
 /// Spawn the project's `run_command` in a PTY rooted at the workspace's
 /// worktree. Streams output through `on_event`. Replaces any prior run
 /// PTY for the same workspace (the previous run is killed). Returns
-/// `Validation` if neither `.mozart/run.json scripts.run` nor
+/// `Validation` if neither `.mozart/settings.json` `scripts.run` nor
 /// `repos.run_command` is set.
 #[tauri::command]
 #[specta::specta]
@@ -2777,12 +2771,8 @@ pub async fn create_workspace_pr(
         workspaces::get(&conn, &workspace_id)?
     };
     let worktree = std::path::Path::new(&ws.worktree_path);
-    let (owner, repo, remote_name) = match detect_github_remote_at(worktree).await {
-        github::GithubRemoteStatus::GithubRemote {
-            owner,
-            repo,
-            remote_name,
-        } => (owner, repo, remote_name),
+    let (owner, repo) = match detect_github_remote_at(worktree).await {
+        github::GithubRemoteStatus::GithubRemote { owner, repo, .. } => (owner, repo),
         github::GithubRemoteStatus::NonGithubRemote { url, .. } => {
             return Err(AppError::Validation(format!(
                 "PR creation currently requires a GitHub remote — this project's remote is {url}"
@@ -2799,7 +2789,11 @@ pub async fn create_workspace_pr(
             )));
         }
     };
-    sandbox::run_git(worktree, &["push", "-u", &remote_name, &ws.branch_name]).await?;
+    // Push via HTTPS with the stored token so the same credentials are
+    // used for both the push and the subsequent API call, regardless of
+    // how the repo was originally cloned (SSH, plain HTTPS, etc.).
+    let push_url = format!("https://x-access-token:{token}@github.com/{owner}/{repo}.git");
+    sandbox::run_git(worktree, &["push", &push_url, &ws.branch_name]).await?;
     let first_attempt = github::create_pr(
         &token,
         &owner,
@@ -2938,28 +2932,47 @@ pub struct NotificationPreferences {
     pub sound: bool,
 }
 
-const NOTIF_DESKTOP_KEY: &str = "notifications_desktop";
-const NOTIF_SOUND_KEY: &str = "notifications_sound";
-
-fn read_bool(conn: &rusqlite::Connection, key: &str, default: bool) -> bool {
-    match config::get(conn, key) {
-        Ok(Some(v)) => v == "true",
-        _ => default,
-    }
-}
-
-/// Phase 6 / Atom 10 — read notification preferences from the config
-/// table. Both toggles default to `true` on a fresh install.
+/// Read notification preferences from the resolved settings (bundled
+/// defaults ◀ global `settings.json`). Both toggles default to `true`.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_notification_preferences(
-    db: State<'_, DbState>,
-) -> Result<NotificationPreferences, AppError> {
-    let conn = db.lock();
+pub async fn get_notification_preferences() -> Result<NotificationPreferences, AppError> {
+    let n = crate::settings::resolve(None).notifications;
     Ok(NotificationPreferences {
-        desktop: read_bool(&conn, NOTIF_DESKTOP_KEY, true),
-        sound: read_bool(&conn, NOTIF_SOUND_KEY, true),
+        desktop: n.desktop,
+        sound: n.sound,
     })
+}
+
+/// Effective settings (bundled defaults ◀ global file ◀ project file).
+/// `project_id` selects the project whose `.mozart/settings.json` applies;
+/// `None` resolves defaults ◀ global only.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_resolved_settings(
+    db: State<'_, DbState>,
+    project_id: Option<String>,
+) -> Result<crate::settings::SettingsDto, AppError> {
+    let project_root = match project_id {
+        Some(id) => {
+            let conn = db.lock();
+            Some(std::path::PathBuf::from(repos::get(&conn, &id)?.path))
+        }
+        None => None,
+    };
+    Ok(crate::settings::SettingsDto::from(
+        crate::settings::resolve(project_root.as_deref()),
+    ))
+}
+
+/// Persist the editable global settings file. Preference fields come from
+/// the DTO; any `scripts` already in the global file are preserved.
+#[tauri::command]
+#[specta::specta]
+pub async fn save_global_settings(dto: crate::settings::SettingsDto) -> Result<(), AppError> {
+    let mut current = crate::settings::resolve(None);
+    dto.apply_to(&mut current);
+    crate::settings::save_global(&current)
 }
 
 /// Phase 6 / Atom 10 — persist notification preferences. Settings UI
@@ -2968,20 +2981,13 @@ pub async fn get_notification_preferences(
 #[specta::specta]
 pub async fn set_notification_preferences(
     prefs: NotificationPreferences,
-    db: State<'_, DbState>,
 ) -> Result<(), AppError> {
-    let conn = db.lock();
-    config::set(
-        &conn,
-        NOTIF_DESKTOP_KEY,
-        Some(if prefs.desktop { "true" } else { "false" }),
-    )?;
-    config::set(
-        &conn,
-        NOTIF_SOUND_KEY,
-        Some(if prefs.sound { "true" } else { "false" }),
-    )?;
-    Ok(())
+    let mut current = crate::settings::resolve(None);
+    current.notifications = crate::settings::Notifications {
+        desktop: prefs.desktop,
+        sound: prefs.sound,
+    };
+    crate::settings::save_global(&current)
 }
 
 /// Phase 6 / Atom 10 — surface a desktop notification when an agent
@@ -2993,17 +2999,10 @@ pub async fn set_notification_preferences(
 #[specta::specta]
 pub async fn emit_message_end_notification(
     app: tauri::AppHandle,
-    db: State<'_, DbState>,
     chat_title: String,
 ) -> Result<(), AppError> {
     use tauri_plugin_notification::NotificationExt;
-    let prefs = {
-        let conn = db.lock();
-        NotificationPreferences {
-            desktop: read_bool(&conn, NOTIF_DESKTOP_KEY, true),
-            sound: read_bool(&conn, NOTIF_SOUND_KEY, true),
-        }
-    };
+    let prefs = crate::settings::resolve(None).notifications;
     if !prefs.desktop {
         return Ok(());
     }
@@ -3031,7 +3030,7 @@ pub async fn play_chime() -> Result<(), AppError> {
     crate::sound::play()
 }
 
-/// Materialize (if missing) the bundled `~/Mozart/get-started/` project,
+/// Materialize (if missing) the bundled "Get started" project,
 /// then ensure a `welcome-1` workspace exists on `main`. Idempotent —
 /// re-entry from Settings → "Revisit tour" reuses the existing repo +
 /// workspace instead of duplicating either.
@@ -3268,26 +3267,9 @@ pub(crate) async fn bootstrap_project_impl(
     crate::mozart_config::bootstrap::bootstrap_project(db, p).await
 }
 
-/// Deferred "Save config to repo" surface. Writes the local fallback
-/// config to `.mozart/run.json` + `.mozart/settings.json`, validating
-/// first and refusing to overwrite. Wired in P0.3 but not exposed in
-/// UI for v0 (TODO-006).
-#[tauri::command]
-#[specta::specta]
-pub async fn init_project_repo_from_local(
-    db: State<'_, DbState>,
-    project_id: String,
-) -> Result<(), AppError> {
-    crate::mozart_config::bootstrap::init_project_repo_from_local(
-        db.inner(),
-        &project_id,
-    )
-    .await
-}
-
 /// Read the active project config. Repo > local; falls back to the
-/// local DB row if `.mozart/run.json` is absent. Bootstrap guarantees
-/// at least one of the two sources exists.
+/// local DB row if the repo's `.mozart/settings.json` carries no
+/// `scripts`. Bootstrap guarantees at least one of the two sources exists.
 #[tauri::command]
 #[specta::specta]
 pub async fn read_project_config(

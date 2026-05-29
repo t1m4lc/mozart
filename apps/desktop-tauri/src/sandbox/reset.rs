@@ -16,8 +16,9 @@
 
 use std::path::Path;
 
-use super::{canonical_worktrees_root, run_git};
+use super::run_git;
 use crate::error::AppError;
+use crate::paths::workspaces_root;
 
 /// Hard-reset `workspace_path` to `sha`. Refuses any path that does not
 /// canonicalize to a location under the canonical worktrees root
@@ -30,7 +31,7 @@ pub async fn discard_changes_to(
     let canon = workspace_path
         .canonicalize()
         .map_err(|e| AppError::Io(format!("canonicalize {workspace_path:?}: {e}")))?;
-    let root = canonical_worktrees_root()?
+    let root = workspaces_root()?
         .canonicalize()
         .map_err(|e| AppError::Io(format!("canonicalize worktrees root: {e}")))?;
     if !canon.starts_with(&root) {
@@ -44,7 +45,7 @@ pub async fn discard_changes_to(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::sandbox::{canonical_worktrees_root, git_available, test_env_gate};
+    use crate::sandbox::{git_available, test_env_gate};
     use std::process::Command;
 
     /// Build a tempdir-backed git repo with identity. Mirrors the helper
@@ -102,14 +103,14 @@ mod tests {
     }
 
     #[test]
-    fn canonical_worktrees_root_honors_env_override() {
+    fn workspaces_root_honors_env_override() {
         let _gate = test_env_gate().lock().unwrap_or_else(|e| e.into_inner());
         let prev = std::env::var_os("MOZART_WORKTREES_ROOT");
         let tmp = tempfile::tempdir().unwrap();
         let override_path = tmp.path().to_path_buf();
         std::env::set_var("MOZART_WORKTREES_ROOT", &override_path);
 
-        let got = canonical_worktrees_root().expect("env override resolves");
+        let got = workspaces_root().expect("env override resolves");
         assert_eq!(got, override_path);
 
         restore_root(prev);

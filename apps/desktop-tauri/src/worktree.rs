@@ -1,9 +1,9 @@
 //! Worktree lifecycle — `create`, `remove`, `cleanup_orphans` (Step 1.6).
 //!
 //! Each agent workspace gets its own `git worktree` rooted under the
-//! canonical worktrees root (`MOZART_WORKTREES_ROOT` in tests / dev,
-//! `$HOME/.mozart/worktrees` otherwise — resolved by
-//! `crate::sandbox::canonical_worktrees_root`).
+//! canonical workspaces root (`MOZART_WORKTREES_ROOT` in tests / dev, the
+//! OS-standard data dir otherwise — resolved by
+//! `crate::paths::workspaces_root`).
 //!
 //! Locked decisions (plan §4 — Step 1.6):
 //! - **D1.6-H** — `create` derives the branch via
@@ -45,7 +45,8 @@ use std::path::{Path, PathBuf};
 use crate::branch_name::{branch_exists, make_task_branch, slugify};
 use crate::db::DbState;
 use crate::error::AppError;
-use crate::sandbox::{canonical_worktrees_root, run_git};
+use crate::paths::workspaces_root;
+use crate::sandbox::run_git;
 
 /// Handle returned by `create` carrying the three values higher layers
 /// (workspace_service, DB row construction) need to persist a workspace.
@@ -84,7 +85,7 @@ pub async fn create(
     let short = &workspace_id[..8.min(workspace_id.len())];
     let base_branch_candidate = make_task_branch(workspace_name, short).await;
 
-    let root = canonical_worktrees_root()?;
+    let root = workspaces_root()?;
     let project_seg = path_segment(project_name, short);
     let workspace_seg = path_segment(workspace_name, short);
     let project_dir = root.join(&project_seg);
@@ -188,7 +189,7 @@ pub async fn remove(repo_path: &Path, worktree_path: &Path) -> Result<(), AppErr
 /// project subdirectories left over are pruned. Returns the count of
 /// successful removals.
 pub async fn cleanup_orphans(db: &DbState) -> Result<usize, AppError> {
-    let root = canonical_worktrees_root()?;
+    let root = workspaces_root()?;
     let known: HashSet<PathBuf> = {
         let conn = db.lock();
         crate::db::workspaces::list_all(&conn)?

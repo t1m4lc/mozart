@@ -12,7 +12,7 @@ const github: GithubRemoteStatus = {
 describe('decidePrAction', () => {
   it('not connected → connect (even with a dirty tree)', () => {
     expect(
-      decidePrAction({ connected: false, remote: github, changedPaths: ['a.ts'] }),
+      decidePrAction({ connected: false, remote: github, changedPaths: ['a.ts'], hasBranchChanges: true }),
     ).toEqual({ kind: 'connect' });
   });
 
@@ -21,6 +21,7 @@ describe('decidePrAction', () => {
       connected: true,
       remote: { kind: 'no-remote' },
       changedPaths: [],
+      hasBranchChanges: false,
     });
     expect(d.kind).toBe('blocked-remote');
     if (d.kind === 'blocked-remote') expect(d.message).toContain('no Git remote');
@@ -31,6 +32,7 @@ describe('decidePrAction', () => {
       connected: true,
       remote: { kind: 'non-github', url: 'https://gitlab.com/o/r.git', remoteName: 'origin' },
       changedPaths: [],
+      hasBranchChanges: false,
     });
     expect(d.kind).toBe('blocked-remote');
     if (d.kind === 'blocked-remote') expect(d.message).toContain('gitlab.com');
@@ -41,14 +43,21 @@ describe('decidePrAction', () => {
       connected: true,
       remote: { kind: 'error', message: 'boom' },
       changedPaths: [],
+      hasBranchChanges: false,
     });
     expect(d.kind).toBe('blocked-remote');
     if (d.kind === 'blocked-remote') expect(d.message).toContain('boom');
   });
 
   it('connected, null remote (probe failed/pending) → blocked-remote fallback', () => {
-    const d = decidePrAction({ connected: true, remote: null, changedPaths: [] });
+    const d = decidePrAction({ connected: true, remote: null, changedPaths: [], hasBranchChanges: false });
     expect(d.kind).toBe('blocked-remote');
+  });
+
+  it('connected + github + no branch changes → no-changes', () => {
+    expect(
+      decidePrAction({ connected: true, remote: github, changedPaths: [], hasBranchChanges: false }),
+    ).toEqual({ kind: 'no-changes' });
   });
 
   it('connected + github + dirty → commit with the paths', () => {
@@ -57,13 +66,14 @@ describe('decidePrAction', () => {
         connected: true,
         remote: github,
         changedPaths: ['a.ts', 'b.ts'],
+        hasBranchChanges: true,
       }),
     ).toEqual({ kind: 'commit', paths: ['a.ts', 'b.ts'] });
   });
 
-  it('connected + github + clean → create', () => {
+  it('connected + github + clean tree but commits ahead → create', () => {
     expect(
-      decidePrAction({ connected: true, remote: github, changedPaths: [] }),
+      decidePrAction({ connected: true, remote: github, changedPaths: [], hasBranchChanges: true }),
     ).toEqual({ kind: 'create' });
   });
 });
