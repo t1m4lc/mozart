@@ -70,6 +70,10 @@ export interface RepositoriesAdapter {
    *  untracked). Powers the commit dialog's checkbox list. */
   listChangedFiles(workspaceId: string): Promise<readonly ChangedFile[]>;
 
+  /** All files changed on the workspace branch vs its base branch, including
+   *  committed changes. Powers the Changes tab cache. */
+  listBranchDiffFiles(workspaceId: string): Promise<readonly ChangedFile[]>;
+
   /** Stage `paths` and create a commit with `message`. Returns the new
    *  commit's sha. */
   commitWorkspace(

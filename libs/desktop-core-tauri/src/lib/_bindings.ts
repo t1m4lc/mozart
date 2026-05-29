@@ -1133,6 +1133,23 @@ export const commands = {
     }
   },
   /**
+   * All files changed on the workspace branch vs its base branch, including
+   * committed changes. Powers the Changes tab in the right aside.
+   */
+  async listBranchDiffFiles(
+    workspaceId: string,
+  ): Promise<Result<ChangedFile[], AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('list_branch_diff_files', { workspaceId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Stage `paths` and create a commit with `message`. Returns the new
    * commit's sha. Refuses on empty path list / empty message.
    */

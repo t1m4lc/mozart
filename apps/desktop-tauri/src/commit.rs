@@ -3,6 +3,8 @@
 //! - `list_changed_files(worktree)` → flat list of `{ path, status }`
 //!   suitable for a checkbox list. Sources from `git status --porcelain=v1
 //!   -z` so untracked files appear too.
+//! - `list_branch_diff_files(worktree, base_branch)` → all files changed vs
+//!   `base_branch` (committed + staged + unstaged). Powers the Changes tab.
 //! - `commit(worktree, paths, message)` → `git add -- <paths>` then
 //!   `git commit -m <message>`. Refuses if the path list is empty (no
 //!   staged delta means git would create an empty commit; we don't
@@ -121,6 +123,101 @@ fn bytecount_newlines(bytes: &[u8]) -> i64 {
         n += 1;
     }
     n
+}
+
+/// All files changed in `worktree` vs `base_branch` — committed, staged, and
+/// unstaged. Uses `git diff <base_branch>` which compares the working tree to
+/// the base branch tip. Powers the Changes tab in the right aside.
+pub async fn list_branch_diff_files(
+    worktree: &Path,
+    base_branch: &str,
+) -> Result<Vec<ChangedFile>, AppError> {
+    let out = sandbox::run_git_capture(
+        worktree,
+        &["diff", "--name-status", "-z", base_branch],
+    )
+    .await?;
+    if !out.status.success() {
+        let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
+        return Err(AppError::GitCmd(format!(
+            "git diff --name-status {base_branch} failed: {stderr}"
+        )));
+    }
+    let stdout = String::from_utf8_lossy(&out.stdout);
+    let mut files = parse_name_status_z(&stdout);
+
+    if let Ok(ns_out) =
+        sandbox::run_git_capture(worktree, &["diff", "--numstat", base_branch]).await
+    {
+        if ns_out.status.success() {
+            let s = String::from_utf8_lossy(&ns_out.stdout);
+            let numstat_map = parse_numstat_per_file(&s);
+            for f in &mut files {
+                if let Some(&(a, d)) = numstat_map.get(&f.path) {
+                    f.added = a;
+                    f.removed = d;
+                }
+            }
+        }
+    }
+
+    Ok(files)
+}
+
+fn parse_name_status_z(stdout: &str) -> Vec<ChangedFile> {
+    let mut out = Vec::new();
+    let mut iter = stdout.split('\0').filter(|s| !s.is_empty()).peekable();
+    while let Some(status_record) = iter.next() {
+        let status_str = status_record.trim();
+        if status_str.is_empty() {
+            continue;
+        }
+        let is_rename_copy =
+            status_str.starts_with('R') || status_str.starts_with('C');
+        let path = match iter.next() {
+            Some(p) => p.replace('\\', "/"),
+            None => break,
+        };
+        if is_rename_copy {
+            // Second token is the destination path; use it.
+            let new_path = match iter.next() {
+                Some(p) => p.replace('\\', "/"),
+                None => break,
+            };
+            out.push(ChangedFile {
+                path: new_path,
+                status: "modified".into(),
+                staged: false,
+                added: 0,
+                removed: 0,
+                has_conflict: false,
+            });
+            continue;
+        }
+        if let Some(status) = classify_diff_status(status_str) {
+            out.push(ChangedFile {
+                path,
+                status: status.into(),
+                staged: false,
+                added: 0,
+                removed: 0,
+                has_conflict: false,
+            });
+        }
+    }
+    out.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
+    out
+}
+
+fn classify_diff_status(s: &str) -> Option<&'static str> {
+    match s.as_bytes().first().copied()? {
+        b'A' => Some("added"),
+        b'M' | b'T' => Some("modified"),
+        b'D' => Some("deleted"),
+        b'R' | b'C' => Some("modified"),
+        b'U' => Some("modified"),
+        _ => None,
+    }
 }
 
 pub async fn commit(

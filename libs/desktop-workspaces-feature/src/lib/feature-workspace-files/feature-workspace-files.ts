@@ -203,7 +203,7 @@ export class FeatureWorkspaceFiles {
       // Reading after the fetch makes the write land under the latest
       // revision the user has seen.
       void this.repos
-        .listChangedFiles(id)
+        .listBranchDiffFiles(id)
         .then((files) => {
           if (this.workspaceId() !== id) return;
           const revision = this.repos.treeRevisionFor(id);
@@ -231,7 +231,7 @@ export class FeatureWorkspaceFiles {
           payload.workspace_id,
         );
         void this.repos
-          .listChangedFiles(payload.workspace_id)
+          .listBranchDiffFiles(payload.workspace_id)
           .then((files) => {
             if (files.length === 0) return;
             if (this.workspaceId() !== payload.workspace_id) return;

@@ -2218,6 +2218,25 @@ pub async fn list_changed_files(
     commit::list_changed_files(std::path::Path::new(&ws.worktree_path)).await
 }
 
+/// All files changed on the workspace branch vs its base branch, including
+/// committed changes. Powers the Changes tab in the right aside.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_branch_diff_files(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<Vec<ChangedFile>, AppError> {
+    let ws = {
+        let conn = db.lock();
+        workspaces::get(&conn, &workspace_id)?
+    };
+    commit::list_branch_diff_files(
+        std::path::Path::new(&ws.worktree_path),
+        &ws.base_branch,
+    )
+    .await
+}
+
 /// Stage `paths` and create a commit with `message`. Returns the new
 /// commit's sha. Refuses on empty path list / empty message.
 #[tauri::command]

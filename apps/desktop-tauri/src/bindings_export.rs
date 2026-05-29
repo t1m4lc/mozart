@@ -96,6 +96,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::detect_installed_ides,
                 commands::open_in_ide,
                 commands::list_changed_files,
+                commands::list_branch_diff_files,
                 commands::commit_workspace,
                 commands::stage_file,
                 commands::unstage_file,
