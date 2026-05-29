@@ -20,10 +20,11 @@ import { MzLoader } from '@mozart-ui/loader';
 /**
  * Rendered in the main chat area when the active chat tab has no
  * messages yet. Two variants:
- *   - 'start'    -> workspace setup state (first tab). Mirrors the
- *                   auto-run install lifecycle: a loader while setup
- *                   runs, a ready line on success / when nothing was
- *                   needed, and a clear error + retry on failure.
+ *   - 'start'    -> the single unified "workspace ready" card. Shown by
+ *                   every creation path (manual open-project AND the
+ *                   generated-workspace / onboarding flow). Merges the
+ *                   branch line, the live setup lifecycle, and the
+ *                   start-chatting CTA into one screen.
  *   - 'untitled' -> light "waiting for your instructions" line.
  */
 @Component({
@@ -81,8 +82,16 @@ import { MzLoader } from '@mozart-ui/loader';
           }
         }
         <div class="flex-1 space-y-2">
-          <p class="text-sm font-light leading-relaxed text-foreground">
-            {{ statusLabel() }}
+          @if (branchLine(); as line) {
+            <p class="text-xs font-light leading-relaxed text-muted-foreground">
+              {{ line }}
+            </p>
+          }
+          <p class="text-sm font-medium leading-relaxed text-foreground">
+            {{ headline() }}
+          </p>
+          <p class="text-sm font-light leading-relaxed text-muted-foreground">
+            {{ detail() }}
           </p>
           @if (installState() === 'failed') {
             <button
@@ -95,6 +104,10 @@ import { MzLoader } from '@mozart-ui/loader';
               <ng-icon hlm name="lucideRefreshCw" size="sm" />
               Retry setup
             </button>
+          } @else if (isReady()) {
+            <p class="text-sm font-light leading-relaxed text-foreground">
+              You can start chatting now.
+            </p>
           }
         </div>
       </div>
@@ -107,24 +120,57 @@ export class ChatEmptyState {
   // and the retry affordance.
   readonly installState = input<InstallState>('idle');
   readonly installManager = input<string>('');
+  // Branch context for the ready card. The workspace's own branch (e.g.
+  // "mozart/coltrane"), the branch it was forked from (e.g. "main"), and
+  // the owning project name. When branch + project are present the card
+  // shows a "Branch … from … in …" line above the status.
+  readonly branch = input<string>('');
+  readonly baseBranch = input<string>('');
+  readonly projectName = input<string>('');
   // Emitted from the failed-state Retry button. Parent re-runs setup.
   readonly retry = output<void>();
 
-  protected readonly statusLabel = computed<string>(() => {
+  protected readonly branchLine = computed<string | null>(() => {
+    const branch = this.branch().trim();
+    const project = this.projectName().trim();
+    if (!branch || !project) return null;
+    const base = this.baseBranch().trim();
+    return base
+      ? `Branch ${branch} from ${base} in ${project}`
+      : `Branch ${branch} in ${project}`;
+  });
+
+  protected readonly isReady = computed<boolean>(() => {
+    const state = this.installState();
+    return state === 'success' || state === 'no_package' || state === 'idle';
+  });
+
+  protected readonly headline = computed<string>(() => {
     switch (this.installState()) {
       case 'running':
-        return 'Preparing your workspace… Mozart is installing dependencies and setting up the project.';
+        return 'Setting up your workspace…';
+      case 'failed':
+        return 'Setup failed';
+      default:
+        return 'Workspace ready';
+    }
+  });
+
+  protected readonly detail = computed<string>(() => {
+    switch (this.installState()) {
+      case 'running':
+        return 'Mozart is installing dependencies and preparing the project.';
       case 'no_package':
-        return 'Workspace ready. No setup step was required for this project.';
+        return 'No setup step was required for this project.';
       case 'failed': {
         const mgr = this.installManager();
         const what = mgr
           ? `install dependencies with ${mgr}`
           : 'install dependencies';
-        return `Setup failed — Mozart couldn't ${what}. Check the Setup tab for details, then retry.`;
+        return `Mozart couldn't ${what}. Check the Setup tab for details, then retry.`;
       }
       default:
-        return 'Workspace ready. Dependencies installed successfully.';
+        return 'Setup completed successfully.';
     }
   });
 }

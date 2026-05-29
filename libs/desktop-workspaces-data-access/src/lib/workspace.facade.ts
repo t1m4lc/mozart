@@ -3,7 +3,6 @@ import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
 import { TasksFacade } from '@mozart/desktop-tasks-data-access';
-import { TerminalRegistry } from '@mozart/desktop-terminals-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { generateWorkspaceName } from '@mozart/desktop-workspaces-util';
 import { IdeDetectionService } from './ide-detection.service';
@@ -36,7 +35,6 @@ export class WorkspacesFacade {
   private readonly adapter = inject(WORKSPACES_ADAPTER);
   private readonly projects = inject(ProjectsFacade);
   private readonly runs = inject(RunRegistry);
-  private readonly terminals = inject(TerminalRegistry);
   private readonly tasks = inject(TasksFacade);
   private readonly repos = inject(RepositoriesFacade);
   private readonly ideDetection = inject(IdeDetectionService);
@@ -51,20 +49,6 @@ export class WorkspacesFacade {
   // explicit `setLoading` writes and any `pending: true` ghost rows
   // so consumers don't have to combine the two themselves.
   readonly loadingIds = this.store.loadingSet;
-  // Workspace ids with a live run/setup PTY (RunRegistry) or an
-  // in-flight auto-detected install (installPackages, which bypasses
-  // RunRegistry). Sidebar rows read this to paint a spinner-in-place-
-  // of-branch-icon — distinct from `loadingIds` which drives the
-  // heavier skeleton swap for archive / delete flows.
-  readonly busyWorkspaceIds = computed<ReadonlySet<string>>(() => {
-    const set = new Set<string>();
-    for (const id of this.runs.busyIds()) set.add(id);
-    for (const id of this.terminals.busyIds()) set.add(id);
-    for (const [id, install] of this._installs()) {
-      if (install.state === 'running') set.add(id);
-    }
-    return set;
-  });
 
   /** Per-id signal — true when the workspace is loading for any
    *  reason (delete in flight, post-bootstrap initialize, future
@@ -291,6 +275,18 @@ export class WorkspacesFacade {
     return this._installs().get(workspaceId) ?? NO_INSTALL;
   }
 
+  /** Cheap, reactive setup/install state for `workspaceId`, read
+   *  straight off the `_installs` signal. Unlike `installFor` it never
+   *  touches RunRegistry, so the sidebar can call it once per row
+   *  without spinning up an xterm. `runInstall` keeps `_installs`
+   *  populated for BOTH the custom-setup-command and the
+   *  auto-detected-install paths, so this is an accurate mirror of the
+   *  workspace's real setup lifecycle. Returns 'idle' before setup is
+   *  kicked. */
+  installStateFor(workspaceId: string): InstallState {
+    return this._installs().get(workspaceId)?.state ?? 'idle';
+  }
+
   /** Auto-setup hook: fired at workspace creation (first workspace via
    *  `AddProjectFlow` AND additional workspaces via `createForPrompt`).
    *  Two paths:
@@ -308,10 +304,18 @@ export class WorkspacesFacade {
       await this.projects.ensureDetectedScripts(ws.projectId);
       const effective = this.projects.effectiveCommandsFor(ws.projectId)();
       if (effective.setupCommand) {
+        // Custom setup command — runs as a PTY surfaced in the Setup
+        // tab. Mirror its lifecycle into `_installs` so the sidebar row
+        // and the ready-state share one source of truth. The PTY exit
+        // is treated as success (matching `installFor`); a spawn
+        // failure flips to 'failed' so the row shows an error.
+        this._setInstall(workspaceId, { state: 'running', manager: '' });
         try {
           await this.runs.startSetup(workspaceId);
+          this._setInstall(workspaceId, { state: 'success', manager: '' });
         } catch (err) {
           console.warn('[workspaces] setupCommand run failed', workspaceId, err);
+          this._setInstall(workspaceId, { state: 'failed', manager: '' });
         }
         return;
       }

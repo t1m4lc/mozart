@@ -10,6 +10,7 @@ import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, type Navigation } from '@angular/router';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { FeatureChatContent } from '@mozart/desktop-chat-feature';
+import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
   FileTabsService,
@@ -64,6 +65,9 @@ type FileTabIntent = 'preview' | 'pin';
                 [variant]="activeTabIsFirst() ? 'start' : 'untitled'"
                 [installState]="install().state"
                 [installManager]="install().manager"
+                [branch]="branch()"
+                [baseBranch]="baseBranch()"
+                [projectName]="projectName()"
                 (retry)="onRetrySetup()"
               />
             </app-feature-chat-content>
@@ -122,6 +126,7 @@ export class WorkspaceTabContent {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly chat = inject(ChatFacade);
   private readonly fileTabs = inject(FileTabsService);
+  private readonly projects = inject(ProjectsFacade);
   private readonly router = inject(Router);
   private readonly uiState = inject(UiStateFacade);
 
@@ -173,6 +178,20 @@ export class WorkspaceTabContent {
     return id
       ? this.workspaces.installFor(id)
       : { state: 'idle' as const, manager: '' };
+  });
+
+  private readonly workspaceEntity = computed(() => {
+    const id = this.workspaceId();
+    return id ? this.workspaces.workspaceById(id)() : null;
+  });
+
+  protected readonly branch = computed(() => this.workspaceEntity()?.branch ?? '');
+  protected readonly baseBranch = computed(
+    () => this.workspaceEntity()?.baseBranch ?? '',
+  );
+  protected readonly projectName = computed(() => {
+    const pid = this.workspaceEntity()?.projectId;
+    return pid ? (this.projects.byId(pid)()?.name ?? '') : '';
   });
 
   protected readonly frozen = computed(() => {
