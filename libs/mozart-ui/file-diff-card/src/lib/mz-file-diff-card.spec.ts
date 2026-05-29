@@ -426,7 +426,8 @@ describe('MzFileDiffCard — refresh output', () => {
   });
 });
 
-describe('MzFileDiffCard — viewed button', () => {
+// TODO: re-enable when the Viewed button is restored (currently hidden).
+describe.skip('MzFileDiffCard — viewed button', () => {
   it('reflects the viewed input on initial render', () => {
     const fixture = mount({ viewed: true });
     const btn = findBySlot(fixture, 'viewed-button') as HTMLButtonElement;

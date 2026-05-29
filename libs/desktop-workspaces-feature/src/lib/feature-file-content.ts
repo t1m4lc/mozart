@@ -382,21 +382,21 @@ export class FeatureFileContent {
   private readonly cachedChangedFiles = this.repos.cachedChangedFilesFor(
     this.workspaceId,
   );
-  // Map the workspace-relative path to a `FileDiffStatus`. Defaults to
-  // 'modified' when the path is not in the changed-files cache (e.g.
-  // tracked-but-unchanged or the cache hasn't loaded yet) so the header
-  // badge keeps a sane neutral fallback.
-  protected readonly fileChangeStatus = computed<FileDiffStatus>(() => {
+  // Map the workspace-relative path to a `FileDiffStatus`. Null when the
+  // path is not in the changed-files cache (e.g. tracked-but-unchanged or
+  // the cache hasn't loaded yet) so no status badge is shown rather than
+  // guessing a wrong 'modified'.
+  protected readonly fileChangeStatus = computed<FileDiffStatus | null>(() => {
     const p = this.filePath();
-    if (!p) return 'modified';
+    if (!p) return null;
     const files = this.cachedChangedFiles();
-    if (!files) return 'modified';
+    if (!files) return null;
     const match: ChangedFile | undefined = files.find((f) => f.path === p);
-    return match?.status ?? 'modified';
+    return match?.status ?? null;
   });
   protected readonly statusBadge = computed<StatusBadge | null>(() => {
     const status = this.fileChangeStatus();
-    return STATUS_BADGE[status] ?? null;
+    return status ? STATUS_BADGE[status] : null;
   });
 
   // Key for resetting per-file edit state. Reading this in a linkedSignal

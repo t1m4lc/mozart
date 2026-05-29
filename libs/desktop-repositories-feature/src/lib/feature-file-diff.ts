@@ -79,7 +79,7 @@ import {
 export class FeatureFileDiff {
   readonly workspaceId = input<string | null>(null);
   readonly path = input<string | null>(null);
-  readonly status = input<FileDiffStatus>('modified');
+  readonly status = input<FileDiffStatus | null>(null);
   // Forwarded to the inner MzFileDiffCard / MzDiffView. Bottom padding
   // (px) inside the diff CodeMirror so the last hunk can scroll past
   // a fixed overlay below (workspace composer on file tabs). 0

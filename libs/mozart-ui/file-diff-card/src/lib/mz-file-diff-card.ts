@@ -81,7 +81,7 @@ const BADGE_TONE_CLASS: Record<StatusBadge['tone'], string> = {
   muted: 'text-muted-foreground/70',
 };
 
-function statusBodyMode(status: FileDiffStatus): BodyMode {
+function statusBodyMode(status: FileDiffStatus | null): BodyMode {
   if (status === 'binary') return 'binary';
   if (status === 'too-large') return 'too-large';
   if (status === 'no-diff') return 'no-diff';
@@ -230,14 +230,16 @@ interface PathDisplay {
             [removed]="deletions()"
           />
 
-          <span
-            hlmBadge
-            variant="outline"
-            class="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wider"
-            [class]="_badgeToneClass()"
-            [attr.aria-label]="'Status: ' + _badge().label"
-            data-slot="status-badge"
-          >{{ _badge().label }}</span>
+          @if (_badge(); as badge) {
+            <span
+              hlmBadge
+              variant="outline"
+              class="h-5 shrink-0 px-1.5 font-mono text-[10px] tracking-wider"
+              [class]="_badgeToneClass()"
+              [attr.aria-label]="'Status: ' + badge.label"
+              data-slot="status-badge"
+            >{{ badge.label }}</span>
+          }
 
           <button
             hlmBtn
@@ -258,27 +260,30 @@ interface PathDisplay {
             />
           </button>
 
-          <button
-            hlmBtn
-            variant="outline"
-            size="xs"
-            type="button"
-            class="text-muted-foreground hover:text-foreground hover:bg-accent h-6 shrink-0 gap-1.5 rounded-full px-2.5 text-[11px]"
-            [class.text-foreground]="_viewed()"
-            [class.bg-accent]="_viewed()"
-            [hlmTooltip]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
-            [attr.aria-pressed]="_viewed()"
-            [attr.aria-label]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
-            data-slot="viewed-button"
-            (click)="_toggleViewed()"
-          >
-            <ng-icon
-              hlm
-              [name]="_viewed() ? 'lucideSquareCheck' : 'lucideSquare'"
-              size="md"
-            />
-            Viewed
-          </button>
+          <!-- TODO: re-enable once the Viewed/review flow is implemented -->
+          @if (false) {
+            <button
+              hlmBtn
+              variant="outline"
+              size="xs"
+              type="button"
+              class="text-muted-foreground hover:text-foreground hover:bg-accent h-6 shrink-0 gap-1.5 rounded-full px-2.5 text-[11px]"
+              [class.text-foreground]="_viewed()"
+              [class.bg-accent]="_viewed()"
+              [hlmTooltip]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
+              [attr.aria-pressed]="_viewed()"
+              [attr.aria-label]="_viewed() ? 'Mark unviewed' : 'Mark as viewed'"
+              data-slot="viewed-button"
+              (click)="_toggleViewed()"
+            >
+              <ng-icon
+                hlm
+                [name]="_viewed() ? 'lucideSquareCheck' : 'lucideSquare'"
+                size="md"
+              />
+              Viewed
+            </button>
+          }
 
           <ng-content select="[mzFileDiffCardTrailing]" />
         </div>
@@ -348,7 +353,7 @@ interface PathDisplay {
 export class MzFileDiffCard {
   readonly path = input.required<string>();
   readonly oldPath = input<string | null>(null);
-  readonly status = input<FileDiffStatus>('modified');
+  readonly status = input<FileDiffStatus | null>(null);
 
   readonly additions = input<number>(0);
   readonly deletions = input<number>(0);
@@ -423,12 +428,14 @@ export class MzFileDiffCard {
   protected readonly _bodyMode = computed<BodyMode>(() =>
     statusBodyMode(this.status()),
   );
-  protected readonly _badge = computed<StatusBadge>(
-    () => STATUS_BADGE[this.status()],
-  );
-  protected readonly _badgeToneClass = computed(
-    () => BADGE_TONE_CLASS[this._badge().tone],
-  );
+  protected readonly _badge = computed<StatusBadge | null>(() => {
+    const status = this.status();
+    return status ? STATUS_BADGE[status] : null;
+  });
+  protected readonly _badgeToneClass = computed(() => {
+    const badge = this._badge();
+    return badge ? BADGE_TONE_CLASS[badge.tone] : '';
+  });
 
   protected readonly _pathDisplay = computed<PathDisplay>(() => {
     const cur = this.path();
