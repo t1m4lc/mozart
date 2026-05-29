@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { open as openExternal } from '@tauri-apps/plugin-shell';
 import { ExternalLinkService } from '@mozart/desktop-core-data-access';
+import { commands } from './_bindings';
 
 // Tauri-bound impl of the abstract `ExternalLinkService` declared in
 // `desktop-core-data-access`. Bound via
@@ -15,6 +16,14 @@ export class TauriExternalLinkService extends ExternalLinkService {
     } catch (err) {
       console.warn('[external-link] open failed:', err);
       throw err;
+    }
+  }
+
+  async revealPath(path: string): Promise<void> {
+    const res = await commands.openPathInFileManager(path);
+    if (res.status === 'error') {
+      console.warn('[external-link] reveal path failed:', res.error);
+      throw res.error;
     }
   }
 }

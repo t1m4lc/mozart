@@ -6,4 +6,7 @@
 // `{ provide: ExternalLinkService, useExisting: TauriExternalLinkService }`.
 export abstract class ExternalLinkService {
   abstract openExternal(url: string): Promise<void>;
+  /** Reveal a local path in the OS file manager (Finder / Explorer /
+   *  the default xdg file manager). */
+  abstract revealPath(path: string): Promise<void>;
 }

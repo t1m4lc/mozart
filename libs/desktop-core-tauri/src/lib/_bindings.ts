@@ -1466,6 +1466,21 @@ export const commands = {
     }
   },
   /**
+   * Open `path` in the OS file manager (Finder / Explorer / the default
+   * xdg file manager). Backs the source-repo crumb's "Open local folder".
+   */
+  async openPathInFileManager(path: string): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('open_path_in_file_manager', { path }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Plan §P2.6 "Merge-now flow". Runs the local-merge state machine on
    * the workspace's worktree and persists the resulting status.
    *

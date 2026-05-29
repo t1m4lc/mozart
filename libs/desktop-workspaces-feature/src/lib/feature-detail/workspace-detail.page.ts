@@ -5,6 +5,7 @@ import {
   effect,
   inject,
   input,
+  resource,
   TemplateRef,
   viewChild,
 } from '@angular/core';
@@ -21,6 +22,7 @@ import { MacWindowControls } from '@mozart/desktop-core-ui';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import {
   FeatureCommitDialog,
@@ -66,8 +68,10 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       class="sticky top-0 z-30"
       [projectIcon]="projectIcon()"
       [projectName]="projectName()"
+      [repoPath]="project()?.path ?? null"
+      [repoUrl]="repoUrl()"
       [workspaceTitle]="workspaceName()"
-      [currentBranch]="store.currentBranch()"
+      [currentBranch]="workspace()?.branch ?? ''"
       [baseBranch]="workspace()?.baseBranch ?? 'main'"
       [isStreaming]="isStreaming()"
       [leadingSlot]="layout.leftPanelOpen() ? null : sidebarHeader()"
@@ -80,6 +84,7 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       [hasRunCommand]="hasRunCommand()"
       [workspaceStatus]="workspaceStatus()"
       [frozen]="frozen()"
+      [hasUncommittedChanges]="hasUncommittedChanges()"
       data-tour="aside-header-buttons"
       (toggleRightPanel)="layout.toggleRightPanel()"
       (workspaceTitleChange)="onRename($event)"
@@ -87,6 +92,8 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       (commit)="onCommit()"
       (createPr)="onCreatePr()"
       (openPr)="onOpenPr()"
+      (openRepoFolder)="onOpenRepoFolder()"
+      (openRepoRemote)="onOpenRepoRemote()"
       (run)="onRun()"
       (stopRun)="onStopRun()"
       (workspaceStatusChange)="onWorkspaceStatusChange($event)"
@@ -131,6 +138,7 @@ export class WorkspaceDetailPage {
   private readonly runs = inject(RunRegistry);
   private readonly chatFacade = inject(ChatFacade);
   private readonly externalLink = inject(ExternalLinkService);
+  private readonly repos = inject(RepositoriesFacade);
 
   protected readonly availableTools = this.ides.availableTools;
 
@@ -155,8 +163,43 @@ export class WorkspaceDetailPage {
   protected readonly projectIcon = computed(() => this.project()?.icon ?? null);
   protected readonly workspaceName = computed(() => this.workspace()?.name ?? '');
 
+  // GitHub URL of the source repository, when the project's remote is a
+  // github.com repo. Drives the clickable project crumb ("open on
+  // GitHub"). Null for non-GitHub / pending / no-remote.
+  protected readonly repoUrl = computed(() => {
+    const pid = this.project()?.id;
+    if (!pid) return null;
+    const status = this.projects.githubRemoteStatusFor(pid)();
+    return status?.kind === 'github'
+      ? `https://github.com/${status.owner}/${status.repo}`
+      : null;
+  });
+
   protected readonly isStreaming = this.chatFacade.isStreaming(
     computed(() => this.workspaceId() ?? null),
+  );
+
+  // Working-tree changed files, kept reactive via `resource` (no manual
+  // effect). Re-loads on workspace change and whenever the FS-watcher
+  // revision bumps — tracked through the changed-files cache, which the
+  // aside refreshes on watcher pings.
+  private readonly changedFilesRevision = this.repos.cachedChangedFilesFor(
+    computed(() => this.workspaceId() ?? null),
+  );
+  private readonly changedFilesResource = resource({
+    params: () => ({
+      id: this.workspaceId() ?? null,
+      rev: this.changedFilesRevision(),
+    }),
+    loader: ({ params }) =>
+      params.id
+        ? this.repos.listChangedFiles(params.id)
+        : Promise.resolve([]),
+  });
+  // Drives the Commit-button brand color: true when the working tree has
+  // files to commit.
+  protected readonly hasUncommittedChanges = computed(
+    () => (this.changedFilesResource.value()?.length ?? 0) > 0,
   );
 
   protected readonly runStatus = computed(() => {
@@ -211,15 +254,9 @@ export class WorkspaceDetailPage {
       const pid = this.project()?.id;
       if (!pid) return;
       void this.projects.ensureDetectedScripts(pid);
-    });
-
-    // Mirror the workspace's own branch into the detail store so the
-    // toolbar crumb tooltip can show it. Base branch is read from the
-    // workspace entity directly in the template.
-    effect(() => {
-      const ws = this.workspace();
-      if (!ws) return;
-      this.store.setCurrentBranch(ws.branch);
+      // Resolve the GitHub remote so the project crumb can offer
+      // "open on GitHub". De-duped inside the facade.
+      void this.projects.ensureGithubRemoteStatus(pid);
     });
   }
 
@@ -302,6 +339,18 @@ export class WorkspaceDetailPage {
   // on the explicit "PR #N" chip click).
   protected onOpenPr(): void {
     const url = this.workspace()?.pr?.url;
+    if (url) void this.externalLink.openExternal(url);
+  }
+
+  // Open the source repository's local folder in the OS file manager.
+  protected onOpenRepoFolder(): void {
+    const path = this.project()?.path;
+    if (path) void this.externalLink.revealPath(path);
+  }
+
+  // Open the source repository on GitHub.
+  protected onOpenRepoRemote(): void {
+    const url = this.repoUrl();
     if (url) void this.externalLink.openExternal(url);
   }
 }

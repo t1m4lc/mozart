@@ -114,6 +114,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::detect_github_remote_for_project,
                 commands::push_workspace_branch,
                 commands::create_workspace_pr,
+                commands::open_path_in_file_manager,
                 commands::merge_workspace_locally,
                 commands::set_workspace_last_merge_action,
                 commands::set_workspace_sandbox_level,

@@ -2203,6 +2203,29 @@ pub async fn open_in_ide(
     ide_launch::open_in_ide(&ide_id, std::path::Path::new(&ws.worktree_path))
 }
 
+/// Open `path` in the OS file manager (Finder / Explorer / the default
+/// xdg file manager). Backs the source-repo crumb's "Open local folder"
+/// action. Fire-and-forget — some managers (`explorer`) exit non-zero
+/// even on success, so we only check that the spawn succeeded.
+#[tauri::command]
+#[specta::specta]
+pub async fn open_path_in_file_manager(path: String) -> Result<(), AppError> {
+    if !std::path::Path::new(&path).exists() {
+        return Err(AppError::NotFound(format!("path not found: {path}")));
+    }
+    #[cfg(target_os = "macos")]
+    let program = "open";
+    #[cfg(target_os = "windows")]
+    let program = "explorer";
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let program = "xdg-open";
+    tokio::process::Command::new(program)
+        .arg(&path)
+        .spawn()
+        .map_err(|e| AppError::Io(format!("open file manager ({program}): {e}")))?;
+    Ok(())
+}
+
 /// Flat list of changed files in the workspace's worktree. Powers the
 /// commit dialog's checkbox list.
 #[tauri::command]

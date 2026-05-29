@@ -598,14 +598,14 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 
 ---
 
-## Workspaces — source-repository view / affordance
+## Workspaces — richer source-repository info popover
 
-**What:** A way to see and open the source repository from Mozart (path, GitHub remote, default branch), beyond the small breadcrumb crumb that names it today.
+**What:** A popover/panel off the toolbar project crumb showing repo path + default branch + GitHub remote status, with a "Reveal in file manager" action. The "Open on GitHub" slice already shipped (the project crumb is now a button that opens the repo URL).
 
-**Why:** §7 ("how should the user access the source repository"). The Project *is* the source repo in the model, but the only surface is a non-interactive breadcrumb crumb — no "open repo folder", "open on GitHub", or repo-info view.
+**Why:** §7 ("how should the user access the source repository"). "Open on GitHub" is done; the remaining gap is seeing the repo path / default branch / opening the local folder without leaving Mozart.
 
-**How to apply:** Likely a popover/panel off the project crumb showing repo path + GitHub remote status (the `GithubRemoteStatus` from the PR-flow work already classifies this) + default branch, with "Open folder" / "Open on GitHub" actions (reuse `ExternalLinkService`). Keep it calm/app-UI, not a new page.
+**How to apply:** Wrap the project crumb in a popover (Spartan) showing `repo.path`, the default branch, and `GithubRemoteStatus`. Add a Tauri command to reveal the path in the OS file manager (none exists yet) for the "Open folder" action; "Open on GitHub" already uses `ExternalLinkService`. Keep it calm/app-UI, not a new page.
 
-**Depends on:** Nothing hard; `GithubRemoteStatus` + `ExternalLinkService` already exist.
+**Depends on:** A reveal-in-file-manager Tauri command (new) for the "Open folder" action.
 
 ---

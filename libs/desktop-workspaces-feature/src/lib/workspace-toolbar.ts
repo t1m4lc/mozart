@@ -13,34 +13,37 @@ import {
   viewChild,
 } from '@angular/core';
 import { MzStatusIcon } from '@mozart-ui/status-icon';
-import { HlmBreadcrumbImports } from '@spartan-ui/breadcrumb';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
-import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmSheetImports } from '@spartan-ui/sheet';
-import { HlmTooltipImports } from '@spartan-ui/tooltip';
-import { LayoutService } from '@mozart/desktop-ui-state-data-access';
-import { FeatureWorkspaceAside } from './feature-workspace-aside';
-import { NgIcon, provideIcons } from '@ng-icons/core';
-import {
-  lucideCheck,
-  lucideChevronDown,
-  lucideCircleStop,
-  lucideGitBranch,
-  lucideGitCommitVertical,
-  lucideGitPullRequest,
-  lucidePanelRight,
-  lucidePlay,
-} from '@ng-icons/lucide';
 import { ShellTopBar } from '@mozart/desktop-core-ui';
 import type { RunStatus } from '@mozart/desktop-runs-util';
+import { LayoutService } from '@mozart/desktop-ui-state-data-access';
+import { OpenInMenu } from '@mozart/desktop-workspaces-ui';
 import {
   UI_WORKSPACE_STATUSES,
   getUiStatusMeta,
   type OpenInTool,
   type UiWorkspaceStatus,
 } from '@mozart/desktop-workspaces-util';
-import { OpenInMenu } from '@mozart/desktop-workspaces-ui';
+import { NgIcon, provideIcons } from '@ng-icons/core';
+import {
+  lucideCheck,
+  lucideChevronDown,
+  lucideCircleStop,
+  lucideExternalLink,
+  lucideFolderOpen,
+  lucideGitBranch,
+  lucideGitCommitVertical,
+  lucideGithub,
+  lucideGitPullRequest,
+  lucidePanelRight,
+  lucidePlay,
+} from '@ng-icons/lucide';
+import { HlmBreadcrumbImports } from '@spartan-ui/breadcrumb';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
+import { HlmIconImports } from '@spartan-ui/icon';
+import { HlmSheetImports } from '@spartan-ui/sheet';
+import { HlmTooltipImports } from '@spartan-ui/tooltip';
+import { FeatureWorkspaceAside } from './feature-workspace-aside';
 
 @Component({
   selector: 'app-workspace-toolbar',
@@ -63,8 +66,11 @@ import { OpenInMenu } from '@mozart/desktop-workspaces-ui';
       lucideCheck,
       lucideChevronDown,
       lucideCircleStop,
+      lucideExternalLink,
+      lucideFolderOpen,
       lucideGitBranch,
       lucideGitCommitVertical,
+      lucideGithub,
       lucideGitPullRequest,
       lucidePanelRight,
       lucidePlay,
@@ -90,13 +96,39 @@ import { OpenInMenu } from '@mozart/desktop-workspaces-ui';
         >
           <ol hlmBreadcrumbList>
             <li hlmBreadcrumbItem class="shrink-0">
-              <span
-                hlmBreadcrumbPage
-                class="flex items-center gap-1 text-sm font-normal"
-              >
-                <span>{{ projectIcon() }}</span>
-                <span>{{ projectName() }}</span>
-              </span>
+              @if (repoUrl()) {
+                <button
+                  type="button"
+                  class="flex items-center gap-1 rounded text-sm font-normal text-muted-foreground transition-colors hover:text-foreground"
+                  [hlmDropdownMenuTrigger]="repoMenu"
+                  align="start"
+                  side="bottom"
+                  hlmTooltip="Source repository"
+                  position="bottom"
+                >
+                  <span>{{ projectIcon() }}</span>
+                  <span>{{ projectName() }}</span>
+                </button>
+              } @else if (repoPath()) {
+                <button
+                  type="button"
+                  class="flex items-center gap-1 rounded text-sm font-normal text-muted-foreground transition-colors hover:text-foreground"
+                  hlmTooltip="Open the repository folder"
+                  position="bottom"
+                  (click)="openRepoFolder.emit()"
+                >
+                  <span>{{ projectIcon() }}</span>
+                  <span>{{ projectName() }}</span>
+                </button>
+              } @else {
+                <span
+                  hlmBreadcrumbPage
+                  class="flex items-center gap-1 text-sm font-normal"
+                >
+                  <span>{{ projectIcon() }}</span>
+                  <span>{{ projectName() }}</span>
+                </span>
+              }
             </li>
             <li hlmBreadcrumbSeparator class="shrink-0 flex items-center"></li>
             <li hlmBreadcrumbItem class="min-w-0 overflow-hidden">
@@ -162,11 +194,15 @@ import { OpenInMenu } from '@mozart/desktop-workspaces-ui';
             variant="ghost"
             size="sm"
             type="button"
-            class="h-7 px-2 text-xs font-normal text-muted-foreground"
+            class="h-7 px-2 text-xs font-normal"
+            [class.text-brand]="hasUncommittedChanges() && !frozen()"
+            [class.text-muted-foreground]="!(hasUncommittedChanges() && !frozen())"
             [hlmTooltip]="
               frozen()
                 ? 'Workspace is done — reopen to commit'
-                : 'Commit changes'
+                : hasUncommittedChanges()
+                  ? 'You have uncommitted changes'
+                  : 'Commit changes'
             "
             position="bottom"
             [disabled]="frozen()"
@@ -276,6 +312,29 @@ import { OpenInMenu } from '@mozart/desktop-workspaces-ui';
       </div>
     </app-shell-top-bar>
 
+    <ng-template #repoMenu>
+      <hlm-dropdown-menu class="w-52">
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="openRepoFolder.emit()"
+        >
+          <ng-icon hlm name="lucideFolderOpen" size="xs" />
+          <span>Open repository folder</span>
+        </button>
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="openRepoRemote.emit()"
+        >
+          <ng-icon hlm name="lucideGithub" size="xs" />
+          <span>Open on GitHub</span>
+        </button>
+      </hlm-dropdown-menu>
+    </ng-template>
+
     <ng-template #statusMenu>
       <hlm-dropdown-menu class="w-44">
         @for (s of statuses; track s.id) {
@@ -301,6 +360,12 @@ export class WorkspaceToolbar {
 
   readonly projectIcon = input.required<string | null>();
   readonly projectName = input.required<string>();
+  // Source-repository location. `repoPath` (the local folder) is always
+  // available; `repoUrl` (github.com) only when the project has a GitHub
+  // remote. The project crumb opens a dropdown (folder / GitHub) when a
+  // remote exists, else opens the folder directly.
+  readonly repoPath = input<string | null>(null);
+  readonly repoUrl = input<string | null>(null);
   readonly workspaceTitle = input.required<string>();
   // The workspace's own git branch (e.g. "mozart/eminem"). Shown on the
   // crumb tooltip, not as a raw label, so the header stays warm.
@@ -334,6 +399,9 @@ export class WorkspaceToolbar {
   // rename mode. Open in IDE stays enabled (read-only browsing in an
   // external editor is fine).
   readonly frozen = input<boolean>(false);
+  // Working tree has uncommitted changes → the Commit button goes brand-
+  // colored to signal "you have changes to commit".
+  readonly hasUncommittedChanges = input<boolean>(false);
 
   readonly toggleRightPanel = output<void>();
   readonly workspaceTitleChange = output<string>();
@@ -341,6 +409,8 @@ export class WorkspaceToolbar {
   readonly commit = output<void>();
   readonly createPr = output<void>();
   readonly openPr = output<void>();
+  readonly openRepoFolder = output<void>();
+  readonly openRepoRemote = output<void>();
   readonly run = output<void>();
   readonly stopRun = output<void>();
   readonly workspaceStatusChange = output<UiWorkspaceStatus>();
@@ -353,7 +423,9 @@ export class WorkspaceToolbar {
     const branch = this.currentBranch();
     const base = this.baseBranch();
     if (!branch) return '';
-    return base ? `branch: ${branch} · forked from ${base}` : `branch: ${branch}`;
+    return base
+      ? `branch: ${branch} · forked from ${base}`
+      : `branch: ${branch}`;
   });
 
   protected statusLabel(s: UiWorkspaceStatus): string {

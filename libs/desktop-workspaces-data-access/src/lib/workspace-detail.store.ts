@@ -14,11 +14,6 @@ interface State {
   projectId: string;
   projectName: string;
   projectIcon: string | null;
-
-  // Git branch the workspace owns (e.g. "mozart/coltrane"). Surfaced in
-  // the toolbar crumb tooltip ("branch: … · forked from <base>"). Empty
-  // until hydration resolves it.
-  currentBranch: string;
   lastUsedTool: OpenInTool;
 }
 
@@ -30,7 +25,6 @@ const initialState: State = {
   projectId: '',
   projectName: '',
   projectIcon: null,
-  currentBranch: '',
   lastUsedTool: OPEN_IN_TOOLS[0],
 };
 
@@ -43,9 +37,6 @@ export const WorkspaceDetailStore = signalStore(
       const next = title.trim();
       if (!next) return;
       patchState(store, { workspaceTitle: next });
-    },
-    setCurrentBranch(branch: string): void {
-      patchState(store, { currentBranch: branch });
     },
     openIn(tool: OpenInTool): void {
       patchState(store, { lastUsedTool: tool });
