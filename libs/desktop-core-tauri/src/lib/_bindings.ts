@@ -1873,6 +1873,39 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  /**
+   * Effective settings (bundled defaults <- global file <- project file).
+   * `projectId` selects the project whose `.mozart/settings.json` applies;
+   * `null` resolves defaults <- global only.
+   */
+  async getResolvedSettings(
+    projectId: string | null,
+  ): Promise<Result<SettingsDto, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('get_resolved_settings', { projectId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Persist the editable global settings file. Preference fields come from
+   * the DTO; any `scripts` already in the global file are preserved.
+   */
+  async saveGlobalSettings(dto: SettingsDto): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('save_global_settings', { dto }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   async resetDatabaseClean(): Promise<Result<null, AppError>> {
     try {
       return { status: 'ok', data: await TAURI_INVOKE('reset_database_clean') };
@@ -2252,6 +2285,19 @@ export type Message = {
   created_at: number;
 };
 export type NotificationPreferences = { desktop: boolean; sound: boolean };
+export type Appearance = { theme: string; colorMode: string };
+export type Notifications = { desktop: boolean; sound: boolean };
+export type Timeline = { density: string };
+export type Agent = { model: string | null; mode: string; effort: string };
+export type Git = { baseBranch: string; mergeAction: string };
+export type SettingsDto = {
+  version: string;
+  appearance: Appearance;
+  notifications: Notifications;
+  timeline: Timeline;
+  agent: Agent;
+  git: Git;
+};
 /**
  * Outcome of a probe call. Sent to the frontend via tauri-specta as a
  * tagged TS union `{ kind: 'connected' | 'invalid' | 'network_error' }`.

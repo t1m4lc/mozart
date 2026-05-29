@@ -292,6 +292,37 @@ mod tests {
         assert_eq!(s.appearance.theme, "x");
     }
 
+    // Env-gate held across the file round-trip so parallel tests don't
+    // race on the process-global MOZART_CONFIG_DIR.
+    #[test]
+    fn global_file_round_trips_through_config_dir() {
+        let _gate = crate::sandbox::test_env_gate()
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let prev = std::env::var_os("MOZART_CONFIG_DIR");
+        let tmp = tempfile::tempdir().unwrap();
+        std::env::set_var("MOZART_CONFIG_DIR", tmp.path());
+
+        // Defaults when no file exists yet.
+        assert!(resolve(None).notifications.desktop);
+
+        let mut s = MozartSettings::default();
+        s.notifications.desktop = false;
+        s.agent.effort = "max".into();
+        save_global(&s).unwrap();
+
+        let resolved = resolve(None);
+        assert!(!resolved.notifications.desktop);
+        assert_eq!(resolved.agent.effort, "max");
+        // Untouched section keeps its default.
+        assert_eq!(resolved.appearance.theme, "mozart");
+
+        match prev {
+            Some(v) => std::env::set_var("MOZART_CONFIG_DIR", v),
+            None => std::env::remove_var("MOZART_CONFIG_DIR"),
+        }
+    }
+
     #[test]
     fn scripts_preserve_order() {
         let mut base = serde_json::to_value(MozartSettings::default()).unwrap();

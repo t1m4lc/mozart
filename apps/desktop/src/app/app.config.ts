@@ -11,7 +11,7 @@ import {
   withHashLocation,
   withRouterConfig,
 } from '@angular/router';
-import { provideTheme } from '@mozart/shared-util-theme';
+import { THEME_PERSISTENCE, provideTheme } from '@mozart/shared-util-theme';
 import {
   ConnectivityService,
   ExternalLinkService,
@@ -21,6 +21,7 @@ import { appRoutes } from './app.routes';
 import { registerCloseFlush } from './close-flush';
 import {
   provideTauriAdapters,
+  tauriThemePersistence,
   TauriConnectivityService,
   TauriExternalLinkService,
   TauriNotificationService,
@@ -59,6 +60,10 @@ export const appConfig: ApplicationConfig = {
       withRouterConfig({ paramsInheritanceStrategy: 'always' }),
     ),
     provideTheme(),
+    // Back the theme with settings.json (desktop only). The shared
+    // ThemeService keeps localStorage as the synchronous paint-cache and
+    // reconciles against this store on init.
+    { provide: THEME_PERSISTENCE, useFactory: tauriThemePersistence },
     provideTauriAdapters(),
     // Bind the abstract core-service ports (declared in
     // `desktop-core-data-access`) to their Tauri-bound concrete impls

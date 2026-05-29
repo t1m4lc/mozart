@@ -1219,13 +1219,17 @@ pub(crate) async fn create_chat_impl(
     title: String,
     llm_id: Option<String>,
 ) -> Result<Chat, AppError> {
+    // New-chat defaults come from the resolved settings (bundled
+    // defaults ◀ global settings.json). An explicit `llm_id` from the
+    // caller still wins over the settings default model.
+    let defaults = crate::settings::resolve(None).agent;
     let c = Chat {
         chat_id: new_id(),
         workspace_id,
         title,
-        llm_id,
-        mode: "agent".into(),
-        effort: "medium".into(),
+        llm_id: llm_id.or(defaults.model),
+        mode: defaults.mode,
+        effort: defaults.effort,
         last_read_message_id: None,
         closed_at: None,
         created_at: now_ms(),
@@ -2938,27 +2942,15 @@ pub struct NotificationPreferences {
     pub sound: bool,
 }
 
-const NOTIF_DESKTOP_KEY: &str = "notifications_desktop";
-const NOTIF_SOUND_KEY: &str = "notifications_sound";
-
-fn read_bool(conn: &rusqlite::Connection, key: &str, default: bool) -> bool {
-    match config::get(conn, key) {
-        Ok(Some(v)) => v == "true",
-        _ => default,
-    }
-}
-
-/// Phase 6 / Atom 10 — read notification preferences from the config
-/// table. Both toggles default to `true` on a fresh install.
+/// Read notification preferences from the resolved settings (bundled
+/// defaults ◀ global `settings.json`). Both toggles default to `true`.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_notification_preferences(
-    db: State<'_, DbState>,
-) -> Result<NotificationPreferences, AppError> {
-    let conn = db.lock();
+pub async fn get_notification_preferences() -> Result<NotificationPreferences, AppError> {
+    let n = crate::settings::resolve(None).notifications;
     Ok(NotificationPreferences {
-        desktop: read_bool(&conn, NOTIF_DESKTOP_KEY, true),
-        sound: read_bool(&conn, NOTIF_SOUND_KEY, true),
+        desktop: n.desktop,
+        sound: n.sound,
     })
 }
 
@@ -2999,20 +2991,13 @@ pub async fn save_global_settings(dto: crate::settings::SettingsDto) -> Result<(
 #[specta::specta]
 pub async fn set_notification_preferences(
     prefs: NotificationPreferences,
-    db: State<'_, DbState>,
 ) -> Result<(), AppError> {
-    let conn = db.lock();
-    config::set(
-        &conn,
-        NOTIF_DESKTOP_KEY,
-        Some(if prefs.desktop { "true" } else { "false" }),
-    )?;
-    config::set(
-        &conn,
-        NOTIF_SOUND_KEY,
-        Some(if prefs.sound { "true" } else { "false" }),
-    )?;
-    Ok(())
+    let mut current = crate::settings::resolve(None);
+    current.notifications = crate::settings::Notifications {
+        desktop: prefs.desktop,
+        sound: prefs.sound,
+    };
+    crate::settings::save_global(&current)
 }
 
 /// Phase 6 / Atom 10 — surface a desktop notification when an agent
@@ -3024,17 +3009,10 @@ pub async fn set_notification_preferences(
 #[specta::specta]
 pub async fn emit_message_end_notification(
     app: tauri::AppHandle,
-    db: State<'_, DbState>,
     chat_title: String,
 ) -> Result<(), AppError> {
     use tauri_plugin_notification::NotificationExt;
-    let prefs = {
-        let conn = db.lock();
-        NotificationPreferences {
-            desktop: read_bool(&conn, NOTIF_DESKTOP_KEY, true),
-            sound: read_bool(&conn, NOTIF_SOUND_KEY, true),
-        }
-    };
+    let prefs = crate::settings::resolve(None).notifications;
     if !prefs.desktop {
         return Ok(());
     }
