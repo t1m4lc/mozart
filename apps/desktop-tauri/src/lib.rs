@@ -20,6 +20,7 @@ pub mod mozart_config;
 pub mod path_guard;
 pub mod run_registry;
 pub mod sandbox;
+pub mod sound;
 pub mod staging;
 pub mod terminal;
 pub mod terminal_registry;

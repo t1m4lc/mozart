@@ -3021,6 +3021,16 @@ pub async fn emit_message_end_notification(
     Ok(())
 }
 
+/// Play the end-of-turn chime through the OS audio stack. Called on a
+/// focused turn-end (where the desktop popup is suppressed) and by the
+/// Settings "test sound" button. The `sound` pref is enforced front-end
+/// side so the test button can play unconditionally.
+#[tauri::command]
+#[specta::specta]
+pub async fn play_chime() -> Result<(), AppError> {
+    crate::sound::play()
+}
+
 /// Materialize (if missing) the bundled `~/Mozart/get-started/` project,
 /// then ensure a `welcome-1` workspace exists on `main`. Idempotent —
 /// re-entry from Settings → "Revisit tour" reuses the existing repo +

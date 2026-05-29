@@ -1789,6 +1789,14 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async playChime(): Promise<Result<null, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('play_chime') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   /**
    * Probe a project directory and return what Mozart inferred. Pure read,
    * no DB writes. Used by `bootstrap_project` internally and by future

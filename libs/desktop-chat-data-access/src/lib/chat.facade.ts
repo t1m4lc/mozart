@@ -682,20 +682,21 @@ export class ChatFacade {
     }
   }
 
-  // On terminal `done` / `error`, the visual desktop popup + `unread`
-  // flip are suppressed when the user is already focused on this
-  // workspace — they're looking at the result, no extra cue needed.
-  // The historical sound-only chime path was dropped (it required
-  // GStreamer plugins on Linux); when the user is here, we now stay
-  // fully silent. `stopped` is user-initiated so it's intentionally
-  // not notified.
+  // On terminal `done` / `error`, the audible chime fires (gated by the
+  // `sound` pref) so the user is alerted even while focused on the
+  // workspace. The visual desktop popup + `unread` flip are suppressed
+  // when the user is here — they're already looking at the result.
+  // `stopped` is user-initiated so it's intentionally not notified.
   private _maybeNotifyTurnEnd(workspaceId: string, content: string): void {
     const decision = decideTurnEndNotification({
       focused: this.windowFocus.isWindowFocused(),
       isActiveWorkspace: this.workspaces.activeId() === workspaceId,
     });
 
-    if (decision === 'sound-only') return;
+    if (decision === 'sound-only') {
+      this.notify.playSoundIfEnabled();
+      return;
+    }
 
     const ws = this.workspaces.workspaceById(workspaceId)();
     if (ws && !ws.unread) {

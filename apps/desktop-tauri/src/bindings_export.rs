@@ -131,6 +131,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::get_notification_preferences,
                 commands::set_notification_preferences,
                 commands::emit_message_end_notification,
+                commands::play_chime,
                 commands::detect_project,
                 commands::bootstrap_project,
                 commands::init_project_repo_from_local,

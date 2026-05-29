@@ -6,18 +6,17 @@ import {
 import { commands } from './_bindings';
 import type { NotificationImpl } from './notification-impl';
 
-// Desktop notifications on agent turn end. The audible chime is now
-// delegated to the OS notification daemon via the Tauri plugin's
-// `sound: 'default'` option — we no longer play a bundled .ogg through
-// HTML <audio>, which required GStreamer base/good plugins on Linux
-// and silently failed on machines that didn't have them.
+// Desktop notifications on agent turn end. Two surfaces:
+//   - notify(): the OS popup (+ its native sound) when the turn ends on
+//     a workspace the user isn't watching. Gated by `prefs.desktop`.
+//   - playSoundIfEnabled(): the audible chime when the user IS watching
+//     (popup suppressed). Gated by `prefs.sound`. Played via the Rust
+//     `play_chime` command, NOT HTML <audio> — the latter routed through
+//     WebKitGTK → GStreamer and silently failed on Linux desktops
+//     missing the base/good plugins.
 //
-// Independent gates from the `config` table:
-//   - notifications_desktop: should we fire the OS popup at all?
-//   - notifications_sound:   if firing, should it play the OS sound?
-// Both default to true. desktop=false short-circuits everything (the
-// previous "sound without popup" combo no longer applies — that path
-// relied on the HTML <audio> we removed).
+// Both prefs default to true and are currently pinned together in the
+// settings UI.
 //
 // Tauri-bound impl of the abstract `NotificationService` declared in
 // `desktop-core-data-access`. Bound via
@@ -96,24 +95,30 @@ export class TauriNotificationService extends NotificationService {
     }
   }
 
-  /** "Test sound" button in Settings → Notifications. Fires a real
-   *  notification (visual + native sound) so the user verifies both
-   *  channels at once. The button is already gated on the desktop
-   *  pref upstream. */
+  /** "Test sound" button in Settings → Notifications. Plays the chime
+   *  unconditionally so the user can audit it without firing an OS
+   *  notification. The button is already gated on the desktop pref
+   *  upstream. */
   override playSound(): void {
-    void this.notify({
-      title: 'Mozart',
-      body: 'Notification test',
-    });
+    this._playChime();
   }
 
-  /** Historically fired a sound-only chime when the user was focused
-   *  on the active workspace. The HTML <audio> backing this path
-   *  required GStreamer on Linux and was dropped — when the user is
-   *  already looking at the timeline, the visible update is enough.
-   *  Kept as a no-op for binary compat with existing call sites.
-   *  Safe to remove once chat.facade stops calling it. */
+  /** Play the chime IF the `sound` pref is on. Fires on a focused
+   *  turn-end so the audible cue remains even when the desktop popup is
+   *  suppressed. Hydrates the prefs cache on first call. */
   override playSoundIfEnabled(): void {
-    // intentionally empty
+    if (!this._prefsHydrated) {
+      void this._ensurePrefs().then(() => {
+        if (this._prefs().sound) this._playChime();
+      });
+      return;
+    }
+    if (this._prefs().sound) this._playChime();
+  }
+
+  // Native chime via the Rust `play_chime` command — reliable on Linux
+  // without the GStreamer dependency the old HTML <audio> path needed.
+  private _playChime(): void {
+    void commands.playChime().catch(() => undefined);
   }
 }
