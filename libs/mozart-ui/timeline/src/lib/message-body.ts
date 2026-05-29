@@ -48,6 +48,7 @@ const TYPE_CHARS_PER_FRAME = 2;
   template: `
     <div
       class="prose prose-sm dark:prose-invert max-w-none text-foreground select-text prose-p:my-3 prose-headings:my-3 prose-code:bg-muted/40 prose-code:text-foreground prose-code:font-normal prose-code:px-1.5 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none prose-pre:bg-muted/30 prose-pre:border prose-pre:border-border prose-pre:text-foreground"
+      [class.pr-3]="streaming()"
       [innerHTML]="_html()"
     ></div>
   `,
@@ -57,6 +58,10 @@ const TYPE_CHARS_PER_FRAME = 2;
   // (`<ul>`, `<pre>`, …). `:host ::ng-deep` is needed because the
   // span doesn't carry an `_ngcontent-*` attribute — innerHTML
   // bypasses Angular's emulated encapsulation.
+  //
+  // `pr-3` (streaming only) reserves room for the trailing dot so a
+  // full-width last line wraps before the edge — otherwise the dot
+  // gets clipped or pushed onto a lone wrapped line.
   styles: `
     @keyframes message-body-pulse {
       0%, 100% { opacity: 0.3; }

@@ -21,10 +21,10 @@ import { SHIMMER_TEXT_STYLES } from './_shimmer.styles';
 // re-mounts (spec §A.7.3) — restarting the shimmer mid-cycle looks
 // janky.
 //
-// Leading glyph (post 2026-05-25 dogfood) :
+// Trailing status (after the summary, before the chevron) :
 //   - while streaming : compact braille spinner + elapsed `m:ss`
-//     counter. Replaces the previous static sparkle icon — the sparkle
-//     appearing then disappearing at terminal felt jarring.
+//     counter. Trailing so the elapsed clock reads as a stable
+//     right-aligned status while the summary text rotates on the left.
 //   - when settled    : nothing. The completed summary text speaks for
 //     itself ("Done" / "Error" / "Stopped"). Container hides the
 //     header entirely for text-only completed turns.
@@ -45,6 +45,13 @@ const TICK_INTERVAL_MS = 1000;
       [attr.aria-expanded]="!collapsed()"
       class="group/turn-header flex w-full cursor-pointer items-center gap-2 rounded-md px-1 py-1 text-left text-muted-foreground transition-colors hover:text-foreground"
     >
+      <span class="min-w-0 flex-1 truncate text-sm">
+        <span [class.shimmer-text]="streaming()">
+          @for (line of [_displayed()]; track line) {
+            <span class="summary-line">{{ line }}</span>
+          }
+        </span>
+      </span>
       @if (streaming()) {
         <mz-loader
           variant="simple"
@@ -58,13 +65,6 @@ const TICK_INTERVAL_MS = 1000;
           >
         }
       }
-      <span class="min-w-0 flex-1 truncate text-sm">
-        <span [class.shimmer-text]="streaming()">
-          @for (line of [_displayed()]; track line) {
-            <span class="summary-line">{{ line }}</span>
-          }
-        </span>
-      </span>
       <ng-icon
         hlm
         name="lucideChevronDown"
