@@ -181,36 +181,6 @@ pub fn read_project(repo_root: &Path) -> Option<MozartSettings> {
     serde_json::from_value(merged).ok()
 }
 
-/// Persist `scripts` into `<repo>/.mozart/settings.json` as the only key this
-/// writes, preserving every other key already in the file. The project file
-/// stays minimal — it carries overrides only, never the bundled defaults, so a
-/// repo can't silently override a user's theme/notifications just by declaring
-/// scripts. Replaces `.mozart/run.json`.
-pub fn save_project_scripts(
-    repo_root: &Path,
-    scripts: Vec<(String, String)>,
-) -> Result<(), AppError> {
-    let path = project_settings_path(repo_root);
-    let mut on_disk = match load_layer(&path) {
-        Some(Value::Object(map)) => map,
-        _ => serde_json::Map::new(),
-    };
-    let mut scripts_obj = serde_json::Map::with_capacity(scripts.len());
-    for (k, v) in scripts {
-        scripts_obj.insert(k, Value::String(v));
-    }
-    on_disk.insert("scripts".to_string(), Value::Object(scripts_obj));
-    if let Some(parent) = path.parent() {
-        std::fs::create_dir_all(parent)
-            .map_err(|e| AppError::Io(format!("create .mozart dir: {e}")))?;
-    }
-    let body = serde_json::to_string_pretty(&Value::Object(on_disk))
-        .map_err(|e| AppError::Validation(format!("serialize project settings: {e}")))?;
-    std::fs::write(&path, body)
-        .map_err(|e| AppError::Io(format!("write project settings: {e}")))?;
-    Ok(())
-}
-
 fn load_global_value() -> Option<Value> {
     let path = crate::paths::global_settings_path().ok()?;
     load_layer(&path)
@@ -398,42 +368,6 @@ mod tests {
             Some(v) => std::env::set_var("MOZART_CONFIG_DIR", v),
             None => std::env::remove_var("MOZART_CONFIG_DIR"),
         }
-    }
-
-    // save_project_scripts writes ONLY the scripts key — never the bundled
-    // defaults — so a repo can't silently override a user's theme/notifs, and
-    // it preserves any other key already in the project file.
-    #[test]
-    fn save_project_scripts_writes_overrides_only() {
-        let tmp = tempfile::tempdir().unwrap();
-        let repo = tmp.path();
-        std::fs::create_dir_all(repo.join(".mozart")).unwrap();
-        std::fs::write(
-            repo.join(".mozart/settings.json"),
-            r#"{ "appearance": { "colorMode": "dark" } }"#,
-        )
-        .unwrap();
-
-        save_project_scripts(
-            repo,
-            vec![
-                ("setup".to_string(), "npm i".to_string()),
-                ("run".to_string(), "npm start".to_string()),
-            ],
-        )
-        .unwrap();
-
-        let raw: Value = serde_json::from_str(
-            &std::fs::read_to_string(repo.join(".mozart/settings.json")).unwrap(),
-        )
-        .unwrap();
-        let obj = raw.as_object().unwrap();
-        // Pre-existing override kept; scripts added; no defaults injected.
-        assert_eq!(raw["appearance"]["colorMode"], "dark");
-        assert_eq!(raw["scripts"]["setup"], "npm i");
-        assert!(!obj.contains_key("version"), "no bundled defaults: {raw}");
-        assert!(!obj.contains_key("notifications"), "no bundled defaults: {raw}");
-        assert!(!obj.contains_key("git"), "no bundled defaults: {raw}");
     }
 
     #[test]

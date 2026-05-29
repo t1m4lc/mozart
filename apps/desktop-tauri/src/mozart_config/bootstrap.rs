@@ -324,25 +324,6 @@ fn validate_open_path(path: &Path) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Write the local fallback scripts into the repo's `.mozart/settings.json`
-/// (`scripts` key), preserving any other keys already there. Wired but not
-/// exposed in UI for v0 (TODO-006).
-pub async fn init_project_repo_from_local(
-    db: &DbState,
-    project_id: &str,
-) -> Result<(), AppError> {
-    let (repo_path, run_json) = {
-        let conn = db.lock();
-        let repo = repos::get(&conn, project_id)?;
-        let local = project_local_config::get(&conn, project_id)?;
-        (repo.path, local.run_json)
-    };
-
-    let run: RunConfig = serde_json::from_str(&run_json)
-        .map_err(|e| AppError::Validation(format!("run_json parse: {e}")))?;
-    crate::settings::save_project_scripts(Path::new(&repo_path), run.scripts)
-}
-
 /// Read the active config for `project_id`. If the repo's
 /// `.mozart/settings.json` carries `scripts`, returns them with
 /// `source = "repo"`. Otherwise returns the local row with
@@ -674,104 +655,6 @@ mod tests {
         assert_eq!(d.package_manager.as_deref(), Some("go"));
         // Caller-side smoke: there is no DB to corrupt because we never
         // touched one. The detector is stateless.
-    }
-
-    /// `init_project_repo_from_local` is idempotent — re-running it merges
-    /// the latest scripts into `.mozart/settings.json` without erroring.
-    #[allow(clippy::await_holding_lock)]
-    #[tokio::test]
-    async fn init_repo_overwrites_scripts_idempotently() {
-        if !git_available() {
-            eprintln!("SKIP init_repo_overwrites_scripts_idempotently: git not on PATH");
-            return;
-        }
-        let _gate = test_env_gate().lock().unwrap_or_else(|e| e.into_inner());
-        let prev = std::env::var_os("MOZART_WORKTREES_ROOT");
-
-        let root = TempDir::new().unwrap();
-        let worktrees = root.path().join("worktrees");
-        std::fs::create_dir_all(&worktrees).unwrap();
-        std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);
-        let repo = root.path().join("repo");
-        std::fs::create_dir_all(&repo).unwrap();
-        init_git_repo(&repo);
-        std::fs::write(repo.join("go.mod"), "module x\n").unwrap();
-        Command::new("git").current_dir(&repo).args(["add", "go.mod"]).output().unwrap();
-        Command::new("git")
-            .current_dir(&repo)
-            .args(["commit", "--no-gpg-sign", "-m", "go"])
-            .output()
-            .unwrap();
-        let db = init_db_memory().unwrap();
-        let r = bootstrap_project(&db, &repo).await.expect("bootstrap ok");
-
-        // Pre-seed a settings.json with an unrelated key — it must survive.
-        std::fs::create_dir_all(repo.join(".mozart")).unwrap();
-        std::fs::write(
-            repo.join(".mozart/settings.json"),
-            r#"{ "appearance": { "theme": "mozart", "colorMode": "dark" } }"#,
-        )
-        .unwrap();
-
-        init_project_repo_from_local(&db, &r.project_id)
-            .await
-            .expect("first init ok");
-        init_project_repo_from_local(&db, &r.project_id)
-            .await
-            .expect("second init ok (idempotent)");
-
-        let body = std::fs::read_to_string(repo.join(".mozart/settings.json")).unwrap();
-        assert!(body.contains("go mod download"), "scripts merged in: {body}");
-        assert!(body.contains("\"colorMode\": \"dark\""), "pre-existing key kept: {body}");
-        assert!(!repo.join(".mozart/run.json").exists());
-
-        restore_root(prev);
-    }
-
-    /// `init_project_repo_from_local` happy path — writes the local row's
-    /// scripts into `.mozart/settings.json`.
-    #[allow(clippy::await_holding_lock)]
-    #[tokio::test]
-    async fn init_repo_writes_files() {
-        if !git_available() {
-            eprintln!("SKIP init_repo_writes_files: git not on PATH");
-            return;
-        }
-        let _gate = test_env_gate().lock().unwrap_or_else(|e| e.into_inner());
-        let prev = std::env::var_os("MOZART_WORKTREES_ROOT");
-
-        let root = TempDir::new().unwrap();
-        // MOZART_WORKTREES_ROOT must be a *sibling* dir, not an ancestor
-        // of `repo`, or the worktree creator would drop the worktree
-        // inside the repo's working tree (showing up as `?? get-started/`).
-        let worktrees = root.path().join("worktrees");
-        std::fs::create_dir_all(&worktrees).unwrap();
-        std::env::set_var("MOZART_WORKTREES_ROOT", &worktrees);
-        let repo = root.path().join("repo");
-        std::fs::create_dir_all(&repo).unwrap();
-        init_git_repo(&repo);
-        std::fs::write(repo.join("go.mod"), "module x\n").unwrap();
-        Command::new("git").current_dir(&repo).args(["add", "go.mod"]).output().unwrap();
-        Command::new("git")
-            .current_dir(&repo)
-            .args(["commit", "--no-gpg-sign", "-m", "go"])
-            .output()
-            .unwrap();
-        let db = init_db_memory().unwrap();
-        let r = bootstrap_project(&db, &repo).await.expect("bootstrap ok");
-
-        init_project_repo_from_local(&db, &r.project_id)
-            .await
-            .expect("init repo ok");
-
-        // No run.json is ever written now — scripts live in settings.json.
-        assert!(!repo.join(".mozart/run.json").exists());
-        let settings_body =
-            std::fs::read_to_string(repo.join(".mozart/settings.json")).unwrap();
-        assert!(settings_body.contains("go mod download"));
-        assert!(settings_body.contains("go run ."));
-
-        restore_root(prev);
     }
 
     /// R0.3.G guard — bootstrap on a path that doesn't exist must

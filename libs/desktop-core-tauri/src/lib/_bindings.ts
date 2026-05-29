@@ -1837,25 +1837,6 @@ export const commands = {
     }
   },
   /**
-   * Deferred "Save config to repo" surface. Writes the local fallback
-   * config to `.mozart/run.json` + `.mozart/settings.json`, validating
-   * first and refusing to overwrite. Wired in P0.3 but not exposed in
-   * UI for v0 (TODO-006).
-   */
-  async initProjectRepoFromLocal(
-    projectId: string,
-  ): Promise<Result<null, AppError>> {
-    try {
-      return {
-        status: 'ok',
-        data: await TAURI_INVOKE('init_project_repo_from_local', { projectId }),
-      };
-    } catch (e) {
-      if (e instanceof Error) throw e;
-      else return { status: 'error', error: e as any };
-    }
-  },
-  /**
    * Read the active project config. Repo > local; falls back to the
    * local DB row if `.mozart/run.json` is absent. Bootstrap guarantees
    * at least one of the two sources exists.

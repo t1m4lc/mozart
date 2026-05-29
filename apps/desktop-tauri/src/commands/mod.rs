@@ -3267,22 +3267,6 @@ pub(crate) async fn bootstrap_project_impl(
     crate::mozart_config::bootstrap::bootstrap_project(db, p).await
 }
 
-/// Deferred "Save config to repo" surface. Writes the local fallback
-/// scripts into the repo's `.mozart/settings.json` (`scripts` key).
-/// Wired in P0.3 but not exposed in UI for v0 (TODO-006).
-#[tauri::command]
-#[specta::specta]
-pub async fn init_project_repo_from_local(
-    db: State<'_, DbState>,
-    project_id: String,
-) -> Result<(), AppError> {
-    crate::mozart_config::bootstrap::init_project_repo_from_local(
-        db.inner(),
-        &project_id,
-    )
-    .await
-}
-
 /// Read the active project config. Repo > local; falls back to the
 /// local DB row if the repo's `.mozart/settings.json` carries no
 /// `scripts`. Bootstrap guarantees at least one of the two sources exists.
