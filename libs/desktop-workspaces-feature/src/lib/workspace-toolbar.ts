@@ -32,8 +32,8 @@ import {
   lucideFolderOpen,
   lucideGitBranch,
   lucideGitCommitVertical,
-  lucideGithub,
   lucideGitPullRequest,
+  lucideGithub,
   lucidePanelRight,
   lucidePlay,
 } from '@ng-icons/lucide';
@@ -166,22 +166,6 @@ import { FeatureWorkspaceAside } from './feature-workspace-aside';
                   </span>
                 }
               </span>
-              <!-- Read-only base-branch indicator. The workspace forked
-                   from this branch and its PR merges into it. Editing the
-                   base is a deferred follow-up (see TODOS.md). -->
-              <span
-                class="ms-1 inline-flex shrink-0 items-center gap-1 rounded-md border border-border/60 bg-muted/40 px-1.5 py-0.5 text-xs font-normal text-muted-foreground"
-                hlmTooltip="Base branch — this workspace forked from it and its pull request merges into it"
-                position="bottom"
-              >
-                <ng-icon
-                  hlm
-                  name="lucideGitPullRequest"
-                  size="xs"
-                  class="shrink-0"
-                />
-                <span class="font-mono">base: {{ baseBranch() }}</span>
-              </span>
             </li>
           </ol>
         </nav>
@@ -196,7 +180,9 @@ import { FeatureWorkspaceAside } from './feature-workspace-aside';
             type="button"
             class="h-7 px-2 text-xs font-normal"
             [class.text-brand]="hasUncommittedChanges() && !frozen()"
-            [class.text-muted-foreground]="!(hasUncommittedChanges() && !frozen())"
+            [class.text-muted-foreground]="
+              !(hasUncommittedChanges() && !frozen())
+            "
             [hlmTooltip]="
               frozen()
                 ? 'Workspace is done — reopen to commit'
