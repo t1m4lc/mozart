@@ -2793,7 +2793,23 @@ pub async fn create_workspace_pr(
     // used for both the push and the subsequent API call, regardless of
     // how the repo was originally cloned (SSH, plain HTTPS, etc.).
     let push_url = format!("https://x-access-token:{token}@github.com/{owner}/{repo}.git");
-    sandbox::run_git(worktree, &["push", &push_url, &ws.branch_name]).await?;
+    sandbox::run_git(worktree, &["push", &push_url, &ws.branch_name])
+        .await
+        .map_err(|e| match &e {
+            // A push to a repo the account can't write to comes back as a
+            // 403 / "Permission … denied". Surface an actionable message
+            // instead of the raw git invocation.
+            AppError::GitCmd(msg)
+                if msg.contains("denied")
+                    || msg.contains("403")
+                    || msg.contains("not have permission") =>
+            {
+                AppError::Validation(format!(
+                    "You don't have push access to {owner}/{repo}. To open a PR you need write access to the repository (or fork it first)."
+                ))
+            }
+            _ => e,
+        })?;
     let first_attempt = github::create_pr(
         &token,
         &owner,
