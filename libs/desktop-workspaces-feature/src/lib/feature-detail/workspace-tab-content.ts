@@ -9,6 +9,7 @@ import {
 import { toSignal } from '@angular/core/rxjs-interop';
 import { NavigationEnd, Router, type Navigation } from '@angular/router';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { FeatureChatContent } from '@mozart/desktop-chat-feature';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
@@ -26,6 +27,12 @@ import { FeatureFileContent } from '../feature-file-content';
 import { FeatureWorkspaceComposer } from '../feature-workspace-composer';
 
 type FileTabIntent = 'preview' | 'pin';
+
+// The bundled "Get started" project clones to <projectsRoot>/get-started;
+// its first workspace's Start chat points users to the browser walkthrough.
+const GET_STARTED_DIR = 'get-started';
+const GET_STARTED_INSTRUCTIONS_URL =
+  'https://github.com/t1m4lc/mozart-get-started';
 
 @Component({
   selector: 'app-workspace-tab-content',
@@ -68,7 +75,9 @@ type FileTabIntent = 'preview' | 'pin';
                 [branch]="branch()"
                 [baseBranch]="baseBranch()"
                 [projectName]="projectName()"
+                [isGetStarted]="isGetStarted()"
                 (retry)="onRetrySetup()"
+                (openInstructions)="onOpenInstructions()"
               />
             </app-feature-chat-content>
           </app-feature-chat-scroll-surface>
@@ -127,6 +136,7 @@ export class WorkspaceTabContent {
   private readonly chat = inject(ChatFacade);
   private readonly fileTabs = inject(FileTabsService);
   private readonly projects = inject(ProjectsFacade);
+  private readonly externalLink = inject(ExternalLinkService);
   private readonly router = inject(Router);
   private readonly uiState = inject(UiStateFacade);
 
@@ -196,6 +206,16 @@ export class WorkspaceTabContent {
     return pid ? (this.projects.byId(pid)()?.name ?? '') : '';
   });
 
+  // The bundled walkthrough lives at <projectsRoot>/get-started, so its
+  // path basename is the stable client-side marker for the special case.
+  protected readonly isGetStarted = computed(() => {
+    const pid = this.workspaceEntity()?.projectId;
+    if (!pid) return false;
+    const path = this.projects.byId(pid)()?.path ?? '';
+    const base = path.replace(/[/\\]+$/, '').split(/[/\\]/).pop();
+    return base === GET_STARTED_DIR;
+  });
+
   protected readonly frozen = computed(() => {
     const id = this.workspaceId();
     return id ? this.workspaces.isFrozen(id)() : false;
@@ -257,6 +277,10 @@ export class WorkspaceTabContent {
     const id = this.workspaceId();
     if (!id) return;
     void this.workspaces.runInstall(id);
+  }
+
+  protected onOpenInstructions(): void {
+    void this.externalLink.openExternal(GET_STARTED_INSTRUCTIONS_URL);
   }
 }
 
