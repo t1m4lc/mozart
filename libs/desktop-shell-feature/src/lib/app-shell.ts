@@ -1,14 +1,16 @@
 import {
   ChangeDetectionStrategy,
   Component,
+  computed,
   inject,
+  linkedSignal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
 import { ActivatedRoute, RouterOutlet } from '@angular/router';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmToasterImports } from '@spartan-ui/sonner';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideWifiOff } from '@ng-icons/lucide';
+import { lucideWifiOff, lucideX } from '@ng-icons/lucide';
 import { map } from 'rxjs/operators';
 import { ConnectivityService } from '@mozart/desktop-core-data-access';
 import { ReturnRouteService } from '@mozart/desktop-ui-state-data-access';
@@ -31,7 +33,7 @@ import { ShellRight } from './shell-right';
     ShellLeft,
     ShellRight,
   ],
-  providers: [provideIcons({ lucideWifiOff })],
+  providers: [provideIcons({ lucideWifiOff, lucideX })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     class:
@@ -50,20 +52,21 @@ import { ShellRight } from './shell-right';
 
     <hlm-toaster position="bottom-right" [style]="toasterStyle" />
 
-    @if (!connectivity.connected()) {
+    @if (showOfflineNotice()) {
       <div
         role="status"
-        class="pointer-events-none fixed inset-x-0 top-3 z-40 flex justify-center"
+        class="fixed bottom-3 left-3 z-40 flex items-center gap-1.5 rounded-full border border-amber-500/40 bg-amber-500/10 py-1 pl-2.5 pr-1 text-xs text-amber-900 shadow-sm dark:text-amber-200"
       >
-        <div
-          class="pointer-events-auto flex items-center gap-2 rounded-full border border-amber-500/40 bg-amber-500/10 px-4 py-1.5 text-xs text-amber-900 shadow dark:text-amber-200"
+        <ng-icon hlm name="lucideWifiOff" size="xs" />
+        <span>Offline</span>
+        <button
+          type="button"
+          class="ml-0.5 rounded-full p-0.5 hover:bg-amber-500/20"
+          aria-label="Dismiss"
+          (click)="dismissOffline()"
         >
-          <ng-icon hlm name="lucideWifiOff" size="xs" />
-          <span
-            >You're offline. Hosted features (sign-in, hosted LLMs) are
-            paused.</span
-          >
-        </div>
+          <ng-icon hlm name="lucideX" size="xs" />
+        </button>
       </div>
     }
 
@@ -81,6 +84,20 @@ export class AppShell {
   // Eagerly construct so it subscribes to NavigationEnd from the
   // first paint — Settings reads its `previous()` to power Back-to-app.
   private readonly _returnRoute = inject(ReturnRouteService);
+
+  // User-dismissed offline pill. Resets on every connectivity flip so
+  // a fresh outage re-surfaces the notice.
+  private readonly offlineDismissed = linkedSignal<boolean, boolean>({
+    source: () => this.connectivity.connected(),
+    computation: () => false,
+  });
+  protected readonly showOfflineNotice = computed(
+    () => !this.connectivity.connected() && !this.offlineDismissed(),
+  );
+
+  protected dismissOffline(): void {
+    this.offlineDismissed.set(true);
+  }
 
   /** Tour overlay visibility — driven by the `?tour=on` query param
    *  attached by `/tour` when it redirects to the workspace. */

@@ -181,15 +181,23 @@ export class RunRegistry {
     for (const resolve of queue) resolve();
   }
 
+  // Run workspaces whose current PTY death is a user-pressed Stop (vs a
+  // natural exit/crash). A user stop collapses the Run tab back to its
+  // empty state; a natural exit keeps the terminal up so the final
+  // output stays readable. See `handleEvent`.
+  private readonly userStopped = new Set<string>();
+
   /** Kill whichever PTY is alive (run or setup). The `exited` event
    *  flips the matching entry's status. */
   async stop(workspaceId: string): Promise<void> {
     const run = this.runEntries.get(workspaceId);
     const setup = this.setupEntries.get(workspaceId);
     if (!isLive(run) && !isLive(setup)) return;
+    if (isLive(run)) this.userStopped.add(workspaceId);
     try {
       await this.facade.stopRun(workspaceId);
     } catch (err) {
+      this.userStopped.delete(workspaceId);
       console.warn('[run] stopRun failed:', err);
     }
   }
@@ -282,7 +290,16 @@ export class RunRegistry {
       }
     } else {
       entry.exitCode.set(ev.code);
-      entry.status.set('exited');
+      // A user-pressed Stop on the run PTY returns the tab to idle (the
+      // Run component then detaches the terminal); a natural exit keeps
+      // the dead terminal + detected URL visible.
+      const isRun = entry === this.runEntries.get(workspaceId);
+      if (isRun && this.userStopped.delete(workspaceId)) {
+        entry.detectedUrl.set(null);
+        entry.status.set('idle');
+      } else {
+        entry.status.set('exited');
+      }
       this.recomputeBusy(workspaceId);
     }
   }

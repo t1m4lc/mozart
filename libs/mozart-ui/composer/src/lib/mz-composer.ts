@@ -24,8 +24,6 @@ import { MzComposerPlusMenu } from './mz-composer-plus-menu';
 import { ComposerScrollOverlay } from './mz-composer-scroll-overlay';
 
 export type ChatMode = 'agent' | 'plan' | 'ask';
-/** @deprecated Use `ChatMode`. Kept as an alias during Phase 2 rename. */
-export type ComposerMode = ChatMode;
 
 export type EffortLevel = 'low' | 'medium' | 'high' | 'xhigh' | 'max';
 

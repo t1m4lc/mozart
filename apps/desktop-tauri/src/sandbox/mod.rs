@@ -41,9 +41,35 @@ pub(crate) async fn run_git(cwd: &Path, args: &[&str]) -> Result<String, AppErro
     let out = run_git_capture(cwd, args).await?;
     if !out.status.success() {
         let err = String::from_utf8_lossy(&out.stderr).trim().to_string();
-        return Err(AppError::GitCmd(format!("git {args:?} failed: {err}")));
+        return Err(AppError::GitCmd(format!(
+            "git {} failed: {err}",
+            redact_args(args)
+        )));
     }
     Ok(String::from_utf8_lossy(&out.stdout).into_owned())
+}
+
+/// Render git args for an error message with any embedded URL
+/// credentials masked. Push URLs carry the GitHub token
+/// (`https://x-access-token:<token>@github.com/…`); it must never reach
+/// an error string, toast, or log.
+fn redact_args(args: &[&str]) -> String {
+    let parts: Vec<String> = args.iter().map(|a| redact_url_credentials(a)).collect();
+    format!("{parts:?}")
+}
+
+/// Replace `scheme://user[:secret]@host…` with `scheme://***@host…`.
+/// Non-URL args (and credential-free URLs) pass through unchanged.
+fn redact_url_credentials(arg: &str) -> String {
+    let Some(scheme_end) = arg.find("://") else {
+        return arg.to_string();
+    };
+    let after = scheme_end + 3;
+    let Some(at_rel) = arg[after..].find('@') else {
+        return arg.to_string();
+    };
+    let at = after + at_rel;
+    format!("{}://***@{}", &arg[..scheme_end], &arg[at + 1..])
 }
 
 /// Lower-level git invocation that returns the raw `Output`. Only errors
@@ -59,7 +85,7 @@ pub(crate) async fn run_git_capture(
         .current_dir(cwd)
         .output()
         .await
-        .map_err(|e| AppError::Io(format!("git {args:?}: {e}")))
+        .map_err(|e| AppError::Io(format!("git {} : {e}", redact_args(args))))
 }
 
 /// Test-only: skip helper for tests that need a real `git` on PATH.
@@ -82,4 +108,42 @@ pub(crate) fn test_env_gate() -> &'static std::sync::Mutex<()> {
     use std::sync::OnceLock;
     static GATE: OnceLock<std::sync::Mutex<()>> = OnceLock::new();
     GATE.get_or_init(|| std::sync::Mutex::new(()))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn redacts_embedded_token() {
+        assert_eq!(
+            redact_url_credentials("https://x-access-token:gho_secret@github.com/foo/bar.git"),
+            "https://***@github.com/foo/bar.git"
+        );
+    }
+
+    #[test]
+    fn redacts_user_only_credentials() {
+        assert_eq!(
+            redact_url_credentials("https://user@github.com/foo/bar.git"),
+            "https://***@github.com/foo/bar.git"
+        );
+    }
+
+    #[test]
+    fn leaves_plain_args_untouched() {
+        assert_eq!(redact_url_credentials("push"), "push");
+        assert_eq!(
+            redact_url_credentials("https://github.com/foo/bar.git"),
+            "https://github.com/foo/bar.git"
+        );
+    }
+
+    #[test]
+    fn redact_args_masks_only_the_url() {
+        assert_eq!(
+            redact_args(&["push", "https://x-access-token:tok@github.com/o/r.git", "branch"]),
+            r#"["push", "https://***@github.com/o/r.git", "branch"]"#
+        );
+    }
 }
