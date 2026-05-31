@@ -156,6 +156,69 @@ pub async fn create_pr(
     ))))
 }
 
+/// Fork `owner/repo` into the authenticated account so a contributor
+/// without push access can still open a PR (GitHub's "fork it first"
+/// path). Forking is asynchronous: the POST returns the fork metadata
+/// immediately, but the fork's git refs may not be pushable for a few
+/// seconds — so we poll `GET /repos/{login}/{repo}` until it answers
+/// 200 (bounded). Returns the fork owner's login.
+pub async fn fork_repo(token: &str, owner: &str, repo: &str) -> Result<String, AppError> {
+    let client = reqwest::Client::builder()
+        .user_agent(USER_AGENT)
+        .build()
+        .map_err(|e| AppError::Io(format!("github client: {e}")))?;
+    let url = format!("https://api.github.com/repos/{owner}/{repo}/forks");
+    let resp = client
+        .post(&url)
+        .bearer_auth(token)
+        .header("Accept", "application/vnd.github+json")
+        .header("X-GitHub-Api-Version", "2022-11-28")
+        .send()
+        .await
+        .map_err(|e| AppError::Io(format!("github fork request: {e}")))?;
+    if !resp.status().is_success() {
+        let status = resp.status().as_u16();
+        let message = match resp.json::<ApiError>().await {
+            Ok(api) => api.message,
+            Err(_) => format!("HTTP {status}"),
+        };
+        return Err(AppError::Validation(format!("github fork: {message}")));
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct ForkResponse {
+        owner: ForkOwner,
+    }
+    #[derive(Debug, Deserialize)]
+    struct ForkOwner {
+        login: String,
+    }
+    let fork: ForkResponse = resp
+        .json()
+        .await
+        .map_err(|e| AppError::Io(format!("github fork parse: {e}")))?;
+    let fork_owner = fork.owner.login;
+
+    // Forking is async; poll until the fork is reachable so the
+    // subsequent `git push` doesn't race a not-yet-created repo.
+    let check_url = format!("https://api.github.com/repos/{fork_owner}/{repo}");
+    for _ in 0..10 {
+        if let Ok(r) = client
+            .get(&check_url)
+            .bearer_auth(token)
+            .header("Accept", "application/vnd.github+json")
+            .send()
+            .await
+        {
+            if r.status().is_success() {
+                return Ok(fork_owner);
+            }
+        }
+        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+    }
+    Ok(fork_owner)
+}
+
 /// Outcome of `POST {WEB_BASE_URL}/api/github/oauth-token`.
 ///
 /// Mirrors the discriminated union returned by the Cloudflare Pages
@@ -187,6 +250,7 @@ enum ClerkGithubTokenPayload {
 /// Used by `connect_github_via_clerk` (initial connect) and by the
 /// create-PR retry path on a 401 from `api.github.com`.
 pub async fn fetch_clerk_github_token(session_jwt: &str) -> ClerkGithubTokenResult {
+    #[cfg_attr(not(debug_assertions), allow(unused_mut))]
     let mut builder = reqwest::Client::builder().user_agent(USER_AGENT);
     // Dev URL uses a self-signed cert from the Angular dev server.
     // Loopback-only — never bypassed in release builds.
@@ -275,6 +339,7 @@ enum ClerkGithubReposPayload {
 /// sorted by `updated` desc (newest first). Used by the clone-repo
 /// dialog to populate a search-filterable list.
 pub async fn fetch_clerk_github_repos(session_jwt: &str) -> ClerkGithubReposResult {
+    #[cfg_attr(not(debug_assertions), allow(unused_mut))]
     let mut builder = reqwest::Client::builder().user_agent(USER_AGENT);
     #[cfg(debug_assertions)]
     {
