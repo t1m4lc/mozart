@@ -2008,6 +2008,32 @@ pub async fn set_repo_setup_command(
     repos::set_setup_command(&conn, &repo_id, command.as_deref())
 }
 
+/// Effective run/setup commands for a project, resolved from the repo's
+/// committed `.mozart/settings.json` `scripts` (layered) with the DB
+/// columns as fallback. Either field is `None` when no source supplies a
+/// non-empty command. Powers the frontend Run/Setup CTAs.
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+pub struct ResolvedCommands {
+    pub run: Option<String>,
+    pub setup: Option<String>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn resolve_workspace_commands(
+    db: State<'_, DbState>,
+    repo_id: String,
+) -> Result<ResolvedCommands, AppError> {
+    let repo = {
+        let conn = db.lock();
+        repos::get(&conn, &repo_id)?
+    };
+    Ok(ResolvedCommands {
+        run: resolve_repo_command(&repo, WorkspaceCommandKind::Run).ok(),
+        setup: resolve_repo_command(&repo, WorkspaceCommandKind::Setup).ok(),
+    })
+}
+
 /// Which half of the project's runner pair to launch: the setup
 /// command (e.g. `pnpm install`) or the run command (e.g. `pnpm dev`).
 /// The repo's committed `.mozart/settings.json` `scripts` take precedence

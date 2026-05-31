@@ -211,8 +211,8 @@ function provideProjectsAdapter(): Provider {
       },
       async readDetectedScripts(id) {
         try {
-          const config = unwrap(await commands.readProjectConfig(id));
-          return parseRunJsonScripts(config.runJson);
+          const cmds = unwrap(await commands.resolveWorkspaceCommands(id));
+          return { setup: cmds.setup, run: cmds.run };
         } catch (err) {
           console.warn('[projects] readDetectedScripts failed:', err);
           return { setup: null, run: null };
@@ -659,32 +659,6 @@ function toTerminalEventModel(ev: TerminalEventDto): TerminalEventModel {
     return { kind: 'output', data: ev.data };
   }
   return { kind: 'exited', code: ev.code };
-}
-
-// `.mozart/run.json` is `{ "scripts": { "setup": "...", "run": "..." } }`.
-// Robust to malformed JSON / unexpected shapes — returns nulls so the
-// frontend's "effective command" merge just falls back to the DB column.
-function parseRunJsonScripts(raw: string): {
-  setup: string | null;
-  run: string | null;
-} {
-  try {
-    const parsed = JSON.parse(raw) as {
-      scripts?: { setup?: unknown; run?: unknown };
-    };
-    return {
-      setup: cleanScript(parsed?.scripts?.setup),
-      run: cleanScript(parsed?.scripts?.run),
-    };
-  } catch {
-    return { setup: null, run: null };
-  }
-}
-
-function cleanScript(value: unknown): string | null {
-  if (typeof value !== 'string') return null;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
 }
 
 export function provideTauriAdapters(): Provider[] {

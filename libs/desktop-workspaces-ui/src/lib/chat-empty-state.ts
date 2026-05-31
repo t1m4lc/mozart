@@ -5,18 +5,17 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmIconImports } from '@spartan-ui/icon';
+import { MzLoader } from '@mozart-ui/loader';
+import type { InstallState } from '@mozart/desktop-workspaces-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
   lucideCircleAlert,
-  lucideExternalLink,
   lucideRefreshCw,
   lucideSparkles,
 } from '@ng-icons/lucide';
-import type { InstallState } from '@mozart/desktop-workspaces-util';
-import { MzLoader } from '@mozart-ui/loader';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 
 /**
  * Rendered in the main chat area when the active chat tab has no
@@ -35,7 +34,6 @@ import { MzLoader } from '@mozart-ui/loader';
     provideIcons({
       lucideCheck,
       lucideCircleAlert,
-      lucideExternalLink,
       lucideRefreshCw,
       lucideSparkles,
     }),
@@ -110,21 +108,13 @@ import { MzLoader } from '@mozart-ui/loader';
             </button>
           } @else if (isReady()) {
             @if (isGetStarted()) {
-              <p class="text-sm font-light leading-relaxed text-muted-foreground">
-                This Get started project is a small Vue app to help you try
-                Mozart's features. The step-by-step instructions open in your
-                browser.
-              </p>
-              <button
-                hlmBtn
-                variant="outline"
-                size="sm"
-                type="button"
-                (click)="openInstructions.emit()"
+              <p
+                class="text-sm font-light leading-relaxed text-muted-foreground"
               >
-                <ng-icon hlm name="lucideExternalLink" size="sm" />
-                Open instructions
-              </button>
+                This Get started project is a small Vue app to help you try
+                Mozart's features. <br />Run the project and open it into your
+                browser to see instructions.
+              </p>
             } @else {
               <p class="text-sm font-light leading-relaxed text-foreground">
                 You can start chatting now.
