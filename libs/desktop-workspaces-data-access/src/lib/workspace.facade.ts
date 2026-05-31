@@ -331,21 +331,38 @@ export class WorkspacesFacade {
       }
     }
 
-    try {
-      const result: InstallPackagesResult =
-        await this.adapter.installPackages(workspaceId);
-      if (!result.ran) {
-        this._setInstall(workspaceId, { state: 'no_package', manager: '' });
-        return;
+    // Auto-detected package install. The very first install in a freshly
+    // created worktree can fail transiently (a not-yet-settled checkout,
+    // a partial first run, package-store init). One retry clears it —
+    // the same thing the user's manual "Retry setup" does, automatically.
+    let result: InstallPackagesResult | null = null;
+    for (let attempt = 1; attempt <= 2; attempt++) {
+      try {
+        result = await this.adapter.installPackages(workspaceId);
+        if (!result.ran || result.success) break;
+      } catch (err) {
+        console.warn(
+          `[workspaces] install attempt ${attempt} threw`,
+          workspaceId,
+          err,
+        );
+        result = null;
       }
-      this._setInstall(workspaceId, {
-        state: result.success ? 'success' : 'failed',
-        manager: result.manager,
-      });
-    } catch (err) {
-      console.warn('[workspaces] install failed', workspaceId, err);
-      this._setInstall(workspaceId, { state: 'failed', manager: '' });
+      if (attempt < 2) await new Promise((r) => setTimeout(r, 750));
     }
+
+    if (!result) {
+      this._setInstall(workspaceId, { state: 'failed', manager: '' });
+      return;
+    }
+    if (!result.ran) {
+      this._setInstall(workspaceId, { state: 'no_package', manager: '' });
+      return;
+    }
+    this._setInstall(workspaceId, {
+      state: result.success ? 'success' : 'failed',
+      manager: result.manager,
+    });
   }
 
   private _setInstall(workspaceId: string, update: WorkspaceInstall): void {

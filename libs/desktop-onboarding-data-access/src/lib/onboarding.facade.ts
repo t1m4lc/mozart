@@ -3,6 +3,7 @@ import { Router } from '@angular/router';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
+import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { GET_STARTED_PROJECT_ADAPTER } from './get-started-project.adapter';
 import { ONBOARDING_ADAPTER } from './onboarding.adapter';
 import {
@@ -31,6 +32,7 @@ export class OnboardingFacade {
   private readonly auth = inject(AuthFacade);
   private readonly projects = inject(ProjectsFacade);
   private readonly workspaces = inject(WorkspacesFacade);
+  private readonly uiState = inject(UiStateFacade);
   private readonly router = inject(Router);
 
   private readonly _isCompleted = signal<boolean>(false);
@@ -97,14 +99,10 @@ export class OnboardingFacade {
   }
 
   /** Persist the completion flag, ensure the bundled "Get started"
-   *  project exists, then land the user on the **dashboard**. Called
-   *  from the GitHub step's Finish / Skip-and-finish button.
-   *
-   *  We deliberately do NOT open or select a workspace here — finishing
-   *  onboarding should leave the user on the neutral dashboard with the
-   *  project collapsed in the sidebar, not auto-expanded into a chat.
-   *  They open the project (and instantiate a workspace, which runs
-   *  setup) on demand. We also don't auto-launch the tour.
+   *  project (and its welcome workspace) exist, then land the user on the
+   *  dashboard with the project expanded in the sidebar. We pre-create the
+   *  workspace but do NOT auto-open its chat. Called from the GitHub
+   *  step's Finish / Skip-and-finish button.
    */
   async complete(): Promise<void> {
     console.debug('[onboarding] complete() start');
@@ -127,15 +125,22 @@ export class OnboardingFacade {
     }
 
     try {
-      await this.getStartedAdapter.ensure();
+      const { project } = await this.getStartedAdapter.ensure();
       await this.projects.loadAll();
       await this.workspaces.loadAll();
-      console.debug('[onboarding] get-started project ensured');
+      // Pre-create the first workspace so the project lists a ready
+      // workspace — but we stay on the dashboard (no auto-open).
+      await this.workspaces.ensureFirstWorkspace(project.id);
+      // Expand the project in the sidebar so its ready workspace shows
+      // on the dashboard without the user having to click it open.
+      this.uiState.expandProjects([project.id]);
+      console.debug('[onboarding] get-started workspace ensured');
     } catch (err) {
       console.error('[onboarding] get-started bootstrap failed:', err);
     }
 
-    // Land on the dashboard — never auto-open a workspace.
+    // Land on the dashboard — the get-started workspace is pre-created, but
+    // we don't auto-open its chat.
     try {
       const ok = await this.router.navigate(['/']);
       console.debug('[onboarding] navigate / →', ok);

@@ -158,8 +158,12 @@ jobs:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           INTERNAL_DEVICE_TOKEN: ${{ secrets.INTERNAL_DEVICE_TOKEN }}
+          # Beta download gate (functions/api/download.ts). Unset this secret
+          # to open downloads to everyone post beta.0.x — no code change.
+          DOWNLOAD_CODE: ${{ secrets.DOWNLOAD_CODE }}
         run: |
-          printf '{"INTERNAL_DEVICE_TOKEN":"%s"}' "$INTERNAL_DEVICE_TOKEN" \
+          printf '{"INTERNAL_DEVICE_TOKEN":"%s","DOWNLOAD_CODE":"%s"}' \
+            "$INTERNAL_DEVICE_TOKEN" "$DOWNLOAD_CODE" \
             | npx wrangler@4 pages secret bulk \
                 --project-name=mozart-landing
 

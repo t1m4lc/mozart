@@ -2008,6 +2008,32 @@ pub async fn set_repo_setup_command(
     repos::set_setup_command(&conn, &repo_id, command.as_deref())
 }
 
+/// Effective run/setup commands for a project, resolved from the repo's
+/// committed `.mozart/settings.json` `scripts` (layered) with the DB
+/// columns as fallback. Either field is `None` when no source supplies a
+/// non-empty command. Powers the frontend Run/Setup CTAs.
+#[derive(Debug, Clone, serde::Serialize, specta::Type)]
+pub struct ResolvedCommands {
+    pub run: Option<String>,
+    pub setup: Option<String>,
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn resolve_workspace_commands(
+    db: State<'_, DbState>,
+    repo_id: String,
+) -> Result<ResolvedCommands, AppError> {
+    let repo = {
+        let conn = db.lock();
+        repos::get(&conn, &repo_id)?
+    };
+    Ok(ResolvedCommands {
+        run: resolve_repo_command(&repo, WorkspaceCommandKind::Run).ok(),
+        setup: resolve_repo_command(&repo, WorkspaceCommandKind::Setup).ok(),
+    })
+}
+
 /// Which half of the project's runner pair to launch: the setup
 /// command (e.g. `pnpm install`) or the run command (e.g. `pnpm dev`).
 /// The repo's committed `.mozart/settings.json` `scripts` take precedence
@@ -2792,29 +2818,38 @@ pub async fn create_workspace_pr(
     // Push via HTTPS with the stored token so the same credentials are
     // used for both the push and the subsequent API call, regardless of
     // how the repo was originally cloned (SSH, plain HTTPS, etc.).
+    //
+    // `head` is the PR's source ref. It defaults to a same-repo branch;
+    // when the account lacks push access we transparently fork into the
+    // user's account, push there, and open a cross-fork PR
+    // (`head = "fork_owner:branch"`).
     let push_url = format!("https://x-access-token:{token}@github.com/{owner}/{repo}.git");
-    sandbox::run_git(worktree, &["push", &push_url, &ws.branch_name])
-        .await
-        .map_err(|e| match &e {
-            // A push to a repo the account can't write to comes back as a
-            // 403 / "Permission … denied". Surface an actionable message
-            // instead of the raw git invocation.
+    let mut head = ws.branch_name.clone();
+    if let Err(e) = sandbox::run_git(worktree, &["push", &push_url, &ws.branch_name]).await {
+        // A push to a repo the account can't write to comes back as a
+        // 403 / "Permission … denied". Rather than dead-end the user,
+        // fork the repo and push the branch to the fork instead.
+        let denied = matches!(
+            &e,
             AppError::GitCmd(msg)
                 if msg.contains("denied")
                     || msg.contains("403")
-                    || msg.contains("not have permission") =>
-            {
-                AppError::Validation(format!(
-                    "You don't have push access to {owner}/{repo}. To open a PR you need write access to the repository (or fork it first)."
-                ))
-            }
-            _ => e,
-        })?;
+                    || msg.contains("not have permission")
+        );
+        if !denied {
+            return Err(e);
+        }
+        let fork_owner = github::fork_repo(&token, &owner, &repo).await?;
+        let fork_push_url =
+            format!("https://x-access-token:{token}@github.com/{fork_owner}/{repo}.git");
+        sandbox::run_git(worktree, &["push", &fork_push_url, &ws.branch_name]).await?;
+        head = format!("{fork_owner}:{}", ws.branch_name);
+    }
     let first_attempt = github::create_pr(
         &token,
         &owner,
         &repo,
-        &ws.branch_name,
+        &head,
         &ws.base_branch,
         &title,
         &body,
@@ -2841,7 +2876,7 @@ pub async fn create_workspace_pr(
                 &fresh,
                 &owner,
                 &repo,
-                &ws.branch_name,
+                &head,
                 &ws.base_branch,
                 &title,
                 &body,

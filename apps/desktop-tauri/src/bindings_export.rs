@@ -136,6 +136,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::bootstrap_project,
                 commands::read_project_config,
                 commands::get_resolved_settings,
+                commands::resolve_workspace_commands,
                 commands::save_global_settings
                 $($extra)*
             ]

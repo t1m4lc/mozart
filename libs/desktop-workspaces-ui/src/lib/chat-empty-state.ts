@@ -5,8 +5,8 @@ import {
   input,
   output,
 } from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmIconImports } from '@spartan-ui/icon';
+import { MzLoader } from '@mozart-ui/loader';
+import type { InstallState } from '@mozart/desktop-workspaces-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCheck,
@@ -14,8 +14,8 @@ import {
   lucideRefreshCw,
   lucideSparkles,
 } from '@ng-icons/lucide';
-import type { InstallState } from '@mozart/desktop-workspaces-util';
-import { MzLoader } from '@mozart-ui/loader';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmIconImports } from '@spartan-ui/icon';
 
 /**
  * Rendered in the main chat area when the active chat tab has no
@@ -83,7 +83,7 @@ import { MzLoader } from '@mozart-ui/loader';
         }
         <div class="flex-1 space-y-2">
           @if (branchLine(); as line) {
-            <p class="text-xs font-light leading-relaxed text-muted-foreground">
+            <p class="text-sm font-light leading-relaxed text-muted-foreground">
               {{ line }}
             </p>
           }
@@ -107,9 +107,19 @@ import { MzLoader } from '@mozart-ui/loader';
               Retry setup
             </button>
           } @else if (isReady()) {
-            <p class="text-sm font-light leading-relaxed text-foreground">
-              You can start chatting now.
-            </p>
+            @if (isGetStarted()) {
+              <p
+                class="text-sm font-light leading-relaxed text-muted-foreground"
+              >
+                This Get started project is a small Vue app to help you try
+                Mozart's features. <br />Run the project and open it into your
+                browser to see instructions.
+              </p>
+            } @else {
+              <p class="text-sm font-light leading-relaxed text-foreground">
+                You can start chatting now.
+              </p>
+            }
           }
         </div>
       </div>
@@ -129,8 +139,15 @@ export class ChatEmptyState {
   readonly branch = input<string>('');
   readonly baseBranch = input<string>('');
   readonly projectName = input<string>('');
+  // True only for the bundled Mozart "Get started" project's first
+  // workspace. Swaps the start-chatting CTA for a pointer to the
+  // browser-based walkthrough.
+  readonly isGetStarted = input<boolean>(false);
   // Emitted from the failed-state Retry button. Parent re-runs setup.
   readonly retry = output<void>();
+  // Emitted from the get-started "Open instructions" button. Parent
+  // opens the walkthrough repo in the browser.
+  readonly openInstructions = output<void>();
 
   protected readonly branchLine = computed<string | null>(() => {
     const branch = this.branch().trim();

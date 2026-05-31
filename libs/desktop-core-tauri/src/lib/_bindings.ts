@@ -1872,6 +1872,19 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async resolveWorkspaceCommands(
+    repoId: string,
+  ): Promise<Result<ResolvedCommands, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('resolve_workspace_commands', { repoId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   /**
    * Persist the editable global settings file. Preference fields come from
    * the DTO; any `scripts` already in the global file are preserved.
@@ -2470,3 +2483,5 @@ function __makeEvents__<T extends Record<string, any>>(
     },
   );
 }
+
+export type ResolvedCommands = { run: string | null; setup: string | null };
