@@ -15,9 +15,11 @@ export interface SocialConfig {
 }
 
 export interface DownloadsConfig {
-  /** Tally beta signup form. The dialog appends `?os=<os>` to tag the
-   *  detected platform (mac, mac-intel, windows, linux, other). */
-  readonly beta: string;
+  /** Gate the download dialog behind a beta access code. The code is
+   *  validated server-side by `functions/api/download.ts` (env
+   *  `DOWNLOAD_CODE`). Flip to `false` and unset the secret to open
+   *  downloads to everyone — no other change needed. */
+  readonly requireAccessCode: boolean;
 }
 
 export interface SiteConfig {
@@ -43,7 +45,7 @@ export const SITE_CONFIG: SiteConfig = {
     href: MOZART_LINKS.betaSignup,
   },
   downloads: {
-    beta: MOZART_LINKS.betaSignup,
+    requireAccessCode: true,
   },
   social: {
     // youtube: 'https://youtube.com/@mozartbuild',

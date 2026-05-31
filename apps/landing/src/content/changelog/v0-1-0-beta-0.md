@@ -4,7 +4,7 @@ date: 2026-05-27
 title: First private beta
 ---
 
-`v0.1.0-beta.0` is the first release of Mozart, shipped manually to invited beta testers via Google Drive — no public download, no auto-updater yet. The first public release is reserved for `v0.1.0`. Expect rough edges: this build exists so the developers who will actually use Mozart can shape it before we open the doors.
+`v0.1.0-beta.0` is the first release of Mozart, downloaded straight from `mozart.build` behind a beta access code — no Google Drive, and the auto-updater is live from day one, so every release after this one installs itself. The first public release is reserved for `v0.1.0`. Expect rough edges: this build exists so the developers who will actually use Mozart can shape it before we open the doors.
 
 ### Projects & Workspaces
 
@@ -45,8 +45,8 @@ title: First private beta
 
 ### Current limits
 
-- Invite-only — no public download, distribution is manual via Google Drive.
-- No auto-updater in beta.0 — the next build will require a manual re-download.
+- Invite-only — the download from `mozart.build` is gated by a beta access code.
+- Auto-updater is active from beta.0 — future releases download and install in the background, no manual re-download.
 - `app.mozart.build` handles sign-in only; the cloud companion is not online yet.
 - Claude is the only model provider wired in.
 - Workspace aside width is fixed; no resizable layout, merge UI, conflict resolution, or in-app PR review.

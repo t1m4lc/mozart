@@ -106,6 +106,69 @@ jobs:
           prerelease: ${{ contains(inputs.tag || github.ref_name, 'beta') || contains(inputs.tag || github.ref_name, 'alpha') || contains(inputs.tag || github.ref_name, 'rc') }}
           args: ${{ matrix.args }}
           # Tells tauri-action to emit the updater manifest
-          # (latest.json) alongside the bundle artifacts. The plugin in
-          # the installed app reads /releases/latest/download/latest.json.
+          # (latest.json) alongside the bundle artifacts. The mirror-r2
+          # job below rewrites its URLs to dl.mozart.build, the endpoint
+          # the installed app actually reads (plugins.updater in tauri.conf).
           includeUpdaterJson: true
+
+  # Mirror the signed bundles + updater manifest from the (draft) GitHub
+  # Release to Cloudflare R2 — the real distribution surface. The repo is
+  # private, so GitHub asset URLs aren't anonymously reachable; R2 is.
+  # This job:
+  #   1. downloads every asset from the draft release (incl. latest.json)
+  #   2. rewrites latest.json platform URLs to https://dl.mozart.build/v<ver>/…
+  #   3. emits manifest.json (OS -> installer filename) for the landing
+  #      download gate (apps/landing/functions/api/download.ts)
+  #   4. uploads everything to mozart-downloads/v<ver>/… and the updater
+  #      feed to mozart-downloads/latest.json (bucket root)
+  # Publishing the GitHub Release is no longer required for distribution.
+  mirror-r2:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Resolve tag + version
+        run: |
+          TAG="${{ inputs.tag || github.ref_name }}"
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
+
+      - name: Download release assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p assets
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir assets --pattern '*'
+          ls -la assets
+
+      - name: Rewrite latest.json URLs + build manifest.json
+        run: |
+          base="https://dl.mozart.build/v$VERSION"
+          jq --arg base "$base" \
+            '.platforms |= with_entries(.value.url = ($base + "/" + (.value.url | split("/") | last)))' \
+            assets/latest.json > assets/latest.json.tmp
+          mv assets/latest.json.tmp assets/latest.json
+          cd assets
+          mac=$(ls ./*aarch64*.dmg 2>/dev/null | xargs -n1 basename | head -1)
+          mac_intel=$(ls ./*x64*.dmg 2>/dev/null | xargs -n1 basename | head -1)
+          windows=$(ls ./*-setup.exe 2>/dev/null | xargs -n1 basename | head -1)
+          linux=$(ls ./*.AppImage 2>/dev/null | grep -v '.tar.gz' | xargs -n1 basename | head -1)
+          jq -n --arg mac "$mac" --arg maci "$mac_intel" --arg win "$windows" --arg lin "$linux" \
+            '{mac:$mac, "mac-intel":$maci, windows:$win, linux:$lin}' > manifest.json
+          echo "manifest.json:"; cat manifest.json
+
+      - name: Upload to R2 (S3 API)
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          # aws-cli v2 sends integrity checksums R2 rejects; only send when
+          # the operation actually requires one.
+          AWS_REQUEST_CHECKSUM_CALCULATION: when_required
+          AWS_RESPONSE_CHECKSUM_VALIDATION: when_required
+          R2_ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          aws s3 sync assets "s3://mozart-downloads/v$VERSION/" \
+            --endpoint-url "$R2_ENDPOINT" --no-progress
+          # Updater feed lives at the bucket root (plugins.updater endpoint).
+          aws s3 cp assets/latest.json "s3://mozart-downloads/latest.json" \
+            --endpoint-url "$R2_ENDPOINT" --content-type application/json --no-progress

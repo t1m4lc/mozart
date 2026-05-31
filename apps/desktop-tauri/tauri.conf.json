@@ -29,6 +29,7 @@
   },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": ["app", "appimage", "deb", "dmg", "nsis"],
     "icon": [
       "../../libs/mozart-assets/src/desktop/app-icons/32x32.png",
@@ -59,9 +60,7 @@
       }
     },
     "updater": {
-      "endpoints": [
-        "https://github.com/t1m4lc/mozart/releases/latest/download/latest.json"
-      ],
+      "endpoints": ["https://dl.mozart.build/latest.json"],
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDg2RTZGMDNGMkJERDNFQzAKUldUQVB0MHJQL0RtaG45N2RkTVpJajkzdDhmVzVzY21nSndYTzNvUnhXWUhXVk40dnZzY0JqVi8K"
     }
   }
