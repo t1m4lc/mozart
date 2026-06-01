@@ -1,6 +1,6 @@
 import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { EMPTY, catchError, defer, map, retry, switchMap, tap, timeout, timer } from 'rxjs';
+import { EMPTY, Observable, catchError, defer, map, of, retry, switchMap, tap, timeout, timer } from 'rxjs';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
@@ -29,7 +29,7 @@ const NO_INSTALL: WorkspaceInstall = { state: 'idle', manager: '' };
 
 // Backoff before the single setup/install retry that clears a transient
 // first-attempt failure on a freshly checked-out worktree.
-const RETRY_DELAY_MS = 750;
+const RETRY_DELAY_MS = 2_000;
 
 // Per-attempt timeout for resolving the setup/run command (sub-second
 // normally; only trips when the backend is briefly saturated after
@@ -347,10 +347,21 @@ export class WorkspacesFacade {
         }
         return defer(() => this.adapter.installPackages(workspaceId)).pipe(
           map((result) => {
-            if (result.ran && !result.success) throw new InstallFailed(result);
+            // `ran: false` means no package.json found — the worktree
+            // checkout may not have settled yet; treat it the same as a
+            // non-zero exit so `retry` re-runs after the delay.
+            if (!result.ran || !result.success) throw new InstallFailed(result);
             return result;
           }),
           retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
+          catchError((err): Observable<InstallPackagesResult> => {
+            // After the single retry, surface ran:false as no_package
+            // rather than failed — no package manager is not an error.
+            if (err instanceof InstallFailed && !err.result.ran) {
+              return of({ ran: false, success: false, manager: '', message: '' });
+            }
+            throw err;
+          }),
           map((result): WorkspaceInstall =>
             result.ran
               ? { state: 'success', manager: result.manager }
