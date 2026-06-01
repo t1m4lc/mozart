@@ -182,7 +182,19 @@ pub async fn fork_repo(token: &str, owner: &str, repo: &str) -> Result<String, A
             Ok(api) => api.message,
             Err(_) => format!("HTTP {status}"),
         };
-        return Err(AppError::Validation(format!("github fork: {message}")));
+        // 404 from the fork API means the token cannot see the repository.
+        // This typically happens when the repo is private and the token only
+        // has `public_repo` scope — the `repo` scope is required for private repos.
+        let err_msg = if status == 404 {
+            format!(
+                "Cannot fork {owner}/{repo} — the repository may be private or your \
+                 GitHub token may need the 'repo' scope. Reconnect GitHub in Settings \
+                 to update your permissions. (GitHub: {message})"
+            )
+        } else {
+            message
+        };
+        return Err(AppError::Validation(format!("github fork: {err_msg}")));
     }
 
     #[derive(Debug, Deserialize)]

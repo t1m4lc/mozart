@@ -2840,6 +2840,15 @@ pub async fn create_workspace_pr(
             return Err(e);
         }
         let fork_owner = github::fork_repo(&token, &owner, &repo).await?;
+        // GitHub returns the repo itself when you "fork" your own repo, so
+        // fork_owner == owner. Pushing to the same URL would fail again.
+        if fork_owner == owner {
+            return Err(AppError::Validation(format!(
+                "Cannot push to {owner}/{repo} — your GitHub token lacks write access \
+                 to this repository. Ensure it has the 'public_repo' (or 'repo' for \
+                 private repos) scope. Reconnect GitHub in Settings to update your permissions."
+            )));
+        }
         let fork_push_url =
             format!("https://x-access-token:{token}@github.com/{fork_owner}/{repo}.git");
         sandbox::run_git(worktree, &["push", &fork_push_url, &ws.branch_name]).await?;
