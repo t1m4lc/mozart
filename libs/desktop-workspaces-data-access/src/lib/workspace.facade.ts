@@ -1,5 +1,5 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
-import { defer, firstValueFrom, map, retry, timer } from 'rxjs';
+import { defer, firstValueFrom, map, retry, timeout, timer } from 'rxjs';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
@@ -29,6 +29,11 @@ const NO_INSTALL: WorkspaceInstall = { state: 'idle', manager: '' };
 // Backoff before the single setup/install retry that clears a transient
 // first-attempt failure on a freshly checked-out worktree.
 const RETRY_DELAY_MS = 750;
+
+// Upper bound on resolving the workspace's setup/run command. A settings
+// read is sub-second; this only trips when the backend is wedged, so a
+// stall fails retryably instead of hanging the Setup UI forever.
+const RESOLVE_TIMEOUT_MS = 15_000;
 
 // Thrown when a package manager ran but exited non-zero, so `retry` can
 // re-run the install while still carrying the result for the final state.
@@ -326,20 +331,32 @@ export class WorkspacesFacade {
 
     const ws = this.workspaceById(workspaceId)();
     if (ws) {
-      await this.projects.ensureDetectedScripts(ws.projectId);
+      // Resolving the command hits the backend (`resolveWorkspaceCommands`
+      // → SQLite lock). Right after onboarding the backend is saturated
+      // (git clone + worktree creation share that lock), so this can
+      // stall; bound it so a stuck call surfaces as a retryable failure
+      // instead of pinning the Setup UI on a perpetual "running" loader.
+      try {
+        await firstValueFrom(
+          defer(() => this.projects.ensureDetectedScripts(ws.projectId)).pipe(
+            timeout({ first: RESOLVE_TIMEOUT_MS }),
+          ),
+        );
+      } catch (err) {
+        console.warn('[workspaces] command resolution stalled', workspaceId, err);
+        this._setInstall(workspaceId, { state: 'failed', manager: '' });
+        return;
+      }
+
       const effective = this.projects.effectiveCommandsFor(ws.projectId)();
       if (effective.setupCommand) {
-        // The setup PTY's exit code is the source of truth here — the
-        // unified `installFor` reads it (running → success/failed). A
-        // freshly checked-out worktree can make the first run exit
-        // non-zero transiently (e.g. `npm i` racing the settling
-        // checkout); `retry` re-runs it once, matching the auto-detected
-        // install path below and the user's manual "Retry setup".
-        const setup = this.runs.ensureSetupEntry(workspaceId);
-        const setup$ = defer(async () => {
-          await this.runs.startSetup(workspaceId);
-          if (setup.exitCode() !== 0) throw new Error('setup exited non-zero');
-        }).pipe(retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }));
+        // Run the setup PTY and wait for it to exit (the backend reports
+        // exit as success on EOF). A transient spawn rejection on a freshly
+        // created worktree is retried once — the same recovery as the
+        // user's manual "Retry setup".
+        const setup$ = defer(() => this.runs.startSetup(workspaceId)).pipe(
+          retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
+        );
         try {
           await firstValueFrom(setup$);
           this._setInstall(workspaceId, { state: 'success', manager: '' });
