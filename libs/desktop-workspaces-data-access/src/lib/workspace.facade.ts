@@ -1,5 +1,6 @@
-import { Injectable, Signal, computed, inject, signal } from '@angular/core';
-import { defer, firstValueFrom, map, retry, timeout, timer } from 'rxjs';
+import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { EMPTY, catchError, defer, map, retry, switchMap, tap, timeout, timer } from 'rxjs';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
@@ -30,10 +31,13 @@ const NO_INSTALL: WorkspaceInstall = { state: 'idle', manager: '' };
 // first-attempt failure on a freshly checked-out worktree.
 const RETRY_DELAY_MS = 750;
 
-// Upper bound on resolving the workspace's setup/run command. A settings
-// read is sub-second; this only trips when the backend is wedged, so a
-// stall fails retryably instead of hanging the Setup UI forever.
-const RESOLVE_TIMEOUT_MS = 15_000;
+// Per-attempt timeout for resolving the setup/run command (sub-second
+// normally; only trips when the backend is briefly saturated after
+// onboarding). Paired with RESOLVE_MAX_RETRIES so a transient stall
+// recovers automatically without surfacing an error to the user.
+const RESOLVE_TIMEOUT_MS = 8_000;
+const RESOLVE_RETRY_DELAY_MS = 4_000;
+const RESOLVE_MAX_RETRIES = 2;
 
 // Thrown when a package manager ran but exited non-zero, so `retry` can
 // re-run the install while still carrying the result for the final state.
@@ -57,6 +61,7 @@ export class WorkspacesFacade {
   private readonly repos = inject(RepositoriesFacade);
   private readonly ideDetection = inject(IdeDetectionService);
   private readonly uiState = inject(UiStateFacade);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly all = this.store.workspaces;
   // Active workspace id is derived from the router URL — RouterFacade
@@ -323,79 +328,45 @@ export class WorkspacesFacade {
    *      install (`installPackages`), tracked in the `_installs` map.
    *    Either path keeps the chat Start-tab `setup_progress` entry
    *    accurate via the unified `installFor` signal. */
-  async runInstall(workspaceId: string): Promise<void> {
-    // Flip to `running` up front so the UI shows a real "setting up"
-    // state immediately instead of an `idle`/"ready" stand-in while we
-    // resolve which command to run.
+  runInstall(workspaceId: string): void {
     this._setInstall(workspaceId, { state: 'running', manager: '' });
 
     const ws = this.workspaceById(workspaceId)();
-    if (ws) {
-      // Resolving the command hits the backend (`resolveWorkspaceCommands`
-      // → SQLite lock). Right after onboarding the backend is saturated
-      // (git clone + worktree creation share that lock), so this can
-      // stall; bound it so a stuck call surfaces as a retryable failure
-      // instead of pinning the Setup UI on a perpetual "running" loader.
-      try {
-        await firstValueFrom(
-          defer(() => this.projects.ensureDetectedScripts(ws.projectId)).pipe(
-            timeout({ first: RESOLVE_TIMEOUT_MS }),
+    if (!ws) return;
+
+    defer(() => this.projects.ensureDetectedScripts(ws.projectId)).pipe(
+      timeout({ first: RESOLVE_TIMEOUT_MS }),
+      retry({ count: RESOLVE_MAX_RETRIES, delay: () => timer(RESOLVE_RETRY_DELAY_MS) }),
+      switchMap(() => {
+        const { setupCommand } = this.projects.effectiveCommandsFor(ws.projectId)();
+        if (setupCommand) {
+          return defer(() => this.runs.startSetup(workspaceId)).pipe(
+            retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
+            map((): WorkspaceInstall => ({ state: 'success', manager: '' })),
+          );
+        }
+        return defer(() => this.adapter.installPackages(workspaceId)).pipe(
+          map((result) => {
+            if (result.ran && !result.success) throw new InstallFailed(result);
+            return result;
+          }),
+          retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
+          map((result): WorkspaceInstall =>
+            result.ran
+              ? { state: 'success', manager: result.manager }
+              : { state: 'no_package', manager: '' },
           ),
         );
-      } catch (err) {
-        console.warn('[workspaces] command resolution stalled', workspaceId, err);
-        this._setInstall(workspaceId, { state: 'failed', manager: '' });
-        return;
-      }
-
-      const effective = this.projects.effectiveCommandsFor(ws.projectId)();
-      if (effective.setupCommand) {
-        // Run the setup PTY and wait for it to exit (the backend reports
-        // exit as success on EOF). A transient spawn rejection on a freshly
-        // created worktree is retried once — the same recovery as the
-        // user's manual "Retry setup".
-        const setup$ = defer(() => this.runs.startSetup(workspaceId)).pipe(
-          retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
-        );
-        try {
-          await firstValueFrom(setup$);
-          this._setInstall(workspaceId, { state: 'success', manager: '' });
-        } catch (err) {
-          console.warn('[workspaces] setupCommand run failed', workspaceId, err);
-          this._setInstall(workspaceId, { state: 'failed', manager: '' });
-        }
-        return;
-      }
-    }
-
-    // Auto-detected package install. The very first install in a freshly
-    // created worktree can fail transiently (a not-yet-settled checkout,
-    // a partial first run, package-store init). `retry` clears it once —
-    // the same thing the user's manual "Retry setup" does, automatically.
-    // A package manager that ran but exited non-zero is surfaced as an
-    // `InstallFailed` so `retry` re-runs it; the carried result still
-    // reports the manager on the final failure.
-    const install$ = defer(() => this.adapter.installPackages(workspaceId)).pipe(
-      map((result) => {
-        if (result.ran && !result.success) throw new InstallFailed(result);
-        return result;
       }),
-      retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
-    );
-
-    try {
-      const result = await firstValueFrom(install$);
-      this._setInstall(
-        workspaceId,
-        result.ran
-          ? { state: 'success', manager: result.manager }
-          : { state: 'no_package', manager: '' },
-      );
-    } catch (err) {
-      console.warn('[workspaces] install failed after retry', workspaceId, err);
-      const manager = err instanceof InstallFailed ? err.result.manager : '';
-      this._setInstall(workspaceId, { state: 'failed', manager });
-    }
+      tap((install) => this._setInstall(workspaceId, install)),
+      catchError((err) => {
+        console.warn('[workspaces] install failed', workspaceId, err);
+        const manager = err instanceof InstallFailed ? err.result.manager : '';
+        this._setInstall(workspaceId, { state: 'failed', manager });
+        return EMPTY;
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe();
   }
 
   private _setInstall(workspaceId: string, update: WorkspaceInstall): void {
