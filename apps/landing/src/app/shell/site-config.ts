@@ -41,7 +41,7 @@ export const SITE_CONFIG: SiteConfig = {
   copyrightYear: new Date().getFullYear(),
   promoStrip: {
     enabled: true,
-    label: 'Mozart v0.1.0-beta.0 is out — Request access →',
+    label: 'Mozart Beta is out — Request access →',
     href: MOZART_LINKS.betaSignup,
   },
   downloads: {
