@@ -29,7 +29,7 @@ New to Mozart? The fastest path is:
 
 1. Read [introduction](/docs/introduction)
 2. [Install](/docs/install) the app
-3. Run your [first Workspace](/docs/first-workspace)
+3. Follow the [Quickstart](/docs/quickstart)
 4. Come back and ask questions on Discord
 
 We read everything. The roadmap is shaped by what you tell us.

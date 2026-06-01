@@ -21,4 +21,4 @@ After launching Mozart for the first time, open the **About** menu. You should s
 
 ## Next
 
-Open your first Project and run the [first Workspace walkthrough](/docs/first-workspace).
+Open your first Project and run the [Quickstart](/docs/quickstart).
