@@ -151,7 +151,7 @@ jobs:
           mac=$(ls ./*aarch64*.dmg 2>/dev/null | xargs -n1 basename | head -1)
           mac_intel=$(ls ./*x64*.dmg 2>/dev/null | xargs -n1 basename | head -1)
           windows=$(ls ./*-setup.exe 2>/dev/null | xargs -n1 basename | head -1)
-          linux=$(ls ./*.AppImage 2>/dev/null | grep -v '.tar.gz' | xargs -n1 basename | head -1)
+          linux=$(ls ./*_amd64.deb 2>/dev/null | xargs -n1 basename | head -1)
           jq -n --arg mac "$mac" --arg maci "$mac_intel" --arg win "$windows" --arg lin "$linux" \
             '{mac:$mac, "mac-intel":$maci, windows:$win, linux:$lin}' > manifest.json
           echo "manifest.json:"; cat manifest.json
