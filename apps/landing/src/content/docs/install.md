@@ -18,7 +18,3 @@ Public downloads are not yet available. Mozart is in private preview — [reques
 ## Verify the install
 
 After launching Mozart for the first time, open the **About** menu. You should see the version number that matches the build you downloaded.
-
-## Next
-
-Open your first Project and run the [Quickstart](/docs/quickstart).

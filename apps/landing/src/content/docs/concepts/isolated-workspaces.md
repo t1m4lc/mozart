@@ -33,7 +33,3 @@ This is useful when:
 ## Lifecycle
 
 A Workspace is cheap. Create as many as you need, throw away the ones that did not work. Mozart cleans up the underlying filesystem when you discard a Workspace.
-
-## Next
-
-See the [local-first principles](/docs/concepts/local-first) that make this safe.

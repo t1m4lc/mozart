@@ -1,10 +1,10 @@
 ---
 description: Your personal, machine-wide preferences in settings.json.
-order: 4
+order: 1
 ---
 
 Global settings are **your** preferences, stored once on your machine and applied to **every**
-Project you open — unless a [Project](/docs/concepts/project-settings) overrides them. Use them for
+Project you open — unless a [Project](/docs/reference/project-settings) overrides them. Use them for
 anything that's about your taste or your machine, not about a specific repo: theme, notifications,
 your default Agent model.
 
@@ -54,9 +54,5 @@ A complete file with the defaults filled in:
 ## Overridable per project
 
 Every key above is a personal default — any repo can pin its own value in
-[Project settings](/docs/concepts/project-settings), and that wins for that repo. Your global file
+[Project settings](/docs/reference/project-settings), and that wins for that repo. Your global file
 is what applies everywhere else.
-
-## Next
-
-See [Project settings](/docs/concepts/project-settings) for what travels with a repo.

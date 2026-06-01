@@ -15,7 +15,3 @@ Coding agents work best when you can run several in parallel without them steppi
 - **Reviewable diffs** — each Workspace produces a diff you can review like a PR
 - **Local-first** — your code, your machine, no cloud round-trip required
 - **Bring your own agent** — Claude Code today, more soon
-
-## Next steps
-
-Install the desktop app and open your first project to start running Tasks.

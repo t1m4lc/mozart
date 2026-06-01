@@ -1,10 +1,10 @@
 ---
 description: Per-repo settings committed in .mozart/settings.json, shared by the team.
-order: 5
+order: 2
 ---
 
 Project settings live in `.mozart/settings.json` inside a repo. Unlike
-[Global settings](/docs/concepts/global-settings), they're **committed with the code**, so everyone
+[Global settings](/docs/reference/global-settings), they're **committed with the code**, so everyone
 who opens the repo gets the same setup. Use them for anything that's about _the project_ rather than
 _you_ — most importantly, how to install and run it.
 
@@ -29,7 +29,7 @@ the `mozart` theme, but a repo pins `dracula` —
 ```
 
 — and everyone sees that repo in `dracula`, no matter their personal theme. The same goes for any
-key in the [global reference](/docs/concepts/global-settings): pin `git.baseBranch`,
+key in the [global reference](/docs/reference/global-settings): pin `git.baseBranch`,
 force an `agent.model`, and so on.
 
 ## The setting that's truly project-specific: `scripts`
@@ -51,7 +51,3 @@ and the whole team shares one definition:
 - Order is load-bearing — it drives the tab order in the Run panel (left tab = first key).
 - When a repo has no committed `scripts`, Mozart detects your package manager and fills in sensible
   defaults on first entry.
-
-## Next
-
-Back to the [Settings overview](/docs/concepts/settings) for how the layers combine.

@@ -11,23 +11,26 @@ bundled defaults  ◀  global settings  ◀  project settings
    (in the app)       (your machine)      (.mozart/settings.json)
 ```
 
-- **Bundled defaults** ship inside the app. You never edit these.
-- **[Global settings](/docs/concepts/global-settings)** — a `settings.json` on your machine. Your
-  personal preferences, applied to every Project.
-- **[Project settings](/docs/concepts/project-settings)** — an optional `.mozart/settings.json`
-  committed in a repo. Shared by everyone who opens it, and able to override any global key.
+## Global vs project
 
-The rule of thumb: **global is _you_** — your taste, on this machine. **Project is _the repo_** —
-committed, shared by the team, and it wins.
+There are two settings you can edit, and the difference is simple:
 
-## Editable vs internal
+- **Global settings** are **you** — your personal preferences, stored once on your machine and
+  applied to every Project you open. Theme, notifications, your default Agent model.
+- **Project settings** are **the repo** — committed in `.mozart/settings.json`, shared by everyone
+  who opens it, and they win over your global preferences. Mostly: how to set up and run the
+  project.
 
-Only the `settings.json` files — global and per-project — are meant to be edited by hand.
-Everything else Mozart keeps on disk (its database, your Projects and Workspaces, caches, logs) is
-internal: hand-editing it can corrupt Mozart, so leave it alone. A malformed `settings.json` is
-never fatal — Mozart ignores the bad layer and falls back to the one below.
+If a key is set in both, the project value wins. Anything a project doesn't set falls back to your
+global preference, and anything you don't set falls back to the bundled default.
 
-## Next
+## Safe by design
 
-See [Global settings](/docs/concepts/global-settings) for your machine-wide preferences, then
-[Project settings](/docs/concepts/project-settings) for what travels with a repo.
+Only the `settings.json` files — global and per-project — are meant to be edited by hand. Everything
+else Mozart keeps on disk (its database, your Projects and Workspaces, caches, logs) is internal:
+hand-editing it can corrupt Mozart, so leave it alone. A malformed `settings.json` is never fatal —
+Mozart ignores the bad layer and falls back to the one below.
+
+For the exact keys, defaults, and file locations, see the
+[Global settings](/docs/reference/global-settings) and
+[Project settings](/docs/reference/project-settings) reference.

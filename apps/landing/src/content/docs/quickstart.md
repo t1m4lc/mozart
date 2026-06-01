@@ -3,6 +3,10 @@ description: From install to a reviewed diff in five steps.
 order: 3
 ---
 
+<div style="position:relative;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;border:1px dashed hsl(var(--border));border-radius:0.75rem;background:hsl(var(--muted));color:hsl(var(--muted-foreground));font-size:0.875rem;margin:0 0 2rem;">
+  🎬 Product walkthrough — coming soon
+</div>
+
 This is the fastest path from a fresh install to your first reviewed diff. Each step links to the
 detail if you want to go deeper — you don't need any of it to get started.
 
@@ -35,7 +39,3 @@ it's regular Git: push, open a PR, merge.
 
 That's the core of Mozart: every Task gets its own isolated Workspace and a diff you review like a
 PR. Run several against the same Task and keep the one you like best.
-
-## Next
-
-Learn the [vocabulary](/docs/concepts/isolated-workspaces) behind these pieces.

@@ -32,7 +32,3 @@ Local-first means:
 - You can use Mozart on private repos without a security review
 - Your work survives if a vendor disappears
 - You stay in control of what leaves your machine
-
-## Next
-
-If you have a team, see [we are Mozart](/docs/community/we-are-mozart) for community channels.
