@@ -4,7 +4,7 @@ import {
   computed,
   inject,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { ActivatedRoute, RouterLink } from '@angular/router';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideUserRound } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ui/button';
@@ -46,8 +46,18 @@ import { UiAuthCard } from '../domains/auth/ui-auth-card';
   `,
 })
 export class DashboardPage {
+  private readonly route = inject(ActivatedRoute);
   private readonly auth = inject(AuthFacade);
   protected readonly firstName = computed(
     () => this.auth.user()?.firstName || 'there',
   );
+
+  constructor() {
+    // When redirectIfAuthedGuard bounces an already-authenticated user
+    // from /login?state=X&port=Y to /dashboard?state=X&port=Y, LoginPage
+    // is never created so ingestDesktopHandoff is never called. Read the
+    // params here so the fresh desktop nonce/port aren't silently lost.
+    const params = this.route.snapshot.queryParamMap;
+    this.auth.ingestDesktopHandoff(params.get('state'), params.get('port'));
+  }
 }
