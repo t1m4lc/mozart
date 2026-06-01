@@ -29,11 +29,8 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            target: aarch64-apple-darwin
-            args: '--target aarch64-apple-darwin'
-          - platform: macos-latest
-            target: x86_64-apple-darwin
-            args: '--target x86_64-apple-darwin'
+            target: universal-apple-darwin
+            args: '--target universal-apple-darwin'
           - platform: ubuntu-latest
             target: ''
             args: ''
@@ -68,9 +65,9 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 
-      - name: Add Rust target (macOS only)
-        if: matrix.target != ''
-        run: rustup target add ${{ matrix.target }}
+      - name: Add Rust targets (macOS universal)
+        if: matrix.target == 'universal-apple-darwin'
+        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
 
       - uses: Swatinem/rust-cache@v2
         with:
