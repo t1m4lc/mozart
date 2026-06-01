@@ -169,3 +169,18 @@ jobs:
           # Updater feed lives at the bucket root (plugins.updater endpoint).
           aws s3 cp assets/latest.json "s3://mozart-downloads/latest.json" \
             --endpoint-url "$R2_ENDPOINT" --content-type application/json --no-progress
+
+  notify-discord:
+    needs: mirror-r2
+    runs-on: ubuntu-latest
+    if: success()
+    steps:
+      - name: Post release to Discord announcements
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          TAG: ${{ inputs.tag || github.ref_name }}
+        run: |
+          SLUG="${TAG//./-}"
+          curl -s -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"content\": \"**Mozart $TAG** is out — https://mozart.build/changelog/$SLUG\"}"
