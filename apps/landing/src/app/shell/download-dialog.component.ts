@@ -20,6 +20,13 @@ import { detectOsTag } from './analytics/detect-os';
 import { type PageSection, pageSection } from './analytics/page-section';
 import { SITE_CONFIG } from './site-config';
 
+const OTHER_LABELS: Record<string, string> = {
+  mac: 'Download for Windows or Linux',
+  'mac-intel': 'Download for Windows or Linux',
+  windows: 'Download for Mac or Linux',
+  linux: 'Download for Mac or Windows',
+};
+
 type OsKey = 'mac' | 'mac-intel' | 'windows' | 'linux';
 
 type Platform = {
@@ -167,26 +174,24 @@ const PLATFORMS: Record<OsKey, Platform> = {
         </kbd>
       </button>
 
-      @for (platform of others(); track platform.os) {
-        <button
-          hlmBtn
-          variant="outline"
-          size="lg"
-          type="button"
-          [disabled]="pending()"
-          (click)="download(platform, 'secondary')"
-          class="group w-full justify-between py-4"
-        >
-          <span class="text-base">{{ platform.label }}</span>
-          <ng-icon hlm size="sm" name="lucideArrowRight" class="h-4 w-4" />
-        </button>
-      }
+      <button
+        hlmBtn
+        variant="outline"
+        size="lg"
+        type="button"
+        (click)="goToAllPlatforms()"
+        class="group w-full justify-between py-4"
+      >
+        <span class="text-base">{{ otherLabel() }}</span>
+        <ng-icon hlm size="sm" name="lucideArrowRight" class="h-4 w-4" />
+      </button>
     </div>
   `,
 })
 export class DownloadDialogComponent {
   protected readonly os = inject(OsService);
   private readonly ref = inject(BrnDialogRef);
+  private readonly router = inject(Router);
   private readonly analytics = inject(AnalyticsService);
   private readonly ctx =
     injectBrnDialogContext<DownloadDialogContext>({ optional: true });
@@ -201,7 +206,7 @@ export class DownloadDialogComponent {
   // Captured at dialog-open time so analytics see the page that triggered the
   // modal, not whatever the router lands on after a click.
   private readonly fromPath =
-    inject(Router).url.split('?')[0].split('#')[0] || '/';
+    this.router.url.split('?')[0].split('#')[0] || '/';
   private readonly section: PageSection =
     this.ctx?.section ?? pageSection(this.fromPath);
 
@@ -216,10 +221,8 @@ export class DownloadDialogComponent {
     return PLATFORMS.mac;
   });
 
-  protected readonly others = computed<Platform[]>(() =>
-    (Object.keys(PLATFORMS) as OsKey[])
-      .filter((key) => key !== this.primary().os)
-      .map((key) => PLATFORMS[key]),
+  protected readonly otherLabel = computed<string>(
+    () => OTHER_LABELS[this.primary().os] ?? 'All download options',
   );
 
   protected onCode(event: Event): void {
@@ -270,6 +273,11 @@ export class DownloadDialogComponent {
     } finally {
       this.pending.set(false);
     }
+  }
+
+  protected goToAllPlatforms(): void {
+    this.ref.close();
+    void this.router.navigate(['/download']);
   }
 
   @HostListener('document:keydown.enter')
