@@ -17,7 +17,7 @@ const REQUIRED_SITEMAP_ROUTES = [
   '/docs',
   '/docs/introduction',
   '/docs/install',
-  '/docs/first-workspace',
+  '/docs/quickstart',
   '/docs/concepts/local-first',
   '/docs/concepts/isolated-workspaces',
   '/docs/community/we-are-mozart',
