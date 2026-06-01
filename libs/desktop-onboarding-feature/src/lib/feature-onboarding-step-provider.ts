@@ -207,19 +207,6 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
           </p>
         }
 
-        <div class="flex items-center justify-between gap-3">
-          <button hlmBtn variant="ghost" type="button" (click)="facade.back()">
-            Back
-          </button>
-          <button
-            hlmBtn
-            type="button"
-            [disabled]="!providerReady()"
-            (click)="onContinue()"
-          >
-            Continue
-          </button>
-        </div>
       </div>
     }
   `,
@@ -290,11 +277,7 @@ export class FeatureOnboardingStepProvider {
 
   @HostListener('document:keyup.enter')
   protected onEnterKey(): void {
-    if (!this.showPty() && this.providerReady()) this.onContinue();
-  }
-
-  protected onContinue(): void {
-    this.facade.advance();
+    if (!this.showPty() && this.facade.canAdvance()) this.facade.advance();
   }
 
   protected onProviderChange(value: ProviderId | null): void {

@@ -27,8 +27,13 @@ export type { InstallState, WorkspaceInstall };
 
 const NO_INSTALL: WorkspaceInstall = { state: 'idle', manager: '' };
 
-// Backoff before the single setup/install retry that clears a transient
-// first-attempt failure on a freshly checked-out worktree.
+// Initial settle delay before the first install attempt. Gives git worktree
+// checkout and settings.json resolution time to fully land on disk before
+// the package manager runs — needed for freshly-created workspaces (e.g.
+// the get-started project which is cloned + linked in the same flow).
+const SETTLE_DELAY_MS = 3_000;
+
+// Backoff between install retries when the first attempt fails.
 const RETRY_DELAY_MS = 2_000;
 
 // Per-attempt timeout for resolving the setup/run command (sub-second
@@ -334,15 +339,20 @@ export class WorkspacesFacade {
     const ws = this.workspaceById(workspaceId)();
     if (!ws) return;
 
-    defer(() => this.projects.ensureDetectedScripts(ws.projectId)).pipe(
+    timer(SETTLE_DELAY_MS).pipe(
+      switchMap(() => defer(() => this.projects.ensureDetectedScripts(ws.projectId))),
       timeout({ first: RESOLVE_TIMEOUT_MS }),
       retry({ count: RESOLVE_MAX_RETRIES, delay: () => timer(RESOLVE_RETRY_DELAY_MS) }),
       switchMap(() => {
         const { setupCommand } = this.projects.effectiveCommandsFor(ws.projectId)();
         if (setupCommand) {
           return defer(() => this.runs.startSetup(workspaceId)).pipe(
-            retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
-            map((): WorkspaceInstall => ({ state: 'success', manager: '' })),
+            map((): WorkspaceInstall => {
+              const code = this.runs.ensureSetupEntry(workspaceId).exitCode();
+              if (code != null && code !== 0) throw new Error('setup-cmd exited non-zero');
+              return { state: 'success', manager: '' };
+            }),
+            retry({ count: 2, delay: () => timer(RETRY_DELAY_MS) }),
           );
         }
         return defer(() => this.adapter.installPackages(workspaceId)).pipe(
@@ -353,10 +363,10 @@ export class WorkspacesFacade {
             if (!result.ran || !result.success) throw new InstallFailed(result);
             return result;
           }),
-          retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
+          retry({ count: 2, delay: () => timer(RETRY_DELAY_MS) }),
           catchError((err): Observable<InstallPackagesResult> => {
-            // After the single retry, surface ran:false as no_package
-            // rather than failed — no package manager is not an error.
+            // After all retries, surface ran:false as no_package rather
+            // than failed — no package manager is not an error.
             if (err instanceof InstallFailed && !err.result.ran) {
               return of({ ran: false, success: false, manager: '', message: '' });
             }

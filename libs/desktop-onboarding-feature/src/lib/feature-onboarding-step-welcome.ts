@@ -1,17 +1,9 @@
-import {
-  ChangeDetectionStrategy,
-  Component,
-  HostListener,
-  inject,
-} from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
+import { ChangeDetectionStrategy, Component } from '@angular/core';
 
-// Step 1 of the onboarding wizard. Pure intro — Enter or click on the
-// CTA advances to the Git check.
+// Step 1 of the onboarding wizard. Pure intro — "Get started" button lives
+// in the stepper's footer slot (onboarding.page.ts).
 @Component({
   selector: 'app-feature-onboarding-step-welcome',
-  imports: [HlmButtonImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
   template: `
@@ -24,23 +16,7 @@ import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
           Let's set up your environment — takes about a minute.
         </p>
       </div>
-      <div class="flex justify-center pt-2">
-        <button hlmBtn type="button" (click)="onContinue()">
-          Get started
-        </button>
-      </div>
     </div>
   `,
 })
-export class FeatureOnboardingStepWelcome {
-  protected readonly facade = inject(OnboardingFacade);
-
-  @HostListener('document:keyup.enter')
-  protected onEnterKey(): void {
-    this.onContinue();
-  }
-
-  protected onContinue(): void {
-    this.facade.advance();
-  }
-}
+export class FeatureOnboardingStepWelcome {}

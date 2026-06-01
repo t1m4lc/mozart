@@ -112,8 +112,8 @@ import { HlmIconImports } from '@spartan-ui/icon';
                 class="text-sm font-light leading-relaxed text-muted-foreground"
               >
                 This Get started project is a small Vue app to help you try
-                Mozart's features. <br />Run the project and open it into your
-                browser to see instructions.
+                Mozart's features. <br /><b>Run the project</b> and open it into
+                your browser to see instructions.
               </p>
             } @else {
               <p class="text-sm font-light leading-relaxed text-foreground">

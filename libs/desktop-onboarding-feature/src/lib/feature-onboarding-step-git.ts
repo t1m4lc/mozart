@@ -122,17 +122,6 @@ const STATE_DOT_CLASS: Record<ProbeState, string> = {
         </div>
       }
 
-      <div class="flex items-center justify-between gap-3">
-        <span></span>
-        <button
-          hlmBtn
-          type="button"
-          [disabled]="state() !== 'found'"
-          (click)="onContinue()"
-        >
-          Continue
-        </button>
-      </div>
     </div>
   `,
 })
@@ -162,15 +151,11 @@ export class FeatureOnboardingStepGit {
 
   @HostListener('document:keyup.enter')
   protected onEnterKey(): void {
-    if (this.state() === 'found') this.onContinue();
+    if (this.facade.canAdvance()) this.facade.advance();
   }
 
   protected onVerify(): void {
     void this.probe();
-  }
-
-  protected onContinue(): void {
-    this.facade.advance();
   }
 
   private async probe(): Promise<void> {

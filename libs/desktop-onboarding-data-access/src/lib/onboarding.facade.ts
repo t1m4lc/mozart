@@ -55,6 +55,14 @@ export class OnboardingFacade {
   );
   readonly totalSteps = ONBOARDING_STEPS.length;
 
+  private readonly _completing = signal(false);
+  readonly completing = computed(() => this._completing());
+
+  readonly canAdvance = computed(() => {
+    const status = this._statuses()[this._currentStep()];
+    return status === 'done' || status === 'ready';
+  });
+
   /** Idempotent boot hydrate — reads the local mirror. Called from
    *  `provideAppInitializer`. After this resolves, `isCompleted()` is
    *  authoritative and the route guard can read it synchronously. */
@@ -105,6 +113,8 @@ export class OnboardingFacade {
    *  step's Finish / Skip-and-finish button.
    */
   async complete(): Promise<void> {
+    if (this._completing()) return;
+    this._completing.set(true);
     console.debug('[onboarding] complete() start');
 
     try {
@@ -152,6 +162,15 @@ export class OnboardingFacade {
         console.error('[onboarding] fallback navigate also failed:', e);
       }
     }
+  }
+
+  /** Step 4 finish: marks github as skipped if not connected, then
+   *  calls `complete()`. Guards against double-invocation. */
+  async finishGithub(): Promise<void> {
+    if (this._statuses()['github'] !== 'done') {
+      this.markStep('github', 'skipped');
+    }
+    await this.complete();
   }
 
   /** Used by settings' "Revisit tour" to reset the flag and re-arm the

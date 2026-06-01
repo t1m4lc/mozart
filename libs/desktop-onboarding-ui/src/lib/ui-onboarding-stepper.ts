@@ -18,11 +18,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
 @Component({
   selector: 'app-onboarding-stepper',
   changeDetection: ChangeDetectionStrategy.OnPush,
-  host: { class: 'flex h-full flex-col items-center justify-center' },
+  host: { class: 'flex h-full flex-col' },
   template: `
-    <div class="w-full max-w-xl space-y-8 px-6 py-12">
+    <div class="mx-auto flex w-full max-w-xl flex-1 flex-col px-6 py-8">
+      <!-- Dots: always at same vertical position regardless of step content height -->
       <div
-        class="flex justify-center gap-2"
+        class="flex shrink-0 justify-center gap-2"
         role="progressbar"
         [attr.aria-valuenow]="stepIndex()"
         [attr.aria-valuemin]="1"
@@ -39,11 +40,15 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
           ></span>
         }
       </div>
-      <div class="space-y-6">
+      <!-- Content: fills available space between dots and footer -->
+      <div class="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-5">
         <ng-content />
       </div>
-      <div class="flex items-center justify-between gap-3">
-        <ng-content select="[footer-left]" />
+      <!-- Footer: always at same vertical position, left slot expands to push right slot right -->
+      <div class="flex shrink-0 items-center gap-3">
+        <div class="flex flex-1">
+          <ng-content select="[footer-left]" />
+        </div>
         <ng-content select="[footer-right]" />
       </div>
     </div>
