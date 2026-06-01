@@ -297,6 +297,11 @@ async function main() {
   const llms = renderLlmsTxt({ docsByGroup, blog, changelog });
   const llmsFull = renderLlmsFullTxt({ docs, blog, changelog });
 
+  // Keep the source public/ file in sync so dev server reflects current content.
+  const publicDir = resolve(ROOT, 'public');
+  await writeFile(join(publicDir, 'llms.txt'), llms, 'utf8');
+  console.log(`generate-llms: updated source public/llms.txt`);
+
   const distRoots = await findDistRoots();
   for (const root of distRoots) {
     await writeFile(join(root, 'llms.txt'), llms, 'utf8');

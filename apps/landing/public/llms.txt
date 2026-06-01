@@ -1,23 +1,35 @@
 # Mozart
 
-> Mozart is an AI coding agent manager: run, review, and orchestrate multiple Claude Code agents in parallel from a single desktop app.
+> AI coding agent manager. Mozart runs a team of Claude Code agents in parallel, each isolated in its own Workspace, so you can review and merge their work like any other contributor.
 
-Mozart wraps the Claude Code CLI and adds a visual layer for managing isolated workspaces, reviewing diffs, and tracking agent runs without touching Git internals.
+Home: https://mozart.build
 
-## Docs
+## Docs — Getting Started
 
-- [Introduction](https://mozart.build/docs/introduction): What Mozart is and why it exists
-- [Install](https://mozart.build/docs/install): Download and set up Mozart
-- [First Workspace](https://mozart.build/docs/first-workspace): Run your first AI coding task
-- [Isolated Workspaces](https://mozart.build/docs/concepts/isolated-workspaces): How Mozart sandboxes each agent run
-- [Local-First](https://mozart.build/docs/concepts/local-first): Why Mozart runs on your machine
+- [Introduction](https://mozart.build/docs/introduction): What Mozart is, how it works, and when to use it.
+- [Install](https://mozart.build/docs/install): Get the Mozart desktop app on your machine.
+- [Quickstart](https://mozart.build/docs/quickstart): From install to a reviewed diff in five steps.
+
+## Docs — Concepts
+
+- [Isolated workspaces](https://mozart.build/docs/concepts/isolated-workspaces): How Mozart keeps parallel Agent Runs from stepping on each other.
+- [Local first](https://mozart.build/docs/concepts/local-first): Your code stays on your machine. The cloud is opt-in, not default.
+- [Settings](https://mozart.build/docs/concepts/settings): How Mozart layers defaults, your machine, and per-project settings.
+
+## Docs — Reference
+
+- [Global settings](https://mozart.build/docs/reference/global-settings): Your personal, machine-wide preferences in settings.json.
+- [Project settings](https://mozart.build/docs/reference/project-settings): Per-repo settings committed in .mozart/settings.json, shared by the team.
+
+## Docs — Community
+
+- [We are mozart](https://mozart.build/docs/community/we-are-mozart): Where to find us, ask questions, and contribute.
 
 ## Blog
 
-- [Hello World](https://mozart.build/blog/hello-world): The story behind Mozart
+- [Hello, World](https://mozart.build/blog/hello-world): Why I am building Mozart, a conductor for AI coding agents.
 
-## Optional
+## Changelog
 
-- [Changelog](https://mozart.build/changelog): Release notes
-- [Privacy Policy](https://mozart.build/privacy)
-- [Terms of Service](https://mozart.build/terms)
+- [0.1.0-beta.0 — First private beta](https://mozart.build/changelog/v0-1-0-beta-0): First private beta
+
