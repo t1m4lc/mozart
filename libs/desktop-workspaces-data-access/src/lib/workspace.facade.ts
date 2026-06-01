@@ -1,4 +1,5 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
+import { defer, firstValueFrom, map, retry, timer } from 'rxjs';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
@@ -24,6 +25,18 @@ import type {
 export type { InstallState, WorkspaceInstall };
 
 const NO_INSTALL: WorkspaceInstall = { state: 'idle', manager: '' };
+
+// Backoff before the single setup/install retry that clears a transient
+// first-attempt failure on a freshly checked-out worktree.
+const RETRY_DELAY_MS = 750;
+
+// Thrown when a package manager ran but exited non-zero, so `retry` can
+// re-run the install while still carrying the result for the final state.
+class InstallFailed extends Error {
+  constructor(readonly result: InstallPackagesResult) {
+    super('install command exited non-zero');
+  }
+}
 
 // Public API of the `workspaces` domain. Features inject this — never
 // the store or adapter directly. Cross-domain calls to `projects` and
@@ -317,11 +330,18 @@ export class WorkspacesFacade {
       const effective = this.projects.effectiveCommandsFor(ws.projectId)();
       if (effective.setupCommand) {
         // The setup PTY's exit code is the source of truth here — the
-        // unified `installFor` reads it (running → success/failed). We
-        // only need to handle a spawn failure so the state doesn't
-        // stick on `running`.
-        try {
+        // unified `installFor` reads it (running → success/failed). A
+        // freshly checked-out worktree can make the first run exit
+        // non-zero transiently (e.g. `npm i` racing the settling
+        // checkout); `retry` re-runs it once, matching the auto-detected
+        // install path below and the user's manual "Retry setup".
+        const setup = this.runs.ensureSetupEntry(workspaceId);
+        const setup$ = defer(async () => {
           await this.runs.startSetup(workspaceId);
+          if (setup.exitCode() !== 0) throw new Error('setup exited non-zero');
+        }).pipe(retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }));
+        try {
+          await firstValueFrom(setup$);
           this._setInstall(workspaceId, { state: 'success', manager: '' });
         } catch (err) {
           console.warn('[workspaces] setupCommand run failed', workspaceId, err);
@@ -333,36 +353,32 @@ export class WorkspacesFacade {
 
     // Auto-detected package install. The very first install in a freshly
     // created worktree can fail transiently (a not-yet-settled checkout,
-    // a partial first run, package-store init). One retry clears it —
+    // a partial first run, package-store init). `retry` clears it once —
     // the same thing the user's manual "Retry setup" does, automatically.
-    let result: InstallPackagesResult | null = null;
-    for (let attempt = 1; attempt <= 2; attempt++) {
-      try {
-        result = await this.adapter.installPackages(workspaceId);
-        if (!result.ran || result.success) break;
-      } catch (err) {
-        console.warn(
-          `[workspaces] install attempt ${attempt} threw`,
-          workspaceId,
-          err,
-        );
-        result = null;
-      }
-      if (attempt < 2) await new Promise((r) => setTimeout(r, 750));
-    }
+    // A package manager that ran but exited non-zero is surfaced as an
+    // `InstallFailed` so `retry` re-runs it; the carried result still
+    // reports the manager on the final failure.
+    const install$ = defer(() => this.adapter.installPackages(workspaceId)).pipe(
+      map((result) => {
+        if (result.ran && !result.success) throw new InstallFailed(result);
+        return result;
+      }),
+      retry({ count: 1, delay: () => timer(RETRY_DELAY_MS) }),
+    );
 
-    if (!result) {
-      this._setInstall(workspaceId, { state: 'failed', manager: '' });
-      return;
+    try {
+      const result = await firstValueFrom(install$);
+      this._setInstall(
+        workspaceId,
+        result.ran
+          ? { state: 'success', manager: result.manager }
+          : { state: 'no_package', manager: '' },
+      );
+    } catch (err) {
+      console.warn('[workspaces] install failed after retry', workspaceId, err);
+      const manager = err instanceof InstallFailed ? err.result.manager : '';
+      this._setInstall(workspaceId, { state: 'failed', manager });
     }
-    if (!result.ran) {
-      this._setInstall(workspaceId, { state: 'no_package', manager: '' });
-      return;
-    }
-    this._setInstall(workspaceId, {
-      state: result.success ? 'success' : 'failed',
-      manager: result.manager,
-    });
   }
 
   private _setInstall(workspaceId: string, update: WorkspaceInstall): void {
