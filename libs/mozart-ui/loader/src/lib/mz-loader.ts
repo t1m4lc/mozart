@@ -61,6 +61,7 @@ const BRAILLE_FRAMES = [
       <span class="mz-loader-grid" aria-hidden="true">
         <span></span><span></span><span></span> <span></span><span></span
         ><span></span> <span></span><span></span><span></span>
+        <span></span><span></span><span></span>
       </span>
     }
   `,
@@ -68,7 +69,7 @@ const BRAILLE_FRAMES = [
     :host(.mz-loader--grid) .mz-loader-grid {
       display: inline-grid;
       grid-template-columns: repeat(3, var(--mz-s, 5px));
-      grid-template-rows: repeat(3, var(--mz-s, 5px));
+      grid-template-rows: repeat(4, var(--mz-s, 5px));
       gap: var(--mz-gap, 2px);
     }
     :host(.mz-loader--grid) .mz-loader-grid > span {
@@ -80,7 +81,8 @@ const BRAILLE_FRAMES = [
       animation: mz-pulse 1.1s infinite steps(1);
     }
     :host(.mz-loader--grid) .mz-loader-grid > span:nth-child(2),
-    :host(.mz-loader--grid) .mz-loader-grid > span:nth-child(8) {
+    :host(.mz-loader--grid) .mz-loader-grid > span:nth-child(8),
+    :host(.mz-loader--grid) .mz-loader-grid > span:nth-child(11) {
       visibility: hidden;
     }
     :host(.mz-loader--grid) .mz-loader-grid > span:nth-child(1) {
@@ -103,6 +105,12 @@ const BRAILLE_FRAMES = [
     }
     :host(.mz-loader--grid) .mz-loader-grid > span:nth-child(9) {
       animation-delay: 600ms;
+    }
+    :host(.mz-loader--grid) .mz-loader-grid > span:nth-child(10) {
+      animation-delay: 700ms;
+    }
+    :host(.mz-loader--grid) .mz-loader-grid > span:nth-child(12) {
+      animation-delay: 800ms;
     }
 
     /* Simple variant — stacked braille glyphs, one visible per frame.
