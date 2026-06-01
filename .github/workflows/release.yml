@@ -29,8 +29,11 @@ jobs:
       matrix:
         include:
           - platform: macos-latest
-            target: universal-apple-darwin
-            args: '--target universal-apple-darwin'
+            target: aarch64-apple-darwin
+            args: '--target aarch64-apple-darwin'
+          - platform: macos-latest
+            target: x86_64-apple-darwin
+            args: '--target x86_64-apple-darwin'
           - platform: ubuntu-latest
             target: ''
             args: ''
@@ -65,14 +68,14 @@ jobs:
           sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
 
-      - name: Add Rust targets (macOS universal)
-        if: matrix.target == 'universal-apple-darwin'
-        run: rustup target add aarch64-apple-darwin x86_64-apple-darwin
+      - name: Add Rust target (macOS only)
+        if: matrix.target != ''
+        run: rustup target add ${{ matrix.target }}
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: apps/desktop-tauri -> target
-          key: ${{ matrix.target }}
+          key: ${{ matrix.target }}-v2
 
       - uses: tauri-apps/tauri-action@v0
         env:
