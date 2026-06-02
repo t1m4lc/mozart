@@ -1,27 +1,25 @@
 //! Resolve the `claude` executable for GUI-launched builds.
 //!
 //! A Tauri app launched from the macOS Dock / a Linux `.desktop` entry
-//! inherits launchd's (or systemd's) minimal PATH — `/usr/bin:/bin:…` —
-//! NOT the PATH the user configured in `.zshrc` / `.bash_profile`. The
-//! `claude` CLI almost always lives somewhere only the login shell knows
-//! about (`~/.local/bin`, a Homebrew prefix, an nvm / volta / bun shim),
-//! so a bare `Command::new("claude")` fails with ENOENT even though it
-//! runs fine in a terminal. That is the exact onboarding-works /
-//! agent-run-fails split: onboarding's `claude login` PTY goes through
-//! `$SHELL` (terminal.rs), agent runs spawn the binary directly.
+//! inherits launchd's (or systemd's) minimal PATH, NOT the PATH the user
+//! configured in their shell profile. The `claude` CLI almost always lives
+//! somewhere only the login shell knows about (`~/.local/bin`, a Homebrew
+//! prefix, an nvm / volta / bun shim), so a bare `Command::new("claude")`
+//! fails with ENOENT even though it runs fine in a terminal — the exact
+//! onboarding-works / agent-run-fails split (onboarding's `claude login`
+//! PTY goes through `$SHELL`, agent runs spawn the binary directly).
 //!
-//! [`resolve`] walks the process PATH, the user's *login-shell* PATH
-//! (cached, Unix only — Windows GUI apps already inherit the full PATH
-//! from the registry), and a set of well-known install dirs, then returns
-//! the absolute path to `claude` plus the augmented PATH to hand the
-//! child so `claude`'s own helpers (node, git, ripgrep) resolve too.
+//! [`resolve`] walks the augmented PATH from [`crate::shell_env`] and
+//! returns the absolute path to `claude` plus that PATH, so callers can
+//! hand it to the child for `claude`'s own helpers (node, git, ripgrep).
 
 use std::ffi::OsString;
-use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::path::Path;
+
+use crate::shell_env;
 
 /// Test override: when `MOZART_CLAUDE_BIN` is set, callers use it verbatim
-/// and all PATH discovery is skipped (mirrors the long-standing seam the
+/// and binary discovery is skipped (mirrors the long-standing seam the
 /// runner / command tests rely on).
 const BIN_OVERRIDE_ENV: &str = "MOZART_CLAUDE_BIN";
 
@@ -36,7 +34,7 @@ pub struct ResolvedBin {
 
 /// Resolve `claude` for a child spawn. Honors `MOZART_CLAUDE_BIN` first.
 pub fn resolve() -> ResolvedBin {
-    let path_env = augmented_path();
+    let path_env = shell_env::augmented_path();
     if let Some(over) = std::env::var_os(BIN_OVERRIDE_ENV) {
         return ResolvedBin {
             program: over,
@@ -47,101 +45,6 @@ pub fn resolve() -> ResolvedBin {
         .map(OsString::from)
         .unwrap_or_else(|| OsString::from("claude"));
     ResolvedBin { program, path_env }
-}
-
-/// Process PATH ++ login-shell PATH ++ well-known install dirs, deduped,
-/// preserving discovery order (process entries win on collision).
-fn augmented_path() -> OsString {
-    let mut dirs: Vec<PathBuf> = Vec::new();
-    let mut seen: std::collections::HashSet<PathBuf> = std::collections::HashSet::new();
-    let mut push = |dir: PathBuf| {
-        if seen.insert(dir.clone()) {
-            dirs.push(dir);
-        }
-    };
-
-    if let Some(p) = std::env::var_os("PATH") {
-        std::env::split_paths(&p).for_each(&mut push);
-    }
-    #[cfg(unix)]
-    if let Some(p) = login_shell_path() {
-        std::env::split_paths(&p).for_each(&mut push);
-    }
-    known_install_dirs().into_iter().for_each(push);
-
-    std::env::join_paths(&dirs)
-        .unwrap_or_else(|_| std::env::var_os("PATH").unwrap_or_default())
-}
-
-/// The PATH a login shell exports, queried once and cached. Catches
-/// installs the static dir list can't know about (nvm, asdf, a custom
-/// prefix). `None` when there is no `$SHELL`, the query times out, or it
-/// fails — callers fall back to the process PATH + [`known_install_dirs`].
-#[cfg(unix)]
-fn login_shell_path() -> Option<OsString> {
-    static CACHE: OnceLock<Option<OsString>> = OnceLock::new();
-    CACHE.get_or_init(query_login_shell_path).clone()
-}
-
-#[cfg(unix)]
-fn query_login_shell_path() -> Option<OsString> {
-    let shell = std::env::var_os("SHELL").filter(|s| !s.is_empty())?;
-    // `-l` sources the profile that sets PATH. We avoid `-i` (interactive)
-    // because configs that expect a tty can hang. `printf` keeps stdout to
-    // exactly the PATH with no shell banner.
-    let (tx, rx) = std::sync::mpsc::channel();
-    std::thread::spawn(move || {
-        let out = std::process::Command::new(&shell)
-            .arg("-lc")
-            .arg(r#"printf '%s' "$PATH""#)
-            .output();
-        let _ = tx.send(out);
-    });
-    let out = rx
-        .recv_timeout(std::time::Duration::from_secs(3))
-        .ok()?
-        .ok()?;
-    if !out.status.success() {
-        return None;
-    }
-    let path = String::from_utf8_lossy(&out.stdout);
-    let trimmed = path.trim();
-    (!trimmed.is_empty()).then(|| OsString::from(trimmed))
-}
-
-/// Well-known dirs `claude` installers drop the binary into, appended so a
-/// fresh GUI launch finds it even before the login-shell query lands.
-fn known_install_dirs() -> Vec<PathBuf> {
-    let mut dirs = Vec::new();
-    if let Some(home) = home_dir() {
-        dirs.push(home.join(".local/bin")); // official native installer
-        dirs.push(home.join(".claude/local")); // `claude migrate-installer`
-        dirs.push(home.join(".npm-global/bin"));
-        dirs.push(home.join(".bun/bin"));
-        dirs.push(home.join(".volta/bin"));
-        dirs.push(home.join(".yarn/bin"));
-    }
-    #[cfg(target_os = "macos")]
-    {
-        dirs.push(PathBuf::from("/opt/homebrew/bin"));
-        dirs.push(PathBuf::from("/usr/local/bin"));
-    }
-    #[cfg(all(unix, not(target_os = "macos")))]
-    {
-        dirs.push(PathBuf::from("/usr/local/bin"));
-    }
-    dirs
-}
-
-fn home_dir() -> Option<PathBuf> {
-    #[cfg(windows)]
-    {
-        std::env::var_os("USERPROFILE").map(PathBuf::from)
-    }
-    #[cfg(not(windows))]
-    {
-        std::env::var_os("HOME").map(PathBuf::from)
-    }
 }
 
 /// Plain-Rust `which` over an explicit PATH string. Returns the first
@@ -184,41 +87,9 @@ fn is_executable(p: &Path) -> bool {
 mod tests {
     use super::*;
 
-    #[test]
-    fn augmented_path_includes_process_path_entries() {
-        let augmented = augmented_path();
-        let entries: Vec<PathBuf> = std::env::split_paths(&augmented).collect();
-        if let Some(p) = std::env::var_os("PATH") {
-            for dir in std::env::split_paths(&p) {
-                assert!(
-                    entries.contains(&dir),
-                    "augmented PATH dropped process entry {dir:?}"
-                );
-            }
-        }
-    }
-
-    #[test]
-    fn augmented_path_appends_known_install_dirs() {
-        let augmented = augmented_path();
-        let entries: Vec<PathBuf> = std::env::split_paths(&augmented).collect();
-        for dir in known_install_dirs() {
-            assert!(
-                entries.contains(&dir),
-                "augmented PATH missing known install dir {dir:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn resolve_honors_bin_override() {
-        // Serialized implicitly by being the only test that touches the
-        // var; uses a path guaranteed not to need discovery.
-        std::env::set_var(BIN_OVERRIDE_ENV, "/tmp/mock-claude");
-        let resolved = resolve();
-        std::env::remove_var(BIN_OVERRIDE_ENV);
-        assert_eq!(resolved.program, OsString::from("/tmp/mock-claude"));
-    }
+    // The `MOZART_CLAUDE_BIN` override is exercised end-to-end by the
+    // runner / commands integration tests (they spawn the mock binary via
+    // it); a unit test here would race those on the process-global env var.
 
     #[test]
     fn which_finds_sh_on_unix() {

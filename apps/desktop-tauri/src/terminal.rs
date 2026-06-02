@@ -135,6 +135,11 @@ fn spawn_inner(
     cmd.cwd(worktree);
     // Hint shells that we're running an interactive PTY.
     cmd.env("TERM", "xterm-256color");
+    // A GUI-launched build inherits launchd/systemd's minimal PATH, so a
+    // `-c` run/setup command ("npm run …") hits `command not found` —
+    // unlike the interactive shell, it never sources `.zshrc`. Seed the
+    // augmented PATH; an interactive shell layers its own profile on top.
+    cmd.env("PATH", crate::shell_env::augmented_path());
 
     let child = pair
         .slave

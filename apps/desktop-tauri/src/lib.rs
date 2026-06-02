@@ -22,6 +22,7 @@ pub mod paths;
 pub mod run_registry;
 pub mod sandbox;
 pub mod settings;
+pub mod shell_env;
 pub mod sound;
 pub mod staging;
 pub mod terminal;
