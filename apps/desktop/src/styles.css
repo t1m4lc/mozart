@@ -111,6 +111,16 @@
   cursor: auto;
 }
 
+/* Release WKWebView suppresses text selection app-wide, so the chat
+ * transcript can't be selected or copied. Re-enable it across the chat
+ * surface (the `-webkit-` prefix is required on macOS WebKit). Chrome
+ * that opts out keeps its Tailwind `select-none`. */
+app-feature-chat-content,
+app-feature-chat-content *:not(.select-none) {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
 /* Toolbar breadcrumb: single line, last segment truncates */
 nav[aria-label="Workspace"] [data-slot="breadcrumb-list"] {
   flex-wrap: nowrap;
