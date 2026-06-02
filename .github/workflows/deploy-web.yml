@@ -14,6 +14,7 @@ on:
   pull_request:
     paths:
       - 'apps/web/**'
+      - 'libs/clerk/**'
       - 'libs/mozart-assets/**'
       - 'libs/shared-util-analytics/**'
       - 'libs/shared-util-theme/**'
