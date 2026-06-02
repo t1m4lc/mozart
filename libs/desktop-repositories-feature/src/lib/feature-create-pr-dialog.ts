@@ -17,10 +17,11 @@ import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 
 export interface CreatePrDialogContext {
   readonly workspaceId: string;
-  /** PR title and the default commit message (the caller passes the
-   *  workspace name). */
+  /** PR title (the caller passes the workspace name). */
   readonly defaultTitle?: string;
   readonly defaultBody?: string;
+  /** Branch name used to seed the default commit message. */
+  readonly branch?: string;
   /** Uncommitted paths the caller already probed — committed wholesale
    *  before the PR opens. The dialog is only shown when this is
    *  non-empty; the click router (shell-right) handles the clean-tree
@@ -126,10 +127,10 @@ export class FeatureCreatePrDialog {
     () => (this.ctx.defaultTitle ?? '').trim() || 'Mozart pull request',
   );
 
-  // TODO: generate the commit message from the diff via an LLM. For now
-  // seed a simple temporary message (the workspace name).
   protected readonly commitMessage = signal(
-    (this.ctx.defaultTitle ?? '').trim() || 'Mozart pull request',
+    this.ctx.branch
+      ? `Default commit message from ${this.ctx.branch}`
+      : (this.ctx.defaultTitle ?? '').trim() || 'Mozart pull request',
   );
 
   protected readonly canSubmit = computed(

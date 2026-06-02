@@ -250,8 +250,9 @@ export class RepositoriesFacade {
    *  contract as `refreshTreeInBackground`: keeps the old list on
    *  screen until the fresh fetch completes, then swaps atomically.
    *
-   *  Uses `listBranchDiffFiles` (git diff base_branch) so the Changes
-   *  tab reflects all changes vs base, including committed ones. */
+   *  Uses `listBranchDiffFiles` (git diff base_branch + git ls-files
+   *  --others) so the Changes tab reflects all branch changes including
+   *  committed ones and untracked Added files. */
   async refreshChangedFilesInBackground(workspaceId: string): Promise<void> {
     const captured = this.fileTreeCache.revisionFor(workspaceId);
     try {

@@ -1,40 +1,16 @@
-//! Pre-run git checkpoint — captures the current worktree state as an
-//! empty-allowed commit so a post-run diff (S1.5.2) and rollback
-//! (S1.5.3) have a stable base sha.
-//!
-//! Locked decisions (plan §4):
-//! - **D1.5-H** — exact sequence: `git add -A` → `git commit
-//!   --allow-empty --no-gpg-sign -m "checkpoint before run"` → `git
-//!   rev-parse HEAD`. The `--no-gpg-sign` is essential so a misconfigured
-//!   gpg agent never blocks the run. Identity (`user.email`/`user.name`)
-//!   is the caller's repo's responsibility; if it's missing, `git commit`
-//!   fails with stderr captured into `AppError::GitCmd` via
-//!   `super::run_git`.
+//! Pre-run git checkpoint — records the current HEAD sha so the
+//! post-run diff (S1.5.2) and rollback (S1.5.3) have a stable base.
+//! No commit is created; the sha is a lightweight reference point only.
 
 use std::path::Path;
 
 use super::run_git;
 use crate::error::AppError;
 
-/// Capture a checkpoint commit on `workspace_path` and return the
-/// resulting HEAD sha (40 hex chars, trimmed).
-///
-/// Uses `--allow-empty` so a clean tree still produces a valid sha (the
-/// runner's reach-back must always have a base sha to diff against).
-/// Uses `--no-gpg-sign` so signing config never blocks the run.
+/// Record the current HEAD sha as a checkpoint reference point and return
+/// it (40 hex chars, trimmed). Does NOT create any commit — the sha is
+/// used by `capture_diff` / `discard_changes_to` as the pre-run base.
 pub async fn git_checkpoint(workspace_path: &Path) -> Result<String, AppError> {
-    run_git(workspace_path, &["add", "-A"]).await?;
-    run_git(
-        workspace_path,
-        &[
-            "commit",
-            "--allow-empty",
-            "--no-gpg-sign",
-            "-m",
-            "checkpoint before run",
-        ],
-    )
-    .await?;
     let out = run_git(workspace_path, &["rev-parse", "HEAD"]).await?;
     Ok(out.trim().to_string())
 }
@@ -116,9 +92,9 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn idempotent_re_run_succeeds_via_allow_empty() {
+    async fn two_checkpoints_on_same_head_return_same_sha() {
         if !git_available() {
-            eprintln!("SKIP idempotent_re_run_succeeds_via_allow_empty: git not on PATH");
+            eprintln!("SKIP two_checkpoints_on_same_head_return_same_sha: git not on PATH");
             return;
         }
         let tmp = tempfile::tempdir().unwrap();
@@ -126,22 +102,11 @@ mod tests {
         init_repo(repo);
 
         let sha1 = git_checkpoint(repo).await.expect("first checkpoint");
-        // Second call on a clean tree must succeed via --allow-empty.
         let sha2 = git_checkpoint(repo).await.expect("second checkpoint");
         assert!(is_hex_sha40(&sha1));
         assert!(is_hex_sha40(&sha2));
-        assert_ne!(sha1, sha2, "two distinct checkpoint commits expected");
-
-        // Both shas must appear in `git log`.
-        let log_out = Command::new("git")
-            .current_dir(repo)
-            .args(["log", "--format=%H"])
-            .output()
-            .unwrap();
-        assert!(log_out.status.success());
-        let log = String::from_utf8_lossy(&log_out.stdout);
-        assert!(log.contains(&sha1), "sha1 missing from git log");
-        assert!(log.contains(&sha2), "sha2 missing from git log");
+        // No commits created — both return the same HEAD sha.
+        assert_eq!(sha1, sha2, "checkpoints on the same HEAD must return equal shas");
     }
 
     #[tokio::test]

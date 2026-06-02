@@ -201,6 +201,10 @@ pub(crate) async fn install_workspace_packages_impl(
     let output = tokio::process::Command::new(manager)
         .arg("install")
         .current_dir(worktree)
+        // Augment PATH so managers installed via nvm, volta, etc. are
+        // found even when the app was launched from a GUI launcher with
+        // a minimal system PATH.
+        .env("PATH", crate::shell_env::augmented_path())
         .output()
         .await
         .map_err(|e| AppError::Io(format!("spawn {} install: {e}", manager)))?;

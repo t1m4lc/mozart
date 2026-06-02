@@ -221,7 +221,7 @@ export class ShellRight {
         toast.error('Nothing to create a PR for — make and commit some changes first.');
         return;
       case 'commit':
-        await this.openCommitAndPrDialog(workspaceId, ws.name, decision.paths);
+        await this.openCommitAndPrDialog(workspaceId, ws.name, ws.branch, decision.paths);
         return;
       case 'create':
         await this.createPrDirect(workspaceId, ws.name);
@@ -239,6 +239,7 @@ export class ShellRight {
   private async openCommitAndPrDialog(
     workspaceId: string,
     name: string,
+    branch: string,
     changedPaths: readonly string[],
   ): Promise<void> {
     const { FeatureCreatePrDialog } = await import(
@@ -247,6 +248,7 @@ export class ShellRight {
     const context: CreatePrDialogContext = {
       workspaceId,
       defaultTitle: name,
+      branch,
       changedPaths,
       onCreated: (pr) => this.announcePrCreated(pr),
     };
