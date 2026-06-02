@@ -470,8 +470,10 @@ export class WorkspacesFacade {
     message: string,
   ): Promise<{ readonly sha: string; readonly statusFlipFailed: boolean }> {
     const sha = await this.repos.commitWorkspace(workspaceId, paths, message);
-    // Refresh the Changes tab cache so it reflects the new committed state.
+    // Refresh both the Changes-tab cache and the sidebar +N/-N chips so
+    // the UI immediately reflects the clean working-tree state.
     void this.repos.refreshChangedFilesInBackground(workspaceId);
+    void this.refreshDiffStats();
     const result = await this.advanceStatusBestEffort(
       workspaceId,
       ['backlog'],
