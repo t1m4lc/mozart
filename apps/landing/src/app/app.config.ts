@@ -3,6 +3,7 @@ import { withPrismHighlighter } from '@analogjs/content/prism-highlighter';
 import { provideFileRouter } from '@analogjs/router';
 import {
   ApplicationConfig,
+  ErrorHandler,
   provideBrowserGlobalErrorListeners,
 } from '@angular/core';
 import { provideClientHydration, withEventReplay } from '@angular/platform-browser';
@@ -10,10 +11,12 @@ import { withInMemoryScrolling, withViewTransitions } from '@angular/router';
 import { POSTHOG_HOST, POSTHOG_KEY } from '@mozart/shared-util-analytics';
 import { provideTheme } from '@mozart/shared-util-theme';
 import { environment } from '../environments/environment';
+import { DynamicImportErrorHandler } from './dynamic-import-error.handler';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
+    { provide: ErrorHandler, useClass: DynamicImportErrorHandler },
     provideClientHydration(withEventReplay()),
     provideFileRouter(
       withInMemoryScrolling({
