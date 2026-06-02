@@ -43,7 +43,15 @@ pub(crate) fn parse_version_stdout(stdout: &str) -> Option<String> {
 /// collapse to [`ClaudeInstall::Missing`]. Successful runs return the trimmed
 /// stdout as the version string.
 pub async fn check_installed() -> ClaudeInstall {
-    let fut = Command::new("claude").arg("--version").output();
+    // Resolve `claude` against the login-shell PATH — a GUI-launched build
+    // inherits only launchd/systemd's minimal PATH, so a bare
+    // `Command::new("claude")` would report Missing even when it is
+    // installed (see crate::claude_cli::bin_path).
+    let bin = super::bin_path::resolve();
+    let fut = Command::new(&bin.program)
+        .arg("--version")
+        .env("PATH", &bin.path_env)
+        .output();
 
     let output = match timeout(Duration::from_secs(3), fut).await {
         Ok(Ok(out)) => out,

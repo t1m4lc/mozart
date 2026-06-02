@@ -28,11 +28,12 @@
 //!   plus an `agent_events` row (`event_type='error'`); the **last**
 //!   non-empty stderr line is buffered for `agent_runs.error_message`
 //!   when the final status is `error`.
-//! - **D1.4-H** — `Command::new("claude")` per spawn, PATH-resolved each
-//!   time. Tests inject a mock binary via `$MOZART_CLAUDE_BIN`; in
-//!   production (no env var) [`resolve_claude_bin`] returns the literal
-//!   `"claude"`, so the production invocation is byte-equivalent to the
-//!   plan's spec.
+//! - **D1.4-H** — `claude` is resolved per spawn via
+//!   [`crate::claude_cli::bin_path`], which discovers an absolute path
+//!   against the login-shell PATH + well-known install dirs (a
+//!   GUI-launched build does not inherit the user's shell PATH) and
+//!   hands the same PATH to the child. Tests inject a mock binary via
+//!   `$MOZART_CLAUDE_BIN`.
 //!
 //! Step 1.5 reach-back (S1.5.4): `spawn_run` calls `sandbox::git_checkpoint`
 //! pre-spawn (persisting the sha via `agent_runs::update_checkpoint_sha`)
@@ -40,7 +41,6 @@
 //! when `status == "done"`. Pre-spawn failure aborts the run; post-exit
 //! failures are logged via `log::warn!` and do not surface to the caller.
 
-use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 use std::str::FromStr;
@@ -53,6 +53,7 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::process::Command;
 use tokio::task::JoinHandle;
 
+use crate::claude_cli::bin_path;
 use crate::claude_cli::parser::{parse_line, ParserState};
 use crate::claude_cli::sandbox_policy::{build_sandbox_flags, SandboxLevel, L2_SIBLING_CAP};
 use crate::claude_cli::summary_builder;
@@ -110,12 +111,13 @@ impl RunHandle {
     }
 }
 
-/// Resolve the `claude` binary name. Production: literal `"claude"`
-/// (D1.4-H, PATH-resolved on each call). Tests: override via
-/// `MOZART_CLAUDE_BIN` env var to point at a mock script. Production
-/// callers never set this env var.
-fn resolve_claude_bin() -> OsString {
-    std::env::var_os("MOZART_CLAUDE_BIN").unwrap_or_else(|| OsString::from("claude"))
+/// Resolve the `claude` binary plus the PATH to run the child with.
+/// Production: absolute path discovered against the login-shell PATH +
+/// well-known install dirs (D1.4-H), because a GUI-launched build does
+/// NOT inherit the user's shell PATH — see [`bin_path`]. Tests: override
+/// via `MOZART_CLAUDE_BIN` to point at a mock script.
+fn resolve_claude_bin() -> bin_path::ResolvedBin {
+    bin_path::resolve()
 }
 
 /// Step 6d — inject the keyring-stored Anthropic key into `cmd`'s env as
@@ -222,9 +224,10 @@ fn resolve_sandbox_roots(
 ///
 /// `claude` is spawned in exactly ONE production code path:
 /// [`spawn_run`] below, which calls `Command::new(resolve_claude_bin())`
-/// with the argv built by [`production_argv`]. The only other
-/// `Command::new("claude")` in the crate is `install::check_installed`
-/// (`--version` probe — not an agent run, sandbox flags do not apply).
+/// with the argv built by [`production_argv`]. The only other spawn is
+/// `install::check_installed` (`--version` probe — not an agent run,
+/// sandbox flags do not apply). Both resolve the binary through
+/// [`crate::claude_cli::bin_path`] rather than a literal `"claude"`.
 ///
 /// Spike modules under `src/spikes/` are `#[cfg(test)]`-gated and never
 /// reach production builds; their direct `Command::new("claude")`
@@ -237,10 +240,10 @@ fn resolve_sandbox_roots(
 /// `--allowedTools`), which is a security regression.
 ///
 /// Verify the invariant with:
-/// `rg "Command::new\(.*claude" apps/desktop-tauri/src` →
+/// `rg "bin_path::resolve" apps/desktop-tauri/src` →
 /// expected hits: runner.rs (this site) + install.rs (version probe).
-/// Spike files appear because they're physically in the tree but they
-/// don't compile into the production binary.
+/// Spike files under `src/spikes/` still call `Command::new("claude")`
+/// directly but don't compile into the production binary.
 ///
 /// ---
 ///
@@ -369,9 +372,10 @@ where
         agent_runs::update_checkpoint_sha(&conn, &run.run_id, &checkpoint_sha)?;
     }
 
-    let mut cmd = Command::new(&bin);
+    let mut cmd = Command::new(&bin.program);
     cmd.args(&argv)
         .current_dir(&canonical_workspace.worktree_path)
+        .env("PATH", &bin.path_env)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
