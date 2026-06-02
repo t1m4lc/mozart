@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import type { Clerk } from '@clerk/clerk-js';
 import { CLERK_CONFIG } from './clerk-config';
 import type {
+  ClerkLoadOptions,
   GetTokenOptions,
   OAuthStrategy,
   SessionResource,
@@ -79,8 +80,17 @@ export class ClerkService {
 
   private async doLoad(): Promise<void> {
     const { Clerk } = await import('@clerk/clerk-js');
+    // clerk-js v6 dropped bundled UI components. Without a ClerkUI ctor,
+    // openUserProfile/openSignIn throw "Clerk was not loaded with Ui
+    // components". Load the hosted bundle best-effort — a CDN miss degrades
+    // the profile modal but must not break auth or app bootstrap.
+    const clerkUiCtor = await this.loadClerkUiCtor();
+    const options: ClerkLoadOptions = {
+      ...this.config.options,
+      ...(clerkUiCtor ? { ui: { ClerkUI: clerkUiCtor } } : {}),
+    };
     const clerk = new Clerk(this.config.publishableKey);
-    await clerk.load(this.config.options);
+    await clerk.load(options);
 
     // Mirror initial state before the listener wires up so the first
     // synchronous read after `load()` returns is correct.
@@ -304,6 +314,50 @@ export class ClerkService {
         ?.externalVerificationRedirectURL;
     if (!url) return null;
     return typeof url === 'string' ? url : url.toString();
+  }
+
+  /**
+   * Frontend API host encoded in the publishable key
+   * (`pk_(test|live)_<base64(host + "$")>`). Clerk serves the hosted UI
+   * bundle from this host. Returns null for a malformed key.
+   */
+  private frontendApiHost(): string | null {
+    const encoded = this.config.publishableKey.replace(/^pk_(test|live)_/, '');
+    if (encoded === this.config.publishableKey) return null;
+    try {
+      return atob(encoded).replace(/\$+$/, '') || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Load `@clerk/ui` from the instance's frontend API. The bundle
+   * registers the component ctor on `window.__internal_ClerkUICtor`,
+   * which `clerk.load({ ui: { ClerkUI } })` needs for openUserProfile et
+   * al. Resolves to the ctor, or undefined when the host is unknown or
+   * the bundle fails to load — callers proceed without UI rather than
+   * failing app bootstrap.
+   */
+  private loadClerkUiCtor(): Promise<unknown> {
+    const w = window as typeof window & { __internal_ClerkUICtor?: unknown };
+    if (w.__internal_ClerkUICtor) {
+      return Promise.resolve(w.__internal_ClerkUICtor);
+    }
+    const host = this.frontendApiHost();
+    if (!host) return Promise.resolve(undefined);
+    return new Promise((resolve) => {
+      const script = document.createElement('script');
+      script.src = `https://${host}/npm/@clerk/ui@1/dist/ui.browser.js`;
+      script.async = true;
+      script.crossOrigin = 'anonymous';
+      script.onload = () => resolve(w.__internal_ClerkUICtor);
+      script.onerror = () => {
+        console.error('[clerk] failed to load hosted UI bundle from', host);
+        resolve(undefined);
+      };
+      document.head.appendChild(script);
+    });
   }
 
   private requireClerk(): Clerk {
