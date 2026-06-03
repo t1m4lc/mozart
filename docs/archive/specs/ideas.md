@@ -1,5 +1,6 @@
 # Todo
 
+- Token economy utiliser https://github.com/colbymchenry/codegraph
 - on va defer la partie gestion des review dans l'app en invitant le user à poster une PR sur github.
 
 - Comment faire en sorte que le user soit informer que sa branche main locale est à jour par rapport au remote ? comment mettre à jour les branche de workspace avec leur branche d'origine ?
