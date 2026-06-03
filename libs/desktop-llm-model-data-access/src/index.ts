@@ -8,3 +8,8 @@ export {
   type LlmStreamInput,
 } from './lib/llm.adapter';
 export { FakeLlmAdapter } from './lib/fake-llm.adapter';
+export {
+  COMPOSER_MODELS_PORT,
+  ComposerModelsStore,
+  type ComposerModelsPort,
+} from './lib/composer-models.store';

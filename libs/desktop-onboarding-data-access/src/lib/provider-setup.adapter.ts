@@ -19,6 +19,14 @@ export interface ProviderSetupAdapter {
     onEvent: (event: TerminalEvent) => void,
   ): Promise<{ terminalId: string; close: () => Promise<void> }>;
 
+  /** Spawn `codex login` in a PTY. Same contract as `spawnClaudeLogin`;
+   *  on Exited the feature re-probes via `ProfileFacade.tryConnectCodex()`. */
+  spawnCodexLogin(
+    cols: number,
+    rows: number,
+    onEvent: (event: TerminalEvent) => void,
+  ): Promise<{ terminalId: string; close: () => Promise<void> }>;
+
   /** Forward bytes (typed by the user via xterm.js) to the PTY's stdin. */
   write(terminalId: string, data: string): Promise<void>;
 

@@ -14,7 +14,8 @@
   "agent": {
     "model": null,
     "mode": "agent",
-    "effort": "medium"
+    "effort": "medium",
+    "enabledModelIds": []
   },
   "git": {
     "baseBranch": "main",

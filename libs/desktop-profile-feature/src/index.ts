@@ -3,6 +3,8 @@
 // onboarding flow — renaming requires updating every import string at once.
 
 export { FeatureConnections } from './lib/feature-connections';
+export { FeatureLlmModels } from './lib/feature-llm-models';
 export { FeatureNotificationPrefs } from './lib/feature-notification-prefs';
 export { UiConnectDialog } from './lib/ui-connect-dialog';
+export { UiCodexConnectDialog } from './lib/ui-codex-connect-dialog';
 export { UiGithubConnectDialog } from './lib/ui-github-connect-dialog';

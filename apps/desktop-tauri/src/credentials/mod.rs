@@ -13,3 +13,4 @@
 
 pub mod anthropic_probe;
 pub mod keyring_store;
+pub mod openai_probe;

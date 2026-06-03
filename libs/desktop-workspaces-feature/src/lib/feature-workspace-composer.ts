@@ -21,11 +21,13 @@ import {
   type EffortLevel,
 } from '@mozart-ui/composer';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { ComposerModelsStore } from '@mozart/desktop-llm-model-data-access';
 import {
-  DEFAULT_MODEL_ID,
-  LLM_MODEL_CATALOG,
   PROVIDERS,
+  composerModels,
+  defaultModelIdForProvider,
 } from '@mozart/desktop-llm-model-util';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
   ChatScrollOrchestrator,
@@ -62,6 +64,21 @@ import { filter, pairwise, tap } from 'rxjs/operators';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full px-3' },
   template: `
+    @if (needsProvider()) {
+      <div
+        class="bg-muted/40 text-muted-foreground mx-auto mb-2 flex w-full max-w-5xl items-center justify-between gap-3 rounded-md border border-border/60 px-4 py-2 text-xs"
+        role="status"
+      >
+        <span>Connect a provider to run an agent.</span>
+        <button
+          type="button"
+          class="text-foreground font-medium underline-offset-2 hover:underline"
+          (click)="onConnectProvider()"
+        >
+          Connect
+        </button>
+      </div>
+    }
     <mz-composer
       class="bg-background mx-auto w-full max-w-5xl pb-2.5 shadow-md"
       data-tour="composer-mode"
@@ -71,7 +88,7 @@ import { filter, pairwise, tap } from 'rxjs/operators';
       (modeChange)="onModeChange($event)"
       [effort]="currentEffort()"
       (effortChange)="onEffortChange($event)"
-      [models]="catalog"
+      [models]="catalog()"
       [providers]="providers"
       [selectedModelId]="currentModelId()"
       (modelChange)="onModelChange($event)"
@@ -96,7 +113,21 @@ export class FeatureWorkspaceComposer {
 
   private readonly facade = inject(ChatFacade);
   private readonly workspaces = inject(WorkspacesFacade);
+  private readonly profile = inject(ProfileFacade);
+  private readonly composerModels = inject(ComposerModelsStore);
   private readonly router = inject(Router);
+
+  // Show the connect-CTA only once BOTH provider probes have settled to a
+  // non-connected state — never while a probe is in flight (avoids a CTA
+  // flash on boot) and never when either provider is wired up.
+  protected readonly needsProvider = computed(() => {
+    const settled = (s: string) => s !== 'unknown' && s !== 'checking';
+    return (
+      settled(this.profile.status()) &&
+      settled(this.profile.codexStatus()) &&
+      !this.profile.hasAnyProvider()
+    );
+  });
   private readonly injector = inject(Injector);
   private readonly scroll = inject(ScrollPositionService);
   private readonly orchestrator = inject(ChatScrollOrchestrator);
@@ -144,9 +175,18 @@ export class FeatureWorkspaceComposer {
   protected readonly currentEffort = computed<EffortLevel>(
     () => this._activeChat()?.effort ?? 'medium',
   );
-  protected readonly currentModelId = computed<string>(
-    () => this._activeChat()?.modelId ?? DEFAULT_MODEL_ID,
-  );
+  // The model shown selected in the composer. Falls back to a
+  // provider-appropriate default (then the first shown model) when the chat's
+  // pick is unset or has been disabled in Settings, so the trigger never
+  // shows a model the dropdown can't offer.
+  protected readonly currentModelId = computed<string>(() => {
+    const shown = this.catalog();
+    const explicit = this._activeChat()?.modelId;
+    if (explicit && shown.some((m) => m.id === explicit)) return explicit;
+    const fallback = defaultModelIdForProvider(this.profile.activeAgentProvider());
+    if (shown.some((m) => m.id === fallback)) return fallback;
+    return shown[0]?.id ?? fallback;
+  });
 
   // Composer auto-follow indicator. Forced to `true` on a file tab
   // (P2.2 D3) so the scroll-to-bottom overlay stays hidden — there's
@@ -163,7 +203,10 @@ export class FeatureWorkspaceComposer {
   protected readonly hasNextUnreadInProject =
     this.workspaces.hasOtherUnreadInProject(this.workspaceId);
 
-  protected readonly catalog = LLM_MODEL_CATALOG;
+  // Only the models the user enabled in Settings (empty pref ⇒ all runnable).
+  protected readonly catalog = computed(() =>
+    composerModels(this.composerModels.enabledIds()),
+  );
   protected readonly providers = PROVIDERS;
 
   // Default focus → composer textarea. afterNextRender is the
@@ -185,6 +228,12 @@ export class FeatureWorkspaceComposer {
   }
 
   constructor() {
+    // Idempotent provider probes so `needsProvider()` resolves on first
+    // mount (the onboarding step may have been skipped). No-ops if already
+    // probed.
+    void this.profile.initialize();
+    void this.profile.initializeCodex();
+
     // Mirror the local edit buffer into the session store so the draft
     // for (workspaceId, chatId) survives workspace switches. Wrapped in
     // `untracked` so the write doesn't re-trigger the effect via the
@@ -269,6 +318,10 @@ export class FeatureWorkspaceComposer {
     const id = this.workspaceId();
     if (!id) return;
     this.facade.cancelActive(id);
+  }
+
+  protected onConnectProvider(): void {
+    void this.router.navigate(['/settings']);
   }
 
   protected onModeChange(mode: ChatMode): void {

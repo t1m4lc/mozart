@@ -11,6 +11,7 @@ use crate::error::AppError;
 
 const SERVICE: &str = "mozart";
 const ACCOUNT_ANTHROPIC: &str = "anthropic_api_key";
+const ACCOUNT_OPENAI: &str = "openai_api_key";
 const ACCOUNT_GITHUB: &str = "github_token";
 const ACCOUNT_GITHUB_KIND: &str = "github_token_kind";
 
@@ -43,6 +44,10 @@ impl GithubTokenKind {
 
 fn entry() -> Result<Entry, AppError> {
     Entry::new(SERVICE, ACCOUNT_ANTHROPIC).map_err(AppError::from)
+}
+
+fn openai_entry() -> Result<Entry, AppError> {
+    Entry::new(SERVICE, ACCOUNT_OPENAI).map_err(AppError::from)
 }
 
 fn github_entry() -> Result<Entry, AppError> {
@@ -80,6 +85,39 @@ pub fn set_anthropic_key(key: &str) -> Result<(), AppError> {
 /// Idempotent removal — `NoEntry` is treated as success.
 pub fn clear_anthropic_key() -> Result<(), AppError> {
     match entry()?.delete_credential() {
+        Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
+        Err(e) => Err(AppError::from(e)),
+    }
+}
+
+/// Returns `true` iff an OpenAI key is currently stored. Never returns the
+/// value. Codex's parallel to [`has_anthropic_key`].
+pub fn has_openai_key() -> Result<bool, AppError> {
+    match openai_entry()?.get_password() {
+        Ok(_) => Ok(true),
+        Err(keyring::Error::NoEntry) => Ok(false),
+        Err(e) => Err(AppError::from(e)),
+    }
+}
+
+/// Returns the stored OpenAI key or `None`. Read by the runner before each
+/// `codex` spawn so the subprocess inherits `OPENAI_API_KEY`.
+pub fn get_openai_key() -> Result<Option<String>, AppError> {
+    match openai_entry()?.get_password() {
+        Ok(k) => Ok(Some(k)),
+        Err(keyring::Error::NoEntry) => Ok(None),
+        Err(e) => Err(AppError::from(e)),
+    }
+}
+
+/// Persist `key` in the keyring. Overwrites any existing entry.
+pub fn set_openai_key(key: &str) -> Result<(), AppError> {
+    openai_entry()?.set_password(key).map_err(AppError::from)
+}
+
+/// Idempotent removal — `NoEntry` is treated as success.
+pub fn clear_openai_key() -> Result<(), AppError> {
+    match openai_entry()?.delete_credential() {
         Ok(()) | Err(keyring::Error::NoEntry) => Ok(()),
         Err(e) => Err(AppError::from(e)),
     }

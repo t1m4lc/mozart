@@ -21,6 +21,8 @@ describe('LlmStreamInput shape — agent context contract', () => {
       chatId: 'chat',
       currentUserMessageId: 'msg',
       mode: 'agent',
+      provider: 'claude_cli',
+      model: null,
     };
     expect(ok.chatId).toBe('chat');
     expect(ok.currentUserMessageId).toBe('msg');
@@ -30,6 +32,8 @@ describe('LlmStreamInput shape — agent context contract', () => {
       chatId: 'chat',
       currentUserMessageId: 'msg',
       mode: 'agent',
+      provider: 'claude_cli',
+      model: null,
       // @ts-expect-error history must not be part of the input — the
       // Rust ContextCompiler reconstructs it from SQLite.
       history: [],

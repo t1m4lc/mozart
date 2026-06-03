@@ -1,10 +1,17 @@
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  computed,
+  inject,
+} from '@angular/core';
 import { HlmDialogService } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideWifiOff } from '@ng-icons/lucide';
 import { ConnectivityService } from '@mozart/desktop-core-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import type { ConnectionProvider } from '@mozart/desktop-profile-util';
+import { PROVIDER_REGISTRY } from '@mozart/desktop-llm-model-util';
 import {
   type ConfirmDisconnectContext,
   UiConfirmDisconnectDialog,
@@ -13,9 +20,9 @@ import {
   UiGithubCard,
 } from '@mozart/desktop-profile-ui';
 
-// Composes the `/settings` connection list. v0.1.0-beta.1 ships one live card
-// (Anthropic) and a disabled placeholder (GitHub). v0.1.0 turns the
-// placeholder into a real integration.
+// Composes the `/settings` connection list. Provider cards are driven by
+// PROVIDER_REGISTRY (the single source of truth) — one card per connectable
+// provider (Claude Code, Codex) — followed by the GitHub card.
 @Component({
   selector: 'app-feature-connections',
   imports: [UiConnectionCard, UiGithubCard, NgIcon, HlmIconImports],
@@ -40,14 +47,17 @@ import {
         </div>
       }
       <div class="space-y-3">
-        <app-ui-connection-card
-          [connection]="facade.connection()"
-          (connect)="onConnect()"
-          (disconnect)="onDisconnect()"
-          (testConnection)="onTestConnection()"
-          (useApiKey)="onUseApiKey()"
-          (help)="onHelp()"
-        />
+        @for (p of connectableProviders; track p) {
+          <app-ui-connection-card
+            [connection]="facade.connectionInfoFor(p)()"
+            [connectionProvider]="p"
+            (connect)="onConnect(p)"
+            (disconnect)="onDisconnect(p)"
+            (testConnection)="onTest(p)"
+            (useApiKey)="onUseApiKey(p)"
+            (help)="onHelp()"
+          />
+        }
         <app-ui-github-card
           [connected]="facade.githubConnected()"
           [login]="facade.githubLogin()"
@@ -64,11 +74,20 @@ export class FeatureConnections {
   protected readonly connectivity = inject(ConnectivityService);
   private readonly dialogService = inject(HlmDialogService);
 
+  // Connectable provider tracks, from the registry source of truth.
+  protected readonly connectableProviders: ConnectionProvider[] =
+    PROVIDER_REGISTRY.flatMap((d) =>
+      d.availability === 'available' && d.connectionProvider
+        ? [d.connectionProvider]
+        : [],
+    );
+
   constructor() {
-    // Lazy probe on first /settings visit. Idempotent — the APP_INITIALIZER
-    // (in app.config.ts) and this call cooperate via the facade's own
-    // guard (`status === 'unknown'`).
-    void this.facade.initialize();
+    // Lazy probe on first /settings visit. Idempotent — cooperates with the
+    // APP_INITIALIZER via the facade's own `status === 'unknown'` guard.
+    for (const p of this.connectableProviders) {
+      void this.facade.initializeFor(p);
+    }
     void this.facade.initializeGithub();
   }
 
@@ -81,40 +100,43 @@ export class FeatureConnections {
     void this.facade.disconnectGithub();
   }
 
-  // Connect-button flow. The facade re-checks the claude /login session
-  // first; if one is found the card flips to "Using Claude Code" with no
-  // dialog. Otherwise we open the API-key dialog.
-  protected async onConnect(): Promise<void> {
-    const outcome = await this.facade.tryConnect();
+  // Connect-button flow. The facade re-checks for an existing CLI login
+  // session first; if one is found the card flips to "Using … login" with no
+  // dialog. Otherwise we open the provider's API-key dialog.
+  protected async onConnect(provider: ConnectionProvider): Promise<void> {
+    const outcome = await this.facade.tryConnectFor(provider);
     if (outcome === 'needs_api_key') {
-      await this.openApiKeyDialog();
+      await this.openApiKeyDialog(provider);
     }
   }
 
-  // From the "Using Claude Code" state, the user can switch to an API
-  // key directly — same dialog as the not_connected → Connect path.
-  protected async onUseApiKey(): Promise<void> {
-    await this.openApiKeyDialog();
+  protected async onUseApiKey(provider: ConnectionProvider): Promise<void> {
+    await this.openApiKeyDialog(provider);
   }
 
-  protected async onDisconnect(): Promise<void> {
+  protected onTest(provider: ConnectionProvider): void {
+    void this.facade.testConnectionFor(provider);
+  }
+
+  protected onDisconnect(provider: ConnectionProvider): void {
     const context: ConfirmDisconnectContext = {
       onConfirm: () => {
-        void this.facade.disconnect();
+        void this.facade.disconnectFor(provider);
       },
     };
     this.dialogService.open(UiConfirmDisconnectDialog, { context });
-  }
-
-  protected onTestConnection(): void {
-    void this.facade.testConnection();
   }
 
   protected onHelp(): void {
     this.dialogService.open(UiConnectionHelpDialog, {});
   }
 
-  private async openApiKeyDialog(): Promise<void> {
+  private async openApiKeyDialog(provider: ConnectionProvider): Promise<void> {
+    if (provider === 'codex') {
+      const { UiCodexConnectDialog } = await import('./ui-codex-connect-dialog');
+      this.dialogService.open(UiCodexConnectDialog, {});
+      return;
+    }
     const { UiConnectDialog } = await import('./ui-connect-dialog');
     this.dialogService.open(UiConnectDialog, {});
   }

@@ -47,7 +47,19 @@ pub async fn check_installed() -> ClaudeInstall {
     // inherits only launchd/systemd's minimal PATH, so a bare
     // `Command::new("claude")` would report Missing even when it is
     // installed (see crate::claude_cli::bin_path).
-    let bin = super::bin_path::resolve();
+    check_bin(super::bin_path::resolve()).await
+}
+
+/// Codex's parallel to [`check_installed`] — probes `codex --version`.
+/// Same failure-collapses-to-Missing contract.
+pub async fn check_codex_installed() -> ClaudeInstall {
+    check_bin(super::bin_path::resolve_codex()).await
+}
+
+/// Run `<bin> --version` with a 3-second hard timeout and collapse every
+/// failure mode to [`ClaudeInstall::Missing`]. Shared by the `claude` and
+/// `codex` probes.
+async fn check_bin(bin: super::bin_path::ResolvedBin) -> ClaudeInstall {
     let fut = Command::new(&bin.program)
         .arg("--version")
         .env("PATH", &bin.path_env)

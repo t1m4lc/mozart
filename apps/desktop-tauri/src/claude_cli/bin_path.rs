@@ -23,10 +23,15 @@ use crate::shell_env;
 /// runner / command tests rely on).
 const BIN_OVERRIDE_ENV: &str = "MOZART_CLAUDE_BIN";
 
-/// The resolved `claude` program plus the PATH the child should run with.
+/// Test override for the `codex` binary — Codex's parallel to
+/// `MOZART_CLAUDE_BIN`, used by the runner / command tests to point at a
+/// mock script.
+const CODEX_BIN_OVERRIDE_ENV: &str = "MOZART_CODEX_BIN";
+
+/// The resolved program plus the PATH the child should run with.
 pub struct ResolvedBin {
     /// What to pass to `Command::new` — an absolute path when discovery
-    /// succeeds, else the literal `"claude"` as a last-resort fallback.
+    /// succeeds, else the bare binary name as a last-resort fallback.
     pub program: OsString,
     /// Augmented PATH to set on the child via `cmd.env("PATH", …)`.
     pub path_env: OsString,
@@ -34,16 +39,31 @@ pub struct ResolvedBin {
 
 /// Resolve `claude` for a child spawn. Honors `MOZART_CLAUDE_BIN` first.
 pub fn resolve() -> ResolvedBin {
+    resolve_bin("claude", BIN_OVERRIDE_ENV)
+}
+
+/// Resolve `codex` for a child spawn. Honors `MOZART_CODEX_BIN` first.
+/// Same GUI-PATH discovery as [`resolve`] — Codex's CLI lives in the same
+/// shell-only install dirs (`~/.local/bin`, Homebrew, npm/bun shims).
+pub fn resolve_codex() -> ResolvedBin {
+    resolve_bin("codex", CODEX_BIN_OVERRIDE_ENV)
+}
+
+/// Resolve `binary` against the augmented login-shell PATH, honoring the
+/// per-binary test override env var first. Falls back to the bare binary
+/// name when discovery fails (lets the OS produce a clean ENOENT the
+/// caller maps to a spawn error).
+fn resolve_bin(binary: &str, override_env: &str) -> ResolvedBin {
     let path_env = shell_env::augmented_path();
-    if let Some(over) = std::env::var_os(BIN_OVERRIDE_ENV) {
+    if let Some(over) = std::env::var_os(override_env) {
         return ResolvedBin {
             program: over,
             path_env,
         };
     }
-    let program = which("claude", &path_env)
+    let program = which(binary, &path_env)
         .map(OsString::from)
-        .unwrap_or_else(|| OsString::from("claude"));
+        .unwrap_or_else(|| OsString::from(binary));
     ResolvedBin { program, path_env }
 }
 

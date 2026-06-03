@@ -24,6 +24,20 @@ export interface CredentialsAdapter {
   // stored (use `hasStoredKey` to gate).
   refresh(): Promise<ProbeResult>;
 
+  // ── Codex (OpenAI) — parallels the Claude methods above ──────────────
+  /** Cheap presence check for a stored OpenAI key. Never returns the key. */
+  hasOpenaiKey(): Promise<boolean>;
+  /** Heuristic probe for a `codex login` session (presence of
+   *  `~/.codex/auth.json`). */
+  hasCodexSession(): Promise<boolean>;
+  /** Probe `key` against OpenAI; on `connected` the backend persists it to
+   *  the keyring before resolving. */
+  connectOpenai(key: string): Promise<ProbeResult>;
+  /** Idempotent removal of the stored OpenAI key. */
+  clearOpenai(): Promise<void>;
+  /** Re-probe the currently stored OpenAI key (gate on `hasOpenaiKey`). */
+  refreshOpenai(): Promise<ProbeResult>;
+
   /** Cheap presence check on the OS keyring. Never returns the token. */
   hasGithubToken(): Promise<boolean>;
   /** Probe + store a personal-access token. On 'unauthorized' /

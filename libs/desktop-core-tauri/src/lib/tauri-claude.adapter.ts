@@ -72,6 +72,8 @@ export class TauriClaudeAdapter implements LlmAdapter {
         input.chatId,
         input.currentUserMessageId,
         input.mode,
+        input.provider,
+        input.model,
         channel,
       )
       .then((r) => {
