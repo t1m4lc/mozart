@@ -49,11 +49,13 @@ export const CHAT_COMPOSER_OVERLAY_PX = 160;
  * deemed to have scrolled up to read history and auto-follow is
  * suspended.
  *
- * Measured against the bottom of the last real message, not
- * `scrollHeight` — `MessageList` appends a 50vh in-flight spacer
- * that would otherwise keep the detector permanently detached.
+ * Measured as the gap between the last real message's bottom edge
+ * and the scroll surface's visible bottom edge (both in viewport
+ * coords). Anchored on the last message, not `scrollHeight` —
+ * `MessageList` appends a 50vh in-flight spacer that would
+ * otherwise keep the detector permanently detached.
  */
-export const CHAT_AT_BOTTOM_THRESHOLD_PX = 80;
+export const CHAT_AT_BOTTOM_THRESHOLD_PX = 120;
 
 /**
  * Height of the in-flight spacer appended by `MessageList` while
