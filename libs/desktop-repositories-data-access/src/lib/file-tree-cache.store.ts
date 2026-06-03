@@ -71,12 +71,19 @@ interface State {
   // ids so a first write with `revision: 0` is always considered
   // current.
   revisionByWorkspace: Record<string, number>;
+  // Monotonic FS-activity tick per workspace. Bumped on every
+  // FS-watcher ping — unlike `revision` it does NOT invalidate the
+  // tree/changed-files caches (they soft-refresh), so the tree never
+  // tears down. Consumers that must react to an external worktree
+  // change (open-file reload, diff re-fetch) read this reactively.
+  fsTickByWorkspace: Record<string, number>;
 }
 
 const initialState: State = {
   byWorkspace: {},
   changedFilesByWorkspace: {},
   revisionByWorkspace: {},
+  fsTickByWorkspace: {},
 };
 
 export const FileTreeCacheStore = signalStore(
@@ -101,6 +108,20 @@ export const FileTreeCacheStore = signalStore(
       patchState(store, {
         revisionByWorkspace: {
           ...store.revisionByWorkspace(),
+          [workspaceId]: current + 1,
+        },
+      });
+    },
+
+    /** Bumps the workspace's FS-activity tick. Called on every
+     *  FS-watcher ping. Leaves the cache revision untouched so the
+     *  soft-refresh path keeps the tree on screen; only tick-reactive
+     *  consumers (open-file reload, diff re-fetch) re-run. */
+    bumpFsTick(workspaceId: string): void {
+      const current = store.fsTickByWorkspace()[workspaceId] ?? 0;
+      patchState(store, {
+        fsTickByWorkspace: {
+          ...store.fsTickByWorkspace(),
           [workspaceId]: current + 1,
         },
       });
@@ -162,10 +183,13 @@ export const FileTreeCacheStore = signalStore(
       delete nextChanges[workspaceId];
       const nextRev = { ...store.revisionByWorkspace() };
       delete nextRev[workspaceId];
+      const nextTick = { ...store.fsTickByWorkspace() };
+      delete nextTick[workspaceId];
       patchState(store, {
         byWorkspace: next,
         changedFilesByWorkspace: nextChanges,
         revisionByWorkspace: nextRev,
+        fsTickByWorkspace: nextTick,
       });
     },
   })),

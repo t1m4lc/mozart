@@ -162,6 +162,25 @@ export class RepositoriesFacade {
     return this.fileTreeCache.revisionFor(workspaceId);
   }
 
+  /** Bump the workspace's FS-activity tick. Called by the
+   *  workspace-files watcher subscription on each ping so tick-reactive
+   *  consumers (open-file reload, diff re-fetch) re-run. */
+  bumpFsTick(workspaceId: string): void {
+    this.fileTreeCache.bumpFsTick(workspaceId);
+  }
+
+  /** Reactive FS-activity tick for a workspace. Bumped on every
+   *  FS-watcher ping, independent of the cache revision. Read it from a
+   *  `computed`/`effect` to re-run when an external change touches the
+   *  worktree (e.g. a file edited in another editor). */
+  watcherTickFor(workspaceId: Signal<string | null>): Signal<number> {
+    return computed(() => {
+      const id = workspaceId();
+      if (!id) return 0;
+      return this.fileTreeCache.fsTickByWorkspace()[id] ?? 0;
+    });
+  }
+
   /** Does the workspace's worktree have a top-level `package.json`?
    *  Reads through the cached tree — null while the tree is still
    *  loading, true/false once the tree resolves. Powers the gate

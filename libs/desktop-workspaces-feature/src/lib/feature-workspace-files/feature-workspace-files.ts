@@ -321,6 +321,10 @@ export class FeatureWorkspaceFiles {
         // so the refetch goes straight to a real walk.
         void this.repos.refreshTreeInBackground(workspaceId);
         void this.repos.refreshChangedFilesInBackground(workspaceId);
+        // Tick the FS-activity counter so the open file reconciles its
+        // content against disk (and the diff re-fetches) when something
+        // outside Mozart — e.g. an external editor — touches the worktree.
+        this.repos.bumpFsTick(workspaceId);
         // Project-wide diff badge counts + per-workspace file-view
         // metadata. Previously fired indirectly via the
         // `watcherTick` → cache-invalidation chain; now that the
