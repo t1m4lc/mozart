@@ -18,6 +18,13 @@ beta.0 copies. See
 [mozart.build/changelog/v-0-1-0-beta-0-1](https://mozart.build/changelog/v-0-1-0-beta-0-1)
 for the full narrative.
 
+### Added
+
+- `desktop`: Changes tab split into separate uncommitted and committed sections
+  for clearer diff navigation.
+- `desktop`: open file now reconciles against external worktree changes —
+  files edited outside the app stay in sync.
+
 ### Fixed
 
 - `commit.rs`: checkpoint no longer creates a spurious "checkpoint before run"
@@ -33,6 +40,19 @@ for the full narrative.
   when `branch` was `undefined`.
 - `workspace.facade.ts`: after a successful commit, both the Changes-tab cache
   and the sidebar `+N/-N` chips refresh immediately.
+- `desktop`: scroll-to-bottom button now hides correctly when already at the
+  true bottom of a scrollable pane.
+- `desktop`: dev single-instance lock is now isolated from the installed app —
+  running a dev build no longer blocks a production instance.
+
+### Changed
+
+- `desktop`: loading spinners replaced with Mozart-branded loaders throughout
+  the app.
+
+### CI
+
+- `landing`: runtime secrets are now synced on `workflow_dispatch` triggers.
 
 ## [0.1.0-beta.0] — 2026-05-27
 
