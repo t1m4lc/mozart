@@ -20,8 +20,12 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-full flex-col' },
   template: `
-    <div class="mx-auto flex w-full max-w-xl flex-1 flex-col px-6 py-8">
-      <!-- Dots: always at same vertical position regardless of step content height -->
+    <!-- Dots → content → footer are one vertically-centered group with a
+         tight gap, so short steps don't float high with the footer pinned
+         far below. The group scrolls (min-h-0) if a step is unusually tall. -->
+    <div
+      class="mx-auto flex w-full max-w-xl flex-1 flex-col justify-center gap-6 px-6 py-8"
+    >
       <div
         class="flex shrink-0 justify-center gap-2"
         role="progressbar"
@@ -40,11 +44,11 @@ import { ChangeDetectionStrategy, Component, input } from '@angular/core';
           ></span>
         }
       </div>
-      <!-- Content: fills available space between dots and footer -->
-      <div class="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto py-5">
+      <!-- Content: natural height, sits right under the dots. -->
+      <div class="flex min-h-0 flex-col overflow-y-auto">
         <ng-content />
       </div>
-      <!-- Footer: always at same vertical position, left slot expands to push right slot right -->
+      <!-- Footer: directly below content; left slot expands to push right slot right -->
       <div class="flex shrink-0 items-center gap-3">
         <div class="flex flex-1">
           <ng-content select="[footer-left]" />

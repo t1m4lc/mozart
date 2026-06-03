@@ -12,8 +12,37 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCircleHelp } from '@ng-icons/lucide';
 import type {
   Connection,
+  ConnectionProvider,
   ConnectionStatus,
 } from '@mozart/desktop-profile-util';
+
+// Per-provider display copy. Keyed by the profile connection track so the
+// card stays presentational while reading the same for Claude and Codex.
+const PROVIDER_COPY: Record<
+  ConnectionProvider,
+  {
+    name: string;
+    loginName: string;
+    unreachable: string;
+    notConnected: string;
+    help: string;
+  }
+> = {
+  claude: {
+    name: 'Anthropic',
+    loginName: 'Claude Code',
+    unreachable: "Can't reach Anthropic",
+    notConnected: 'API key or Claude Code login',
+    help: 'How Mozart connects to Anthropic',
+  },
+  codex: {
+    name: 'Codex',
+    loginName: 'Codex',
+    unreachable: "Can't reach OpenAI",
+    notConnected: 'API key or Codex login',
+    help: 'How Mozart connects to Codex',
+  },
+};
 
 // Status-dot palette mirrors the onboarding step (provider/git) so the
 // /settings card reads as the same affordance the user just saw during
@@ -24,6 +53,7 @@ const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
   checking: 'bg-brand/60 animate-pulse',
   connected: 'bg-green-500',
   connected_via_claude_code: 'bg-green-500',
+  connected_via_codex: 'bg-green-500',
   invalid: 'bg-destructive',
   network_error: 'bg-destructive',
 };
@@ -46,17 +76,17 @@ const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
       ></span>
       <div class="min-w-0 flex-1 text-sm">
         <div class="flex items-center gap-1.5">
-          <span class="font-medium">Anthropic</span>
+          <span class="font-medium">{{ copy().name }}</span>
           <button
             hlmBtn
             variant="ghost"
             size="icon-xs"
             type="button"
-            hlmTooltip="How Mozart connects to Anthropic"
+            [hlmTooltip]="copy().help"
             position="top"
             class="size-6 rounded-md text-muted-foreground"
             (click)="help.emit()"
-            aria-label="How Mozart connects to Anthropic"
+            [attr.aria-label]="copy().help"
           >
             <ng-icon hlm name="lucideCircleHelp" size="xs" />
           </button>
@@ -93,6 +123,16 @@ const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
           </button>
         }
         @case ('connected_via_claude_code') {
+          <button
+            hlmBtn
+            variant="outline"
+            type="button"
+            (click)="useApiKey.emit()"
+          >
+            Use API key instead
+          </button>
+        }
+        @case ('connected_via_codex') {
           <button
             hlmBtn
             variant="outline"
@@ -144,6 +184,9 @@ const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
 })
 export class UiConnectionCard {
   readonly connection = input.required<Connection>();
+  /** Which provider this card represents. Defaults to `'claude'` so the
+   *  existing Anthropic call site is unchanged. */
+  readonly connectionProvider = input<ConnectionProvider>('claude');
 
   readonly connect = output<void>();
   readonly disconnect = output<void>();
@@ -151,24 +194,30 @@ export class UiConnectionCard {
   readonly useApiKey = output<void>();
   readonly help = output<void>();
 
+  protected readonly copy = computed(
+    () => PROVIDER_COPY[this.connectionProvider()],
+  );
+
   protected readonly statusDot = computed(
     () => STATUS_DOT_CLASS[this.connection().status],
   );
 
   protected readonly detail = computed(() => {
+    const c = this.copy();
     switch (this.connection().status) {
       case 'connected':
         return 'Using your API key';
       case 'connected_via_claude_code':
-        return 'Using your Claude Code login';
+      case 'connected_via_codex':
+        return `Using your ${c.loginName} login`;
       case 'checking':
         return 'Checking…';
       case 'invalid':
         return 'Stored key was rejected';
       case 'network_error':
-        return "Can't reach Anthropic";
+        return c.unreachable;
       case 'not_connected':
-        return 'API key or Claude Code login';
+        return c.notConnected;
       default:
         return '';
     }

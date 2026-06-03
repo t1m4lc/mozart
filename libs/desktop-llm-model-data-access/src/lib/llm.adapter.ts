@@ -1,6 +1,7 @@
 import { InjectionToken } from '@angular/core';
 import type {
   AgentEvent,
+  AgentProviderId,
   ChatMode,
 } from '@mozart/desktop-llm-model-util';
 
@@ -9,6 +10,13 @@ export interface LlmStreamInput {
   readonly chatId: string;
   readonly currentUserMessageId: string;
   readonly mode: ChatMode;
+  /** Which agent backend runs this turn (resolved from the connected
+   *  provider). Passed through to the Tauri `start_agent_run` command. */
+  readonly provider: AgentProviderId;
+  /** CLI model name to run (`claude --model` / `codex -m`), or null to let
+   *  the CLI use its configured default. Already resolved/validated upstream
+   *  (matches the run provider). */
+  readonly model: string | null;
 }
 
 export interface LlmRunHandle {

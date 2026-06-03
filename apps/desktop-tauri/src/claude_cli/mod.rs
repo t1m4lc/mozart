@@ -7,6 +7,8 @@
 use serde::{Deserialize, Serialize};
 
 pub mod bin_path;
+pub mod codex_parser;
+pub mod codex_session;
 pub mod context_compiler;
 pub mod envelope;
 pub mod install;

@@ -331,6 +331,8 @@ export const commands = {
     chatId: string,
     currentUserMessageId: string,
     mode: string,
+    provider: string,
+    model: string | null,
     onEvent: TAURI_CHANNEL<StreamEvent>,
   ): Promise<Result<AgentRun, AppError>> {
     try {
@@ -341,6 +343,8 @@ export const commands = {
           chatId,
           currentUserMessageId,
           mode,
+          provider,
+          model,
           onEvent,
         }),
       };
@@ -727,6 +731,56 @@ export const commands = {
       return {
         status: 'ok',
         data: await TAURI_INVOKE('refresh_anthropic_connection'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /** Probe for the `codex` CLI by running `codex --version`. */
+  async checkCodexInstall(): Promise<ClaudeInstall> {
+    return await TAURI_INVOKE('check_codex_install');
+  },
+  /** Heuristic probe for an existing `codex login` session. */
+  async checkCodexSession(): Promise<boolean> {
+    return await TAURI_INVOKE('check_codex_session');
+  },
+  /** Cheap presence check for a stored OpenAI key. Never returns the value. */
+  async hasOpenaiKey(): Promise<Result<boolean, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('has_openai_key') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /** Probe-then-persist an OpenAI key. Only writes to the keyring on `Connected`. */
+  async connectOpenai(key: string): Promise<Result<ProbeResult, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('connect_openai', { key }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /** Idempotent removal of the stored OpenAI key. */
+  async disconnectOpenai(): Promise<Result<null, AppError>> {
+    try {
+      return { status: 'ok', data: await TAURI_INVOKE('disconnect_openai') };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /** Re-probe the currently stored OpenAI key. */
+  async refreshOpenaiConnection(): Promise<Result<ProbeResult, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('refresh_openai_connection'),
       };
     } catch (e) {
       if (e instanceof Error) throw e;
@@ -1732,6 +1786,22 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  /** Runs `codex login` in the shared onboarding PTY. Mirrors spawnClaudeLogin. */
+  async spawnCodexLogin(
+    cols: number,
+    rows: number,
+    onEvent: TAURI_CHANNEL<TerminalEvent>,
+  ): Promise<Result<string, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('spawn_codex_login', { cols, rows, onEvent }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   /**
    * Materialize (if missing) the bundled `~/Mozart/get-started/` project,
    * then ensure a `welcome-1` workspace exists on `main`. Idempotent —
@@ -2300,7 +2370,12 @@ export type NotificationPreferences = { desktop: boolean; sound: boolean };
 export type Appearance = { theme: string; colorMode: string };
 export type Notifications = { desktop: boolean; sound: boolean };
 export type Timeline = { density: string };
-export type Agent = { model: string | null; mode: string; effort: string };
+export type Agent = {
+  model: string | null;
+  mode: string;
+  effort: string;
+  enabledModelIds: string[];
+};
 export type Git = { baseBranch: string; mergeAction: string };
 export type SettingsDto = {
   version: string;

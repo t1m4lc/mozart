@@ -13,7 +13,11 @@ import {
   type ChatsAdapter,
   type MessagesAdapter,
 } from '@mozart/desktop-chat-data-access';
-import { LLM_ADAPTER } from '@mozart/desktop-llm-model-data-access';
+import {
+  COMPOSER_MODELS_PORT,
+  LLM_ADAPTER,
+} from '@mozart/desktop-llm-model-data-access';
+import { tauriComposerModelsPort } from './tauri-composer-models.port';
 import { TauriClaudeAdapter } from './tauri-claude.adapter';
 import {
   GET_STARTED_PROJECT_ADAPTER,
@@ -459,6 +463,28 @@ function provideCredentialsAdapter(): Provider {
         if (r.status === 'error') throw new Error(r.error.kind);
         return r.data.kind;
       },
+      async hasOpenaiKey() {
+        const r = await commands.hasOpenaiKey();
+        if (r.status === 'error') throw new Error(r.error.kind);
+        return r.data;
+      },
+      async hasCodexSession() {
+        return await commands.checkCodexSession();
+      },
+      async connectOpenai(key: string) {
+        const r = await commands.connectOpenai(key);
+        if (r.status === 'error') throw new Error(r.error.kind);
+        return r.data.kind;
+      },
+      async clearOpenai() {
+        const r = await commands.disconnectOpenai();
+        if (r.status === 'error') throw new Error(r.error.kind);
+      },
+      async refreshOpenai() {
+        const r = await commands.refreshOpenaiConnection();
+        if (r.status === 'error') throw new Error(r.error.kind);
+        return r.data.kind;
+      },
       async hasGithubToken() {
         const r = await commands.hasGithubToken();
         if (r.status === 'error') throw new Error(r.error.kind);
@@ -499,6 +525,13 @@ function provideCredentialsAdapter(): Provider {
         if (r.status === 'error') throw new Error(r.error.kind);
       },
     }),
+  };
+}
+
+function provideComposerModelsPort(): Provider {
+  return {
+    provide: COMPOSER_MODELS_PORT,
+    useFactory: () => tauriComposerModelsPort(),
   };
 }
 
@@ -690,6 +723,7 @@ export function provideTauriAdapters(): Provider[] {
     provideTasksAdapter(),
     provideCredentialsAdapter(),
     provideLlmAdapter(),
+    provideComposerModelsPort(),
     provideRepositoriesAdapter(),
     provideTerminalsAdapter(),
     provideRunsAdapter(),

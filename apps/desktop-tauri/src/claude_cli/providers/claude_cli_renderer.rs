@@ -55,9 +55,24 @@ pub struct ClaudeCliRenderer {
     nonce_source: NonceSource,
 }
 
-enum NonceSource {
+/// Per-run nonce source shared by every flat-text renderer (Claude CLI,
+/// Codex). `Random` draws fresh entropy per render; `Fixed` returns a
+/// constant nonce for snapshot tests.
+pub(crate) enum NonceSource {
     Random,
     Fixed(String),
+}
+
+impl NonceSource {
+    pub(crate) fn next(&self) -> String {
+        match self {
+            // UUID v4 "simple" form = 32 hex chars = 16 random bytes.
+            // Same entropy budget as the architecture doc's "16-byte
+            // hex nonce" — uuid::Uuid is already a workspace dep.
+            NonceSource::Random => Uuid::new_v4().simple().to_string(),
+            NonceSource::Fixed(n) => n.clone(),
+        }
+    }
 }
 
 impl Default for ClaudeCliRenderer {
@@ -76,13 +91,7 @@ impl ClaudeCliRenderer {
     }
 
     fn next_nonce(&self) -> String {
-        match &self.nonce_source {
-            // UUID v4 "simple" form = 32 hex chars = 16 random bytes.
-            // Same entropy budget as the architecture doc's "16-byte
-            // hex nonce" — uuid::Uuid is already a workspace dep.
-            NonceSource::Random => Uuid::new_v4().simple().to_string(),
-            NonceSource::Fixed(n) => n.clone(),
-        }
+        self.nonce_source.next()
     }
 }
 
@@ -103,7 +112,7 @@ impl EnvelopeRenderer for ClaudeCliRenderer {
     }
 }
 
-fn render_with_nonce(env: &LLMEnvelope, nonce: &str) -> String {
+pub(crate) fn render_with_nonce(env: &LLMEnvelope, nonce: &str) -> String {
     let mut out = String::new();
 
     layer(&mut out, "SYSTEM_RULES", nonce, |body| {

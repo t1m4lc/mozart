@@ -54,7 +54,9 @@ use tokio::process::Command;
 use tokio::task::JoinHandle;
 
 use crate::claude_cli::bin_path;
+use crate::claude_cli::codex_parser::{self, CodexParserState};
 use crate::claude_cli::parser::{parse_line, ParserState};
+use crate::claude_cli::providers::AgentProvider;
 use crate::claude_cli::sandbox_policy::{build_sandbox_flags, SandboxLevel, L2_SIBLING_CAP};
 use crate::claude_cli::summary_builder;
 use crate::claude_cli::{AgentRunTerminated, StreamEvent};
@@ -150,6 +152,87 @@ fn inject_anthropic_key_env(cmd: &mut Command, key: Option<&str>) {
     if let Some(k) = key {
         cmd.env("ANTHROPIC_API_KEY", k);
     }
+}
+
+/// Codex's parallel to [`inject_anthropic_key`] — inject the keyring-stored
+/// OpenAI key as `OPENAI_API_KEY`. Absent key (Codex `codex login` users,
+/// or keyring unavailable) leaves env unchanged and lets `codex` fall back
+/// to whatever auth it has on disk. Never logged.
+fn inject_openai_key(cmd: &mut Command) {
+    let key = keyring_store::get_openai_key().ok().flatten();
+    if key.is_some() {
+        log::debug!("openai key found in keyring; injecting into codex env");
+    }
+    inject_openai_key_env(cmd, key.as_deref());
+}
+
+/// Testable seam for [`inject_openai_key`] (see [`inject_anthropic_key_env`]).
+fn inject_openai_key_env(cmd: &mut Command, key: Option<&str>) {
+    if let Some(k) = key {
+        cmd.env("OPENAI_API_KEY", k);
+    }
+}
+
+/// Per-run line parser, dispatched by provider. Each variant owns the
+/// provider-specific accumulator; the supervisor's stdout drain calls
+/// [`LineParser::parse_line`] without knowing which backend produced the
+/// bytes — output is the canonical [`StreamEvent`] either way.
+enum LineParser {
+    Claude(ParserState),
+    Codex(CodexParserState),
+}
+
+impl LineParser {
+    fn new(provider: AgentProvider) -> Self {
+        match provider {
+            AgentProvider::ClaudeCli => Self::Claude(ParserState::default()),
+            AgentProvider::Codex => Self::Codex(CodexParserState::default()),
+        }
+    }
+
+    fn parse_line(&mut self, line: &str) -> Vec<StreamEvent> {
+        match self {
+            Self::Claude(state) => parse_line(line, state),
+            Self::Codex(state) => codex_parser::parse_line(line, state),
+        }
+    }
+}
+
+/// Compose the argv for a Codex run: `codex exec - --json …`.
+///
+/// - prompt rides stdin via the `-` positional (same pipe the Claude path
+///   uses), so the envelope never hits the process argv.
+/// - `--cd <worktree>` + `--sandbox` is Codex's clamp. Ship 1 confines every
+///   run to the single active worktree (L3 semantics): `workspace-write`
+///   for `agent` mode, `read-only` for `plan`/`ask` and any unknown mode
+///   (fail-closed, mirroring the Claude permission-mode fallthrough).
+/// - `-a never` because runs are non-interactive — no approval prompts.
+/// - `--skip-git-repo-check` so a worktree whose `.git` is a gitfile (not a
+///   directory) still runs.
+pub(crate) fn codex_argv(worktree_path: &str, chat_mode: &str, model: Option<&str>) -> Vec<String> {
+    let sandbox = match chat_mode {
+        "agent" => "workspace-write",
+        _ => "read-only",
+    };
+    let mut argv = vec![
+        "exec".to_string(),
+        "--json".to_string(),
+        "--skip-git-repo-check".to_string(),
+        "--cd".to_string(),
+        worktree_path.to_string(),
+        "--sandbox".to_string(),
+        sandbox.to_string(),
+        "-a".to_string(),
+        "never".to_string(),
+    ];
+    // Optional model override (`codex -m <model>`); absent ⇒ codex default.
+    if let Some(m) = model {
+        argv.push("-m".to_string());
+        argv.push(m.to_string());
+    }
+    // Prompt rides stdin via the `-` positional (kept last).
+    argv.push("-".to_string());
+    argv
 }
 
 /// Resolve the level-specific `--add-dir` roots into the two slices
@@ -260,6 +343,7 @@ pub(crate) fn production_argv(
     workspace: &Workspace,
     chat_mode: &str,
     level: SandboxLevel,
+    model: Option<&str>,
     project_siblings: &[String],
     l1_roots: &[PathBuf],
 ) -> Vec<String> {
@@ -277,6 +361,13 @@ pub(crate) fn production_argv(
         "--include-partial-messages".to_string(),
         "--verbose".to_string(),
     ];
+    // Optional model override (`claude --model <alias>`). Stable aliases
+    // (`opus`/`sonnet`/`haiku`) come from the frontend catalog; absent ⇒ the
+    // CLI's configured default.
+    if let Some(m) = model {
+        argv.push("--model".to_string());
+        argv.push(m.to_string());
+    }
     argv.extend(build_sandbox_flags(
         &workspace.worktree_path,
         chat_mode,
@@ -319,6 +410,8 @@ pub async fn spawn_run<E>(
     run: &AgentRun,
     prompt_bytes: &str,
     chat_mode: &str,
+    provider: AgentProvider,
+    model: Option<&str>,
     channel: Channel<StreamEvent>,
     db: &DbState,
     emit_terminated: E,
@@ -326,7 +419,10 @@ pub async fn spawn_run<E>(
 where
     E: Fn(AgentRunTerminated) + Send + Sync + 'static,
 {
-    let bin = resolve_claude_bin();
+    let bin = match provider {
+        AgentProvider::ClaudeCli => resolve_claude_bin(),
+        AgentProvider::Codex => bin_path::resolve_codex(),
+    };
 
     // P0.1 S0.1.C — resolve the sandbox level + the per-level
     // `--add-dir` root set, then assemble the full argv. Each branch
@@ -353,14 +449,24 @@ where
     let mut canonical_workspace = workspace.clone();
     canonical_workspace.worktree_path = canonical_worktree.display().to_string();
 
-    let (project_siblings, l1_roots) = resolve_sandbox_roots(&canonical_workspace, level, db)?;
-    let argv = production_argv(
-        &canonical_workspace,
-        chat_mode,
-        level,
-        &project_siblings,
-        &l1_roots,
-    );
+    // Claude resolves the multi-root sandbox set (siblings / L1 roots) from
+    // the DB; Codex ship 1 is single-worktree (L3 semantics) and needs
+    // neither, so we skip the query entirely for it.
+    let argv = match provider {
+        AgentProvider::ClaudeCli => {
+            let (project_siblings, l1_roots) =
+                resolve_sandbox_roots(&canonical_workspace, level, db)?;
+            production_argv(
+                &canonical_workspace,
+                chat_mode,
+                level,
+                model,
+                &project_siblings,
+                &l1_roots,
+            )
+        }
+        AgentProvider::Codex => codex_argv(&canonical_workspace.worktree_path, chat_mode, model),
+    };
 
     // Pre-spawn reach-back (S1.5.4 / D1.5-I): capture a git checkpoint of
     // the workspace's worktree, persist it onto `agent_runs.checkpoint_sha`,
@@ -380,11 +486,14 @@ where
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .kill_on_drop(true);
-    inject_anthropic_key(&mut cmd);
+    match provider {
+        AgentProvider::ClaudeCli => inject_anthropic_key(&mut cmd),
+        AgentProvider::Codex => inject_openai_key(&mut cmd),
+    }
 
     let mut child = cmd
         .spawn()
-        .map_err(|e| AppError::AgentSpawn(format!("spawn claude: {e}")))?;
+        .map_err(|e| AppError::AgentSpawn(format!("spawn agent: {e}")))?;
 
     // Take all three pipe handles up-front. We MUST spawn the drain
     // tasks before writing stdin: large envelopes (>OS pipe buffer,
@@ -413,13 +522,14 @@ where
         let run_id = run_id.clone();
         tokio::spawn(async move {
             let mut lines = BufReader::new(stdout).lines();
-            // Per-run parser state. tool_use blocks need cross-line
-            // accumulation; the state lives here, never crosses runs.
-            let mut parser_state = ParserState::default();
+            // Per-run parser state, dispatched by provider. Cross-line
+            // accumulation (Claude tool_use blocks; Codex tool item
+            // lifecycle) lives here, never crosses runs.
+            let mut parser = LineParser::new(provider);
             loop {
                 match lines.next_line().await {
                     Ok(Some(line)) => {
-                        for ev in parse_line(&line, &mut parser_state) {
+                        for ev in parser.parse_line(&line) {
                             // Best-effort channel emit (UI may have dropped).
                             let _ = channel.send(ev.clone());
                             // Best-effort DB persistence.
@@ -849,6 +959,7 @@ mod tests {
             &ws,
             "agent",
             SandboxLevel::L2Project,
+            None,
             &["/wt-fixture".into()],
             &[],
         );
@@ -912,6 +1023,7 @@ mod tests {
             &ws,
             "ask",
             SandboxLevel::L2Project,
+            None,
             &["/wt-fixture".into()],
             &[],
         );
@@ -925,6 +1037,65 @@ mod tests {
                 "ask mode argv must NOT include {forbidden} in {allowed}"
             );
         }
+    }
+
+    #[test]
+    fn codex_argv_locks_exec_json_and_prompt_via_stdin() {
+        let argv = codex_argv("/wt-fixture", "agent", None);
+        // `codex exec … --json` and the `-` stdin positional are mandatory.
+        assert_eq!(argv.first().map(String::as_str), Some("exec"));
+        assert!(argv.iter().any(|a| a == "--json"));
+        assert_eq!(argv.last().map(String::as_str), Some("-"), "prompt must ride stdin");
+        // The worktree clamp is present and points at the active worktree.
+        assert!(argv.windows(2).any(|w| w[0] == "--cd" && w[1] == "/wt-fixture"));
+        // Non-interactive: never prompt for approval.
+        assert!(argv.windows(2).any(|w| w[0] == "-a" && w[1] == "never"));
+        // No model flag when none requested.
+        assert!(!argv.iter().any(|a| a == "-m"), "no -m without a model: {argv:?}");
+        // The user prompt must never appear inline in argv.
+        assert!(
+            !argv.iter().any(|a| a.contains("rendered") || a.contains("MOZART_LAYER")),
+            "envelope must not leak into argv: {argv:?}"
+        );
+    }
+
+    #[test]
+    fn codex_argv_appends_model_before_stdin_positional() {
+        let argv = codex_argv("/wt", "agent", Some("gpt-5"));
+        assert!(argv.windows(2).any(|w| w[0] == "-m" && w[1] == "gpt-5"));
+        // `-` stays the final positional even with a model.
+        assert_eq!(argv.last().map(String::as_str), Some("-"));
+    }
+
+    #[test]
+    fn codex_argv_sandbox_tracks_chat_mode() {
+        // agent → writable workspace; plan/ask/unknown → read-only (fail-closed).
+        let agent = codex_argv("/wt", "agent", None);
+        assert!(agent.windows(2).any(|w| w[0] == "--sandbox" && w[1] == "workspace-write"));
+        for mode in ["plan", "ask", "evil"] {
+            let argv = codex_argv("/wt", mode, None);
+            assert!(
+                argv.windows(2).any(|w| w[0] == "--sandbox" && w[1] == "read-only"),
+                "{mode} must be read-only, got: {argv:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn production_argv_appends_model_flag_when_present() {
+        let ws = argv_test_workspace("/wt");
+        let argv = production_argv(
+            &ws,
+            "agent",
+            SandboxLevel::L3Workspace,
+            Some("opus"),
+            &[],
+            &[],
+        );
+        assert!(argv.windows(2).any(|w| w[0] == "--model" && w[1] == "opus"));
+        // Absent model → no --model flag.
+        let none = production_argv(&ws, "agent", SandboxLevel::L3Workspace, None, &[], &[]);
+        assert!(!none.iter().any(|a| a == "--model"));
     }
 
     #[cfg(unix)]
@@ -1105,7 +1276,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", AgentProvider::ClaudeCli, None, noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // ≥ 1 stream_token row from the text_delta in the fixture.
@@ -1154,7 +1325,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", AgentProvider::ClaudeCli, None, noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             // The fixture exercises the full tool round-trip: an
@@ -1251,7 +1422,7 @@ mod tests {
             std::env::set_var("MOZART_MOCK_FIXTURE", &slow);
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", AgentProvider::ClaudeCli, None, noop_channel(), &db, |_| ()).await.unwrap();
             // Give the child a moment to actually start before cancelling.
             tokio::time::sleep(Duration::from_millis(100)).await;
             handle.cancel().await.unwrap();
@@ -1288,7 +1459,7 @@ mod tests {
             );
             std::env::set_var("MOZART_WORKTREES_ROOT", _root.path());
 
-            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", noop_channel(), &db, |_| ()).await.unwrap();
+            let handle = spawn_run(&ws, &run, "rendered-envelope-bytes-for-test", "agent", AgentProvider::ClaudeCli, None, noop_channel(), &db, |_| ()).await.unwrap();
             handle.await_complete().await.unwrap();
 
             let got = agent_runs::get(&db.lock(), &run.run_id).unwrap();
@@ -1388,6 +1559,8 @@ mod tests {
                 &run,
                 "rendered-envelope-bytes-for-test",
                 "agent",
+                AgentProvider::ClaudeCli,
+                None,
                 noop_channel(),
                 &db,
                 |_| (),

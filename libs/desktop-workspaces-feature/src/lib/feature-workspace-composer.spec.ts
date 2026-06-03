@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import {
   ChatScrollOrchestrator,
   ScrollPositionService,
@@ -66,10 +67,22 @@ function configure(state: ChatFacadeStubState) {
 
   const router = { navigate: vi.fn(async () => true) };
 
+  // Connected provider → no connect-CTA, so existing assertions are
+  // unaffected. The composer only reads these signals + the two probes.
+  const profileFacade = {
+    initialize: vi.fn(async () => undefined),
+    initializeCodex: vi.fn(async () => undefined),
+    status: signal('connected'),
+    codexStatus: signal('not_connected'),
+    hasAnyProvider: signal(true),
+    activeAgentProvider: signal('claude_cli'),
+  };
+
   TestBed.configureTestingModule({
     providers: [
       { provide: ChatFacade, useValue: chatFacade },
       { provide: WorkspacesFacade, useValue: workspacesFacade },
+      { provide: ProfileFacade, useValue: profileFacade },
       { provide: Router, useValue: router },
     ],
   });
@@ -249,7 +262,7 @@ describe('FeatureWorkspaceComposer', () => {
         activeChat: makeChat({
           mode: 'ask',
           effort: 'high',
-          modelId: 'haiku',
+          modelId: 'claude-haiku-4-5',
         }),
         streaming: false,
       });
@@ -266,7 +279,8 @@ describe('FeatureWorkspaceComposer', () => {
       };
       expect(cmp.currentMode()).toBe('ask');
       expect(cmp.currentEffort()).toBe('high');
-      expect(cmp.currentModelId()).toBe('haiku');
+      // A real, enabled catalog id is reflected as-is.
+      expect(cmp.currentModelId()).toBe('claude-haiku-4-5');
     });
 
     it('falls back to defaults when activeChat is null', () => {

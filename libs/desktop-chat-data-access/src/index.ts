@@ -13,6 +13,7 @@ export {
   WorkspaceChatPort,
   type WorkspaceChatSummary,
 } from './lib/workspace-chat.port';
+export { AgentProviderPort } from './lib/agent-provider.port';
 export {
   chatFromDto,
   messageFromDto,

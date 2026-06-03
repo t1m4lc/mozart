@@ -61,7 +61,8 @@ documentation only.
   "agent": {                      // defaults applied to new chats
     "model": null,                // model id; null = the app's current default
     "mode": "agent",              // "agent" | "plan" | "ask"
-    "effort": "medium"            // "low" | "medium" | "high" | "xhigh" | "max"
+    "effort": "medium",           // "low" | "medium" | "high" | "xhigh" | "max"
+    "enabledModelIds": []         // composer model allow-list; [] = all runnable
   },
 
   "git": {
@@ -86,6 +87,7 @@ documentation only.
 | `agent.model` | string \| null | `null` | Default model for new chats; `null` = app default. |
 | `agent.mode` | enum | `"agent"` | `agent` / `plan` / `ask`. |
 | `agent.effort` | enum | `"medium"` | `low` / `medium` / `high` / `xhigh` / `max`. |
+| `agent.enabledModelIds` | string[] | `[]` | Models shown in the composer picker (Settings → Composer models). `[]` = all runnable. See [Providers & models](#providers--models). |
 | `git.baseBranch` | string | `"main"` | Branch new workspaces fork from. |
 | `git.mergeAction` | enum | `"pr"` | `pr` / `local`. |
 | `scripts` | ordered map | `{}` | Project run/setup commands. |
@@ -106,6 +108,36 @@ key order drives the Run/Setup tab order in the UI (left tab = first key):
 
 You can add more named tasks (e.g. `"test"`, `"lint"`). Scripts are
 project-scoped in practice; a global value would be meaningless.
+
+## Providers & models
+
+Mozart runs your prompts through an **agent provider** CLI. Two are available
+today; more are planned:
+
+| Provider | Status | Auth |
+|----------|--------|------|
+| **Claude Code** (Anthropic) | Available | `claude login` (Pro/Max) **or** an `ANTHROPIC_API_KEY` |
+| **Codex** (OpenAI) | Available | `codex login` (ChatGPT) **or** an `OPENAI_API_KEY` |
+| **Local** (Ollama) | Coming soon | — |
+| **Mozart Cloud** | Coming soon | — |
+
+Connect one or more during onboarding, or anytime in **Settings → Connections**.
+At least one provider must be connected to run an agent. Keys are stored in your
+OS keychain — never synced, never logged. A run is routed to whichever provider
+is connected (Claude is preferred when both are).
+
+**Composer models.** Settings → Composer models picks which models appear in the
+composer's model dropdown, grouped by provider, persisted as
+`agent.enabledModelIds` (model **ids** only). An empty list shows all runnable
+models; at least one must stay enabled. If a chat's selected model is later
+disabled, the composer falls back to an enabled one.
+
+> **Limitation (static catalog).** The model list is a hand-maintained catalog
+> in the app, not discovered from each provider. The picked model is passed to
+> the CLI (`claude --model <alias>`, `codex -m <model>`) using stable Claude
+> aliases (`opus`/`sonnet`/`haiku`) and the Codex model id; if a model belongs
+> to a provider other than the one running the turn, the CLI's own default is
+> used instead.
 
 ## Notes & caveats
 

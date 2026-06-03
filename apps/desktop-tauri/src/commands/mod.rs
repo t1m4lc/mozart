@@ -21,13 +21,15 @@ use tauri::ipc::Channel;
 use tauri::State;
 
 use crate::auth::keyring_store::{self as auth_store, AuthSessionDto};
+use crate::claude_cli::codex_session;
 use crate::claude_cli::context_compiler;
 use crate::claude_cli::install::{self, ClaudeInstall};
-use crate::claude_cli::providers::{ClaudeCliRenderer, EnvelopeRenderer};
+use crate::claude_cli::providers::{AgentProvider, ClaudeCliRenderer, CodexRenderer, EnvelopeRenderer};
 use crate::claude_cli::session;
 use crate::claude_cli::{spawn_run, AgentRunTerminated, StreamEvent};
 use crate::credentials::anthropic_probe::{self, ProbeResult};
 use crate::credentials::keyring_store::{self, GithubTokenKind};
+use crate::credentials::openai_probe;
 use crate::db::agent_run_envelopes::ENVELOPE_RETENTION_PER_CHAT;
 use crate::db::models::{AgentRun, AgentRunEnvelope, Chat, Message, Repo, Task, Workspace, WorkspaceChange};
 use crate::db::{
@@ -838,6 +840,8 @@ pub async fn start_agent_run(
     chat_id: String,
     current_user_message_id: String,
     mode: String,
+    provider: String,
+    model: Option<String>,
     on_event: Channel<StreamEvent>,
 ) -> Result<AgentRun, AppError> {
     // Capture an owned `AppHandle` so the emitter closure can outlive the
@@ -850,6 +854,8 @@ pub async fn start_agent_run(
         chat_id,
         current_user_message_id,
         mode,
+        provider,
+        model,
         on_event,
         move |ev| {
             use tauri_specta::Event;
@@ -871,12 +877,16 @@ pub(crate) async fn start_agent_run_impl<E>(
     chat_id: String,
     current_user_message_id: String,
     mode: String,
+    provider: String,
+    model: Option<String>,
     on_event: Channel<StreamEvent>,
     emit_terminated: E,
 ) -> Result<AgentRun, AppError>
 where
     E: Fn(AgentRunTerminated) + Send + Sync + 'static,
 {
+    // Fail-closed: an unknown provider id resolves to the Claude CLI path.
+    let agent_provider = AgentProvider::from_id(&provider);
     // D20: 1:1 workspace -> thread traversal. Plan P0.2: refuse on
     // frozen workspaces — ALL modes, including `ask`. (See full
     // rationale in the prior comment block.)
@@ -912,8 +922,13 @@ where
     let stats = build_result.stats;
     let prompt_text = envelope.current_user_message.content.clone();
 
-    let renderer = ClaudeCliRenderer::default();
-    let rendered = renderer.render(&envelope);
+    // Render with the provider's renderer. Both produce the same nonce-framed
+    // flat text; they differ only in the `provider` tag stamped onto the
+    // audit row (`agent_run_envelopes.provider`).
+    let rendered = match agent_provider {
+        AgentProvider::ClaudeCli => ClaudeCliRenderer::default().render(&envelope),
+        AgentProvider::Codex => CodexRenderer::default().render(&envelope),
+    };
 
     let run = AgentRun {
         run_id: new_id(),
@@ -971,7 +986,19 @@ where
     // phantom spinner. Mark it 'error' so the next hydrate sees it and the
     // interrupted-message recovery path can finalize.
     let handle =
-        match spawn_run(&ws, &run, &rendered.bytes, &mode, on_event, db, emit_terminated).await {
+        match spawn_run(
+            &ws,
+            &run,
+            &rendered.bytes,
+            &mode,
+            agent_provider,
+            model.as_deref(),
+            on_event,
+            db,
+            emit_terminated,
+        )
+        .await
+        {
             Ok(h) => h,
             Err(e) => {
                 let conn = db.lock();
@@ -1601,6 +1628,64 @@ pub async fn refresh_anthropic_connection() -> Result<ProbeResult, AppError> {
 #[specta::specta]
 pub async fn probe_anthropic_reachability() -> bool {
     anthropic_probe::probe_reachability().await
+}
+
+// ── Codex / OpenAI provider ─────────────────────────────────────────────
+// Parallels the Anthropic command set above so the onboarding provider step
+// can offer Codex with the same shape: install probe, `codex login` session
+// probe, and probe-then-persist for an OPENAI_API_KEY.
+
+/// Probe for the `codex` CLI by running `codex --version`. Mirrors
+/// [`check_claude_install`].
+#[tauri::command]
+#[specta::specta]
+pub async fn check_codex_install() -> ClaudeInstall {
+    install::check_codex_installed().await
+}
+
+/// Heuristic probe for an existing `codex login` session (presence of
+/// `~/.codex/auth.json`). Mirrors [`check_claude_code_session`].
+#[tauri::command]
+#[specta::specta]
+pub async fn check_codex_session() -> bool {
+    codex_session::has_session()
+}
+
+/// Cheap presence check for a stored OpenAI key. Never returns the value.
+#[tauri::command]
+#[specta::specta]
+pub async fn has_openai_key() -> Result<bool, AppError> {
+    keyring_store::has_openai_key()
+}
+
+/// Probe-then-persist for an OpenAI key. Only writes to the keyring when the
+/// probe returns `Connected`. Mirrors [`connect_anthropic`].
+#[tauri::command]
+#[specta::specta]
+pub async fn connect_openai(key: String) -> Result<ProbeResult, AppError> {
+    let result = openai_probe::probe(&key).await;
+    if matches!(result, ProbeResult::Connected) {
+        keyring_store::set_openai_key(&key)?;
+    }
+    Ok(result)
+}
+
+/// Idempotent removal of the stored OpenAI key.
+#[tauri::command]
+#[specta::specta]
+pub async fn disconnect_openai() -> Result<(), AppError> {
+    keyring_store::clear_openai_key()
+}
+
+/// Re-probe the currently stored OpenAI key. Returns `Validation` when no
+/// key is stored (the frontend gates this on `has_openai_key()`).
+#[tauri::command]
+#[specta::specta]
+pub async fn refresh_openai_connection() -> Result<ProbeResult, AppError> {
+    match keyring_store::get_openai_key()? {
+        Some(k) => Ok(openai_probe::probe(&k).await),
+        None => Err(AppError::Validation("no stored openai key".into())),
+    }
 }
 
 /// List the workspace's worktree contents as a nested file tree, with
@@ -3180,6 +3265,33 @@ pub async fn spawn_claude_login(
     Ok(ONBOARDING_PTY_ID.to_string())
 }
 
+/// Codex's parallel to [`spawn_claude_login`] — runs `codex login` in the
+/// shared onboarding PTY. Reuses [`ONBOARDING_PTY_ID`] so switching the
+/// configured provider mid-onboarding cancels the other login cleanly
+/// (only one provider is configured at a time on the step). On the
+/// terminal `Exited` event the frontend re-probes
+/// `check_codex_session()` for the authoritative success signal.
+#[tauri::command]
+#[specta::specta]
+pub async fn spawn_codex_login(
+    registry: State<'_, TerminalRegistry>,
+    cols: u16,
+    rows: u16,
+    on_event: Channel<TerminalEvent>,
+) -> Result<String, AppError> {
+    registry.cancel(ONBOARDING_PTY_ID);
+    let cwd = home_dir_or_cwd();
+    let handle = terminal::spawn_command(
+        &cwd,
+        cols.max(1),
+        rows.max(1),
+        "codex login".to_string(),
+        on_event,
+    )?;
+    registry.register(ONBOARDING_PTY_ID.to_string(), std::sync::Arc::new(handle));
+    Ok(ONBOARDING_PTY_ID.to_string())
+}
+
 /// Phase 6 / Atom 2 — detection probe for the onboarding wizard's Git
 /// step. Spawns `git --version` (argv form, no shell) and parses the
 /// stdout line `git version X.Y.Z`. Returns `None` when the binary is
@@ -4030,6 +4142,8 @@ mod tests {
             chat_id,
             msg_id,
             "agent".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             |_| (),
         )
@@ -4131,6 +4245,8 @@ mod tests {
             chat_id,
             msg_id,
             "agent".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             |_| (),
         )
@@ -4456,6 +4572,8 @@ mod tests {
             chat_id,
             msg_id,
             "agent".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             move |ev| {
                 if let Ok(mut g) = captured_for_closure.lock() {
@@ -4593,6 +4711,8 @@ mod tests {
             chat_id,
             msg_id,
             "agent".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             move |ev| {
                 if let Ok(mut g) = captured_for_closure.lock() {
@@ -4741,6 +4861,8 @@ mod tests {
             chat_id.clone(),
             msg1_id.clone(),
             "agent".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             |_| (),
         )
@@ -4790,6 +4912,8 @@ mod tests {
             chat_id.clone(),
             msg2_id,
             "agent".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             |_| (),
         )
@@ -4867,6 +4991,8 @@ mod tests {
             "dummy-chat-id".into(),
             "dummy-msg-id".into(),
             "agent".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             |_| {},
         )
@@ -4895,6 +5021,8 @@ mod tests {
             "dummy-chat-id".into(),
             "dummy-msg-id".into(),
             "ask".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             |_| {},
         )
@@ -4926,6 +5054,8 @@ mod tests {
             "dummy-chat-id".into(),
             "dummy-msg-id".into(),
             "agent".into(),
+            "claude_cli".into(),
+            None,
             noop_channel(),
             |_| {},
         )

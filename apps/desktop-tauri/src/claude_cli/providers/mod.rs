@@ -17,5 +17,31 @@
 //! "Deferred → Agent-provider module relocation").
 
 pub mod claude_cli_renderer;
+pub mod codex_renderer;
 
 pub use claude_cli_renderer::{ClaudeCliRenderer, EnvelopeRenderer, RenderedEnvelope};
+pub use codex_renderer::CodexRenderer;
+
+/// Which agent backend a run targets. Selected per-run from the chat's
+/// model (TS resolves model → provider and passes the id to
+/// `start_agent_run`). The default + unknown-string fallback is
+/// [`AgentProvider::ClaudeCli`] — the established, fully-sandboxed path —
+/// so a malformed provider id never silently widens reach.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum AgentProvider {
+    #[default]
+    ClaudeCli,
+    Codex,
+}
+
+impl AgentProvider {
+    /// Parse the wire id used by `RenderedEnvelope::provider` and the
+    /// `start_agent_run` command. Anything other than `"codex"` resolves to
+    /// [`AgentProvider::ClaudeCli`] (fail-closed to the sandboxed path).
+    pub fn from_id(id: &str) -> Self {
+        match id {
+            "codex" => Self::Codex,
+            _ => Self::ClaudeCli,
+        }
+    }
+}

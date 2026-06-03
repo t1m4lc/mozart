@@ -3,6 +3,7 @@ import {
   Component,
   DestroyRef,
   ElementRef,
+  computed,
   effect,
   inject,
   input,
@@ -17,12 +18,12 @@ import { loadXterm } from '@mozart/desktop-core-util';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { PROVIDER_SETUP_ADAPTER } from '@mozart/desktop-onboarding-data-access';
 
-// Sub-step opened when the user clicks "Configure Claude Code". Mounts
-// an xterm.js terminal, spawns `claude login` via the
+// Sub-step opened when the user clicks "Configure" for a provider. Mounts
+// an xterm.js terminal, spawns `<provider> login` via the
 // ProviderSetupAdapter, and listens for the PTY's Exited event ; on
-// exit it re-probes the Claude Code session and emits `(success)` to
+// exit it re-probes the provider's session and emits `(success)` to
 // the parent step. The Cancel button closes the PTY and emits
-// `(cancel)`.
+// `(cancel)`. Handles both Claude Code and Codex via the `provider` input.
 //
 // Inline xterm wiring (rather than reusing TerminalRegistry) because
 // the registry is workspace-scoped and the onboarding PTY lives outside
@@ -35,9 +36,9 @@ import { PROVIDER_SETUP_ADAPTER } from '@mozart/desktop-onboarding-data-access';
   template: `
     <div class="space-y-4">
       <div class="space-y-1 text-center">
-        <h3 class="text-base font-medium">Configure Claude Code</h3>
+        <h3 class="text-base font-medium">Configure {{ label() }}</h3>
         <p class="text-xs text-muted-foreground">
-          Mozart is running <code class="font-mono">claude login</code> below.
+          Mozart is running <code class="font-mono">{{ loginCmd() }}</code> below.
           Follow the prompts in the terminal.
         </p>
       </div>
@@ -49,11 +50,11 @@ import { PROVIDER_SETUP_ADAPTER } from '@mozart/desktop-onboarding-data-access';
 
       @if (state() === 'detecting') {
         <p class="text-center text-xs text-muted-foreground">
-          Detecting Claude Code session…
+          Detecting {{ label() }} session…
         </p>
       } @else if (state() === 'failed') {
         <p class="text-center text-xs text-destructive">
-          No Claude Code session detected. Try again or use an API key.
+          No {{ label() }} session detected. Try again or use an API key.
         </p>
       }
 
@@ -70,6 +71,9 @@ import { PROVIDER_SETUP_ADAPTER } from '@mozart/desktop-onboarding-data-access';
 })
 export class FeatureClaudeLoginPty {
   readonly active = input.required<boolean>();
+  /** Which provider's login flow to run. Defaults to Claude so existing
+   *  callers are unaffected. */
+  readonly provider = input<'claude' | 'codex'>('claude');
   readonly success = output<void>();
   readonly cancelled = output<void>();
   readonly useApiKey = output<void>();
@@ -79,6 +83,13 @@ export class FeatureClaudeLoginPty {
   private readonly destroyRef = inject(DestroyRef);
   private readonly host =
     viewChild.required<ElementRef<HTMLDivElement>>('host');
+
+  protected readonly label = computed(() =>
+    this.provider() === 'codex' ? 'Codex' : 'Claude Code',
+  );
+  protected readonly loginCmd = computed(() =>
+    this.provider() === 'codex' ? 'codex login' : 'claude login',
+  );
 
   protected readonly state = signal<
     'idle' | 'connecting' | 'running' | 'detecting' | 'failed' | 'done'
@@ -146,7 +157,11 @@ export class FeatureClaudeLoginPty {
     this.fit = fit;
 
     try {
-      const { terminalId, close } = await this.adapter.spawnClaudeLogin(
+      const spawn =
+        this.provider() === 'codex'
+          ? this.adapter.spawnCodexLogin.bind(this.adapter)
+          : this.adapter.spawnClaudeLogin.bind(this.adapter);
+      const { terminalId, close } = await spawn(
         term.cols,
         term.rows,
         (event) => {
@@ -183,9 +198,9 @@ export class FeatureClaudeLoginPty {
       });
       this.resizeObserver.observe(this.host().nativeElement);
     } catch (err) {
-      console.error('[onboarding] spawn claude login failed:', err);
+      console.error('[onboarding] spawn login failed:', err);
       term.write(
-        '\r\n\x1b[31mFailed to spawn `claude login`. Use the API-key fallback below.\x1b[0m\r\n',
+        `\r\n\x1b[31mFailed to spawn \`${this.loginCmd()}\`. Use the API-key fallback below.\x1b[0m\r\n`,
       );
       this.state.set('failed');
     }
@@ -194,14 +209,23 @@ export class FeatureClaudeLoginPty {
   private async handleExited(): Promise<void> {
     this.state.set('detecting');
     try {
-      const outcome = await this.profile.tryConnect();
-      if (outcome === 'claude_code') {
-        this.state.set('done');
-        this.success.emit();
-        return;
+      if (this.provider() === 'codex') {
+        const outcome = await this.profile.tryConnectCodex();
+        if (outcome === 'codex_session') {
+          this.state.set('done');
+          this.success.emit();
+          return;
+        }
+      } else {
+        const outcome = await this.profile.tryConnect();
+        if (outcome === 'claude_code') {
+          this.state.set('done');
+          this.success.emit();
+          return;
+        }
       }
     } catch (err) {
-      console.warn('[onboarding] tryConnect after PTY exit failed:', err);
+      console.warn('[onboarding] re-probe after PTY exit failed:', err);
     }
     this.state.set('failed');
   }

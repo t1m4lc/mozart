@@ -55,6 +55,11 @@ pub struct Agent {
     pub mode: String,
     /// `"low" | "medium" | "high" | "xhigh" | "max"`.
     pub effort: String,
+    /// Model ids the user has enabled in the composer's model picker. Empty
+    /// = show all runnable models (the catalog default). The frontend owns
+    /// the catalog; this is just the persisted allow-list of ids.
+    #[serde(default)]
+    pub enabled_model_ids: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, specta::Type)]
@@ -104,6 +109,7 @@ impl Default for MozartSettings {
                 model: None,
                 mode: "agent".into(),
                 effort: "medium".into(),
+                enabled_model_ids: Vec::new(),
             },
             git: Git {
                 base_branch: "main".into(),

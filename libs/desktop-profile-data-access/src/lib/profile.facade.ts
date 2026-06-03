@@ -1,5 +1,18 @@
-import { Injectable, computed, effect, inject, signal } from '@angular/core';
-import type { Connection, ProbeResult } from '@mozart/desktop-profile-util';
+import {
+  Injectable,
+  Signal,
+  computed,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
+import type {
+  Connection,
+  ConnectionProvider,
+  ConnectionStatus,
+  ProbeResult,
+} from '@mozart/desktop-profile-util';
+import type { AgentProviderId } from '@mozart/desktop-llm-model-util';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import {
   CREDENTIALS_ADAPTER,
@@ -42,6 +55,85 @@ export class ProfileFacade {
     status: this.store.status(),
     lastCheckedAt: this.store.lastCheckedAt(),
   }));
+
+  // ── Codex (OpenAI) connection ────────────────────────────────────────
+  // Held as facade-local signals (mirrors the GitHub state pattern) rather
+  // than a second store track — the Claude store is single-provider.
+  private readonly _codexStatus = signal<ConnectionStatus>('unknown');
+  readonly codexStatus = computed(() => this._codexStatus());
+  readonly codexConnection = computed<Connection>(() => ({
+    provider: 'codex',
+    status: this._codexStatus(),
+    lastCheckedAt: null,
+  }));
+
+  private static readonly claudeReady = (s: ConnectionStatus): boolean =>
+    s === 'connected' || s === 'connected_via_claude_code';
+  private static readonly codexReady = (s: ConnectionStatus): boolean =>
+    s === 'connected' || s === 'connected_via_codex';
+
+  /** Which agent backend a run should target. Prefers Claude when both are
+   *  connected (preserves prior behavior); a Codex-only tester routes to
+   *  Codex; with neither connected it falls back to `claude_cli` and the
+   *  composer surfaces the connect-CTA before a run ever starts. */
+  readonly activeAgentProvider = computed<AgentProviderId>(() => {
+    if (ProfileFacade.claudeReady(this.status())) return 'claude_cli';
+    if (ProfileFacade.codexReady(this._codexStatus())) return 'codex';
+    return 'claude_cli';
+  });
+
+  /** True once at least one agent provider is connected. Drives the
+   *  composer's "connect a provider" gate. */
+  readonly hasAnyProvider = computed(
+    () =>
+      ProfileFacade.claudeReady(this.status()) ||
+      ProfileFacade.codexReady(this._codexStatus()),
+  );
+
+  /** Data-driven status read: returns the connection-status signal for a
+   *  provider track. Lets onboarding/settings cards iterate a registry
+   *  without branching per provider. */
+  connectionFor(provider: ConnectionProvider): Signal<ConnectionStatus> {
+    return provider === 'codex' ? this.codexStatus : this.status;
+  }
+
+  /** Full `Connection` object signal for a provider track (for the Settings
+   *  connection card, which renders the whole connection). */
+  connectionInfoFor(provider: ConnectionProvider): Signal<Connection> {
+    return provider === 'codex' ? this.codexConnection : this.connection;
+  }
+
+  /** Idempotent boot probe for a provider track. */
+  initializeFor(provider: ConnectionProvider): Promise<void> {
+    return provider === 'codex' ? this.initializeCodex() : this.initialize();
+  }
+
+  /** Connect-button flow for a provider track. Normalizes the per-provider
+   *  outcomes to `'session' | 'needs_api_key'`. */
+  async tryConnectFor(
+    provider: ConnectionProvider,
+  ): Promise<'session' | 'needs_api_key'> {
+    if (provider === 'codex') {
+      return (await this.tryConnectCodex()) === 'codex_session'
+        ? 'session'
+        : 'needs_api_key';
+    }
+    return (await this.tryConnect()) === 'claude_code'
+      ? 'session'
+      : 'needs_api_key';
+  }
+
+  /** Re-probe the stored key for a provider track (the card's "Test"). */
+  testConnectionFor(provider: ConnectionProvider): Promise<void> {
+    return provider === 'codex'
+      ? this.testCodexConnection()
+      : this.testConnection();
+  }
+
+  /** Clear stored credentials for a provider track. */
+  disconnectFor(provider: ConnectionProvider): Promise<void> {
+    return provider === 'codex' ? this.disconnectCodex() : this.disconnect();
+  }
 
   // Idempotent first-load probe. Three branches:
   //   1. Mozart has a stored API key  → re-probe Anthropic for the
@@ -105,6 +197,61 @@ export class ProfileFacade {
       return;
     }
     this.store.setStatus('not_connected');
+  }
+
+  // ── Codex connect flows — parallel the Claude ones above ─────────────
+
+  /** Idempotent first-load probe for Codex. Stored OpenAI key → re-probe;
+   *  else a `codex login` session → connected_via_codex; else not_connected. */
+  async initializeCodex(): Promise<void> {
+    if (this._codexStatus() !== 'unknown') return;
+    this._codexStatus.set('checking');
+    if (await this.credentials.hasOpenaiKey()) {
+      this._codexStatus.set(await this.credentials.refreshOpenai());
+      return;
+    }
+    if (await this.credentials.hasCodexSession()) {
+      this._codexStatus.set('connected_via_codex');
+      return;
+    }
+    this._codexStatus.set('not_connected');
+  }
+
+  /** Connect-button flow for Codex. Re-checks for a `codex login` session
+   *  first; returns 'needs_api_key' when none is found so the caller can
+   *  open the OPENAI_API_KEY dialog. */
+  async tryConnectCodex(): Promise<'codex_session' | 'needs_api_key'> {
+    if (await this.credentials.hasCodexSession()) {
+      this._codexStatus.set('connected_via_codex');
+      return 'codex_session';
+    }
+    return 'needs_api_key';
+  }
+
+  /** Dialog calls this; persists on `connected` and returns the result. */
+  async connectCodexWithKey(key: string): Promise<ProbeResult> {
+    this._codexStatus.set('checking');
+    const result = await this.credentials.connectOpenai(key);
+    this._codexStatus.set(result);
+    return result;
+  }
+
+  /** Manual re-probe of the stored OpenAI key (the Codex card's "Test
+   *  connection"). Mirrors {@link testConnection}. */
+  async testCodexConnection(): Promise<void> {
+    this._codexStatus.set('checking');
+    this._codexStatus.set(await this.credentials.refreshOpenai());
+  }
+
+  /** Clears the stored OpenAI key, falling back to a `codex login` session
+   *  if one is still present. */
+  async disconnectCodex(): Promise<void> {
+    await this.credentials.clearOpenai();
+    if (await this.credentials.hasCodexSession()) {
+      this._codexStatus.set('connected_via_codex');
+      return;
+    }
+    this._codexStatus.set('not_connected');
   }
 
   // Minimal state: 'unknown' before the boot probe resolves, 'none' if

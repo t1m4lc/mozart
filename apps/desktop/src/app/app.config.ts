@@ -28,6 +28,7 @@ import {
 } from '@mozart/desktop-core-tauri';
 import { AuthFacade, WEB_BASE_URL } from '@mozart/desktop-auth-data-access';
 import {
+  AgentProviderPort,
   ChatFacade,
   WorkspaceChatPort,
 } from '@mozart/desktop-chat-data-access';
@@ -78,6 +79,10 @@ export const appConfig: ApplicationConfig = {
     // workspaceById + call markRead / toggleUnread without a
     // chat→workspaces lib dep.
     { provide: WorkspaceChatPort, useExisting: WorkspacesFacade },
+    // Bind AgentProviderPort to ProfileFacade so ChatFacade resolves which
+    // agent backend (Claude vs Codex) a run targets from the connected
+    // provider, without a chat→profile lib dep.
+    { provide: AgentProviderPort, useExisting: ProfileFacade },
     // apps/web origin for Clerk sign-in + /account links. Swapped at
     // production build via fileReplacements in project.json.
     { provide: WEB_BASE_URL, useValue: environment.webBaseUrl },

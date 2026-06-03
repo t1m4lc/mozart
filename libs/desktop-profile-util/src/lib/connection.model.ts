@@ -1,7 +1,7 @@
-// Connection models for the Anthropic (Claude) provider. v0.1.0-beta.1 has a
-// single provider; v0.1.0 will fan out to OpenAI / OpenRouter / Local.
+// Connection models for the agent providers. Claude (Anthropic) and Codex
+// (OpenAI) are wired; v0.1.0 will fan out to OpenRouter / Local.
 
-export type ConnectionProvider = 'claude';
+export type ConnectionProvider = 'claude' | 'codex';
 
 // Drives the connection card's pill + button row. See ui-connection-card
 // for the full status→pill→action mapping.
@@ -12,12 +12,14 @@ export type ConnectionProvider = 'claude';
 //   connected_via_claude_code  — a `claude /login` session was detected (Pro/Max path)
 //   invalid                    — last probe returned 401 / 403
 //   network_error              — last probe could not reach the API
+//   connected_via_codex        — a `codex login` session was detected
 export type ConnectionStatus =
   | 'unknown'
   | 'not_connected'
   | 'checking'
   | 'connected'
   | 'connected_via_claude_code'
+  | 'connected_via_codex'
   | 'invalid'
   | 'network_error';
 

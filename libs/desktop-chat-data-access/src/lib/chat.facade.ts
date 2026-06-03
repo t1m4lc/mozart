@@ -7,9 +7,12 @@ import {
   LLM_ADAPTER,
   type LlmRunHandle,
 } from '@mozart/desktop-llm-model-data-access';
+import type { AgentProviderId } from '@mozart/desktop-llm-model-util';
+import { AgentProviderPort } from './agent-provider.port';
 import {
   EMPTY_TURN_STATE,
   applyAgentEvent,
+  cliModelFor,
   type TurnOutcome,
   type TurnState,
 } from '@mozart/desktop-llm-model-util';
@@ -95,6 +98,9 @@ export class ChatFacade {
   private readonly chats = inject(CHATS_ADAPTER);
   private readonly messages = inject(MESSAGES_ADAPTER);
   private readonly workspaces = inject(WorkspaceChatPort);
+  // Optional so existing unit tests that construct the facade without the
+  // profile domain keep working; absent → default to the Claude path.
+  private readonly agentProvider = inject(AgentProviderPort, { optional: true });
   private readonly windowFocus = inject(WindowFocusService);
   private readonly notify = inject(NotificationService);
 
@@ -581,11 +587,20 @@ export class ChatFacade {
       turnState: initialState,
     });
 
+    const provider: AgentProviderId =
+      this.agentProvider?.activeAgentProvider() ?? 'claude_cli';
+    // Pass the picked model to the CLI only when it belongs to the backend
+    // actually running this turn; a mismatch resolves to null (CLI default).
+    const chatModelId =
+      this.store.chats().find((c) => c.id === chatId)?.modelId ?? null;
+    const model = cliModelFor(chatModelId, provider);
     const handle = this.llm.stream({
       workspaceId,
       chatId,
       currentUserMessageId,
       mode,
+      provider,
+      model,
     });
     this.activeRuns.set(assistantMsg.id, handle);
     this.activeByWorkspace.update((m) => {

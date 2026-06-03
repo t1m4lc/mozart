@@ -1,7 +1,6 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  HostListener,
   computed,
   effect,
   inject,
@@ -10,43 +9,24 @@ import {
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmDialogService } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
-import { HlmSelectImports } from '@spartan-ui/select';
 import { NgIcon, provideIcons } from '@ng-icons/core';
-import { lucideInfo, lucideLock, lucideRefreshCw } from '@ng-icons/lucide';
+import {
+  lucideCloud,
+  lucideCpu,
+  lucideHardDrive,
+  lucideInfo,
+  lucideLock,
+  lucideRefreshCw,
+  lucideSparkles,
+} from '@ng-icons/lucide';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
+import type { ConnectionStatus } from '@mozart/desktop-profile-util';
+import {
+  PROVIDER_REGISTRY,
+  type ConnectionProviderId,
+} from '@mozart/desktop-llm-model-util';
 import { FeatureClaudeLoginPty } from './feature-claude-login-pty';
-
-type ProviderId = 'claude' | 'openai' | 'openrouter' | 'local';
-
-interface ProviderEntry {
-  readonly id: ProviderId;
-  readonly name: string;
-  readonly hint: string;
-  readonly enabled: boolean;
-}
-
-const PROVIDERS: readonly ProviderEntry[] = [
-  {
-    id: 'claude',
-    name: 'Claude Code',
-    hint: 'Sonnet 4.6 · Opus 4.7',
-    enabled: true,
-  },
-  { id: 'openai', name: 'OpenAI', hint: 'gpt-4o · gpt-4.1', enabled: false },
-  {
-    id: 'openrouter',
-    name: 'OpenRouter',
-    hint: 'Multi-model gateway',
-    enabled: false,
-  },
-  {
-    id: 'local',
-    name: 'Local (Ollama)',
-    hint: 'Run models on your machine',
-    enabled: false,
-  },
-] as const;
 
 const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
   idle: 'bg-muted',
@@ -55,158 +35,188 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
   fail: 'bg-destructive',
 };
 
-// Step 3 of the onboarding wizard. Single-provider select drives an
-// inline configuration section ; the disclosure note + status dot live
-// underneath. Mozart auto-probes Claude on mount so a returning user
-// (existing `claude login` session or stored API key) lands on the
-// configured state without an extra click.
+/** Bucket the raw connection statuses into the four UI states the status
+ *  dot understands. Shared across provider cards. */
+function bucketStatus(status: ConnectionStatus): 'idle' | 'ok' | 'busy' | 'fail' {
+  switch (status) {
+    case 'connected':
+    case 'connected_via_claude_code':
+    case 'connected_via_codex':
+      return 'ok';
+    case 'checking':
+      return 'busy';
+    case 'invalid':
+    case 'network_error':
+      return 'fail';
+    default:
+      return 'idle';
+  }
+}
+
+/** Per-provider status detail copy for the `ok`/`fail` rows. */
+function detailFor(
+  status: ConnectionStatus,
+  provider: ConnectionProviderId,
+): string {
+  switch (status) {
+    case 'connected':
+      return 'Using your API key.';
+    case 'connected_via_claude_code':
+      return 'Detected your existing claude login session.';
+    case 'connected_via_codex':
+      return 'Detected your existing codex login session.';
+    case 'invalid':
+      return 'Your stored credentials were rejected.';
+    case 'network_error':
+      return provider === 'codex'
+        ? "Couldn't reach OpenAI — check your connection."
+        : "Couldn't reach Anthropic — check your connection.";
+    default:
+      return '';
+  }
+}
+
+// Step 3 of the onboarding wizard — multi-provider setup. Each provider in
+// PROVIDER_REGISTRY renders as a card the user can connect independently
+// (Claude Code and/or Codex; Local & Mozart Cloud show "Coming soon"). The
+// step is soft-required: the shell's Continue button stays disabled until at
+// least one provider is connected (`providerReady`), but there is no skip —
+// Mozart needs a usable agent backend to do anything.
 @Component({
   selector: 'app-feature-onboarding-step-provider',
-  imports: [
-    HlmButtonImports,
-    HlmIconImports,
-    HlmSelectImports,
-    NgIcon,
-    FeatureClaudeLoginPty,
+  imports: [HlmButtonImports, HlmIconImports, NgIcon, FeatureClaudeLoginPty],
+  providers: [
+    provideIcons({
+      lucideLock,
+      lucideRefreshCw,
+      lucideInfo,
+      lucideSparkles,
+      lucideCpu,
+      lucideHardDrive,
+      lucideCloud,
+    }),
   ],
-  providers: [provideIcons({ lucideLock, lucideRefreshCw, lucideInfo })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
   template: `
-    @if (showPty()) {
-      <!-- Render synchronously — @defer added latency between Configure
-           click and the PTY appearing, which felt broken. xterm now
-           lands in the main bundle; acceptable given the onboarding
-           path is the entry point. -->
+    @if (configuring(); as cp) {
       <app-feature-claude-login-pty
-        [active]="showPty()"
-        (success)="onPtySuccess()"
-        (cancelled)="onPtyCancel()"
+        [active]="true"
+        [provider]="cp"
+        (success)="onPtyDone()"
+        (cancelled)="onPtyDone()"
         (useApiKey)="onUseApiKey()"
       />
     } @else {
-      <div class="space-y-6">
-        <div class="mx-auto max-w-md space-y-2 text-center">
+      <div class="space-y-5">
+        <div class="mx-auto max-w-md space-y-1.5 text-center">
           <h2 class="text-xl font-semibold tracking-tight">
-            Connect LLM provider
+            Connect your AI provider
           </h2>
           <p class="text-muted-foreground text-sm">
-            Pick one to start — you can add more later.
+            Connect Claude Code, Codex, or both. At least one is required to
+            continue — you can add more later.
           </p>
         </div>
 
-        <div class="space-y-3">
-          <p
-            class="text-muted-foreground text-xs font-medium"
-            id="provider-label"
-          >
-            Provider
-          </p>
-          <hlm-select
-            aria-labelledby="provider-label"
-            [value]="selectedProvider()"
-            (valueChange)="onProviderChange($event)"
-          >
-            <hlm-select-trigger class="w-full">
-              <hlm-select-value placeholder="Choose a provider" />
-            </hlm-select-trigger>
-            <hlm-select-content *hlmSelectPortal>
-              @for (p of providers; track p.id) {
-                <hlm-select-item [value]="p.id" [disabled]="!p.enabled">
-                  <div class="flex w-full items-center justify-between gap-3">
-                    <span class="font-medium">{{ p.name }}</span>
-                    <span class="text-muted-foreground text-xs">
-                      @if (p.enabled) {
-                        {{ p.hint }}
-                      } @else {
-                        Coming soon
-                      }
-                    </span>
-                  </div>
-                </hlm-select-item>
+        <div class="space-y-2">
+          @for (c of cards(); track c.id) {
+            <div
+              class="bg-muted/30 flex items-center gap-3 rounded-md border border-border/60 px-4 py-3"
+              [class.opacity-60]="c.availability === 'coming_soon'"
+            >
+              @if (c.availability === 'available') {
+                <span
+                  [class]="'inline-block size-2 shrink-0 rounded-full ' + dotClass(c.kind)"
+                  aria-hidden="true"
+                ></span>
+              } @else {
+                <ng-icon
+                  hlm
+                  [name]="c.iconName"
+                  size="sm"
+                  class="text-muted-foreground shrink-0"
+                />
               }
-            </hlm-select-content>
-          </hlm-select>
-        </div>
 
-        <!-- Status + actions for the selected provider -->
-        @if (selectedProvider() === 'claude') {
-          <div
-            class="bg-muted/30 flex items-center gap-3 rounded-md border border-border/60 px-4 py-3"
-            role="status"
-          >
-            <span
-              [class]="
-                'inline-block size-2 shrink-0 rounded-full ' + statusDot()
-              "
-              aria-hidden="true"
-            ></span>
-            <div class="flex-1 text-sm">
-              @switch (statusKind()) {
-                @case ('ok') {
-                  <span class="font-medium">Claude Code is connected.</span>
-                  <span class="text-muted-foreground ml-2 text-xs">
-                    {{ statusDetail() }}
-                  </span>
+              <div class="min-w-0 flex-1">
+                <p class="text-sm font-medium">{{ c.label }}</p>
+                @if (c.availability === 'available') {
+                  <p class="text-muted-foreground truncate text-xs">
+                    @switch (c.kind) {
+                      @case ('ok') {
+                        {{ c.detail }}
+                      }
+                      @case ('busy') {
+                        Checking…
+                      }
+                      @case ('fail') {
+                        {{ c.detail }}
+                      }
+                      @default {
+                        Not configured yet
+                      }
+                    }
+                  </p>
+                } @else {
+                  <p class="text-muted-foreground text-xs">Coming soon</p>
                 }
-                @case ('busy') {
-                  <span>Checking your Claude Code setup…</span>
-                }
-                @case ('fail') {
-                  <span class="font-medium">{{ statusDetail() }}</span>
-                }
-                @default {
-                  <span>Claude Code isn't configured yet.</span>
+              </div>
+
+              @if (c.availability === 'available' && c.connectionProvider; as cp) {
+                @switch (c.kind) {
+                  @case ('ok') {
+                    <span class="text-xs font-medium text-green-600">Connected</span>
+                  }
+                  @case ('fail') {
+                    <button
+                      hlmBtn
+                      size="sm"
+                      variant="outline"
+                      type="button"
+                      (click)="onConfigure(cp)"
+                    >
+                      <ng-icon hlm name="lucideRefreshCw" size="xs" />
+                      Retry
+                    </button>
+                  }
+                  @case ('busy') {
+                    <!-- probe in flight; no action -->
+                  }
+                  @default {
+                    <button
+                      hlmBtn
+                      size="sm"
+                      type="button"
+                      (click)="onConfigure(cp)"
+                    >
+                      Connect
+                    </button>
+                  }
                 }
               }
             </div>
-
-            @if (statusKind() === 'fail') {
-              <button
-                hlmBtn
-                size="sm"
-                variant="outline"
-                type="button"
-                (click)="onConfigureClaude()"
-              >
-                <ng-icon hlm name="lucideRefreshCw" size="xs" />
-                Retry
-              </button>
-            } @else if (statusKind() === 'idle') {
-              <button
-                hlmBtn
-                size="sm"
-                type="button"
-                (click)="onConfigureClaude()"
-              >
-                Configure
-              </button>
-            }
-            <!-- 'ok' state shows the green dot only — Reconfigure
-                 lives in Settings post-onboarding. 'busy' shows the
-                 pulse dot + "Checking…" with no action. -->
-          </div>
-        }
+          }
+        </div>
 
         <p
           class="text-muted-foreground flex items-center justify-start gap-2 text-xs"
         >
-          <ng-icon hlm name="lucideLock" size="xs" class="" />
+          <ng-icon hlm name="lucideLock" size="xs" />
           <span>
             Keys are stored in your OS keychain — never synced to our servers,
             never logged.
           </span>
         </p>
 
-        @if (statusKind() === 'ok') {
+        @if (providerReady()) {
           <p
             class="text-muted-foreground flex items-center justify-start gap-2 text-xs"
           >
-            <ng-icon hlm name="lucideInfo" size="xs" class="" />
-            <span>You can connect more providers later from Settings. </span>
+            <ng-icon hlm name="lucideInfo" size="xs" />
+            <span>You can connect more providers later from Settings.</span>
           </p>
         }
-
       </div>
     }
   `,
@@ -216,57 +226,31 @@ export class FeatureOnboardingStepProvider {
   protected readonly profile = inject(ProfileFacade);
   private readonly dialog = inject(HlmDialogService);
 
-  protected readonly providers = PROVIDERS;
-  protected readonly selectedProvider = signal<ProviderId>('claude');
-  protected readonly showPty = signal<boolean>(false);
+  // The provider whose login PTY is currently open, or null.
+  protected readonly configuring = signal<ConnectionProviderId | null>(null);
 
-  protected readonly providerReady = computed(() => {
-    const status = this.profile.connection().status;
-    return status === 'connected' || status === 'connected_via_claude_code';
-  });
+  // Registry rows enriched with live connection status (reactive).
+  protected readonly cards = computed(() =>
+    PROVIDER_REGISTRY.map((d) => {
+      const cp = d.connectionProvider;
+      const status: ConnectionStatus = cp
+        ? this.profile.connectionFor(cp)()
+        : 'unknown';
+      return {
+        ...d,
+        kind: bucketStatus(status),
+        detail: cp ? detailFor(status, cp) : '',
+      };
+    }),
+  );
 
-  /** Bucket the seven raw connection statuses into the four UI states
-   *  the status dot understands. */
-  protected readonly statusKind = computed<'idle' | 'ok' | 'busy' | 'fail'>(
-    () => {
-      switch (this.profile.connection().status) {
-        case 'connected':
-        case 'connected_via_claude_code':
-          return 'ok';
-        case 'checking':
-          return 'busy';
-        case 'invalid':
-        case 'network_error':
-          return 'fail';
-        default:
-          return 'idle';
-      }
-    },
+  protected readonly providerReady = computed(() =>
+    this.profile.hasAnyProvider(),
   );
-  protected readonly statusDot = computed(
-    () => STATUS_DOT_CLASS[this.statusKind()],
-  );
-  protected readonly statusDetail = computed(() => {
-    switch (this.profile.connection().status) {
-      case 'connected':
-        return 'Using your API key.';
-      case 'connected_via_claude_code':
-        return 'Detected your existing claude login session.';
-      case 'invalid':
-        return 'Your stored credentials were rejected.';
-      case 'network_error':
-        return "Couldn't reach Anthropic — check your connection.";
-      default:
-        return '';
-    }
-  });
 
   constructor() {
     void this.profile.initialize();
-    // Mirror `providerReady()` into the facade's step-status map.
-    // Effect form is used because `markStep` is also called imperatively
-    // — see TODO.md (signals cleanup) for the deferred facade refactor
-    // that would let this become a reactive binding.
+    void this.profile.initializeCodex();
     effect(() => {
       this.facade.markStep(
         'provider',
@@ -275,34 +259,36 @@ export class FeatureOnboardingStepProvider {
     });
   }
 
-  @HostListener('document:keyup.enter')
-  protected onEnterKey(): void {
-    if (!this.showPty() && this.facade.canAdvance()) this.facade.advance();
+  protected dotClass(kind: 'idle' | 'ok' | 'busy' | 'fail'): string {
+    return STATUS_DOT_CLASS[kind];
   }
 
-  protected onProviderChange(value: ProviderId | null): void {
-    if (value) this.selectedProvider.set(value);
+  protected async onConfigure(cp: ConnectionProviderId): Promise<void> {
+    if (cp === 'codex') {
+      const outcome = await this.profile.tryConnectCodex();
+      if (outcome === 'codex_session') return;
+    } else {
+      const outcome = await this.profile.tryConnect();
+      if (outcome === 'claude_code') return;
+    }
+    this.configuring.set(cp);
   }
 
-  protected async onConfigureClaude(): Promise<void> {
-    const outcome = await this.profile.tryConnect();
-    if (outcome === 'claude_code') return;
-    this.showPty.set(true);
-  }
-
-  protected onPtySuccess(): void {
-    this.showPty.set(false);
-  }
-
-  protected onPtyCancel(): void {
-    this.showPty.set(false);
+  protected onPtyDone(): void {
+    this.configuring.set(null);
   }
 
   protected async onUseApiKey(): Promise<void> {
-    this.showPty.set(false);
-    const { UiConnectDialog } = await import(
-      '@mozart/desktop-profile-feature'
-    );
+    const cp = this.configuring();
+    this.configuring.set(null);
+    if (cp === 'codex') {
+      const { UiCodexConnectDialog } = await import(
+        '@mozart/desktop-profile-feature'
+      );
+      this.dialog.open(UiCodexConnectDialog, {});
+      return;
+    }
+    const { UiConnectDialog } = await import('@mozart/desktop-profile-feature');
     this.dialog.open(UiConnectDialog, {});
   }
 }

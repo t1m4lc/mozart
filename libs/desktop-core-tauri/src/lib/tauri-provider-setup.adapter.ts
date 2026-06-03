@@ -34,6 +34,22 @@ export function tauriProviderSetupAdapter(): ProviderSetupAdapter {
       };
       return { terminalId, close };
     },
+    async spawnCodexLogin(cols, rows, onEvent) {
+      const channel = new Channel<TerminalEventDto>();
+      channel.onmessage = (ev) => {
+        if (ev.kind === 'output') onEvent({ kind: 'output', data: ev.data });
+        else onEvent({ kind: 'exited', code: ev.code });
+      };
+      const terminalId = unwrap(await commands.spawnCodexLogin(cols, rows, channel));
+      const close = async (): Promise<void> => {
+        try {
+          unwrap(await commands.closeTerminal(terminalId));
+        } catch (err) {
+          console.warn('[onboarding] close codex-login PTY failed:', err);
+        }
+      };
+      return { terminalId, close };
+    },
     async write(terminalId, data) {
       unwrap(await commands.writeTerminal(terminalId, data));
     },

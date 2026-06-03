@@ -4,6 +4,7 @@ import { ExternalLinkService } from '@mozart/desktop-core-data-access';
 import { FeatureGitStatus } from '@mozart/desktop-onboarding-feature';
 import {
   FeatureConnections,
+  FeatureLlmModels,
   FeatureNotificationPrefs,
 } from '@mozart/desktop-profile-feature';
 import {
@@ -19,6 +20,7 @@ import { HlmSelectImports } from '@spartan-ui/select';
   imports: [
     FeatureConnections,
     FeatureGitStatus,
+    FeatureLlmModels,
     FeatureNotificationPrefs,
     HlmButtonImports,
     HlmSelectImports,
@@ -36,6 +38,15 @@ import { HlmSelectImports } from '@spartan-ui/select';
           Connections
         </h2>
         <app-feature-connections />
+      </section>
+
+      <section class="space-y-4">
+        <h2
+          class="text-xs font-medium uppercase tracking-wide text-muted-foreground"
+        >
+          Composer models
+        </h2>
+        <app-feature-llm-models />
       </section>
 
       <section class="space-y-4">
