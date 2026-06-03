@@ -25,8 +25,8 @@ import {
 // `prose-sm` matches the chat's text-sm baseline ; `dark:prose-invert`
 // flips for dark mode ; `max-w-none` opts out of prose's default
 // `max-width: 65ch` since the chat container already constrains
-// width. The streaming dot lives outside the prose container so
-// it isn't styled as inline code or stripped.
+// width. The streaming dot is injected into the parsed HTML (after
+// marked runs) so it sits inline at the end of the last paragraph.
 //
 // Typing animation : Claude CLI batches text deltas (sometimes the
 // entire reply lands in one chunk), which feels like the prose
@@ -58,16 +58,8 @@ const TYPE_CHARS_PER_FRAME = 2;
       [innerHTML]="_html()"
     ></div>
   `,
-  // The streaming cursor lives INSIDE the marked-rendered HTML (see
-  // `_html` below) so it stays inline with the last paragraph rather
-  // than getting bumped to a new line below a trailing block element
-  // (`<ul>`, `<pre>`, …). `:host ::ng-deep` is needed because the
-  // span doesn't carry an `_ngcontent-*` attribute — innerHTML
-  // bypasses Angular's emulated encapsulation.
-  //
-  // `pr-3` (streaming only) reserves room for the trailing dot so a
-  // full-width last line wraps before the edge — otherwise the dot
-  // gets clipped or pushed onto a lone wrapped line.
+  // ::ng-deep is required: the cursor span is injected via [innerHTML]
+  // so it has no _ngcontent-* attribute and is invisible to emulated encapsulation.
   styles: `
     @keyframes message-body-pulse {
       0%,
@@ -82,10 +74,8 @@ const TYPE_CHARS_PER_FRAME = 2;
       display: inline-block;
       width: 8px;
       height: 8px;
-      margin-left: 4px;
-      margin-right: 4px;
-      margin-bottom: 4px;
-      vertical-align: baseline;
+      margin: 0 4px;
+      vertical-align: middle;
       border-radius: 9999px;
       background: currentColor;
       animation: message-body-pulse 1.2s ease-in-out infinite;
@@ -135,15 +125,19 @@ export class MessageBody {
   protected readonly _html = computed<string>(() => {
     const visible = this._displayedText();
     if (!visible) return '';
-    // Append the cursor span to the raw text BEFORE marked parses,
-    // so marked treats it as inline content of the last paragraph.
-    // Otherwise the cursor sits as a sibling block element below the
-    // prose container and can end up clipped against the composer
-    // overlay's top edge when the last message lands flush.
-    const raw = this.streaming()
-      ? visible +
-        '<span class="message-body__cursor" aria-hidden="true"></span>'
-      : visible;
-    return marked.parse(raw, { async: false }) as string;
+    const parsed = marked.parse(visible, { async: false }) as string;
+    if (!this.streaming()) return parsed;
+    const cursor =
+      '<span class="message-body__cursor" aria-hidden="true"></span>';
+    // Inject inline inside the last </p> so the dot sits at the end of
+    // the last paragraph. If the markdown ends with a non-paragraph block
+    // (<pre>, <ul>, …) the cursor falls after it as a bare inline — still
+    // visible, never trapped inside a pre's overflow-x:auto.
+    const match = /(<\/p>\s*)$/.exec(parsed);
+    return match
+      ? parsed.slice(0, parsed.length - match[0].length) +
+          cursor +
+          match[0]
+      : parsed + cursor;
   });
 }
