@@ -42,12 +42,26 @@ export class ComposerModelsStore {
   }
 
   async setEnabled(ids: readonly string[]): Promise<void> {
-    this._enabledIds.set([...ids]);
+    // No-op when the set is unchanged. The Brn multi-select can re-emit
+    // `valueChange` whenever its `[value]` array reference changes (including
+    // an echo right after we set it), so without this guard a fresh-array
+    // write here would churn the signal forever — an infinite change-detection
+    // loop that freezes the webview.
+    const next = [...ids];
+    if (sameSet(next, this._enabledIds())) return;
+    this._enabledIds.set(next);
     if (!this.port) return;
     try {
-      await this.port.save(ids);
+      await this.port.save(next);
     } catch (err) {
       console.warn('[composer-models] save failed:', err);
     }
   }
+}
+
+/** Order-independent equality for two id lists. */
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const set = new Set(b);
+  return a.every((id) => set.has(id));
 }

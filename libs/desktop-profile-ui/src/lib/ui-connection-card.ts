@@ -16,31 +16,26 @@ import type {
   ConnectionStatus,
 } from '@mozart/desktop-profile-util';
 
-// Per-provider display copy. Keyed by the profile connection track so the
-// card stays presentational while reading the same for Claude and Codex.
+// Per-provider connection copy. The provider *name* is NOT here — it comes
+// from the registry via the `label` input (single source of truth). These are
+// connection-specific strings (login wording, unreachable host, hint).
 const PROVIDER_COPY: Record<
   ConnectionProvider,
   {
-    name: string;
     loginName: string;
     unreachable: string;
     notConnected: string;
-    help: string;
   }
 > = {
   claude: {
-    name: 'Anthropic',
     loginName: 'Claude Code',
     unreachable: "Can't reach Anthropic",
     notConnected: 'API key or Claude Code login',
-    help: 'How Mozart connects to Anthropic',
   },
   codex: {
-    name: 'Codex',
     loginName: 'Codex',
     unreachable: "Can't reach OpenAI",
     notConnected: 'API key or Codex login',
-    help: 'How Mozart connects to Codex',
   },
 };
 
@@ -76,17 +71,17 @@ const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
       ></span>
       <div class="min-w-0 flex-1 text-sm">
         <div class="flex items-center gap-1.5">
-          <span class="font-medium">{{ copy().name }}</span>
+          <span class="font-medium">{{ label() }}</span>
           <button
             hlmBtn
             variant="ghost"
             size="icon-xs"
             type="button"
-            [hlmTooltip]="copy().help"
+            [hlmTooltip]="helpText()"
             position="top"
             class="size-6 rounded-md text-muted-foreground"
             (click)="help.emit()"
-            [attr.aria-label]="copy().help"
+            [attr.aria-label]="helpText()"
           >
             <ng-icon hlm name="lucideCircleHelp" size="xs" />
           </button>
@@ -184,9 +179,11 @@ const STATUS_DOT_CLASS: Record<ConnectionStatus, string> = {
 })
 export class UiConnectionCard {
   readonly connection = input.required<Connection>();
-  /** Which provider this card represents. Defaults to `'claude'` so the
-   *  existing Anthropic call site is unchanged. */
+  /** Which provider this card represents. Defaults to `'claude'`. */
   readonly connectionProvider = input<ConnectionProvider>('claude');
+  /** Provider display name, supplied from PROVIDER_REGISTRY (single source of
+   *  truth). Defaults to the connection track's title-cased id as a fallback. */
+  readonly label = input<string>('');
 
   readonly connect = output<void>();
   readonly disconnect = output<void>();
@@ -196,6 +193,10 @@ export class UiConnectionCard {
 
   protected readonly copy = computed(
     () => PROVIDER_COPY[this.connectionProvider()],
+  );
+
+  protected readonly helpText = computed(
+    () => `How Mozart connects to ${this.label()}`,
   );
 
   protected readonly statusDot = computed(

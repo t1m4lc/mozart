@@ -13,9 +13,11 @@ import {
 } from '@mozart/desktop-llm-model-util';
 
 // Settings section: choose which models appear in the composer's model
-// picker, via a Spartan multi-select grouped by provider. Empty preference ⇒
-// all runnable models shown (every row selected). At least one model must
-// stay enabled so the composer never goes empty.
+// picker, via the Spartan multi-select grouped by provider. Follows the
+// idiomatic `hlm-select-multiple` pattern (object values + isItemEqualToValue
+// + itemToString) so Brn dedupes value echoes instead of churning the signal.
+// Empty preference ⇒ all runnable models shown (every row selected). At least
+// one model must stay enabled so the composer never goes empty.
 @Component({
   selector: 'app-feature-llm-models',
   imports: [HlmSelectImports],
@@ -24,15 +26,21 @@ import {
   template: `
     <div class="space-y-2">
       <hlm-select-multiple
-        [value]="selectedIds()"
-        [itemToString]="idToName"
+        [value]="selectedModels()"
+        [itemToString]="modelToString"
+        [isItemEqualToValue]="modelsEqual"
         (valueChange)="onChange($any($event))"
       >
         <hlm-select-trigger class="w-full">
           <hlm-select-placeholder>Select models</hlm-select-placeholder>
           <ng-template hlmSelectValues let-values>
             <hlm-select-values-content>
-              {{ values.length }} of {{ total() }} models
+              {{ values[0]?.name }}
+              @if (values.length > 1) {
+                <span class="text-muted-foreground"
+                  >(+{{ values.length - 1 }} more)</span
+                >
+              }
             </hlm-select-values-content>
           </ng-template>
         </hlm-select-trigger>
@@ -41,7 +49,7 @@ import {
             <hlm-select-group>
               <hlm-select-label>{{ g.label }}</hlm-select-label>
               @for (m of g.models; track m.id) {
-                <hlm-select-item [value]="m.id">{{ m.name }}</hlm-select-item>
+                <hlm-select-item [value]="m">{{ m.name }}</hlm-select-item>
               }
             </hlm-select-group>
           }
@@ -59,13 +67,14 @@ export class FeatureLlmModels {
 
   private readonly runnable = selectableComposerModels();
 
-  protected readonly total = computed(() => this.runnable.length);
-
-  // The materialized enabled set bound to the multi-select. Empty preference
-  // ⇒ everything runnable reads as selected (the catalog default).
-  protected readonly selectedIds = computed<string[]>(() => {
+  // The materialized enabled set bound to the multi-select, as the catalog
+  // model objects (stable references). Empty preference ⇒ everything runnable
+  // reads as selected (the catalog default).
+  protected readonly selectedModels = computed<ModelOption[]>(() => {
     const ids = this.store.enabledIds();
-    return ids.length ? [...ids] : this.runnable.map((m) => m.id);
+    if (!ids.length) return [...this.runnable];
+    const allow = new Set(ids);
+    return this.runnable.filter((m) => allow.has(m.id));
   });
 
   protected readonly groups = computed(
@@ -76,12 +85,16 @@ export class FeatureLlmModels {
       }) as { id: string; label: string; models: readonly ModelOption[] }[],
   );
 
-  protected readonly idToName = (id: string): string =>
-    this.runnable.find((m) => m.id === id)?.name ?? id;
+  protected readonly modelToString = (m: ModelOption): string => m?.name ?? '';
 
-  protected onChange(ids: string[]): void {
+  protected readonly modelsEqual = (
+    a: ModelOption,
+    b: ModelOption | null,
+  ): boolean => a?.id === b?.id;
+
+  protected onChange(models: ModelOption[]): void {
     // Keep at least one enabled — ignore a fully-cleared selection.
-    if (ids.length === 0) return;
-    void this.store.setEnabled(ids);
+    if (models.length === 0) return;
+    void this.store.setEnabled(models.map((m) => m.id));
   }
 }

@@ -6,9 +6,13 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmDialogService } from '@spartan-ui/dialog';
-import { HlmIconImports } from '@spartan-ui/icon';
+import {
+  PROVIDER_REGISTRY,
+  type ConnectionProviderId,
+} from '@mozart/desktop-llm-model-util';
+import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
+import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import type { ConnectionStatus } from '@mozart/desktop-profile-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideCloud,
@@ -19,13 +23,9 @@ import {
   lucideRefreshCw,
   lucideSparkles,
 } from '@ng-icons/lucide';
-import { ProfileFacade } from '@mozart/desktop-profile-data-access';
-import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
-import type { ConnectionStatus } from '@mozart/desktop-profile-util';
-import {
-  PROVIDER_REGISTRY,
-  type ConnectionProviderId,
-} from '@mozart/desktop-llm-model-util';
+import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmDialogService } from '@spartan-ui/dialog';
+import { HlmIconImports } from '@spartan-ui/icon';
 import { FeatureClaudeLoginPty } from './feature-claude-login-pty';
 
 const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
@@ -37,7 +37,9 @@ const STATUS_DOT_CLASS: Record<'idle' | 'ok' | 'busy' | 'fail', string> = {
 
 /** Bucket the raw connection statuses into the four UI states the status
  *  dot understands. Shared across provider cards. */
-function bucketStatus(status: ConnectionStatus): 'idle' | 'ok' | 'busy' | 'fail' {
+function bucketStatus(
+  status: ConnectionStatus,
+): 'idle' | 'ok' | 'busy' | 'fail' {
   switch (status) {
     case 'connected':
     case 'connected_via_claude_code':
@@ -114,8 +116,7 @@ function detailFor(
             Connect your AI provider
           </h2>
           <p class="text-muted-foreground text-sm">
-            Connect Claude Code, Codex, or both. At least one is required to
-            continue — you can add more later.
+            Connect Claude Code or Codex. At least one is required to continue.
           </p>
         </div>
 
@@ -127,7 +128,10 @@ function detailFor(
             >
               @if (c.availability === 'available') {
                 <span
-                  [class]="'inline-block size-2 shrink-0 rounded-full ' + dotClass(c.kind)"
+                  [class]="
+                    'inline-block size-2 shrink-0 rounded-full ' +
+                    dotClass(c.kind)
+                  "
                   aria-hidden="true"
                 ></span>
               } @else {
@@ -163,10 +167,15 @@ function detailFor(
                 }
               </div>
 
-              @if (c.availability === 'available' && c.connectionProvider; as cp) {
+              @if (
+                c.availability === 'available' && c.connectionProvider;
+                as cp
+              ) {
                 @switch (c.kind) {
                   @case ('ok') {
-                    <span class="text-xs font-medium text-green-600">Connected</span>
+                    <span class="text-xs font-medium text-green-600"
+                      >Connected</span
+                    >
                   }
                   @case ('fail') {
                     <button

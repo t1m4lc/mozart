@@ -47,14 +47,15 @@ import {
         </div>
       }
       <div class="space-y-3">
-        @for (p of connectableProviders; track p) {
+        @for (p of connectableProviders; track p.provider) {
           <app-ui-connection-card
-            [connection]="facade.connectionInfoFor(p)()"
-            [connectionProvider]="p"
-            (connect)="onConnect(p)"
-            (disconnect)="onDisconnect(p)"
-            (testConnection)="onTest(p)"
-            (useApiKey)="onUseApiKey(p)"
+            [connection]="facade.connectionInfoFor(p.provider)()"
+            [connectionProvider]="p.provider"
+            [label]="p.label"
+            (connect)="onConnect(p.provider)"
+            (disconnect)="onDisconnect(p.provider)"
+            (testConnection)="onTest(p.provider)"
+            (useApiKey)="onUseApiKey(p.provider)"
             (help)="onHelp()"
           />
         }
@@ -74,19 +75,23 @@ export class FeatureConnections {
   protected readonly connectivity = inject(ConnectivityService);
   private readonly dialogService = inject(HlmDialogService);
 
-  // Connectable provider tracks, from the registry source of truth.
-  protected readonly connectableProviders: ConnectionProvider[] =
-    PROVIDER_REGISTRY.flatMap((d) =>
-      d.availability === 'available' && d.connectionProvider
-        ? [d.connectionProvider]
-        : [],
-    );
+  // Connectable provider tracks + display labels, from the registry source of
+  // truth. Each card's title comes from `label` so onboarding, the composer
+  // dropdown, and Settings all show the same provider names.
+  protected readonly connectableProviders: {
+    provider: ConnectionProvider;
+    label: string;
+  }[] = PROVIDER_REGISTRY.flatMap((d) =>
+    d.availability === 'available' && d.connectionProvider
+      ? [{ provider: d.connectionProvider, label: d.label }]
+      : [],
+  );
 
   constructor() {
     // Lazy probe on first /settings visit. Idempotent — cooperates with the
     // APP_INITIALIZER via the facade's own `status === 'unknown'` guard.
     for (const p of this.connectableProviders) {
-      void this.facade.initializeFor(p);
+      void this.facade.initializeFor(p.provider);
     }
     void this.facade.initializeGithub();
   }
