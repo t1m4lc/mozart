@@ -5,8 +5,14 @@ import {
   input,
 } from '@angular/core';
 import { toObservable, toSignal } from '@angular/core/rxjs-interop';
-import { EMPTY, animationFrames, distinctUntilChanged, scan, switchMap } from 'rxjs';
 import { marked } from 'marked';
+import {
+  EMPTY,
+  animationFrames,
+  distinctUntilChanged,
+  scan,
+  switchMap,
+} from 'rxjs';
 
 // Streams the agent's prose as markdown-rendered HTML. `marked`
 // produces an HTML string that Angular's `[innerHTML]` sanitizer
@@ -64,21 +70,31 @@ const TYPE_CHARS_PER_FRAME = 2;
   // gets clipped or pushed onto a lone wrapped line.
   styles: `
     @keyframes message-body-pulse {
-      0%, 100% { opacity: 0.3; }
-      50%      { opacity: 1; }
+      0%,
+      100% {
+        opacity: 0.3;
+      }
+      50% {
+        opacity: 1;
+      }
     }
     :host ::ng-deep .message-body__cursor {
       display: inline-block;
-      width: 6px;
-      height: 6px;
+      width: 8px;
+      height: 8px;
       margin-left: 4px;
+      margin-right: 4px;
+      margin-bottom: 4px;
       vertical-align: baseline;
       border-radius: 9999px;
       background: currentColor;
       animation: message-body-pulse 1.2s ease-in-out infinite;
     }
     @media (prefers-reduced-motion: reduce) {
-      :host ::ng-deep .message-body__cursor { animation: none; opacity: 0.6; }
+      :host ::ng-deep .message-body__cursor {
+        animation: none;
+        opacity: 0.6;
+      }
     }
   `,
 })

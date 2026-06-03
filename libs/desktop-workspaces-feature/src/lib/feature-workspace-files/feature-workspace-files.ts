@@ -14,6 +14,7 @@ import {
   lucideGitCompareArrows,
   lucideListTree,
 } from '@ng-icons/lucide';
+import { WindowFocusService } from '@mozart/desktop-core-data-access';
 import { events } from '@mozart/desktop-core-tauri';
 import { FeatureFileTree } from '@mozart/desktop-repositories-feature';
 import {
@@ -138,6 +139,7 @@ export class FeatureWorkspaceFiles {
   private readonly destroyRef = inject(DestroyRef);
   private readonly fileTabs = inject(FileTabsService);
   private readonly uiState = inject(UiStateFacade);
+  private readonly windowFocus = inject(WindowFocusService);
   private readonly clickGuard = createClickIntentGuard();
 
   protected readonly workspaceId = this.workspaces.activeId;
@@ -206,11 +208,11 @@ export class FeatureWorkspaceFiles {
       // Reading after the fetch makes the write land under the latest
       // revision the user has seen.
       void this.repos
-        .listBranchDiffFiles(id)
-        .then((files) => {
+        .loadChangedSplit(id)
+        .then(({ uncommitted, committed }) => {
           if (this.workspaceId() !== id) return;
           const revision = this.repos.treeRevisionFor(id);
-          this.repos.cacheChangedFiles(id, files, revision);
+          this.repos.cacheChangedFiles(id, uncommitted, committed, revision);
         })
         .catch((err) => {
           console.warn('[ws-files] list changed files failed:', err);
@@ -219,6 +221,22 @@ export class FeatureWorkspaceFiles {
       void this.fileViews.refresh(id).catch((err) => {
         console.warn('[ws-files] refresh file views failed:', err);
       });
+    });
+
+    // External git operations (commit / stage from a terminal or
+    // another editor) don't touch the worktree, so the FS watcher never
+    // fires for them and the committed/uncommitted split goes stale.
+    // Re-sync when the window regains focus — the moment the user comes
+    // back from doing git work elsewhere.
+    let wasFocused = this.windowFocus.isWindowFocused();
+    effect(() => {
+      const focused = this.windowFocus.isWindowFocused();
+      const regainedFocus = focused && !wasFocused;
+      wasFocused = focused;
+      if (!regainedFocus) return;
+      const id = this.workspaceId();
+      if (!id) return;
+      void this.repos.refreshChangedFilesInBackground(id);
     });
 
     // Auto-route to Changes when the active workspace's agent run
@@ -234,13 +252,14 @@ export class FeatureWorkspaceFiles {
           payload.workspace_id,
         );
         void this.repos
-          .listBranchDiffFiles(payload.workspace_id)
-          .then((files) => {
-            if (files.length === 0) return;
+          .loadChangedSplit(payload.workspace_id)
+          .then(({ uncommitted, committed }) => {
+            if (uncommitted.length === 0 && committed.length === 0) return;
             if (this.workspaceId() !== payload.workspace_id) return;
             this.repos.cacheChangedFiles(
               payload.workspace_id,
-              files,
+              uncommitted,
+              committed,
               capturedRevision,
             );
             this.uiState.updateWorkspaceAsideState(payload.workspace_id, {
@@ -321,6 +340,10 @@ export class FeatureWorkspaceFiles {
         // so the refetch goes straight to a real walk.
         void this.repos.refreshTreeInBackground(workspaceId);
         void this.repos.refreshChangedFilesInBackground(workspaceId);
+        // Tick the FS-activity counter so the open file reconciles its
+        // content against disk (and the diff re-fetches) when something
+        // outside Mozart — e.g. an external editor — touches the worktree.
+        this.repos.bumpFsTick(workspaceId);
         // Project-wide diff badge counts + per-workspace file-view
         // metadata. Previously fired indirectly via the
         // `watcherTick` → cache-invalidation chain; now that the

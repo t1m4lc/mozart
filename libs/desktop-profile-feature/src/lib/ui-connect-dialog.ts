@@ -13,7 +13,7 @@ import { HlmDialogImports } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmInputImports } from '@spartan-ui/input';
 import { HlmLabelImports } from '@spartan-ui/label';
-import { HlmSpinnerImports } from '@spartan-ui/spinner';
+import { MzLoader } from '@mozart-ui/loader';
 import { BrnDialogRef } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideLock } from '@ng-icons/lucide';
@@ -39,7 +39,7 @@ import { ProfileFacade } from '@mozart/desktop-profile-data-access';
     HlmInputImports,
     HlmLabelImports,
     HlmAlertImports,
-    HlmSpinnerImports,
+    MzLoader,
     NgIcon,
   ],
   providers: [provideIcons({ lucideLock })],
@@ -102,7 +102,7 @@ import { ProfileFacade } from '@mozart/desktop-profile-data-access';
         [disabled]="checking() || !keyDraft()"
       >
         @if (checking()) {
-          <hlm-spinner aria-label="Saving" />
+          <mz-loader variant="simple" size="sm" aria-label="Saving" />
         } @else {
           Save
         }

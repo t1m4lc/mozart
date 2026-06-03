@@ -566,6 +566,19 @@ function provideRepositoriesAdapter(): Provider {
           removed: f.removed ?? 0,
         }));
       },
+      async listCommittedFiles(workspaceId) {
+        const list = unwrap(await commands.listCommittedFiles(workspaceId));
+        return list.map((f) => ({
+          path: f.path,
+          status:
+            f.status === 'added' || f.status === 'deleted'
+              ? f.status
+              : 'modified',
+          staged: false,
+          added: f.added ?? 0,
+          removed: f.removed ?? 0,
+        }));
+      },
       async commitWorkspace(workspaceId, paths, message) {
         return unwrap(
           await commands.commitWorkspace(workspaceId, [...paths], message),

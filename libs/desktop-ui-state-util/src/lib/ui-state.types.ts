@@ -50,8 +50,10 @@ export interface WorkspaceAsideState {
   // mousemove handle; switched to a percent when the slot moved to
   // hlm-resizable, whose API talks in percentages.
   bottomSize: number;
-  stagedOpen: boolean;
-  unstagedOpen: boolean;
+  // Changes-tab section collapse state: working-tree changes still to
+  // commit, and changes already committed on the branch.
+  uncommittedOpen: boolean;
+  committedOpen: boolean;
 }
 
 export const DEFAULT_WORKSPACE_ASIDE_STATE: WorkspaceAsideState = {
@@ -59,8 +61,8 @@ export const DEFAULT_WORKSPACE_ASIDE_STATE: WorkspaceAsideState = {
   filesView: 'all',
   bottomOpen: true,
   bottomSize: 40,
-  stagedOpen: true,
-  unstagedOpen: true,
+  uncommittedOpen: true,
+  committedOpen: true,
 };
 
 // File-tab list per workspace (session-only; SessionStore owns it).

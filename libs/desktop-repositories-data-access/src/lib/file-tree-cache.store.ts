@@ -56,7 +56,13 @@ export interface CachedFileTree {
 }
 
 export interface CachedChangedFiles {
-  readonly files: readonly ChangedFile[];
+  // Working-tree changes (`git status`): staged + unstaged + untracked.
+  readonly uncommitted: readonly ChangedFile[];
+  // Changes already committed on the branch since it diverged from base
+  // (`base...HEAD`). The Changes tab renders these two slices as
+  // separate sections so the user can tell what's committed from what
+  // still needs to be.
+  readonly committed: readonly ChangedFile[];
   // Revision the entry was captured under — see CachedFileTree above
   // for the freshness invariant. Bumped by the same `bumpRevision`
   // call that invalidates the tree, so both slices stay coherent.
@@ -71,12 +77,19 @@ interface State {
   // ids so a first write with `revision: 0` is always considered
   // current.
   revisionByWorkspace: Record<string, number>;
+  // Monotonic FS-activity tick per workspace. Bumped on every
+  // FS-watcher ping — unlike `revision` it does NOT invalidate the
+  // tree/changed-files caches (they soft-refresh), so the tree never
+  // tears down. Consumers that must react to an external worktree
+  // change (open-file reload, diff re-fetch) read this reactively.
+  fsTickByWorkspace: Record<string, number>;
 }
 
 const initialState: State = {
   byWorkspace: {},
   changedFilesByWorkspace: {},
   revisionByWorkspace: {},
+  fsTickByWorkspace: {},
 };
 
 export const FileTreeCacheStore = signalStore(
@@ -101,6 +114,20 @@ export const FileTreeCacheStore = signalStore(
       patchState(store, {
         revisionByWorkspace: {
           ...store.revisionByWorkspace(),
+          [workspaceId]: current + 1,
+        },
+      });
+    },
+
+    /** Bumps the workspace's FS-activity tick. Called on every
+     *  FS-watcher ping. Leaves the cache revision untouched so the
+     *  soft-refresh path keeps the tree on screen; only tick-reactive
+     *  consumers (open-file reload, diff re-fetch) re-run. */
+    bumpFsTick(workspaceId: string): void {
+      const current = store.fsTickByWorkspace()[workspaceId] ?? 0;
+      patchState(store, {
+        fsTickByWorkspace: {
+          ...store.fsTickByWorkspace(),
           [workspaceId]: current + 1,
         },
       });
@@ -133,13 +160,14 @@ export const FileTreeCacheStore = signalStore(
       });
     },
 
-    /** Writes the changed-files list for a workspace under the
-     *  captured revision. Mirrors `cacheTree`'s staleness check: a
-     *  fetch that started under revision N gets silently dropped if
-     *  the watcher has since bumped to N+1. */
+    /** Writes the changed-files split (uncommitted + committed) for a
+     *  workspace under the captured revision. Mirrors `cacheTree`'s
+     *  staleness check: a fetch that started under revision N gets
+     *  silently dropped if the watcher has since bumped to N+1. */
     cacheChangedFiles(
       workspaceId: string,
-      files: readonly ChangedFile[],
+      uncommitted: readonly ChangedFile[],
+      committed: readonly ChangedFile[],
       capturedRevision: number,
     ): void {
       const current = store.revisionByWorkspace()[workspaceId] ?? 0;
@@ -147,7 +175,11 @@ export const FileTreeCacheStore = signalStore(
       patchState(store, {
         changedFilesByWorkspace: {
           ...store.changedFilesByWorkspace(),
-          [workspaceId]: { files, revision: capturedRevision },
+          [workspaceId]: {
+            uncommitted,
+            committed,
+            revision: capturedRevision,
+          },
         },
       });
     },
@@ -162,10 +194,13 @@ export const FileTreeCacheStore = signalStore(
       delete nextChanges[workspaceId];
       const nextRev = { ...store.revisionByWorkspace() };
       delete nextRev[workspaceId];
+      const nextTick = { ...store.fsTickByWorkspace() };
+      delete nextTick[workspaceId];
       patchState(store, {
         byWorkspace: next,
         changedFilesByWorkspace: nextChanges,
         revisionByWorkspace: nextRev,
+        fsTickByWorkspace: nextTick,
       });
     },
   })),

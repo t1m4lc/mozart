@@ -10,12 +10,12 @@ import type {
   TimelineDensity,
   TurnFileChipEvent,
 } from '@mozart-ui/timeline';
-import { MzLoader } from '@mozart-ui/loader';
+import { MzDotLoader } from '@mozart-ui/loader';
 import type { Message } from '@mozart/desktop-chat-util';
 
 @Component({
   selector: 'app-agent-message',
-  imports: [MessageBody, TurnContainer, MzLoader],
+  imports: [MessageBody, TurnContainer, MzDotLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -27,7 +27,7 @@ import type { Message } from '@mozart/desktop-chat-util';
           (fileChipClick)="fileChipClick.emit($event)"
         />
       } @else if (_isLoading()) {
-        <mz-loader size="sm" class="text-brand" />
+        <mz-dot-loader />
       } @else {
         <mz-message-body
           [text]="message().content"

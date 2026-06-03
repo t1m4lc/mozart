@@ -188,13 +188,22 @@ export class FeatureChatScrollSurface {
             const chatId = this._activeChatId();
             if (!chatId) return;
 
-            // Distance from the visible (unobscured) bottom to the
+            // Distance from the scroll surface's visible bottom to the
             // bottom of the last real message. The in-flight 50vh
             // spacer past `lastMsg` doesn't count as "content I
             // haven't seen yet" — without anchoring on the message
             // element we'd be permanently detached.
             const distance = distanceFromContentEnd(el);
-            const atBottom = distance < CHAT_AT_BOTTOM_THRESHOLD_PX;
+            // Reaching the true scroll bottom must always count as
+            // at-bottom (hide the button), even if the last-message
+            // anchor measurement reads otherwise — without this the
+            // button could stick visible after scrolling all the way
+            // down.
+            const rawBottomGap =
+              el.scrollHeight - el.scrollTop - el.clientHeight;
+            const atBottom =
+              distance < CHAT_AT_BOTTOM_THRESHOLD_PX ||
+              rawBottomGap < CHAT_AT_BOTTOM_THRESHOLD_PX;
             const currentlyAttached = this.scroll.isAttached(chatId);
 
             if (atBottom && !currentlyAttached) {
@@ -365,11 +374,12 @@ function lastMessageEl(scope: HTMLElement): HTMLElement | null {
   return all.length === 0 ? null : (all[all.length - 1] ?? null);
 }
 
-// Pixels between the bottom of the last real message and the
-// effective (composer-aware) visible bottom of the scroll surface.
-// Positive when the message extends below the unobscured viewport
-// (content hidden behind composer), negative when the message ends
-// above the composer — i.e., room to spare.
+// Pixels between the bottom of the last real message and the visible
+// bottom of the scroll surface. Positive when the message extends
+// below the viewport (still content to scroll into), negative when it
+// ends above — i.e., room to spare. Uses getBoundingClientRect so the
+// measurement is independent of the offsetParent positioning context
+// (the composer is a flex row below this surface, not an overlay).
 function distanceFromContentEnd(main: HTMLElement): number {
   const lastMsg = lastMessageEl(main);
   if (!lastMsg) {
@@ -377,10 +387,7 @@ function distanceFromContentEnd(main: HTMLElement): number {
     // initial state still resolves as "at bottom" on empty chats.
     return main.scrollHeight - main.scrollTop - main.clientHeight;
   }
-  const contentBottom = lastMsg.offsetTop + lastMsg.offsetHeight;
-  const visibleBottom =
-    main.scrollTop + main.clientHeight - CHAT_COMPOSER_OVERLAY_PX;
-  return contentBottom - visibleBottom;
+  return lastMsg.getBoundingClientRect().bottom - main.getBoundingClientRect().bottom;
 }
 
 // Walks up the DOM looking for the first ancestor whose computed

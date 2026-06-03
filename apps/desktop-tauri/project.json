@@ -10,7 +10,7 @@
       "executor": "nx:run-commands",
       "continuous": true,
       "options": {
-        "command": "pnpm tauri dev --config '{\"app\":{\"withGlobalTauri\":true}}'",
+        "command": "pnpm tauri dev --config '{\"identifier\":\"build.mozart.desktop.dev\",\"app\":{\"withGlobalTauri\":true}}'",
         "cwd": "apps/desktop-tauri"
       }
     },

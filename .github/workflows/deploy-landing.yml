@@ -105,7 +105,7 @@ jobs:
       # Write environment.prod.ts from GitHub Variables (main only).
       # PR previews build without this step → analytics no-ops (empty defaults).
       - name: Write environment.prod.ts for build
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
           POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
           POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
@@ -153,7 +153,7 @@ jobs:
       # the next deploy. Skipped on PRs — previews don't get the token, so
       # /api/analytics/set-internal-device 503s there (acceptable).
       - name: Sync runtime secrets to Cloudflare Pages
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

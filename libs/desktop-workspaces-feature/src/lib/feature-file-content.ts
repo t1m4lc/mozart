@@ -146,6 +146,7 @@ const TEXT_ENCODER = new TextEncoder();
         [workspaceId]="workspaceId()"
         [path]="filePath()"
         [status]="fileChangeStatus()"
+        [refreshTick]="watcherTick()"
       >
         <div mzFileDiffCardTrailing class="contents">
           <ng-container *ngTemplateOutlet="modeToggle" />
@@ -367,6 +368,12 @@ export class FeatureFileContent {
   private readonly hostEl = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly injector = inject(Injector);
 
+  // FS-activity tick for the open workspace. Bumped on every watcher
+  // ping; feeds the diff card's `refreshTick` and drives the reconcile
+  // effect that refreshes the open editor buffer against disk.
+  protected readonly watcherTick = this.repos.watcherTickFor(this.workspaceId);
+  private _lastSeenTick = -1;
+
   // Per-(workspace, path) UI state. Each open tab remembers its own
   // mode + splitDiff independently; switching between two open tabs
   // preserves each tab's view choice.
@@ -555,6 +562,28 @@ export class FeatureFileContent {
       });
     });
 
+    // External-change reconcile: when the FS watcher pings (a file
+    // changed on disk — e.g. edited in another editor), re-read the
+    // open file. Skips the first tick (initial wiring) and any file
+    // we haven't loaded yet (the mode effect already reads current
+    // disk on first open). The reconcile itself hashes against the
+    // baseline, so unrelated worktree changes — the watcher fires for
+    // the whole tree — neither flash the editor nor raise a false
+    // stale warning.
+    effect(() => {
+      const tick = this.watcherTick();
+      untracked(() => {
+        const first = this._lastSeenTick === -1;
+        this._lastSeenTick = tick;
+        if (first) return;
+        const ws = this.workspaceId();
+        const p = this.filePath();
+        if (!ws || !p) return;
+        if (this.loadedEditKey() !== fileStateKey(ws, p)) return;
+        void this.reconcileExternalChange(ws, p);
+      });
+    });
+
     // Final snapshot on component destroy — covers chat-tab-switch
     // and route-navigate cases where the effect's cleanup didn't run.
     // Copy-state timer cleanup runs unconditionally so an edit-mode
@@ -653,6 +682,38 @@ export class FeatureFileContent {
     } finally {
       this.saving.set(false);
     }
+  }
+
+  // Re-read the open file after an external (non-Mozart) change. No-op
+  // when the on-disk content still matches our baseline (most watcher
+  // ticks aren't about this file). Clean buffer → silently adopt the
+  // new content; dirty buffer → raise the stale banner so the user
+  // chooses reload vs. overwrite rather than losing unsaved edits.
+  private async reconcileExternalChange(
+    workspaceId: string,
+    path: string,
+  ): Promise<void> {
+    if (this.saving()) return;
+    let text: string;
+    try {
+      text = await this.repos.loadFile(workspaceId, path);
+    } catch {
+      return; // file may be mid-rename/delete — leave the buffer as-is
+    }
+    if (this.workspaceId() !== workspaceId || this.filePath() !== path) return;
+    const hash = await sha256Hex(text);
+    if (this.workspaceId() !== workspaceId || this.filePath() !== path) return;
+    if (hash === this.baselineHash()) return;
+    if (this.dirty()) {
+      if (!this.saveError()) {
+        this.saveError.set({ kind: 'stale', message: 'File changed on disk.' });
+      }
+      return;
+    }
+    this.baseline.set(text);
+    this.baselineHash.set(hash);
+    this.editorValue.set(text);
+    this.loadedEditKey.set(fileStateKey(workspaceId, path));
   }
 
   private async loadFile(workspaceId: string, path: string): Promise<void> {

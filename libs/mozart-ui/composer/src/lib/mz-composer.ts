@@ -90,7 +90,7 @@ const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
 
         <textarea
           hlmTextarea
-          class="mz-composer-textarea block w-full resize-none rounded-none border-0 bg-transparent p-3 text-sm leading-6 shadow-none outline-none select-text dark:bg-transparent min-h-24 max-h-72 overflow-y-auto focus-visible:border-0 focus-visible:ring-0"
+          class="mz-composer-textarea block w-full resize-none rounded-none border-0 bg-transparent p-3 text-sm leading-6 shadow-none outline-none select-text dark:bg-transparent min-h-32 max-h-72 overflow-y-auto focus-visible:border-0 focus-visible:ring-0"
           [value]="value()"
           (input)="_onInput($event)"
           [disabled]="disabled()"
