@@ -171,6 +171,40 @@ async fn diff_files_for_rev(
     let stdout = String::from_utf8_lossy(&out.stdout);
     let mut files = parse_name_status_z(&stdout);
 
+    // Collect paths already in the diff so we don't double-count.
+    let tracked: std::collections::HashSet<String> =
+        files.iter().map(|f| f.path.clone()).collect();
+
+    // Untracked files are invisible to `git diff` — add them separately.
+    if let Ok(ls_out) = sandbox::run_git_capture(
+        worktree,
+        &["ls-files", "--others", "--exclude-standard", "-z"],
+    )
+    .await
+    {
+        if ls_out.status.success() {
+            let raw = String::from_utf8_lossy(&ls_out.stdout);
+            for path in raw.split('\0').filter(|s| !s.is_empty()) {
+                let path = path.replace('\\', "/");
+                if tracked.contains(&path) {
+                    continue;
+                }
+                let mut added = 0i64;
+                if let Ok(bytes) = tokio::fs::read(worktree.join(&path)).await {
+                    added = bytecount_newlines(&bytes);
+                }
+                files.push(ChangedFile {
+                    path,
+                    status: "added".into(),
+                    staged: false,
+                    added,
+                    removed: 0,
+                    has_conflict: false,
+                });
+            }
+        }
+    }
+
     if let Ok(ns_out) =
         sandbox::run_git_capture(worktree, &["diff", "--numstat", rev]).await
     {
@@ -186,6 +220,7 @@ async fn diff_files_for_rev(
         }
     }
 
+    files.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
     Ok(files)
 }
 
@@ -230,7 +265,6 @@ fn parse_name_status_z(stdout: &str) -> Vec<ChangedFile> {
             });
         }
     }
-    out.sort_by(|a, b| a.path.to_lowercase().cmp(&b.path.to_lowercase()));
     out
 }
 
