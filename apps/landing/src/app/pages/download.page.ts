@@ -6,15 +6,15 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { HlmButton } from '@spartan-ui/button';
-import { HlmInput } from '@spartan-ui/input';
+import { AnalyticsService } from '@mozart/shared-util-analytics';
+import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideLoaderCircle } from '@ng-icons/lucide';
-import { OsService } from '@mozart/shared-util-os';
-import { AnalyticsService } from '@mozart/shared-util-analytics';
+import { HlmButton } from '@spartan-ui/button';
+import { HlmInput } from '@spartan-ui/input';
+import { detectOsTag } from '../shell/analytics/detect-os';
 import { injectSeo } from '../shell/seo';
 import { SITE_CONFIG } from '../shell/site-config';
-import { detectOsTag } from '../shell/analytics/detect-os';
 
 type OsKey = 'mac' | 'mac-intel' | 'windows' | 'linux';
 
@@ -39,9 +39,7 @@ const PLATFORMS: { os: OsKey; label: string }[] = [
       >
         Private beta
       </span>
-      <h1 class="text-4xl font-bold tracking-tight">
-        Download Mozart
-      </h1>
+      <h1 class="text-4xl font-bold tracking-tight">Download Mozart</h1>
       <p class="text-muted-foreground max-w-sm">
         @if (requireAccessCode) {
           Enter your beta access code to download for your platform.
@@ -50,7 +48,7 @@ const PLATFORMS: { os: OsKey; label: string }[] = [
         }
       </p>
 
-      <div class="flex w-full max-w-sm flex-col gap-3">
+      <div class="flex w-full max-w-sm flex-col gap-3 py-16">
         @if (requireAccessCode) {
           <div class="space-y-1.5">
             <input
@@ -97,14 +95,16 @@ export default class DownloadPageComponent implements OnInit {
   private readonly os = inject(OsService);
   private readonly analytics = inject(AnalyticsService);
 
-  protected readonly requireAccessCode = SITE_CONFIG.downloads.requireAccessCode;
+  protected readonly requireAccessCode =
+    SITE_CONFIG.downloads.requireAccessCode;
   protected readonly code = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly pending = signal(false);
   protected readonly downloadingOs = signal<OsKey | null>(null);
 
   protected readonly primaryOs = computed<OsKey>(() => {
-    if (this.os.isMac()) return this.os.macArch() === 'intel' ? 'mac-intel' : 'mac';
+    if (this.os.isMac())
+      return this.os.macArch() === 'intel' ? 'mac-intel' : 'mac';
     if (this.os.isWindows()) return 'windows';
     if (this.os.isLinux()) return 'linux';
     return 'mac';
