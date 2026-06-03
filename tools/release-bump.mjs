@@ -24,7 +24,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const VERSION_RE = /^\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+)?$/;
+const VERSION_RE = /^\d+\.\d+\.\d+(-(alpha|beta|rc)\.\d+(\.\d+)?)?$/;
 
 const version = process.argv[2];
 if (!version || !VERSION_RE.test(version)) {
