@@ -4,7 +4,10 @@ export {
   type FileViewEntry,
   type RepositoriesAdapter,
 } from './lib/repositories.adapter';
-export { RepositoriesFacade } from './lib/repositories.facade';
+export {
+  RepositoriesFacade,
+  type ChangedFilesSplit,
+} from './lib/repositories.facade';
 export {
   FileTreeCacheStore,
   type CachedChangedFiles,

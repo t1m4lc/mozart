@@ -71,8 +71,13 @@ export interface RepositoriesAdapter {
   listChangedFiles(workspaceId: string): Promise<readonly ChangedFile[]>;
 
   /** All files changed on the workspace branch vs its base branch, including
-   *  committed changes. Powers the Changes tab cache. */
+   *  committed changes. Powers the PR pre-flight check. */
   listBranchDiffFiles(workspaceId: string): Promise<readonly ChangedFile[]>;
+
+  /** Files committed on the workspace branch since it diverged from its base
+   *  branch (`base...HEAD`, three-dot). Working-tree edits are excluded.
+   *  Powers the "Committed" section of the Changes tab. */
+  listCommittedFiles(workspaceId: string): Promise<readonly ChangedFile[]>;
 
   /** Stage `paths` and create a commit with `message`. Returns the new
    *  commit's sha. */

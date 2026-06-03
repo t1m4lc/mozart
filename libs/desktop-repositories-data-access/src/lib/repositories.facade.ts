@@ -60,10 +60,21 @@ export class RepositoriesFacade {
     return this.adapter.listChangedFiles(workspaceId);
   }
 
-  /** All files changed vs base branch, including committed. Use this
-   *  to populate the Changes tab cache. */
+  /** All files changed vs base branch, including committed. Powers the
+   *  PR pre-flight "are there branch changes" check. */
   async listBranchDiffFiles(workspaceId: string): Promise<readonly ChangedFile[]> {
     return this.adapter.listBranchDiffFiles(workspaceId);
+  }
+
+  /** Fetch the Changes-tab split in one shot: working-tree changes
+   *  (`git status`) and branch-committed changes (`base...HEAD`). Run
+   *  concurrently — neither depends on the other. */
+  async loadChangedSplit(workspaceId: string): Promise<ChangedFilesSplit> {
+    const [uncommitted, committed] = await Promise.all([
+      this.adapter.listChangedFiles(workspaceId),
+      this.adapter.listCommittedFiles(workspaceId),
+    ]);
+    return { uncommitted, committed };
   }
 
   /** Stage + commit. Resolves to the new commit's sha. */
@@ -265,17 +276,23 @@ export class RepositoriesFacade {
     }
   }
 
-  /** Background refresh of the cached changed-files list. Same
+  /** Background refresh of the cached changed-files split. Same
    *  contract as `refreshTreeInBackground`: keeps the old list on
    *  screen until the fresh fetch completes, then swaps atomically.
    *
-   *  Uses `listBranchDiffFiles` (git diff base_branch) so the Changes
-   *  tab reflects all changes vs base, including committed ones. */
+   *  Fetches both halves of the Changes tab (working tree + committed)
+   *  so the two sections stay coherent under one revision. */
   async refreshChangedFilesInBackground(workspaceId: string): Promise<void> {
     const captured = this.fileTreeCache.revisionFor(workspaceId);
     try {
-      const files = await this.adapter.listBranchDiffFiles(workspaceId);
-      this.fileTreeCache.cacheChangedFiles(workspaceId, files, captured);
+      const { uncommitted, committed } =
+        await this.loadChangedSplit(workspaceId);
+      this.fileTreeCache.cacheChangedFiles(
+        workspaceId,
+        uncommitted,
+        committed,
+        captured,
+      );
     } catch (err) {
       console.warn('[repos] background changed-files refresh failed:', err);
     }
@@ -285,12 +302,12 @@ export class RepositoriesFacade {
   // Same revision counter as the tree cache, so a single FS-watcher
   // event invalidates both slices together.
 
-  /** Reactive accessor for the cached changed-files list. Returns
-   *  null until the aside has fetched + cached it for the given
-   *  workspace AND the entry's revision is still current. */
-  cachedChangedFilesFor(
+  /** Reactive accessor for the cached changed-files split (the two
+   *  Changes-tab sections). Returns null until the aside has fetched +
+   *  cached it for the workspace AND the entry's revision is current. */
+  cachedChangedSplitFor(
     workspaceId: Signal<string | null>,
-  ): Signal<readonly ChangedFile[] | null> {
+  ): Signal<ChangedFilesSplit | null> {
     return computed(() => {
       const id = workspaceId();
       if (!id) return null;
@@ -298,20 +315,55 @@ export class RepositoriesFacade {
       if (!entry) return null;
       const currentRevision = this.fileTreeCache.revisionByWorkspace()[id] ?? 0;
       if (entry.revision !== currentRevision) return null;
-      return entry.files;
+      return { uncommitted: entry.uncommitted, committed: entry.committed };
     });
   }
 
-  /** Persist a freshly-fetched changed-files list. Silently discarded
+  /** Flat, path-deduped union of the changed-files split — the set of
+   *  files this branch touches vs base. Backs the Changes-tab count
+   *  badge and the open-file status lookup. A file present in both
+   *  sections (committed then re-edited) keeps its working-tree entry
+   *  so the status reflects the latest on-disk state. Returns null
+   *  until the split is cached and fresh. */
+  cachedChangedFilesFor(
+    workspaceId: Signal<string | null>,
+  ): Signal<readonly ChangedFile[] | null> {
+    const split = this.cachedChangedSplitFor(workspaceId);
+    return computed(() => {
+      const s = split();
+      if (!s) return null;
+      const seen = new Set(s.uncommitted.map((f) => f.path));
+      return [
+        ...s.uncommitted,
+        ...s.committed.filter((f) => !seen.has(f.path)),
+      ];
+    });
+  }
+
+  /** Persist a freshly-fetched changed-files split. Silently discarded
    *  if the workspace's revision moved while the fetch was in flight
    *  (a watcher event landed first → the list is already stale). */
   cacheChangedFiles(
     workspaceId: string,
-    files: readonly ChangedFile[],
+    uncommitted: readonly ChangedFile[],
+    committed: readonly ChangedFile[],
     capturedRevision: number,
   ): void {
-    this.fileTreeCache.cacheChangedFiles(workspaceId, files, capturedRevision);
+    this.fileTreeCache.cacheChangedFiles(
+      workspaceId,
+      uncommitted,
+      committed,
+      capturedRevision,
+    );
   }
+}
+
+/** The two halves the Changes tab renders as separate sections:
+ *  working-tree changes still to commit, and changes already committed
+ *  on the branch. */
+export interface ChangedFilesSplit {
+  readonly uncommitted: readonly ChangedFile[];
+  readonly committed: readonly ChangedFile[];
 }
 
 // Does the FileNode tree contain a top-level `package.json`? Module-

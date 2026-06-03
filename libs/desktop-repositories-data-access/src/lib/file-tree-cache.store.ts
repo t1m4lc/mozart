@@ -56,7 +56,13 @@ export interface CachedFileTree {
 }
 
 export interface CachedChangedFiles {
-  readonly files: readonly ChangedFile[];
+  // Working-tree changes (`git status`): staged + unstaged + untracked.
+  readonly uncommitted: readonly ChangedFile[];
+  // Changes already committed on the branch since it diverged from base
+  // (`base...HEAD`). The Changes tab renders these two slices as
+  // separate sections so the user can tell what's committed from what
+  // still needs to be.
+  readonly committed: readonly ChangedFile[];
   // Revision the entry was captured under — see CachedFileTree above
   // for the freshness invariant. Bumped by the same `bumpRevision`
   // call that invalidates the tree, so both slices stay coherent.
@@ -154,13 +160,14 @@ export const FileTreeCacheStore = signalStore(
       });
     },
 
-    /** Writes the changed-files list for a workspace under the
-     *  captured revision. Mirrors `cacheTree`'s staleness check: a
-     *  fetch that started under revision N gets silently dropped if
-     *  the watcher has since bumped to N+1. */
+    /** Writes the changed-files split (uncommitted + committed) for a
+     *  workspace under the captured revision. Mirrors `cacheTree`'s
+     *  staleness check: a fetch that started under revision N gets
+     *  silently dropped if the watcher has since bumped to N+1. */
     cacheChangedFiles(
       workspaceId: string,
-      files: readonly ChangedFile[],
+      uncommitted: readonly ChangedFile[],
+      committed: readonly ChangedFile[],
       capturedRevision: number,
     ): void {
       const current = store.revisionByWorkspace()[workspaceId] ?? 0;
@@ -168,7 +175,11 @@ export const FileTreeCacheStore = signalStore(
       patchState(store, {
         changedFilesByWorkspace: {
           ...store.changedFilesByWorkspace(),
-          [workspaceId]: { files, revision: capturedRevision },
+          [workspaceId]: {
+            uncommitted,
+            committed,
+            revision: capturedRevision,
+          },
         },
       });
     },

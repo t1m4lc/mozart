@@ -28,13 +28,14 @@ import {
 } from '@mozart/desktop-workspaces-data-access';
 import { createClickIntentGuard } from './click-intent-guard';
 
-// Shared empty array — keeps `changedFiles` reference-stable on cache
-// miss so downstream filters (stagedFiles/unstagedFiles) don't re-run
-// on every CD pass while the cache is empty.
+// Shared empty array — keeps the section accessors reference-stable on
+// a cache miss so the `@for` loops don't churn on every CD pass while
+// the split is still null.
 const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
 
 // Body of the Changes tab inside `app-feature-workspace-files`.
-// Renders the staged/unstaged collapsible groups + row template +
+// Renders two collapsible groups — "Uncommitted" (working tree) and
+// "Committed" (`base...HEAD`) — over a shared row template, plus the
 // mutation handlers (toggle stage, copy path, discard). The parent
 // owns the tabs frame + the FS watcher + the agent-run auto-route;
 // this child only paints the Changes list and runs its actions.
@@ -61,51 +62,25 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'contents' },
   template: `
-    @if (changedFiles().length === 0) {
-      <p class="p-4 text-xs text-muted-foreground">
-        No uncommitted changes.
-      </p>
-    } @else if (stagedFiles().length > 0) {
-      <button
-        type="button"
-        (click)="toggleStagedOpen()"
-        class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
-      >
-        <ng-icon
-          hlm
-          [name]="stagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
-          size="3xs"
-        />
-        <span>Staged ({{ stagedFiles().length }})</span>
-      </button>
-      @if (stagedOpen()) {
-        <ul class="flex flex-col">
-          @for (file of stagedFiles(); track file.path) {
-            <li>
-              <ng-container
-                [ngTemplateOutlet]="changedRowTpl"
-                [ngTemplateOutletContext]="{ $implicit: file }"
-              />
-            </li>
-          }
-        </ul>
-      }
-      @if (unstagedFiles().length > 0) {
+    @if (!hasChanges()) {
+      <p class="p-4 text-xs text-muted-foreground">No changes yet.</p>
+    } @else {
+      @if (uncommittedFiles().length > 0) {
         <button
           type="button"
-          (click)="toggleUnstagedOpen()"
+          (click)="toggleUncommittedOpen()"
           class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
         >
           <ng-icon
             hlm
-            [name]="unstagedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
+            [name]="uncommittedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
             size="3xs"
           />
-          <span>Changes ({{ unstagedFiles().length }})</span>
+          <span>Uncommitted ({{ uncommittedFiles().length }})</span>
         </button>
-        @if (unstagedOpen()) {
-          <ul class="flex flex-col pb-2">
-            @for (file of unstagedFiles(); track file.path) {
+        @if (uncommittedOpen()) {
+          <ul class="flex flex-col">
+            @for (file of uncommittedFiles(); track file.path) {
               <li>
                 <ng-container
                   [ngTemplateOutlet]="changedRowTpl"
@@ -116,17 +91,32 @@ const EMPTY_CHANGED_FILES: readonly ChangedFile[] = [];
           </ul>
         }
       }
-    } @else {
-      <ul class="flex flex-col py-1">
-        @for (file of changedFiles(); track file.path) {
-          <li>
-            <ng-container
-              [ngTemplateOutlet]="changedRowTpl"
-              [ngTemplateOutletContext]="{ $implicit: file }"
-            />
-          </li>
+      @if (committedFiles().length > 0) {
+        <button
+          type="button"
+          (click)="toggleCommittedOpen()"
+          class="flex w-full items-center gap-1 px-2 pt-2 pb-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground hover:text-foreground"
+        >
+          <ng-icon
+            hlm
+            [name]="committedOpen() ? 'lucideChevronDown' : 'lucideChevronUp'"
+            size="3xs"
+          />
+          <span>Committed ({{ committedFiles().length }})</span>
+        </button>
+        @if (committedOpen()) {
+          <ul class="flex flex-col pb-2">
+            @for (file of committedFiles(); track file.path) {
+              <li>
+                <ng-container
+                  [ngTemplateOutlet]="changedRowTpl"
+                  [ngTemplateOutletContext]="{ $implicit: file }"
+                />
+              </li>
+            }
+          </ul>
         }
-      </ul>
+      }
     }
 
     <ng-template #changedRowTpl let-file>
@@ -172,9 +162,11 @@ export class FeatureChangesList {
 
   // Per-workspace group-open state, persisted via UiStateStore.
   private readonly asideState = this.uiState.asideStateFor(this.workspaceId);
-  protected readonly stagedOpen = computed(() => this.asideState().stagedOpen);
-  protected readonly unstagedOpen = computed(
-    () => this.asideState().unstagedOpen,
+  protected readonly uncommittedOpen = computed(
+    () => this.asideState().uncommittedOpen,
+  );
+  protected readonly committedOpen = computed(
+    () => this.asideState().committedOpen,
   );
 
   // Active-row highlight when the user has a file open in the central
@@ -186,38 +178,32 @@ export class FeatureChangesList {
   });
 
   // Reads through the same cache the parent's tab-count badge uses —
-  // single source of truth, same signal subscriptions.
-  private readonly cachedChangedFiles = this.repos.cachedChangedFilesFor(
-    this.workspaceId,
+  // single source of truth, same signal subscriptions. The split keeps
+  // the two sections coherent under one revision.
+  private readonly split = this.repos.cachedChangedSplitFor(this.workspaceId);
+  protected readonly uncommittedFiles = computed<readonly ChangedFile[]>(
+    () => this.split()?.uncommitted ?? EMPTY_CHANGED_FILES,
   );
-  protected readonly changedFiles = computed<readonly ChangedFile[]>(
-    () => this.cachedChangedFiles() ?? EMPTY_CHANGED_FILES,
+  protected readonly committedFiles = computed<readonly ChangedFile[]>(
+    () => this.split()?.committed ?? EMPTY_CHANGED_FILES,
   );
-
-  // Split for the Changes pane: files with index changes (X byte) go
-  // in the Staged group; everything else in Unstaged. A file with
-  // both staged and unstaged changes counts as staged here — git's
-  // own UI does the same and the diff dialog handles the mixed case.
-  protected readonly stagedFiles = computed(() =>
-    this.changedFiles().filter((f) => f.staged),
-  );
-  protected readonly unstagedFiles = computed(() =>
-    this.changedFiles().filter((f) => !f.staged),
+  protected readonly hasChanges = computed(
+    () => this.uncommittedFiles().length > 0 || this.committedFiles().length > 0,
   );
 
-  protected toggleStagedOpen(): void {
+  protected toggleUncommittedOpen(): void {
     const id = this.workspaceId();
     if (!id) return;
     this.uiState.updateWorkspaceAsideState(id, {
-      stagedOpen: !this.stagedOpen(),
+      uncommittedOpen: !this.uncommittedOpen(),
     });
   }
 
-  protected toggleUnstagedOpen(): void {
+  protected toggleCommittedOpen(): void {
     const id = this.workspaceId();
     if (!id) return;
     this.uiState.updateWorkspaceAsideState(id, {
-      unstagedOpen: !this.unstagedOpen(),
+      committedOpen: !this.committedOpen(),
     });
   }
 

@@ -4,7 +4,10 @@
 //!   suitable for a checkbox list. Sources from `git status --porcelain=v1
 //!   -z` so untracked files appear too.
 //! - `list_branch_diff_files(worktree, base_branch)` → all files changed vs
-//!   `base_branch` (committed + staged + unstaged). Powers the Changes tab.
+//!   `base_branch` (committed + staged + unstaged). Powers the PR pre-flight.
+//! - `list_committed_files(worktree, base_branch)` → files committed on the
+//!   branch since it diverged from `base_branch` (`base...HEAD`, three-dot).
+//!   Powers the Changes tab's "Committed" section.
 //! - `commit(worktree, paths, message)` → `git add -- <paths>` then
 //!   `git commit -m <message>`. Refuses if the path list is empty (no
 //!   staged delta means git would create an empty commit; we don't
@@ -127,27 +130,49 @@ fn bytecount_newlines(bytes: &[u8]) -> i64 {
 
 /// All files changed in `worktree` vs `base_branch` — committed, staged, and
 /// unstaged. Uses `git diff <base_branch>` which compares the working tree to
-/// the base branch tip. Powers the Changes tab in the right aside.
+/// the base branch tip. Powers the PR pre-flight check.
 pub async fn list_branch_diff_files(
     worktree: &Path,
     base_branch: &str,
 ) -> Result<Vec<ChangedFile>, AppError> {
+    diff_files_for_rev(worktree, base_branch).await
+}
+
+/// Files committed on the branch since it diverged from `base_branch`, via the
+/// three-dot range `base_branch...HEAD` (diff against the merge-base, so commits
+/// that landed on `base_branch` afterwards don't leak in). Working-tree edits
+/// are excluded — this is the "already committed" half of the Changes tab.
+pub async fn list_committed_files(
+    worktree: &Path,
+    base_branch: &str,
+) -> Result<Vec<ChangedFile>, AppError> {
+    diff_files_for_rev(worktree, &format!("{base_branch}...HEAD")).await
+}
+
+/// Shared body for the two diff-listing commands: `git diff --name-status`
+/// against `rev` for the file set, overlaid with a `--numstat` pass for the
+/// per-file line counts. `rev` is either a branch name (two-dot, vs working
+/// tree) or a `a...b` range (three-dot, vs merge-base).
+async fn diff_files_for_rev(
+    worktree: &Path,
+    rev: &str,
+) -> Result<Vec<ChangedFile>, AppError> {
     let out = sandbox::run_git_capture(
         worktree,
-        &["diff", "--name-status", "-z", base_branch],
+        &["diff", "--name-status", "-z", rev],
     )
     .await?;
     if !out.status.success() {
         let stderr = String::from_utf8_lossy(&out.stderr).trim().to_string();
         return Err(AppError::GitCmd(format!(
-            "git diff --name-status {base_branch} failed: {stderr}"
+            "git diff --name-status {rev} failed: {stderr}"
         )));
     }
     let stdout = String::from_utf8_lossy(&out.stdout);
     let mut files = parse_name_status_z(&stdout);
 
     if let Ok(ns_out) =
-        sandbox::run_git_capture(worktree, &["diff", "--numstat", base_branch]).await
+        sandbox::run_git_capture(worktree, &["diff", "--numstat", rev]).await
     {
         if ns_out.status.success() {
             let s = String::from_utf8_lossy(&ns_out.stdout);
@@ -372,6 +397,37 @@ mod tests {
             "git {args:?} failed: {}",
             String::from_utf8_lossy(&out.stderr)
         );
+    }
+
+    #[tokio::test]
+    async fn list_committed_files_excludes_worktree_only_changes() {
+        if !sandbox::git_available() {
+            eprintln!("skip: git not on PATH");
+            return;
+        }
+        let _g = sandbox::test_env_gate().lock().unwrap();
+        let tmp = tempfile::tempdir().unwrap();
+        let repo = tmp.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        run(&repo, &["init", "-q", "-b", "main"]).await;
+        run(&repo, &["config", "user.email", "t@example.com"]).await;
+        run(&repo, &["config", "user.name", "T"]).await;
+        std::fs::write(repo.join("base.txt"), "base\n").unwrap();
+        run(&repo, &["add", "base.txt"]).await;
+        run(&repo, &["commit", "-m", "base"]).await;
+
+        run(&repo, &["checkout", "-b", "feature"]).await;
+        // Committed on the branch — should appear.
+        std::fs::write(repo.join("committed.txt"), "done\n").unwrap();
+        run(&repo, &["add", "committed.txt"]).await;
+        run(&repo, &["commit", "-m", "committed"]).await;
+        // Working-tree only — must NOT appear in the committed listing.
+        std::fs::write(repo.join("scratch.txt"), "wip\n").unwrap();
+
+        let committed = list_committed_files(&repo, "main").await.expect("list");
+        let paths: Vec<&str> = committed.iter().map(|f| f.path.as_str()).collect();
+        assert!(paths.contains(&"committed.txt"), "got: {paths:?}");
+        assert!(!paths.contains(&"scratch.txt"), "got: {paths:?}");
     }
 
     #[tokio::test]

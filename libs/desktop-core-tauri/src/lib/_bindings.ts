@@ -1150,6 +1150,24 @@ export const commands = {
     }
   },
   /**
+   * Files committed on the workspace branch since it diverged from its base
+   * branch (`base...HEAD`). Working-tree edits are excluded. Powers the
+   * "Committed" section of the Changes tab in the right aside.
+   */
+  async listCommittedFiles(
+    workspaceId: string,
+  ): Promise<Result<ChangedFile[], AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('list_committed_files', { workspaceId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Stage `paths` and create a commit with `message`. Returns the new
    * commit's sha. Refuses on empty path list / empty message.
    */
