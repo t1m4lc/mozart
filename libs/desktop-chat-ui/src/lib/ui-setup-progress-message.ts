@@ -4,7 +4,7 @@ import {
   computed,
   input,
 } from '@angular/core';
-import { HlmSpinnerImports } from '@spartan-ui/spinner';
+import { MzDotLoader } from '@mozart-ui/loader';
 import type { Message } from '@mozart/desktop-chat-util';
 
 /**
@@ -22,7 +22,7 @@ import type { Message } from '@mozart/desktop-chat-util';
  */
 @Component({
   selector: 'app-setup-progress-message',
-  imports: [HlmSpinnerImports],
+  imports: [MzDotLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -36,10 +36,7 @@ import type { Message } from '@mozart/desktop-chat-util';
         <div class="flex items-start gap-2">
           @switch (p.status) {
             @case ('running') {
-              <hlm-spinner
-                aria-label="Setup running"
-                class="mt-0.5 shrink-0 text-muted-foreground"
-              />
+              <mz-dot-loader aria-label="Setup running" class="mt-0.5 shrink-0" />
             }
             @case ('done') {
               <span

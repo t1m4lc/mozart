@@ -14,7 +14,7 @@ import { HlmDialogImports } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmInputImports } from '@spartan-ui/input';
 import { HlmLabelImports } from '@spartan-ui/label';
-import { HlmSpinnerImports } from '@spartan-ui/spinner';
+import { MzLoader } from '@mozart-ui/loader';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -74,7 +74,7 @@ const MAX_VISIBLE_REPOS = 8;
     HlmIconImports,
     HlmInputImports,
     HlmLabelImports,
-    HlmSpinnerImports,
+    MzLoader,
     NgIcon,
   ],
   providers: [
@@ -164,7 +164,7 @@ const MAX_VISIBLE_REPOS = 8;
             </div>
             @if (loadingRepos()) {
               <p class="flex items-center gap-2 text-xs text-muted-foreground">
-                <hlm-spinner aria-label="Loading repos" class="size-3" />
+                <mz-loader variant="simple" size="xs" aria-label="Loading repos" />
                 Loading your GitHub repos…
               </p>
             } @else if (reposError(); as msg) {
@@ -318,7 +318,7 @@ const MAX_VISIBLE_REPOS = 8;
         [disabled]="cloning() || !canSubmit()"
       >
         @if (cloning()) {
-          <hlm-spinner aria-label="Cloning" />
+          <mz-loader variant="simple" size="sm" aria-label="Cloning" />
         } @else {
           Clone repo
         }

@@ -10,7 +10,7 @@ import {
   FeatureOnboardingStepWelcome,
 } from '@mozart/desktop-onboarding-feature';
 import { HlmButtonImports } from '@spartan-ui/button';
-import { HlmSpinnerImports } from '@spartan-ui/spinner';
+import { MzLoader } from '@mozart-ui/loader';
 
 // `/onboarding` route shell. The stepper wrapper renders the progress
 // dots once and stays mounted while `facade.currentStep()` swaps the
@@ -27,7 +27,7 @@ import { HlmSpinnerImports } from '@spartan-ui/spinner';
     FeatureOnboardingStepProvider,
     FeatureOnboardingStepGithub,
     HlmButtonImports,
-    HlmSpinnerImports,
+    MzLoader,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex h-screen w-full flex-col overflow-hidden bg-background' },
@@ -42,7 +42,12 @@ import { HlmSpinnerImports } from '@spartan-ui/spinner';
         aria-live="polite"
       >
         <div class="flex flex-col items-center gap-4 text-center">
-          <hlm-spinner aria-label="Setting up your workspace" />
+          <mz-loader
+            variant="simple"
+            size="md"
+            class="text-brand"
+            aria-label="Setting up your workspace"
+          />
           <div class="space-y-1">
             <p class="text-sm font-medium">Setting up your workspace</p>
             <p class="text-muted-foreground text-xs">

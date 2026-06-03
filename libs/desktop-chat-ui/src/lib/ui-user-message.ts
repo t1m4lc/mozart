@@ -10,7 +10,7 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
-import { HlmSpinnerImports } from '@spartan-ui/spinner';
+import { MzDotLoader } from '@mozart-ui/loader';
 import type { Message } from '@mozart/desktop-chat-util';
 
 // Collapsed height cap for long prompts (px). Matches `max-h-60`
@@ -20,7 +20,7 @@ const COLLAPSED_MAX_PX = 240;
 
 @Component({
   selector: 'app-user-message',
-  imports: [HlmSpinnerImports],
+  imports: [MzDotLoader],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
@@ -35,9 +35,9 @@ const COLLAPSED_MAX_PX = 240;
         >
           <div #content [class]="_contentClass()">
             @if (_isQueued()) {
-              <hlm-spinner
+              <mz-dot-loader
                 aria-label="Waiting for current turn to finish"
-                class="mr-2 inline-block shrink-0 align-[-2px] text-muted-foreground"
+                class="mr-2 inline-block shrink-0 align-[-2px]"
               />
             }
             <span>{{ message().content }}</span>

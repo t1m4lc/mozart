@@ -14,7 +14,7 @@ import { HlmDialogImports } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmInputImports } from '@spartan-ui/input';
 import { HlmLabelImports } from '@spartan-ui/label';
-import { HlmSpinnerImports } from '@spartan-ui/spinner';
+import { MzLoader } from '@mozart-ui/loader';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideFile, lucideFolderOpen, lucideLayers } from '@ng-icons/lucide';
@@ -49,7 +49,7 @@ type TemplateValue = 'empty' | 'gstack';
     HlmIconImports,
     HlmInputImports,
     HlmLabelImports,
-    HlmSpinnerImports,
+    MzLoader,
     NgIcon,
     UiRadioCard,
   ],
@@ -166,7 +166,7 @@ type TemplateValue = 'empty' | 'gstack';
         [disabled]="creating() || !canSubmit()"
       >
         @if (creating()) {
-          <hlm-spinner aria-label="Creating" />
+          <mz-loader variant="simple" size="sm" aria-label="Creating" />
         } @else {
           Create
         }
