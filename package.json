@@ -18,7 +18,8 @@
     "seed-fresh": "pnpm seed",
     "purge:landing-cache": "./tools/mozart-landing-cf-page-purge-cache.sh",
     "purge:tauri": "rm -rf apps/desktop-tauri/target && rm -rf node_modules/.cache .nx/cache && nx reset",
-    "try": "rm -rf ~/.config/build.mozart.desktop && rm -rf ~/.local/share/build.mozart.desktop && pnpm tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}' && ./apps/desktop-tauri/target/release/bundle/appimage/mozart_0.1.0-beta.1_amd64.AppImage"
+    "try": "rm -rf ~/.config/build.mozart.desktop && rm -rf ~/.local/share/build.mozart.desktop && pnpm tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}' && ./apps/desktop-tauri/target/release/bundle/appimage/mozart_0.1.0-beta.1_amd64.AppImage",
+    "prepare": "husky && chmod +x .husky/pre-commit .husky/pre-push"
   },
   "private": true,
   "packageManager": "pnpm@11.0.8",
@@ -35,7 +36,6 @@
     "@angular/language-service": "~21.2.0",
     "@angular/platform-server": "~21.2.13",
     "@eslint/js": "^9.8.0",
-    "wrangler": "^4.13.0",
     "@nx/angular": "22.7.1",
     "@nx/devkit": "22.7.1",
     "@nx/eslint": "22.7.1",
@@ -55,13 +55,14 @@
     "@tailwindcss/typography": "^0.5.19",
     "@tailwindcss/vite": "4.2.4",
     "@tauri-apps/cli": "^2.11.1",
-    "@vitejs/plugin-basic-ssl": "^2.0.0",
     "@types/node": "20.19.9",
     "@typescript-eslint/utils": "^8.40.0",
+    "@vitejs/plugin-basic-ssl": "^2.0.0",
     "angular-eslint": "^21.2.0",
     "eslint": "^9.8.0",
     "eslint-config-prettier": "^10.0.0",
     "eslint-plugin-playwright": "^1.6.2",
+    "husky": "^9.1.7",
     "jsdom": "^27.1.0",
     "nx": "22.7.1",
     "prettier": "~3.6.2",
@@ -71,7 +72,8 @@
     "typescript": "~5.9.2",
     "typescript-eslint": "^8.40.0",
     "vite": "7.3.2",
-    "vitest": "^4.0.8"
+    "vitest": "^4.0.8",
+    "wrangler": "^4.13.0"
   },
   "dependencies": {
     "@angular-architects/ngrx-toolkit": "^21.0.1",

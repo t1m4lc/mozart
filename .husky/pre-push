@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+pushing_to_main=0
+
+while IFS=' ' read -r _local_ref _local_sha remote_ref _remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main) pushing_to_main=1 ;;
+  esac
+done
+
+if [ "$pushing_to_main" = "1" ]; then
+  echo "pre-push: running affected tests before push to main..."
+  pnpm nx affected -t test --exclude=sandbox,sandbox-e2e
+fi
