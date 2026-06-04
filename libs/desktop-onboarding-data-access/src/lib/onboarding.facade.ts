@@ -1,6 +1,7 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
+import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
@@ -30,6 +31,7 @@ export class OnboardingFacade {
   private readonly adapter = inject(ONBOARDING_ADAPTER);
   private readonly getStartedAdapter = inject(GET_STARTED_PROJECT_ADAPTER);
   private readonly auth = inject(AuthFacade);
+  private readonly analytics = inject(DesktopAnalyticsFacade);
   private readonly projects = inject(ProjectsFacade);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly uiState = inject(UiStateFacade);
@@ -127,6 +129,11 @@ export class OnboardingFacade {
       // The local mirror is set so the in-memory guard passes.
       this._isCompleted.set(true);
     }
+
+    this.analytics.track('onboarding_completed', {
+      userId: this.auth.currentUserId(),
+      github_connected: this._statuses()['github'] === 'done',
+    });
 
     try {
       await this.auth.markOnboardingComplete();

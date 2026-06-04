@@ -8,3 +8,5 @@ export {
   type NotificationPrefsCache,
 } from './lib/notification.service';
 export { WindowFocusService } from './lib/window-focus.service';
+export { AnalyticsConfigPort } from './lib/analytics-config.port';
+export { DesktopAnalyticsFacade } from './lib/desktop-analytics.facade';

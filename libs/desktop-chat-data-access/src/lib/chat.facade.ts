@@ -1,5 +1,6 @@
 import { Injectable, Signal, computed, inject, signal } from '@angular/core';
 import {
+  DesktopAnalyticsFacade,
   NotificationService,
   WindowFocusService,
 } from '@mozart/desktop-core-data-access';
@@ -103,6 +104,7 @@ export class ChatFacade {
   private readonly agentProvider = inject(AgentProviderPort, { optional: true });
   private readonly windowFocus = inject(WindowFocusService);
   private readonly notify = inject(NotificationService);
+  private readonly analytics = inject(DesktopAnalyticsFacade);
 
   // assistant-message-id -> handle of the in-flight run.
   private readonly activeRuns = new Map<string, LlmRunHandle>();
@@ -686,6 +688,7 @@ export class ChatFacade {
         if (finalMsg.status === 'done' || finalMsg.status === 'error') {
           this._maybeNotifyTurnEnd(workspaceId, finalMsg.content);
         }
+        this._trackAgentCompleted(workspaceId, provider, finalMsg);
       } else {
         // Defensive: store row vanished. Write what we last saw.
         this._flushContentNow(assistantMsg.id, lastContent);
@@ -695,6 +698,26 @@ export class ChatFacade {
       }
       void this._processQueue(workspaceId, chatId);
     }
+  }
+
+  // The activation "Aha!" event. Fired once per finished agent run. Kept
+  // deliberately lean: a single `success` boolean (the run reached `done`)
+  // is the activation signal — first successful run = activated.
+  //
+  // TODO(analytics): no `is_get_started` flag yet — the chat domain can't tell
+  // whether this workspace belongs to the bundled get-started project. Thread
+  // it via a port (e.g. WorkspaceChatPort.isGetStarted(id)) so activation
+  // metrics can exclude get-started runs. See ANALYTICS_REFERENCE.md §2.3.
+  private _trackAgentCompleted(
+    workspaceId: string,
+    provider: AgentProviderId,
+    msg: Message,
+  ): void {
+    this.analytics.track('agent_completed', {
+      workspace_id: workspaceId,
+      provider,
+      success: msg.status === 'done',
+    });
   }
 
   // On terminal `done` / `error`, the audible chime fires (gated by the

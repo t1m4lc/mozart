@@ -13,15 +13,19 @@ import {
 } from '@angular/router';
 import { THEME_PERSISTENCE, provideTheme } from '@mozart/shared-util-theme';
 import {
+  AnalyticsConfigPort,
   ConnectivityService,
+  DesktopAnalyticsFacade,
   ExternalLinkService,
   NotificationService,
 } from '@mozart/desktop-core-data-access';
+import { POSTHOG_HOST, POSTHOG_KEY } from '@mozart/shared-util-analytics';
 import { appRoutes } from './app.routes';
 import { registerCloseFlush } from './close-flush';
 import {
   provideTauriAdapters,
   tauriThemePersistence,
+  TauriAnalyticsConfig,
   TauriConnectivityService,
   TauriExternalLinkService,
   TauriNotificationService,
@@ -74,6 +78,9 @@ export const appConfig: ApplicationConfig = {
     { provide: ConnectivityService, useExisting: TauriConnectivityService },
     { provide: ExternalLinkService, useExisting: TauriExternalLinkService },
     { provide: NotificationService, useExisting: TauriNotificationService },
+    { provide: AnalyticsConfigPort, useExisting: TauriAnalyticsConfig },
+    { provide: POSTHOG_KEY, useValue: environment.posthogKey },
+    { provide: POSTHOG_HOST, useValue: environment.posthogHost },
     // Bind WorkspaceChatPort (declared in `desktop-chat-data-access`) to
     // the in-app WorkspacesFacade so ChatFacade can read activeId /
     // workspaceById + call markRead / toggleUnread without a
@@ -101,11 +108,21 @@ export const appConfig: ApplicationConfig = {
       const router = inject(Router);
       const uiState = inject(UiStateFacade);
       const updater = inject(UpdaterService);
+      const analytics = inject(DesktopAnalyticsFacade);
 
       // Boot auth + onboarding first so route guards see the persisted
       // state before the router resolves the initial URL.
       await auth.bootstrap();
       await onboarding.bootstrap();
+
+      // Analytics after auth/onboarding so install_id + a restored session
+      // are available. Non-blocking — a telemetry failure never stalls boot.
+      // Identify a returning (already-authed) session here; fresh sign-ins
+      // identify in auth.onDeepLink().
+      void analytics.bootstrap().then(() => {
+        const userId = auth.currentUserId();
+        if (userId) analytics.identifyUser(userId);
+      });
 
       try {
         await projects.loadAll();

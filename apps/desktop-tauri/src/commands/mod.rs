@@ -3394,6 +3394,65 @@ pub async fn set_onboarding_completed(
     Ok(())
 }
 
+/// Stable anonymous install identifier used as the PostHog `distinct_id`
+/// before sign-in. Generated lazily on first read and persisted, so it
+/// survives restarts and is the same value every analytics call sees.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_or_create_install_id(
+    db: State<'_, DbState>,
+) -> Result<String, AppError> {
+    let conn = db.lock();
+    if let Some(existing) = config::get(&conn, "install_id")? {
+        if !existing.is_empty() {
+            return Ok(existing);
+        }
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    config::set(&conn, "install_id", Some(&id))?;
+    Ok(id)
+}
+
+/// Telemetry consent flag. Defaults to `true` for the private beta (no
+/// opt-in screen yet) so we collect usage data to validate the product.
+///
+/// TODO(public-launch): before GA, surface telemetry consent in onboarding
+/// + settings and decide whether this default should flip to opt-in.
+/// See docs/engineering/analytics/ANALYTICS_ROADMAP.md P3.3 (release guard).
+/// Pure decision for the telemetry consent flag. Unset → `true` (beta
+/// default); only an explicit `"false"` disables. Split out so the
+/// default semantics are unit-testable without a Tauri runtime.
+pub(crate) fn telemetry_opt_in_from_stored(stored: Option<&str>) -> bool {
+    stored != Some("false")
+}
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_telemetry_opt_in(
+    db: State<'_, DbState>,
+) -> Result<bool, AppError> {
+    let conn = db.lock();
+    let value = config::get(&conn, "telemetry_opt_in")?;
+    Ok(telemetry_opt_in_from_stored(value.as_deref()))
+}
+
+/// Persist the telemetry consent flag. Wired to the P3 consent UX later;
+/// exposed now so the gate is fully functional and testable.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_telemetry_opt_in(
+    value: bool,
+    db: State<'_, DbState>,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    config::set(
+        &conn,
+        "telemetry_opt_in",
+        Some(if value { "true" } else { "false" }),
+    )?;
+    Ok(())
+}
+
 // ===========================================================================
 // Dev-only DB reset / demo seed (debug builds only)
 //
@@ -3489,6 +3548,21 @@ mod tests {
 
     fn noop_channel() -> Channel<StreamEvent> {
         Channel::new(|_| Ok(()))
+    }
+
+    #[test]
+    fn telemetry_opt_in_defaults_true_when_unset() {
+        // Private-beta default: collect unless explicitly disabled.
+        assert!(telemetry_opt_in_from_stored(None));
+    }
+
+    #[test]
+    fn telemetry_opt_in_respects_explicit_values() {
+        assert!(telemetry_opt_in_from_stored(Some("true")));
+        assert!(!telemetry_opt_in_from_stored(Some("false")));
+        // Any unexpected value is treated as opted-in (fail toward the beta
+        // default rather than silently dropping data).
+        assert!(telemetry_opt_in_from_stored(Some("garbage")));
     }
 
     /// Build a tempdir-backed git repo with identity + one seed commit on

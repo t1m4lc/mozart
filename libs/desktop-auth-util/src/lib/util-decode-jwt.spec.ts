@@ -21,6 +21,7 @@ describe('decodeJwt', () => {
       onboarding: true,
       githubUsername: null,
       iss: null,
+      sub: 'u1',
     });
   });
 
@@ -31,6 +32,7 @@ describe('decodeJwt', () => {
       onboarding: false,
       githubUsername: null,
       iss: null,
+      sub: 'u1',
     });
   });
 
@@ -45,7 +47,13 @@ describe('decodeJwt', () => {
       onboarding: true,
       githubUsername: 'octocat',
       iss: null,
+      sub: null,
     });
+  });
+
+  it('extracts sub (Clerk user id) as the cross-surface identity key', () => {
+    const token = makeJwt({ exp: 1_700_000_000, sub: 'user_abc123' });
+    expect(decodeJwt(token)?.sub).toBe('user_abc123');
   });
 
   it('extracts iss when present (Clerk Frontend API URL)', () => {

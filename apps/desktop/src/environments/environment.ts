@@ -8,4 +8,7 @@
 // apps/desktop-tauri/src/{github.rs,auth/http_callback.rs} — keep in sync.
 export const environment = {
   webBaseUrl: 'https://localhost:4201',
+  // Empty key in dev → analytics stays silent (no events sent locally).
+  posthogKey: '',
+  posthogHost: 'https://t.mozart.build',
 };

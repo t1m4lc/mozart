@@ -19,6 +19,9 @@ export interface JwtClaims {
   // https://<slug>.clerk.accounts.dev in dev). Used by the desktop to
   // PATCH /v1/me back to Clerk without hardcoding the URL.
   readonly iss: string | null;
+  // Clerk user id (`user_…`). Same value as `clerkUser.id` on apps/web, so
+  // it's the cross-surface identity key for `analytics.identify()`.
+  readonly sub: string | null;
 }
 
 export function decodeJwt(token: string): JwtClaims | null {
@@ -51,8 +54,9 @@ export function decodeJwt(token: string): JwtClaims | null {
       ? rawGh
       : null;
   const iss = typeof obj['iss'] === 'string' ? (obj['iss'] as string) : null;
+  const sub = typeof obj['sub'] === 'string' ? (obj['sub'] as string) : null;
 
-  return { exp, onboarding, githubUsername, iss };
+  return { exp, onboarding, githubUsername, iss, sub };
 }
 
 function base64UrlDecode(input: string): string {

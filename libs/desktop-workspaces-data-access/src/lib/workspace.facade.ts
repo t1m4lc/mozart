@@ -1,6 +1,7 @@
 import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, catchError, defer, map, of, retry, switchMap, tap, timeout, timer } from 'rxjs';
+import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
@@ -66,6 +67,7 @@ export class WorkspacesFacade {
   private readonly repos = inject(RepositoriesFacade);
   private readonly ideDetection = inject(IdeDetectionService);
   private readonly uiState = inject(UiStateFacade);
+  private readonly analytics = inject(DesktopAnalyticsFacade);
   private readonly destroyRef = inject(DestroyRef);
 
   readonly all = this.store.workspaces;
@@ -176,7 +178,9 @@ export class WorkspacesFacade {
   async ensureFirstWorkspace(projectId: string): Promise<string> {
     const existing = this.store.forProject(projectId);
     if (existing.length > 0) return existing[0].id;
-    return this.createForPrompt({ projectId });
+    // The only callers are the onboarding + tour bootstrap of the bundled
+    // get-started project, so flag the workspace_created event accordingly.
+    return this.createForPrompt({ projectId, isGetStarted: true });
   }
 
   // Hydrate from Tauri. Loads tasks-for-each-project first so the
@@ -227,15 +231,18 @@ export class WorkspacesFacade {
   //   5. Swap the ghost for the real workspace DTO.
   //   6. On any failure: drop the ghost and rethrow for the caller to
   //      toast.
-  async createForPrompt(input: { projectId: string }): Promise<string> {
+  async createForPrompt(input: {
+    projectId: string;
+    isGetStarted?: boolean;
+  }): Promise<string> {
     const project = this.projects.byId(input.projectId)();
     if (!project) {
       throw new Error(`unknown project ${input.projectId}`);
     }
 
-    const taken = new Set(
-      this.store.forProject(input.projectId).map((w) => w.name),
-    );
+    const existing = this.store.forProject(input.projectId);
+    const isFirst = existing.length === 0;
+    const taken = new Set(existing.map((w) => w.name));
     const name = generateWorkspaceName(taken);
 
     const pendingId = `pending-${cryptoRandomUUID()}`;
@@ -268,6 +275,11 @@ export class WorkspacesFacade {
 
       this.store.removeById(pendingId);
       this.store.upsertOne(workspaceFromDto(dto, input.projectId));
+      this.analytics.track('workspace_created', {
+        workspace_id: dto.workspace_id,
+        is_first: isFirst,
+        is_get_started: input.isGetStarted ?? false,
+      });
       // Kick the setup auto-run for the new worktree. Fire-and-forget
       // so navigation isn't blocked; `installFor` carries the lifecycle
       // for the Setup tab + chat Start tab. Mirrors AddProjectFlow's

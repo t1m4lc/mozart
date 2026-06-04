@@ -12,6 +12,13 @@
   "targets": {
     "lint": {
       "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/desktop-core-data-access/tsconfig.spec.json"
+      }
     }
   }
 }

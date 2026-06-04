@@ -10,6 +10,7 @@ import {
   type DeepLinkPayload,
   type WelcomeState,
 } from '@mozart/desktop-auth-util';
+import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
 import { AUTH_ADAPTER } from './auth.adapter';
 import { WEB_BASE_URL } from './web-base-url.token';
 
@@ -38,6 +39,7 @@ export class AuthFacade {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly webBaseUrl = inject(WEB_BASE_URL);
+  private readonly analytics = inject(DesktopAnalyticsFacade);
 
   private readonly _session = signal<AuthSession | null>(null);
   readonly session = computed(() => this._session());
@@ -50,6 +52,14 @@ export class AuthFacade {
     const session = this._session();
     if (!session) return null;
     return decodeJwt(session.token)?.githubUsername ?? null;
+  });
+
+  /** Clerk user id (`sub`) of the current session, or null when signed out.
+   *  The cross-surface identity key — same value apps/web sends to PostHog. */
+  readonly currentUserId = computed<string | null>(() => {
+    const session = this._session();
+    if (!session) return null;
+    return decodeJwt(session.token)?.sub ?? null;
   });
 
   readonly welcomeState = signal<WelcomeState>('idle');
@@ -189,6 +199,9 @@ export class AuthFacade {
     } finally {
       this._session.set(null);
       this.welcomeState.set('idle');
+      // Clear PostHog identity so the next user on this install starts a
+      // fresh anonymous id instead of merging into the user signing out.
+      this.analytics.reset();
       void this.router.navigate(['/welcome']);
     }
   }
@@ -226,6 +239,15 @@ export class AuthFacade {
       this._session.set(session);
       this._signInUrl.set(null);
       this.welcomeState.set('idle');
+      // Merge this anonymous install into the identified Clerk user, then
+      // record the auth completion. `identifyUser` first so the event
+      // attaches to the identified person.
+      const userId = claims?.sub ?? null;
+      if (userId) this.analytics.identifyUser(userId);
+      this.analytics.track('desktop_authenticated', {
+        userId,
+        onboarding_required: !onboardingDone,
+      });
       const target = onboardingDone ? '/' : '/onboarding';
       console.info('[auth] navigating to', target);
       void this.router.navigate([target]);

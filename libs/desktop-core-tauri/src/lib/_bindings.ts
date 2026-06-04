@@ -1730,6 +1730,47 @@ export const commands = {
     }
   },
   /**
+   * Stable anonymous install id used as the PostHog `distinct_id` before
+   * sign-in. Generated lazily on first read and persisted.
+   */
+  async getOrCreateInstallId(): Promise<Result<string, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('get_or_create_install_id'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * Telemetry consent flag. Defaults to `true` for the private beta (no
+   * opt-in screen yet). Every desktop capture() is gated on this.
+   */
+  async getTelemetryOptIn(): Promise<Result<boolean, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('get_telemetry_opt_in'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async setTelemetryOptIn(value: boolean): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('set_telemetry_opt_in', { value }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Phase 6 / Atom 2 — detection probe for the onboarding wizard's Git
    * step. Spawns `git --version` (argv form, no shell) and parses the
    * stdout line `git version X.Y.Z`. Returns `None` when the binary is
