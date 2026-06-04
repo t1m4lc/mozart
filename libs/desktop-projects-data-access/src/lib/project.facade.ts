@@ -1,4 +1,5 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
+import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
 import type { Project } from '@mozart/desktop-projects-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { DIALOG_ADAPTER } from './dialog.adapter';
@@ -31,6 +32,7 @@ export class ProjectsFacade {
   private readonly dialog = inject(DIALOG_ADAPTER);
   private readonly adapter = inject(PROJECTS_ADAPTER);
   private readonly uiState = inject(UiStateFacade);
+  private readonly analytics = inject(DesktopAnalyticsFacade);
 
   // Buffered drag-reorder: a drop fires a 250ms timer; subsequent
   // drops during the timer reset it. Only the final ordering hits
@@ -239,8 +241,10 @@ export class ProjectsFacade {
   }
 
   async add(path: string): Promise<Project> {
+    const isFirst = this.store.projects().length === 0;
     const project = await this.adapter.add(path);
     this.store.upsertProject(project);
+    this.analytics.track('project_added', { is_first: isFirst, source: 'add' });
     // Auto-expand the freshly added project so the "no workspaces
     // yet" empty state surfaces immediately.
     this.uiState.expandProjects([project.id]);
@@ -256,8 +260,13 @@ export class ProjectsFacade {
    * user into the workspace.
    */
   async bootstrap(path: string) {
+    const isFirst = this.store.projects().length === 0;
     const result = await this.adapter.bootstrap(path);
     this.store.upsertProject(result.project);
+    this.analytics.track('project_added', {
+      is_first: isFirst,
+      source: 'open',
+    });
     this.uiState.expandProjects([result.project.id]);
     return result;
   }

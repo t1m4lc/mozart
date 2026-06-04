@@ -1,5 +1,5 @@
 import { isPlatformBrowser } from '@angular/common';
-import { Injectable, PLATFORM_ID, inject } from '@angular/core';
+import { Injectable, PLATFORM_ID, inject, isDevMode } from '@angular/core';
 import type { PostHog } from 'posthog-js';
 import {
   buildPostHogConfig,
@@ -29,9 +29,16 @@ export class AnalyticsService {
   // drops and the user stays anonymous.
   private pendingIdentify: PendingIdentify | null = null;
 
-  async init(opts?: { readonly bootstrapDistinctId?: string }): Promise<void> {
+  async init(opts?: {
+    readonly bootstrapDistinctId?: string;
+    /** Local wiring check only — point at a staging key, never prod. */
+    readonly forceInDev?: boolean;
+  }): Promise<void> {
     if (!this.isBrowser) return;
     if (this.initPromise) return this.initPromise;
+    // Never send from a dev build, even if a key leaked into the env. The
+    // empty dev key already silences us; this is the belt-and-suspenders.
+    if (isDevMode() && !opts?.forceInDev) return;
 
     const key = resolvePostHogKey(this.posthogKey);
     if (!key) return;

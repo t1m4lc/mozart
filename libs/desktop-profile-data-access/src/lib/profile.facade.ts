@@ -14,6 +14,7 @@ import type {
 } from '@mozart/desktop-profile-util';
 import type { AgentProviderId } from '@mozart/desktop-llm-model-util';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
+import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
 import {
   CREDENTIALS_ADAPTER,
   type GithubProbe,
@@ -28,6 +29,7 @@ export class ProfileFacade {
   private readonly store = inject(ProfileStore);
   private readonly credentials = inject(CREDENTIALS_ADAPTER);
   private readonly auth = inject(AuthFacade);
+  private readonly analytics = inject(DesktopAnalyticsFacade);
 
   constructor() {
     // BANNER: if you do NOT see this line in DevTools console at app
@@ -176,6 +178,9 @@ export class ProfileFacade {
     this.store.setChecking();
     const result = await this.credentials.connect(key);
     this.store.setStatus(result, new Date());
+    if (result === 'connected') {
+      this.analytics.track('provider_connected', { provider: 'claude' });
+    }
     return result;
   }
 
@@ -233,6 +238,9 @@ export class ProfileFacade {
     this._codexStatus.set('checking');
     const result = await this.credentials.connectOpenai(key);
     this._codexStatus.set(result);
+    if (result === 'connected') {
+      this.analytics.track('provider_connected', { provider: 'codex' });
+    }
     return result;
   }
 
@@ -343,6 +351,7 @@ export class ProfileFacade {
       this._githubLogin.set(result.login);
       this._githubKind.set('pat');
       this._githubState.set('connected');
+      this.analytics.track('provider_connected', { provider: 'github' });
     }
     return result;
   }
@@ -357,6 +366,7 @@ export class ProfileFacade {
       this._githubLogin.set(result.login);
       this._githubKind.set('oauth_clerk');
       this._githubState.set('connected');
+      this.analytics.track('provider_connected', { provider: 'github' });
     }
     return result;
   }

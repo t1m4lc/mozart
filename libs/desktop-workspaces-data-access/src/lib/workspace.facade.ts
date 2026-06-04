@@ -508,6 +508,7 @@ export class WorkspacesFacade {
       number: pr.number,
       state: 'open',
     });
+    this.analytics.track('pr_created', { workspace_id: workspaceId, draft });
     const result = await this.advanceStatusBestEffort(
       workspaceId,
       ['backlog', 'in_progress'],

@@ -258,7 +258,7 @@ export class DownloadDialogComponent {
         return;
       }
       const { url } = (await res.json()) as { url: string };
-      this.analytics.capture('download_started', {
+      this.analytics.capture('downloaded', {
         source: this.source,
         section: this.section,
         os: detectOsTag(this.os),

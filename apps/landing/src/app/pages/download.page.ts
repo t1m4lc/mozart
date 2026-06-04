@@ -158,7 +158,7 @@ export default class DownloadPageComponent implements OnInit {
         return;
       }
       const { url } = (await res.json()) as { url: string };
-      this.analytics.capture('download_started', {
+      this.analytics.capture('downloaded', {
         source: 'download_page',
         section: 'download',
         os: detectOsTag(this.os),
