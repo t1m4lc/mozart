@@ -15,6 +15,7 @@ import type {
 import type { AgentProviderId } from '@mozart/desktop-llm-model-util';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
+import { ANALYTICS_EVENTS } from '@mozart/shared-util-analytics';
 import {
   CREDENTIALS_ADAPTER,
   type GithubProbe,
@@ -179,7 +180,9 @@ export class ProfileFacade {
     const result = await this.credentials.connect(key);
     this.store.setStatus(result, new Date());
     if (result === 'connected') {
-      this.analytics.track('provider_connected', { provider: 'claude' });
+      this.analytics.track(ANALYTICS_EVENTS.providerConnected, {
+        provider: 'claude',
+      });
     }
     return result;
   }
@@ -239,7 +242,9 @@ export class ProfileFacade {
     const result = await this.credentials.connectOpenai(key);
     this._codexStatus.set(result);
     if (result === 'connected') {
-      this.analytics.track('provider_connected', { provider: 'codex' });
+      this.analytics.track(ANALYTICS_EVENTS.providerConnected, {
+        provider: 'codex',
+      });
     }
     return result;
   }
@@ -351,7 +356,9 @@ export class ProfileFacade {
       this._githubLogin.set(result.login);
       this._githubKind.set('pat');
       this._githubState.set('connected');
-      this.analytics.track('provider_connected', { provider: 'github' });
+      this.analytics.track(ANALYTICS_EVENTS.providerConnected, {
+        provider: 'github',
+      });
     }
     return result;
   }
@@ -366,7 +373,9 @@ export class ProfileFacade {
       this._githubLogin.set(result.login);
       this._githubKind.set('oauth_clerk');
       this._githubState.set('connected');
-      this.analytics.track('provider_connected', { provider: 'github' });
+      this.analytics.track(ANALYTICS_EVENTS.providerConnected, {
+        provider: 'github',
+      });
     }
     return result;
   }

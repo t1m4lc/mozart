@@ -1,5 +1,6 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
+import { ANALYTICS_EVENTS } from '@mozart/shared-util-analytics';
 import type { Project } from '@mozart/desktop-projects-util';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import { DIALOG_ADAPTER } from './dialog.adapter';
@@ -244,7 +245,7 @@ export class ProjectsFacade {
     const isFirst = this.store.projects().length === 0;
     const project = await this.adapter.add(path);
     this.store.upsertProject(project);
-    this.analytics.track('project_added', { is_first: isFirst, source: 'add' });
+    this.analytics.track(ANALYTICS_EVENTS.projectAdded, { is_first: isFirst, source: 'add' });
     // Auto-expand the freshly added project so the "no workspaces
     // yet" empty state surfaces immediately.
     this.uiState.expandProjects([project.id]);
@@ -263,7 +264,7 @@ export class ProjectsFacade {
     const isFirst = this.store.projects().length === 0;
     const result = await this.adapter.bootstrap(path);
     this.store.upsertProject(result.project);
-    this.analytics.track('project_added', {
+    this.analytics.track(ANALYTICS_EVENTS.projectAdded, {
       is_first: isFirst,
       source: 'open',
     });

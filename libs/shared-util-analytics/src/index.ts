@@ -10,3 +10,4 @@ export {
   resolvePostHogKey,
 } from './lib/analytics-core';
 export { POSTHOG_HOST, POSTHOG_KEY } from './lib/tokens';
+export { ANALYTICS_EVENTS, type AnalyticsEventName } from './lib/events';

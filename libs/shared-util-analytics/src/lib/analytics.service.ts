@@ -5,10 +5,14 @@ import {
   buildPostHogConfig,
   resolvePostHogKey,
 } from './analytics-core';
+import type { AnalyticsEventName } from './events';
 import { InternalDeviceService } from './internal-device.service';
 import { POSTHOG_HOST, POSTHOG_KEY } from './tokens';
 
-type QueuedCapture = readonly [string, Record<string, unknown> | undefined];
+type QueuedCapture = readonly [
+  AnalyticsEventName,
+  Record<string, unknown> | undefined,
+];
 type PendingIdentify = {
   readonly userId: string;
   readonly props?: Record<string, unknown>;
@@ -69,7 +73,7 @@ export class AnalyticsService {
     return this.initPromise;
   }
 
-  capture(event: string, props?: Record<string, unknown>): void {
+  capture(event: AnalyticsEventName, props?: Record<string, unknown>): void {
     if (!this.isBrowser) return;
     if (this.posthog) {
       this.posthog.capture(event, props);

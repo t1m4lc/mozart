@@ -1,7 +1,7 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ClerkService, type OAuthStrategy } from '@mozart/clerk';
-import { AnalyticsService } from '@mozart/shared-util-analytics';
+import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
 import type { OAuthProvider, User } from './auth.model';
 
 // Public surface of the apps/web `auth` domain. Pages inject this ;
@@ -169,7 +169,9 @@ export class AuthFacade {
       createdAt > 0 && Date.now() - createdAt < SIGNUP_RECENCY_MS;
 
     this.analytics.capture(
-      isNewUser ? 'signup_completed' : 'login_completed',
+      isNewUser
+        ? ANALYTICS_EVENTS.signupCompleted
+        : ANALYTICS_EVENTS.loginCompleted,
       { userId: clerkUser.id, provider, surface: 'web' },
     );
   }

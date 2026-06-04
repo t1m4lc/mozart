@@ -9,6 +9,7 @@ import {
   type LlmRunHandle,
 } from '@mozart/desktop-llm-model-data-access';
 import type { AgentProviderId } from '@mozart/desktop-llm-model-util';
+import { ANALYTICS_EVENTS } from '@mozart/shared-util-analytics';
 import { AgentProviderPort } from './agent-provider.port';
 import {
   EMPTY_TURN_STATE,
@@ -713,7 +714,7 @@ export class ChatFacade {
     provider: AgentProviderId,
     msg: Message,
   ): void {
-    this.analytics.track('agent_completed', {
+    this.analytics.track(ANALYTICS_EVENTS.agentCompleted, {
       workspace_id: workspaceId,
       provider,
       success: msg.status === 'done',

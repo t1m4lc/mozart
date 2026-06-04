@@ -1,5 +1,8 @@
 import { Injectable, computed, inject, signal } from '@angular/core';
-import { AnalyticsService } from '@mozart/shared-util-analytics';
+import {
+  AnalyticsService,
+  type AnalyticsEventName,
+} from '@mozart/shared-util-analytics';
 import { AnalyticsConfigPort } from './analytics-config.port';
 
 // Single entry point for ALL desktop analytics. Every event goes through
@@ -39,7 +42,7 @@ export class DesktopAnalyticsFacade {
   }
 
   /** The consent chokepoint. No desktop capture bypasses this. */
-  track(event: string, props?: Record<string, unknown>): void {
+  track(event: AnalyticsEventName, props?: Record<string, unknown>): void {
     if (!this._optedIn()) return;
     this.analytics.capture(event, { surface: 'desktop', ...props });
   }

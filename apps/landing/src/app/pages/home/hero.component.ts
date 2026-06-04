@@ -10,7 +10,7 @@ import {
   lucideArrowRight,
   lucideDownload,
 } from '@ng-icons/lucide';
-import { AnalyticsService } from '@mozart/shared-util-analytics';
+import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
 import { detectOsTag } from '../../shell/analytics/detect-os';
 import { pageSection } from '../../shell/analytics/page-section';
 import {
@@ -100,7 +100,7 @@ export class HeroComponent {
     const path = this.router.url.split('?')[0].split('#')[0] || '/';
     const section = pageSection(path);
     const osTag = detectOsTag(this.os);
-    this.analytics.capture('download_cta_clicked', {
+    this.analytics.capture(ANALYTICS_EVENTS.downloadCtaClicked, {
       source,
       section,
       os: osTag,

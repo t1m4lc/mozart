@@ -6,7 +6,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { AnalyticsService } from '@mozart/shared-util-analytics';
+import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
 import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideLoaderCircle } from '@ng-icons/lucide';
@@ -158,7 +158,7 @@ export default class DownloadPageComponent implements OnInit {
         return;
       }
       const { url } = (await res.json()) as { url: string };
-      this.analytics.capture('downloaded', {
+      this.analytics.capture(ANALYTICS_EVENTS.downloaded, {
         source: 'download_page',
         section: 'download',
         os: detectOsTag(this.os),

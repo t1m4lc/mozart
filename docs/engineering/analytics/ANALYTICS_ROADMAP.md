@@ -22,7 +22,7 @@ currently dark, then harden.** Don't add a single event that isn't in the refere
 | **P2** | Value + config events (`project_added`, `pr_created`, `provider_connected`) | Funnel 4, North-Star | S | ✅ done |
 | **P2** | Rename `download_started` → `downloaded` (landing) | clean canonical download metric | XS | ✅ done |
 | **P2** | Add explicit dev-mode init guard (`isDevMode()`) + host on `t.mozart.build` | no dev pollution, host consistency | XS | ✅ done |
-| **P2** | Event-name constants + base-property registration | data quality, no typos | S | ⬜ pending (churns ~10 call sites — confirm before doing) |
+| **P2** | Event-name dictionary (`ANALYTICS_EVENTS`) + typed `capture`/`track` | one source of truth, no typos, funnel-synced | S | ✅ done |
 | **P3** | Staging PostHog project + validation lane | safe schema changes | S | ⬜ |
 | **P3** | Resolve `dl_id` (wire through installer or drop) | clean cross-machine bridge | S | ⬜ |
 | **P3** | Desktop telemetry opt-in toggle | consent compliance | S | ⬜ |
@@ -88,7 +88,7 @@ All activation and value events live in desktop. This is the bulk of the value.
 - [x] **2.3** `provider_connected` in `profile.facade.ts` `connectWithKey` (claude) / `connectCodexWithKey` (codex) / `connectGithub`(`ViaClerk`) success paths. Prop: `provider`. **Provisional** — multi-provider = users with ≥2 distinct `provider` values (no `connected_count` needed). Drop if boring.
 - [x] **2.4** Renamed landing `download_started` → `downloaded` at `download-dialog.component.ts` and `download.page.ts`. Props unchanged.
 - [x] **2.5** `AnalyticsService.init()` now skips in dev via `isDevMode()` (belt-and-suspenders over the empty dev key), with an `init({ forceInDev: true })` override for local wiring checks. Desktop env already uses `https://t.mozart.build`; landing dev still `eu.i.posthog.com` (inert — empty key — left as-is to avoid touching landing config beyond the rename).
-- [ ] **2.6** Centralize event names (`ANALYTICS_EVENTS` const + `captureEvent` helper). **Not done** — touches ~10 call sites across P0/P1/P2; held to avoid churn while P0/P1 are under test. Confirm before doing.
+- [x] **2.6** Centralized event names in `libs/shared-util-analytics/src/lib/events.ts` (`ANALYTICS_EVENTS` map + `AnalyticsEventName` type). `AnalyticsService.capture()` and `DesktopAnalyticsFacade.track()` are typed to `AnalyticsEventName`, so a typo or an event not in the dictionary **fails to compile**. All ~12 call sites refactored to reference the map — the dictionary is now the single code source of truth, kept in lockstep with the reference + funnels docs. (Base-property `captureEvent` helper not added — `surface` is attached by `track()` already; deferred as unneeded.)
 - [ ] **2.6** **Centralize event names + base props.** Add an exported `ANALYTICS_EVENTS` const map (and a small `captureEvent()` helper that auto-attaches `surface`/`app_version`) in `shared-util-analytics`. No more raw string literals at call sites — kills typos and makes the catalog greppable. Matches the reference doc 1:1.
 
 **Acceptance**: all four reference funnels build in PostHog with non-zero data; North-Star insight
@@ -109,7 +109,7 @@ All activation and value events live in desktop. This is the bulk of the value.
 
 ### Naming
 - `snake_case`, `object_action`, past/observable tense. (`workspace_created` ✅, `createWorkspace` ❌, `WorkspaceCreated` ❌.)
-- Names come from [`ANALYTICS_REFERENCE.md`](./ANALYTICS_REFERENCE.md) §2 — that catalog is authoritative. Adding an event = edit the reference doc **first**.
+- Names live in `libs/shared-util-analytics/src/lib/events.ts` (`ANALYTICS_EVENTS`), mirrored 1:1 by [`ANALYTICS_REFERENCE.md`](./ANALYTICS_REFERENCE.md) §2. Adding an event = edit `events.ts` + the reference doc together. `capture()`/`track()` are typed so an unlisted event won't compile.
 - Properties `snake_case`. `userId` is always the **Clerk user id**, identical across surfaces.
 
 ### Environment separation

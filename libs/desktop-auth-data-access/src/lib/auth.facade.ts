@@ -11,6 +11,7 @@ import {
   type WelcomeState,
 } from '@mozart/desktop-auth-util';
 import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
+import { ANALYTICS_EVENTS } from '@mozart/shared-util-analytics';
 import { AUTH_ADAPTER } from './auth.adapter';
 import { WEB_BASE_URL } from './web-base-url.token';
 
@@ -244,7 +245,7 @@ export class AuthFacade {
       // attaches to the identified person.
       const userId = claims?.sub ?? null;
       if (userId) this.analytics.identifyUser(userId);
-      this.analytics.track('desktop_authenticated', {
+      this.analytics.track(ANALYTICS_EVENTS.desktopAuthenticated, {
         userId,
         onboarding_required: !onboardingDone,
       });

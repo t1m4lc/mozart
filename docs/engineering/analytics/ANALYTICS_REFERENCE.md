@@ -229,6 +229,7 @@ Why `agent_completed` and not the alternatives:
 
 ## 5. Change control
 
-- New events or property changes are proposed in a PR that edits **this file first**, then the code.
+- **Code source of truth**: `libs/shared-util-analytics/src/lib/events.ts` (`ANALYTICS_EVENTS`). `capture()`/`track()` are typed to `AnalyticsEventName`, so an event not in that map won't compile — the catalog above and that file must stay in sync.
+- New events or property changes: edit `events.ts` **and** this file in the same PR, then the call site, then the PostHog funnel.
 - Removing an event requires checking it isn't referenced by a saved PostHog insight/funnel.
 - Keep it lean: the bar for a new event is *"a funnel or PMF metric here needs it"*. Curiosity is not a reason.

@@ -2,6 +2,7 @@ import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angul
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { EMPTY, Observable, catchError, defer, map, of, retry, switchMap, tap, timeout, timer } from 'rxjs';
 import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
+import { ANALYTICS_EVENTS } from '@mozart/shared-util-analytics';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { RepositoriesFacade } from '@mozart/desktop-repositories-data-access';
 import { RunRegistry } from '@mozart/desktop-runs-data-access';
@@ -275,7 +276,7 @@ export class WorkspacesFacade {
 
       this.store.removeById(pendingId);
       this.store.upsertOne(workspaceFromDto(dto, input.projectId));
-      this.analytics.track('workspace_created', {
+      this.analytics.track(ANALYTICS_EVENTS.workspaceCreated, {
         workspace_id: dto.workspace_id,
         is_first: isFirst,
         is_get_started: input.isGetStarted ?? false,
@@ -508,7 +509,10 @@ export class WorkspacesFacade {
       number: pr.number,
       state: 'open',
     });
-    this.analytics.track('pr_created', { workspace_id: workspaceId, draft });
+    this.analytics.track(ANALYTICS_EVENTS.prCreated, {
+      workspace_id: workspaceId,
+      draft,
+    });
     const result = await this.advanceStatusBestEffort(
       workspaceId,
       ['backlog', 'in_progress'],

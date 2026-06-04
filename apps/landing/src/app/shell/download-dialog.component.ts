@@ -15,7 +15,7 @@ import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideLoaderCircle } from '@ng-icons/lucide';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
-import { AnalyticsService } from '@mozart/shared-util-analytics';
+import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
 import { detectOsTag } from './analytics/detect-os';
 import { type PageSection, pageSection } from './analytics/page-section';
 import { SITE_CONFIG } from './site-config';
@@ -258,7 +258,7 @@ export class DownloadDialogComponent {
         return;
       }
       const { url } = (await res.json()) as { url: string };
-      this.analytics.capture('downloaded', {
+      this.analytics.capture(ANALYTICS_EVENTS.downloaded, {
         source: this.source,
         section: this.section,
         os: detectOsTag(this.os),

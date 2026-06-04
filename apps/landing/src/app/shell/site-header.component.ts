@@ -18,7 +18,7 @@ import { HlmButton } from '@spartan-ui/button';
 import { HlmDialogService } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
-import { AnalyticsService } from '@mozart/shared-util-analytics';
+import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
 import { detectOsTag } from './analytics/detect-os';
 import { pageSection } from './analytics/page-section';
 import {
@@ -172,7 +172,7 @@ export class SiteHeaderComponent {
     const path = this.router.url.split('?')[0].split('#')[0] || '/';
     const section = pageSection(path);
     const osTag = detectOsTag(this.os);
-    this.analytics.capture('download_cta_clicked', {
+    this.analytics.capture(ANALYTICS_EVENTS.downloadCtaClicked, {
       source,
       section,
       os: osTag,

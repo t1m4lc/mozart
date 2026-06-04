@@ -2,6 +2,7 @@ import { Injectable, computed, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { AuthFacade } from '@mozart/desktop-auth-data-access';
 import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
+import { ANALYTICS_EVENTS } from '@mozart/shared-util-analytics';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
@@ -130,7 +131,7 @@ export class OnboardingFacade {
       this._isCompleted.set(true);
     }
 
-    this.analytics.track('onboarding_completed', {
+    this.analytics.track(ANALYTICS_EVENTS.onboardingCompleted, {
       userId: this.auth.currentUserId(),
       github_connected: this._statuses()['github'] === 'done',
     });
