@@ -32,7 +32,7 @@ const PLATFORMS: { os: OsKey; label: string }[] = [
   providers: [provideIcons({ lucideLoaderCircle })],
   template: `
     <main
-      class="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4 text-center"
+      class="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4 text-center py-16 md:py-24"
     >
       <span
         class="bg-muted text-muted-foreground rounded-full px-3 py-1 text-xs font-medium uppercase tracking-widest"
@@ -48,7 +48,7 @@ const PLATFORMS: { os: OsKey; label: string }[] = [
         }
       </p>
 
-      <div class="flex w-full max-w-sm flex-col gap-3 py-16">
+      <div class="flex w-full max-w-sm flex-col gap-3 ">
         @if (requireAccessCode) {
           <div class="space-y-1.5">
             <input
