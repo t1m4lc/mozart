@@ -1,6 +1,7 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ClerkService, type OAuthStrategy } from '@mozart/clerk';
+import { AnalyticsService } from '@mozart/shared-util-analytics';
 import type { OAuthProvider, User } from './auth.model';
 
 // Public surface of the apps/web `auth` domain. Pages inject this ;
@@ -28,7 +29,14 @@ import type { OAuthProvider, User } from './auth.model';
 
 const OAUTH_STATE_STORAGE_KEY = 'mozart.web.oauthState';
 const CALLBACK_PORT_STORAGE_KEY = 'mozart.web.callbackPort';
+const AUTH_PROVIDER_STORAGE_KEY = 'mozart.web.authProvider';
 const MOZART_JWT_TEMPLATE = 'mozart';
+
+// A brand-new OAuth user is created by Clerk during the redirect callback,
+// so `createdAt` sits within seconds of "now". Returning users always have
+// an old `createdAt`, so this window can never mislabel a sign-in as a
+// sign-up — it only ever errs toward `login_completed`, the safe direction.
+const SIGNUP_RECENCY_MS = 5 * 60 * 1000;
 
 function loadStoredState(): string | null {
   try {
@@ -56,6 +64,7 @@ export type DesktopLaunchOutcome = 'success' | 'unreachable' | 'invalid';
 export class AuthFacade {
   private readonly clerk = inject(ClerkService);
   private readonly router = inject(Router);
+  private readonly analytics = inject(AnalyticsService);
 
   /** Mozart domain user, derived from `clerk.user()`. Recomputes on
    *  any Clerk state change (sign-in, sign-out, profile update). */
@@ -124,15 +133,53 @@ export class AuthFacade {
   async signIn(provider: OAuthProvider): Promise<void> {
     const strategy: OAuthStrategy =
       provider === 'github' ? 'oauth_github' : 'oauth_google';
+    // Persist the chosen provider across the hard OAuth redirect so the
+    // callback can tag signup_completed / login_completed with it.
+    try {
+      localStorage.setItem(AUTH_PROVIDER_STORAGE_KEY, provider);
+    } catch {
+      /* storage unavailable — provider just won't be tagged */
+    }
     await this.clerk.signInWithOAuth(strategy, {
       redirectUrl: '/auth-callback',
       redirectUrlComplete: '/dashboard',
     });
   }
 
+  /** Identify the user and fire the one auth-completion event. Called by
+   *  the auth-callback page once Clerk reports a signed-in session. Idempotent
+   *  identify is safe; the signup/login event fires once per redirect flow
+   *  because only the callback path reaches here. */
+  recordAuthCompletion(): void {
+    const clerkUser = this.clerk.user();
+    if (!clerkUser) return;
+
+    this.analytics.identify(clerkUser.id);
+
+    let provider: string | null = null;
+    try {
+      provider = localStorage.getItem(AUTH_PROVIDER_STORAGE_KEY);
+      localStorage.removeItem(AUTH_PROVIDER_STORAGE_KEY);
+    } catch {
+      provider = null;
+    }
+
+    const createdAt = clerkUser.createdAt?.getTime() ?? 0;
+    const isNewUser =
+      createdAt > 0 && Date.now() - createdAt < SIGNUP_RECENCY_MS;
+
+    this.analytics.capture(
+      isNewUser ? 'signup_completed' : 'login_completed',
+      { userId: clerkUser.id, provider, surface: 'web' },
+    );
+  }
+
   /** Sign the current user out via Clerk. Stays on the current page. */
   async signOut(): Promise<void> {
     await this.clerk.signOut();
+    // Clear PostHog identity so the next person on this device isn't
+    // merged into the user who just signed out.
+    this.analytics.reset();
     void this.router.navigate(['/login']);
   }
 

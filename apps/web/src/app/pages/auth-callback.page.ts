@@ -64,6 +64,7 @@ export class AuthCallbackPage {
     }
 
     await firstValueFrom(this.authed$.pipe(filter((v) => v)));
+    this.auth.recordAuthCompletion();
     void this.router.navigate(['/dashboard']);
   }
 

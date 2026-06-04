@@ -50,6 +50,10 @@ export interface UserResource {
   readonly imageUrl: string;
   readonly unsafeMetadata: Record<string, unknown>;
   readonly publicMetadata: Record<string, unknown>;
+  /** Account creation time. Used to tell a just-completed sign-up from a
+   *  returning sign-in: a brand-new OAuth user is created during the
+   *  redirect callback, so `createdAt` is within seconds of "now". */
+  readonly createdAt: Date | null;
 }
 
 /**
