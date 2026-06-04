@@ -67,6 +67,21 @@ jobs:
           workspaces: apps/desktop-tauri -> target
           key: ${{ matrix.target }}
 
+      # Write environment.prod.ts from GitHub Variables before the Angular
+      # build picks it up via fileReplacements. Mirrors deploy-web.yml, minus
+      # the main-branch gate: this workflow only runs on manual dispatch (never
+      # develop/PR), so every run is a real distributable that should carry the
+      # prod analytics key. webBaseUrl stays the fixed prod origin.
+      - name: Write environment.prod.ts for build
+        shell: bash
+        env:
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
+        run: |
+          printf 'export const environment = {\n  webBaseUrl: "%s",\n  posthogKey: "%s",\n  posthogHost: "%s",\n};\n' \
+            "https://app.mozart.build" "$POSTHOG_KEY" "$POSTHOG_HOST" \
+            > apps/desktop/src/environments/environment.prod.ts
+
       - name: Build frontend
         run: pnpm nx build desktop
 

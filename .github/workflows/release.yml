@@ -77,6 +77,21 @@ jobs:
           workspaces: apps/desktop-tauri -> target
           key: ${{ matrix.target }}-v2
 
+      # Write environment.prod.ts from GitHub Variables before tauri-action
+      # runs the frontend build (`beforeBuildCommand: pnpm nx build desktop` in
+      # tauri.conf.json) which swaps it in via fileReplacements. Mirrors
+      # deploy-web.yml; no main-branch gate because this workflow is tag-only
+      # (every run is a release). webBaseUrl stays the fixed prod origin.
+      - name: Write environment.prod.ts for build
+        shell: bash
+        env:
+          POSTHOG_HOST: ${{ vars.POSTHOG_HOST }}
+          POSTHOG_KEY: ${{ vars.POSTHOG_KEY }}
+        run: |
+          printf 'export const environment = {\n  webBaseUrl: "%s",\n  posthogKey: "%s",\n  posthogHost: "%s",\n};\n' \
+            "https://app.mozart.build" "$POSTHOG_KEY" "$POSTHOG_HOST" \
+            > apps/desktop/src/environments/environment.prod.ts
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
