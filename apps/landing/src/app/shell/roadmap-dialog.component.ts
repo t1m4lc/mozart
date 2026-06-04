@@ -11,27 +11,27 @@ interface Feature {
 
 const ROADMAP_FEATURES: readonly Feature[] = [
   {
-    title: 'Local AI Workspaces',
+    title: 'Run agents safely in parallel',
     description:
-      'Run Agent Runs in isolated local Workspaces with their own branch, terminal, diff context, and Anthropic support today. More providers soon: OpenAI, Mistral AI, local models, and more.',
+      'Start multiple Claude Code or Codex runs in isolated local Workspaces, then review each diff before anything reaches your main branch.',
     status: 'Now',
   },
   {
-    title: 'Customization',
+    title: 'Make Mozart fit your project',
     description:
-      'Configure Mozart with project settings, custom skills, instructions, reusable resources, and uploaded context. Later, share and discover community skills through the Mozart Marketplace.',
+      'Save project settings, instructions, reusable context, and preferred defaults so every new Workspace starts with the right setup.',
     status: 'Next',
   },
   {
-    title: 'Agent Orchestration',
+    title: 'Plan bigger changes across agents',
     description:
-      'A main agent plans before coding, clarifies intent, splits work into scoped tasks, distributes them across isolated Workspaces, then coordinates review and merge.',
+      'Break larger requests into scoped tasks, run them across isolated Workspaces, and coordinate review before merge.',
     status: 'Vision',
   },
   {
-    title: 'LLM Token Economy',
+    title: 'Spend less time on prompt plumbing',
     description:
-      'Reduce cost and noise with routing strategy, auto-model selection, scoped context, RAG, and graph memory.',
+      'Let Mozart choose useful context and models for the task, reducing repeated setup and noisy agent runs.',
     status: 'Vision',
   },
 ] as const;
@@ -58,7 +58,9 @@ export const ROADMAP_DIALOG_CLASS =
       </p>
     </header>
 
-    <div class="min-h-0 flex-1 overflow-y-auto max-sm:px-6 max-sm:pb-6 sm:mt-5 sm:pr-1">
+    <div
+      class="min-h-0 flex-1 overflow-y-auto max-sm:px-6 max-sm:pb-6 sm:mt-5 sm:pr-1"
+    >
       <div class="grid gap-3 sm:grid-cols-2">
         @for (feature of features; track feature.title) {
           <article class="border-border bg-card rounded-lg border p-4">
@@ -90,9 +92,7 @@ export const ROADMAP_DIALOG_CLASS =
         }
       </div>
 
-      <div
-        class="border-border bg-muted/40 mt-5 rounded-lg border p-4 text-sm"
-      >
+      <div class="border-border bg-muted/40 mt-5 rounded-lg border p-4 text-sm">
         <p class="text-foreground font-medium">
           Want to shape what comes next?
         </p>

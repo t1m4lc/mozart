@@ -11,7 +11,7 @@ Mozart is a desktop app. Install it once, point it at a Project, and start runni
 - Windows 11
 - Ubuntu 22.04+ or a compatible Debian-based Linux distribution
 - Git available on your PATH
-- A Claude account (Mozart runs Claude Code under the hood)
+- A Claude Code or Codex account
 
 ## Download
 

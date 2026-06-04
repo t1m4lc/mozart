@@ -24,7 +24,7 @@ const SCREENSHOT_HEIGHT = 1800;
           [src]="src"
           [width]="width"
           [height]="height"
-          alt="Mozart desktop: parallel Workspaces, agent timeline, and diff review running side by side. (screenshot v0.0.1-beta.1)"
+          alt="Mozart desktop: parallel Workspaces, agent timeline, and diff review running side by side. (screenshot v0.1.0-beta.1)"
           loading="eager"
           fetchpriority="high"
           decoding="async"
@@ -34,7 +34,7 @@ const SCREENSHOT_HEIGHT = 1800;
       <figcaption
         class="sr-only text-muted-foreground/20 mt-3 text-center font-mono text-xs tracking-wider"
       >
-        mozart-desktop &middot; v0.0.1-beta.1
+        mozart-desktop &middot; v0.1.0-beta.1
       </figcaption>
     </div>
   `,

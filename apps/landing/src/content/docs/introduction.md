@@ -3,7 +3,7 @@ description: What Mozart is, how it works, and when to use it.
 order: 1
 ---
 
-Mozart is an AI coding agent manager. It runs a team of Claude Code agents in parallel, each isolated in its own workspace, so you can review and merge their work like any other contributor.
+Mozart is an AI coding agent manager. It runs Claude Code and Codex agents in parallel, each isolated in its own workspace, so you can review and merge their work like any other contributor.
 
 ## Why Mozart
 
@@ -14,4 +14,4 @@ Coding agents work best when you can run several in parallel without them steppi
 - **Parallel Workspaces** — start three attempts on the same Task and merge the one you like
 - **Reviewable diffs** — each Workspace produces a diff you can review like a PR
 - **Local-first** — your code, your machine, no cloud round-trip required
-- **Bring your own agent** — Claude Code today, more soon
+- **Bring your own agent** — use Claude Code or Codex with your existing account

@@ -1,6 +1,6 @@
 {
   "name": "@mozart/source",
-  "version": "0.1.0-beta.0.1",
+  "version": "0.1.0-beta.1",
   "license": "MIT",
   "sideEffects": false,
   "scripts": {
@@ -18,7 +18,7 @@
     "seed-fresh": "pnpm seed",
     "purge:landing-cache": "./tools/mozart-landing-cf-page-purge-cache.sh",
     "purge:tauri": "rm -rf apps/desktop-tauri/target && rm -rf node_modules/.cache .nx/cache && nx reset",
-    "try": "rm -rf ~/.config/build.mozart.desktop && rm -rf ~/.local/share/build.mozart.desktop && pnpm tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}' && ./apps/desktop-tauri/target/release/bundle/appimage/mozart_0.1.0-beta.0_amd64.AppImage"
+    "try": "rm -rf ~/.config/build.mozart.desktop && rm -rf ~/.local/share/build.mozart.desktop && pnpm tauri build --config '{\"bundle\":{\"createUpdaterArtifacts\":false}}' && ./apps/desktop-tauri/target/release/bundle/appimage/mozart_0.1.0-beta.1_amd64.AppImage"
   },
   "private": true,
   "packageManager": "pnpm@11.0.8",

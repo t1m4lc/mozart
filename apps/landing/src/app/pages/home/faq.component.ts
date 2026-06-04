@@ -14,7 +14,7 @@ const FAQ: readonly FaqEntry[] = [
   {
     question: 'Which coding agents does Mozart support?',
     answer:
-      'Mozart starts with Claude Code and is built with an adapter layer so more agents can be added over time.',
+      'Mozart supports Claude Code and Codex, using the credentials you already use for those tools.',
   },
   {
     question: 'Where does Mozart run?',

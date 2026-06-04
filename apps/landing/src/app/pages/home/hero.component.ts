@@ -10,7 +10,10 @@ import {
   lucideArrowRight,
   lucideDownload,
 } from '@ng-icons/lucide';
-import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
+import {
+  ANALYTICS_EVENTS,
+  AnalyticsService,
+} from '@mozart/shared-util-analytics';
 import { detectOsTag } from '../../shell/analytics/detect-os';
 import { pageSection } from '../../shell/analytics/page-section';
 import {
@@ -41,7 +44,7 @@ import {
       </h1>
 
       <p class="text-muted-foreground mb-8 max-w-2xl text-base">
-        Run <b>parallel Agents</b> in isolated Workspaces. <br />
+        Run Claude Code or Codex in isolated Workspaces. <br />
         Review every diff. Ship faster <b>without losing control</b>.
       </p>
 

@@ -4,12 +4,12 @@ import { type PagesContext, constantTimeEquals } from './analytics/_lib';
 // server-side, then hands back the R2 URL for the requested platform.
 //
 // Hosting model: binaries + a per-version `manifest.json` live on R2
-// (e.g. https://dl.mozart.build/v0.1.0-beta.0/...). The manifest maps an
+// (e.g. https://dl.mozart.build/v0.1.0-beta.1/...). The manifest maps an
 // OS key to the actual bundle filename, so this function never needs to
 // know exact filenames — only the version (env `DOWNLOAD_VERSION`).
 //
 // The gate is active ONLY while `DOWNLOAD_CODE` is set. Unset the secret
-// (post beta.0.x, when downloads open to everyone) and the function serves
+// (post private beta, when downloads open to everyone) and the function serves
 // links without a code — no code change required.
 
 type Env = {
@@ -21,7 +21,7 @@ type Env = {
 type Body = { readonly os?: unknown; readonly code?: unknown };
 
 const DEFAULT_BASE_URL = 'https://dl.mozart.build';
-const DEFAULT_VERSION = '0.1.0-beta.0.1';
+const DEFAULT_VERSION = '0.1.0-beta.1';
 const OS_KEYS = ['mac', 'mac-intel', 'windows', 'linux'] as const;
 type OsKey = (typeof OS_KEYS)[number];
 

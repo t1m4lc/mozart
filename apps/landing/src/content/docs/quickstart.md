@@ -16,8 +16,8 @@ Download and launch the desktop app. See [Install](/docs/install) for system req
 
 ## 2. Connect your agent
 
-Mozart runs Claude Code under the hood, so it needs a Claude account. On first launch Mozart walks
-you through connecting it — sign in once and every Workspace uses it.
+Mozart can run Claude Code or Codex. On first launch Mozart walks you through connecting at least
+one agent — sign in once and every Workspace can use it.
 
 ## 3. Open or create a Project
 
@@ -27,7 +27,7 @@ code stays [local](/docs/concepts/local-first); nothing is pushed anywhere.
 
 ## 4. Run your first Workspace
 
-Write a **Task** — your intent in plain English, like *"Add a search input to the navbar"* — and
+Write a **Task** — your intent in plain English, like _"Add a search input to the navbar"_ — and
 click **Run**. Mozart spins up an isolated [Workspace](/docs/concepts/isolated-workspaces) and
 streams the Agent's work live in the Thread.
 

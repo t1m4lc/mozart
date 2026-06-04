@@ -1,6 +1,6 @@
 # Mozart
 
-> AI coding agent manager. Mozart runs a team of Claude Code agents in parallel, each isolated in its own Workspace, so you can review and merge their work like any other contributor.
+> AI coding agent manager. Mozart runs Claude Code and Codex agents in parallel, each isolated in its own Workspace, so you can review and merge their work like any other contributor.
 
 Home: https://mozart.build
 
@@ -31,5 +31,7 @@ Home: https://mozart.build
 
 ## Changelog
 
+- [0.1.0-beta.1 — Codex joins Mozart](https://mozart.build/changelog/v0-1-0-beta-1): Codex joins Mozart
+- [0.1.0-beta.0.1 — First silent update](https://mozart.build/changelog/v0-1-0-beta-0-1): First silent update
 - [0.1.0-beta.0 — First private beta](https://mozart.build/changelog/v0-1-0-beta-0): First private beta
 

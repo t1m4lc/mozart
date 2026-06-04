@@ -1,5 +1,8 @@
 # Todo
 
+- skill paperasse https://www.data.gouv.fr/reuses/paperasse-skills-ia-pour-la-comptabilite-et-fiscalite-francaise
+- creer landing page reve avec plusieur corps de metier multilangue
+- simplifier abstraire dev
 - Token economy utiliser https://github.com/colbymchenry/codegraph
 - on va defer la partie gestion des review dans l'app en invitant le user à poster une PR sur github.
 
