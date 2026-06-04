@@ -87,8 +87,11 @@ const MAX_VISIBLE_REPOS = 8;
     }),
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    class: 'flex min-h-0 flex-col overflow-hidden',
+  },
   template: `
-    <div hlmDialogHeader class="px-6 py-4">
+    <div hlmDialogHeader class="shrink-0 px-6 py-4">
       <h3 hlmDialogTitle>Clone GitHub repo</h3>
       <p hlmDialogDescription>
         @if (profile.githubConnected()) {
@@ -100,7 +103,7 @@ const MAX_VISIBLE_REPOS = 8;
     </div>
 
     <form
-      class="px-6 py-4 space-y-4"
+      class="flex-1 min-h-0 overflow-y-auto px-6 py-4 space-y-4"
       (submit)="onFormSubmit($event)"
       autocomplete="off"
     >
@@ -301,7 +304,7 @@ const MAX_VISIBLE_REPOS = 8;
       <button type="submit" class="hidden" aria-hidden="true"></button>
     </form>
 
-    <div hlmDialogFooter class="px-6 py-4">
+    <div hlmDialogFooter class="shrink-0 px-6 py-4">
       <button
         hlmDialogClose
         hlmBtn

@@ -56,7 +56,10 @@ export class AddProjectFlow {
         await this.addAndOpen(path);
       },
     };
-    this.dialogService.open(CloneRepoDialog, { context });
+    this.dialogService.open(CloneRepoDialog, {
+      context,
+      contentClass: 'sm:max-w-xl max-h-[calc(100vh-4rem)] overflow-hidden',
+    });
   }
 
   // Dashboard card 3 entry point. Opens the Create project dialog,
