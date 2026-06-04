@@ -1,7 +1,7 @@
 -- migrations/009_workspace_file_views.sql
 -- Schema v9: per-workspace, per-file "Viewed" review state.
 -- Backs P2.2 Viewed state + diff toolbar (see
--- docs/specs/plan-mozart-dogfood-readiness.md § P2.2,
+-- docs/engineering/planning/dogfood-readiness.md § P2.2,
 -- AD-03 / [[mozart-viewed-principle]]).
 --
 -- Stores one row per file the reviewer has explicitly marked viewed in

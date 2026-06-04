@@ -212,7 +212,7 @@ The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_san
 
 ## Agent context — per-call ROnly read connection for ContextCompiler (D4)
 
-**What:** `claude_cli::context_compiler::build_envelope` currently runs over the shared mutexed `DbState` connection. The ContextCompiler v1 architecture (`docs/agent-context-architecture.md`) called for opening a dedicated `SQLITE_OPEN_READ_ONLY` connection per build, so envelope-build reads never contend with the primary connection's writers (event ingest, message persistence, summary insert).
+**What:** `claude_cli::context_compiler::build_envelope` currently runs over the shared mutexed `DbState` connection. The ContextCompiler v1 architecture (`docs/engineering/architecture/context-compiler.md`) called for opening a dedicated `SQLITE_OPEN_READ_ONLY` connection per build, so envelope-build reads never contend with the primary connection's writers (event ingest, message persistence, summary insert).
 
 **Why:** Functionally correct today — `BEGIN DEFERRED` inside `build_envelope` gives consistent reads under WAL, and the mutex serializes the request fairly. But under heavy concurrent agent activity (multi-workspace, multi-turn) the build can briefly block the runner supervisor's event-insert path. Mostly a latency concern, not a correctness one.
 

@@ -1,7 +1,7 @@
 -- migrations/010_workspace_sandbox_level.sql
 -- Schema v10: per-workspace agent sandbox isolation tier.
 -- Backs P0.1 atom S0.1.B (see
--- docs/specs/plan-mozart-dogfood-readiness.md § P0.1 +
+-- docs/engineering/planning/dogfood-readiness.md § P0.1 +
 -- ~/.claude/plans/plan-the-fix-of-elegant-manatee.md).
 --
 -- Three values, persisted as the PascalCase strings the

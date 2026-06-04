@@ -5,7 +5,7 @@
 //! setup/run command pair that the Run tab should default to.
 //!
 //! Probe order is hardcoded in `infer_run` per
-//! docs/specs/plan-mozart-dogfood-readiness.md § P0.3:
+//! docs/engineering/planning/dogfood-readiness.md § P0.3:
 //!
 //! 1. JS workspace (pnpm-workspace.yaml | nx.json | yarn.lock | package.json)
 //! 2. Cargo.toml

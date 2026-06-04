@@ -68,7 +68,7 @@ pub enum AppError {
     #[error("path refused: {0}")]
     PathRefused(String),
 
-    // ContextCompiler v1 (docs/agent-context-architecture.md, T3) —
+    // ContextCompiler v1 (docs/engineering/architecture/context-compiler.md, T3) —
     // fail-closed for essential context: current-message lookup,
     // cross-entity validation (`message.chat_id == chat_id`,
     // `chat.workspace_id == workspace_id`), history load. Surfaced to

@@ -106,7 +106,7 @@ export interface RepositoriesAdapter {
   // ── Viewed state (P2.2 / [[mozart-viewed-principle]]) ────────────
   // Each surface is an explicit reviewer action — opening a file
   // never marks it viewed. See the spec at
-  // `docs/specs/plan-mozart-dogfood-readiness.md` § P2.2.
+  // `docs/engineering/planning/dogfood-readiness.md` § P2.2.
 
   /** Mark one file viewed at its current content hash. Idempotent. */
   markFileViewed(workspaceId: string, path: string): Promise<void>;

@@ -3,7 +3,7 @@ import { signalStore, withState, withMethods, patchState } from '@ngrx/signals';
 /**
  * Per-workspace cache of Viewed state for files in the Changes review
  * surface. Backs P2.2 (see
- * `docs/specs/plan-mozart-dogfood-readiness.md` § P2.2 and
+ * `docs/engineering/planning/dogfood-readiness.md` § P2.2 and
  * `[[mozart-viewed-principle]]`).
  *
  * The map is the source of truth for the four-way decoration in the

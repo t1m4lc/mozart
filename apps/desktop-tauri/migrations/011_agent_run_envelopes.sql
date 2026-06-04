@@ -1,6 +1,6 @@
 -- migrations/011_agent_run_envelopes.sql
 -- Schema v11: per-run rendered envelope snapshot + prompt_source semantic shift.
--- Backs the ContextCompiler v1 architecture (docs/agent-context-architecture.md,
+-- Backs the ContextCompiler v1 architecture (docs/engineering/architecture/context-compiler.md,
 -- CEO-reviewed 2026-05-22, ENG-reviewed 2026-05-22).
 --
 -- Two changes in one bundle:

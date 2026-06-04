@@ -13,7 +13,7 @@
 //! collision probability is the same as guessing a UUID.
 //!
 //! Layer order matches the struct field order on [`LLMEnvelope`]
-//! (also the order in `docs/agent-context-architecture.md`): system
+//! (also the order in `docs/engineering/architecture/context-compiler.md`): system
 //! rules → project memory → workspace state → recent conversation
 //! → operational summaries → attached context → current user
 //! message. The current user message is rendered exactly once at

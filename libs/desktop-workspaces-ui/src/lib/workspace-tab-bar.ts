@@ -47,7 +47,7 @@ export interface TabRenameEvent {
  *   chat/diff content area, with one `hlmTabsContent` panel per
  *   dynamic tab. That reshapes how the chat panel mounts — exactly
  *   the scope of P1.3 (Chat-panel + composer frame refactor) in
- *   docs/specs/plan-mozart-dogfood-readiness.md. Track it there;
+ *   docs/engineering/planning/dogfood-readiness.md. Track it there;
  *   don't reattempt B3 against this tab bar in isolation.
  */
 @Component({

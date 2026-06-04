@@ -11,7 +11,7 @@ import { HlmTypographyImports } from '@spartan-ui/typography';
 import type { WelcomeState } from '@mozart/desktop-auth-util';
 
 // Dumb presentational component for /welcome. Mirrors the layout in
-// docs/specs/onboarding-and-auth.md §2.2 : logo, heading, subtitle,
+// docs/engineering/specs/onboarding-and-auth.md §2.2 : logo, heading, subtitle,
 // primary button, optional sub-line + ghost Cancel during `opening`.
 //
 // The 'authenticating' state from earlier iterations was removed once

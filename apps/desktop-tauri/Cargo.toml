@@ -25,7 +25,7 @@ specta-typescript = "0.0.9"
 [dependencies]
 ## preserve_order: P0.3 needs the JSON-key order of .mozart/run.json to
 ## drive the Run/Setup tab order — without this feature serde_json sorts
-## keys alphabetically. See docs/specs/plan-mozart-dogfood-readiness.md
+## keys alphabetically. See docs/engineering/planning/dogfood-readiness.md
 ## § P0.3 Prerequisite.
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde = { version = "1.0", features = ["derive"] }
@@ -83,7 +83,7 @@ tauri-plugin-shell = "2"
 # minisign pubkey in tauri.conf.json → exposes "update ready" to JS,
 # which calls `relaunch()` (process plugin) when the user clicks
 # the Restart-to-install button. Distribution flow lives in
-# docs/cloud-app/desktop-release-automation.md.
+# docs/engineering/release/desktop-release-automation.md.
 tauri-plugin-updater = "2"
 tauri-plugin-process = "2"
 

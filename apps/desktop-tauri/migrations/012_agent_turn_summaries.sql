@@ -1,6 +1,6 @@
 -- migrations/012_agent_turn_summaries.sql
 -- Schema v12: compact per-assistant-turn summaries used by future runs.
--- Backs the ContextCompiler v1 architecture (docs/agent-context-architecture.md).
+-- Backs the ContextCompiler v1 architecture (docs/engineering/architecture/context-compiler.md).
 --
 -- Each completed assistant turn produces one row here, written by the
 -- post-run hook in the runner supervisor task. The summary is the

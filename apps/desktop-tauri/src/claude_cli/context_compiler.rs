@@ -9,7 +9,7 @@
 //! (`agent_turn_summaries` for older runs) fail-soft via `log::warn!`
 //! and continue.
 //!
-//! Architecture: `docs/agent-context-architecture.md` →
+//! Architecture: `docs/engineering/architecture/context-compiler.md` →
 //! "ContextCompiler architecture" + "Failure handling" +
 //! "Concurrency + ordering".
 

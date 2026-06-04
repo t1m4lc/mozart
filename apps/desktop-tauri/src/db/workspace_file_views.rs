@@ -1,6 +1,6 @@
 //! CRUD for the `workspace_file_views` table — per-workspace per-file
 //! "Viewed" review state. Backs P2.2 Viewed state + diff toolbar
-//! (see `docs/specs/plan-mozart-dogfood-readiness.md` § P2.2 and
+//! (see `docs/engineering/planning/dogfood-readiness.md` § P2.2 and
 //! `[[mozart-viewed-principle]]`).
 //!
 //! The Viewed state is a passive review aid. Rows are inserted only

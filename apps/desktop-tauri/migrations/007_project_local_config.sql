@@ -1,7 +1,7 @@
 -- migrations/007_project_local_config.sql
 -- Schema v7: per-project local config (user-machine only, never in repo).
 -- Backs P0.3 bootstrap on Open project (see
--- docs/specs/plan-mozart-dogfood-readiness.md § P0.3).
+-- docs/engineering/planning/dogfood-readiness.md § P0.3).
 --
 -- Holds the inferred run.json shape plus user preferences that must NOT
 -- end up in the repo: mergeMode, etc. The repo-side equivalent lives in

@@ -24,5 +24,5 @@ when Phase 3b lands.
 
 ## Phase 3b — coming
 
-Specs : `docs/specs/llm-stream-parser.md` §4-§7, and
-`docs/specs/composer-timeline-ui.md` §4.
+Specs : `docs/engineering/specs/llm-stream-parser.md` §4-§7, and
+`docs/engineering/specs/composer-timeline-ui.md` §4.

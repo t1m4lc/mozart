@@ -1,7 +1,7 @@
 //! Schema validator for `.mozart/*` config.
 //!
 //! Runs at both read and write to enforce the hard rules from
-//! docs/specs/plan-mozart-dogfood-readiness.md § P0.3:
+//! docs/engineering/planning/dogfood-readiness.md § P0.3:
 //!
 //! - No key (at any depth) matches `/(password|secret|token|api[_-]?key)/i`.
 //!   Keeps secrets out of files that may end up in a repo.

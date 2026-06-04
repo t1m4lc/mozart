@@ -42,7 +42,7 @@ const ZERO_COUNTS: FileStateCounts = Object.freeze({
 /**
  * `<mz-review-progress>` — dense GitHub-style review summary backing
  * the P2.2 Changes tab (see
- * `docs/specs/plan-mozart-dogfood-readiness.md` § P2.2,
+ * `docs/engineering/planning/dogfood-readiness.md` § P2.2,
  * `[[mozart-viewed-principle]]`).
  *
  * Collapsed row:

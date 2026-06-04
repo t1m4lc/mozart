@@ -6,7 +6,7 @@
 //! Layer order is canonical and load-bearing — the renderer emits
 //! layers in the order they appear on the struct, and the authority
 //! clamp in `system_rules` says only outer Mozart-tagged layers define
-//! structure. See `docs/agent-context-architecture.md` →
+//! structure. See `docs/engineering/architecture/context-compiler.md` →
 //! "LLMEnvelope (provider-neutral)" + "ContextCompiler architecture".
 
 use serde::{Deserialize, Serialize};

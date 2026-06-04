@@ -142,8 +142,8 @@ layers (`feature-* → ui-* → data → util-*`), facades as the only public
 entry to a domain's data layer, and adapters as the only file that talks
 to Tauri / IPC / HTTP. See:
 
-- [`docs/specs/mozart-architecture.md`](docs/specs/mozart-architecture.md) — versioned architecture & boundaries
-- [`docs/specs/mozart-operating-system-vision.md`](docs/specs/mozart-operating-system-vision.md) — the `.mozart/` project OS vision
+- [`docs/engineering/architecture/mozart-architecture.md`](docs/engineering/architecture/mozart-architecture.md) — versioned architecture & boundaries
+- [`docs/product/vision/operating-system-vision.md`](docs/product/vision/operating-system-vision.md) — the `.mozart/` project OS vision
 - [`docs/specs/plan-v0.1.0-beta.1.md`](docs/specs/plan-v0.1.0-beta.1.md) — the MVP delivery plan and conventions
 - [`CLAUDE.md`](CLAUDE.md) — coding rules and constraints for agents
 - [`AGENTS.md`](AGENTS.md) — operational map for AI agents working in this repo

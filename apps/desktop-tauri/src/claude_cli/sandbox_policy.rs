@@ -1,6 +1,6 @@
 //! Sandbox policy for the Claude CLI agent runner.
 //!
-//! Plan refs: `docs/specs/plan-mozart-dogfood-readiness.md` § P0.1
+//! Plan refs: `docs/engineering/planning/dogfood-readiness.md` § P0.1
 //! (atoms S0.1.B → S0.1.F) and the local atom-fix plan at
 //! `~/.claude/plans/plan-the-fix-of-elegant-manatee.md`.
 //!

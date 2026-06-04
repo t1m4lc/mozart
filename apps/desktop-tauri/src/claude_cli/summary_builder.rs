@@ -12,7 +12,7 @@
 //! `Write`, `Bash`) get structured extraction; unknown tools are
 //! counted as `other_tools` and surfaced only in `text_summary`. That
 //! aligns with the ContextCompiler v1 spec (see
-//! docs/agent-context-architecture.md) — an LLM-driven distillation
+//! docs/engineering/architecture/context-compiler.md) — an LLM-driven distillation
 //! is a deferred follow-up.
 //!
 //! All extraction is best-effort: malformed payloads, missing fields,
