@@ -62,9 +62,9 @@ Conventions (enforced — see roadmap §naming):
 |---|---|---|---|
 | `landing_viewed` | any landing `$pageview` (this is `$pageview` scoped to `surface=landing`) | `$current_url`, `$referrer`, `$referring_domain`, UTM, `section` | auto via `capture_pageview` |
 | `download_cta_clicked` | download dialog opens (intent) | `source` (`hero`\|`header`), `section`, `os`, `path` | `hero.component.ts`, `site-header.component.ts` |
-| `downloaded` | gated R2 URL returned, binary fetch begins — **success download, the canonical "download"** | `source`, `section`, `os`, `target`, `cta`, `dl_id`† | `download-dialog.component.ts:261`, `download.page.ts:161` |
+| `downloaded` | gated R2 URL returned, binary fetch begins — **success download, the canonical "download"** | `source`, `section`, `os`, `target`, `cta` | `download-dialog.component.ts`, `download.page.ts` |
 
-† `dl_id` is **deprecated unless** the installer/first-run is wired to carry it (see audit G4). Until then, ignore it in analysis.
+> `dl_id` (the old Tally-era cross-machine bridge) was **removed** — Tally is gone and no installer carried it, so it fed nothing. A landing download and a desktop install are separate anonymous sessions until login; that gap is real, not closeable client-side today.
 
 ### 2.2 `Authentication`
 
@@ -145,7 +145,7 @@ downloaded  →  desktop_authenticated  →  onboarding_completed
 ```
 Measures: install + first-auth friction. The `downloaded → desktop_authenticated` step is the
 real-world install+launch+sign-in gap. Cross-surface; needs identity stitching to connect a landing
-download to a desktop auth (best-effort via `dl_id` if wired, otherwise measured at the cohort level).
+download to a desktop auth — measured at the cohort level (no client-side cross-machine bridge).
 
 ### Funnel 3 — Activation (time-to-value)
 ```

@@ -164,7 +164,6 @@ export default class DownloadPageComponent implements OnInit {
         os: detectOsTag(this.os),
         target: targetOs,
         cta: 'primary',
-        dl_id: this.analytics.distinctId(),
       });
       window.location.href = url;
     } catch {

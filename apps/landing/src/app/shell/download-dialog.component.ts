@@ -264,7 +264,6 @@ export class DownloadDialogComponent {
         os: detectOsTag(this.os),
         target: platform.os,
         cta,
-        dl_id: this.analytics.distinctId(),
       });
       this.ref.close();
       window.location.href = url;

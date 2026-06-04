@@ -24,7 +24,7 @@ currently dark, then harden.** Don't add a single event that isn't in the refere
 | **P2** | Add explicit dev-mode init guard (`isDevMode()`) + host on `t.mozart.build` | no dev pollution, host consistency | XS | ✅ done |
 | **P2** | Event-name dictionary (`ANALYTICS_EVENTS`) + typed `capture`/`track` | one source of truth, no typos, funnel-synced | S | ✅ done |
 | **P3** | Staging PostHog project + validation lane | safe schema changes | S | ⬜ |
-| **P3** | Resolve `dl_id` (wire through installer or drop) | clean cross-machine bridge | S | ⬜ |
+| **P3** | ~~Resolve `dl_id`~~ — **dropped** (removed the orphaned Tally-era property) | — | — | ✅ done |
 | **P3** | Desktop telemetry opt-in toggle | consent compliance | S | ⬜ |
 
 ---
@@ -99,7 +99,7 @@ All activation and value events live in desktop. This is the bulk of the value.
 ## P3 — Hardening
 
 - [ ] **3.1** **Staging project.** Create a second PostHog project; route `develop`/PR-preview deploys to it via `vars.POSTHOG_KEY` (staging) so schema changes are validated against a non-prod project before merge. Today there is **no validation lane** — prod is the only place events land.
-- [ ] **3.2** **Resolve `dl_id`.** Either wire it through the installer → desktop first-run (so a cross-machine download links to its install) or **drop it** from `downloaded`. Currently orphaned.
+- [x] **3.2** **`dl_id` dropped.** Removed the orphaned property from `downloaded` and the now-unused `AnalyticsService.distinctId()` — it was the Tally-era cross-machine bridge that fed nothing once Tally was removed. Cross-machine download→install stays a cohort-level measure.
 - [ ] **3.3** **Full telemetry consent UX (RELEASE GUARD — must land before public launch).** The technical gate + storage ship in P1 (1.4); P3 adds the human-facing layer: onboarding consent copy, a settings toggle, preferences management, and `reset()` on opt-out. **Decide the GA default here** — beta runs `telemetry_opt_in = true` by default; public launch may need to flip to opt-in depending on the consent stance. Clear the `TODO(public-launch)` guard left at the gate in 1.4. **Do not ship GA with beta-by-default telemetry and no consent surface.**
 - [ ] **3.4** Update/retire `docs/engineering/specs/telemetry.md` — it references the removed Tally flow and `download_tally_redirected`. Point it at these three docs.
 

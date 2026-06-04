@@ -38,9 +38,9 @@ then they become a Clerk `userId` (see reference §1). Consequences you will see
 - **Anything → Desktop** only stitches **after** `identify()` fires on desktop auth. A landing
   download on a laptop and an install on a desktop are two anonymous persons until login merges them.
 - So **Funnel 2 (Installation)** is best read as a **cohort/cross-section** ("of people who downloaded
-  this week, how many authed"), not a strict same-person funnel — unless `dl_id` is wired through the
-  installer. PostHog will still draw it; just interpret the `downloaded → desktop_authenticated` step
-  as approximate at the person level.
+  this week, how many authed"), not a strict same-person funnel — there's no client-side cross-machine
+  bridge (the old `dl_id` was removed). PostHog will still draw it; just interpret the
+  `downloaded → desktop_authenticated` step as approximate at the person level.
 
 ### 0.4 Funnel settings that matter
 - **Conversion window**: the max time allowed between first and last step. Default 14 days. Set it per
@@ -89,8 +89,8 @@ downloaded  →  desktop_authenticated  →  onboarding_completed
 1. New **Funnel**. Steps: `downloaded`, `desktop_authenticated`, `onboarding_completed`.
 2. Cohort **External users**.
 3. **Conversion window: 7 days** (people download, then install/sign in later).
-4. Read the note in 0.3 — the first step is cross-machine, so treat it as approximate unless `dl_id`
-   is wired. Within desktop (`desktop_authenticated → onboarding_completed`) the same-person link is
+4. Read the note in 0.3 — the first step is cross-machine, so treat it as approximate (no client-side
+   bridge). Within desktop (`desktop_authenticated → onboarding_completed`) the same-person link is
    exact.
 
 **Read it**: a large `downloaded → desktop_authenticated` gap is the real install + first-launch +
@@ -204,6 +204,6 @@ filter to the **External users** cohort so every tile inherits it.
 - [ ] Conversion windows set intentionally (1h acquisition, 7d install/activation, 14d value).
 - [ ] Retention is anchored on **first successful `agent_completed`** (`success=true`), not signup.
 - [ ] "Active" = successful `agent_completed` OR `pr_created` (build it as a PostHog Action and reuse).
-- [ ] Cross-machine funnel steps (`downloaded → desktop_authenticated`) read as approximate until
-      `dl_id` is wired — don't treat that drop as exact same-person conversion.
+- [ ] Cross-machine funnel steps (`downloaded → desktop_authenticated`) read as approximate (no
+      client-side bridge) — don't treat that drop as exact same-person conversion.
 - [ ] Validate new insights in **staging** before pinning to the prod dashboard.

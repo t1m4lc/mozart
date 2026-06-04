@@ -98,8 +98,4 @@ export class AnalyticsService {
     this.pendingIdentify = null;
     this.posthog?.reset();
   }
-
-  distinctId(): string | null {
-    return this.posthog?.get_distinct_id() ?? null;
-  }
 }
