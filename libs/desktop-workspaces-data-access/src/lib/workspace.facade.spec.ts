@@ -2,6 +2,9 @@ import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  AnalyticsConfigPort,
+} from '@mozart/desktop-core-data-access';
+import {
   DIALOG_ADAPTER,
   PROJECTS_ADAPTER,
 } from '@mozart/desktop-projects-data-access';
@@ -124,6 +127,16 @@ function configureModule(overrides: {
           openRun: vi.fn(),
           openSetup: vi.fn(),
           stopRun: vi.fn(),
+        },
+      },
+      // DesktopAnalyticsFacade (pulled in via ProjectsFacade) needs
+      // AnalyticsConfigPort; a no-op stub suffices for these tests.
+      {
+        provide: AnalyticsConfigPort,
+        useValue: {
+          getOrCreateInstallId: vi.fn().mockResolvedValue('test-id'),
+          getTelemetryOptIn: vi.fn().mockResolvedValue(false),
+          setTelemetryOptIn: vi.fn().mockResolvedValue(undefined),
         },
       },
       // RunRegistry's constructor effect reads ThemeService, which
