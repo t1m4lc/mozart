@@ -19,10 +19,10 @@ currently dark, then harden.** Don't add a single event that isn't in the refere
 | **P0** | Web auth events (`signup_completed` / `login_completed`) | Funnel 1→2 handoff, Signup Rate | S | ✅ done |
 | **P1** | Desktop analytics service + `install_id` + `identify` + consent gate | Funnels 2/3/4, activation, retention | M | ✅ done |
 | **P1** | Desktop activation events (`desktop_authenticated`, `onboarding_completed`, `workspace_created`, `agent_completed`) | Activation Rate, TTV, WAU/MAU | M | ✅ done |
-| **P2** | Value + config events (`project_added`, `pr_created`, `provider_connected`) | Funnel 4, North-Star | S | ⬜ |
-| **P2** | Rename `download_started` → `downloaded` (landing) | clean canonical download metric | XS | ⬜ |
-| **P2** | Add explicit dev-mode init guard + standardize host on `t.mozart.build` | no dev pollution, host consistency | XS | ⬜ |
-| **P2** | Event-name constants + base-property registration | data quality, no typos | S | ⬜ |
+| **P2** | Value + config events (`project_added`, `pr_created`, `provider_connected`) | Funnel 4, North-Star | S | ✅ done |
+| **P2** | Rename `download_started` → `downloaded` (landing) | clean canonical download metric | XS | ✅ done |
+| **P2** | Add explicit dev-mode init guard (`isDevMode()`) + host on `t.mozart.build` | no dev pollution, host consistency | XS | ✅ done |
+| **P2** | Event-name constants + base-property registration | data quality, no typos | S | ⬜ pending (churns ~10 call sites — confirm before doing) |
 | **P3** | Staging PostHog project + validation lane | safe schema changes | S | ⬜ |
 | **P3** | Resolve `dl_id` (wire through installer or drop) | clean cross-machine bridge | S | ⬜ |
 | **P3** | Desktop telemetry opt-in toggle | consent compliance | S | ⬜ |
@@ -73,25 +73,22 @@ All activation and value events live in desktop. This is the bulk of the value.
 ### 1c. Activation events
 - [ ] **1.6** `onboarding_completed` in `onboarding.facade.ts:complete()` (line 115). Property `github_connected`.
 - [ ] **1.7** `workspace_created` in `workspace.facade.ts:createForPrompt()` (line 230). **Set `is_get_started` and `is_first`** — the onboarding-precreated workspace must be flagged so it's excluded from activation (see reference §2.3 warning).
-- [ ] **1.8** `agent_completed` — **fire from a higher-level facade, not `run-registry` directly** (eng review decision, 2026-06-04). `run-registry` knows the run status + `exitCode` but has zero knowledge of changed files, and both Activation Rate and the North-Star are defined on *change-producing* runs. Emit from a facade that sees **both**:
-  - `outcome` — derive from `run-registry`'s `exitCode` signal (`run-registry.service.ts:49`) + whether `stopRun()` was called: `code === 0 → 'succeeded'`, `code !== 0 → 'failed'`, user stop → `'stopped'`.
-  - `produced_changes` — read the workspace's changed-file state (file-views / repositories domain) after exit.
-  - Other props: `duration_ms`, `provider`, `workspace_id`, `is_get_started`.
-  - **Respect module boundaries** — the emitting facade may already depend on both `runs` and `repositories` data-access; if not, put the orchestration in a `feature`-layer coordinator rather than reaching across `data-access` libs. **This is the activation "Aha!" event — get its properties right.** (No separate `agent_started` — KISS decision, see reference §2.6.)
+- [x] **1.8** `agent_completed` — **deliberately lean** (decision 2026-06-04). Fired from `chat.facade`'s terminal handler with `workspace_id`, `provider`, and a single `success: boolean` (`status === 'done'`). No 3-way outcome, no `produced_changes` turn-state scan, no duration — first **successful** run is the activation signal. (No separate `agent_started` — KISS, see reference §2.6.)
 
 **Acceptance**:
-- Fresh install → sign in → `desktop_authenticated` + identify merges the anonymous landing session → create a workspace → run an agent → `agent_completed` fires with correct `outcome` **and** `produced_changes`, and the whole journey is **one person** in PostHog.
+- Fresh install → sign in → `desktop_authenticated` + identify merges the anonymous landing session → create a workspace → run an agent → `agent_completed` fires with `success: true`, and the whole journey is **one person** in PostHog.
 - **Consent gate (1.4):** default beta config → `telemetry_opt_in = true` → events are captured. Manually set `telemetry_opt_in = false` → events are skipped. `capture()` never bypasses the flag directly (verified by the single-chokepoint helper).
 
 ---
 
 ## P2 — Value, config & data quality
 
-- [ ] **2.1** `project_added` in `project.facade.ts:add()` (line 241). `is_first`, `source`.
-- [ ] **2.2** `pr_created` in `workspace.facade.ts:createPr()` success (line 485). `draft`, `provider`. **End of the value loop for the user today.** (No `diff_reviewed` — cut, see reference §2.6.)
-- [ ] **2.3** `provider_connected` in `profile.facade.ts:connectFor()` / GitHub / Codex paths. `provider`, `is_first`, `connected_count`. **Provisional** — kept only to answer *which providers do users use, and do they use more than one?* Drop if the answer turns out to be boring.
-- [ ] **2.4** Rename landing `download_started` → `downloaded` at `download-dialog.component.ts:261` and `download.page.ts:161`. Keep all existing props.
-- [ ] **2.5** Add an **explicit dev-mode guard** to `AnalyticsService.init()` (skip init in dev/non-prod regardless of key; `POSTHOG_FORCE_ENABLE` → staging override only), and **standardize `posthogHost` on `https://t.mozart.build`** in landing dev env (currently `eu.i.posthog.com`).
+- [x] **2.1** `project_added` in `project.facade.ts` `add()` **and** `bootstrap()` (both register a project). Props: `is_first`, `source` (`add`\|`open`).
+- [x] **2.2** `pr_created` in `workspace.facade.ts:createPr()` success. Props: `workspace_id`, `draft`. **End of the value loop for the user today.** (No `diff_reviewed` — cut, see reference §2.6. No `provider` — not available at the createPr call.)
+- [x] **2.3** `provider_connected` in `profile.facade.ts` `connectWithKey` (claude) / `connectCodexWithKey` (codex) / `connectGithub`(`ViaClerk`) success paths. Prop: `provider`. **Provisional** — multi-provider = users with ≥2 distinct `provider` values (no `connected_count` needed). Drop if boring.
+- [x] **2.4** Renamed landing `download_started` → `downloaded` at `download-dialog.component.ts` and `download.page.ts`. Props unchanged.
+- [x] **2.5** `AnalyticsService.init()` now skips in dev via `isDevMode()` (belt-and-suspenders over the empty dev key), with an `init({ forceInDev: true })` override for local wiring checks. Desktop env already uses `https://t.mozart.build`; landing dev still `eu.i.posthog.com` (inert — empty key — left as-is to avoid touching landing config beyond the rename).
+- [ ] **2.6** Centralize event names (`ANALYTICS_EVENTS` const + `captureEvent` helper). **Not done** — touches ~10 call sites across P0/P1/P2; held to avoid churn while P0/P1 are under test. Confirm before doing.
 - [ ] **2.6** **Centralize event names + base props.** Add an exported `ANALYTICS_EVENTS` const map (and a small `captureEvent()` helper that auto-attaches `surface`/`app_version`) in `shared-util-analytics`. No more raw string literals at call sites — kills typos and makes the catalog greppable. Matches the reference doc 1:1.
 
 **Acceptance**: all four reference funnels build in PostHog with non-zero data; North-Star insight

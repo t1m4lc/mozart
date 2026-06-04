@@ -114,7 +114,8 @@ desktop_authenticated  →  workspace_created  →  agent_completed
 3. **Exclude the bundled get-started workspace** — this is critical or activation is fake. On both
    `workspace_created` and `agent_completed`, add a step filter **`is_get_started` `is not` `true`**.
    (Onboarding pre-creates a "Get started" workspace; counting it makes everyone look activated the
-   instant they finish onboarding.)
+   instant they finish onboarding.) On `agent_completed`, also filter **`success` `=` `true`** so a
+   failed run doesn't count as activation.
 4. **Conversion window: 7 days** (activation should happen in the first week).
 5. **Time-to-value**: switch the funnel's right-hand metric to **"Time to convert"** (PostHog shows
    median + distribution between steps). The `desktop_authenticated → agent_completed` median is your
@@ -153,7 +154,7 @@ This is **not** a funnel — it's a **Retention** insight.
 
 **Build it:**
 1. New insight → **Retention**.
-2. **Cohortize on ("Performed event")**: `agent_completed` — *first time*. (Anchor on activation, not
+2. **Cohortize on ("Performed event")**: `agent_completed` filtered `success = true` — *first time*. (Anchor on activation, not
    signup; reference §4.3 explains why.)
 3. **Returning event ("Performed event")**: set to **any active event** — in PostHog, add `agent_completed`
    **or** `pr_created`. If the UI only allows one returning event, create a **"Active" action** (PostHog
@@ -172,19 +173,19 @@ result and leave.
 
 **WAU / MAU** — Trends insight:
 1. New insight → **Trends**.
-2. Series: the **"Active" action** (`agent_completed` OR `pr_created`), metric **"Unique users"**.
+2. Series: the **"Active" action** (successful `agent_completed` OR `pr_created`), metric **"Unique users"**.
+   Build the Action as `agent_completed` filtered on `success = true`, OR `pr_created`.
 3. Cohort **External users**.
 4. **Rolling window**: set the chart to a 7-day rolling unique count for WAU, 30-day for MAU (PostHog:
    "Unique users" + the rolling/`WAU`/`MAU` aggregation option).
 
-**North-Star** — *Weekly active users who completed ≥1 change-producing agent run*:
+**North-Star** — *Weekly active users with ≥1 successful agent run*:
 1. Trends → series `agent_completed`, metric **Unique users**, **weekly**.
-2. Add property filter **`produced_changes` `=` `true`** and **`is_get_started` `is not` `true`**.
+2. Add property filter **`success` `=` `true`** and **`is_get_started` `is not` `true`**.
 3. Cohort **External users**.
 
-> This is why `produced_changes` on `agent_completed` matters and why it's fired from a facade that can
-> actually see the diff (reference §2.3, roadmap 1.8). Without it, this insight can't distinguish a real
-> result from an empty run.
+> `success` is the single activation signal on `agent_completed` (a finished run that reached `done`).
+> Kept deliberately lean — no `produced_changes`/diff inspection (reference §2.3, roadmap 1.8).
 
 ---
 
@@ -201,8 +202,8 @@ filter to the **External users** cohort so every tile inherits it.
 - [ ] Every insight filters out `is_internal_device = true` (use the External users cohort).
 - [ ] Activation/value funnels exclude `is_get_started = true` on workspace/agent steps.
 - [ ] Conversion windows set intentionally (1h acquisition, 7d install/activation, 14d value).
-- [ ] Retention is anchored on **first `agent_completed`**, not signup.
-- [ ] "Active" = `agent_completed` OR `pr_created` (build it as a PostHog Action and reuse).
+- [ ] Retention is anchored on **first successful `agent_completed`** (`success=true`), not signup.
+- [ ] "Active" = successful `agent_completed` OR `pr_created` (build it as a PostHog Action and reuse).
 - [ ] Cross-machine funnel steps (`downloaded → desktop_authenticated`) read as approximate until
       `dl_id` is wired — don't treat that drop as exact same-person conversion.
 - [ ] Validate new insights in **staging** before pinning to the prod dashboard.

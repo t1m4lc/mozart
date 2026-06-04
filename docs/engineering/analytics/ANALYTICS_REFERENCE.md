@@ -54,7 +54,7 @@ Conventions (enforced — see roadmap §naming):
 - Reserved: PostHog `$`-prefixed events.
 - **Every event carries these base properties** (registered as super-properties where possible):
   `surface` (`landing`\|`web`\|`desktop`), `app_version`, `is_internal_device` (already a super-prop).
-- Identified events additionally carry `userId`. Desktop pre-auth events carry `install_id`.
+- After `identify()`, PostHog attaches the person to every event via the `distinct_id` — so an explicit `userId` property is redundant and omitted on most events (kept only where it aids debugging, e.g. `desktop_authenticated`). Desktop pre-auth events ride the anonymous `install_id`.
 
 ### 2.1 `Acquisition`
 
@@ -83,14 +83,14 @@ Conventions (enforced — see roadmap §naming):
 
 | Event | Fires when | Key properties | Anchor |
 |---|---|---|---|
-| `onboarding_completed` | onboarding wizard finished | `userId`, `github_connected: boolean` | `onboarding.facade.ts:complete()` (line 115) |
-| `project_added` | a project is added to the workspace list | `userId`, `is_first: boolean`, `source` (`picker`\|`clone`\|`quickstart`) | `project.facade.ts:add()` (line 241) |
-| `workspace_created` | a workspace is created **by the user** | `userId`, `is_first: boolean`, `is_get_started: boolean` | `workspace.facade.ts:createForPrompt()` (line 230) |
-| `agent_completed` | agent run terminates (status → `'exited'`) — **the "Aha!" moment** | `userId`, `workspace_id`, `provider` (`claude`\|`codex`\|…), `outcome` (`succeeded`\|`failed`\|`stopped`), `produced_changes: boolean`, `duration_ms`, `is_get_started` | **higher-level facade** that reads both run-registry `exitCode` (`run-registry.service.ts:49`) **and** repo changed-file state — not `run-registry` alone, which can't see `produced_changes` (eng review 2026-06-04) |
+| `onboarding_completed` | onboarding wizard finished | `userId`, `github_connected: boolean` | `onboarding.facade.ts:complete()` |
+| `project_added` | a project is registered | `is_first: boolean`, `source` (`add`\|`open`) | `project.facade.ts` `add()` + `bootstrap()` |
+| `workspace_created` | a workspace is created **by the user** | `is_first: boolean`, `is_get_started: boolean` | `workspace.facade.ts:createForPrompt()` |
+| `agent_completed` | an agent run finishes — **the "Aha!" moment** | `workspace_id`, `provider` (`claude`\|`codex`\|…), `success: boolean` | `chat.facade.ts` terminal handler — `success = status === 'done'` |
 
-> **Only `agent_completed`, not started+completed** (KISS decision). A started-but-never-completed
-> run carries little product signal at beta scale, and `agent_completed { outcome }` already captures
-> failures and stops. One event, less noise.
+> **Deliberately lean** (decision 2026-06-04). One boolean — `success` — is the activation signal:
+> the run reached `done`. No 3-way outcome, no `produced_changes` turn-state scan, no duration. A
+> started-but-never-completed run isn't tracked either (no separate `agent_started`).
 >
 > **`is_get_started` matters.** Onboarding **pre-creates** a bundled "Get started" project + welcome
 > workspace (`onboarding.facade.ts:complete()`). These auto-created entities must be flagged so
@@ -101,7 +101,7 @@ Conventions (enforced — see roadmap §naming):
 
 | Event | Fires when | Key properties | Anchor |
 |---|---|---|---|
-| `pr_created` | a pull request is successfully opened — **the end of the value loop for the user today** | `userId`, `workspace_id`, `provider`, `draft: boolean` | `workspace.facade.ts:createPr()` success (line 485) |
+| `pr_created` | a pull request is successfully opened — **the end of the value loop for the user today** | `workspace_id`, `draft: boolean` | `workspace.facade.ts:createPr()` success |
 
 `pr_created` is the deepest success outcome we ship right now: the user took an agent's work all the
 way to a real PR. It is both the terminal step of Funnel 4 and a key value/retention signal.
@@ -110,13 +110,13 @@ way to a real PR. It is both the terminal step of Funnel 4 and a key value/reten
 
 | Event | Fires when | Key properties | Anchor |
 |---|---|---|---|
-| `provider_connected` | an agent/credential provider is connected | `userId`, `provider` (`github`\|`claude`\|`codex`\|…), `is_first: boolean`, `connected_count` | `profile.facade.ts:connectFor()` / `connectGithub` / Codex path |
+| `provider_connected` | an agent/credential provider connects successfully | `provider` (`claude`\|`codex`\|`github`) | `profile.facade.ts` `connectWithKey` / `connectCodexWithKey` / `connectGithub`(`ViaClerk`) |
 
 > **Why keep it (it's borderline):** not for a funnel, but as the **only** way to answer *which agent
-> providers do users actually use, and do they use more than one?* The `provider` + `connected_count`
-> properties let us see the provider mix and multi-provider adoption — a real product question now
-> that Codex landed alongside Claude. If after a few weeks the answer is "everyone uses one provider
-> and never switches", drop this event. Keep it lean and provisional.
+> providers do users actually use, and do they use more than one?* Just `provider` is enough —
+> multi-provider adoption is `users with ≥2 distinct provider values` in PostHog (no `connected_count`
+> property needed). A real question now that Codex landed alongside Claude. If after a few weeks
+> everyone uses one provider and never switches, drop this event. Lean and provisional.
 
 ### 2.6 Explicitly **not** events (kept lean)
 
@@ -169,7 +169,7 @@ and `pr_created` is the end of the value loop we ship today.
 All metrics **exclude `is_internal_device=true`** and are computed on **identified users** unless
 stated. "Active event" is defined once, here, and reused everywhere:
 
-> **Active event** = `agent_completed` **or** `pr_created`.
+> **Active event** = a **successful** `agent_completed` (`success = true`) **or** `pr_created`.
 > (Deliberately **not** `app_opened` — opening the app is not using it. `agent_started` and
 > `diff_reviewed` were cut, so the active set is just the two events that represent realized work.)
 
@@ -184,7 +184,7 @@ stated. "Active event" is defined once, here, and reused everywhere:
 
 ### 4.2 Activation — the "Aha!" moment
 
-**Aha! = the first `agent_completed` in a user-created workspace (`is_get_started=false`).**
+**Aha! = the first **successful** `agent_completed` (`success=true`) in a user-created workspace (`is_get_started=false`).**
 
 Why `agent_completed` and not the alternatives:
 
@@ -193,14 +193,14 @@ Why `agent_completed` and not the alternatives:
 | Login | ❌ access, not value. Too early. |
 | `workspace_created` | ❌ setup step. Also auto-created during onboarding → contaminated. |
 | `agent_started` (cut) | ❌ *intent* to get value, not value realized — and not tracked as its own event. |
-| **`agent_completed`** | ✅ **the first moment Mozart's core promise — an agent does the work — is fulfilled and visible to the user.** First real payoff. |
+| **`agent_completed` (success)** | ✅ **the first moment Mozart's core promise — an agent does the work — is fulfilled.** First real payoff. `success=true` keeps out runs that errored out. |
 | `diff_reviewed` (cut) | ◼ would be a secondary engagement signal, but a user can be activated without opening the diff viewer — not tracked for now. |
 | `pr_created` | ❌ too deep for *activation*: gated on GitHub connection + review + confidence. It's the **value** milestone (Funnel 4); using it as activation understates the rate and inflates TTV. |
 
 | Metric | Formula |
 |---|---|
-| **Activation Rate** | `users with ≥1 agent_completed (is_get_started=false)` / `users with signup_completed`, measured within a **7-day window** of signup |
-| **Time-To-Value (TTV)** | median( `first agent_completed` − `desktop_authenticated` ), excluding get-started |
+| **Activation Rate** | `users with ≥1 successful agent_completed (success=true, is_get_started=false)` / `users with signup_completed`, measured within a **7-day window** of signup |
+| **Time-To-Value (TTV)** | median( `first successful agent_completed` − `desktop_authenticated` ), excluding get-started |
 | **Setup completion** | `onboarding_completed` / `desktop_authenticated` |
 
 ### 4.3 Usage & Retention
@@ -211,7 +211,7 @@ Why `agent_completed` and not the alternatives:
 | **MAU** | unique identified users with ≥1 **active event** in trailing 30 days |
 | **Stickiness** | DAU / WAU (DAU = active event, trailing 1 day) |
 | **Returning Users** | users active in period *N* who were also active in period *N−1* |
-| **D1 / D7 / D30 Retention** | PostHog Retention: **cohort entry = first `agent_completed`** (the activation event), **returning event = any active event** on day 1 / 7 / 30. Anchoring on activation (not signup) measures whether *activated* users form a habit — the truest PMF signal. |
+| **D1 / D7 / D30 Retention** | PostHog Retention: **cohort entry = first successful `agent_completed`** (the activation event), **returning event = any active event** on day 1 / 7 / 30. Anchoring on activation (not signup) measures whether *activated* users form a habit — the truest PMF signal. |
 
 > **Anchor choice rationale**: retention anchored on *signup* mixes in users who never activated and
 > drags the curve down with noise. Anchored on *activation* (`agent_completed`), the D7/D30 curve
@@ -222,8 +222,8 @@ Why `agent_completed` and not the alternatives:
 | Metric | Formula |
 |---|---|
 | **PR Conversion** | `users with ≥1 pr_created` / `activated users` |
-| **Runs per active week** | `agent_completed` count / WAU — depth of usage |
-| **North-Star (proposed)** | **Weekly Active Users who completed ≥1 agent run that produced changes** — couples breadth (WAU) with the core value event. |
+| **Runs per active week** | successful `agent_completed` count / WAU — depth of usage |
+| **North-Star (proposed)** | **Weekly Active Users with ≥1 successful agent run** (`agent_completed`, `success=true`) — couples breadth (WAU) with the core value event. |
 
 ---
 
