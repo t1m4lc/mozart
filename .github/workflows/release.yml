@@ -13,7 +13,7 @@ name: Release Desktop
 
 on:
   workflow_run:
-    workflows: ["CI"]
+    workflows: ['CI']
     types: [completed]
   workflow_dispatch:
     inputs:
@@ -22,7 +22,7 @@ on:
         required: true
 
 permissions:
-  contents: write   # createRelease + uploadReleaseAsset
+  contents: write # createRelease + uploadReleaseAsset
 
 jobs:
   release:
