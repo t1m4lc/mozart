@@ -1,10 +1,8 @@
-// Menu-presentation helpers for the composer slash menu: filtering the
-// grouped skills by the live query, flattening them for keyboard nav, and
-// rebuilding atomic tokens from a serialized draft string. The trigger
-// detection / caret / overlay / pill mechanics live in the generic
-// `@mozart-ui/trigger-menu` directive — this file is only domain-blind glue.
-
-import type { SlashMenuGroup, SlashMenuItem } from './mz-composer-slash-menu';
+// Rebuilds atomic skill tokens from a serialized draft string. Query
+// filtering, keyboard nav and active-item scrolling now live in cmdk
+// (`mz-composer-slash-menu`); the trigger / caret / overlay / pill mechanics
+// live in the generic `@mozart-ui/trigger-menu` directive — this file is only
+// the draft-rebuild glue.
 
 function isWhitespace(ch: string): boolean {
   return ch === ' ' || ch === '\t' || ch === '\n' || ch === '\r';
@@ -52,26 +50,5 @@ export function splitSkillTokens(
     segments.push({ text: text.slice(plainStart), skill: false });
   }
   return segments;
-}
-
-function matchesQuery(item: SlashMenuItem, q: string): boolean {
-  return (
-    item.label.toLowerCase().includes(q) || item.id.toLowerCase().includes(q)
-  );
-}
-
-/** Drop items not matching the query; drop groups left empty. */
-export function filterGroupsByQuery(
-  groups: readonly SlashMenuGroup[],
-  query: string,
-): readonly SlashMenuGroup[] {
-  const q = query.trim().toLowerCase();
-  if (!q) return groups;
-  const out: SlashMenuGroup[] = [];
-  for (const g of groups) {
-    const items = g.items.filter((it) => matchesQuery(it, q));
-    if (items.length > 0) out.push({ ...g, items });
-  }
-  return out;
 }
 

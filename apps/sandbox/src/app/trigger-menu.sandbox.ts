@@ -1,14 +1,18 @@
 import {
   ChangeDetectionStrategy,
   Component,
-  computed,
+  DestroyRef,
+  afterNextRender,
+  inject,
   input,
-  linkedSignal,
-  type OnInit,
   signal,
+  viewChild,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
+import { BrnCommand } from '@spartan-ng/brain/command';
 import { HlmButtonImports } from '@spartan-ui/button';
+import { HlmCommandImports } from '@spartan-ui/command';
 import {
   MzTriggerMenu,
   serializeEditable,
@@ -50,89 +54,65 @@ const SLASH_GROUPS: readonly SlashGroup[] = [
   },
 ];
 
+// Same headless-cmdk wiring as the real composer menu: the trigger directive
+// keeps focus in the field and forwards arrow/enter via `ctx.onNavKey`, which
+// drives cmdk's keyManager (filter + scroll-into-view + empty for free).
 @Component({
   selector: 'app-slash-menu',
+  imports: [HlmCommandImports],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <div
-      class="min-w-64 max-w-80 overflow-hidden rounded-md border bg-popover p-1 text-popover-foreground shadow-md"
+    <hlm-command
+      [search]="ctx().query()"
+      role="listbox"
+      class="bg-popover text-popover-foreground min-w-64 max-w-80 rounded-md border shadow-md"
       (mousedown)="$event.preventDefault()"
     >
-      @for (group of _filtered(); track group.label) {
-        <div class="px-2 pt-1.5 pb-1 text-xs font-medium text-muted-foreground">
-          {{ group.label }}
-        </div>
-        @for (item of group.items; track item.name) {
-          <button
-            type="button"
-            class="flex w-full flex-col items-start gap-0.5 rounded-sm px-2 py-1.5 text-left"
-            [class.bg-accent]="item === _active()"
-            [class.text-accent-foreground]="item === _active()"
-            (mouseenter)="_focus(item)"
-            (click)="_pick(item)"
-          >
-            <span class="text-sm font-medium">/{{ item.name }}</span>
-            <span class="text-xs text-muted-foreground">{{
-              item.description
-            }}</span>
-          </button>
+      <div hlmCommandList>
+        @for (group of ctx().data; track group.label) {
+          <hlm-command-group>
+            <span hlmCommandGroupLabel>{{ group.label }}</span>
+            @for (item of group.items; track item.name) {
+              <button
+                hlmCommandItem
+                [value]="item.name"
+                (selected)="ctx().select(item)"
+              >
+                <span class="flex flex-col items-start gap-0.5 text-left">
+                  <span class="text-sm font-medium">/{{ item.name }}</span>
+                  <span class="text-muted-foreground text-xs">
+                    {{ item.description }}
+                  </span>
+                </span>
+              </button>
+            }
+          </hlm-command-group>
         }
-      } @empty {
-        <div class="px-2 py-6 text-center text-sm text-muted-foreground">
-          No matches
-        </div>
-      }
-    </div>
+        <div hlmCommandEmpty *hlmCommandEmptyState>No matches</div>
+      </div>
+    </hlm-command>
   `,
 })
-export class SlashMenu implements OnInit {
+export class SlashMenu {
   readonly ctx = input.required<TriggerMenuContext<readonly SlashGroup[]>>();
 
-  protected readonly _filtered = computed<readonly SlashGroup[]>(() => {
-    const q = this.ctx().query().toLowerCase();
-    return this.ctx()
-      .data.map((group) => ({
-        ...group,
-        items: group.items.filter((i) => i.name.toLowerCase().includes(q)),
-      }))
-      .filter((group) => group.items.length > 0);
-  });
+  private readonly _command = viewChild.required(BrnCommand);
+  private readonly _destroyRef = inject(DestroyRef);
 
-  protected readonly _flat = computed<readonly SlashItem[]>(() =>
-    this._filtered().flatMap((g) => g.items),
-  );
-
-  private readonly _activeIndex = linkedSignal<readonly SlashItem[], number>({
-    source: this._flat,
-    computation: () => 0,
-  });
-
-  protected readonly _active = computed(
-    () => this._flat()[this._activeIndex()],
-  );
-
-  ngOnInit(): void {
-    this.ctx().onNavKey((key) => {
-      if (key === 'down') {
-        this._activeIndex.update((i) =>
-          Math.min(this._flat().length - 1, i + 1),
-        );
-      } else if (key === 'up') {
-        this._activeIndex.update((i) => Math.max(0, i - 1));
-      } else {
-        const item = this._active();
-        if (item) this.ctx().select(item);
-      }
+  constructor() {
+    afterNextRender(() => {
+      const km = this._command().keyManager;
+      this.ctx().onNavKey((key) => {
+        if (key === 'up') km.setPreviousItemActive();
+        else if (key === 'down') km.setNextItemActive();
+        else km.activeItem?.selected.emit();
+      });
+      const report = () =>
+        this.ctx().setActiveDescendant(km.activeItem?.id() ?? null);
+      km.change.pipe(takeUntilDestroyed(this._destroyRef)).subscribe(report);
+      report();
     });
-  }
-
-  protected _focus(item: SlashItem): void {
-    this._activeIndex.set(this._flat().indexOf(item));
-  }
-
-  protected _pick(item: SlashItem): void {
-    this.ctx().select(item);
   }
 }
 

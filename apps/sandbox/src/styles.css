@@ -25,11 +25,16 @@
 @source "../../../libs/spartan-ui/badge";
 @source "../../../libs/spartan-ui/button";
 @source "../../../libs/spartan-ui/collapsible";
+@source "../../../libs/spartan-ui/command";
+@source "../../../libs/spartan-ui/dialog";
 @source "../../../libs/spartan-ui/dropdown-menu";
 @source "../../../libs/spartan-ui/icon";
+@source "../../../libs/spartan-ui/input";
+@source "../../../libs/spartan-ui/input-group";
 @source "../../../libs/spartan-ui/progress";
 @source "../../../libs/spartan-ui/select";
 @source "../../../libs/spartan-ui/separator";
+@source "../../../libs/spartan-ui/textarea";
 @source "../../../libs/spartan-ui/tooltip";
 @source "../../../libs/spartan-ui/utils";
 /* nx-tailwind-sources:end */

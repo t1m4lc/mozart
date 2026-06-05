@@ -1,5 +1,4 @@
-import type { SlashMenuGroup } from './mz-composer-slash-menu';
-import { filterGroupsByQuery, splitSkillTokens } from './slash-menu.logic';
+import { splitSkillTokens } from './slash-menu.logic';
 
 describe('splitSkillTokens', () => {
   const ids = new Set(['commit', 'summarize-changes']);
@@ -38,35 +37,5 @@ describe('splitSkillTokens', () => {
   });
   it('empty text yields no segments', () => {
     expect(splitSkillTokens('', ids)).toEqual([]);
-  });
-});
-
-const groups: readonly SlashMenuGroup[] = [
-  {
-    key: 'mozart',
-    label: 'Mozart',
-    items: [
-      { id: 'commit', label: 'Commit', description: 'Conventional commit', disabled: false },
-      { id: 'summarize', label: 'Summarize', description: 'Summarize changes', disabled: false },
-    ],
-  },
-  {
-    key: 'gstack',
-    label: 'Gstack',
-    items: [{ id: 'ship', label: 'Ship', description: 'Open a PR', disabled: true }],
-  },
-];
-
-describe('filterGroupsByQuery', () => {
-  it('empty query returns all groups', () => {
-    expect(filterGroupsByQuery(groups, '')).toEqual(groups);
-  });
-  it('keeps matching items and drops empty groups', () => {
-    const out = filterGroupsByQuery(groups, 'comm');
-    expect(out).toHaveLength(1);
-    expect(out[0].items.map((i) => i.id)).toEqual(['commit']);
-  });
-  it('matches case-insensitively on id and label', () => {
-    expect(filterGroupsByQuery(groups, 'SHIP')[0].key).toBe('gstack');
   });
 });
