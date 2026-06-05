@@ -51,4 +51,3 @@ export function splitSkillTokens(
   }
   return segments;
 }
-

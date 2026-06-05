@@ -80,7 +80,9 @@ export function groupSkills(
     const publisher = items[0].source.publisher;
     return {
       key,
-      label: publisher ? capitalize(publisher) : SKILL_SOURCE_REGISTRY[kind].label,
+      label: publisher
+        ? capitalize(publisher)
+        : SKILL_SOURCE_REGISTRY[kind].label,
       iconName: SKILL_SOURCE_REGISTRY[kind].iconName,
       kind,
       skills: items,

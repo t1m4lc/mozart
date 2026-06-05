@@ -24,7 +24,10 @@ const COLLAPSED_MAX_PX = 240;
 const SKILL_TOKEN = /(^|\s)(\/[a-zA-Z0-9][a-zA-Z0-9_-]*)(?=\s|$)/g;
 
 function escapeHtml(text: string): string {
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 /**
@@ -88,8 +91,7 @@ export class UserMessage {
     withBoldSkillTokens(this.message().content),
   );
 
-  private readonly contentEl =
-    viewChild<ElementRef<HTMLDivElement>>('content');
+  private readonly contentEl = viewChild<ElementRef<HTMLDivElement>>('content');
   protected readonly _expanded = signal(false);
   protected readonly _overflows = signal(false);
   protected readonly _collapsed = computed(

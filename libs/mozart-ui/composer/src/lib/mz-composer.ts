@@ -282,9 +282,8 @@ export class MzComposer {
   readonly scrollToBottom = output<void>();
   readonly nextUnreadWorkspace = output<void>();
 
-  private readonly _editor = viewChild<ElementRef<HTMLElement>>(
-    'composerEditor',
-  );
+  private readonly _editor =
+    viewChild<ElementRef<HTMLElement>>('composerEditor');
 
   constructor() {
     // Mirror external `value` changes (draft restore, clear-on-send) into the
@@ -404,7 +403,11 @@ export class MzComposer {
       editor.appendChild(
         seg.skill
           ? buildTokenElement(
-              { label: seg.text, value: seg.text, className: SKILL_TOKEN_CLASS },
+              {
+                label: seg.text,
+                value: seg.text,
+                className: SKILL_TOKEN_CLASS,
+              },
               document,
             )
           : document.createTextNode(seg.text),

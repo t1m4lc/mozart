@@ -163,7 +163,7 @@ consumer doesn't assume multi-char support.
 
 ### How Skills uses it / leveraging vs bypassing
 
-The composer leverages it correctly and, if anything, uses *more* of it than the
+The composer leverages it correctly and, if anything, uses _more_ of it than the
 plan called for:
 
 - `mz-composer.ts:128-136` attaches the directive with `[trigger]='/'`,
@@ -234,16 +234,16 @@ is undocumented in the plan's review report.
 
 There are two complete, independent representations of a "skill":
 
-| Aspect | TS (`desktop-skills-util`) | Rust (`apps/desktop-tauri/src/skills`) |
-|---|---|---|
-| Shape | `SkillDescriptor` (`skill.model.ts:27-40`) | `Skill` (`mod.rs:54-69`) |
-| Identity/label | `id` + `label` | `id` + `name` |
-| Runtime filter | `'any' \| SkillRuntime[]` | `SkillRuntime { Any, Claude, Codex }` |
+| Aspect          | TS (`desktop-skills-util`)                                      | Rust (`apps/desktop-tauri/src/skills`)                         |
+| --------------- | --------------------------------------------------------------- | -------------------------------------------------------------- |
+| Shape           | `SkillDescriptor` (`skill.model.ts:27-40`)                      | `Skill` (`mod.rs:54-69`)                                       |
+| Identity/label  | `id` + `label`                                                  | `id` + `name`                                                  |
+| Runtime filter  | `'any' \| SkillRuntime[]`                                       | `SkillRuntime { Any, Claude, Codex }`                          |
 | Source taxonomy | `kind: mozart \| builtin \| marketplace \| user` + `publisher?` | `SkillSource { MozartProject, ClaudeProvider, CodexProvider }` |
-| Availability | `available \| coming_soon` | (none) |
-| Category | `category?` | (none) |
-| Source of data | hand-written `SKILL_CATALOG` (5 entries) | live filesystem scan |
-| Reaches the UI | **yes** (the slash menu) | **no** (zero TS callers) |
+| Availability    | `available \| coming_soon`                                      | (none)                                                         |
+| Category        | `category?`                                                     | (none)                                                         |
+| Source of data  | hand-written `SKILL_CATALOG` (5 entries)                        | live filesystem scan                                           |
+| Reaches the UI  | **yes** (the slash menu)                                        | **no** (zero TS callers)                                       |
 
 The two source taxonomies do not map onto each other. TS thinks in
 `mozart / builtin / marketplace / user`; Rust thinks in
@@ -388,15 +388,15 @@ the product wants while leaving room for marketplace publishers.
 
 ## Risks & technical debt
 
-| ID | Risk | Severity | Impact if ignored |
-|---|---|---|---|
-| W1 | Rust discovery built but unused | High | "Discovery done" illusion; code rots away from its future consumer |
-| W2 | Two skill models, no reconciliation | High | Wiring discovery later requires unplanned bridge work; silent field loss (`availability`, `label`, `category`) |
-| W4 | Workspace-scoped FS skills are a trust surface | Medium | Cloned repo could surface runnable skills once discovery is wired |
-| W3 | `list_skills` caching comment is false | Medium | Misleads the next implementer about what exists |
-| C1 | Token `data` lost on draft round-trip | Low | First consumer of `segment.data` after reload gets `undefined` |
-| Scope | Chips + discovery shipped past the deferred plan | Low | Plan no longer reflects reality; review report stale |
-| W5 | `parse_frontmatter` leftover iterator | Low | Cosmetic |
+| ID    | Risk                                             | Severity | Impact if ignored                                                                                              |
+| ----- | ------------------------------------------------ | -------- | -------------------------------------------------------------------------------------------------------------- |
+| W1    | Rust discovery built but unused                  | High     | "Discovery done" illusion; code rots away from its future consumer                                             |
+| W2    | Two skill models, no reconciliation              | High     | Wiring discovery later requires unplanned bridge work; silent field loss (`availability`, `label`, `category`) |
+| W4    | Workspace-scoped FS skills are a trust surface   | Medium   | Cloned repo could surface runnable skills once discovery is wired                                              |
+| W3    | `list_skills` caching comment is false           | Medium   | Misleads the next implementer about what exists                                                                |
+| C1    | Token `data` lost on draft round-trip            | Low      | First consumer of `segment.data` after reload gets `undefined`                                                 |
+| Scope | Chips + discovery shipped past the deferred plan | Low      | Plan no longer reflects reality; review report stale                                                           |
+| W5    | `parse_frontmatter` leftover iterator            | Low      | Cosmetic                                                                                                       |
 
 No P0/critical correctness defects in shipped user-facing behavior. The slash
 menu works end to end against the static catalog.
@@ -416,8 +416,8 @@ audit.
    - (b) Static-first (current de facto): keep the static catalog as the real
      system and treat the Rust discovery as not-yet-shipped. Then either delete
      the dead path or mark it clearly experimental/feature-flagged.
-   This is the decision that unblocks everything else; it is genuinely the user's
-   call (product timing, marketplace roadmap).
+     This is the decision that unblocks everything else; it is genuinely the user's
+     call (product timing, marketplace roadmap).
 
 2. **Resolve W1 either way.** If keeping the Rust discovery, add a tracking task
    and a `// not yet wired` note at the command and the binding. If not, remove

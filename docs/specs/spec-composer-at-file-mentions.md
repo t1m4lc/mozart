@@ -164,7 +164,7 @@ Two layers, consistent with how `/skill` works:
   rebuild for `@` on draft restore).
 - **Send**: the feature resolves each `@<path>` token in the serialized prompt →
   reads the file → pushes an `AttachedContextItem { kind: 'file', label: path,
-  content }` onto the envelope's `attached_context`. The bare `@path` text still
+content }` onto the envelope's `attached_context`. The bare `@path` text still
   rides the prompt so the agent sees the reference; the content is attached, not
   inlined into the user message.
 
@@ -219,13 +219,13 @@ handling (see §6). Flag for eng + a provider-cost check.
 
 ## 6. Failure modes
 
-| Path | Failure | Handling |
-|---|---|---|
-| listTree | huge repo (100k files) | cap + lazy; cmdk filters in-memory — may need backend filter past N. Flag. |
-| attach content | large/binary file | per-file byte cap; skip binary (detect), attach a "binary, N bytes" stub or omit. |
-| stale path | file deleted after select | resolve-at-send skips missing files; pill shows but item dropped (or warn). |
-| views read | no rows for a fresh workspace | fall back to alphabetical (no crash). |
-| selection vs filter | selected file filtered out then committed | commit uses the full `selected` Set, not the visible rows. |
+| Path                | Failure                                   | Handling                                                                          |
+| ------------------- | ----------------------------------------- | --------------------------------------------------------------------------------- |
+| listTree            | huge repo (100k files)                    | cap + lazy; cmdk filters in-memory — may need backend filter past N. Flag.        |
+| attach content      | large/binary file                         | per-file byte cap; skip binary (detect), attach a "binary, N bytes" stub or omit. |
+| stale path          | file deleted after select                 | resolve-at-send skips missing files; pill shows but item dropped (or warn).       |
+| views read          | no rows for a fresh workspace             | fall back to alphabetical (no crash).                                             |
+| selection vs filter | selected file filtered out then committed | commit uses the full `selected` Set, not the visible rows.                        |
 
 No silent + unhandled + critical path identified, given the size cap and
 skip-missing rules.
@@ -245,10 +245,10 @@ skip-missing rules.
 ## 8. Open decisions for eng review
 
 1. **D1** multi-select: extend `MzTriggerMenu` (recommended) vs. menu-owned insertion.
-2. **D4-Q** attach file *content* vs. path-only reference (provider cost / harness).
+2. **D4-Q** attach file _content_ vs. path-only reference (provider cost / harness).
 3. Inline `@`-pills vs. a separate "context tray" above the composer for selected files.
 4. Large-repo threshold where in-memory filtering stops being acceptable.
-5. Whether "Changes" should attach the *diff* (`kind: 'diff'`) rather than full content.
+5. Whether "Changes" should attach the _diff_ (`kind: 'diff'`) rather than full content.
 
 ---
 

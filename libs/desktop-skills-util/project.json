@@ -4,11 +4,7 @@
   "sourceRoot": "libs/desktop-skills-util/src",
   "prefix": "lib",
   "projectType": "library",
-  "tags": [
-    "app:desktop",
-    "domain:skills",
-    "type:util"
-  ],
+  "tags": ["app:desktop", "domain:skills", "type:util"],
   "targets": {
     "lint": {
       "executor": "@nx/eslint:lint"

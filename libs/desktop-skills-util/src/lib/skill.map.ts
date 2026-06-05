@@ -19,11 +19,7 @@
 // under ~/.claude/skills). Both map to `builtin`; the publisher folder still
 // drives a correct group header. Marketplace provenance is a post-v1 facet.
 
-import type {
-  SkillDescriptor,
-  SkillRuntime,
-  SkillSource,
-} from './skill.model';
+import type { SkillDescriptor, SkillRuntime, SkillSource } from './skill.model';
 
 /** Wire enums as emitted by the Rust `list_skills` command (kebab/lowercase). */
 export type DiscoveredSkillSource =
@@ -50,7 +46,9 @@ function unreachable(value: never): never {
 }
 
 /** Wire `runtime` → descriptor `runtimes` (filter axis). */
-function toRuntimes(runtime: DiscoveredSkillRuntime): SkillDescriptor['runtimes'] {
+function toRuntimes(
+  runtime: DiscoveredSkillRuntime,
+): SkillDescriptor['runtimes'] {
   switch (runtime) {
     case 'any':
       return 'any';

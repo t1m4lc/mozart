@@ -239,7 +239,11 @@ function provideProjectsAdapter(): Provider {
               remoteName: s.remote_name,
             };
           case 'non_github_remote':
-            return { kind: 'non-github', url: s.url, remoteName: s.remote_name };
+            return {
+              kind: 'non-github',
+              url: s.url,
+              remoteName: s.remote_name,
+            };
           case 'no_remote':
             return { kind: 'no-remote' };
           case 'detect_error':

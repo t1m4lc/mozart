@@ -4,9 +4,7 @@
   "sourceRoot": "libs/mozart-ui/composer/src",
   "prefix": "mz",
   "projectType": "library",
-  "tags": [
-    "scope:mozart-ui"
-  ],
+  "tags": ["scope:mozart-ui"],
   "targets": {
     "lint": {
       "executor": "@nx/eslint:lint"

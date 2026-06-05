@@ -18,7 +18,10 @@ const mk = (
 
 const mozartA = mk('explain', 'any', { kind: 'mozart' });
 const mozartB = mk('summarize', 'any', { kind: 'mozart' });
-const claude = mk('review', ['claude'], { kind: 'builtin', publisher: 'claude' });
+const claude = mk('review', ['claude'], {
+  kind: 'builtin',
+  publisher: 'claude',
+});
 const codex = mk('codex-review', ['codex'], {
   kind: 'builtin',
   publisher: 'codex',
@@ -45,7 +48,12 @@ describe('runsOn', () => {
 describe('visibleSkills', () => {
   it('default mode shows agnostic + current runtime (Claude)', () => {
     const out = visibleSkills(catalog, { activeRuntime: 'claude' });
-    expect(out.map((s) => s.id)).toEqual(['explain', 'summarize', 'review', 'ship']);
+    expect(out.map((s) => s.id)).toEqual([
+      'explain',
+      'summarize',
+      'review',
+      'ship',
+    ]);
   });
   it('default mode hides the other provider (Codex hidden under Claude)', () => {
     const out = visibleSkills(catalog, { activeRuntime: 'claude' });

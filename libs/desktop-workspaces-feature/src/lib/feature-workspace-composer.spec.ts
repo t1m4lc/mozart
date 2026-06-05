@@ -420,9 +420,7 @@ describe('FeatureWorkspaceComposer', () => {
       const cmp = fixture.componentInstance as unknown as {
         skillGroups: () => readonly SkillGroupVm[];
       };
-      const ids = cmp
-        .skillGroups()
-        .flatMap((g) => g.items.map((i) => i.id));
+      const ids = cmp.skillGroups().flatMap((g) => g.items.map((i) => i.id));
       expect(ids).toContain('commit'); // agnostic stays
       expect(ids).toContain('codex-review');
       expect(ids).not.toContain('review'); // claude-only filtered out

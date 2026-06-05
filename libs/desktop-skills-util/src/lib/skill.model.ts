@@ -43,7 +43,8 @@ export interface SkillDescriptor {
 export type SkillFilterMode = 'current' | 'agnostic-plus-current' | 'all';
 
 /** Default: agent-agnostic skills + the current backend's skills. */
-export const DEFAULT_SKILL_FILTER_MODE: SkillFilterMode = 'agnostic-plus-current';
+export const DEFAULT_SKILL_FILTER_MODE: SkillFilterMode =
+  'agnostic-plus-current';
 
 /** Display metadata for a group header, keyed by `SkillSourceKind`. */
 export interface SkillSourceInfo {
@@ -56,15 +57,30 @@ export interface SkillSourceInfo {
 }
 
 export const SKILL_SOURCE_REGISTRY: Record<SkillSourceKind, SkillSourceInfo> = {
-  mozart: { kind: 'mozart', label: 'Mozart', iconName: 'lucideSparkles', order: 0 },
-  builtin: { kind: 'builtin', label: 'Provider', iconName: 'lucideCpu', order: 1 },
+  mozart: {
+    kind: 'mozart',
+    label: 'Mozart',
+    iconName: 'lucideSparkles',
+    order: 0,
+  },
+  builtin: {
+    kind: 'builtin',
+    label: 'Provider',
+    iconName: 'lucideCpu',
+    order: 1,
+  },
   marketplace: {
     kind: 'marketplace',
     label: 'Marketplace',
     iconName: 'lucideStore',
     order: 2,
   },
-  user: { kind: 'user', label: 'Your skills', iconName: 'lucideUser', order: 3 },
+  user: {
+    kind: 'user',
+    label: 'Your skills',
+    iconName: 'lucideUser',
+    order: 3,
+  },
 };
 
 /** Map the active agent backend to a skill runtime. The catalog is

@@ -192,7 +192,9 @@ export class FeatureWorkspaceComposer {
     const shown = this.catalog();
     const explicit = this._activeChat()?.modelId;
     if (explicit && shown.some((m) => m.id === explicit)) return explicit;
-    const fallback = defaultModelIdForProvider(this.profile.activeAgentProvider());
+    const fallback = defaultModelIdForProvider(
+      this.profile.activeAgentProvider(),
+    );
     if (shown.some((m) => m.id === fallback)) return fallback;
     return shown[0]?.id ?? fallback;
   });
@@ -289,7 +291,10 @@ export class FeatureWorkspaceComposer {
     // a new scope; switching model/workspace re-reads the cache.
     toObservable(this._skillScope)
       .pipe(
-        tap(({ provider, projectId }) => void this.skills.load(provider, projectId)),
+        tap(
+          ({ provider, projectId }) =>
+            void this.skills.load(provider, projectId),
+        ),
         takeUntilDestroyed(),
       )
       .subscribe();

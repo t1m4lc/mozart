@@ -117,15 +117,30 @@ export class ComposerSandbox {
       key: 'mozart',
       label: 'Mozart',
       items: [
-        { id: 'commit', label: 'Commit', description: 'Conventional commit', disabled: false },
-        { id: 'summarize-changes', label: 'Summarize', description: 'Summarize the diff', disabled: false },
+        {
+          id: 'commit',
+          label: 'Commit',
+          description: 'Conventional commit',
+          disabled: false,
+        },
+        {
+          id: 'summarize-changes',
+          label: 'Summarize',
+          description: 'Summarize the diff',
+          disabled: false,
+        },
       ],
     },
     {
       key: 'claude',
       label: 'Claude Code',
       items: [
-        { id: 'review', label: 'Review', description: 'Review the diff', disabled: false },
+        {
+          id: 'review',
+          label: 'Review',
+          description: 'Review the diff',
+          disabled: false,
+        },
       ],
     },
     {

@@ -87,7 +87,9 @@ export interface SlashMenuGroup {
       <div hlmCommandList>
         @for (group of groups(); track group.key) {
           <hlm-command-group>
-            <span hlmCommandGroupLabel class="tracking-wide">{{ group.label }}</span>
+            <span hlmCommandGroupLabel class="tracking-wide">{{
+              group.label
+            }}</span>
             @for (item of group.items; track item.id) {
               <button
                 hlmCommandItem

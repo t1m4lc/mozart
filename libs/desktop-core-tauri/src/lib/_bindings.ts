@@ -2467,7 +2467,10 @@ export type ProjectConfig = {
    */
   source: string;
 };
-export type SkillSource = 'mozart-project' | 'claude-provider' | 'codex-provider';
+export type SkillSource =
+  | 'mozart-project'
+  | 'claude-provider'
+  | 'codex-provider';
 export type SkillRuntime = 'any' | 'claude' | 'codex';
 export type SkillScope = 'project' | 'global';
 export type Skill = {

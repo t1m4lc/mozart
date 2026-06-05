@@ -26,19 +26,21 @@ Two independent features that share the composer:
 ## 2. What already exists (reuse, don't rebuild)
 
 Feature 1:
+
 - `libs/desktop-llm-model-util/src/lib/providers.config.ts` — static catalog
   pattern (`PROVIDER_REGISTRY`, `LLM_MODEL_CATALOG`) with id/label/icon/
   availability + `agentProviderForModel()`. Template for the skill catalog.
 - `ProfileFacade.activeAgentProvider()` (`profile.facade.ts:82`) +
   `agentProviderForModel()` — the provider-keying seam.
 - `mz-composer-model-select.ts` — grouped-by-provider menu (group header + items
-  + badges). Template for the slash-menu grouping.
+  - badges). Template for the slash-menu grouping.
 - `ComposerModelsStore` + `COMPOSER_MODELS_PORT` → `settings.json`
   `agent.enabledModelIds` — exact pattern for a future `agent.skillFilterMode`.
 - `libs/spartan-ui/combobox/**` (`HlmCombobox`, CDK overlay) — **[Layer 1]** the
   caret-anchored overlay primitive. Do not hand-roll an overlay.
 
 Feature 2 — **~80% already built in the backend:**
+
 - `apps/desktop-tauri/src/claude_cli/envelope.rs` — `LLMEnvelope` typed 7-layer
   context struct, derives `specta::Type` (auto-TS-bindable).
 - `agent_run_envelopes` table (migration 011) persists **per run**:
@@ -64,10 +66,10 @@ A single `provider: 'mozart'|'claude'|'codex'` collapses the moment the Mozart
 marketplace lands (gstack, Superhuman, paperasse, role skills for ops/sales/
 admin are neither "Mozart the provider" nor Claude/Codex skills). Split into:
 
-- **`runtimes`** (compatibility) — *which agent backend can run it.* Drives the
+- **`runtimes`** (compatibility) — _which agent backend can run it._ Drives the
   provider-aware **filter**. `'any'` = agent-agnostic (most Mozart-native +
   marketplace skills).
-- **`source`** (provenance) — *where it came from.* Drives **grouping** + the
+- **`source`** (provenance) — _where it came from._ Drives **grouping** + the
   future marketplace. `{ kind, publisher? }`.
 
 ```ts
@@ -259,13 +261,13 @@ that a completed turn's assistant message carries the run's `runId`.
 
 ## 6. Failure modes
 
-| Codepath | Realistic prod failure | Test? | Error handling? | User sees |
-|----------|------------------------|-------|-----------------|-----------|
-| slash token parse | caret mid-word, IME composition, paste | add | guard: only open at line-start/after-ws | menu just doesn't open (safe) |
-| visibleSkills | stale filterMode / empty catalog | add | empty → "No skills" row, never empty crash | "No skills" |
-| runId linkage | stream errors before handle.runId set | add | null runId → panel shows "no envelope for run" | dev-only empty state |
-| get_run_envelope | row evicted by retention | add | `Option` → None handled | dev-only "no envelope" |
-| dev gating | command called in prod build | add (cfg test) | `#[cfg(debug_assertions)]` + `isDevMode()` UI gate | nothing (hidden) |
+| Codepath          | Realistic prod failure                 | Test?          | Error handling?                                    | User sees                     |
+| ----------------- | -------------------------------------- | -------------- | -------------------------------------------------- | ----------------------------- |
+| slash token parse | caret mid-word, IME composition, paste | add            | guard: only open at line-start/after-ws            | menu just doesn't open (safe) |
+| visibleSkills     | stale filterMode / empty catalog       | add            | empty → "No skills" row, never empty crash         | "No skills"                   |
+| runId linkage     | stream errors before handle.runId set  | add            | null runId → panel shows "no envelope for run"     | dev-only empty state          |
+| get_run_envelope  | row evicted by retention               | add            | `Option` → None handled                            | dev-only "no envelope"        |
+| dev gating        | command called in prod build           | add (cfg test) | `#[cfg(debug_assertions)]` + `isDevMode()` UI gate | nothing (hidden)              |
 
 No failure mode is both silent AND unhandled → **no critical gaps.**
 
@@ -357,6 +359,7 @@ Synthesized from this review's findings. P1 blocks ship; P2 same branch; P3 foll
   - Verify: prod build smoke + cfg test
 
 ### Follow-ups (P3, NOT this branch)
+
 - [ ] **T14 (P3)** — `SkillsFilterStore` + `settings.json agent.skillFilterMode` + Settings UI
 - [ ] **T15 (P3)** — atomic chip insertion, `@file` context, skills DB table + marketplace
 
@@ -373,16 +376,15 @@ Synthesized from this review's findings. P1 blocks ship; P2 same branch; P3 foll
 
 ## GSTACK REVIEW REPORT
 
-| Review | Trigger | Why | Runs | Status | Findings |
-|--------|---------|-----|------|--------|----------|
-| CEO Review | `/plan-ceo-review` | Scope & strategy | 0 | — | not run |
-| Codex Review | `/codex review` | Independent 2nd opinion | 0 | — | not run |
-| Eng Review | `/plan-eng-review` | Architecture & tests (required) | 1 | CLEAR (PLAN) | 4 issues, 0 critical gaps |
-| Design Review | `/plan-design-review` | UI/UX gaps | 0 | — | not run |
-| DX Review | `/plan-devex-review` | Developer experience gaps | 0 | — | not run |
+| Review        | Trigger               | Why                             | Runs | Status       | Findings                  |
+| ------------- | --------------------- | ------------------------------- | ---- | ------------ | ------------------------- |
+| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0    | —            | not run                   |
+| Codex Review  | `/codex review`       | Independent 2nd opinion         | 0    | —            | not run                   |
+| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | CLEAR (PLAN) | 4 issues, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | not run                   |
+| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | not run                   |
 
 - **UNRESOLVED:** 0
 - **VERDICT:** ENG CLEARED — ready to implement. Scope reduced to two minimal
   phases; chips/`@file`/skills-DB deferred. Design review optional (slash menu +
   dev-only panel are mostly chrome reuse).
-

@@ -459,6 +459,7 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **How to apply:** Two paths. (a) Provide a `provideMockAdapters()` alongside `provideTauriAdapters()` and wire it in via an env flag (`E2E_MODE=mock` → swap providers in `app.config.ts`). The mocks live next to `WORKSPACES_MOCK` and friends; bootstrap fixtures via Playwright `beforeAll`. (b) Drive a real Tauri instance via `tauri-driver` + `webdriverio` (heavier, but no behavior divergence). Recommend (a) for P2.2-scoped flows where data shape matters more than Tauri-command correctness.
 
 **Concrete first commits when this lands:**
+
 - Replace `example.spec.ts` with a smoke spec that asserts the actual workspace-list landing renders.
 - Two specs for P2.2 (per `docs/tmp/2026-05-24-shell-ux-investigation.md` §2.6 T5): fresh-workspace first send from a file tab; streaming auto-follow round-trip across a chat→file→chat tab switch.
 
@@ -590,9 +591,9 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 
 **What:** Let the user change a workspace's base/PR-target branch and have it actually take effect. Persist the chosen branch to `workspace.base_branch` so `create_workspace_pr` and `merge_workspace_locally` (both read `ws.base_branch`) use it.
 
-**Why:** §7 Q8 ("how should the user change the PR base branch"). Today's toolbar picker was *decorative* — `workspace-detail.store.setTargetBranch` only patched a UI signal, never persisted — so it was retired in the design review (D1) in favor of a read-only `base: main` chip. Restoring real edit-ability needs a deliberate design pass.
+**Why:** §7 Q8 ("how should the user change the PR base branch"). Today's toolbar picker was _decorative_ — `workspace-detail.store.setTargetBranch` only patched a UI signal, never persisted — so it was retired in the design review (D1) in favor of a read-only `base: main` chip. Restoring real edit-ability needs a deliberate design pass.
 
-**How to apply:** Decide the semantics first: a worktree's *fork point* is immutable, but the *PR target* can differ from the fork point. So this is "change the PR target", not "re-fork". Add a `set_workspace_base_branch` command (persist `base_branch`), an editable affordance on the base chip, and make the PR dialog show/confirm the target. Verify create_pr opens against the new value.
+**How to apply:** Decide the semantics first: a worktree's _fork point_ is immutable, but the _PR target_ can differ from the fork point. So this is "change the PR target", not "re-fork". Add a `set_workspace_base_branch` command (persist `base_branch`), an editable affordance on the base chip, and make the PR dialog show/confirm the target. Verify create_pr opens against the new value.
 
 **Depends on:** The read-only base chip (design-review D1) shipping first.
 
