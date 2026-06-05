@@ -1,6 +1,7 @@
 name: Release Desktop
 
-# Triggered by tags `v*` (e.g. v0.1.0-beta.1). Builds and signs the
+# Triggered when the CI workflow completes successfully on a `v*` tag.
+# Builds and signs the
 # desktop bundles for the 4-platform matrix, then creates a GitHub
 # Release in DRAFT with the bundles + latest.json updater manifest
 # attached. tauri-action handles bundling + signing + release creation;
@@ -11,8 +12,9 @@ name: Release Desktop
 # docs/cloud-app/desktop-release-automation.md for architecture.
 
 on:
-  push:
-    tags: ['v*']
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
   workflow_dispatch:
     inputs:
       tag:
@@ -24,6 +26,10 @@ permissions:
 
 jobs:
   release:
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
     strategy:
       fail-fast: false
       matrix:
@@ -46,7 +52,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.tag || github.event.workflow_run.head_sha }}
           filter: tree:0
           fetch-depth: 1
 
@@ -103,13 +109,13 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           projectPath: apps/desktop-tauri
-          tagName: ${{ inputs.tag || github.ref_name }}
-          releaseName: 'Mozart ${{ inputs.tag || github.ref_name }}'
+          tagName: ${{ inputs.tag || github.event.workflow_run.head_branch }}
+          releaseName: 'Mozart ${{ inputs.tag || github.event.workflow_run.head_branch }}'
           # Drives the GitHub Release description. Points users at the
           # human-readable landing changelog rather than dumping the
           # full CHANGELOG.md (the developer log).
           releaseBody: |
-            See https://mozart.build/changelog/${{ inputs.tag || github.ref_name }} for the full changelog.
+            See https://mozart.build/changelog/${{ inputs.tag || github.event.workflow_run.head_branch }} for the full changelog.
 
             Auto-updater: installed apps will detect this release at next launch and download in the background. Click "Restart now" in the banner when ready.
           # Draft so a human reviews the artifact set before users see
@@ -118,7 +124,7 @@ jobs:
           # Beta / alpha / RC tags get prerelease=true so GitHub's
           # `/releases/latest` endpoint keeps pointing at the last
           # stable. Stable v0.1.0+ gets prerelease=false.
-          prerelease: ${{ contains(inputs.tag || github.ref_name, 'beta') || contains(inputs.tag || github.ref_name, 'alpha') || contains(inputs.tag || github.ref_name, 'rc') }}
+          prerelease: ${{ contains(inputs.tag || github.event.workflow_run.head_branch, 'beta') || contains(inputs.tag || github.event.workflow_run.head_branch, 'alpha') || contains(inputs.tag || github.event.workflow_run.head_branch, 'rc') }}
           args: ${{ matrix.args }}
           # Tells tauri-action to emit the updater manifest
           # (latest.json) alongside the bundle artifacts. The mirror-r2
@@ -143,7 +149,7 @@ jobs:
     steps:
       - name: Resolve tag + version
         run: |
-          TAG="${{ inputs.tag || github.ref_name }}"
+          TAG="${{ inputs.tag || github.event.workflow_run.head_branch }}"
           echo "TAG=$TAG" >> "$GITHUB_ENV"
           echo "VERSION=${TAG#v}" >> "$GITHUB_ENV"
 
@@ -196,7 +202,7 @@ jobs:
       - name: Post release to Discord announcements
         env:
           DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
-          TAG: ${{ inputs.tag || github.ref_name }}
+          TAG: ${{ inputs.tag || github.event.workflow_run.head_branch }}
         run: |
           SLUG="${TAG//./-}"
           curl -s -X POST "$DISCORD_WEBHOOK" \

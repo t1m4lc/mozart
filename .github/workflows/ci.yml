@@ -3,7 +3,7 @@ name: CI
 on:
   push:
     branches:
-      - main
+      - develop
     tags:
       - 'v*'
   pull_request:
@@ -12,7 +12,7 @@ on:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
 
 permissions:
   actions: read
@@ -24,9 +24,8 @@ jobs:
   # and how broad the matrix should be:
   #   - path-filter on apps/desktop-tauri/** (Nx's `affected` flags Tauri on
   #     any Angular change via implicitDependencies, which over-triggers).
-  #   - event type: PRs get Linux-only; main pushes and `v*` tags get the
-  #     full Linux/macOS/Windows matrix.
-  # Tag pushes always run the full matrix regardless of path-filter.
+  #   - event type: PRs get Linux-only; `v*` tags always get the full
+  #     Linux/macOS/Windows matrix regardless of path-filter.
   rust-gate:
     runs-on: ubuntu-latest
     outputs:
@@ -67,12 +66,30 @@ jobs:
             exit 0
           fi
 
-          if [[ "${{ github.event_name }}" == "push" && "${{ github.ref }}" == "refs/heads/main" ]]; then
-            echo 'run=true' >> "$GITHUB_OUTPUT"
-            echo "os_list=$full" >> "$GITHUB_OUTPUT"
+          echo 'run=true' >> "$GITHUB_OUTPUT"
+          echo "os_list=$linux" >> "$GITHUB_OUTPUT"
+
+  ts-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.0.8
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - name: Lint, test, typecheck
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            pnpm nx run-many -t lint test typecheck --parallel=3 --exclude=sandbox,sandbox-e2e
           else
-            echo 'run=true' >> "$GITHUB_OUTPUT"
-            echo "os_list=$linux" >> "$GITHUB_OUTPUT"
+            pnpm nx affected -t lint test typecheck --base=origin/main --head=HEAD --parallel=3 --exclude=sandbox,sandbox-e2e
           fi
 
   rust-check:
