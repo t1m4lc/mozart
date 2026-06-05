@@ -12,16 +12,14 @@ import { HlmButtonImports } from '@spartan-ui/button';
       <header class="flex flex-col gap-1">
         <h1 class="text-xl font-semibold">Mozart UI sandbox</h1>
         <p class="text-sm text-muted-foreground">
-          Dogfooding surface for the design-system components in
-          isolation. Pick a component below.
+          Dogfooding surface for the design-system components in isolation. Pick
+          a component below.
         </p>
       </header>
 
       <ul class="flex flex-col gap-2">
         <li>
-          <a hlmBtn variant="outline" routerLink="/composer">
-            MzComposer →
-          </a>
+          <a hlmBtn variant="outline" routerLink="/composer"> MzComposer → </a>
         </li>
         <li>
           <a hlmBtn variant="outline" routerLink="/code-editor">
@@ -44,8 +42,11 @@ import { HlmButtonImports } from '@spartan-ui/button';
           </a>
         </li>
         <li>
-          <a hlmBtn variant="outline" routerLink="/timeline">
-            MzTimeline →
+          <a hlmBtn variant="outline" routerLink="/timeline"> MzTimeline → </a>
+        </li>
+        <li>
+          <a hlmBtn variant="outline" routerLink="/trigger-menu">
+            MzTriggerMenu →
           </a>
         </li>
       </ul>

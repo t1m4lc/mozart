@@ -4,8 +4,7 @@ export const appRoutes: Route[] = [
   {
     path: '',
     pathMatch: 'full',
-    loadComponent: () =>
-      import('./sandbox.page').then((m) => m.SandboxPage),
+    loadComponent: () => import('./sandbox.page').then((m) => m.SandboxPage),
   },
   {
     path: 'composer',
@@ -20,9 +19,7 @@ export const appRoutes: Route[] = [
   {
     path: 'review-progress',
     loadComponent: () =>
-      import('./review-progress.sandbox').then(
-        (m) => m.ReviewProgressSandbox,
-      ),
+      import('./review-progress.sandbox').then((m) => m.ReviewProgressSandbox),
   },
   {
     path: 'hunk-expand-bar',
@@ -38,5 +35,10 @@ export const appRoutes: Route[] = [
     path: 'timeline',
     loadComponent: () =>
       import('./timeline.sandbox').then((m) => m.TimelineSandbox),
+  },
+  {
+    path: 'trigger-menu',
+    loadComponent: () =>
+      import('./trigger-menu.sandbox').then((m) => m.TriggerMenuSandbox),
   },
 ];

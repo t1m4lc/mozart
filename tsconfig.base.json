@@ -127,6 +127,7 @@
       "@mozart-ui/status-icon": ["./libs/mozart-ui/status-icon/src/index.ts"],
       "@mozart-ui/theme-toggle": ["./libs/mozart-ui/theme-toggle/src/index.ts"],
       "@mozart-ui/timeline": ["./libs/mozart-ui/timeline/src/index.ts"],
+      "@mozart-ui/trigger-menu": ["./libs/mozart-ui/trigger-menu/src/index.ts"],
       "@mozart-ui/loader": ["./libs/mozart-ui/loader/src/index.ts"],
       "@mozart-ui/message-markdown": [
         "./libs/mozart-ui/message-markdown/src/index.ts"
