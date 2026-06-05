@@ -7,20 +7,47 @@
 //! credential schema or actually invoking `claude` to introspect, both of
 //! which are heavier than this affordance warrants in v0.1.0-beta.1.
 //!
-//! macOS limitation: Claude Code may also keep credentials in the macOS
-//! Keychain rather than the JSON file. Mozart's heuristic returns false
-//! in that case; the user falls through to the API-key dialog. A
-//! Keychain probe is a follow-up.
+//! macOS: Claude Code may keep credentials in the login Keychain rather
+//! than the JSON file (the common case for Pro/Max). When the file is
+//! absent we fall back to a Keychain existence probe so already-signed-in
+//! users skip the `claude login` terminal entirely.
 
 use std::path::{Path, PathBuf};
 
-/// Returns true iff a `claude /login` credential file is present in the
-/// user's home directory.
+/// Service name under which the Claude Code CLI stores its credential
+/// item in the macOS login Keychain.
+#[cfg(target_os = "macos")]
+const CLAUDE_KEYCHAIN_SERVICE: &str = "Claude Code-credentials";
+
+/// Returns true iff a `claude /login` session is detectable — the
+/// `~/.claude/.credentials.json` file on any platform, or (macOS only)
+/// the credential item in the login Keychain.
 pub fn has_session() -> bool {
-    match home_dir() {
-        Some(home) => has_session_in(&home),
-        None => false,
+    if let Some(home) = home_dir() {
+        if has_session_in(&home) {
+            return true;
+        }
     }
+    #[cfg(target_os = "macos")]
+    {
+        return has_keychain_session();
+    }
+    #[cfg(not(target_os = "macos"))]
+    false
+}
+
+/// Existence-only probe of the login Keychain. Omitting `-w` returns the
+/// item's metadata without reading the secret, so it does not raise a
+/// Keychain authorization prompt. Exit 0 = present, 44 = not found.
+#[cfg(target_os = "macos")]
+fn has_keychain_session() -> bool {
+    std::process::Command::new("/usr/bin/security")
+        .args(["find-generic-password", "-s", CLAUDE_KEYCHAIN_SERVICE])
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
 }
 
 fn home_dir() -> Option<PathBuf> {
