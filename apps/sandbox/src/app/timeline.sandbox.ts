@@ -8,10 +8,7 @@ import {
 import { RouterLink } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { TurnContainer } from '@mozart-ui/timeline';
-import type {
-  TimelineDensity,
-  TurnFileChipEvent,
-} from '@mozart-ui/timeline';
+import type { TimelineDensity, TurnFileChipEvent } from '@mozart-ui/timeline';
 import { FakeLlmAdapter } from '@mozart/desktop-llm-model-data-access';
 import type { LlmRunHandle } from '@mozart/desktop-llm-model-data-access';
 import {
@@ -50,8 +47,8 @@ const MODES: readonly { label: string; value: ChatMode }[] = [
         <div>
           <h1 class="text-lg font-semibold">MzTurnContainer sandbox</h1>
           <p class="text-xs text-muted-foreground">
-            Drives the timeline with FakeLlmAdapter. Toggle density and
-            replay the script to inspect the filter + per-item expand.
+            Drives the timeline with FakeLlmAdapter. Toggle density and replay
+            the script to inspect the filter + per-item expand.
           </p>
         </div>
         <a hlmBtn variant="ghost" size="sm" routerLink="/">← Back</a>
@@ -74,7 +71,9 @@ const MODES: readonly { label: string; value: ChatMode }[] = [
             {{ level }}
           </button>
         }
-        <span class="ml-4 text-xs uppercase tracking-wide text-muted-foreground">
+        <span
+          class="ml-4 text-xs uppercase tracking-wide text-muted-foreground"
+        >
           Run
         </span>
         @for (m of _modes; track m.value) {
@@ -158,6 +157,8 @@ export class TimelineSandbox {
       chatId: 'sandbox-chat',
       currentUserMessageId: 'sandbox-msg',
       mode,
+      provider: 'claude_cli',
+      model: null,
     });
     this._activeHandle = handle;
     try {
