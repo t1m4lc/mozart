@@ -48,7 +48,11 @@ import { PROVIDER_SETUP_ADAPTER } from '@mozart/desktop-onboarding-data-access';
         class="h-72 w-full overflow-hidden rounded-md border bg-sidebar select-text"
       ></div>
 
-      @if (state() === 'detecting') {
+      @if (state() === 'connecting') {
+        <p class="text-center text-xs text-muted-foreground">
+          Starting {{ label() }} login…
+        </p>
+      } @else if (state() === 'detecting') {
         <p class="text-center text-xs text-muted-foreground">
           Detecting {{ label() }} session…
         </p>

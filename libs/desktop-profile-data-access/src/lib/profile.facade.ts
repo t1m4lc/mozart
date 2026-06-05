@@ -166,10 +166,12 @@ export class ProfileFacade {
   // gets a single-click experience here. Returns 'needs_api_key' when no
   // session is found so the caller can open the API-key dialog.
   async tryConnect(): Promise<'claude_code' | 'needs_api_key'> {
+    this.store.setChecking();
     if (await this.credentials.hasClaudeCodeSession()) {
       this.store.setStatus('connected_via_claude_code');
       return 'claude_code';
     }
+    this.store.setStatus('not_connected');
     return 'needs_api_key';
   }
 
@@ -229,10 +231,12 @@ export class ProfileFacade {
    *  first; returns 'needs_api_key' when none is found so the caller can
    *  open the OPENAI_API_KEY dialog. */
   async tryConnectCodex(): Promise<'codex_session' | 'needs_api_key'> {
+    this._codexStatus.set('checking');
     if (await this.credentials.hasCodexSession()) {
       this._codexStatus.set('connected_via_codex');
       return 'codex_session';
     }
+    this._codexStatus.set('not_connected');
     return 'needs_api_key';
   }
 
