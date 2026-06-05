@@ -609,3 +609,13 @@ The retention prune in `agent_run_envelopes::insert_with_retention` is unchanged
 **Depends on:** A reveal-in-file-manager Tauri command (new) for the "Open folder" action.
 
 ---
+
+## Skills — marketplace trust & review (revisit at marketplace ship)
+
+**What:** When the Mozart skill marketplace ships, add a trust/review mechanism for marketplace-distributed skills (review-before-distribution + any install-time consent).
+
+**Why:** v1 skill discovery is intentionally trust-by-design: `~/.claude` / `~/.codex` are user-managed (installing there is the trust act), and repo `.mozart/skills` is project content like any committed script. That model holds only while skills come from the user's own machine or their repo. Marketplace skills come from third parties and need a review gate before distribution.
+
+**How to apply:** When the `mozart-marketplace` discovery strategy (the planned 4th `SkillStrategy` calling the Mozart web API) is built, pair it with the distribution-side review process. No change needed to the local provider/repo discovery scan — that stays trust-by-design.
+
+**Depends on:** Skill marketplace (not in this repo today). Not blocking discovery-first v1.

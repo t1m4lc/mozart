@@ -18,6 +18,20 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async listSkills(
+    provider: string,
+    projectId: string | null,
+  ): Promise<Result<Skill[], AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('list_skills', { provider, projectId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   async addRepo(path: string): Promise<Result<Repo, AppError>> {
     try {
       return { status: 'ok', data: await TAURI_INVOKE('add_repo', { path }) };
@@ -2452,6 +2466,19 @@ export type ProjectConfig = {
    * `"repo"` or `"local"`.
    */
   source: string;
+};
+export type SkillSource = 'mozart-project' | 'claude-provider' | 'codex-provider';
+export type SkillRuntime = 'any' | 'claude' | 'codex';
+export type SkillScope = 'project' | 'global';
+export type Skill = {
+  id: string;
+  name: string;
+  description: string;
+  source: SkillSource;
+  runtime: SkillRuntime;
+  publisher: string | null;
+  scope: SkillScope;
+  model_hint: string | null;
 };
 export type Repo = {
   repo_id: string;

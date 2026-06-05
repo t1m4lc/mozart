@@ -40,6 +40,7 @@
 @source "../../../libs/desktop-runs-feature";
 @source "../../../libs/desktop-runs-util";
 @source "../../../libs/desktop-shell-feature";
+@source "../../../libs/desktop-skills-util";
 @source "../../../libs/desktop-tasks-data-access";
 @source "../../../libs/desktop-terminals-data-access";
 @source "../../../libs/desktop-terminals-feature";
@@ -63,6 +64,8 @@
 @source "../../../libs/mozart-ui/loader";
 @source "../../../libs/mozart-ui/status-icon";
 @source "../../../libs/mozart-ui/timeline";
+@source "../../../libs/mozart-ui/trigger-menu";
+@source "../../../libs/shared-util-analytics";
 @source "../../../libs/shared-util-mozart-links";
 @source "../../../libs/shared-util-os";
 @source "../../../libs/shared-util-theme";
@@ -90,7 +93,6 @@
 @source "../../../libs/spartan-ui/sonner";
 @source "../../../libs/spartan-ui/switch";
 @source "../../../libs/spartan-ui/tabs";
-@source "../../../libs/spartan-ui/textarea";
 @source "../../../libs/spartan-ui/tooltip";
 @source "../../../libs/spartan-ui/typography";
 @source "../../../libs/spartan-ui/utils";

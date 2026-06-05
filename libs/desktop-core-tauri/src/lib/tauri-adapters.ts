@@ -17,7 +17,9 @@ import {
   COMPOSER_MODELS_PORT,
   LLM_ADAPTER,
 } from '@mozart/desktop-llm-model-data-access';
+import { SKILLS_PORT } from '@mozart/desktop-skills-data-access';
 import { tauriComposerModelsPort } from './tauri-composer-models.port';
+import { tauriSkillsPort } from './tauri-skills.port';
 import { TauriClaudeAdapter } from './tauri-claude.adapter';
 import {
   GET_STARTED_PROJECT_ADAPTER,
@@ -535,6 +537,13 @@ function provideComposerModelsPort(): Provider {
   };
 }
 
+function provideSkillsPort(): Provider {
+  return {
+    provide: SKILLS_PORT,
+    useFactory: () => tauriSkillsPort(),
+  };
+}
+
 function provideLlmAdapter(): Provider {
   return { provide: LLM_ADAPTER, useExisting: TauriClaudeAdapter };
 }
@@ -724,6 +733,7 @@ export function provideTauriAdapters(): Provider[] {
     provideCredentialsAdapter(),
     provideLlmAdapter(),
     provideComposerModelsPort(),
+    provideSkillsPort(),
     provideRepositoriesAdapter(),
     provideTerminalsAdapter(),
     provideRunsAdapter(),

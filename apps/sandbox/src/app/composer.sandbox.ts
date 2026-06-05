@@ -5,6 +5,7 @@ import {
   MzComposerImports,
   type ChatMode,
   type ComposerSendEvent,
+  type SlashMenuGroup,
 } from '@mozart-ui/composer';
 
 interface SandboxLogEntry {
@@ -59,11 +60,19 @@ interface SandboxLogEntry {
           [(mode)]="mode"
           [isRunning]="isRunning()"
           [disabled]="disabled()"
-          placeholder="Type a message…"
+          [skillGroups]="skillGroups"
+          placeholder="Type a message…  (type / to insert a skill)"
           (send)="_onSend($event)"
           (stop)="_onStop()"
         />
       </div>
+
+      <p class="text-xs text-muted-foreground">
+        Type <code class="font-mono">/</code> anywhere to open the trigger menu;
+        ↑/↓ + Enter (or click) inserts a skill pill. Backspace removes a pill
+        whole. The serialized <code class="font-mono">value</code> above shows
+        the pill as <code class="font-mono">/id</code>.
+      </p>
 
       <section class="flex flex-col gap-2">
         <h2 class="text-sm font-medium text-muted-foreground">
@@ -101,6 +110,32 @@ export class ComposerSandbox {
   protected readonly isRunning = signal(false);
   protected readonly disabled = signal(false);
   protected readonly log = signal<readonly SandboxLogEntry[]>([]);
+
+  // Sample skills to exercise the trigger menu (grouped by source).
+  protected readonly skillGroups: readonly SlashMenuGroup[] = [
+    {
+      key: 'mozart',
+      label: 'Mozart',
+      items: [
+        { id: 'commit', label: 'Commit', description: 'Conventional commit', disabled: false },
+        { id: 'summarize-changes', label: 'Summarize', description: 'Summarize the diff', disabled: false },
+      ],
+    },
+    {
+      key: 'claude',
+      label: 'Claude Code',
+      items: [
+        { id: 'review', label: 'Review', description: 'Review the diff', disabled: false },
+      ],
+    },
+    {
+      key: 'gstack',
+      label: 'Gstack',
+      items: [
+        { id: 'ship', label: 'Ship', description: 'Open a PR', disabled: true },
+      ],
+    },
+  ];
 
   protected _toggleRunning(): void {
     this.isRunning.update((v) => !v);

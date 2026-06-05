@@ -40,6 +40,16 @@ export interface TriggerMenuContext<TData = unknown> {
    * directive intercepts these and forwards them here. Pass `null` to clear.
    */
   readonly onNavKey: (handler: TriggerMenuNavHandler | null) => void;
+  /**
+   * Stable id the menu must put on its listbox element. The field's
+   * `aria-controls` points at it (ARIA 1.2 combobox pattern).
+   */
+  readonly menuId: string;
+  /**
+   * Report the active option's element id so the field's
+   * `aria-activedescendant` can reference it. `null` clears it.
+   */
+  readonly setActiveDescendant: (id: string | null) => void;
 }
 
 /** Structured segment produced when serializing an editable surface. */
