@@ -53,9 +53,14 @@ import { PROVIDER_SETUP_ADAPTER } from '@mozart/desktop-onboarding-data-access';
           Detecting {{ label() }} session…
         </p>
       } @else if (state() === 'failed') {
-        <p class="text-center text-xs text-destructive">
-          No {{ label() }} session detected. Try again or use an API key.
-        </p>
+        <div class="space-y-2 text-center">
+          <p class="text-xs text-destructive">
+            No {{ label() }} session detected. Try again or use an API key.
+          </p>
+          <button hlmBtn variant="outline" type="button" (click)="onRecheck()">
+            I already logged in — recheck
+          </button>
+        </div>
       }
 
       <div class="flex items-center justify-between gap-3">
@@ -97,6 +102,7 @@ export class FeatureClaudeLoginPty {
 
   private term: Terminal | null = null;
   private fit: FitAddon | null = null;
+  private writeErrorShown = false;
   private closePty: (() => Promise<void>) | null = null;
   private terminalId: string | null = null;
   private resizeObserver: ResizeObserver | null = null;
@@ -123,8 +129,13 @@ export class FeatureClaudeLoginPty {
     this.useApiKey.emit();
   }
 
+  protected onRecheck(): void {
+    void this.handleExited();
+  }
+
   private async mount(): Promise<void> {
     this.mounted = true;
+    this.writeErrorShown = false;
     this.state.set('connecting');
 
     // Load xterm.js dynamically — keeps the ~290 kB chunk out of the
@@ -180,6 +191,13 @@ export class FeatureClaudeLoginPty {
         if (!this.terminalId) return;
         void this.adapter.write(this.terminalId, data).catch((err) => {
           console.warn('[onboarding] claude-login write failed:', err);
+          if (!this.writeErrorShown) {
+            this.writeErrorShown = true;
+            this.term?.write(
+              '\r\n\x1b[31mInput could not be delivered to the terminal. Use recheck or the API-key option below.\x1b[0m\r\n',
+            );
+            this.state.set('failed');
+          }
         });
       });
       term.onResize(({ cols, rows }) => {
