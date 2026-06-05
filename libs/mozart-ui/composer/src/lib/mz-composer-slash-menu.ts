@@ -9,8 +9,20 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { BrnCommand } from '@spartan-ng/brain/command';
+import {
+  BrnTooltip,
+  type BrnTooltipPosition,
+  provideBrnTooltipDefaultOptions,
+} from '@spartan-ng/brain/tooltip';
 import { HlmCommandImports } from '@spartan-ui/command';
 import { HlmBadgeImports } from '@spartan-ui/badge';
+import {
+  DEFAULT_TOOLTIP_CONTENT_CLASSES,
+  DEFAULT_TOOLTIP_SHOW_DELAY,
+  DEFAULT_TOOLTIP_SVG_CLASS,
+  tooltipPositionVariants,
+} from '@spartan-ui/tooltip';
+import { hlm } from '@spartan-ui/utils';
 import type { TriggerMenuContext } from '@mozart-ui/trigger-menu';
 
 // View-model types owned by the UI. `mozart-ui` is a pure UI lib and must
@@ -48,14 +60,28 @@ export interface SlashMenuGroup {
  */
 @Component({
   selector: 'mz-composer-slash-menu',
-  imports: [HlmCommandImports, HlmBadgeImports],
+  imports: [HlmCommandImports, HlmBadgeImports, BrnTooltip],
+  // Scope the tooltip to this menu: cap it at the menu width and wrap long
+  // descriptions instead of cmdk's default `w-fit` (which never wraps).
+  providers: [
+    provideBrnTooltipDefaultOptions({
+      showDelay: DEFAULT_TOOLTIP_SHOW_DELAY,
+      svgClasses: DEFAULT_TOOLTIP_SVG_CLASS,
+      tooltipContentClasses: DEFAULT_TOOLTIP_CONTENT_CLASSES.replace(
+        'w-fit',
+        'max-w-96 whitespace-normal',
+      ),
+      arrowClasses: (position: BrnTooltipPosition) =>
+        hlm(tooltipPositionVariants({ position })),
+    }),
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <hlm-command
       [search]="ctx().query()"
       [id]="ctx().menuId"
       role="listbox"
-      class="bg-popover text-popover-foreground w-72 rounded-xl border shadow-md"
+      class="bg-popover text-popover-foreground w-96 rounded-xl border shadow-md"
       (mousedown)="$event.preventDefault()"
     >
       <div hlmCommandList>
@@ -67,6 +93,8 @@ export interface SlashMenuGroup {
                 hlmCommandItem
                 [value]="item.id + ' ' + item.label"
                 [disabled]="item.disabled"
+                [brnTooltip]="item.description"
+                position="right"
                 (selected)="ctx().select(item)"
               >
                 <span class="min-w-0 flex-1 truncate text-left">
