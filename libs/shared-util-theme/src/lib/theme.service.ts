@@ -124,11 +124,17 @@ export class ThemeService implements OnDestroy {
 
   private loadMode(): ThemeMode {
     if (!this.isBrowser) return this.defaultMode;
-    return (localStorage.getItem(KEY_MODE) as ThemeMode) ?? this.defaultMode;
+    const stored = localStorage.getItem(KEY_MODE);
+    return stored === 'light' || stored === 'dark' || stored === 'system'
+      ? stored
+      : this.defaultMode;
   }
 
   private loadTheme(): Theme {
     if (!this.isBrowser) return this.defaultTheme;
-    return (localStorage.getItem(KEY_THEME) as Theme) ?? this.defaultTheme;
+    const stored = localStorage.getItem(KEY_THEME);
+    return stored && this.config.options.includes(stored as Theme)
+      ? (stored as Theme)
+      : this.defaultTheme;
   }
 }
