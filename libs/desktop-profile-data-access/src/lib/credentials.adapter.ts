@@ -9,10 +9,8 @@ import type { ProbeResult } from '@mozart/desktop-profile-util';
 export interface CredentialsAdapter {
   // Cheap presence check on the OS keyring. Never returns the key.
   hasStoredKey(): Promise<boolean>;
-  // Heuristic probe for a `claude /login` session on this machine.
-  // Returns true if Claude Code's credential file is present in the
-  // user's home dir; false otherwise (including the macOS Keychain-only
-  // case, a known v0.1.0-beta.1 limitation).
+  // Probe for an authenticated `claude` session via `claude auth status`.
+  // Reflects the CLI's own auth state across every OS/credential backend.
   hasClaudeCodeSession(): Promise<boolean>;
   // Probe `key` against Anthropic; on `connected` the backend persists it
   // to the OS keyring before resolving. On `invalid` / `network_error` the
@@ -27,8 +25,7 @@ export interface CredentialsAdapter {
   // ── Codex (OpenAI) — parallels the Claude methods above ──────────────
   /** Cheap presence check for a stored OpenAI key. Never returns the key. */
   hasOpenaiKey(): Promise<boolean>;
-  /** Heuristic probe for a `codex login` session (presence of
-   *  `~/.codex/auth.json`). */
+  /** Probe for an authenticated `codex` session via `codex login status`. */
   hasCodexSession(): Promise<boolean>;
   /** Probe `key` against OpenAI; on `connected` the backend persists it to
    *  the keyring before resolving. */

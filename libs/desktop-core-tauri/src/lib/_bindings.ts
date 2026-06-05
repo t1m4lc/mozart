@@ -670,10 +670,10 @@ export const commands = {
     return await TAURI_INVOKE('check_claude_install');
   },
   /**
-   * Step 6d — heuristic probe for an existing `claude /login` session. The
-   * frontend uses this to give Pro/Max users a single-click "Connect"
-   * experience that bypasses the API-key dialog when their CLI is already
-   * authenticated.
+   * Step 6d — probe for an existing `claude` session by running
+   * `claude auth status`. The frontend uses this to give Pro/Max users a
+   * single-click "Connect" experience that bypasses the API-key dialog when
+   * their CLI is already authenticated.
    */
   async checkClaudeCodeSession(): Promise<boolean> {
     return await TAURI_INVOKE('check_claude_code_session');
@@ -741,7 +741,7 @@ export const commands = {
   async checkCodexInstall(): Promise<ClaudeInstall> {
     return await TAURI_INVOKE('check_codex_install');
   },
-  /** Heuristic probe for an existing `codex login` session. */
+  /** Probe for an existing `codex` session by running `codex login status`. */
   async checkCodexSession(): Promise<boolean> {
     return await TAURI_INVOKE('check_codex_session');
   },

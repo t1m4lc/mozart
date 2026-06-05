@@ -1567,14 +1567,14 @@ pub async fn check_claude_install() -> ClaudeInstall {
     install::check_installed().await
 }
 
-/// Step 6d — heuristic probe for an existing `claude /login` session. The
-/// frontend uses this to give Pro/Max users a single-click "Connect"
-/// experience that bypasses the API-key dialog when their CLI is already
-/// authenticated.
+/// Step 6d — probe for an existing `claude` session by running
+/// `claude auth status`. The frontend uses this to give Pro/Max users a
+/// single-click "Connect" experience that bypasses the API-key dialog when
+/// their CLI is already authenticated.
 #[tauri::command]
 #[specta::specta]
 pub async fn check_claude_code_session() -> bool {
-    session::has_session()
+    session::has_session().await
 }
 
 /// Step 6 — cheap presence check used by the frontend on app start to know
@@ -1643,12 +1643,12 @@ pub async fn check_codex_install() -> ClaudeInstall {
     install::check_codex_installed().await
 }
 
-/// Heuristic probe for an existing `codex login` session (presence of
-/// `~/.codex/auth.json`). Mirrors [`check_claude_code_session`].
+/// Probe for an existing `codex` session by running `codex login status`.
+/// Mirrors [`check_claude_code_session`].
 #[tauri::command]
 #[specta::specta]
 pub async fn check_codex_session() -> bool {
-    codex_session::has_session()
+    codex_session::has_session().await
 }
 
 /// Cheap presence check for a stored OpenAI key. Never returns the value.
