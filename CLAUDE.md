@@ -7,6 +7,8 @@ command: tools/claude-status-line.sh
 
 ---
 
+> **Agent policy:** Do not create branches or commits without explicit approval. Do not run tests, linters, builds, or end-to-end checks unless explicitly requested; instead, provide a concise validation checklist with recommended commands and manual functional checks.
+
 # Core Rules
 
 - If ambiguous: ask questions. Never silently assume.

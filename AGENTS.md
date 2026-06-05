@@ -1,5 +1,7 @@
 # AGENTS.md
 
+> **Agent policy:** Do not create branches or commits without explicit approval. Do not run tests, linters, builds, or end-to-end checks unless explicitly requested; instead, provide a concise validation checklist with recommended commands and manual functional checks.
+
 Operational map for AI agents.  
 Read this first. Use `CLAUDE.md` for coding rules and constraints.
 
