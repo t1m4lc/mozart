@@ -125,11 +125,12 @@ fn spawn_inner(
         })
         .map_err(|e| AppError::Io(format!("openpty: {e}")))?;
 
-    let mut cmd = CommandBuilder::new(default_shell());
+    let (shell, run_flag) = default_shell();
+    let mut cmd = CommandBuilder::new(shell);
     if let Some(c) = command.as_ref() {
-        // `-c <command>` runs once and exits; the reader's `Exited`
-        // pulse drives the Run tab status badge.
-        cmd.arg("-c");
+        // Run once and exit; the reader's `Exited` pulse drives the Run
+        // tab status badge. `cmd.exe` needs `/C`, not the POSIX `-c`.
+        cmd.arg(run_flag);
         cmd.arg(c);
     }
     cmd.cwd(worktree);
@@ -192,15 +193,48 @@ fn spawn_inner(
     })
 }
 
-fn default_shell() -> String {
+/// The user's shell paired with the flag it uses to run a single command
+/// string and exit. The flag must track the shell, not just the OS: a
+/// Windows box with `$SHELL` pointing at Git Bash still wants `-c`.
+fn default_shell() -> (String, &'static str) {
     if let Ok(shell) = std::env::var("SHELL") {
         if !shell.is_empty() {
-            return shell;
+            let flag = run_flag_for(&shell);
+            return (shell, flag);
         }
     }
     if cfg!(windows) {
-        "cmd.exe".to_string()
+        ("cmd.exe".to_string(), "/C")
     } else {
-        "/bin/bash".to_string()
+        ("/bin/bash".to_string(), "-c")
+    }
+}
+
+/// Pick the run-once flag from the shell's file name.
+fn run_flag_for(shell: &str) -> &'static str {
+    let stem = std::path::Path::new(shell)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("")
+        .to_ascii_lowercase();
+    match stem.as_str() {
+        "cmd" => "/C",
+        "powershell" | "pwsh" => "-Command",
+        _ => "-c",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::run_flag_for;
+
+    #[test]
+    fn run_flag_tracks_shell_family() {
+        assert_eq!(run_flag_for("/bin/bash"), "-c");
+        assert_eq!(run_flag_for("/usr/bin/zsh"), "-c");
+        assert_eq!(run_flag_for("/usr/bin/fish"), "-c");
+        assert_eq!(run_flag_for("cmd.exe"), "/C");
+        assert_eq!(run_flag_for("pwsh"), "-Command");
+        assert_eq!(run_flag_for("powershell.exe"), "-Command");
     }
 }
