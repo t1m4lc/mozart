@@ -4,3 +4,6 @@
 /.nx/cache
 /.nx/workspace-data
 .angular
+
+# Flat ESLint configs crash prettier's tailwind plugin and aren't prettier-managed
+eslint.config.mjs
