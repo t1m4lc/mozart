@@ -38,8 +38,9 @@ import { PROVIDER_SETUP_ADAPTER } from '@mozart/desktop-onboarding-data-access';
       <div class="space-y-1 text-center">
         <h3 class="text-base font-medium">Configure {{ label() }}</h3>
         <p class="text-xs text-muted-foreground">
-          Mozart is running <code class="font-mono">{{ loginCmd() }}</code> below.
-          Follow the prompts in the terminal.
+          Mozart is running
+          <code class="font-mono">{{ loginCmd() }}</code> below. Follow the
+          prompts in the terminal.
         </p>
       </div>
 

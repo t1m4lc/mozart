@@ -1486,7 +1486,9 @@ export const commands = {
     try {
       return {
         status: 'ok',
-        data: await TAURI_INVOKE('detect_github_remote_for_project', { repoId }),
+        data: await TAURI_INVOKE('detect_github_remote_for_project', {
+          repoId,
+        }),
       };
     } catch (e) {
       if (e instanceof Error) throw e;

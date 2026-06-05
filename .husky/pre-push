@@ -5,7 +5,7 @@ echo "pre-push: verifying scope tags..."
 bash tools/verify-scope-tags.sh
 
 echo "pre-push: lint + test + typecheck (affected)..."
-pnpm nx affected -t lint test typecheck --parallel=3 --exclude=sandbox,sandbox-e2e
+CI=true pnpm nx affected -t lint test typecheck --parallel=3 --output-style=static --exclude=sandbox,sandbox-e2e
 
 echo "pre-push: format check..."
 pnpm nx format:check

@@ -7,10 +7,9 @@ on:
   # clobbers these wrangler deploys (and 404s app.mozart.build). Keep it
   # disconnected: GitHub Actions is the only deployer.
   #
-  # Branch model: push to `main` → production (app.mozart.build); push
-  # to `develop` and PRs → *.mozart-web.pages.dev preview.
+  # Branch model: push to `main` → production (app.mozart.build); PRs → *.mozart-web.pages.dev preview.
   push:
-    branches: [main, develop]
+    branches: [main]
   pull_request:
     paths:
       - 'apps/web/**'

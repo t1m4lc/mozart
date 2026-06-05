@@ -310,7 +310,10 @@ export class ProfileFacade {
       if (present) {
         this._githubKind.set(await this.credentials.getGithubTokenKind());
         this._githubState.set('connected');
-        console.info('[profile] github init: token in keyring →', this._githubKind());
+        console.info(
+          '[profile] github init: token in keyring →',
+          this._githubKind(),
+        );
         return;
       }
       // No keyring token. The backend is the source of truth for
