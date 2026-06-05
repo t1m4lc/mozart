@@ -10,21 +10,14 @@
     "importHelpers": true,
     "target": "ES2022",
     "module": "ESNext",
-    "lib": [
-      "ES2022",
-      "DOM"
-    ],
+    "lib": ["ES2022", "DOM"],
     "skipLibCheck": true,
     "skipDefaultLibCheck": true,
     "strict": true,
     "baseUrl": ".",
     "paths": {
-      "@spartan-ui/accordion": [
-        "./libs/spartan-ui/accordion/src/index.ts"
-      ],
-      "@spartan-ui/alert": [
-        "./libs/spartan-ui/alert/src/index.ts"
-      ],
+      "@spartan-ui/accordion": ["./libs/spartan-ui/accordion/src/index.ts"],
+      "@spartan-ui/alert": ["./libs/spartan-ui/alert/src/index.ts"],
       "@spartan-ui/alert-dialog": [
         "./libs/spartan-ui/alert-dialog/src/index.ts"
       ],
@@ -34,198 +27,88 @@
       "@spartan-ui/autocomplete": [
         "./libs/spartan-ui/autocomplete/src/index.ts"
       ],
-      "@spartan-ui/avatar": [
-        "./libs/spartan-ui/avatar/src/index.ts"
-      ],
-      "@spartan-ui/badge": [
-        "./libs/spartan-ui/badge/src/index.ts"
-      ],
-      "@spartan-ui/breadcrumb": [
-        "./libs/spartan-ui/breadcrumb/src/index.ts"
-      ],
-      "@spartan-ui/button": [
-        "./libs/spartan-ui/button/src/index.ts"
-      ],
+      "@spartan-ui/avatar": ["./libs/spartan-ui/avatar/src/index.ts"],
+      "@spartan-ui/badge": ["./libs/spartan-ui/badge/src/index.ts"],
+      "@spartan-ui/breadcrumb": ["./libs/spartan-ui/breadcrumb/src/index.ts"],
+      "@spartan-ui/button": ["./libs/spartan-ui/button/src/index.ts"],
       "@spartan-ui/button-group": [
         "./libs/spartan-ui/button-group/src/index.ts"
       ],
-      "@spartan-ui/calendar": [
-        "./libs/spartan-ui/calendar/src/index.ts"
-      ],
-      "@spartan-ui/card": [
-        "./libs/spartan-ui/card/src/index.ts"
-      ],
-      "@spartan-ui/carousel": [
-        "./libs/spartan-ui/carousel/src/index.ts"
-      ],
-      "@spartan-ui/checkbox": [
-        "./libs/spartan-ui/checkbox/src/index.ts"
-      ],
-      "@spartan-ui/collapsible": [
-        "./libs/spartan-ui/collapsible/src/index.ts"
-      ],
-      "@spartan-ui/combobox": [
-        "./libs/spartan-ui/combobox/src/index.ts"
-      ],
-      "@spartan-ui/command": [
-        "./libs/spartan-ui/command/src/index.ts"
-      ],
+      "@spartan-ui/calendar": ["./libs/spartan-ui/calendar/src/index.ts"],
+      "@spartan-ui/card": ["./libs/spartan-ui/card/src/index.ts"],
+      "@spartan-ui/carousel": ["./libs/spartan-ui/carousel/src/index.ts"],
+      "@spartan-ui/checkbox": ["./libs/spartan-ui/checkbox/src/index.ts"],
+      "@spartan-ui/collapsible": ["./libs/spartan-ui/collapsible/src/index.ts"],
+      "@spartan-ui/combobox": ["./libs/spartan-ui/combobox/src/index.ts"],
+      "@spartan-ui/command": ["./libs/spartan-ui/command/src/index.ts"],
       "@spartan-ui/context-menu": [
         "./libs/spartan-ui/context-menu/src/index.ts"
       ],
-      "@spartan-ui/date-picker": [
-        "./libs/spartan-ui/date-picker/src/index.ts"
-      ],
-      "@spartan-ui/dialog": [
-        "./libs/spartan-ui/dialog/src/index.ts"
-      ],
+      "@spartan-ui/date-picker": ["./libs/spartan-ui/date-picker/src/index.ts"],
+      "@spartan-ui/dialog": ["./libs/spartan-ui/dialog/src/index.ts"],
       "@spartan-ui/dropdown-menu": [
         "./libs/spartan-ui/dropdown-menu/src/index.ts"
       ],
-      "@spartan-ui/empty": [
-        "./libs/spartan-ui/empty/src/index.ts"
-      ],
-      "@spartan-ui/field": [
-        "./libs/spartan-ui/field/src/index.ts"
-      ],
-      "@spartan-ui/hover-card": [
-        "./libs/spartan-ui/hover-card/src/index.ts"
-      ],
-      "@spartan-ui/icon": [
-        "./libs/spartan-ui/icon/src/index.ts"
-      ],
-      "@spartan-ui/input": [
-        "./libs/spartan-ui/input/src/index.ts"
-      ],
-      "@spartan-ui/input-group": [
-        "./libs/spartan-ui/input-group/src/index.ts"
-      ],
-      "@spartan-ui/input-otp": [
-        "./libs/spartan-ui/input-otp/src/index.ts"
-      ],
-      "@spartan-ui/item": [
-        "./libs/spartan-ui/item/src/index.ts"
-      ],
-      "@spartan-ui/kbd": [
-        "./libs/spartan-ui/kbd/src/index.ts"
-      ],
-      "@spartan-ui/label": [
-        "./libs/spartan-ui/label/src/index.ts"
-      ],
-      "@spartan-ui/loader": [
-        "./libs/spartan-ui/loader/src/index.ts"
-      ],
-      "@spartan-ui/menubar": [
-        "./libs/spartan-ui/menubar/src/index.ts"
-      ],
+      "@spartan-ui/empty": ["./libs/spartan-ui/empty/src/index.ts"],
+      "@spartan-ui/field": ["./libs/spartan-ui/field/src/index.ts"],
+      "@spartan-ui/hover-card": ["./libs/spartan-ui/hover-card/src/index.ts"],
+      "@spartan-ui/icon": ["./libs/spartan-ui/icon/src/index.ts"],
+      "@spartan-ui/input": ["./libs/spartan-ui/input/src/index.ts"],
+      "@spartan-ui/input-group": ["./libs/spartan-ui/input-group/src/index.ts"],
+      "@spartan-ui/input-otp": ["./libs/spartan-ui/input-otp/src/index.ts"],
+      "@spartan-ui/item": ["./libs/spartan-ui/item/src/index.ts"],
+      "@spartan-ui/kbd": ["./libs/spartan-ui/kbd/src/index.ts"],
+      "@spartan-ui/label": ["./libs/spartan-ui/label/src/index.ts"],
+      "@spartan-ui/loader": ["./libs/spartan-ui/loader/src/index.ts"],
+      "@spartan-ui/menubar": ["./libs/spartan-ui/menubar/src/index.ts"],
       "@spartan-ui/native-select": [
         "./libs/spartan-ui/native-select/src/index.ts"
       ],
       "@spartan-ui/navigation-menu": [
         "./libs/spartan-ui/navigation-menu/src/index.ts"
       ],
-      "@spartan-ui/pagination": [
-        "./libs/spartan-ui/pagination/src/index.ts"
-      ],
-      "@spartan-ui/popover": [
-        "./libs/spartan-ui/popover/src/index.ts"
-      ],
-      "@spartan-ui/progress": [
-        "./libs/spartan-ui/progress/src/index.ts"
-      ],
-      "@spartan-ui/radio-group": [
-        "./libs/spartan-ui/radio-group/src/index.ts"
-      ],
-      "@spartan-ui/resizable": [
-        "./libs/spartan-ui/resizable/src/index.ts"
-      ],
-      "@spartan-ui/scroll-area": [
-        "./libs/spartan-ui/scroll-area/src/index.ts"
-      ],
-      "@spartan-ui/select": [
-        "./libs/spartan-ui/select/src/index.ts"
-      ],
-      "@spartan-ui/separator": [
-        "./libs/spartan-ui/separator/src/index.ts"
-      ],
-      "@spartan-ui/sheet": [
-        "./libs/spartan-ui/sheet/src/index.ts"
-      ],
-      "@spartan-ui/sidebar": [
-        "./libs/spartan-ui/sidebar/src/index.ts"
-      ],
-      "@spartan-ui/skeleton": [
-        "./libs/spartan-ui/skeleton/src/index.ts"
-      ],
-      "@spartan-ui/slider": [
-        "./libs/spartan-ui/slider/src/index.ts"
-      ],
-      "@spartan-ui/sonner": [
-        "./libs/spartan-ui/sonner/src/index.ts"
-      ],
-      "@spartan-ui/spinner": [
-        "./libs/spartan-ui/spinner/src/index.ts"
-      ],
-      "@spartan-ui/switch": [
-        "./libs/spartan-ui/switch/src/index.ts"
-      ],
-      "@spartan-ui/table": [
-        "./libs/spartan-ui/table/src/index.ts"
-      ],
-      "@spartan-ui/tabs": [
-        "./libs/spartan-ui/tabs/src/index.ts"
-      ],
-      "@spartan-ui/textarea": [
-        "./libs/spartan-ui/textarea/src/index.ts"
-      ],
-      "@spartan-ui/toggle": [
-        "./libs/spartan-ui/toggle/src/index.ts"
-      ],
+      "@spartan-ui/pagination": ["./libs/spartan-ui/pagination/src/index.ts"],
+      "@spartan-ui/popover": ["./libs/spartan-ui/popover/src/index.ts"],
+      "@spartan-ui/progress": ["./libs/spartan-ui/progress/src/index.ts"],
+      "@spartan-ui/radio-group": ["./libs/spartan-ui/radio-group/src/index.ts"],
+      "@spartan-ui/resizable": ["./libs/spartan-ui/resizable/src/index.ts"],
+      "@spartan-ui/scroll-area": ["./libs/spartan-ui/scroll-area/src/index.ts"],
+      "@spartan-ui/select": ["./libs/spartan-ui/select/src/index.ts"],
+      "@spartan-ui/separator": ["./libs/spartan-ui/separator/src/index.ts"],
+      "@spartan-ui/sheet": ["./libs/spartan-ui/sheet/src/index.ts"],
+      "@spartan-ui/sidebar": ["./libs/spartan-ui/sidebar/src/index.ts"],
+      "@spartan-ui/skeleton": ["./libs/spartan-ui/skeleton/src/index.ts"],
+      "@spartan-ui/slider": ["./libs/spartan-ui/slider/src/index.ts"],
+      "@spartan-ui/sonner": ["./libs/spartan-ui/sonner/src/index.ts"],
+      "@spartan-ui/spinner": ["./libs/spartan-ui/spinner/src/index.ts"],
+      "@spartan-ui/switch": ["./libs/spartan-ui/switch/src/index.ts"],
+      "@spartan-ui/table": ["./libs/spartan-ui/table/src/index.ts"],
+      "@spartan-ui/tabs": ["./libs/spartan-ui/tabs/src/index.ts"],
+      "@spartan-ui/textarea": ["./libs/spartan-ui/textarea/src/index.ts"],
+      "@spartan-ui/toggle": ["./libs/spartan-ui/toggle/src/index.ts"],
       "@spartan-ui/toggle-group": [
         "./libs/spartan-ui/toggle-group/src/index.ts"
       ],
-      "@spartan-ui/tooltip": [
-        "./libs/spartan-ui/tooltip/src/index.ts"
-      ],
-      "@spartan-ui/typography": [
-        "./libs/spartan-ui/typography/src/index.ts"
-      ],
-      "@spartan-ui/utils": [
-        "./libs/spartan-ui/utils/src/index.ts"
-      ],
+      "@spartan-ui/tooltip": ["./libs/spartan-ui/tooltip/src/index.ts"],
+      "@spartan-ui/typography": ["./libs/spartan-ui/typography/src/index.ts"],
+      "@spartan-ui/utils": ["./libs/spartan-ui/utils/src/index.ts"],
       "@mozart/shared-util-mozart-links": [
         "./libs/shared-util-mozart-links/src/index.ts"
       ],
-      "@mozart/shared-util-os": [
-        "./libs/shared-util-os/src/index.ts"
-      ],
+      "@mozart/shared-util-os": ["./libs/shared-util-os/src/index.ts"],
       "@mozart/shared-util-analytics": [
         "./libs/shared-util-analytics/src/index.ts"
       ],
-      "@mozart/shared-util-theme": [
-        "./libs/shared-util-theme/src/index.ts"
-      ],
-      "@mozart/clerk": [
-        "./libs/clerk/src/index.ts"
-      ],
-      "@mozart-ui/code-editor": [
-        "./libs/mozart-ui/code-editor/src/index.ts"
-      ],
+      "@mozart/shared-util-theme": ["./libs/shared-util-theme/src/index.ts"],
+      "@mozart/clerk": ["./libs/clerk/src/index.ts"],
+      "@mozart-ui/code-editor": ["./libs/mozart-ui/code-editor/src/index.ts"],
       "@mozart-ui/codemirror-theme": [
         "./libs/mozart-ui/codemirror-theme/src/index.ts"
       ],
-      "@mozart-ui/composer": [
-        "./libs/mozart-ui/composer/src/index.ts"
-      ],
-      "@mozart-ui/diff-parser": [
-        "./libs/mozart-ui/diff-parser/src/index.ts"
-      ],
-      "@mozart-ui/diff-stats": [
-        "./libs/mozart-ui/diff-stats/src/index.ts"
-      ],
-      "@mozart-ui/diff-view": [
-        "./libs/mozart-ui/diff-view/src/index.ts"
-      ],
+      "@mozart-ui/composer": ["./libs/mozart-ui/composer/src/index.ts"],
+      "@mozart-ui/diff-parser": ["./libs/mozart-ui/diff-parser/src/index.ts"],
+      "@mozart-ui/diff-stats": ["./libs/mozart-ui/diff-stats/src/index.ts"],
+      "@mozart-ui/diff-view": ["./libs/mozart-ui/diff-view/src/index.ts"],
       "@mozart-ui/file-diff-card": [
         "./libs/mozart-ui/file-diff-card/src/index.ts"
       ],
@@ -241,18 +124,10 @@
       "@mozart-ui/review-progress": [
         "./libs/mozart-ui/review-progress/src/index.ts"
       ],
-      "@mozart-ui/status-icon": [
-        "./libs/mozart-ui/status-icon/src/index.ts"
-      ],
-      "@mozart-ui/theme-toggle": [
-        "./libs/mozart-ui/theme-toggle/src/index.ts"
-      ],
-      "@mozart-ui/timeline": [
-        "./libs/mozart-ui/timeline/src/index.ts"
-      ],
-      "@mozart-ui/loader": [
-        "./libs/mozart-ui/loader/src/index.ts"
-      ],
+      "@mozart-ui/status-icon": ["./libs/mozart-ui/status-icon/src/index.ts"],
+      "@mozart-ui/theme-toggle": ["./libs/mozart-ui/theme-toggle/src/index.ts"],
+      "@mozart-ui/timeline": ["./libs/mozart-ui/timeline/src/index.ts"],
+      "@mozart-ui/loader": ["./libs/mozart-ui/loader/src/index.ts"],
       "@mozart-ui/message-markdown": [
         "./libs/mozart-ui/message-markdown/src/index.ts"
       ],
@@ -262,15 +137,11 @@
       "@mozart/desktop-auth-data-access": [
         "./libs/desktop-auth-data-access/src/index.ts"
       ],
-      "@mozart/desktop-auth-ui": [
-        "./libs/desktop-auth-ui/src/index.ts"
-      ],
+      "@mozart/desktop-auth-ui": ["./libs/desktop-auth-ui/src/index.ts"],
       "@mozart/desktop-auth-feature": [
         "./libs/desktop-auth-feature/src/index.ts"
       ],
-      "@mozart/desktop-auth-util": [
-        "./libs/desktop-auth-util/src/index.ts"
-      ],
+      "@mozart/desktop-auth-util": ["./libs/desktop-auth-util/src/index.ts"],
       "@mozart/desktop-ui-state-util": [
         "./libs/desktop-ui-state-util/src/index.ts"
       ],
@@ -289,24 +160,16 @@
       "@mozart/desktop-profile-data-access": [
         "./libs/desktop-profile-data-access/src/index.ts"
       ],
-      "@mozart/desktop-profile-ui": [
-        "./libs/desktop-profile-ui/src/index.ts"
-      ],
+      "@mozart/desktop-profile-ui": ["./libs/desktop-profile-ui/src/index.ts"],
       "@mozart/desktop-core-data-access": [
         "./libs/desktop-core-data-access/src/index.ts"
       ],
-      "@mozart/desktop-core-ui": [
-        "./libs/desktop-core-ui/src/index.ts"
-      ],
-      "@mozart/desktop-core-tauri": [
-        "./libs/desktop-core-tauri/src/index.ts"
-      ],
+      "@mozart/desktop-core-ui": ["./libs/desktop-core-ui/src/index.ts"],
+      "@mozart/desktop-core-tauri": ["./libs/desktop-core-tauri/src/index.ts"],
       "@mozart/desktop-profile-feature": [
         "./libs/desktop-profile-feature/src/index.ts"
       ],
-      "@mozart/desktop-core-util": [
-        "./libs/desktop-core-util/src/index.ts"
-      ],
+      "@mozart/desktop-core-util": ["./libs/desktop-core-util/src/index.ts"],
       "@mozart/desktop-terminals-util": [
         "./libs/desktop-terminals-util/src/index.ts"
       ],
@@ -316,9 +179,7 @@
       "@mozart/desktop-terminals-feature": [
         "./libs/desktop-terminals-feature/src/index.ts"
       ],
-      "@mozart/desktop-runs-util": [
-        "./libs/desktop-runs-util/src/index.ts"
-      ],
+      "@mozart/desktop-runs-util": ["./libs/desktop-runs-util/src/index.ts"],
       "@mozart/desktop-runs-data-access": [
         "./libs/desktop-runs-data-access/src/index.ts"
       ],
@@ -337,15 +198,11 @@
       "@mozart/desktop-repositories-feature": [
         "./libs/desktop-repositories-feature/src/index.ts"
       ],
-      "@mozart/desktop-chat-util": [
-        "./libs/desktop-chat-util/src/index.ts"
-      ],
+      "@mozart/desktop-chat-util": ["./libs/desktop-chat-util/src/index.ts"],
       "@mozart/desktop-chat-data-access": [
         "./libs/desktop-chat-data-access/src/index.ts"
       ],
-      "@mozart/desktop-chat-ui": [
-        "./libs/desktop-chat-ui/src/index.ts"
-      ],
+      "@mozart/desktop-chat-ui": ["./libs/desktop-chat-ui/src/index.ts"],
       "@mozart/desktop-chat-feature": [
         "./libs/desktop-chat-feature/src/index.ts"
       ],

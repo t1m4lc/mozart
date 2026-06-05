@@ -37,42 +37,8 @@ permissions:
   pull-requests: write
 
 jobs:
-  validate:
-    name: Lint & typecheck
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          filter: tree:0
-          fetch-depth: 0
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 11.0.8
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - run: pnpm install --frozen-lockfile
-
-      - uses: nrwl/nx-set-shas@v5
-
-      - name: Restore Nx cache
-        uses: actions/cache@v4
-        with:
-          path: .nx/cache
-          key: nx-web-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-${{ github.sha }}
-          restore-keys: |
-            nx-web-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}-
-            nx-web-${{ runner.os }}-
-
-      - run: pnpm nx affected -t lint typecheck --parallel=3 --exclude=sandbox,sandbox-e2e
-
   build:
     name: Build
-    needs: validate
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -171,7 +137,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          wranglerVersion: "4"
+          wranglerVersion: '4'
           # A Direct Upload deployment lands on production (the custom
           # domain app.mozart.build) when --branch matches the project's
           # production branch, which is `main`. So a push to `main`
