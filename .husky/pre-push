@@ -1,14 +1,11 @@
 #!/usr/bin/env sh
+set -e
 
-pushing_to_main=0
+echo "pre-push: verifying scope tags..."
+bash tools/verify-scope-tags.sh
 
-while IFS=' ' read -r _local_ref _local_sha remote_ref _remote_sha; do
-  case "$remote_ref" in
-    refs/heads/main) pushing_to_main=1 ;;
-  esac
-done
+echo "pre-push: lint + test + typecheck (affected)..."
+pnpm nx affected -t lint test typecheck --parallel=3 --exclude=sandbox,sandbox-e2e
 
-if [ "$pushing_to_main" = "1" ]; then
-  echo "pre-push: running affected tests before push to main..."
-  pnpm nx affected -t test --exclude=sandbox,sandbox-e2e
-fi
+echo "pre-push: format check..."
+pnpm nx format:check
