@@ -1,0 +1,13 @@
+{
+  "name": "mozart-trigger-menu",
+  "$schema": "../../../node_modules/nx/schemas/project-schema.json",
+  "sourceRoot": "libs/mozart-ui/trigger-menu/src",
+  "prefix": "mz",
+  "projectType": "library",
+  "tags": ["scope:mozart-ui"],
+  "targets": {
+    "lint": {
+      "executor": "@nx/eslint:lint"
+    }
+  }
+}
