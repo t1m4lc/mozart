@@ -240,9 +240,10 @@ fn scan_skill_root(
     }
 }
 
-/// `<repo>/.mozart/skills/*.md` — flat markdown files. Agent-agnostic unless the
-/// frontmatter narrows `runtimes`. Always project scope.
-fn scan_mozart_root(dir: &Path, out: &mut Vec<Skill>) {
+/// `<root>/.mozart/skills/*.md` — flat markdown files. Source is always
+/// `MozartProject`; runtime is agent-agnostic unless the frontmatter narrows
+/// `runtimes` (resolved per-file in `skill_from_file`).
+fn scan_mozart_root(dir: &Path, scope: SkillScope, out: &mut Vec<Skill>) {
     for entry in read_dir(dir) {
         let path = entry.path();
         if path.extension().and_then(|e| e.to_str()) != Some("md") {
@@ -255,11 +256,81 @@ fn scan_mozart_root(dir: &Path, out: &mut Vec<Skill>) {
             SkillSource::MozartProject,
             SkillRuntime::Any,
             None,
-            SkillScope::Project,
+            scope,
         ) {
             out.push(skill);
         }
     }
+}
+
+// ── Scan table ──────────────────────────────────────────────────────────
+//
+// The discovery scan is data-driven: `scan_specs` is the single, declarative
+// list of WHERE to look and HOW to read each location. Adapting to a provider
+// that moves its skills dir (across CLI versions / OSes) is a one-line edit
+// here — nothing else changes.
+
+/// Which base directory a scan root hangs off.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScanRoot {
+    /// `$HOME` — user-installed, global.
+    Home,
+    /// The project's repository root — committed, project-scoped.
+    Repo,
+}
+
+/// How to read a `skills/` directory.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ScanStyle {
+    /// `<name>/SKILL.md` + one publisher nesting level (Claude/Codex layout).
+    ProviderNested,
+    /// Flat `*.md` files (Mozart layout).
+    MozartFlat,
+}
+
+/// One place to scan. Every root resolves to `<base>/<dir>/skills`.
+#[derive(Debug, Clone, Copy)]
+struct ScanSpec {
+    root: ScanRoot,
+    /// Dot-dir under the base, e.g. `.claude` / `.codex` / `.mozart`.
+    dir: &'static str,
+    style: ScanStyle,
+    source: SkillSource,
+    runtime: SkillRuntime,
+    scope: SkillScope,
+}
+
+/// The ordered scan list for `provider`. Provider globals first (always),
+/// then the repo's provider-local and Mozart skills (only when a repo is in
+/// context — enforced by `ScanRoot::Repo` resolving to `None`).
+fn scan_specs(provider: Provider) -> [ScanSpec; 3] {
+    let (source, runtime, dir) = provider.scan_spec();
+    [
+        ScanSpec {
+            root: ScanRoot::Home,
+            dir,
+            style: ScanStyle::ProviderNested,
+            source,
+            runtime,
+            scope: SkillScope::Global,
+        },
+        ScanSpec {
+            root: ScanRoot::Repo,
+            dir,
+            style: ScanStyle::ProviderNested,
+            source,
+            runtime,
+            scope: SkillScope::Project,
+        },
+        ScanSpec {
+            root: ScanRoot::Repo,
+            dir: ".mozart",
+            style: ScanStyle::MozartFlat,
+            source: SkillSource::MozartProject,
+            runtime: SkillRuntime::Any,
+            scope: SkillScope::Project,
+        },
+    ]
 }
 
 // ── Orchestrator ────────────────────────────────────────────────────────
@@ -276,30 +347,24 @@ pub fn discover(provider: Provider, repo: Option<&Path>) -> Vec<Skill> {
 /// global-skills root at a fixture without mutating the process-global `HOME`
 /// (which would race under cargo's parallel test runner).
 fn discover_in(provider: Provider, home: &Path, repo: Option<&Path>) -> Vec<Skill> {
-    let (source, runtime, dir) = provider.scan_spec();
     let mut out = Vec::new();
-
-    // Global provider skills (user-installed = trusted), always.
-    scan_skill_root(
-        &home.join(dir).join("skills"),
-        source,
-        runtime,
-        SkillScope::Global,
-        &mut out,
-    );
-
-    // Repo-local skills (project content), when a project is in context.
-    if let Some(repo) = repo {
-        scan_skill_root(
-            &repo.join(dir).join("skills"),
-            source,
-            runtime,
-            SkillScope::Project,
-            &mut out,
-        );
-        scan_mozart_root(&repo.join(".mozart").join("skills"), &mut out);
+    for spec in scan_specs(provider) {
+        let base = match spec.root {
+            ScanRoot::Home => home,
+            // No project in context → skip every repo-rooted scan.
+            ScanRoot::Repo => match repo {
+                Some(r) => r,
+                None => continue,
+            },
+        };
+        let dir = base.join(spec.dir).join("skills");
+        match spec.style {
+            ScanStyle::ProviderNested => {
+                scan_skill_root(&dir, spec.source, spec.runtime, spec.scope, &mut out)
+            }
+            ScanStyle::MozartFlat => scan_mozart_root(&dir, spec.scope, &mut out),
+        }
     }
-
     dedup_project_over_global(out)
 }
 
@@ -391,7 +456,7 @@ mod tests {
             "---\nname: commit\ndescription: conventional commit\nmodel: cheapest\n---\nbody",
         );
         let mut out = Vec::new();
-        scan_mozart_root(&tmp.join(".mozart/skills"), &mut out);
+        scan_mozart_root(&tmp.join(".mozart/skills"), SkillScope::Project, &mut out);
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].id, "commit");
         assert!(matches!(out[0].source, SkillSource::MozartProject));
@@ -440,6 +505,23 @@ mod tests {
         let ids: Vec<_> = out.iter().map(|s| s.id.as_str()).collect();
         assert_eq!(ids, vec!["codex-review"]);
         cleanup(&tmp);
+    }
+
+    #[test]
+    fn scan_specs_describe_global_provider_then_repo_provider_then_repo_mozart() {
+        let specs = scan_specs(Provider::Claude);
+        assert_eq!(specs[0].root, ScanRoot::Home);
+        assert_eq!(specs[0].dir, ".claude");
+        assert_eq!(specs[0].scope, SkillScope::Global);
+        assert_eq!(specs[1].root, ScanRoot::Repo);
+        assert_eq!(specs[1].dir, ".claude");
+        assert_eq!(specs[1].scope, SkillScope::Project);
+        assert_eq!(specs[2].root, ScanRoot::Repo);
+        assert_eq!(specs[2].dir, ".mozart");
+        assert_eq!(specs[2].style, ScanStyle::MozartFlat);
+        assert!(matches!(specs[2].source, SkillSource::MozartProject));
+        // Codex swaps only the provider dot-dir.
+        assert_eq!(scan_specs(Provider::Codex)[0].dir, ".codex");
     }
 
     #[test]
