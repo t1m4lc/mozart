@@ -2033,7 +2033,9 @@ pub(crate) async fn write_terminal_impl(
     workspace_id: String,
     data: String,
 ) -> Result<(), AppError> {
-    {
+    // The onboarding login PTY is registered under a synthetic id with no
+    // workspace row; the frozen-workspace guard doesn't apply to it.
+    if workspace_id != ONBOARDING_PTY_ID {
         let conn = db.lock();
         workspaces::assert_workspace_active(&conn, &workspace_id)?;
     }
@@ -5180,6 +5182,31 @@ mod tests {
 
         let result = write_terminal_impl(&db, &registry, ws_id.clone(), "ls\n".into()).await;
         assert_frozen(result, &ws_id);
+    }
+
+    #[tokio::test]
+    async fn write_terminal_bypasses_workspace_guard_for_onboarding_pty() {
+        // The onboarding login PTY has no workspace row, so the
+        // frozen-workspace guard must be skipped — otherwise every
+        // keystroke is rejected with NotFound and the terminal is dead.
+        let db = init_db_memory().unwrap();
+        let registry = TerminalRegistry::new();
+        let on_event: Channel<TerminalEvent> = Channel::new(|_| Ok(()));
+        let handle = crate::terminal::spawn_command(
+            std::path::Path::new("."),
+            80,
+            24,
+            "sleep 5".into(),
+            on_event,
+        )
+        .unwrap();
+        registry.register(ONBOARDING_PTY_ID.to_string(), std::sync::Arc::new(handle));
+
+        let result =
+            write_terminal_impl(&db, &registry, ONBOARDING_PTY_ID.to_string(), "\n".into()).await;
+        assert!(result.is_ok(), "onboarding PTY write should not be guarded");
+
+        registry.cancel(ONBOARDING_PTY_ID);
     }
 
     #[tokio::test]
