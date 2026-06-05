@@ -1,33 +1,39 @@
-//! Lightweight probe for a `codex login` session — Codex's parallel to
-//! [`crate::claude_cli::session`].
+//! Probe for an authenticated `codex` session by asking the CLI itself —
+//! Codex's parallel to [`crate::claude_cli::session`].
 //!
-//! The Codex CLI writes its credential bundle to `~/.codex/auth.json` after
-//! a successful `codex login` (ChatGPT OAuth or stored API key). The file's
-//! *presence* is the heuristic; validating the session would mean parsing an
-//! undocumented schema or invoking `codex`, both heavier than this
-//! affordance warrants. A missing file falls the user through to the
-//! API-key dialog.
+//! We run `codex login status` and read its output rather than inspecting
+//! credential files, so the check tracks the CLI's own source of truth
+//! regardless of where it stores credentials. Codex has no `--json` mode
+//! here, so we match its text. The binary is resolved against the
+//! login-shell PATH (see [`crate::claude_cli::bin_path`]).
 
-use std::path::{Path, PathBuf};
+use std::time::Duration;
 
-/// Returns true iff a `codex login` credential file is present in the
-/// user's home directory.
-pub fn has_session() -> bool {
-    match home_dir() {
-        Some(home) => has_session_in(&home),
-        None => false,
+use tokio::process::Command;
+use tokio::time::timeout;
+
+/// Returns true iff `codex login status` reports an authenticated session.
+/// Any failure mode — binary missing, spawn error, timeout, unrecognized
+/// output — collapses to `false`.
+pub async fn has_session() -> bool {
+    let bin = super::bin_path::resolve_codex();
+    let fut = Command::new(&bin.program)
+        .args(["login", "status"])
+        .env("PATH", &bin.path_env)
+        .output();
+
+    match timeout(Duration::from_secs(5), fut).await {
+        Ok(Ok(out)) => parse_logged_in(&String::from_utf8_lossy(&out.stdout)),
+        _ => false,
     }
 }
 
-fn home_dir() -> Option<PathBuf> {
-    std::env::var_os("HOME")
-        .or_else(|| std::env::var_os("USERPROFILE"))
-        .map(PathBuf::from)
-}
-
-/// Testable seam — checks the credential file inside an arbitrary home.
-fn has_session_in(home: &Path) -> bool {
-    home.join(".codex").join("auth.json").is_file()
+/// Recognize the "logged in" line from `codex login status` (e.g. "Logged in
+/// using ChatGPT") while rejecting the "Not logged in" case. Tolerant of
+/// wording changes around that core phrase.
+pub(crate) fn parse_logged_in(stdout: &str) -> bool {
+    let s = stdout.to_ascii_lowercase();
+    s.contains("logged in") && !s.contains("not logged in")
 }
 
 #[cfg(test)]
@@ -35,31 +41,20 @@ mod tests {
     use super::*;
 
     #[test]
-    fn returns_false_when_dotcodex_missing() {
-        let tmp = tempfile::tempdir().unwrap();
-        assert!(!has_session_in(tmp.path()));
+    fn parses_logged_in() {
+        assert!(parse_logged_in("Logged in using ChatGPT\n"));
+        assert!(parse_logged_in("Logged in using an API key"));
     }
 
     #[test]
-    fn returns_false_when_auth_json_missing() {
-        let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join(".codex")).unwrap();
-        assert!(!has_session_in(tmp.path()));
+    fn rejects_not_logged_in() {
+        assert!(!parse_logged_in("Not logged in"));
+        assert!(!parse_logged_in("not logged in\n"));
     }
 
     #[test]
-    fn returns_true_when_auth_json_present() {
-        let tmp = tempfile::tempdir().unwrap();
-        let dir = tmp.path().join(".codex");
-        std::fs::create_dir_all(&dir).unwrap();
-        std::fs::write(dir.join("auth.json"), "{}").unwrap();
-        assert!(has_session_in(tmp.path()));
-    }
-
-    #[test]
-    fn returns_false_when_auth_path_is_a_directory() {
-        let tmp = tempfile::tempdir().unwrap();
-        std::fs::create_dir_all(tmp.path().join(".codex/auth.json")).unwrap();
-        assert!(!has_session_in(tmp.path()));
+    fn false_when_empty_or_unrelated() {
+        assert!(!parse_logged_in(""));
+        assert!(!parse_logged_in("error: command failed"));
     }
 }
