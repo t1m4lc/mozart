@@ -1098,6 +1098,36 @@ pub(crate) async fn list_runs_impl(
     agent_runs::list_by_thread(&conn, &thread.thread_id)
 }
 
+/// Dev-only inspector read: the persisted `agent_run_envelopes` row for a
+/// run (structured `envelope_json` + exact `rendered_text` + char/token
+/// stats). `#[cfg(debug_assertions)]` keeps the command out of release
+/// binaries entirely — the LLM debug view is dev-only by requirement.
+/// A missing row (legacy run, evicted by retention, or a run that errored
+/// before the writer fired) maps to `Ok(None)` so the UI shows an empty
+/// state instead of an error.
+#[cfg(debug_assertions)]
+#[tauri::command]
+#[specta::specta]
+pub async fn get_run_envelope(
+    db: State<'_, DbState>,
+    run_id: String,
+) -> Result<Option<AgentRunEnvelope>, AppError> {
+    get_run_envelope_impl(db.inner(), run_id).await
+}
+
+#[cfg(debug_assertions)]
+pub(crate) async fn get_run_envelope_impl(
+    db: &DbState,
+    run_id: String,
+) -> Result<Option<AgentRunEnvelope>, AppError> {
+    let conn = db.lock();
+    match agent_run_envelopes::get_by_run(&conn, &run_id) {
+        Ok(env) => Ok(Some(env)),
+        Err(AppError::NotFound(_)) => Ok(None),
+        Err(e) => Err(e),
+    }
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn get_workspace_diff(
@@ -1582,6 +1612,28 @@ pub(crate) async fn update_message_status_impl(
 ) -> Result<(), AppError> {
     let conn = db.lock();
     messages::update_status(&conn, &message_id, &status)
+}
+
+/// Link an assistant message to its run id (known only after the run
+/// starts). Persists `messages.run_id` so the dev-only debug inspector can
+/// fetch the run's envelope from a message.
+#[tauri::command]
+#[specta::specta]
+pub async fn update_message_run_id(
+    db: State<'_, DbState>,
+    message_id: String,
+    run_id: String,
+) -> Result<(), AppError> {
+    update_message_run_id_impl(db.inner(), message_id, run_id).await
+}
+
+pub(crate) async fn update_message_run_id_impl(
+    db: &DbState,
+    message_id: String,
+    run_id: String,
+) -> Result<(), AppError> {
+    let conn = db.lock();
+    messages::update_run_id(&conn, &message_id, &run_id)
 }
 
 #[tauri::command]
@@ -3747,6 +3799,16 @@ mod tests {
         };
         threads::create(&conn, &th).unwrap();
         (ws.workspace_id, th.thread_id)
+    }
+
+    #[cfg(debug_assertions)]
+    #[tokio::test]
+    async fn get_run_envelope_returns_none_for_unknown_run() {
+        let db = init_db_memory().unwrap();
+        let got = get_run_envelope_impl(&db, "no-such-run".into())
+            .await
+            .unwrap();
+        assert!(got.is_none(), "expected None for an unknown run_id");
     }
 
     #[tokio::test]

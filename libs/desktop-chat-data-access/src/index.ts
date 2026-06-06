@@ -15,6 +15,14 @@ export {
 } from './lib/workspace-chat.port';
 export { AgentProviderPort } from './lib/agent-provider.port';
 export {
+  DEBUG_ENVELOPE_PORT,
+  debugEnvelopeFromDto,
+  type AgentRunEnvelopeDto,
+  type DebugEnvelopePort,
+  type DebugRunEnvelope,
+  type DebugEnvelopeLayers,
+} from './lib/debug-envelope.port';
+export {
   chatFromDto,
   messageFromDto,
   setupProgressToJson,

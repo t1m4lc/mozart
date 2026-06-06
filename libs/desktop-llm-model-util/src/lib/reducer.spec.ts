@@ -206,4 +206,24 @@ describe('applyAgentEvent — invariants', () => {
     const err = applyAgentEvent(s, { kind: 'error', message: 'boom' }, () => 1);
     expect(err.summary).toBe('Error');
   });
+
+  it('accumulates usage latest-known per field across emissions', () => {
+    let s = EMPTY_TURN_STATE(0);
+    // Claude: input + cache arrive first (output omitted).
+    s = applyAgentEvent(s, {
+      kind: 'usage',
+      usage: { inputTokens: 1200, cacheReadTokens: 800 },
+    });
+    expect(s.usage).toEqual({
+      inputTokens: 1200,
+      outputTokens: undefined,
+      cacheReadTokens: 800,
+      cacheCreationTokens: undefined,
+    });
+    // A later delta carries only the cumulative output; input must survive.
+    s = applyAgentEvent(s, { kind: 'usage', usage: { outputTokens: 345 } });
+    expect(s.usage?.inputTokens).toBe(1200);
+    expect(s.usage?.outputTokens).toBe(345);
+    expect(s.usage?.cacheReadTokens).toBe(800);
+  });
 });

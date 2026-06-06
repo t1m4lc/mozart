@@ -36,7 +36,14 @@ export type ClaudeStreamEvent =
   | { readonly kind: 'thinking'; readonly id: string; readonly text: string }
   | { readonly kind: 'cli_output'; readonly line: string }
   | { readonly kind: 'status_update'; readonly status: string }
-  | { readonly kind: 'error'; readonly message: string };
+  | { readonly kind: 'error'; readonly message: string }
+  | {
+      readonly kind: 'usage';
+      readonly input_tokens?: number | null;
+      readonly output_tokens?: number | null;
+      readonly cache_read_tokens?: number | null;
+      readonly cache_creation_tokens?: number | null;
+    };
 
 /**
  * Map a Rust-side `ClaudeStreamEvent` to an `AgentEvent` the reducer
@@ -86,6 +93,17 @@ export function translate(ev: ClaudeStreamEvent): AgentEvent | null {
 
     case 'error':
       return { kind: 'error', message: ev.message };
+
+    case 'usage':
+      return {
+        kind: 'usage',
+        usage: {
+          inputTokens: ev.input_tokens ?? undefined,
+          outputTokens: ev.output_tokens ?? undefined,
+          cacheReadTokens: ev.cache_read_tokens ?? undefined,
+          cacheCreationTokens: ev.cache_creation_tokens ?? undefined,
+        },
+      };
   }
 }
 

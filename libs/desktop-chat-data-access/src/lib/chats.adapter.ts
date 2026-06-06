@@ -46,6 +46,9 @@ export interface MessagesAdapter {
   }): Promise<Message>;
   updateContent(messageId: string, content: string): Promise<void>;
   updateStatus(messageId: string, status: MessageStatus): Promise<void>;
+  // Link an assistant message to the run that produced it, once the run id
+  // is known (resolved after the stream starts).
+  updateRunId(messageId: string, runId: string): Promise<void>;
   // Persists the turn state as JSON on the DB column `timeline_json`
   // (column name retained for backwards compat with migration 004).
   updateTurnState(messageId: string, turnState: TurnState | null): Promise<void>;

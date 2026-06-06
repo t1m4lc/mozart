@@ -50,6 +50,13 @@ export interface TurnItem {
 
 export type TurnOutcome = 'done' | 'stopped' | 'error';
 
+export interface TurnUsage {
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly cacheReadTokens?: number;
+  readonly cacheCreationTokens?: number;
+}
+
 export interface TurnState {
   readonly text: string;
   readonly summary: string;
@@ -59,6 +66,7 @@ export interface TurnState {
   readonly startedAt: number;
   readonly outcome?: TurnOutcome;
   readonly elapsedMs?: number;
+  readonly usage?: TurnUsage;
 }
 
 // Emitted when the user clicks a file chip inside the timeline. The

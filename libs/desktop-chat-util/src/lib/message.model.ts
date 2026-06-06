@@ -54,6 +54,10 @@ export interface Message {
   readonly mode?: ChatMode;
   readonly status: MessageStatus;
   readonly createdAt: number;
+  // Assistant only — the backend run that produced this turn. Linked after
+  // the run starts; read by the dev-only debug inspector to fetch the run's
+  // envelope.
+  readonly runId?: string;
   // Assistant only — accumulated state of the agent's turn. Phase 3a
   // reads `.text` via <message-body>; Phase 3b will render the full
   // Claude-style timeline from `.items` + `.summary` + `.outcome`.

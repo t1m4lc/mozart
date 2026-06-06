@@ -7,6 +7,7 @@ import type {
   TurnItem,
   TurnItemKind,
   TurnState,
+  TurnUsage,
 } from './event.types';
 
 const TOOL_KIND_RULES: ReadonlyArray<
@@ -103,6 +104,9 @@ export function applyAgentEvent(
     case 'status':
       return { ...state, summary: event.text };
 
+    case 'usage':
+      return { ...state, usage: mergeUsage(state.usage, event.usage) };
+
     case 'error': {
       const items: TurnItem[] = [
         ...demoteActiveItems(state.items),
@@ -150,6 +154,18 @@ export function applyAgentEvent(
       };
     }
   }
+}
+
+// Latest-known wins per field — providers report different subsets at
+// different points in the stream, so an emission that omits a field must
+// not clobber a value an earlier emission already set.
+function mergeUsage(prev: TurnUsage | undefined, next: TurnUsage): TurnUsage {
+  return {
+    inputTokens: next.inputTokens ?? prev?.inputTokens,
+    outputTokens: next.outputTokens ?? prev?.outputTokens,
+    cacheReadTokens: next.cacheReadTokens ?? prev?.cacheReadTokens,
+    cacheCreationTokens: next.cacheCreationTokens ?? prev?.cacheCreationTokens,
+  };
 }
 
 function demoteActiveItems(items: readonly TurnItem[]): TurnItem[] {

@@ -22,6 +22,7 @@ export type AgentEvent =
     }
   | { readonly kind: 'status'; readonly text: string }
   | { readonly kind: 'error'; readonly message: string }
+  | { readonly kind: 'usage'; readonly usage: TurnUsage }
   | { readonly kind: 'done' }
   | { readonly kind: 'stopped' };
 
@@ -54,6 +55,16 @@ export interface TurnItem {
 
 export type TurnOutcome = 'done' | 'stopped' | 'error';
 
+// Token usage reported by the provider during a turn. Each provider
+// emission carries a subset (Claude sends input+cache early, output as it
+// streams; Codex sends all at turn end), so fields accumulate latest-known.
+export interface TurnUsage {
+  readonly inputTokens?: number;
+  readonly outputTokens?: number;
+  readonly cacheReadTokens?: number;
+  readonly cacheCreationTokens?: number;
+}
+
 // Reducer state — the accumulated representation of an agent turn.
 // Phase 3a only reads `text` (rendered via <message-body>). Phase 3b
 // will surface `items`, `summary`, `outcome`, and `elapsedMs` in the
@@ -67,4 +78,5 @@ export interface TurnState {
   readonly startedAt: number;
   readonly outcome?: TurnOutcome;
   readonly elapsedMs?: number;
+  readonly usage?: TurnUsage;
 }

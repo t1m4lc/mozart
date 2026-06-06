@@ -15,6 +15,7 @@ import { FileChipBus } from './file-chip-bus';
 import { MessageBody } from './message-body';
 import { Timeline } from './timeline';
 import { TurnBody } from './turn-body';
+import { TurnFooter } from './turn-footer';
 import { TurnHeader } from './turn-header';
 import type {
   TimelineDensity,
@@ -35,7 +36,15 @@ import type {
 
 @Component({
   selector: 'mz-turn-container',
-  imports: [TurnHeader, TurnBody, MessageBody, Timeline, DoneMarker, ErrorMarker],
+  imports: [
+    TurnHeader,
+    TurnBody,
+    TurnFooter,
+    MessageBody,
+    Timeline,
+    DoneMarker,
+    ErrorMarker,
+  ],
   providers: [FileChipBus],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
@@ -70,6 +79,7 @@ import type {
         [streaming]="state().isStreaming"
       />
     }
+    <mz-turn-footer [state]="state()" />
   `,
 })
 export class TurnContainer {

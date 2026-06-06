@@ -97,9 +97,12 @@ fn handle_anthropic_event(
         Some("content_block_start") => handle_block_start(ev, state),
         Some("content_block_delta") => handle_block_delta(ev, state),
         Some("content_block_stop") => handle_block_stop(ev, state),
-        Some("message_start") | Some("message_delta") | Some("message_stop") | Some("ping") => {
-            Vec::new()
-        }
+        // `message_start` carries the input + cache token usage; `message_delta`
+        // carries the cumulative output token count. Both were previously
+        // discarded. A no-usage lifecycle event still yields nothing.
+        Some("message_start") => handle_message_start_usage(ev),
+        Some("message_delta") => handle_message_delta_usage(ev),
+        Some("message_stop") | Some("ping") => Vec::new(),
         _ => vec![StreamEvent::CliOutput {
             line: raw_line.to_string(),
         }],
@@ -196,6 +199,52 @@ fn handle_block_stop(ev: &Value, state: &mut ParserState) -> Vec<StreamEvent> {
         id: block.id,
         name: block.name,
         args_json,
+    }]
+}
+
+fn handle_message_start_usage(ev: &Value) -> Vec<StreamEvent> {
+    let usage = ev.get("message").and_then(|m| m.get("usage"));
+    usage_event(
+        usage.and_then(|u| u.get("input_tokens")).and_then(Value::as_i64),
+        None,
+        usage
+            .and_then(|u| u.get("cache_read_input_tokens"))
+            .and_then(Value::as_i64),
+        usage
+            .and_then(|u| u.get("cache_creation_input_tokens"))
+            .and_then(Value::as_i64),
+    )
+}
+
+fn handle_message_delta_usage(ev: &Value) -> Vec<StreamEvent> {
+    usage_event(
+        None,
+        ev.get("usage")
+            .and_then(|u| u.get("output_tokens"))
+            .and_then(Value::as_i64),
+        None,
+        None,
+    )
+}
+
+fn usage_event(
+    input_tokens: Option<i64>,
+    output_tokens: Option<i64>,
+    cache_read_tokens: Option<i64>,
+    cache_creation_tokens: Option<i64>,
+) -> Vec<StreamEvent> {
+    if input_tokens.is_none()
+        && output_tokens.is_none()
+        && cache_read_tokens.is_none()
+        && cache_creation_tokens.is_none()
+    {
+        return Vec::new();
+    }
+    vec![StreamEvent::Usage {
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        cache_creation_tokens,
     }]
 }
 
@@ -487,9 +536,64 @@ mod tests {
                 "status_update",
             ),
             (StreamEvent::Error { message: "x".into() }, "error"),
+            (
+                StreamEvent::Usage {
+                    input_tokens: Some(1),
+                    output_tokens: None,
+                    cache_read_tokens: None,
+                    cache_creation_tokens: None,
+                },
+                "usage",
+            ),
         ];
         for (ev, expected) in cases {
             assert_eq!(ev.event_type(), *expected);
+        }
+    }
+
+    #[test]
+    fn message_start_emits_input_and_cache_usage() {
+        let line = r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"m","usage":{"input_tokens":1200,"cache_read_input_tokens":800,"cache_creation_input_tokens":50,"output_tokens":1}}}}"#;
+        match parse_one(line).as_slice() {
+            [StreamEvent::Usage {
+                input_tokens,
+                output_tokens,
+                cache_read_tokens,
+                cache_creation_tokens,
+            }] => {
+                assert_eq!(*input_tokens, Some(1200));
+                assert_eq!(*output_tokens, None);
+                assert_eq!(*cache_read_tokens, Some(800));
+                assert_eq!(*cache_creation_tokens, Some(50));
+            }
+            other => panic!("expected Usage, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn message_delta_emits_output_usage() {
+        let line = r#"{"type":"stream_event","event":{"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":345}}}"#;
+        match parse_one(line).as_slice() {
+            [StreamEvent::Usage {
+                output_tokens,
+                input_tokens,
+                ..
+            }] => {
+                assert_eq!(*output_tokens, Some(345));
+                assert_eq!(*input_tokens, None);
+            }
+            other => panic!("expected Usage, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn message_lifecycle_without_usage_stays_silent() {
+        let cases = [
+            r#"{"type":"stream_event","event":{"type":"message_start","message":{"id":"m"}}}"#,
+            r#"{"type":"stream_event","event":{"type":"message_delta","delta":{}}}"#,
+        ];
+        for case in cases {
+            assert!(parse_one(case).is_empty(), "expected no events for {case:?}");
         }
     }
 

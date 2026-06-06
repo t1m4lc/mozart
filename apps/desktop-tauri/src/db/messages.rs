@@ -74,6 +74,25 @@ pub fn update_status(
     Ok(())
 }
 
+/// Link an assistant message to the run that produced it. The run id is
+/// only known after `start_agent_run` returns, so it's written after the
+/// optimistic insert. Enables the dev-only debug inspector to fetch the
+/// run's envelope by message.
+pub fn update_run_id(
+    conn: &Connection,
+    message_id: &str,
+    run_id: &str,
+) -> Result<(), AppError> {
+    let n = conn.execute(
+        "UPDATE messages SET run_id = ?2 WHERE message_id = ?1",
+        params![message_id, run_id],
+    )?;
+    if n == 0 {
+        return Err(AppError::NotFound(format!("message_id={message_id}")));
+    }
+    Ok(())
+}
+
 /// The assistant message bound to this run, if any. Used by the
 /// post-run hook in `claude_cli::runner` to attach a summary row to
 /// the correct message. Returns `Ok(None)` (not `NotFound`) when no
@@ -257,6 +276,28 @@ mod tests {
         update_timeline(&conn, &m.message_id, Some(r#"{"summary":"x"}"#)).unwrap();
         let got = list_for_chat(&conn, &chat_id).unwrap();
         assert_eq!(got[0].timeline_json.as_deref(), Some(r#"{"summary":"x"}"#));
+    }
+
+    #[test]
+    fn update_run_id_round_trip() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let chat_id = seed_chat(&conn);
+        let m = make_msg(&chat_id, "assistant", now_ms());
+        insert(&conn, &m).unwrap();
+        update_run_id(&conn, &m.message_id, "run-xyz").unwrap();
+        let got = find_assistant_by_run(&conn, "run-xyz").unwrap();
+        assert_eq!(got.map(|m| m.message_id), Some(m.message_id));
+    }
+
+    #[test]
+    fn update_run_id_unknown_returns_not_found() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        assert!(matches!(
+            update_run_id(&conn, "no-such", "run-1"),
+            Err(AppError::NotFound(_))
+        ));
     }
 
     #[test]
