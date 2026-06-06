@@ -277,6 +277,10 @@ function provideWorkspacesAdapter(): Provider {
       async listBranches(repoPath: string) {
         return unwrap(await commands.listBranches(repoPath));
       },
+      async configuredBaseBranch(projectId: string) {
+        return unwrap(await commands.getResolvedSettings(projectId)).git
+          .baseBranch;
+      },
       async rename(workspaceId: string, name: string) {
         unwrap(await commands.renameWorkspace(workspaceId, name));
       },
