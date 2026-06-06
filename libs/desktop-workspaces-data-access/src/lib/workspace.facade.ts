@@ -1,6 +1,25 @@
-import { DestroyRef, Injectable, Signal, computed, inject, signal } from '@angular/core';
+import {
+  DestroyRef,
+  Injectable,
+  Signal,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { EMPTY, Observable, catchError, defer, map, of, retry, switchMap, tap, timeout, timer } from 'rxjs';
+import {
+  EMPTY,
+  Observable,
+  catchError,
+  defer,
+  map,
+  of,
+  retry,
+  switchMap,
+  tap,
+  timeout,
+  timer,
+} from 'rxjs';
 import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
 import { ANALYTICS_EVENTS } from '@mozart/shared-util-analytics';
 import { ProjectsFacade } from '@mozart/desktop-projects-data-access';
@@ -380,55 +399,73 @@ export class WorkspacesFacade {
     const ws = this.workspaceById(workspaceId)();
     if (!ws) return;
 
-    timer(SETTLE_DELAY_MS).pipe(
-      switchMap(() => defer(() => this.projects.ensureDetectedScripts(ws.projectId))),
-      timeout({ first: RESOLVE_TIMEOUT_MS }),
-      retry({ count: RESOLVE_MAX_RETRIES, delay: () => timer(RESOLVE_RETRY_DELAY_MS) }),
-      switchMap(() => {
-        const { setupCommand } = this.projects.effectiveCommandsFor(ws.projectId)();
-        if (setupCommand) {
-          return defer(() => this.runs.startSetup(workspaceId)).pipe(
-            map((): WorkspaceInstall => {
-              const code = this.runs.ensureSetupEntry(workspaceId).exitCode();
-              if (code != null && code !== 0) throw new Error('setup-cmd exited non-zero');
-              return { state: 'success', manager: '' };
+    timer(SETTLE_DELAY_MS)
+      .pipe(
+        switchMap(() =>
+          defer(() => this.projects.ensureDetectedScripts(ws.projectId)),
+        ),
+        timeout({ first: RESOLVE_TIMEOUT_MS }),
+        retry({
+          count: RESOLVE_MAX_RETRIES,
+          delay: () => timer(RESOLVE_RETRY_DELAY_MS),
+        }),
+        switchMap(() => {
+          const { setupCommand } = this.projects.effectiveCommandsFor(
+            ws.projectId,
+          )();
+          if (setupCommand) {
+            return defer(() => this.runs.startSetup(workspaceId)).pipe(
+              map((): WorkspaceInstall => {
+                const code = this.runs.ensureSetupEntry(workspaceId).exitCode();
+                if (code != null && code !== 0)
+                  throw new Error('setup-cmd exited non-zero');
+                return { state: 'success', manager: '' };
+              }),
+              retry({ count: 2, delay: () => timer(RETRY_DELAY_MS) }),
+            );
+          }
+          return defer(() => this.adapter.installPackages(workspaceId)).pipe(
+            map((result) => {
+              // `ran: false` means no package.json found — the worktree
+              // checkout may not have settled yet; treat it the same as a
+              // non-zero exit so `retry` re-runs after the delay.
+              if (!result.ran || !result.success)
+                throw new InstallFailed(result);
+              return result;
             }),
             retry({ count: 2, delay: () => timer(RETRY_DELAY_MS) }),
+            catchError((err): Observable<InstallPackagesResult> => {
+              // After all retries, surface ran:false as no_package rather
+              // than failed — no package manager is not an error.
+              if (err instanceof InstallFailed && !err.result.ran) {
+                return of({
+                  ran: false,
+                  success: false,
+                  manager: '',
+                  message: '',
+                });
+              }
+              throw err;
+            }),
+            map(
+              (result): WorkspaceInstall =>
+                result.ran
+                  ? { state: 'success', manager: result.manager }
+                  : { state: 'no_package', manager: '' },
+            ),
           );
-        }
-        return defer(() => this.adapter.installPackages(workspaceId)).pipe(
-          map((result) => {
-            // `ran: false` means no package.json found — the worktree
-            // checkout may not have settled yet; treat it the same as a
-            // non-zero exit so `retry` re-runs after the delay.
-            if (!result.ran || !result.success) throw new InstallFailed(result);
-            return result;
-          }),
-          retry({ count: 2, delay: () => timer(RETRY_DELAY_MS) }),
-          catchError((err): Observable<InstallPackagesResult> => {
-            // After all retries, surface ran:false as no_package rather
-            // than failed — no package manager is not an error.
-            if (err instanceof InstallFailed && !err.result.ran) {
-              return of({ ran: false, success: false, manager: '', message: '' });
-            }
-            throw err;
-          }),
-          map((result): WorkspaceInstall =>
-            result.ran
-              ? { state: 'success', manager: result.manager }
-              : { state: 'no_package', manager: '' },
-          ),
-        );
-      }),
-      tap((install) => this._setInstall(workspaceId, install)),
-      catchError((err) => {
-        console.warn('[workspaces] install failed', workspaceId, err);
-        const manager = err instanceof InstallFailed ? err.result.manager : '';
-        this._setInstall(workspaceId, { state: 'failed', manager });
-        return EMPTY;
-      }),
-      takeUntilDestroyed(this.destroyRef),
-    ).subscribe();
+        }),
+        tap((install) => this._setInstall(workspaceId, install)),
+        catchError((err) => {
+          console.warn('[workspaces] install failed', workspaceId, err);
+          const manager =
+            err instanceof InstallFailed ? err.result.manager : '';
+          this._setInstall(workspaceId, { state: 'failed', manager });
+          return EMPTY;
+        }),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe();
   }
 
   private _setInstall(workspaceId: string, update: WorkspaceInstall): void {

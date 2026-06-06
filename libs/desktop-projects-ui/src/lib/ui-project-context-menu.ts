@@ -111,7 +111,8 @@ import { HlmIconImports } from '@spartan-ui/icon';
           class="cursor-pointer"
           (triggered)="openRepoFolder.emit()"
         >
-          <ng-icon hlm name="lucideFolderOpen" size="xs" /> Open repository folder
+          <ng-icon hlm name="lucideFolderOpen" size="xs" /> Open repository
+          folder
         </button>
         <button
           hlmDropdownMenuItem

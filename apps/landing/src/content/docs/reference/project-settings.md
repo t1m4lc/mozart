@@ -10,12 +10,12 @@ _you_ — most importantly, how to install and run it.
 
 ## How they differ from global
 
-| | Global settings | Project settings |
-|---|---|---|
+|          | Global settings                 | Project settings                    |
+| -------- | ------------------------------- | ----------------------------------- |
 | Lives in | `settings.json` on your machine | `.mozart/settings.json` in the repo |
-| Scope | Every Project you open | Just this repo |
-| Shared | No — personal to you | Yes — committed for the team |
-| Wins? | Loses to project | **Overrides global** |
+| Scope    | Every Project you open          | Just this repo                      |
+| Shared   | No — personal to you            | Yes — committed for the team        |
+| Wins?    | Loses to project                | **Overrides global**                |
 
 ## Project wins
 

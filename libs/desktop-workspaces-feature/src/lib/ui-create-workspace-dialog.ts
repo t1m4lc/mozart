@@ -49,7 +49,9 @@ export interface CreateWorkspaceContext {
           <ul hlmComboboxList>
             <hlm-combobox-empty>No branches found</hlm-combobox-empty>
             @for (branch of ctx.branches; track branch) {
-              <hlm-combobox-item [value]="branch">{{ branch }}</hlm-combobox-item>
+              <hlm-combobox-item [value]="branch">{{
+                branch
+              }}</hlm-combobox-item>
             }
           </ul>
         </hlm-combobox-content>

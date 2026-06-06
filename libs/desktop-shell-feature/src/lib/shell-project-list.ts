@@ -563,9 +563,7 @@ export class ShellProjectList {
             .byProject(workspace.projectId)()
             .find((w) => w.id !== workspace.id);
           await this._router.navigate(
-            next
-              ? workspaceRouteCommands(workspace.projectId, next.id)
-              : ['/'],
+            next ? workspaceRouteCommands(workspace.projectId, next.id) : ['/'],
           );
         }
 

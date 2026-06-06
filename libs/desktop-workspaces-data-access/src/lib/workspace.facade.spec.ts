@@ -1,9 +1,7 @@
 import { PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  AnalyticsConfigPort,
-} from '@mozart/desktop-core-data-access';
+import { AnalyticsConfigPort } from '@mozart/desktop-core-data-access';
 import {
   DIALOG_ADAPTER,
   PROJECTS_ADAPTER,
@@ -13,7 +11,10 @@ import { RUNS_ADAPTER } from '@mozart/desktop-runs-data-access';
 import { TASKS_ADAPTER } from '@mozart/desktop-tasks-data-access';
 import { TERMINALS_ADAPTER } from '@mozart/desktop-terminals-data-access';
 import { provideTheme } from '@mozart/shared-util-theme';
-import type { UiWorkspaceStatus, Workspace } from '@mozart/desktop-workspaces-util';
+import type {
+  UiWorkspaceStatus,
+  Workspace,
+} from '@mozart/desktop-workspaces-util';
 import { WorkspacesFacade } from './workspace.facade';
 import { WorkspaceStore } from './workspace.store';
 import {
@@ -74,7 +75,9 @@ function makeWorkspacesAdapterStub(
   } as unknown as WorkspacesAdapter;
 }
 
-function makeRepositoriesAdapterStub(commitWorkspaceImpl?: () => Promise<string>) {
+function makeRepositoriesAdapterStub(
+  commitWorkspaceImpl?: () => Promise<string>,
+) {
   return {
     commitWorkspace:
       commitWorkspaceImpl ??
@@ -89,11 +92,14 @@ function makeRepositoriesAdapterStub(commitWorkspaceImpl?: () => Promise<string>
   };
 }
 
-function configureModule(overrides: {
-  workspacesAdapter?: WorkspacesAdapter;
-  repositoriesAdapter?: ReturnType<typeof makeRepositoriesAdapterStub>;
-} = {}) {
-  const workspacesAdapter = overrides.workspacesAdapter ?? makeWorkspacesAdapterStub();
+function configureModule(
+  overrides: {
+    workspacesAdapter?: WorkspacesAdapter;
+    repositoriesAdapter?: ReturnType<typeof makeRepositoriesAdapterStub>;
+  } = {},
+) {
+  const workspacesAdapter =
+    overrides.workspacesAdapter ?? makeWorkspacesAdapterStub();
   const repositoriesAdapter =
     overrides.repositoriesAdapter ?? makeRepositoriesAdapterStub();
   TestBed.configureTestingModule({
@@ -216,7 +222,10 @@ describe('WorkspacesFacade.commitWorkspace', () => {
       ['src/a.ts'],
       'message',
     );
-    expect(workspacesAdapter.setUiStatus).toHaveBeenCalledWith('ws1', 'in_progress');
+    expect(workspacesAdapter.setUiStatus).toHaveBeenCalledWith(
+      'ws1',
+      'in_progress',
+    );
     expect(facade.workspaceById('ws1')()?.status).toBe('in_progress');
     expect(out.statusFlipFailed).toBe(false);
     expect(typeof out.sha).toBe('string');
@@ -244,18 +253,20 @@ describe('WorkspacesFacade.commitWorkspace', () => {
   });
 
   it('rethrows when the commit itself fails (no flip)', async () => {
-    (repositoriesAdapter.commitWorkspace as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error('git is sad'),
+    (
+      repositoriesAdapter.commitWorkspace as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new Error('git is sad'));
+    await expect(facade.commitWorkspace('ws1', [], 'm')).rejects.toThrow(
+      'git is sad',
     );
-    await expect(facade.commitWorkspace('ws1', [], 'm')).rejects.toThrow('git is sad');
     expect(workspacesAdapter.setUiStatus).not.toHaveBeenCalled();
     expect(facade.workspaceById('ws1')()?.status).toBe('backlog');
   });
 
   it('returns statusFlipFailed=true when the post-commit flip fails (best-effort)', async () => {
-    (workspacesAdapter.setUiStatus as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error('sqlite boom'),
-    );
+    (
+      workspacesAdapter.setUiStatus as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new Error('sqlite boom'));
     const out = await facade.commitWorkspace('ws1', [], 'm');
     expect(out.statusFlipFailed).toBe(true);
     // Optimistic flip is KEPT (D2): the user sees in_progress until reload.
@@ -263,9 +274,9 @@ describe('WorkspacesFacade.commitWorkspace', () => {
   });
 
   it('silently no-ops the flip for an unknown workspace id', async () => {
-    (repositoriesAdapter.commitWorkspace as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
-      'beef',
-    );
+    (
+      repositoriesAdapter.commitWorkspace as ReturnType<typeof vi.fn>
+    ).mockResolvedValueOnce('beef');
     const out = await facade.commitWorkspace('nope', [], 'm');
     expect(out.sha).toBe('beef');
     expect(workspacesAdapter.setUiStatus).not.toHaveBeenCalled();
@@ -278,7 +289,10 @@ describe('WorkspacesFacade.createPr', () => {
   let facade: WorkspacesFacade;
   let store: InstanceType<typeof WorkspaceStore>;
   let workspacesAdapter: WorkspacesAdapter;
-  const PR: CreatedPr = { number: 99, htmlUrl: 'https://github.com/owner/repo/pull/99' };
+  const PR: CreatedPr = {
+    number: 99,
+    htmlUrl: 'https://github.com/owner/repo/pull/99',
+  };
 
   beforeEach(() => {
     ({ workspacesAdapter } = configureModule({
@@ -293,8 +307,16 @@ describe('WorkspacesFacade.createPr', () => {
 
   it('flips backlog → in_review on PR success', async () => {
     const out = await facade.createPr('ws1', 'title', 'body', false);
-    expect(workspacesAdapter.createPr).toHaveBeenCalledWith('ws1', 'title', 'body', false);
-    expect(workspacesAdapter.setUiStatus).toHaveBeenCalledWith('ws1', 'in_review');
+    expect(workspacesAdapter.createPr).toHaveBeenCalledWith(
+      'ws1',
+      'title',
+      'body',
+      false,
+    );
+    expect(workspacesAdapter.setUiStatus).toHaveBeenCalledWith(
+      'ws1',
+      'in_review',
+    );
     expect(facade.workspaceById('ws1')()?.status).toBe('in_review');
     expect(out.pr).toEqual(PR);
     expect(out.statusFlipFailed).toBe(false);
@@ -303,7 +325,10 @@ describe('WorkspacesFacade.createPr', () => {
   it('flips in_progress → in_review on PR success', async () => {
     store.setAll([makeWorkspace({ id: 'ws1', status: 'in_progress' })]);
     const out = await facade.createPr('ws1', 't', 'b', true);
-    expect(workspacesAdapter.setUiStatus).toHaveBeenCalledWith('ws1', 'in_review');
+    expect(workspacesAdapter.setUiStatus).toHaveBeenCalledWith(
+      'ws1',
+      'in_review',
+    );
     expect(facade.workspaceById('ws1')()?.status).toBe('in_review');
     expect(out.statusFlipFailed).toBe(false);
   });
@@ -332,18 +357,20 @@ describe('WorkspacesFacade.createPr', () => {
   });
 
   it('rethrows when PR creation fails (no flip)', async () => {
-    (workspacesAdapter.createPr as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error('no remote'),
+    (
+      workspacesAdapter.createPr as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new Error('no remote'));
+    await expect(facade.createPr('ws1', 't', 'b', false)).rejects.toThrow(
+      'no remote',
     );
-    await expect(facade.createPr('ws1', 't', 'b', false)).rejects.toThrow('no remote');
     expect(workspacesAdapter.setUiStatus).not.toHaveBeenCalled();
     expect(facade.workspaceById('ws1')()?.status).toBe('backlog');
   });
 
   it('D2 best-effort — returns statusFlipFailed=true on flip failure but keeps the optimistic flip', async () => {
-    (workspacesAdapter.setUiStatus as ReturnType<typeof vi.fn>).mockRejectedValueOnce(
-      new Error('sqlite boom'),
-    );
+    (
+      workspacesAdapter.setUiStatus as ReturnType<typeof vi.fn>
+    ).mockRejectedValueOnce(new Error('sqlite boom'));
     const out = await facade.createPr('ws1', 't', 'b', false);
     expect(out.pr).toEqual(PR);
     expect(out.statusFlipFailed).toBe(true);
