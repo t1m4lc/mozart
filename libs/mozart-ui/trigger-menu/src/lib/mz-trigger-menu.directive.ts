@@ -31,22 +31,22 @@ import {
   tokenBeforeCaret,
 } from './trigger-token';
 
-const MENU_POSITIONS: ConnectedPosition[] = [
-  {
-    originX: 'start',
-    originY: 'bottom',
-    overlayX: 'start',
-    overlayY: 'top',
-    offsetY: 4,
-  },
-  {
-    originX: 'start',
-    originY: 'top',
-    overlayX: 'start',
-    overlayY: 'bottom',
-    offsetY: -4,
-  },
-];
+const POSITION_BELOW: ConnectedPosition = {
+  originX: 'start',
+  originY: 'bottom',
+  overlayX: 'start',
+  overlayY: 'top',
+  offsetY: 4,
+};
+const POSITION_ABOVE: ConnectedPosition = {
+  originX: 'start',
+  originY: 'top',
+  overlayX: 'start',
+  overlayY: 'bottom',
+  offsetY: -4,
+};
+
+let nextTriggerMenuId = 0;
 
 /**
  * Generic Notion-style trigger menu. Attach to a `contenteditable` host; when
@@ -58,10 +58,17 @@ const MENU_POSITIONS: ConnectedPosition[] = [
 @Directive({
   selector: '[mzTriggerMenu]',
   host: {
+    // ARIA 1.2 combobox: the field owns combobox semantics; the injected menu
+    // is the listbox; the active option is reported back via the context.
+    role: 'combobox',
+    'aria-haspopup': 'listbox',
+    '[attr.aria-expanded]': '_open()',
+    '[attr.aria-controls]': '_open() ? _menuId : null',
+    '[attr.aria-activedescendant]': '_activeDescendant()',
     '(input)': '_reevaluate()',
     '(keyup)': '_reevaluate()',
     '(mouseup)': '_reevaluate()',
-    '(keydown)': '_onKeydown($event)',
+    '(keydown)': '_onHostKeydown($event)',
     '(blur)': '_onBlur()',
   },
 })
@@ -71,6 +78,9 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
     input.required<TemplateRef<{ $implicit: TriggerMenuContext<TData> }>>();
   readonly context = input<TData>();
   readonly insert = input.required<TokenInsertFn<TItem>>();
+  /** Preferred side relative to the caret. CDK still flips to the other side
+   *  when there isn't room. Defaults to `bottom`. */
+  readonly placement = input<'top' | 'bottom'>('bottom');
 
   readonly opened = output<void>();
   readonly closed = output<void>();
@@ -82,7 +92,12 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
   private readonly _vcr = inject(ViewContainerRef);
 
   private readonly _query = signal('');
-  private readonly _open = signal(false);
+  // Referenced from host bindings → must be at least `protected` for AOT.
+  protected readonly _open = signal(false);
+  // Stable id for the injected listbox (aria-controls) + the active option
+  // the field points at (aria-activedescendant). Both reported via context.
+  protected readonly _menuId = `mz-trigger-menu-${nextTriggerMenuId++}`;
+  protected readonly _activeDescendant = signal<string | null>(null);
 
   private _active: ActiveTrigger | null = null;
   private _navHandler: TriggerMenuNavHandler | null = null;
@@ -113,30 +128,9 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
     }
   }
 
-  protected _onKeydown(event: KeyboardEvent): void {
-    if (this._open()) {
-      switch (event.key) {
-        case 'ArrowDown':
-          event.preventDefault();
-          this._navHandler?.('down');
-          return;
-        case 'ArrowUp':
-          event.preventDefault();
-          this._navHandler?.('up');
-          return;
-        case 'Enter':
-        case 'Tab':
-          event.preventDefault();
-          this._navHandler?.('enter');
-          return;
-        case 'Escape':
-          event.preventDefault();
-          this._dismissed = true;
-          this._close();
-          return;
-      }
-    }
-
+  // Host (bubble): atomic token delete. Works whether or not the menu is
+  // open; the host's consumer ignores Backspace/Delete, so order is moot.
+  protected _onHostKeydown(event: KeyboardEvent): void {
     if (event.key === 'Backspace') {
       const token = tokenBeforeCaret(this._doc.getSelection());
       if (token) {
@@ -154,6 +148,41 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
         this._emitInput();
       }
     }
+  }
+
+  // Document, capture phase, only while the menu is open (added in `_openMenu`,
+  // removed in `_close`). Because it runs on an ancestor during the capturing
+  // phase, it intercepts nav / enter / escape BEFORE they reach the host's own
+  // listeners; `stopImmediatePropagation` then keeps them from firing at all.
+  // That's why a consumer (e.g. the composer) needs zero open/close state to
+  // avoid submitting on Enter — the open menu fully owns these keys here.
+  private readonly _onDocumentKeydown = (event: KeyboardEvent): void => {
+    if (!this._open()) return;
+    switch (event.key) {
+      case 'ArrowDown':
+        this._consume(event);
+        this._navHandler?.('down');
+        return;
+      case 'ArrowUp':
+        this._consume(event);
+        this._navHandler?.('up');
+        return;
+      case 'Enter':
+      case 'Tab':
+        this._consume(event);
+        this._navHandler?.('enter');
+        return;
+      case 'Escape':
+        this._consume(event);
+        this._dismissed = true;
+        this._close();
+        return;
+    }
+  };
+
+  private _consume(event: Event): void {
+    event.preventDefault();
+    event.stopImmediatePropagation();
   }
 
   protected _onBlur(): void {
@@ -191,6 +220,8 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
       select: (item) => this._select(item),
       close: () => this._close(),
       onNavKey: (handler) => (this._navHandler = handler),
+      menuId: this._menuId,
+      setActiveDescendant: (id) => this._activeDescendant.set(id),
     };
     const portal = new TemplatePortal(this.menu(), this._vcr, {
       $implicit: context,
@@ -204,6 +235,7 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
           this._close();
         }
       });
+    this._doc.addEventListener('keydown', this._onDocumentKeydown, true);
     this._open.set(true);
     this.opened.emit();
   }
@@ -214,6 +246,10 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
 
   private _strategy() {
     const rect = this._caretRect();
+    const positions =
+      this.placement() === 'top'
+        ? [POSITION_ABOVE, POSITION_BELOW]
+        : [POSITION_BELOW, POSITION_ABOVE];
     return this._overlay
       .position()
       .flexibleConnectedTo({
@@ -222,7 +258,7 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
         width: rect.width,
         height: rect.height,
       })
-      .withPositions(MENU_POSITIONS)
+      .withPositions(positions)
       .withPush(true);
   }
 
@@ -240,6 +276,7 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
   }
 
   private _close(): void {
+    this._doc.removeEventListener('keydown', this._onDocumentKeydown, true);
     if (!this._overlayRef) return;
     this._outsideSub?.unsubscribe();
     this._outsideSub = null;
@@ -247,6 +284,7 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
     this._overlayRef = null;
     this._navHandler = null;
     this._active = null;
+    this._activeDescendant.set(null);
     this._open.set(false);
     this.closed.emit();
   }

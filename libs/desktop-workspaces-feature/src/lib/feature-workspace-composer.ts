@@ -19,6 +19,7 @@ import {
   type ChatMode,
   type ComposerSendEvent,
   type EffortLevel,
+  type SlashMenuGroup,
 } from '@mozart-ui/composer';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ComposerModelsStore } from '@mozart/desktop-llm-model-data-access';
@@ -27,6 +28,12 @@ import {
   composerModels,
   defaultModelIdForProvider,
 } from '@mozart/desktop-llm-model-util';
+import {
+  groupSkills,
+  runtimeForAgentProvider,
+  visibleSkills,
+} from '@mozart/desktop-skills-util';
+import { SkillsStore } from '@mozart/desktop-skills-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
@@ -90,6 +97,7 @@ import { filter, pairwise, tap } from 'rxjs/operators';
       (effortChange)="onEffortChange($event)"
       [models]="catalog()"
       [providers]="providers"
+      [skillGroups]="skillGroups()"
       [selectedModelId]="currentModelId()"
       (modelChange)="onModelChange($event)"
       [isRunning]="isStreaming()"
@@ -114,6 +122,7 @@ export class FeatureWorkspaceComposer {
   private readonly facade = inject(ChatFacade);
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly profile = inject(ProfileFacade);
+  private readonly skills = inject(SkillsStore);
   private readonly composerModels = inject(ComposerModelsStore);
   private readonly router = inject(Router);
 
@@ -183,7 +192,9 @@ export class FeatureWorkspaceComposer {
     const shown = this.catalog();
     const explicit = this._activeChat()?.modelId;
     if (explicit && shown.some((m) => m.id === explicit)) return explicit;
-    const fallback = defaultModelIdForProvider(this.profile.activeAgentProvider());
+    const fallback = defaultModelIdForProvider(
+      this.profile.activeAgentProvider(),
+    );
     if (shown.some((m) => m.id === fallback)) return fallback;
     return shown[0]?.id ?? fallback;
   });
@@ -209,19 +220,58 @@ export class FeatureWorkspaceComposer {
   );
   protected readonly providers = PROVIDERS;
 
-  // Default focus → composer textarea. afterNextRender is the
+  // Skill discovery is project/repo-scoped (not worktree). The repo id is the
+  // workspace's projectId; `null` before a workspace is selected ⇒ provider
+  // globals only.
+  private readonly _activeProjectId = computed(
+    () =>
+      this.workspaces.workspaceById(this.workspaceId() ?? '')()?.projectId ??
+      null,
+  );
+
+  // The (provider, project) scope the slash menu discovers for. Drives both the
+  // cache read (`skillGroups`) and the discovery trigger (an RxJS stream).
+  private readonly _skillScope = computed(() => ({
+    provider: this.profile.activeAgentProvider(),
+    projectId: this._activeProjectId(),
+  }));
+
+  // Provider-aware skills for the `/` menu: the active backend's discovered
+  // skills + agnostic Mozart skills, grouped by source, mapped to the
+  // composer's view-model. Sourced from the cached SkillsStore; the composer
+  // owns the `/` trigger, filtering, and keyboard nav.
+  protected readonly skillGroups = computed<readonly SlashMenuGroup[]>(() => {
+    const provider = this.profile.activeAgentProvider();
+    const runtime = runtimeForAgentProvider(provider);
+    const discovered = this.skills.skillsFor(provider, this._activeProjectId());
+    const visible = visibleSkills(discovered, { activeRuntime: runtime });
+    return groupSkills(visible).map((g) => ({
+      key: g.key,
+      label: g.label,
+      items: g.skills.map((s) => ({
+        id: s.id,
+        label: s.label,
+        description: s.description,
+        disabled: s.availability !== 'available',
+      })),
+    }));
+  });
+
+  // Default focus → composer editor. afterNextRender is the
   // reliable hook: when this runs on a workspaceId change, the
-  // composer's textarea may not yet be in the DOM (viewChild ref
+  // composer's editor may not yet be in the DOM (viewChild ref
   // populates after the current CD pass). Scheduling on the next
-  // render guarantees the textarea is present when we call .focus().
+  // render guarantees the editor is present when we call .focus().
   // CDK has no standalone "auto-focus" directive — `cdkFocusInitial`
   // only fires inside a `cdkTrapFocus` region — so we drive this
   // directly via `afterNextRender`.
   focusComposer(): void {
     afterNextRender(
       () => {
-        const ta = this.composerEl()?.nativeElement.querySelector('textarea');
-        ta?.focus();
+        const el = this.composerEl()?.nativeElement.querySelector(
+          '[contenteditable]',
+        ) as HTMLElement | null;
+        el?.focus();
       },
       { injector: this.injector },
     );
@@ -233,6 +283,21 @@ export class FeatureWorkspaceComposer {
     // probed.
     void this.profile.initialize();
     void this.profile.initializeCodex();
+
+    // Discover skills when the (provider, project) scope changes. Declared as
+    // an RxJS stream rather than a signal effect — same rationale as the focus
+    // triggers below (the only action is the fire-and-forget `load` side
+    // effect). The store caches per scope, so this only hits the filesystem on
+    // a new scope; switching model/workspace re-reads the cache.
+    toObservable(this._skillScope)
+      .pipe(
+        tap(
+          ({ provider, projectId }) =>
+            void this.skills.load(provider, projectId),
+        ),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
 
     // Mirror the local edit buffer into the session store so the draft
     // for (workspaceId, chatId) survives workspace switches. Wrapped in

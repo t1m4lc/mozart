@@ -6,6 +6,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import {
+  SKILLS_PORT,
+  SkillsStore,
+  type SkillsPort,
+} from '@mozart/desktop-skills-data-access';
+import type { DiscoveredSkill } from '@mozart/desktop-skills-util';
+import {
   ChatScrollOrchestrator,
   ScrollPositionService,
   WorkspacesFacade,
@@ -41,12 +47,20 @@ function makeChat(overrides: Partial<FakeChat> = {}): FakeChat {
 interface ChatFacadeStubState {
   activeChat: FakeChat | null;
   streaming: boolean;
+  /** Discovery backend for the slash menu. Defaults to "no skills". */
+  skills?: SkillsPort;
+  /** Workspace the composer resolves projectId from. Default: none (null). */
+  workspace?: { id: string; projectId: string } | null;
 }
 
 function configure(state: ChatFacadeStubState) {
   const activeChatSignal = signal<FakeChat | null>(state.activeChat);
   const streamingSignal = signal<boolean>(state.streaming);
   const messagesSignal = signal<readonly unknown[]>([]);
+  const activeAgentProviderSignal = signal<string>('claude_cli');
+  const skillsPort: SkillsPort = state.skills ?? {
+    list: vi.fn(async () => []),
+  };
 
   const chatFacade = {
     activeChatFor: vi.fn(() => activeChatSignal()),
@@ -62,7 +76,7 @@ function configure(state: ChatFacadeStubState) {
   const workspacesFacade = {
     hasOtherUnreadInProject: vi.fn(() => signal(false)),
     nextUnreadInProject: vi.fn(() => null),
-    workspaceById: vi.fn(() => signal(null)),
+    workspaceById: vi.fn(() => signal(state.workspace ?? null)),
   };
 
   const router = { navigate: vi.fn(async () => true) };
@@ -75,7 +89,7 @@ function configure(state: ChatFacadeStubState) {
     status: signal('connected'),
     codexStatus: signal('not_connected'),
     hasAnyProvider: signal(true),
-    activeAgentProvider: signal('claude_cli'),
+    activeAgentProvider: activeAgentProviderSignal,
   };
 
   TestBed.configureTestingModule({
@@ -84,6 +98,7 @@ function configure(state: ChatFacadeStubState) {
       { provide: WorkspacesFacade, useValue: workspacesFacade },
       { provide: ProfileFacade, useValue: profileFacade },
       { provide: Router, useValue: router },
+      { provide: SKILLS_PORT, useValue: skillsPort },
     ],
   });
 
@@ -92,6 +107,7 @@ function configure(state: ChatFacadeStubState) {
   // ones so the wiring is exercised end-to-end.
   const scroll = TestBed.inject(ScrollPositionService);
   const orchestrator = TestBed.inject(ChatScrollOrchestrator);
+  const skillsStore = TestBed.inject(SkillsStore);
 
   return {
     chatFacade,
@@ -101,7 +117,25 @@ function configure(state: ChatFacadeStubState) {
     orchestrator,
     activeChatSignal,
     streamingSignal,
+    activeAgentProviderSignal,
+    skillsStore,
   };
+}
+
+const wireSkill = (over: Partial<DiscoveredSkill> = {}): DiscoveredSkill => ({
+  id: 'commit',
+  name: 'Commit',
+  description: 'conventional commit',
+  source: 'mozart-project',
+  runtime: 'any',
+  publisher: null,
+  scope: 'project',
+  ...over,
+});
+
+interface SkillGroupVm {
+  readonly label: string;
+  readonly items: readonly { readonly id: string }[];
 }
 
 function mountComposer(opts: {
@@ -297,6 +331,117 @@ describe('FeatureWorkspaceComposer', () => {
       };
       expect(cmp.currentMode()).toBe('agent');
       expect(cmp.currentEffort()).toBe('medium');
+    });
+  });
+
+  describe('slash skill discovery', () => {
+    it('groups discovered skills by source and filters by the active provider runtime', async () => {
+      // Fake discovery returns a Mozart (any), a Claude, and a Codex skill.
+      // Under the Claude provider, visibleSkills must drop the Codex one.
+      const skills: SkillsPort = {
+        list: vi.fn(async () => [
+          wireSkill({ id: 'commit', name: 'Commit', source: 'mozart-project' }),
+          wireSkill({
+            id: 'review',
+            name: 'Review',
+            source: 'claude-provider',
+            runtime: 'claude',
+            scope: 'global',
+          }),
+          wireSkill({
+            id: 'codex-review',
+            name: 'Codex review',
+            source: 'codex-provider',
+            runtime: 'codex',
+            scope: 'global',
+          }),
+        ]),
+      };
+      const stubs = configure({
+        activeChat: makeChat(),
+        streaming: false,
+        skills,
+        workspace: { id: 'ws-1', projectId: 'proj-1' },
+      });
+      const fixture = mountComposer({
+        workspaceId: 'ws-1',
+        activeTabKind: 'chat',
+      });
+      // Populate deterministically (refresh always awaits; sidesteps the
+      // component's fire-and-forget in-flight load).
+      await stubs.skillsStore.refresh('claude_cli', 'proj-1');
+      fixture.detectChanges();
+
+      const cmp = fixture.componentInstance as unknown as {
+        skillGroups: () => readonly SkillGroupVm[];
+      };
+      const groups = cmp.skillGroups();
+      expect(groups.map((g) => g.label)).toEqual(['Mozart', 'Claude']);
+      const ids = groups.flatMap((g) => g.items.map((i) => i.id));
+      expect(ids).toContain('commit');
+      expect(ids).toContain('review');
+      expect(ids).not.toContain('codex-review');
+    });
+
+    it('re-filters when the active provider switches to Codex', async () => {
+      const skills: SkillsPort = {
+        list: vi.fn(async () => [
+          wireSkill({ id: 'commit', source: 'mozart-project' }),
+          wireSkill({
+            id: 'review',
+            source: 'claude-provider',
+            runtime: 'claude',
+            scope: 'global',
+          }),
+          wireSkill({
+            id: 'codex-review',
+            source: 'codex-provider',
+            runtime: 'codex',
+            scope: 'global',
+          }),
+        ]),
+      };
+      const stubs = configure({
+        activeChat: makeChat(),
+        streaming: false,
+        skills,
+        workspace: { id: 'ws-1', projectId: 'proj-1' },
+      });
+      const fixture = mountComposer({
+        workspaceId: 'ws-1',
+        activeTabKind: 'chat',
+      });
+      await stubs.skillsStore.refresh('claude_cli', 'proj-1');
+      await stubs.skillsStore.refresh('codex', 'proj-1');
+
+      stubs.activeAgentProviderSignal.set('codex');
+      fixture.detectChanges();
+
+      const cmp = fixture.componentInstance as unknown as {
+        skillGroups: () => readonly SkillGroupVm[];
+      };
+      const ids = cmp.skillGroups().flatMap((g) => g.items.map((i) => i.id));
+      expect(ids).toContain('commit'); // agnostic stays
+      expect(ids).toContain('codex-review');
+      expect(ids).not.toContain('review'); // claude-only filtered out
+    });
+
+    it('shows no skills before discovery resolves (empty cache)', () => {
+      const stubs = configure({
+        activeChat: makeChat(),
+        streaming: false,
+        workspace: { id: 'ws-1', projectId: 'proj-1' },
+      });
+      const fixture = mountComposer({
+        workspaceId: 'ws-1',
+        activeTabKind: 'chat',
+      });
+      const cmp = fixture.componentInstance as unknown as {
+        skillGroups: () => readonly SkillGroupVm[];
+      };
+      // Default port returns []; nothing populated synchronously.
+      expect(cmp.skillGroups()).toEqual([]);
+      expect(stubs.skillsStore.skillsFor('claude_cli', 'proj-1')).toEqual([]);
     });
   });
 });
