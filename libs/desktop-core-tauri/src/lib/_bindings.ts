@@ -389,6 +389,24 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  /**
+   * Dev-only (`#[cfg(debug_assertions)]`) — absent from release binaries.
+   * Returns the persisted envelope (structured context + rendered payload)
+   * for a run, or `null` when no row exists.
+   */
+  async getRunEnvelope(
+    runId: string,
+  ): Promise<Result<AgentRunEnvelope | null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('get_run_envelope', { runId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   async getWorkspaceDiff(
     workspaceId: string,
   ): Promise<Result<WorkspaceChange | null, AppError>> {
@@ -656,6 +674,23 @@ export const commands = {
         data: await TAURI_INVOKE('update_message_status', {
           messageId,
           status,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async updateMessageRunId(
+    messageId: string,
+    runId: string,
+  ): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('update_message_run_id', {
+          messageId,
+          runId,
         }),
       };
     } catch (e) {
@@ -2101,6 +2136,78 @@ export type AgentRun = {
   prompt_source: string;
 };
 /**
+ * Persisted per-run debug audit row (`agent_run_envelopes`). `envelope_json`
+ * is a serialized `LLMEnvelope`; `rendered_text` is the exact nonce-framed
+ * payload piped to the provider CLI. Read by the dev-only debug inspector.
+ */
+export type AgentRunEnvelope = {
+  run_id: string;
+  chat_id: string;
+  envelope_json: string;
+  rendered_text: string;
+  provider: string;
+  nonce: string;
+  char_count: number;
+  est_tokens: number;
+  created_at: number;
+};
+/**
+ * Typed 7-layer context assembled per run. Serialized into
+ * `AgentRunEnvelope.envelope_json`; the debug inspector `JSON.parse`s it.
+ */
+export type LLMEnvelope = {
+  system_rules: SystemRulesLayer;
+  project_memory: ProjectMemoryLayer;
+  workspace_state: WorkspaceStateLayer;
+  recent_conversation: RecentConversationLayer;
+  operational_summaries: OperationalSummariesLayer;
+  attached_context: AttachedContextLayer;
+  current_user_message: CurrentUserMessage;
+};
+export type SystemRulesLayer = {
+  mode: string;
+  sandbox_level: string;
+  authority_clamp: string;
+};
+export type ProjectMemoryLayer = { items: string[] };
+export type WorkspaceStateLayer = {
+  workspace_path: string;
+  branch_name: string;
+  base_branch: string;
+  sibling_paths: string[];
+};
+export type ConversationTurn = {
+  message_id: string;
+  role: string;
+  content: string;
+  mode: string | null;
+  created_at: number;
+};
+export type RecentConversationLayer = { turns: ConversationTurn[] };
+export type OperationalSummary = {
+  run_id: string;
+  message_id: string;
+  text_summary: string;
+  files_read: string[];
+  files_edited: string[];
+  commands_run: string[];
+  key_results: string[];
+  created_at: number;
+};
+export type OperationalSummariesLayer = { summaries: OperationalSummary[] };
+export type AttachedContextItem = {
+  kind: string;
+  label: string;
+  content: string;
+};
+export type AttachedContextLayer = { items: AttachedContextItem[] };
+export type CurrentUserMessage = {
+  message_id: string;
+  content: string;
+  mode: string | null;
+  created_at: number;
+};
+/**
  * Fired once per `agent_runs` row when the supervisor task reaches a
  * terminal status (`done`, `error`, `stopped`, `crashed`). Front-end
  * consumers filter by `run_id` to learn when the channel stream is
@@ -2511,7 +2618,14 @@ export type StreamEvent =
   | { kind: 'thinking'; id: string; text: string }
   | { kind: 'cli_output'; line: string }
   | { kind: 'status_update'; status: string }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string }
+  | {
+      kind: 'usage';
+      input_tokens?: number | null;
+      output_tokens?: number | null;
+      cache_read_tokens?: number | null;
+      cache_creation_tokens?: number | null;
+    };
 export type Task = {
   task_id: string;
   repo_id: string;

@@ -8,6 +8,7 @@ export type {
   SystemInfo,
 } from './lib/message.model';
 export { CHAT_TAB_CAP } from './lib/chat-tab-cap';
+export { isDevDebugViewEnabled } from './lib/dev-debug';
 export {
   CHAT_AT_BOTTOM_THRESHOLD_PX,
   CHAT_COMPOSER_OVERLAY_PX,

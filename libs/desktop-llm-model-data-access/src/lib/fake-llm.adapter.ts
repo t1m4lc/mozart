@@ -122,6 +122,7 @@ export class FakeLlmAdapter implements LlmAdapter {
 
     return {
       runId,
+      whenRunId: Promise.resolve(runId),
       events$,
       cancel: () => {
         aborted = true;

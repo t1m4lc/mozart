@@ -1,6 +1,38 @@
 import { describe, expect, it } from 'vitest';
 import { messageFromDto, systemInfoToJson } from './chat.dto-mapper';
 
+describe('messageFromDto — runId linkage', () => {
+  it('maps an assistant run_id onto Message.runId', () => {
+    const msg = messageFromDto({
+      message_id: 'm1',
+      chat_id: 'c1',
+      run_id: 'run-abc',
+      role: 'assistant',
+      content: 'hi',
+      mode: null,
+      status: 'done',
+      timeline_json: null,
+      created_at: 1,
+    });
+    expect(msg.runId).toBe('run-abc');
+  });
+
+  it('leaves runId undefined when run_id is null', () => {
+    const msg = messageFromDto({
+      message_id: 'm1',
+      chat_id: 'c1',
+      run_id: null,
+      role: 'assistant',
+      content: 'hi',
+      mode: null,
+      status: 'done',
+      timeline_json: null,
+      created_at: 1,
+    });
+    expect(msg.runId).toBeUndefined();
+  });
+});
+
 describe('messageFromDto — system_info parsing (R0.3.F)', () => {
   it('parses a system_info entry from timeline_json', () => {
     const msg = messageFromDto({

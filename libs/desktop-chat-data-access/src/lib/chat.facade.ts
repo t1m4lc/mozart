@@ -612,6 +612,17 @@ export class ChatFacade {
       return next;
     });
 
+    // Link the assistant message to its run once the id resolves (known
+    // only after start_agent_run returns). Lets the dev-only debug
+    // inspector fetch this turn's envelope by run.
+    void handle.whenRunId.then((rid) => {
+      if (!rid) return;
+      this.store.updateMessage(assistantMsg.id, (m) => ({ ...m, runId: rid }));
+      void this.messages
+        .updateRunId(assistantMsg.id, rid)
+        .catch((err) => console.warn('[chat] persist runId failed', err));
+    });
+
     let lastStepAt = 0;
     let lastContent = '';
     let lastTurnState: TurnState = initialState;

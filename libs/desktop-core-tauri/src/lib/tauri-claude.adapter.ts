@@ -97,6 +97,7 @@ export class TauriClaudeAdapter implements LlmAdapter {
 
     return {
       runId: 'pending',
+      whenRunId: startPromise.then(() => runId),
       events$: (async function* () {
         try {
           while (true) {
