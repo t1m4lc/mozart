@@ -55,6 +55,19 @@ describe('SkillsStore', () => {
     expect(list).toHaveBeenCalledTimes(1);
   });
 
+  it('re-scans on load once the cached scope is older than the TTL', async () => {
+    const list = vi.fn().mockResolvedValue([wire()]);
+    const store = makeStore({ list });
+    const now = vi.spyOn(Date, 'now').mockReturnValue(0);
+    await store.load('claude', 'p1'); // scan #1, loadedAt = 0
+    await store.load('claude', 'p1'); // still fresh → no-op
+    expect(list).toHaveBeenCalledTimes(1);
+    now.mockReturnValue(31_000); // past the 30s TTL
+    await store.load('claude', 'p1'); // stale → re-scan
+    expect(list).toHaveBeenCalledTimes(2);
+    now.mockRestore();
+  });
+
   it('dedupes concurrent in-flight loads', async () => {
     const list = vi.fn().mockResolvedValue([wire()]);
     const store = makeStore({ list });

@@ -130,6 +130,7 @@ const SKILL_TOKEN_CLASS =
             [menu]="skillMenu"
             [insert]="_skillToToken"
             [placement]="'top'"
+            (opened)="skillMenuOpened.emit()"
             (input)="_onEditorInput()"
             (keydown)="_onKeydown($event)"
             (paste)="_onPaste($event)"
@@ -281,6 +282,9 @@ export class MzComposer {
   readonly modelChange = output<string>();
   readonly scrollToBottom = output<void>();
   readonly nextUnreadWorkspace = output<void>();
+  /** The `/` skill menu opened — a cue for the host to refresh discovery if
+   *  its cache has gone stale. The host decides whether a re-scan is needed. */
+  readonly skillMenuOpened = output<void>();
 
   private readonly _editor =
     viewChild<ElementRef<HTMLElement>>('composerEditor');

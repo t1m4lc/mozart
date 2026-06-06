@@ -12,6 +12,7 @@ export {
 } from './lib/skill.model';
 export {
   groupSkills,
+  mergeSkillCatalogs,
   runsOn,
   visibleSkills,
   type SkillGroup,

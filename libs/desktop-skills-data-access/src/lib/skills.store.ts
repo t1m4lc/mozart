@@ -24,10 +24,23 @@ export const SKILLS_PORT = new InjectionToken<SkillsPort>('SKILLS_PORT');
 export interface SkillsState {
   readonly status: 'idle' | 'loading' | 'loaded' | 'error';
   readonly descriptors: readonly SkillDescriptor[];
+  /** When the descriptors were last scanned (epoch ms). Drives TTL staleness. */
+  readonly loadedAt?: number;
   readonly error?: string;
 }
 
 const IDLE: SkillsState = { status: 'idle', descriptors: [] };
+
+/** A loaded scan older than this is re-scanned on the next `load` (e.g. when
+ *  the slash menu reopens), so skills added/edited on disk surface without an
+ *  app restart. Within the window `load` is a cache hit — no filesystem scan. */
+const SKILLS_TTL_MS = 30_000;
+
+function isStale(state: SkillsState): boolean {
+  return (
+    state.loadedAt === undefined || Date.now() - state.loadedAt > SKILLS_TTL_MS
+  );
+}
 
 /** Cache key. Discovery scope is (provider, project), not worktree. */
 function scopeKey(provider: string, projectId: string | null): string {
@@ -38,11 +51,12 @@ function scopeKey(provider: string, projectId: string | null): string {
  * Caches discovered skills per (provider, project). The filesystem scan is the
  * expensive part, so it runs once per scope and the open slash menu reads the
  * cache. Refresh triggers are deliberately narrow: switching provider/project
- * into an unseen scope (`load`), an error retry (`load` again), or an explicit
- * `refresh()` (file changed on disk / user action). Maps the wire shape to the
- * UI descriptor via the single `skillToDescriptor` bridge.
+ * into an unseen scope (`load`), an error retry (`load` again), a `load` after
+ * the scope's data has gone stale (TTL — picks up on-disk edits when the menu
+ * reopens), or an explicit `refresh()`. Maps the wire shape to the UI
+ * descriptor via the single `skillToDescriptor` bridge.
  *
- *   load(p, id)    → cached? no-op : fetch        (dedupes in-flight + loaded)
+ *   load(p, id)    → fresh cache? no-op : fetch    (dedupes in-flight; TTL-aware)
  *   refresh(p, id) → always re-fetch
  *   skillsFor(p,id)→ reactive descriptors ([] until loaded)
  */
@@ -68,11 +82,14 @@ export class SkillsStore {
     return this.stateFor(provider, projectId).descriptors;
   }
 
-  /** Fetch once per scope. A cached or in-flight scope is a no-op; an errored
-   *  scope retries. */
+  /** Ensure reasonably-fresh data for a scope. In-flight is a no-op; a fresh
+   *  loaded scope is a no-op; an errored or TTL-stale scope re-fetches. */
   async load(provider: string, projectId: string | null): Promise<void> {
     const existing = this._byScope().get(scopeKey(provider, projectId));
-    if (existing && existing.status !== 'error') return;
+    if (existing) {
+      if (existing.status === 'loading') return;
+      if (existing.status === 'loaded' && !isStale(existing)) return;
+    }
     await this._fetch(provider, projectId);
   }
 
@@ -96,6 +113,7 @@ export class SkillsStore {
       this._patch(provider, projectId, {
         status: 'loaded',
         descriptors: wire.map(skillToDescriptor),
+        loadedAt: Date.now(),
       });
     } catch (err) {
       this._patch(provider, projectId, {
