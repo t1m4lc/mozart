@@ -39,6 +39,9 @@ export interface ModelOption {
    *  `codex -m`). Stable aliases for Claude (`opus`/`sonnet`/`haiku`); the
    *  bare id for Codex. Absent ⇒ let the CLI use its configured default. */
   readonly cliModel?: string;
+  /** Max context window in tokens. Drives the composer context gauge
+   *  (input tokens ÷ contextWindow). Absent ⇒ unknown, gauge hidden. */
+  readonly contextWindow?: number;
 }
 
 export interface ProviderDescriptor {
@@ -119,6 +122,7 @@ export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
     enabled: true,
     isNew: true,
     cliModel: 'opus',
+    contextWindow: 1_000_000,
   },
   {
     id: 'claude-opus-4-7',
@@ -126,6 +130,7 @@ export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
     provider: 'anthropic',
     enabled: true,
     cliModel: 'opus',
+    contextWindow: 1_000_000,
   },
   {
     id: 'claude-sonnet-4-6',
@@ -133,6 +138,7 @@ export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
     provider: 'anthropic',
     enabled: true,
     cliModel: 'sonnet',
+    contextWindow: 1_000_000,
   },
   {
     id: 'claude-haiku-4-5',
@@ -140,13 +146,16 @@ export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
     provider: 'anthropic',
     enabled: true,
     cliModel: 'haiku',
+    contextWindow: 200_000,
   },
   {
+    // GPT-5 context window is 400K total (272K input cap + 128K output).
     id: 'gpt-5',
     name: 'GPT-5 (Codex)',
     provider: 'openai',
     enabled: true,
     cliModel: 'gpt-5',
+    contextWindow: 400_000,
   },
   {
     id: 'gpt-5-mini',
@@ -154,6 +163,7 @@ export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
     provider: 'openai',
     enabled: true,
     cliModel: 'gpt-5-mini',
+    contextWindow: 400_000,
   },
   {
     id: 'local-default',

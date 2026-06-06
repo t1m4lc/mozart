@@ -30,6 +30,7 @@ import {
 } from './mz-composer-model-select';
 import { MzComposerPlusMenu } from './mz-composer-plus-menu';
 import { ComposerScrollOverlay } from './mz-composer-scroll-overlay';
+import { MzContextGauge } from './mz-context-gauge';
 import {
   MzComposerSlashMenu,
   type SlashMenuGroup,
@@ -80,6 +81,7 @@ const SKILL_TOKEN_CLASS =
     ComposerScrollOverlay,
     MzComposerSlashMenu,
     MzTriggerMenu,
+    MzContextGauge,
   ],
   providers: [
     provideIcons({
@@ -152,6 +154,13 @@ const SKILL_TOKEN_CLASS =
           />
 
           <span class="flex-auto"></span>
+
+          @if (_showContextGauge()) {
+            <mz-context-gauge
+              [used]="contextUsedTokens()!"
+              [max]="contextMaxTokens()!"
+            />
+          }
 
           @if (models().length > 0) {
             <mz-composer-model-select
@@ -269,6 +278,10 @@ export class MzComposer {
     local: { id: 'local', label: 'Local', iconName: 'lucideHardDrive' },
   });
   readonly selectedModelId = input<string>('');
+  /** Context gauge inputs: tokens used by the latest run's prompt and the
+   *  selected model's context window. Either null ⇒ gauge hidden. */
+  readonly contextUsedTokens = input<number | null>(null);
+  readonly contextMaxTokens = input<number | null>(null);
   readonly autoFollowChat = input(true);
   readonly hasNextUnreadInProject = input(false);
   /** Provider-filtered, source-grouped skills for the `/` menu. Empty ⇒ the
@@ -302,6 +315,12 @@ export class MzComposer {
   protected readonly _canSubmit = computed(
     () => !this.disabled() && this.value().trim().length > 0,
   );
+
+  protected readonly _showContextGauge = computed(() => {
+    const used = this.contextUsedTokens();
+    const max = this.contextMaxTokens();
+    return used != null && max != null && max > 0 && used > 0;
+  });
 
   protected readonly _isEmpty = computed(() => this.value().length === 0);
 

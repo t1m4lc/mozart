@@ -21,6 +21,10 @@ export interface LlmStreamInput {
 
 export interface LlmRunHandle {
   readonly runId: string;
+  /** Resolves with the backend run id once `start_agent_run` returns, or
+   *  `null` if the run failed to start. The id is unknown synchronously, so
+   *  callers that need it (e.g. to link a message to its run) await this. */
+  readonly whenRunId: Promise<string | null>;
   readonly events$: AsyncIterable<AgentEvent>;
   cancel(): void;
 }

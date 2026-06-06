@@ -19,7 +19,7 @@ import type { Message } from '@mozart/desktop-chat-util';
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
-    <article class="flex w-full flex-col gap-2">
+    <article class="group/agent flex w-full flex-col gap-2">
       @if (message().turnState; as ts) {
         <mz-turn-container
           [state]="ts"
@@ -33,6 +33,15 @@ import type { Message } from '@mozart/desktop-chat-util';
           [text]="message().content"
           [streaming]="_isStreaming()"
         />
+      }
+      @if (_canDebug()) {
+        <button
+          type="button"
+          class="self-start rounded px-1 font-mono text-[10px] text-muted-foreground/60 opacity-0 transition-opacity hover:text-foreground group-hover/agent:opacity-100"
+          (click)="debugRequested.emit(message().runId!)"
+        >
+          {{ '{}' }} debug
+        </button>
       }
     </article>
   `,
@@ -48,6 +57,16 @@ export class AgentMessage {
   // feature wrapper resolves it against `WorkspacesFacade` +
   // `FileTabsService` to navigate to the Files tab in diff mode.
   readonly fileChipClick = output<TurnFileChipEvent>();
+
+  // Dev-only: gates the envelope-inspector affordance. Set by the feature
+  // wrapper from `isDevDebugViewEnabled()` — UI lib stays pure.
+  readonly debugEnabled = input<boolean>(false);
+  // Emits this turn's run id when the debug affordance is clicked.
+  readonly debugRequested = output<string>();
+
+  protected readonly _canDebug = computed(
+    () => this.debugEnabled() && !!this.message().runId,
+  );
 
   protected readonly _isStreaming = computed(
     () => this.message().status === 'streaming',

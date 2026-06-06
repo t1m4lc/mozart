@@ -71,8 +71,11 @@ pub fn parse_line(line: &str, state: &mut CodexParserState) -> Vec<StreamEvent> 
         // Intermediate updates carry partial output we don't surface in v1.
         Some("item.updated") => Vec::new(),
         Some("turn.failed") | Some("error") => vec![error_event(&v)],
-        // Session/turn bookkeeping — terminal status comes from exit code.
-        Some("thread.started") | Some("turn.started") | Some("turn.completed") => Vec::new(),
+        // `turn.completed` carries the turn's token usage (terminal status
+        // itself still comes from the exit code).
+        Some("turn.completed") => handle_turn_usage(&v),
+        // Session/turn bookkeeping.
+        Some("thread.started") | Some("turn.started") => Vec::new(),
         _ => vec![StreamEvent::CliOutput {
             line: line.to_string(),
         }],
@@ -238,6 +241,24 @@ fn error_event(v: &Value) -> StreamEvent {
     StreamEvent::Error { message }
 }
 
+fn handle_turn_usage(v: &Value) -> Vec<StreamEvent> {
+    let Some(usage) = v.get("usage") else {
+        return Vec::new();
+    };
+    let input_tokens = usage.get("input_tokens").and_then(Value::as_i64);
+    let output_tokens = usage.get("output_tokens").and_then(Value::as_i64);
+    let cache_read_tokens = usage.get("cached_input_tokens").and_then(Value::as_i64);
+    if input_tokens.is_none() && output_tokens.is_none() && cache_read_tokens.is_none() {
+        return Vec::new();
+    }
+    vec![StreamEvent::Usage {
+        input_tokens,
+        output_tokens,
+        cache_read_tokens,
+        cache_creation_tokens: None,
+    }]
+}
+
 fn str_field(item: &Value, key: &str) -> Option<String> {
     item.get(key)
         .and_then(|t| t.as_str())
@@ -354,9 +375,30 @@ mod tests {
         for line in [
             r#"{"type":"thread.started","thread_id":"t1"}"#,
             r#"{"type":"turn.started"}"#,
-            r#"{"type":"turn.completed","usage":{"input_tokens":1}}"#,
+            r#"{"type":"turn.completed"}"#,
         ] {
             assert!(parse(line, &mut s).is_empty(), "expected silence for {line}");
+        }
+    }
+
+    #[test]
+    fn turn_completed_emits_usage() {
+        let mut s = CodexParserState::default();
+        let line =
+            r#"{"type":"turn.completed","usage":{"input_tokens":900,"cached_input_tokens":400,"output_tokens":120}}"#;
+        match parse(line, &mut s).as_slice() {
+            [StreamEvent::Usage {
+                input_tokens,
+                output_tokens,
+                cache_read_tokens,
+                cache_creation_tokens,
+            }] => {
+                assert_eq!(*input_tokens, Some(900));
+                assert_eq!(*output_tokens, Some(120));
+                assert_eq!(*cache_read_tokens, Some(400));
+                assert_eq!(*cache_creation_tokens, None);
+            }
+            other => panic!("expected Usage, got {other:?}"),
         }
     }
 

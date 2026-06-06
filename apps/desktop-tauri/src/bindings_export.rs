@@ -10,8 +10,9 @@ use crate::auth::DeepLinkReceived;
 use crate::claude_cli::{install::ClaudeInstall, AgentRunTerminated, StreamEvent};
 use crate::commands;
 use crate::credentials::anthropic_probe::ProbeResult;
+use crate::claude_cli::envelope::LLMEnvelope;
 use crate::db::models::{
-    AgentRun, Chat, Message, Repo, Task, Thread, Workspace, WorkspaceChange,
+    AgentRun, AgentRunEnvelope, Chat, Message, Repo, Task, Thread, Workspace, WorkspaceChange,
 };
 use crate::commit::ChangedFile;
 use crate::error::AppError;
@@ -71,6 +72,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::insert_message,
                 commands::update_message_content,
                 commands::update_message_status,
+                commands::update_message_run_id,
                 commands::update_message_timeline,
                 commands::check_claude_install,
                 commands::check_claude_code_session,
@@ -159,6 +161,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     let cmds = base_commands![
         , commands::reset_database_clean
         , commands::reset_database_with_demo_seed
+        , commands::get_run_envelope
     ];
     #[cfg(not(debug_assertions))]
     let cmds = base_commands![];
@@ -177,6 +180,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<Workspace>()
         .typ::<Thread>()
         .typ::<AgentRun>()
+        .typ::<AgentRunEnvelope>()
+        .typ::<LLMEnvelope>()
         .typ::<WorkspaceChange>()
         .typ::<commands::WorkspaceDiffStats>()
         .typ::<Chat>()

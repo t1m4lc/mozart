@@ -6,11 +6,14 @@ import { AUTH_ADAPTER } from '@mozart/desktop-auth-data-access';
 import { tauriAuthAdapter } from './tauri-auth.adapter';
 import {
   CHATS_ADAPTER,
+  DEBUG_ENVELOPE_PORT,
   MESSAGES_ADAPTER,
   chatFromDto,
+  debugEnvelopeFromDto,
   messageFromDto,
   turnStateToJson,
   type ChatsAdapter,
+  type DebugEnvelopePort,
   type MessagesAdapter,
 } from '@mozart/desktop-chat-data-access';
 import {
@@ -412,6 +415,9 @@ function provideMessagesAdapter(): Provider {
       async updateStatus(messageId, status) {
         unwrap(await commands.updateMessageStatus(messageId, status));
       },
+      async updateRunId(messageId, runId) {
+        unwrap(await commands.updateMessageRunId(messageId, runId));
+      },
       async updateTurnState(messageId, turnState) {
         unwrap(
           await commands.updateMessageTimeline(
@@ -429,6 +435,21 @@ function provideMessagesAdapter(): Provider {
         );
       },
     } satisfies MessagesAdapter,
+  };
+}
+
+function provideDebugEnvelopeAdapter(): Provider {
+  return {
+    provide: DEBUG_ENVELOPE_PORT,
+    useValue: {
+      // `get_run_envelope` is a dev-only (`#[cfg(debug_assertions)]`)
+      // command — absent from release binaries. The UI only reaches here
+      // behind `isDevDebugViewEnabled()`, so prod never invokes it.
+      async getRunEnvelope(runId) {
+        const dto = unwrap(await commands.getRunEnvelope(runId));
+        return dto ? debugEnvelopeFromDto(dto) : null;
+      },
+    } satisfies DebugEnvelopePort,
   };
 }
 
@@ -733,6 +754,7 @@ export function provideTauriAdapters(): Provider[] {
     provideWorkspacesAdapter(),
     provideChatsAdapter(),
     provideMessagesAdapter(),
+    provideDebugEnvelopeAdapter(),
     provideTasksAdapter(),
     provideCredentialsAdapter(),
     provideLlmAdapter(),

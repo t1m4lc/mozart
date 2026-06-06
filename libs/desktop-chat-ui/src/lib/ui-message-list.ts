@@ -47,7 +47,9 @@ import { UserMessage } from './ui-user-message';
             <app-agent-message
               [message]="msg"
               [density]="density()"
+              [debugEnabled]="debugEnabled()"
               (fileChipClick)="fileChipClick.emit($event)"
+              (debugRequested)="debugRequested.emit($event)"
             />
           }
           @case ('system') {
@@ -71,8 +73,12 @@ import { UserMessage } from './ui-user-message';
 export class MessageList {
   readonly messages = input.required<readonly Message[]>();
   readonly density = input<TimelineDensity>('normal');
+  // Dev-only debug-inspector gate, forwarded to each assistant message.
+  readonly debugEnabled = input<boolean>(false);
 
   readonly fileChipClick = output<TurnFileChipEvent>();
+  // Re-emitted from an assistant message: the run id to inspect.
+  readonly debugRequested = output<string>();
 
   // Active when the last message is a freshly-sent user prompt (about
   // to spawn an assistant turn) or an assistant message still

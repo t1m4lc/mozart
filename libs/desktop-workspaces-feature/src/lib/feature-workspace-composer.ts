@@ -100,6 +100,8 @@ import { filter, pairwise, tap } from 'rxjs/operators';
       [skillGroups]="skillGroups()"
       [selectedModelId]="currentModelId()"
       (modelChange)="onModelChange($event)"
+      [contextUsedTokens]="contextUsedTokens()"
+      [contextMaxTokens]="contextMaxTokens()"
       [isRunning]="isStreaming()"
       [askOnly]="frozen()"
       [autoFollowChat]="autoFollowChat()"
@@ -213,6 +215,40 @@ export class FeatureWorkspaceComposer {
 
   protected readonly hasNextUnreadInProject =
     this.workspaces.hasOtherUnreadInProject(this.workspaceId);
+
+  // Context-window gauge. `max` = selected model's window; `used` = the
+  // input tokens of the latest run with reported usage (the prompt grows
+  // as the conversation does). Either null ⇒ the composer hides the gauge.
+  private readonly _messages = this.facade.messagesForWorkspace(
+    this.workspaceId,
+  );
+  protected readonly contextMaxTokens = computed<number | null>(
+    () =>
+      this.catalog().find((m) => m.id === this.currentModelId())
+        ?.contextWindow ?? null,
+  );
+  protected readonly contextUsedTokens = computed<number | null>(() => {
+    const msgs = this._messages();
+    for (let i = msgs.length - 1; i >= 0; i--) {
+      const u = msgs[i]?.turnState?.usage;
+      // True context size = uncached input + cache reads + cache creation.
+      // Claude reports `input_tokens` as the uncached remainder only, so the
+      // cached portion must be added back to reflect the real fill.
+      if (
+        u &&
+        (u.inputTokens != null ||
+          u.cacheReadTokens != null ||
+          u.cacheCreationTokens != null)
+      ) {
+        return (
+          (u.inputTokens ?? 0) +
+          (u.cacheReadTokens ?? 0) +
+          (u.cacheCreationTokens ?? 0)
+        );
+      }
+    }
+    return null;
+  });
 
   // Only the models the user enabled in Settings (empty pref ⇒ all runnable).
   protected readonly catalog = computed(() =>
