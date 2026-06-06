@@ -102,7 +102,9 @@ export class ChatFacade {
   private readonly workspaces = inject(WorkspaceChatPort);
   // Optional so existing unit tests that construct the facade without the
   // profile domain keep working; absent → default to the Claude path.
-  private readonly agentProvider = inject(AgentProviderPort, { optional: true });
+  private readonly agentProvider = inject(AgentProviderPort, {
+    optional: true,
+  });
   private readonly windowFocus = inject(WindowFocusService);
   private readonly notify = inject(NotificationService);
   private readonly analytics = inject(DesktopAnalyticsFacade);

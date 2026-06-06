@@ -166,7 +166,11 @@ function parseLayers(json: string): DebugEnvelopeLayers | null {
 }
 
 interface RawEnvelope {
-  system_rules: { mode: string; sandbox_level: string; authority_clamp: string };
+  system_rules: {
+    mode: string;
+    sandbox_level: string;
+    authority_clamp: string;
+  };
   project_memory: { items?: string[] };
   workspace_state: {
     workspace_path: string;

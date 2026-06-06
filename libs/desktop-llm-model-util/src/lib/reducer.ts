@@ -16,8 +16,14 @@ const TOOL_KIND_RULES: ReadonlyArray<
   [(n) => n === 'view' || n.includes('read'), 'file-read'],
   [(n) => n.includes('create') || n === 'write_file', 'file-create'],
   [(n) => n.includes('edit') || n.includes('replace'), 'file-edit'],
-  [(n) => n.includes('bash') || n.includes('shell') || n.includes('command'), 'shell'],
-  [(n) => n.includes('grep') || n.includes('glob') || n.includes('search'), 'search'],
+  [
+    (n) => n.includes('bash') || n.includes('shell') || n.includes('command'),
+    'shell',
+  ],
+  [
+    (n) => n.includes('grep') || n.includes('glob') || n.includes('search'),
+    'search',
+  ],
 ];
 
 // User-facing summary phrases the header shimmers through while the

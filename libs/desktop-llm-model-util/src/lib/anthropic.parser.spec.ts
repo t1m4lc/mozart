@@ -1,4 +1,8 @@
-import { terminalEvent, translate, type ClaudeStreamEvent } from './anthropic.parser';
+import {
+  terminalEvent,
+  translate,
+  type ClaudeStreamEvent,
+} from './anthropic.parser';
 
 describe('translate — Rust StreamEvent → AgentEvent', () => {
   it('maps stream_token to text delta', () => {

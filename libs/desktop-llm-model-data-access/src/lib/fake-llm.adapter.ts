@@ -61,7 +61,11 @@ const PLAN_SCRIPT: readonly ScriptStep[] = [
   { delay: 0, event: { kind: 'status', text: 'Planning…' } },
   {
     delay: 300,
-    event: { kind: 'thinking', id: 'th-1', delta: 'Let me plan this carefully.' },
+    event: {
+      kind: 'thinking',
+      id: 'th-1',
+      delta: 'Let me plan this carefully.',
+    },
   },
   {
     delay: 400,
