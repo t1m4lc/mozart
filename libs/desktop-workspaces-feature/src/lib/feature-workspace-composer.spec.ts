@@ -346,7 +346,11 @@ describe('FeatureWorkspaceComposer', () => {
       list: vi.fn(async (provider: string) =>
         provider === 'codex'
           ? [
-              wireSkill({ id: 'commit', name: 'Commit', source: 'mozart-project' }),
+              wireSkill({
+                id: 'commit',
+                name: 'Commit',
+                source: 'mozart-project',
+              }),
               wireSkill({
                 id: 'codex-review',
                 name: 'Codex review',
@@ -356,7 +360,11 @@ describe('FeatureWorkspaceComposer', () => {
               }),
             ]
           : [
-              wireSkill({ id: 'commit', name: 'Commit', source: 'mozart-project' }),
+              wireSkill({
+                id: 'commit',
+                name: 'Commit',
+                source: 'mozart-project',
+              }),
               wireSkill({
                 id: 'review',
                 name: 'Review',

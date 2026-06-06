@@ -11,4 +11,7 @@ export {
   type CreateWorkspaceContext,
 } from './lib/ui-create-workspace-dialog';
 export { WorkspaceToolbar } from './lib/workspace-toolbar';
-export { MzScrollPersist, type ScrollDefaultPosition } from './lib/mz-scroll-persist.directive';
+export {
+  MzScrollPersist,
+  type ScrollDefaultPosition,
+} from './lib/mz-scroll-persist.directive';

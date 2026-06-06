@@ -121,7 +121,11 @@ describe('mergeSkillCatalogs', () => {
     const claudeScan = [mozartA, claude];
     const codexScan = [mozartA, codex];
     const merged = mergeSkillCatalogs([claudeScan, codexScan]);
-    expect(merged.map((s) => s.id)).toEqual(['explain', 'review', 'codex-review']);
+    expect(merged.map((s) => s.id)).toEqual([
+      'explain',
+      'review',
+      'codex-review',
+    ]);
   });
 
   it('keeps same-id skills from different publishers distinct', () => {
