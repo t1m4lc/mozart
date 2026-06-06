@@ -6,10 +6,7 @@ import {
   output,
 } from '@angular/core';
 import { MessageBody, TurnContainer } from '@mozart-ui/timeline';
-import type {
-  TimelineDensity,
-  TurnFileChipEvent,
-} from '@mozart-ui/timeline';
+import type { TimelineDensity, TurnFileChipEvent } from '@mozart-ui/timeline';
 import { MzDotLoader } from '@mozart-ui/loader';
 import type { Message } from '@mozart/desktop-chat-util';
 

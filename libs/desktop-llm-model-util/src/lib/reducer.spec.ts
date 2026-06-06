@@ -199,7 +199,11 @@ describe('applyAgentEvent — invariants', () => {
 
   it('terminal events override the in-progress summary', () => {
     let s = EMPTY_TURN_STATE(0);
-    s = applyAgentEvent(s, { kind: 'tool_call', id: 't', toolName: 'read_file' });
+    s = applyAgentEvent(s, {
+      kind: 'tool_call',
+      id: 't',
+      toolName: 'read_file',
+    });
     expect(s.summary).toBe('Reading files…');
     const done = applyAgentEvent(s, { kind: 'done' }, () => 1);
     expect(done.summary).toBe('Completed');
