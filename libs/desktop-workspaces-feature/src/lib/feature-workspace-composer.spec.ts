@@ -4,6 +4,7 @@ import { Router } from '@angular/router';
 import { describe, expect, it, vi } from 'vitest';
 
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
+import { ProjectFilesStore } from '@mozart/desktop-files-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import {
   SKILLS_PORT,
@@ -103,6 +104,15 @@ function configure(state: ChatFacadeStubState) {
       { provide: ProfileFacade, useValue: profileFacade },
       { provide: Router, useValue: router },
       { provide: SKILLS_PORT, useValue: skillsPort },
+      // Stub the file store so this spec doesn't pull the repositories
+      // facade chain — the `@` menu isn't under test here.
+      {
+        provide: ProjectFilesStore,
+        useValue: {
+          fileEntriesFor: () => signal([]),
+          refresh: () => undefined,
+        },
+      },
     ],
   });
 

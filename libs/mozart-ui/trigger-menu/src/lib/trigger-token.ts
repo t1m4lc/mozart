@@ -73,6 +73,12 @@ export function buildTokenElement(spec: TokenSpec, doc: Document): HTMLElement {
   return el;
 }
 
+// Non-breaking space: a regular trailing space gets collapsed by
+// contenteditable, which lets the caret drift back inside the token. The nbsp
+// holds the boundary. `findActiveTrigger` and the token splitters treat it as
+// whitespace, so it never blocks a following trigger.
+const TOKEN_SPACER = ' ';
+
 /**
  * Replaces the `<trigger><query>` range with the token element and leaves the
  * caret just after it (a trailing nbsp keeps the caret stable at the boundary).
@@ -82,15 +88,35 @@ export function replaceTriggerWithToken(
   token: HTMLElement,
   doc: Document,
 ): void {
+  replaceTriggerWithTokens(active, [token], doc);
+}
+
+/**
+ * Replaces the `<trigger><query>` range with N token elements, each followed by
+ * a single nbsp, and leaves the caret after the trailing nbsp. With one token
+ * this is the single-select commit; with several it's the multi-select commit
+ * (one pill per selected item, in order).
+ */
+export function replaceTriggerWithTokens(
+  active: ActiveTrigger,
+  tokens: readonly HTMLElement[],
+  doc: Document,
+): void {
   const range = doc.createRange();
   range.setStart(active.node, active.triggerOffset);
   range.setEnd(active.node, active.caretOffset);
   range.deleteContents();
-  range.insertNode(token);
 
-  const spacer = doc.createTextNode(' ');
-  token.after(spacer);
+  const fragment = doc.createDocumentFragment();
+  let spacer: Text | null = null;
+  for (const token of tokens) {
+    fragment.appendChild(token);
+    spacer = doc.createTextNode(TOKEN_SPACER);
+    fragment.appendChild(spacer);
+  }
+  range.insertNode(fragment);
 
+  if (!spacer) return;
   const selection = doc.getSelection();
   const caret = doc.createRange();
   caret.setStart(spacer, 1);

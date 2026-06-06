@@ -7,7 +7,6 @@ import {
   input,
   output,
   signal,
-  TemplateRef,
   ViewContainerRef,
 } from '@angular/core';
 import {
@@ -18,15 +17,16 @@ import {
 import { TemplatePortal } from '@angular/cdk/portal';
 import { Subscription } from 'rxjs';
 import type {
-  TokenInsertFn,
   TriggerMenuContext,
   TriggerMenuNavHandler,
+  TriggerSpec,
 } from './trigger-menu.types';
 import {
   type ActiveTrigger,
   buildTokenElement,
   findActiveTrigger,
   replaceTriggerWithToken,
+  replaceTriggerWithTokens,
   tokenAfterCaret,
   tokenBeforeCaret,
 } from './trigger-token';
@@ -49,11 +49,14 @@ const POSITION_ABOVE: ConnectedPosition = {
 let nextTriggerMenuId = 0;
 
 /**
- * Generic Notion-style trigger menu. Attach to a `contenteditable` host; when
- * the configured `trigger` is typed it opens the injected `menu` near the
- * caret, exposes the live query, and inserts a configurable inline token on
- * selection. Knows nothing about the trigger character, the menu, or the host
- * feature.
+ * Generic Notion-style trigger menu. Attach to a `contenteditable` host and
+ * give it one or more `triggers` ({@link TriggerSpec}); when a configured
+ * trigger char is typed it opens that trigger's `menu` near the caret, exposes
+ * the live query, and inserts a configurable inline token on selection. One
+ * directive instance owns ALL triggers — one overlay, one keydown owner — so a
+ * single editor can drive `/`, `@`, … without duplicated trigger handling or
+ * two menus fighting over Enter/Escape. Knows nothing about the trigger
+ * characters, the menus, or the host feature.
  */
 @Directive({
   selector: '[mzTriggerMenu]',
@@ -73,11 +76,9 @@ let nextTriggerMenuId = 0;
   },
 })
 export class MzTriggerMenu<TItem = unknown, TData = unknown> {
-  readonly trigger = input.required<string>();
-  readonly menu =
-    input.required<TemplateRef<{ $implicit: TriggerMenuContext<TData> }>>();
-  readonly context = input<TData>();
-  readonly insert = input.required<TokenInsertFn<TItem>>();
+  /** The triggers this menu watches for. The first to match at the caret wins
+   *  (the one nearest the caret if several somehow overlap). */
+  readonly triggers = input.required<readonly TriggerSpec<TItem, TData>[]>();
   /** Preferred side relative to the caret. CDK still flips to the other side
    *  when there isn't room. Defaults to `bottom`. */
   readonly placement = input<'top' | 'bottom'>('bottom');
@@ -100,6 +101,7 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
   protected readonly _activeDescendant = signal<string | null>(null);
 
   private _active: ActiveTrigger | null = null;
+  private _activeSpec: TriggerSpec<TItem, TData> | null = null;
   private _navHandler: TriggerMenuNavHandler | null = null;
   private _overlayRef: OverlayRef | null = null;
   private _outsideSub: Subscription | null = null;
@@ -112,20 +114,50 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
   }
 
   protected _reevaluate(): void {
-    const active = findActiveTrigger(this._doc.getSelection(), this.trigger());
-    if (!active) {
+    const found = this._findActive();
+    if (!found) {
       this._dismissed = false;
       if (this._open()) this._close();
       return;
     }
     if (this._dismissed) return;
-    this._active = active;
-    this._query.set(active.query);
+    // Caret moved into a DIFFERENT trigger's context while open → swap menus by
+    // closing then reopening with the new spec.
+    if (this._open() && this._activeSpec !== found.spec) {
+      this._close();
+    }
+    this._active = found.active;
+    this._activeSpec = found.spec;
+    this._query.set(found.active.query);
     if (this._open()) {
       this._reposition();
     } else {
       this._openMenu();
     }
+  }
+
+  // The matching trigger nearest the caret (largest triggerOffset). The
+  // word-boundary rule means at most one trigger normally matches; the tiebreak
+  // keeps behavior deterministic if two ever do.
+  private _findActive(): {
+    spec: TriggerSpec<TItem, TData>;
+    active: ActiveTrigger;
+  } | null {
+    const selection = this._doc.getSelection();
+    let best: {
+      spec: TriggerSpec<TItem, TData>;
+      active: ActiveTrigger;
+    } | null = null;
+    for (const spec of this.triggers()) {
+      const active = findActiveTrigger(selection, spec.trigger);
+      if (
+        active &&
+        (!best || active.triggerOffset > best.active.triggerOffset)
+      ) {
+        best = { spec, active };
+      }
+    }
+    return best;
   }
 
   // Host (bubble): atomic token delete. Works whether or not the menu is
@@ -172,6 +204,15 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
         this._consume(event);
         this._navHandler?.('enter');
         return;
+      case ' ':
+        // Multi-select only: Space toggles the active row. For single-select
+        // triggers Space falls through to type normally (and the trailing
+        // whitespace dismisses the trigger) — the `/` menu's behavior, intact.
+        if (this._activeSpec?.selectionMode === 'multi') {
+          this._consume(event);
+          this._navHandler?.('space');
+        }
+        return;
       case 'Escape':
         this._consume(event);
         this._dismissed = true;
@@ -195,20 +236,42 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
     });
   }
 
+  // Single-select: one token, then close.
   private _select(item: unknown): void {
     const active = this._active;
-    if (!active) {
+    const spec = this._activeSpec;
+    if (!active || !spec) {
       this._close();
       return;
     }
-    const token = buildTokenElement(this.insert()(item as TItem), this._doc);
+    const token = buildTokenElement(spec.insert(item as TItem), this._doc);
     this._host.focus();
     replaceTriggerWithToken(active, token, this._doc);
     this._emitInput();
     this._close();
   }
 
+  // Multi-select: replace the trigger text with one pill per item (in order),
+  // space-separated, then close once. Empty commit just closes.
+  private _commit(items: readonly unknown[]): void {
+    const active = this._active;
+    const spec = this._activeSpec;
+    if (!active || !spec || items.length === 0) {
+      this._close();
+      return;
+    }
+    const tokens = items.map((item) =>
+      buildTokenElement(spec.insert(item as TItem), this._doc),
+    );
+    this._host.focus();
+    replaceTriggerWithTokens(active, tokens, this._doc);
+    this._emitInput();
+    this._close();
+  }
+
   private _openMenu(): void {
+    const spec = this._activeSpec;
+    if (!spec) return;
     this._overlayRef = this._overlay.create({
       positionStrategy: this._strategy(),
       scrollStrategy: this._overlay.scrollStrategies.reposition(),
@@ -216,14 +279,16 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
     });
     const context: TriggerMenuContext<TData> = {
       query: this._query.asReadonly(),
-      data: this.context() as TData,
+      data: spec.context as TData,
+      mode: spec.selectionMode ?? 'single',
       select: (item) => this._select(item),
+      commit: (items) => this._commit(items),
       close: () => this._close(),
       onNavKey: (handler) => (this._navHandler = handler),
       menuId: this._menuId,
       setActiveDescendant: (id) => this._activeDescendant.set(id),
     };
-    const portal = new TemplatePortal(this.menu(), this._vcr, {
+    const portal = new TemplatePortal(spec.menu, this._vcr, {
       $implicit: context,
     });
     this._overlayRef.attach(portal);
@@ -284,6 +349,7 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
     this._overlayRef = null;
     this._navHandler = null;
     this._active = null;
+    this._activeSpec = null;
     this._activeDescendant.set(null);
     this._open.set(false);
     this.closed.emit();

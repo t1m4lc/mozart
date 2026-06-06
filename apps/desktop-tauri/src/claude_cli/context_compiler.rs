@@ -16,9 +16,9 @@
 use rusqlite::Connection;
 
 use crate::claude_cli::envelope::{
-    estimate_tokens, AttachedContextLayer, ConversationTurn, CurrentUserMessage, EnvelopeStats,
-    LLMEnvelope, OperationalSummariesLayer, OperationalSummary, ProjectMemoryLayer,
-    RecentConversationLayer, SystemRulesLayer, WorkspaceStateLayer,
+    estimate_tokens, AttachedContextItem, AttachedContextLayer, ConversationTurn,
+    CurrentUserMessage, EnvelopeStats, LLMEnvelope, OperationalSummariesLayer, OperationalSummary,
+    ProjectMemoryLayer, RecentConversationLayer, SystemRulesLayer, WorkspaceStateLayer,
 };
 use crate::db::{agent_turn_summaries, chats, messages, workspaces};
 use crate::error::AppError;
@@ -200,7 +200,13 @@ pub fn build_envelope_with_budget(
         created_at: current.created_at,
     };
 
-    let attached_context = AttachedContextLayer { items: Vec::new() };
+    // `@path` mentions in the just-sent message become content-less file
+    // references (path-only: the label points at a file the agent reads with
+    // its own tools — we never inline content here). Validated by existence
+    // against the worktree so prose `@mentions` don't leak in.
+    let attached_context = AttachedContextLayer {
+        items: extract_file_references(&current.content, &workspace.worktree_path),
+    };
 
     // Budget: trim oldest prior turns out of recent_conversation
     // until total chars are within budget, OR cap at
@@ -330,6 +336,65 @@ fn truncate_for_summary(s: &str, max: usize) -> String {
     format!("{truncated}…")
 }
 
+/// Workspace-relative `@path` candidates in `content`: the run after an `@`
+/// that sits at a word boundary, up to the next whitespace. `char::is_whitespace`
+/// covers the nbsp the composer inserts between committed pills, so adjacent
+/// `@a@b`-style pills are both seen. Paths containing spaces are not recovered
+/// here (the frontend resolves those against its known-path set); the bare
+/// `@path` text still rides the prompt regardless.
+fn at_path_candidates(content: &str) -> Vec<&str> {
+    let mut out = Vec::new();
+    let mut chars = content.char_indices().peekable();
+    let mut prev_boundary = true;
+    while let Some((pos, ch)) = chars.next() {
+        if ch == '@' && prev_boundary {
+            let start = pos + '@'.len_utf8();
+            let mut end = start;
+            while let Some(&(p, c)) = chars.peek() {
+                if c.is_whitespace() {
+                    break;
+                }
+                end = p + c.len_utf8();
+                chars.next();
+            }
+            if end > start {
+                out.push(&content[start..end]);
+            }
+            prev_boundary = false;
+        } else {
+            prev_boundary = ch.is_whitespace();
+        }
+    }
+    out
+}
+
+/// Content-less file references for the `@path` mentions in `content` that
+/// resolve to an existing file under `worktree_path`. Path-only: existence is
+/// checked (a stat, not a read) so prose `@mentions` don't leak in, but no file
+/// content is loaded — the agent reads the file with its own tools.
+fn extract_file_references(content: &str, worktree_path: &str) -> Vec<AttachedContextItem> {
+    let root = std::path::Path::new(worktree_path);
+    let mut seen = std::collections::HashSet::new();
+    let mut items = Vec::new();
+    for raw in at_path_candidates(content) {
+        // Trim trailing prose punctuation so "@src/a.ts." or "@a.ts," resolve.
+        // The existence check below keeps this safe — an over-trim just fails to
+        // match and is dropped rather than emitting a wrong reference.
+        let path = raw.trim_end_matches([',', '.', ';', ':', '!', '?', ')', ']', '}']);
+        if path.is_empty() || !seen.insert(path) {
+            continue;
+        }
+        if root.join(path).is_file() {
+            items.push(AttachedContextItem {
+                kind: "file".to_string(),
+                label: path.to_string(),
+                content: String::new(),
+            });
+        }
+    }
+    items
+}
+
 /// Returns `(kept_recent, displaced_oldest_first)`. `displaced`
 /// holds turns we removed from `recent_conversation` because the
 /// budget was over; callers fold these into `operational_summaries`.
@@ -449,6 +514,46 @@ mod tests {
         agent_runs, agent_turn_summaries, chats, init_db_memory, messages, new_id, now_ms,
         repos, tasks, threads, workspaces,
     };
+
+    #[test]
+    fn at_path_candidates_finds_boundary_mentions() {
+        assert_eq!(at_path_candidates("see @src/a.ts here"), vec!["src/a.ts"]);
+        assert_eq!(
+            at_path_candidates("@a.ts and @b/c.ts"),
+            vec!["a.ts", "b/c.ts"]
+        );
+        assert_eq!(at_path_candidates("@x"), vec!["x"]);
+        // mid-word `@` is not a boundary; plain prose yields nothing.
+        assert!(at_path_candidates("foo@bar").is_empty());
+        assert!(at_path_candidates("nothing here").is_empty());
+    }
+
+    #[test]
+    fn at_path_candidates_handles_nbsp_separated_pills() {
+        // The composer joins committed pills with a non-breaking space.
+        assert_eq!(
+            at_path_candidates("@a.ts\u{00A0}@b.ts\u{00A0}"),
+            vec!["a.ts", "b.ts"]
+        );
+    }
+
+    #[test]
+    fn extract_file_references_keeps_only_existing_files_content_less() {
+        let dir = std::env::temp_dir().join(format!("mozart-atref-{}", now_ms()));
+        std::fs::create_dir_all(dir.join("src")).unwrap();
+        std::fs::write(dir.join("src/real.ts"), "x").unwrap();
+        let root = dir.to_str().unwrap();
+
+        let content = "edit @src/real.ts, email @nobody, skip @src/missing.ts";
+        let items = extract_file_references(content, root);
+
+        assert_eq!(items.len(), 1);
+        assert_eq!(items[0].kind, "file");
+        assert_eq!(items[0].label, "src/real.ts");
+        assert_eq!(items[0].content, "", "path-only: no content inlined");
+
+        std::fs::remove_dir_all(&dir).ok();
+    }
 
     struct Seed {
         workspace_id: String,

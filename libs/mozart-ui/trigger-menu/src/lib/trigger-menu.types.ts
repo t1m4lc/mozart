@@ -1,4 +1,4 @@
-import type { Signal } from '@angular/core';
+import type { Signal, TemplateRef } from '@angular/core';
 
 /** Visual + serialized shape of an inserted inline token. */
 export interface TokenSpec {
@@ -15,8 +15,33 @@ export interface TokenSpec {
 /** Maps a selected menu item to the token that replaces the trigger text. */
 export type TokenInsertFn<TItem> = (item: TItem) => TokenSpec;
 
-/** Navigation intents the directive forwards from the still-focused field. */
-export type TriggerMenuNavKey = 'up' | 'down' | 'enter';
+/** Single-select commits one token and closes; multi toggles rows and commits
+ *  the whole set on Enter. Defaults to `single`. */
+export type TriggerSelectionMode = 'single' | 'multi';
+
+/**
+ * One trigger the directive watches for. A single `MzTriggerMenu` owns an array
+ * of these, so one host (e.g. the composer editor) can drive `/`, `@`, … from
+ * one directive instance — one overlay, one keydown owner, no duplicated
+ * trigger handling.
+ */
+export interface TriggerSpec<TItem = unknown, TData = unknown> {
+  /** The character that opens this menu (e.g. `/`, `@`). */
+  readonly trigger: string;
+  /** Listbox template injected into the caret-anchored overlay. */
+  readonly menu: TemplateRef<{ $implicit: TriggerMenuContext<TData> }>;
+  /** Maps a chosen item to the inline token that replaces the trigger text. */
+  readonly insert: TokenInsertFn<TItem>;
+  /** `multi` enables toggle-without-close + a single N-token commit on Enter. */
+  readonly selectionMode?: TriggerSelectionMode;
+  /** Opaque payload passed to the menu via `ctx.data`. */
+  readonly context?: TData;
+}
+
+/** Navigation intents the directive forwards from the still-focused field.
+ *  `space` is only forwarded for `multi` triggers (toggle the active row); for
+ *  `single` triggers Space types normally and dismisses the menu. */
+export type TriggerMenuNavKey = 'up' | 'down' | 'enter' | 'space';
 
 /** Handler a menu registers to react to forwarded navigation keys. */
 export type TriggerMenuNavHandler = (key: TriggerMenuNavKey) => void;
@@ -29,10 +54,17 @@ export type TriggerMenuNavHandler = (key: TriggerMenuNavKey) => void;
 export interface TriggerMenuContext<TData = unknown> {
   /** Live text typed after the trigger character. */
   readonly query: Signal<string>;
-  /** The `context` input, passed through untouched. */
+  /** The active trigger's `context`, passed through untouched. */
   readonly data: TData;
-  /** Commit a selection — replaces the trigger text with a token. */
+  /** Selection mode of the active trigger (`single` | `multi`). The directive
+   *  forwards keys identically; the menu uses this to render checkboxes and to
+   *  decide whether Enter calls `select` (single) or `commit` (multi). */
+  readonly mode: TriggerSelectionMode;
+  /** Single-select commit: replaces the trigger text with one token and closes. */
   readonly select: (item: unknown) => void;
+  /** Multi-select commit: replaces the trigger text with N space-separated
+   *  tokens (one per item, in the given order), then closes once. */
+  readonly commit: (items: readonly unknown[]) => void;
   /** Close the menu without inserting anything. */
   readonly close: () => void;
   /**

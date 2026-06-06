@@ -36,7 +36,9 @@ import {
   type SlashMenuGroup,
   type SlashMenuItem,
 } from './mz-composer-slash-menu';
+import { MzComposerAtMenu, type AtMenuFileItem } from './mz-composer-at-menu';
 import { splitSkillTokens } from './slash-menu.logic';
+import { splitFileTokens } from './at-menu.logic';
 
 export type ChatMode = 'agent' | 'plan' | 'ask';
 
@@ -67,6 +69,13 @@ const SKILL_TOKEN_CLASS =
   'inline-block align-baseline whitespace-nowrap mx-px rounded px-1 ' +
   'font-bold text-primary bg-primary/10';
 
+// File pill styling. Same global-utility rationale as SKILL_TOKEN_CLASS (the
+// token element is created outside this component's encapsulation). A muted
+// tone distinguishes `@file` references from `/skill` pills at a glance.
+const FILE_TOKEN_CLASS =
+  'inline-block align-baseline whitespace-nowrap mx-px rounded px-1 ' +
+  'font-medium text-foreground bg-muted';
+
 @Component({
   selector: 'mz-composer',
   imports: [
@@ -80,6 +89,7 @@ const SKILL_TOKEN_CLASS =
     ComposerEffortSelect,
     ComposerScrollOverlay,
     MzComposerSlashMenu,
+    MzComposerAtMenu,
     MzTriggerMenu,
     MzContextGauge,
   ],
@@ -128,9 +138,15 @@ const SKILL_TOKEN_CLASS =
             [attr.contenteditable]="disabled() ? 'false' : 'true'"
             class="mz-composer-editor block w-full whitespace-pre-wrap break-words rounded-none border-0 bg-transparent p-3 text-sm leading-6 shadow-none outline-none select-text min-h-32 max-h-72 overflow-y-auto"
             mzTriggerMenu
-            [trigger]="'/'"
-            [menu]="skillMenu"
-            [insert]="_skillToToken"
+            [triggers]="[
+              { trigger: '/', menu: skillMenu, insert: _skillToToken },
+              {
+                trigger: '@',
+                menu: fileMenu,
+                insert: _fileToToken,
+                selectionMode: 'multi',
+              },
+            ]"
             [placement]="'top'"
             (opened)="skillMenuOpened.emit()"
             (input)="_onEditorInput()"
@@ -232,6 +248,11 @@ const SKILL_TOKEN_CLASS =
     <ng-template #skillMenu let-ctx>
       <mz-composer-slash-menu [ctx]="ctx" [groups]="skillGroups()" />
     </ng-template>
+
+    <!-- File picker (multi-select) for the @ trigger. -->
+    <ng-template #fileMenu let-ctx>
+      <mz-composer-at-menu [ctx]="ctx" [items]="fileItems()" />
+    </ng-template>
   `,
   styles: `
     .mz-composer-editor {
@@ -289,6 +310,10 @@ export class MzComposer {
    *  menu opens but shows "No skills". The trigger / caret / pill mechanics
    *  are owned by the `mzTriggerMenu` directive. */
   readonly skillGroups = input<readonly SlashMenuGroup[]>([]);
+  /** Flat, ranked project files for the `@` menu. Empty ⇒ the menu opens but
+   *  shows "No files". The host feature supplies these (open tabs + changed +
+   *  all files, merged/ranked); ordering is preserved on commit. */
+  readonly fileItems = input<readonly AtMenuFileItem[]>([]);
 
   readonly send = output<ComposerSendEvent>();
   readonly stop = output<void>();
@@ -336,6 +361,12 @@ export class MzComposer {
     return ids;
   });
 
+  // Known file paths for `@`-token draft rebuild. Empty until the host loads
+  // files — `splitFileTokens` then keeps the raw text rather than corrupting it.
+  private readonly _filePaths = computed(
+    () => new Set(this.fileItems().map((f) => f.path)),
+  );
+
   // Chrome lock: when an agent run is in-flight (or the host has disabled the
   // whole composer), the mode / effort / model / plus controls are read-only.
   protected readonly _chromeLocked = computed(
@@ -370,6 +401,19 @@ export class MzComposer {
       value: `/${skill.id}`,
       data: skill,
       className: SKILL_TOKEN_CLASS,
+    };
+  };
+
+  // Maps a chosen file to its inline pill. The token serializes to `@<path>` —
+  // a reference that rides the prompt; resolving it to attached context happens
+  // at send (path-only, no inlining). `data` carries the item for consumers.
+  protected readonly _fileToToken = (item: unknown): TokenSpec => {
+    const file = item as AtMenuFileItem;
+    return {
+      label: `@${file.path}`,
+      value: `@${file.path}`,
+      data: file,
+      className: FILE_TOKEN_CLASS,
     };
   };
 
@@ -418,23 +462,41 @@ export class MzComposer {
     this._emitSubmit();
   }
 
-  // Rebuild the editor DOM from a serialized string, restoring tokens for
-  // known skills, then drop the caret at the end.
+  // Rebuild the editor DOM from a serialized string, restoring atomic pills for
+  // both known skills (`/id`) and known files (`@path`), then drop the caret at
+  // the end. Split by skill tokens first; each remaining plain run is then split
+  // by file tokens — `/` and `@` never overlap, so the two passes compose.
   private _renderValue(editor: HTMLElement, value: string): void {
     editor.replaceChildren();
-    for (const seg of splitSkillTokens(value, this._skillIds())) {
-      editor.appendChild(
-        seg.skill
-          ? buildTokenElement(
-              {
-                label: seg.text,
-                value: seg.text,
-                className: SKILL_TOKEN_CLASS,
-              },
-              document,
-            )
-          : document.createTextNode(seg.text),
-      );
+    const filePaths = this._filePaths();
+    for (const skillSeg of splitSkillTokens(value, this._skillIds())) {
+      if (skillSeg.skill) {
+        editor.appendChild(
+          buildTokenElement(
+            {
+              label: skillSeg.text,
+              value: skillSeg.text,
+              className: SKILL_TOKEN_CLASS,
+            },
+            document,
+          ),
+        );
+        continue;
+      }
+      for (const fileSeg of splitFileTokens(skillSeg.text, filePaths)) {
+        editor.appendChild(
+          fileSeg.file
+            ? buildTokenElement(
+                {
+                  label: fileSeg.text,
+                  value: fileSeg.text,
+                  className: FILE_TOKEN_CLASS,
+                },
+                document,
+              )
+            : document.createTextNode(fileSeg.text),
+        );
+      }
     }
     const sel = window.getSelection();
     if (!sel) return;

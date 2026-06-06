@@ -19,6 +19,7 @@ import {
   type TokenInsertFn,
   type TriggerMenuContext,
 } from '@mozart-ui/trigger-menu';
+import { MzComposerAtMenu, type AtMenuFileItem } from '@mozart-ui/composer';
 
 interface SlashItem {
   readonly name: string;
@@ -118,7 +119,13 @@ export class SlashMenu {
 
 @Component({
   selector: 'app-trigger-menu-sandbox',
-  imports: [RouterLink, HlmButtonImports, MzTriggerMenu, SlashMenu],
+  imports: [
+    RouterLink,
+    HlmButtonImports,
+    MzTriggerMenu,
+    SlashMenu,
+    MzComposerAtMenu,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block h-full w-full' },
   template: `
@@ -128,9 +135,11 @@ export class SlashMenu {
           <h1 class="text-lg font-semibold">MzTriggerMenu sandbox</h1>
           <p class="text-xs text-muted-foreground">
             Generic Notion-style trigger behavior. Type <code>/</code> in either
-            field to open the injected menu, filter as you type, and select an
-            item to insert an atomic pill token. Backspace/Delete beside a token
-            removes the whole token.
+            field to open the skill menu (single-select), or <code>&#64;</code>
+            in the textarea to open the multi-select file menu — Space/click
+            toggles rows, the filter and selection are independent, Enter
+            commits every checked file as a pill. Backspace/Delete beside a
+            token removes the whole token.
           </p>
         </div>
         <a hlmBtn variant="ghost" size="sm" routerLink="/">← Back</a>
@@ -140,6 +149,10 @@ export class SlashMenu {
         <app-slash-menu [ctx]="ctx" />
       </ng-template>
 
+      <ng-template #fileMenu let-ctx>
+        <mz-composer-at-menu [ctx]="ctx" [items]="_files" />
+      </ng-template>
+
       <div class="flex flex-col gap-2">
         <span class="text-sm font-medium">Basic input (single line)</span>
         <div
@@ -147,10 +160,14 @@ export class SlashMenu {
           contenteditable="true"
           data-placeholder="Type / to open the menu…"
           mzTriggerMenu
-          [trigger]="'/'"
-          [menu]="slashMenu"
-          [context]="_groups"
-          [insert]="_toToken"
+          [triggers]="[
+            {
+              trigger: '/',
+              menu: slashMenu,
+              context: _groups,
+              insert: _toToken,
+            },
+          ]"
           (input)="_single.set(_serialize($event))"
           (keydown)="_blockEnter($event)"
         ></div>
@@ -164,12 +181,22 @@ export class SlashMenu {
         <div
           class="mz-field min-h-32 w-full rounded-md border border-input bg-background p-3 text-sm leading-6 whitespace-pre-wrap outline-none focus-visible:ring-2 focus-visible:ring-ring"
           contenteditable="true"
-          data-placeholder="Ask Mozart to… (type / for commands)"
+          data-placeholder="Ask Mozart to… (/ for commands, @ for files)"
           mzTriggerMenu
-          [trigger]="'/'"
-          [menu]="slashMenu"
-          [context]="_groups"
-          [insert]="_toToken"
+          [triggers]="[
+            {
+              trigger: '/',
+              menu: slashMenu,
+              context: _groups,
+              insert: _toToken,
+            },
+            {
+              trigger: '@',
+              menu: fileMenu,
+              insert: _fileToToken,
+              selectionMode: 'multi',
+            },
+          ]"
           (input)="_multi.set(_serialize($event))"
         ></div>
         <code class="text-xs text-muted-foreground whitespace-pre-wrap"
@@ -191,12 +218,34 @@ export class TriggerMenuSandbox {
   protected readonly _single = signal('');
   protected readonly _multi = signal('');
 
+  // Static demo files mimicking the feature's merged/ranked output: open tabs
+  // first (badge `open`), then changed (status letter), then the tail.
+  protected readonly _files: readonly AtMenuFileItem[] = [
+    { path: 'libs/mozart-ui/composer/src/lib/mz-composer.ts', badge: 'open' },
+    {
+      path: 'libs/mozart-ui/trigger-menu/src/lib/mz-trigger-menu.directive.ts',
+      badge: 'open',
+    },
+    { path: 'libs/desktop-files-util/src/lib/merge.ts', badge: 'M' },
+    { path: 'README.md' },
+    { path: 'package.json' },
+    { path: 'docs/specs/spec-composer-at-file-mentions.md' },
+  ];
+
   protected readonly _toToken: TokenInsertFn<SlashItem> = (item) => ({
     label: '/' + item.name,
     value: '/' + item.name,
     data: item,
     className:
       'mx-px rounded bg-primary/10 px-1 py-0.5 align-baseline text-sm font-semibold text-primary',
+  });
+
+  protected readonly _fileToToken: TokenInsertFn<AtMenuFileItem> = (item) => ({
+    label: '@' + item.path,
+    value: '@' + item.path,
+    data: item,
+    className:
+      'mx-px rounded bg-muted px-1 py-0.5 align-baseline text-sm font-medium text-foreground',
   });
 
   protected _serialize(event: Event): string {
