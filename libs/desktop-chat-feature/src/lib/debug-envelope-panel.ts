@@ -67,7 +67,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
 
           @if (env.layers; as L) {
             <section class="mb-4">
-              <h3 class="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              <h3
+                class="mb-1 text-xs font-semibold uppercase text-muted-foreground"
+              >
                 System rules
               </h3>
               <div class="rounded-md bg-muted/40 p-2 font-mono text-xs">
@@ -80,7 +82,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
             </section>
 
             <section class="mb-4">
-              <h3 class="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              <h3
+                class="mb-1 text-xs font-semibold uppercase text-muted-foreground"
+              >
                 Workspace state
               </h3>
               <div class="rounded-md bg-muted/40 p-2 font-mono text-xs">
@@ -92,7 +96,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
             </section>
 
             <section class="mb-4">
-              <h3 class="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              <h3
+                class="mb-1 text-xs font-semibold uppercase text-muted-foreground"
+              >
                 Project memory ({{ L.projectMemory.length }})
               </h3>
               @if (L.projectMemory.length === 0) {
@@ -107,7 +113,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
             </section>
 
             <section class="mb-4">
-              <h3 class="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              <h3
+                class="mb-1 text-xs font-semibold uppercase text-muted-foreground"
+              >
                 Recent conversation ({{ L.recentConversation.length }})
               </h3>
               @for (turn of L.recentConversation; track turn.messageId) {
@@ -115,7 +123,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
                   <div class="mb-1 font-mono text-[10px] text-muted-foreground">
                     {{ turn.role }}{{ turn.mode ? ' · ' + turn.mode : '' }}
                   </div>
-                  <div class="whitespace-pre-wrap text-xs">{{ turn.content }}</div>
+                  <div class="whitespace-pre-wrap text-xs">
+                    {{ turn.content }}
+                  </div>
                 </div>
               } @empty {
                 <p class="text-xs text-muted-foreground">empty</p>
@@ -123,7 +133,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
             </section>
 
             <section class="mb-4">
-              <h3 class="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              <h3
+                class="mb-1 text-xs font-semibold uppercase text-muted-foreground"
+              >
                 Operational summaries ({{ L.operationalSummaries.length }})
               </h3>
               @for (sum of L.operationalSummaries; track sum.runId) {
@@ -136,7 +148,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
             </section>
 
             <section class="mb-4">
-              <h3 class="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              <h3
+                class="mb-1 text-xs font-semibold uppercase text-muted-foreground"
+              >
                 Attached context ({{ L.attachedContext.length }})
               </h3>
               @for (item of L.attachedContext; track $index) {
@@ -152,7 +166,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
             </section>
 
             <section class="mb-4">
-              <h3 class="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+              <h3
+                class="mb-1 text-xs font-semibold uppercase text-muted-foreground"
+              >
                 Current user message
               </h3>
               <div class="rounded-md bg-muted/40 p-2 text-xs">
@@ -168,7 +184,9 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
           }
 
           <section>
-            <h3 class="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+            <h3
+              class="mb-1 text-xs font-semibold uppercase text-muted-foreground"
+            >
               Rendered payload
             </h3>
             <pre
@@ -178,8 +196,8 @@ import { DEBUG_ENVELOPE_PORT } from '@mozart/desktop-chat-data-access';
           </section>
         } @else {
           <p class="text-muted-foreground">
-            No envelope for this run (legacy run, evicted, or it errored
-            before the envelope was written).
+            No envelope for this run (legacy run, evicted, or it errored before
+            the envelope was written).
           </p>
         }
       </div>

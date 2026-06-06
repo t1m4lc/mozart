@@ -51,7 +51,10 @@ export interface MessagesAdapter {
   updateRunId(messageId: string, runId: string): Promise<void>;
   // Persists the turn state as JSON on the DB column `timeline_json`
   // (column name retained for backwards compat with migration 004).
-  updateTurnState(messageId: string, turnState: TurnState | null): Promise<void>;
+  updateTurnState(
+    messageId: string,
+    turnState: TurnState | null,
+  ): Promise<void>;
   // Replaces `timeline_json` with a `setup_progress` payload. Used by
   // AddProjectFlow to flip the bootstrap setup entry to done / failed
   // once `runInstall` resolves (P0.3 / R0.3.E).

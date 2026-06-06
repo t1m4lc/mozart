@@ -65,10 +65,7 @@ import type {
         @if (_showDone()) {
           <mz-done-marker class="mt-1" />
         } @else if (_showError()) {
-          <mz-error-marker
-            [class.mt-1]="_hasItems()"
-            [label]="_errorLabel()"
-          />
+          <mz-error-marker [class.mt-1]="_hasItems()" [label]="_errorLabel()" />
         }
       </mz-turn-body>
     }
