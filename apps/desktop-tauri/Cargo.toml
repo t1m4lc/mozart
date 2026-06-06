@@ -29,6 +29,8 @@ specta-typescript = "0.0.9"
 ## § P0.3 Prerequisite.
 serde_json = { version = "1.0", features = ["preserve_order"] }
 serde = { version = "1.0", features = ["derive"] }
+# Skill-file frontmatter parsing (.mozart/skills + provider SKILL.md).
+serde_yaml = "0.9"
 log = "0.4"
 tauri = { version = "2.11.1", features = ["image-png", "devtools"] }
 tauri-plugin-log = "2"

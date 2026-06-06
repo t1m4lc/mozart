@@ -7,3 +7,7 @@
 
 # Flat ESLint configs crash prettier's tailwind plugin and aren't prettier-managed
 eslint.config.mjs
+
+# Tailwind v4 `@source` directives crash the pinned prettier-plugin-tailwindcss;
+# these entry stylesheets are managed by nx-tailwind-sync, not prettier
+apps/**/src/styles.css

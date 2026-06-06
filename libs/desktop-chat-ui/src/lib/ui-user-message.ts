@@ -18,6 +18,27 @@ import type { Message } from '@mozart/desktop-chat-util';
 // toggle so one giant paste can't dominate the chat — ChatGPT-style.
 const COLLAPSED_MAX_PX = 240;
 
+// A standalone `/skill-name` token: at a word boundary, a clean single slug
+// followed by whitespace/end — so a path (`/usr/bin`, internal slash) or
+// mid-word `foo/commit` is left alone.
+const SKILL_TOKEN = /(^|\s)(\/[a-zA-Z0-9][a-zA-Z0-9_-]*)(?=\s|$)/g;
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+/**
+ * Render a sent prompt with `/skill-name` invocations wrapped in `<b>` so they
+ * stand out in the chat. User text is HTML-escaped first, then the `<b>` tags
+ * are injected, so only our own markup reaches `[innerHTML]` (no injection).
+ */
+export function withBoldSkillTokens(content: string): string {
+  return escapeHtml(content).replace(SKILL_TOKEN, '$1<b>$2</b>');
+}
+
 @Component({
   selector: 'app-user-message',
   imports: [MzDotLoader],
@@ -40,7 +61,7 @@ const COLLAPSED_MAX_PX = 240;
                 class="mr-2 inline-block shrink-0 align-[-2px]"
               />
             }
-            <span>{{ message().content }}</span>
+            <span [innerHTML]="_html()"></span>
           </div>
           @if (_collapsed()) {
             <div
@@ -65,8 +86,12 @@ const COLLAPSED_MAX_PX = 240;
 export class UserMessage {
   readonly message = input.required<Message>();
 
-  private readonly contentEl =
-    viewChild<ElementRef<HTMLDivElement>>('content');
+  // Bold `/skill-name` invocations in the sent prompt (escaped HTML).
+  protected readonly _html = computed(() =>
+    withBoldSkillTokens(this.message().content),
+  );
+
+  private readonly contentEl = viewChild<ElementRef<HTMLDivElement>>('content');
   protected readonly _expanded = signal(false);
   protected readonly _overflows = signal(false);
   protected readonly _collapsed = computed(
