@@ -108,9 +108,10 @@ pub async fn create(
     std::fs::create_dir_all(&project_dir)
         .map_err(|e| AppError::Io(format!("mkdir project dir {project_dir:?}: {e}")))?;
     let path_str = path.to_string_lossy().into_owned();
+    let start_point = resolve_start_point(repo_path, base_branch).await;
     run_git(
         repo_path,
-        &["worktree", "add", "-b", &branch, &path_str, base_branch],
+        &["worktree", "add", "-b", &branch, &path_str, &start_point],
     )
     .await?;
     Ok(WorktreeHandle {
@@ -118,6 +119,28 @@ pub async fn create(
         worktree_path: path,
         branch_name: branch,
     })
+}
+
+/// Resolve the start point `git worktree add -b <branch> <path> <start>` forks
+/// from. A local head is used as-is. A branch that exists only as
+/// `origin/<base>` (e.g. a clone's `develop`) resolves to that explicit remote
+/// ref — passing the bare name would trip git's DWIM and create a local `<base>`
+/// branch instead of the intended `-b` branch. Falls back to the bare name
+/// (git surfaces the "invalid reference" error) when neither exists.
+async fn resolve_start_point(repo_path: &Path, base_branch: &str) -> String {
+    if ref_exists(repo_path, &format!("refs/heads/{base_branch}")).await {
+        return base_branch.to_string();
+    }
+    if ref_exists(repo_path, &format!("refs/remotes/origin/{base_branch}")).await {
+        return format!("origin/{base_branch}");
+    }
+    base_branch.to_string()
+}
+
+async fn ref_exists(repo_path: &Path, fullref: &str) -> bool {
+    run_git(repo_path, &["show-ref", "--verify", "--quiet", fullref])
+        .await
+        .is_ok()
 }
 
 /// Filesystem segment from a free-form name. Falls back to `short_id`

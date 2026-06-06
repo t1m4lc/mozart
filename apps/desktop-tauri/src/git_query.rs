@@ -146,13 +146,47 @@ pub async fn init_repo(path: &Path) -> Result<(), AppError> {
 
 /// Enumerate local branches in `path` via
 /// `git for-each-ref --format=%(refname:short) refs/heads/`.
+/// Local branches plus remote-tracking branches, by short name. A clone whose
+/// integration branch (e.g. `develop`) lives only on the remote still surfaces
+/// it, so a workspace can fork from it; `crate::worktree::create` resolves such
+/// a name back to `origin/<branch>` as the worktree start point. Local heads
+/// win over a same-named remote branch; the bare `<remote>/HEAD` pointer and
+/// duplicate remote names are dropped. Locals first, then remotes.
 pub async fn list_branches(path: &Path) -> Result<Vec<String>, AppError> {
     let out = run_git(
         path,
-        &["for-each-ref", "--format=%(refname:short)", "refs/heads/"],
+        &[
+            "for-each-ref",
+            "--format=%(refname)",
+            "refs/heads/",
+            "refs/remotes/",
+        ],
     )
     .await?;
-    Ok(out.lines().map(|s| s.to_string()).collect())
+    let mut seen = std::collections::HashSet::new();
+    let mut local = Vec::new();
+    let mut remote = Vec::new();
+    for line in out.lines() {
+        let refname = line.trim();
+        if let Some(branch) = refname.strip_prefix("refs/heads/") {
+            if seen.insert(branch.to_string()) {
+                local.push(branch.to_string());
+            }
+        } else if let Some(rest) = refname.strip_prefix("refs/remotes/") {
+            // `rest` is `<remote>/<branch...>`; drop the remote segment and
+            // skip the `<remote>/HEAD` symbolic pointer.
+            if let Some((_, branch)) = rest.split_once('/') {
+                if branch == "HEAD" || branch.is_empty() {
+                    continue;
+                }
+                if !seen.contains(branch) && !remote.iter().any(|r| r == branch) {
+                    remote.push(branch.to_string());
+                }
+            }
+        }
+    }
+    local.extend(remote);
+    Ok(local)
 }
 
 #[cfg(test)]
@@ -305,6 +339,41 @@ mod tests {
         assert!(
             branches.iter().any(|b| b == "feature"),
             "missing feature: {branches:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn list_branches_includes_remote_only_and_dedupes() {
+        if !require_git() {
+            return;
+        }
+        let (_tmp, path) = init_repo();
+        let run = |args: &[&str]| {
+            let out = std::process::Command::new("git")
+                .args(args)
+                .current_dir(&path)
+                .output()
+                .expect("git spawn");
+            assert!(out.status.success(), "git {args:?} failed");
+        };
+        // A remote-only `develop` and a remote `main` shadowed by the local one.
+        run(&["update-ref", "refs/remotes/origin/develop", "HEAD"]);
+        run(&["update-ref", "refs/remotes/origin/main", "HEAD"]);
+        run(&["symbolic-ref", "refs/remotes/origin/HEAD", "refs/remotes/origin/main"]);
+
+        let branches = list_branches(&path).await.expect("list_branches");
+        assert!(
+            branches.iter().any(|b| b == "develop"),
+            "remote-only develop missing: {branches:?}"
+        );
+        assert_eq!(
+            branches.iter().filter(|b| *b == "main").count(),
+            1,
+            "local main duplicated by origin/main: {branches:?}"
+        );
+        assert!(
+            !branches.iter().any(|b| b == "HEAD"),
+            "origin/HEAD leaked: {branches:?}"
         );
     }
 
