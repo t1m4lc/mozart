@@ -91,6 +91,25 @@ describe('translate — Rust StreamEvent → AgentEvent', () => {
     expect(translate(ev)).toEqual({ kind: 'status', text: 'Thinking…' });
   });
 
+  it('maps usage, coercing null token fields to undefined', () => {
+    const ev: ClaudeStreamEvent = {
+      kind: 'usage',
+      input_tokens: 1200,
+      output_tokens: null,
+      cache_read_tokens: 800,
+      cache_creation_tokens: null,
+    };
+    expect(translate(ev)).toEqual({
+      kind: 'usage',
+      usage: {
+        inputTokens: 1200,
+        outputTokens: undefined,
+        cacheReadTokens: 800,
+        cacheCreationTokens: undefined,
+      },
+    });
+  });
+
   it('maps error to error', () => {
     const ev: ClaudeStreamEvent = { kind: 'error', message: 'boom' };
     expect(translate(ev)).toEqual({ kind: 'error', message: 'boom' });

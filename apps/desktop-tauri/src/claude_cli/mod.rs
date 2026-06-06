@@ -51,6 +51,20 @@ pub enum StreamEvent {
     Error {
         message: String,
     },
+    /// Token usage reported by the provider. Both CLIs emit usage we
+    /// previously discarded: Claude on `message_start` (input + cache) and
+    /// `message_delta` (cumulative output), Codex on `turn.completed`. Fields
+    /// are independently optional because each emission carries only a subset.
+    Usage {
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        input_tokens: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        output_tokens: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        cache_read_tokens: Option<i64>,
+        #[serde(skip_serializing_if = "Option::is_none", default)]
+        cache_creation_tokens: Option<i64>,
+    },
 }
 
 impl StreamEvent {
@@ -65,6 +79,7 @@ impl StreamEvent {
             Self::CliOutput { .. } => "cli_output",
             Self::StatusUpdate { .. } => "status_update",
             Self::Error { .. } => "error",
+            Self::Usage { .. } => "usage",
         }
     }
 }

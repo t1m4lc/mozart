@@ -92,6 +92,7 @@ export function messageFromDto(dto: MessageDto): Message {
     mode: coerceMessageMode(dto.mode),
     status: coerceStatus(dto.status),
     createdAt: dto.created_at,
+    runId: dto.run_id ?? undefined,
     turnState,
     systemInfo,
     setupProgress,

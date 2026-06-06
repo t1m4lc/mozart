@@ -6,6 +6,7 @@ export type {
   TurnItemState,
   TurnOutcome,
   TurnState,
+  TurnUsage,
 } from './lib/event.types';
 export { EMPTY_TURN_STATE, applyAgentEvent } from './lib/reducer';
 export {
