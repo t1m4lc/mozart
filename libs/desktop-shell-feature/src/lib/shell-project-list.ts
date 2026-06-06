@@ -24,7 +24,11 @@ import {
 } from '@mozart/desktop-projects-ui';
 import type { Project } from '@mozart/desktop-projects-util';
 import { WorkspacesFacade } from '@mozart/desktop-workspaces-data-access';
-import { WorkspaceContextMenu } from '@mozart/desktop-workspaces-feature';
+import {
+  WorkspaceContextMenu,
+  CreateWorkspaceDialog,
+  type CreateWorkspaceContext,
+} from '@mozart/desktop-workspaces-feature';
 import {
   ConfirmRemoveWorkspaceDialog,
   ConfirmReopenWorkspaceDialog,
@@ -195,6 +199,7 @@ import { ShellProjectRow } from './shell-project-row';
     <ng-template #projectCtxMenuTpl let-p>
       <app-project-context-menu
         (newWorkspace)="createWorkspace(p.id)"
+        (newWorkspaceFromBranch)="createWorkspaceFromBranch(p.id)"
         (hide)="hideProject(p.id)"
         (openRepoFolder)="onOpenRepoFolder(p)"
         (openRepoRemote)="onOpenRepoRemote(p)"
@@ -423,6 +428,40 @@ export class ShellProjectList {
         description: errorMessage(err),
       });
     }
+  }
+
+  // Opt-in path: pick the base branch via the spartan combobox before
+  // forking. The instant "+" uses the configured default; this lets the user
+  // fork from any branch (e.g. `develop`) per-workspace.
+  protected async createWorkspaceFromBranch(projectId: string): Promise<void> {
+    let options: { branches: readonly string[]; defaultBranch: string };
+    try {
+      options = await this.workspaces.branchOptions(projectId);
+    } catch (err) {
+      toast.error('Could not list branches', {
+        description: errorMessage(err),
+      });
+      return;
+    }
+    const context: CreateWorkspaceContext = {
+      branches: options.branches,
+      defaultBranch: options.defaultBranch,
+      onCreate: async (baseBranch) => {
+        try {
+          const id = await this.workspaces.createForPrompt({
+            projectId,
+            baseBranch,
+          });
+          void this._router.navigate(workspaceRouteCommands(projectId, id));
+        } catch (err) {
+          toast.error('Could not create workspace', {
+            description: errorMessage(err),
+          });
+          throw err;
+        }
+      },
+    };
+    this._dialogService.open(CreateWorkspaceDialog, { context });
   }
 
   protected async togglePinnedWorkspace(workspaceId: string): Promise<void> {

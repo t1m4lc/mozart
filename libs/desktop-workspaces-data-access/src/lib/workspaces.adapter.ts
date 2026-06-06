@@ -49,6 +49,11 @@ export interface WorkspacesAdapter {
 
   listBranches(repoPath: string): Promise<string[]>;
 
+  /** The project's configured default base branch (`git.baseBranch` from
+   *  resolved settings: defaults ◀ global ◀ project). The facade validates it
+   *  against the live branch list before forking a workspace from it. */
+  configuredBaseBranch(projectId: string): Promise<string>;
+
   rename(workspaceId: string, name: string): Promise<void>;
 
   setUiStatus(workspaceId: string, status: UiWorkspaceStatus): Promise<void>;

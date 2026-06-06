@@ -6,5 +6,9 @@ export { FeatureWorkspaceComposer } from './lib/feature-workspace-composer';
 export { FeatureFileContent } from './lib/feature-file-content';
 export { FeatureChatTabBar } from './lib/feature-chat-tab-bar';
 export { WorkspaceContextMenu } from './lib/feature-workspace-context-menu';
+export {
+  CreateWorkspaceDialog,
+  type CreateWorkspaceContext,
+} from './lib/ui-create-workspace-dialog';
 export { WorkspaceToolbar } from './lib/workspace-toolbar';
 export { MzScrollPersist, type ScrollDefaultPosition } from './lib/mz-scroll-persist.directive';
