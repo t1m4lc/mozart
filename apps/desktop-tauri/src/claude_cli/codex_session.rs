@@ -4,8 +4,9 @@
 //! We run `codex login status` and read its output rather than inspecting
 //! credential files, so the check tracks the CLI's own source of truth
 //! regardless of where it stores credentials. Codex has no `--json` mode
-//! here, so we match its text. The binary is resolved against the
-//! login-shell PATH (see [`crate::claude_cli::bin_path`]).
+//! here, so we match its text — across BOTH stdout and stderr, since recent
+//! codex-cli (0.137.x) prints the status line to stderr. The binary is
+//! resolved against the login-shell PATH (see [`crate::claude_cli::bin_path`]).
 
 use std::time::Duration;
 
@@ -23,7 +24,13 @@ pub async fn has_session() -> bool {
         .output();
 
     match timeout(Duration::from_secs(5), fut).await {
-        Ok(Ok(out)) => parse_logged_in(&String::from_utf8_lossy(&out.stdout)),
+        // codex-cli 0.137.x writes the status line to stderr; older builds used
+        // stdout. Check both so a CLI upgrade doesn't silently break detection.
+        Ok(Ok(out)) => {
+            let mut combined = String::from_utf8_lossy(&out.stdout).into_owned();
+            combined.push_str(&String::from_utf8_lossy(&out.stderr));
+            parse_logged_in(&combined)
+        }
         _ => false,
     }
 }
@@ -31,8 +38,8 @@ pub async fn has_session() -> bool {
 /// Recognize the "logged in" line from `codex login status` (e.g. "Logged in
 /// using ChatGPT") while rejecting the "Not logged in" case. Tolerant of
 /// wording changes around that core phrase.
-pub(crate) fn parse_logged_in(stdout: &str) -> bool {
-    let s = stdout.to_ascii_lowercase();
+pub(crate) fn parse_logged_in(output: &str) -> bool {
+    let s = output.to_ascii_lowercase();
     s.contains("logged in") && !s.contains("not logged in")
 }
 
