@@ -3,6 +3,7 @@ import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideFolderGit2,
   lucideFolderOpen,
+  lucideGitBranch,
   lucideGithub,
   lucidePlus,
   lucideSettings,
@@ -19,6 +20,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
       // lucideEyeOff,
       lucideFolderGit2,
       lucideFolderOpen,
+      lucideGitBranch,
       lucideGithub,
       lucidePlus,
       lucideSettings,
@@ -50,6 +52,14 @@ import { HlmIconImports } from '@spartan-ui/icon';
           (triggered)="newWorkspace.emit()"
         >
           <ng-icon hlm name="lucidePlus" size="xs" /> New workspace
+        </button>
+        <button
+          hlmDropdownMenuItem
+          type="button"
+          class="cursor-pointer"
+          (triggered)="newWorkspaceFromBranch.emit()"
+        >
+          <ng-icon hlm name="lucideGitBranch" size="xs" /> Workspace from…
         </button>
         <button
           hlmDropdownMenuItem
@@ -117,6 +127,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
 })
 export class ProjectContextMenu {
   readonly newWorkspace = output<void>();
+  readonly newWorkspaceFromBranch = output<void>();
   readonly settings = output<void>();
   readonly changeIcon = output<void>();
   readonly hide = output<void>();

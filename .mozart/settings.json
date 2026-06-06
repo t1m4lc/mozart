@@ -1,4 +1,7 @@
 {
+  "git": {
+    "baseBranch": "develop"
+  },
   "scripts": {
     "setup": "pnpm i",
     "run": "pnpm dev"

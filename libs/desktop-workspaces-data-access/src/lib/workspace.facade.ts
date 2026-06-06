@@ -225,16 +225,38 @@ export class WorkspacesFacade {
   //   1. Generate a friendly singer name client-side.
   //   2. Insert a pending ghost row in the store so the sidebar shows
   //      an immediate skeleton.
-  //   3. Resolve a base branch (prefer 'main', else first available).
+  //   3. Resolve the base branch: an explicit `baseBranch` (from the picker)
+  //      if it exists, else the project's configured `git.baseBranch`, else
+  //      'main', else the first branch.
   //   4. Call Tauri create_workspace. taskText defaults to 'none' in
   //      v0.1.0-beta.1 — Step 4 will let the user set a real prompt via the
   //      chat composer.
   //   5. Swap the ghost for the real workspace DTO.
   //   6. On any failure: drop the ghost and rethrow for the caller to
   //      toast.
+  /** Branches the project's worktrees can fork from, plus the resolved default
+   *  selection (configured `git.baseBranch` if it exists, else main/first).
+   *  Backs the create-workspace branch picker. */
+  async branchOptions(
+    projectId: string,
+  ): Promise<{ branches: readonly string[]; defaultBranch: string }> {
+    const project = this.projects.byId(projectId)();
+    if (!project) {
+      throw new Error(`unknown project ${projectId}`);
+    }
+    const [branches, configured] = await Promise.all([
+      this.adapter.listBranches(project.path),
+      this.adapter.configuredBaseBranch(projectId),
+    ]);
+    return { branches, defaultBranch: resolveBaseBranch(branches, configured) };
+  }
+
   async createForPrompt(input: {
     projectId: string;
     isGetStarted?: boolean;
+    /** Explicit base branch (from the picker). When unset, the project's
+     *  configured `git.baseBranch` is used (falling back to main/first). */
+    baseBranch?: string;
   }): Promise<string> {
     const project = this.projects.byId(input.projectId)();
     if (!project) {
@@ -265,7 +287,13 @@ export class WorkspacesFacade {
 
     try {
       const branches = await this.adapter.listBranches(project.path);
-      const baseBranch = resolveBaseBranch(branches);
+      const baseBranch =
+        input.baseBranch && branches.includes(input.baseBranch)
+          ? input.baseBranch
+          : resolveBaseBranch(
+              branches,
+              await this.adapter.configuredBaseBranch(input.projectId),
+            );
 
       const dto = await this.adapter.create({
         projectId: input.projectId,
@@ -653,7 +681,11 @@ export class WorkspacesFacade {
 
 // Prefer 'main' as base branch; fall back to the first available.
 // Refuses an empty list — surfaces as a runtime error the caller toasts.
-function resolveBaseBranch(branches: readonly string[]): string {
+function resolveBaseBranch(
+  branches: readonly string[],
+  preferred?: string,
+): string {
+  if (preferred && branches.includes(preferred)) return preferred;
   if (branches.includes('main')) return 'main';
   if (branches.length > 0) return branches[0];
   throw new Error('project has no branches');
