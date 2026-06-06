@@ -58,6 +58,9 @@ function configure(state: ChatFacadeStubState) {
   const streamingSignal = signal<boolean>(state.streaming);
   const messagesSignal = signal<readonly unknown[]>([]);
   const activeAgentProviderSignal = signal<string>('claude_cli');
+  const connectedAgentProvidersSignal = signal<readonly string[]>([
+    'claude_cli',
+  ]);
   const skillsPort: SkillsPort = state.skills ?? {
     list: vi.fn(async () => []),
   };
@@ -90,6 +93,7 @@ function configure(state: ChatFacadeStubState) {
     codexStatus: signal('not_connected'),
     hasAnyProvider: signal(true),
     activeAgentProvider: activeAgentProviderSignal,
+    connectedAgentProviders: connectedAgentProvidersSignal,
   };
 
   TestBed.configureTestingModule({
@@ -118,6 +122,7 @@ function configure(state: ChatFacadeStubState) {
     activeChatSignal,
     streamingSignal,
     activeAgentProviderSignal,
+    connectedAgentProvidersSignal,
     skillsStore,
   };
 }
@@ -335,32 +340,39 @@ describe('FeatureWorkspaceComposer', () => {
   });
 
   describe('slash skill discovery', () => {
-    it('groups discovered skills by source and filters by the active provider runtime', async () => {
-      // Fake discovery returns a Mozart (any), a Claude, and a Codex skill.
-      // Under the Claude provider, visibleSkills must drop the Codex one.
-      const skills: SkillsPort = {
-        list: vi.fn(async () => [
-          wireSkill({ id: 'commit', name: 'Commit', source: 'mozart-project' }),
-          wireSkill({
-            id: 'review',
-            name: 'Review',
-            source: 'claude-provider',
-            runtime: 'claude',
-            scope: 'global',
-          }),
-          wireSkill({
-            id: 'codex-review',
-            name: 'Codex review',
-            source: 'codex-provider',
-            runtime: 'codex',
-            scope: 'global',
-          }),
-        ]),
-      };
+    // Backend discovery is provider-scoped: each provider scan returns that
+    // provider's skills plus the agnostic Mozart ones. The fake mirrors that.
+    const byProvider: SkillsPort = {
+      list: vi.fn(async (provider: string) =>
+        provider === 'codex'
+          ? [
+              wireSkill({ id: 'commit', name: 'Commit', source: 'mozart-project' }),
+              wireSkill({
+                id: 'codex-review',
+                name: 'Codex review',
+                source: 'codex-provider',
+                runtime: 'codex',
+                scope: 'global',
+              }),
+            ]
+          : [
+              wireSkill({ id: 'commit', name: 'Commit', source: 'mozart-project' }),
+              wireSkill({
+                id: 'review',
+                name: 'Review',
+                source: 'claude-provider',
+                runtime: 'claude',
+                scope: 'global',
+              }),
+            ],
+      ),
+    };
+
+    it('groups discovered skills by source for the only connected provider', async () => {
       const stubs = configure({
         activeChat: makeChat(),
         streaming: false,
-        skills,
+        skills: byProvider,
         workspace: { id: 'ws-1', projectId: 'proj-1' },
       });
       const fixture = mountComposer({
@@ -380,50 +392,36 @@ describe('FeatureWorkspaceComposer', () => {
       const ids = groups.flatMap((g) => g.items.map((i) => i.id));
       expect(ids).toContain('commit');
       expect(ids).toContain('review');
-      expect(ids).not.toContain('codex-review');
+      expect(ids).not.toContain('codex-review'); // codex not connected
     });
 
-    it('re-filters when the active provider switches to Codex', async () => {
-      const skills: SkillsPort = {
-        list: vi.fn(async () => [
-          wireSkill({ id: 'commit', source: 'mozart-project' }),
-          wireSkill({
-            id: 'review',
-            source: 'claude-provider',
-            runtime: 'claude',
-            scope: 'global',
-          }),
-          wireSkill({
-            id: 'codex-review',
-            source: 'codex-provider',
-            runtime: 'codex',
-            scope: 'global',
-          }),
-        ]),
-      };
+    it('shows skills from every connected provider, agnostic ones once', async () => {
       const stubs = configure({
         activeChat: makeChat(),
         streaming: false,
-        skills,
+        skills: byProvider,
         workspace: { id: 'ws-1', projectId: 'proj-1' },
       });
+      // Both providers connected → both scopes contribute.
+      stubs.connectedAgentProvidersSignal.set(['claude_cli', 'codex']);
       const fixture = mountComposer({
         workspaceId: 'ws-1',
         activeTabKind: 'chat',
       });
       await stubs.skillsStore.refresh('claude_cli', 'proj-1');
       await stubs.skillsStore.refresh('codex', 'proj-1');
-
-      stubs.activeAgentProviderSignal.set('codex');
       fixture.detectChanges();
 
       const cmp = fixture.componentInstance as unknown as {
         skillGroups: () => readonly SkillGroupVm[];
       };
-      const ids = cmp.skillGroups().flatMap((g) => g.items.map((i) => i.id));
-      expect(ids).toContain('commit'); // agnostic stays
-      expect(ids).toContain('codex-review');
-      expect(ids).not.toContain('review'); // claude-only filtered out
+      const groups = cmp.skillGroups();
+      expect(groups.map((g) => g.label)).toEqual(['Mozart', 'Claude', 'Codex']);
+      const ids = groups.flatMap((g) => g.items.map((i) => i.id));
+      expect(ids).toContain('review'); // claude
+      expect(ids).toContain('codex-review'); // codex
+      // Agnostic Mozart skill is discovered in both scans but shown once.
+      expect(ids.filter((id) => id === 'commit')).toEqual(['commit']);
     });
 
     it('shows no skills before discovery resolves (empty cache)', () => {

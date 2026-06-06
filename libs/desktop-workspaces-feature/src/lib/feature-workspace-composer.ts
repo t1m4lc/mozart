@@ -28,11 +28,7 @@ import {
   composerModels,
   defaultModelIdForProvider,
 } from '@mozart/desktop-llm-model-util';
-import {
-  groupSkills,
-  runtimeForAgentProvider,
-  visibleSkills,
-} from '@mozart/desktop-skills-util';
+import { groupSkills, mergeSkillCatalogs } from '@mozart/desktop-skills-util';
 import { SkillsStore } from '@mozart/desktop-skills-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
@@ -104,6 +100,7 @@ import { filter, pairwise, tap } from 'rxjs/operators';
       [askOnly]="frozen()"
       [autoFollowChat]="autoFollowChat()"
       [hasNextUnreadInProject]="hasNextUnreadInProject()"
+      (skillMenuOpened)="onSkillMenuOpened()"
       (send)="onSend($event)"
       (stop)="onStop()"
       (scrollToBottom)="onScrollToBottom()"
@@ -229,23 +226,27 @@ export class FeatureWorkspaceComposer {
       null,
   );
 
-  // The (provider, project) scope the slash menu discovers for. Drives both the
-  // cache read (`skillGroups`) and the discovery trigger (an RxJS stream).
+  // The (connected providers, project) scope the slash menu discovers for.
+  // Drives both the cache read (`skillGroups`) and the discovery trigger (an
+  // RxJS stream). Every connected provider is scanned — not just the active
+  // one — so a Codex user sees Codex skills even when Claude also wins the run.
   private readonly _skillScope = computed(() => ({
-    provider: this.profile.activeAgentProvider(),
+    providers: this.profile.connectedAgentProviders(),
     projectId: this._activeProjectId(),
   }));
 
-  // Provider-aware skills for the `/` menu: the active backend's discovered
-  // skills + agnostic Mozart skills, grouped by source, mapped to the
-  // composer's view-model. Sourced from the cached SkillsStore; the composer
-  // owns the `/` trigger, filtering, and keyboard nav.
+  // Skills for the `/` menu: every connected backend's discovered skills +
+  // agnostic Mozart skills, merged (each scan repeats the agnostic ones),
+  // grouped by source, mapped to the composer's view-model. Sourced from the
+  // cached SkillsStore; the composer owns the `/` trigger, filtering, and nav.
   protected readonly skillGroups = computed<readonly SlashMenuGroup[]>(() => {
-    const provider = this.profile.activeAgentProvider();
-    const runtime = runtimeForAgentProvider(provider);
-    const discovered = this.skills.skillsFor(provider, this._activeProjectId());
-    const visible = visibleSkills(discovered, { activeRuntime: runtime });
-    return groupSkills(visible).map((g) => ({
+    const projectId = this._activeProjectId();
+    const merged = mergeSkillCatalogs(
+      this.profile
+        .connectedAgentProviders()
+        .map((p) => this.skills.skillsFor(p, projectId)),
+    );
+    return groupSkills(merged).map((g) => ({
       key: g.key,
       label: g.label,
       items: g.skills.map((s) => ({
@@ -256,6 +257,23 @@ export class FeatureWorkspaceComposer {
       })),
     }));
   });
+
+  // Fire-and-forget TTL-aware discovery for every connected provider scope.
+  // The store no-ops fresh scopes, so calling this both on scope change and on
+  // each menu open is cheap — a filesystem re-scan only happens once a scope's
+  // cache has gone stale (see SkillsStore's TTL).
+  private loadConnectedSkills(): void {
+    const projectId = this._activeProjectId();
+    this.profile
+      .connectedAgentProviders()
+      .forEach((p) => void this.skills.load(p, projectId));
+  }
+
+  // The `/` menu opened: re-scan connected providers if their cache is stale,
+  // so skills added on disk surface without an app restart.
+  onSkillMenuOpened(): void {
+    this.loadConnectedSkills();
+  }
 
   // Default focus → composer editor. afterNextRender is the
   // reliable hook: when this runs on a workspaceId change, the
@@ -284,17 +302,15 @@ export class FeatureWorkspaceComposer {
     void this.profile.initialize();
     void this.profile.initializeCodex();
 
-    // Discover skills when the (provider, project) scope changes. Declared as
+    // Discover skills when the (providers, project) scope changes. Declared as
     // an RxJS stream rather than a signal effect — same rationale as the focus
     // triggers below (the only action is the fire-and-forget `load` side
-    // effect). The store caches per scope, so this only hits the filesystem on
-    // a new scope; switching model/workspace re-reads the cache.
+    // effect). The store caches per (provider, project) scope, so this only
+    // hits the filesystem on a new (or TTL-stale) scope; switching
+    // model/workspace re-reads the cache. Each connected provider is its scope.
     toObservable(this._skillScope)
       .pipe(
-        tap(
-          ({ provider, projectId }) =>
-            void this.skills.load(provider, projectId),
-        ),
+        tap(() => this.loadConnectedSkills()),
         takeUntilDestroyed(),
       )
       .subscribe();
