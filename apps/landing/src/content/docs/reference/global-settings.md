@@ -36,7 +36,7 @@ Every key is optional; anything you omit falls back to the bundled default.
 | `agent.model` | string \| null | `null` | Default model for new chats; `null` = the app's current default. |
 | `agent.mode` | enum | `"agent"` | `agent` / `plan` / `ask`. |
 | `agent.effort` | enum | `"medium"` | `low` / `medium` / `high` / `xhigh` / `max`. |
-| `git.baseBranch` | string | `"main"` | Branch new Workspaces fork from. |
+| `git.baseBranch` | string | `"main"` | Branch new Workspaces fork from (falls back to `main`, then the first branch, if it doesn't exist). |
 | `git.mergeAction` | enum | `"pr"` | `pr` / `local`. |
 
 A complete file with the defaults filled in:
@@ -56,3 +56,10 @@ A complete file with the defaults filled in:
 Every key above is a personal default — any repo can pin its own value in
 [Project settings](/docs/reference/project-settings), and that wins for that repo. Your global file
 is what applies everywhere else.
+
+## Picking a base branch per Workspace
+
+`git.baseBranch` sets the **default**. The `+` button forks from it instantly. To fork from a
+different branch just once, use **New workspace from branch…** in a Project's context menu — it opens
+a picker preselected to your default, and the chosen branch applies to that one Workspace only (the
+setting is untouched).

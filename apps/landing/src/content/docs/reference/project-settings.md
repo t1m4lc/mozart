@@ -32,6 +32,22 @@ the `mozart` theme, but a repo pins `dracula` —
 key in the [global reference](/docs/reference/global-settings): pin `git.baseBranch`,
 force an `agent.model`, and so on.
 
+## Pin the branch new Workspaces fork from
+
+A common one: repos that integrate on `develop` rather than `main`. Pin it once and the whole team's
+new Workspaces fork from the right branch:
+
+```json
+{
+  "git": { "baseBranch": "develop" }
+}
+```
+
+If the configured branch doesn't exist in a clone, Mozart falls back to `main`, then the first
+branch — a stale value never blocks creation. To fork from a different branch for a single Workspace,
+use **New workspace from branch…** in the Project context menu; the picker is preselected to this
+default.
+
 ## The setting that's truly project-specific: `scripts`
 
 `scripts` defines how to set up and run the project. It only makes sense per repo, so it lives here

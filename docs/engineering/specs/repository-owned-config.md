@@ -164,6 +164,32 @@ On workspace creation, Mozart:
 
 The snapshot is immutable for the lifetime of the workspace. Future changes to `.mozart/settings.json` affect new workspaces only.
 
+### Base branch (implemented)
+
+The schema above is the proposed end-state; the **shipped** key for the branch a
+new workspace forks from is `git.baseBranch` (see `docs/settings.default.json`,
+default `"main"`):
+
+```json
+{ "git": { "baseBranch": "develop", "mergeAction": "pr" } }
+```
+
+Resolution at creation (`WorkspacesFacade.createForPrompt`):
+
+1. an **explicit** base branch (from the picker) if it exists in the repo;
+2. else the project's configured `git.baseBranch` (resolved settings: defaults
+   ◀ global ◀ project) if it exists;
+3. else `main`;
+4. else the first branch.
+
+A configured branch that no longer exists falls through to the `main`/first
+fallback, so a stale setting never blocks creation.
+
+The instant "+" affordance uses the resolved default. A **"New workspace from
+branch…"** entry in the project context menu opens a picker (spartan combobox)
+preselected to that default, letting the user fork from any branch per
+workspace without changing the setting.
+
 ## Security model
 
 - **No secrets in repo config.** Strings matching key/token/credential patterns are rejected with a validation error.
