@@ -43,7 +43,7 @@ export function contextGaugeColorClass(pct: number): string {
       <circle
         cx="8"
         cy="8"
-        [attr.r]="radius"
+        [attr.r]="_radius"
         fill="none"
         class="text-muted-foreground/25"
         stroke="currentColor"
@@ -52,13 +52,13 @@ export function contextGaugeColorClass(pct: number): string {
       <circle
         cx="8"
         cy="8"
-        [attr.r]="radius"
+        [attr.r]="_radius"
         fill="none"
         stroke="currentColor"
         stroke-width="2"
         stroke-linecap="round"
         transform="rotate(-90 8 8)"
-        [attr.stroke-dasharray]="circumference"
+        [attr.stroke-dasharray]="_circumference"
         [attr.stroke-dashoffset]="_dashOffset()"
       />
     </svg>
@@ -68,8 +68,8 @@ export class MzContextGauge {
   readonly used = input.required<number>();
   readonly max = input.required<number>();
 
-  protected readonly radius = RADIUS;
-  protected readonly circumference = CIRCUMFERENCE;
+  protected readonly _radius = RADIUS;
+  protected readonly _circumference = CIRCUMFERENCE;
 
   protected readonly _pct = computed(() =>
     contextGaugePct(this.used(), this.max()),
