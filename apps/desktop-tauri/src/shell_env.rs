@@ -15,7 +15,7 @@
 //! well-known install dirs.
 
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
 /// Process PATH ++ login-shell PATH ++ well-known install dirs, deduped,
@@ -91,6 +91,13 @@ fn known_install_dirs() -> Vec<PathBuf> {
         dirs.push(home.join(".volta/bin"));
         dirs.push(home.join(".yarn/bin"));
         dirs.push(home.join(".cargo/bin"));
+        // nvm-managed Node installs (`~/.nvm/versions/node/<version>/bin`).
+        // The login-shell query usually surfaces the active version, but when
+        // it times out on a slow profile we'd otherwise miss claude/codex
+        // installed via npm under nvm. Append every installed version's bin so
+        // discovery still succeeds; the shared `~/.codex` / `~/.claude` session
+        // means any version's CLI reports the same auth.
+        dirs.extend(nvm_node_bins(&home));
     }
     #[cfg(target_os = "macos")]
     {
@@ -102,6 +109,24 @@ fn known_install_dirs() -> Vec<PathBuf> {
         dirs.push(PathBuf::from("/usr/local/bin"));
     }
     dirs
+}
+
+/// `~/.nvm/versions/node/<version>/bin` for every installed Node version,
+/// sorted descending so the lexically-highest version is tried first. Empty
+/// when nvm isn't installed. Best-effort: unreadable dirs are skipped.
+fn nvm_node_bins(home: &Path) -> Vec<PathBuf> {
+    let root = home.join(".nvm/versions/node");
+    let mut bins: Vec<PathBuf> = match std::fs::read_dir(&root) {
+        Ok(rd) => rd
+            .filter_map(|e| e.ok())
+            .map(|e| e.path().join("bin"))
+            .filter(|p| p.is_dir())
+            .collect(),
+        Err(_) => Vec::new(),
+    };
+    bins.sort();
+    bins.reverse();
+    bins
 }
 
 fn home_dir() -> Option<PathBuf> {
