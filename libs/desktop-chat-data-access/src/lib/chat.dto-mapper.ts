@@ -80,8 +80,10 @@ export function messageFromDto(dto: MessageDto): Message {
   // `timeline_json` is shared between assistant TurnState and the
   // system_* payloads — discriminated by `role` first and then by the
   // payload's `kind`. Keeps the DB schema unchanged.
-  const turnState = role === 'assistant' ? parseTurnState(dto.timeline_json) : undefined;
-  const systemInfo = role === 'system' ? parseSystemInfo(dto.timeline_json) : undefined;
+  const turnState =
+    role === 'assistant' ? parseTurnState(dto.timeline_json) : undefined;
+  const systemInfo =
+    role === 'system' ? parseSystemInfo(dto.timeline_json) : undefined;
   const setupProgress =
     role === 'system' ? parseSetupProgress(dto.timeline_json) : undefined;
   return {
@@ -206,7 +208,9 @@ function parseTurnState(json: string | null): TurnState | undefined {
   }
 }
 
-export function turnStateToJson(turnState: TurnState | undefined): string | null {
+export function turnStateToJson(
+  turnState: TurnState | undefined,
+): string | null {
   if (turnState == null) return null;
   try {
     return JSON.stringify(turnState);

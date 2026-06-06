@@ -6,10 +6,7 @@ import {
   output,
 } from '@angular/core';
 import type { Message } from '@mozart/desktop-chat-util';
-import type {
-  TimelineDensity,
-  TurnFileChipEvent,
-} from '@mozart-ui/timeline';
+import type { TimelineDensity, TurnFileChipEvent } from '@mozart-ui/timeline';
 import { AgentMessage } from './ui-agent-message';
 import { SetupProgressMessage } from './ui-setup-progress-message';
 import { SystemInfoMessage } from './ui-system-info-message';
