@@ -30,6 +30,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         ($($extra:tt)*) => {
             tauri_specta::collect_commands![
                 commands::list_repos,
+                commands::list_skills,
                 commands::add_repo,
                 commands::init_repo,
                 commands::clone_repo,

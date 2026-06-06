@@ -4,12 +4,17 @@
   "sourceRoot": "libs/mozart-ui/composer/src",
   "prefix": "mz",
   "projectType": "library",
-  "tags": [
-    "scope:mozart-ui"
-  ],
+  "tags": ["scope:mozart-ui"],
   "targets": {
     "lint": {
       "executor": "@nx/eslint:lint"
+    },
+    "test": {
+      "executor": "@angular/build:unit-test",
+      "options": {
+        "buildTarget": "desktop:build:development",
+        "tsConfig": "libs/mozart-ui/composer/tsconfig.spec.json"
+      }
     }
   }
 }

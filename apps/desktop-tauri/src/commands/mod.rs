@@ -69,6 +69,48 @@ pub(crate) async fn list_repos_impl(db: &DbState) -> Result<Vec<Repo>, AppError>
     repos::list(&conn)
 }
 
+/// Discover skills for the active `provider` (`claude`/`codex`), scoped to a
+/// project when `project_id` is given. Always includes the provider's global
+/// skills (`~/.<provider>/skills`); when a project is in context, also its
+/// repo-local `.mozart/skills` and `.<provider>/skills` (see `crate::skills`).
+///
+/// The repository PATH is resolved here from `project_id` (the repo id) and
+/// never crosses the IPC boundary — the frontend passes stable ids only. The
+/// `SkillsStore` caches per provider+project, so the FS isn't rescanned on
+/// every slash-menu open. The scan runs on a blocking thread to keep the async
+/// runtime responsive.
+#[tauri::command]
+#[specta::specta]
+pub async fn list_skills(
+    db: State<'_, DbState>,
+    provider: String,
+    project_id: Option<String>,
+) -> Result<Vec<crate::skills::Skill>, AppError> {
+    list_skills_impl(db.inner(), provider, project_id).await
+}
+
+pub(crate) async fn list_skills_impl(
+    db: &DbState,
+    provider: String,
+    project_id: Option<String>,
+) -> Result<Vec<crate::skills::Skill>, AppError> {
+    let provider = crate::skills::Provider::from_agent_id(&provider);
+    // Resolve the repo path from the project id under the lock, then drop it
+    // before the (potentially slow) filesystem scan.
+    let repo_path = match project_id {
+        Some(id) => {
+            let conn = db.lock();
+            Some(repos::get(&conn, &id)?.path)
+        }
+        None => None,
+    };
+    tokio::task::spawn_blocking(move || {
+        crate::skills::discover(provider, repo_path.as_deref().map(std::path::Path::new))
+    })
+    .await
+    .map_err(|e| AppError::Io(e.to_string()))
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn add_repo(db: State<'_, DbState>, path: String) -> Result<Repo, AppError> {

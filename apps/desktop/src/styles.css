@@ -40,6 +40,8 @@
 @source "../../../libs/desktop-runs-feature";
 @source "../../../libs/desktop-runs-util";
 @source "../../../libs/desktop-shell-feature";
+@source "../../../libs/desktop-skills-data-access";
+@source "../../../libs/desktop-skills-util";
 @source "../../../libs/desktop-tasks-data-access";
 @source "../../../libs/desktop-terminals-data-access";
 @source "../../../libs/desktop-terminals-feature";
@@ -63,6 +65,8 @@
 @source "../../../libs/mozart-ui/loader";
 @source "../../../libs/mozart-ui/status-icon";
 @source "../../../libs/mozart-ui/timeline";
+@source "../../../libs/mozart-ui/trigger-menu";
+@source "../../../libs/shared-util-analytics";
 @source "../../../libs/shared-util-mozart-links";
 @source "../../../libs/shared-util-os";
 @source "../../../libs/shared-util-theme";
@@ -72,6 +76,7 @@
 @source "../../../libs/spartan-ui/button";
 @source "../../../libs/spartan-ui/card";
 @source "../../../libs/spartan-ui/collapsible";
+@source "../../../libs/spartan-ui/command";
 @source "../../../libs/spartan-ui/context-menu";
 @source "../../../libs/spartan-ui/dialog";
 @source "../../../libs/spartan-ui/dropdown-menu";
@@ -79,6 +84,7 @@
 @source "../../../libs/spartan-ui/hover-card";
 @source "../../../libs/spartan-ui/icon";
 @source "../../../libs/spartan-ui/input";
+@source "../../../libs/spartan-ui/input-group";
 @source "../../../libs/spartan-ui/kbd";
 @source "../../../libs/spartan-ui/label";
 @source "../../../libs/spartan-ui/popover";
