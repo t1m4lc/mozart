@@ -46,6 +46,30 @@ export function visibleSkills(
   return catalog.filter((s) => runsOn(s, opts.activeRuntime));
 }
 
+/**
+ * Merge per-provider catalogs into one, dropping cross-provider duplicates.
+ * Discovery runs once per connected provider, and each run returns that
+ * provider's skills PLUS the agent-agnostic Mozart skills — so an agnostic
+ * skill shows up in every catalog. Identity is (source kind, publisher, id):
+ * a `claude` and a `codex` skill that share a name stay distinct (different
+ * publisher), while the same Mozart skill collapses to one. First wins.
+ */
+export function mergeSkillCatalogs(
+  catalogs: readonly (readonly SkillDescriptor[])[],
+): readonly SkillDescriptor[] {
+  const seen = new Set<string>();
+  const out: SkillDescriptor[] = [];
+  for (const catalog of catalogs) {
+    for (const skill of catalog) {
+      const key = `${skill.source.kind}|${skill.source.publisher ?? ''}|${skill.id}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      out.push(skill);
+    }
+  }
+  return out;
+}
+
 export interface SkillGroup {
   /** Stable group key: publisher when present, else the source kind. */
   readonly key: string;

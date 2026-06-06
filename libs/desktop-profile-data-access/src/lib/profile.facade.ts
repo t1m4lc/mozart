@@ -85,6 +85,20 @@ export class ProfileFacade {
     return 'claude_cli';
   });
 
+  /** Every agent backend currently connected. The skill menu discovers skills
+   *  for all of them, not just the active one — so a Codex user sees Codex
+   *  skills even when Claude is also connected (and wins `activeAgentProvider`).
+   *  Claude first to keep the menu's group order stable; empty when nothing is
+   *  connected (the composer gates the menu on that). */
+  readonly connectedAgentProviders = computed<readonly AgentProviderId[]>(
+    () => {
+      const out: AgentProviderId[] = [];
+      if (ProfileFacade.claudeReady(this.status())) out.push('claude_cli');
+      if (ProfileFacade.codexReady(this._codexStatus())) out.push('codex');
+      return out;
+    },
+  );
+
   /** True once at least one agent provider is connected. Drives the
    *  composer's "connect a provider" gate. */
   readonly hasAnyProvider = computed(

@@ -1,4 +1,9 @@
-import { groupSkills, runsOn, visibleSkills } from './selectors';
+import {
+  groupSkills,
+  mergeSkillCatalogs,
+  runsOn,
+  visibleSkills,
+} from './selectors';
 import type { SkillDescriptor } from './skill.model';
 
 const mk = (
@@ -107,5 +112,28 @@ describe('groupSkills', () => {
     const groups = groupSkills(catalog);
     expect(groups.find((g) => g.key === 'claude')?.skills).toEqual([claude]);
     expect(groups.find((g) => g.key === 'codex')?.skills).toEqual([codex]);
+  });
+});
+
+describe('mergeSkillCatalogs', () => {
+  it('drops the agnostic skill repeated across provider scans', () => {
+    // Each provider scan returns its own skills + the shared Mozart ones.
+    const claudeScan = [mozartA, claude];
+    const codexScan = [mozartA, codex];
+    const merged = mergeSkillCatalogs([claudeScan, codexScan]);
+    expect(merged.map((s) => s.id)).toEqual(['explain', 'review', 'codex-review']);
+  });
+
+  it('keeps same-id skills from different publishers distinct', () => {
+    const claudeShip = mk('ship', ['claude'], {
+      kind: 'builtin',
+      publisher: 'claude',
+    });
+    const codexShip = mk('ship', ['codex'], {
+      kind: 'builtin',
+      publisher: 'codex',
+    });
+    const merged = mergeSkillCatalogs([[claudeShip], [codexShip]]);
+    expect(merged).toEqual([claudeShip, codexShip]);
   });
 });
