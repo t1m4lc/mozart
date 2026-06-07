@@ -358,7 +358,9 @@ export class MzComposer {
     return used != null && max != null && max > 0 && used > 0;
   });
 
-  protected readonly _isEmpty = computed(() => this.value().trim().length === 0);
+  protected readonly _isEmpty = computed(
+    () => this.value().trim().length === 0,
+  );
 
   private readonly _skillIds = computed(() => {
     const ids = new Set<string>();
