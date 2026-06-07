@@ -152,6 +152,10 @@
       "@mozart/desktop-llm-model-util": [
         "./libs/desktop-llm-model-util/src/index.ts"
       ],
+      "@mozart/desktop-files-util": ["./libs/desktop-files-util/src/index.ts"],
+      "@mozart/desktop-files-data-access": [
+        "./libs/desktop-files-data-access/src/index.ts"
+      ],
       "@mozart/desktop-skills-util": [
         "./libs/desktop-skills-util/src/index.ts"
       ],

@@ -16,6 +16,7 @@ import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import {
   MzComposer,
+  type AtMenuFileItem,
   type ChatMode,
   type ComposerSendEvent,
   type EffortLevel,
@@ -30,6 +31,7 @@ import {
 } from '@mozart/desktop-llm-model-util';
 import { groupSkills, mergeSkillCatalogs } from '@mozart/desktop-skills-util';
 import { SkillsStore } from '@mozart/desktop-skills-data-access';
+import { ProjectFilesStore } from '@mozart/desktop-files-data-access';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
 import { UiStateFacade } from '@mozart/desktop-ui-state-data-access';
 import {
@@ -94,6 +96,8 @@ import { filter, pairwise, tap } from 'rxjs/operators';
       [models]="catalog()"
       [providers]="providers"
       [skillGroups]="skillGroups()"
+      [fileItems]="fileItems()"
+      [fileItemsLoading]="fileItemsLoading()"
       [selectedModelId]="currentModelId()"
       (modelChange)="onModelChange($event)"
       [contextUsedTokens]="contextUsedTokens()"
@@ -122,6 +126,7 @@ export class FeatureWorkspaceComposer {
   private readonly workspaces = inject(WorkspacesFacade);
   private readonly profile = inject(ProfileFacade);
   private readonly skills = inject(SkillsStore);
+  private readonly files = inject(ProjectFilesStore);
   private readonly composerModels = inject(ComposerModelsStore);
   private readonly router = inject(Router);
 
@@ -311,6 +316,23 @@ export class FeatureWorkspaceComposer {
     this.loadConnectedSkills();
   }
 
+  // Flat, ranked project files for the `@` menu, mapped to the composer's
+  // view-model. Sourced from ProjectFilesStore (which reuses the repositories
+  // tree/changed caches + file-view marks + open tabs); the composer owns the
+  // `@` trigger, filtering, selection, and pill insertion.
+  private readonly _fileEntries = this.files.fileEntriesFor(this.workspaceId);
+  // Cap at 200 so the @ menu renders in a single synchronous frame even for
+  // large repos. Items are ranked by relevance (tabs → changed → viewed → all),
+  // so the long tail is omitted; the user can type to filter.
+  protected readonly fileItems = computed<readonly AtMenuFileItem[]>(() =>
+    this._fileEntries()
+      .slice(0, 200)
+      .map((e) => ({ path: e.path, badge: e.badge })),
+  );
+  protected readonly fileItemsLoading = this.files.fileLoadingFor(
+    this.workspaceId,
+  );
+
   // Default focus → composer editor. afterNextRender is the
   // reliable hook: when this runs on a workspaceId change, the
   // composer's editor may not yet be in the DOM (viewChild ref
@@ -347,6 +369,17 @@ export class FeatureWorkspaceComposer {
     toObservable(this._skillScope)
       .pipe(
         tap(() => this.loadConnectedSkills()),
+        takeUntilDestroyed(),
+      )
+      .subscribe();
+
+    // Refresh the file sources (tree + changed) when the workspace changes so
+    // the `@` menu has fresh data even if the file tree / Changes aside was
+    // never opened. The repositories caches dedupe + keep old data on error.
+    toObservable(this.workspaceId)
+      .pipe(
+        filter((id): id is string => id !== null),
+        tap((id) => this.files.refresh(id)),
         takeUntilDestroyed(),
       )
       .subscribe();
