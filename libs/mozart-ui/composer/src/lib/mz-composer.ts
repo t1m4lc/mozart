@@ -251,7 +251,11 @@ const FILE_TOKEN_CLASS =
 
     <!-- File picker (multi-select) for the @ trigger. -->
     <ng-template #fileMenu let-ctx>
-      <mz-composer-at-menu [ctx]="ctx" [items]="fileItems()" />
+      <mz-composer-at-menu
+        [ctx]="ctx"
+        [items]="fileItems()"
+        [loading]="fileItemsLoading()"
+      />
     </ng-template>
   `,
   styles: `
@@ -314,6 +318,9 @@ export class MzComposer {
    *  shows "No files". The host feature supplies these (open tabs + changed +
    *  all files, merged/ranked); ordering is preserved on commit. */
   readonly fileItems = input<readonly AtMenuFileItem[]>([]);
+  /** True while the file tree fetch is in flight. Forwarded to the at-menu
+   *  so it can show a spinner instead of "No files". */
+  readonly fileItemsLoading = input(false);
 
   readonly send = output<ComposerSendEvent>();
   readonly stop = output<void>();

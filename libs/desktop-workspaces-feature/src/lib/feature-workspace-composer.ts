@@ -97,6 +97,7 @@ import { filter, pairwise, tap } from 'rxjs/operators';
       [providers]="providers"
       [skillGroups]="skillGroups()"
       [fileItems]="fileItems()"
+      [fileItemsLoading]="fileItemsLoading()"
       [selectedModelId]="currentModelId()"
       (modelChange)="onModelChange($event)"
       [contextUsedTokens]="contextUsedTokens()"
@@ -320,8 +321,16 @@ export class FeatureWorkspaceComposer {
   // tree/changed caches + file-view marks + open tabs); the composer owns the
   // `@` trigger, filtering, selection, and pill insertion.
   private readonly _fileEntries = this.files.fileEntriesFor(this.workspaceId);
+  // Cap at 200 so the @ menu renders in a single synchronous frame even for
+  // large repos. Items are ranked by relevance (tabs → changed → viewed → all),
+  // so the long tail is omitted; the user can type to filter.
   protected readonly fileItems = computed<readonly AtMenuFileItem[]>(() =>
-    this._fileEntries().map((e) => ({ path: e.path, badge: e.badge })),
+    this._fileEntries()
+      .slice(0, 200)
+      .map((e) => ({ path: e.path, badge: e.badge })),
+  );
+  protected readonly fileItemsLoading = this.files.fileLoadingFor(
+    this.workspaceId,
   );
 
   // Default focus → composer editor. afterNextRender is the

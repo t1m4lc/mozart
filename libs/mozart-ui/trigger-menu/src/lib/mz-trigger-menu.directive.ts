@@ -1,8 +1,11 @@
 import { DOCUMENT } from '@angular/common';
 import {
+  type AfterRenderRef,
   DestroyRef,
   Directive,
   ElementRef,
+  Injector,
+  afterNextRender,
   inject,
   input,
   output,
@@ -91,6 +94,7 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
   private readonly _doc = inject(DOCUMENT);
   private readonly _overlay = inject(Overlay);
   private readonly _vcr = inject(ViewContainerRef);
+  private readonly _injector = inject(Injector);
 
   private readonly _query = signal('');
   // Referenced from host bindings → must be at least `protected` for AOT.
@@ -105,6 +109,11 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
   private _navHandler: TriggerMenuNavHandler | null = null;
   private _overlayRef: OverlayRef | null = null;
   private _outsideSub: Subscription | null = null;
+  // CDK 21 defers its first updatePosition() to afterNextRender. We hide
+  // the host (opacity:0) on attach and reveal it in our own afterNextRender
+  // registered just after CDK's — so CDK positions first, we reveal second,
+  // both within the same frame, preventing a top-left flash.
+  private _revealRef: AfterRenderRef | null = null;
   // Set when the user dismisses (Escape / outside click) so the menu stays
   // closed until the caret leaves the trigger context.
   private _dismissed = false;
@@ -292,6 +301,21 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
       $implicit: context,
     });
     this._overlayRef.attach(portal);
+
+    // CDK 21 defers its first updatePosition() to afterNextRender, so the
+    // overlay renders at top-left until that callback fires. Hide the host
+    // now; restore in our afterNextRender (registered after CDK's so CDK
+    // positions first), both within the same frame — no visible flash.
+    const host = this._overlayRef.hostElement;
+    host.style.opacity = '0';
+    this._revealRef = afterNextRender(
+      () => {
+        this._revealRef = null;
+        host.style.removeProperty('opacity');
+      },
+      { injector: this._injector },
+    );
+
     this._outsideSub = this._overlayRef
       .outsidePointerEvents()
       .subscribe((event) => {
@@ -341,6 +365,8 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
   }
 
   private _close(): void {
+    this._revealRef?.destroy();
+    this._revealRef = null;
     this._doc.removeEventListener('keydown', this._onDocumentKeydown, true);
     if (!this._overlayRef) return;
     this._outsideSub?.unsubscribe();

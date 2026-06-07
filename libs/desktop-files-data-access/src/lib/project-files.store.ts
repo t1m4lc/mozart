@@ -71,6 +71,13 @@ export class ProjectFilesStore {
     });
   }
 
+  /** True while the file tree hasn't landed yet for the workspace. Lets the
+   *  `@` picker show a spinner instead of "No files" on first open. */
+  fileLoadingFor(workspaceId: Signal<string | null>): Signal<boolean> {
+    const tree = this.repos.cachedTreeFor(workspaceId, this._showIgnored);
+    return computed(() => workspaceId() !== null && tree() === null);
+  }
+
   /** Kick background refreshes so the picker has fresh data even if the file
    *  tree / Changes aside was never opened. Idempotent; keeps old data on
    *  error (same contract as the repositories facade's refreshers). */

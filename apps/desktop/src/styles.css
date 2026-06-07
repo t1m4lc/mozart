@@ -18,6 +18,8 @@
 @source "../../../libs/desktop-core-tauri";
 @source "../../../libs/desktop-core-ui";
 @source "../../../libs/desktop-core-util";
+@source "../../../libs/desktop-files-data-access";
+@source "../../../libs/desktop-files-util";
 @source "../../../libs/desktop-llm-model-data-access";
 @source "../../../libs/desktop-llm-model-util";
 @source "../../../libs/desktop-onboarding-data-access";

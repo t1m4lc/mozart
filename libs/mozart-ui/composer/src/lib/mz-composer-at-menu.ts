@@ -95,7 +95,18 @@ export interface AtMenuFileItem {
               }
             </button>
           }
-          <div hlmCommandEmpty *hlmCommandEmptyState>No files</div>
+          <div hlmCommandEmpty *hlmCommandEmptyState>
+            @if (loading()) {
+              <span class="flex items-center gap-1.5">
+                <span
+                  class="size-3 animate-spin rounded-full border border-muted-foreground border-t-transparent"
+                ></span>
+                Loading…
+              </span>
+            } @else {
+              No files
+            }
+          </div>
         </div>
       </hlm-command>
       <div
@@ -112,6 +123,8 @@ export class MzComposerAtMenu {
   readonly ctx = input.required<TriggerMenuContext>();
   /** Full flat, ranked file list; cmdk narrows by the query. */
   readonly items = input.required<readonly AtMenuFileItem[]>();
+  /** True while the file tree is being fetched for the first time. */
+  readonly loading = input(false);
 
   // Selection keyed by path. Orthogonal to the query — survives filtering and
   // backspacing back to bare `@`. A new Set per toggle so OnPush + the signal
