@@ -110,6 +110,7 @@ function configure(state: ChatFacadeStubState) {
         provide: ProjectFilesStore,
         useValue: {
           fileEntriesFor: () => signal([]),
+          fileLoadingFor: () => signal(false),
           refresh: () => undefined,
         },
       },
