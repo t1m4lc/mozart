@@ -1,9 +1,35 @@
 # Spec — Composer `@`-file mentions (multi-select context picker)
 
-Status: draft spec (not yet eng-reviewed, not implemented)
+Status: eng-reviewed 2026-06-06 (decisions locked below), not implemented
 Date: 2026-06-05
 Related: `docs/specs/plan-composer-slash-skills-and-debug-view.md` (the `/` slash
 menu this mirrors), `docs/audit-skills-and-trigger-menu.md`
+
+> **Eng-review decisions (2026-06-06) — these override the original draft where they conflict:**
+>
+> - **Substrate:** the `@` menu is built **exactly like the `/` skill menu** —
+>   Spartan **`BrnCommand` (cmdk)** in controlled mode inside `MzTriggerMenu`,
+>   inline `@` trigger, **focus stays in the editor**. Multi-select is a Spartan
+>   **`hlm-checkbox`** per row + a persistent selection `Set`. The literal
+>   `hlm-select-multiple` / `hlm-combobox-multiple` are **rejected**: they are
+>   `BrnPopover`-based, own their trigger, and steal focus (`autoFocus`), which is
+>   incompatible with the caret-anchored, focus-retained trigger-menu model.
+> - **Flat list, no sections:** one ordered list — **open-tab files → changed
+>   files → everything else** (tail sorted `viewed_at` desc, then `localeCompare`),
+>   deduped across tiers. Each row carries a **tiny badge** (open / status letter)
+>   so the ranking is legible without section headers.
+> - **`@path` is a reference, not content transport (path-only):** at send we do
+>   **not** read or inline file contents. The raw `@path` text rides the prompt;
+>   the envelope emits a **content-less** `AttachedContextItem { kind:'file',
+label: path }`. Rationale: Mozart's providers (Claude Code, Codex, harness
+>   agents) already have workspace file access; inlining wastes tokens and context.
+>   The attachment model stays evolvable — a future provider that cannot read
+>   workspace files can add a capability layer that selectively inlines content.
+> - **Draft restore:** rebuild `@`-pills by **longest-match against the known
+>   path set** from `ProjectFilesStore` (never whitespace-split — paths contain
+>   `/`, `.`, and may contain spaces). If the path set is not loaded yet, **do not
+>   corrupt the draft** — defer pill reconstruction / keep raw text until paths
+>   are available.
 
 ---
 
@@ -65,34 +91,39 @@ commands.
 
 ## 3. UX
 
+Flat list, no section headers. Ordering encodes the tiers; a tiny per-row badge
+makes that ordering legible.
+
 ```
   composer editor (contenteditable)
      │  user types '@'  → OPEN picker at caret (MzTriggerMenu, trigger='@')
-     ▼
+     ▼   (focus stays in editor — same as the '/' menu)
   ┌──────────────────────────────────────────────┐
-  │  ☐  Open tabs                                  │  ← section: files in tabs
-  │     ☑ src/app/foo.ts                           │
-  │     ☐ src/app/bar.ts                           │
-  │  ☐  Changes (3)                                │  ← section: uncommitted
-  │     ☑ src/lib/x.ts            M                 │
-  │  ☐  All files                                  │  ← view-date desc, then A→Z
-  │     ☐ README.md                                │
-  │     ☐ package.json                             │
+  │  ☑ src/app/foo.ts                    [open]    │  ← tier 1: open tabs
+  │  ☐ src/app/bar.ts                    [open]    │
+  │  ☑ src/lib/x.ts                       [M]      │  ← tier 2: changed files
+  │  ☐ README.md                                   │  ← tier 3: everything else
+  │  ☐ package.json                                │     (viewed_at desc, then A→Z)
   │  … (filtered live by the text after '@')       │
   ├──────────────────────────────────────────────┤
   │  2 selected · Enter to attach · Esc to cancel  │  ← footer affordance
   └──────────────────────────────────────────────┘
 
+  Single flat list. Tiers are: open-tab files → changed files → everything else.
+  A file in tier 1/2 is deduped out of the tail. Badge: [open] for tab files,
+  status letter (M/A/…) for changed files; no badge for the tail.
+
   type   '@test'  → filter narrows (cmdk [search]); checked rows stay checked
   Space / click   → TOGGLE a file's selection (does NOT close)
   Backspace → '@' → filter clears; selection persists (background)
   Arrow ↑/↓       → move active row (scrolls into view, skips hidden)
-  Enter           → commit ALL selected → @pills in composer + attached context
+  Enter           → commit ALL selected → @pills in composer + content-less
+                    AttachedContextItem references (no file read at send)
   Esc / outside   → cancel; selection discarded; menu closes
 ```
 
 Empty/edge states: no project files → "No files"; query matches nothing →
-"No matches" (cmdk empty); a section with zero items is hidden.
+"No matches" (cmdk empty).
 
 ---
 
@@ -137,41 +168,67 @@ set is the filtered view; the checked state is read from `selected`.
   Enter   ──→ commit(selected ∩ known files)            (union, order = sections)
 ```
 
-### D3 — New `desktop-files-data-access` lib + a merged list source
+### D3 — `desktop-files-data-access` thin store that REUSES `RepositoriesFacade` (no port)
 
-Mirror `desktop-skills-data-access`: a `ProjectFilesStore` (cached per workspace)
-that merges three sources into one ranked list, plus a port. The pure ranking/merge
-is a `desktop-files-util` selector (testable, no Angular/Tauri), mirroring
-`desktop-skills-util`.
+**Revised in implementation (2026-06-06):** the originally-planned new store +
+`FILES_PORT` + Tauri adapter is **rejected as duplication**. `RepositoriesFacade`
+(`desktop-repositories-data-access`) already maintains a cached, FS-watcher-
+refreshed file tree (`cachedTreeFor`) and changed-files split
+(`cachedChangedFilesFor`), and `FileViewsFacade.viewsFor` already exposes
+per-path `viewedAt` timestamps. So:
+
+- `ProjectFilesStore` is a **thin reactive selector** over those existing
+  facades + `UiStateFacade.fileTabsFor` — no new cache, no `FILES_PORT`, no new
+  Tauri command. `fileEntriesFor(ws)` returns a `computed` that merges them via
+  `mergeFileEntries`.
+- The Rust `workspace_file_views::list_by_workspace` read (old T2) is **no longer
+  needed** — `viewedAt` is already available client-side.
+
+The pure ranking/merge stays a `desktop-files-util` selector (testable, no
+Angular/Tauri), mirroring `desktop-skills-util`.
 
 ```
   listTree(repo)         ─┐
-  listChangedFiles(ws)   ─┼─►  mergeFileEntries()  ─►  ranked + sectioned list
-  fileTabsFor(ws)        ─┤        (pure, util)
+  listChangedFiles(ws)   ─┼─►  mergeFileEntries()  ─►  one flat ranked list
+  fileTabsFor(ws)        ─┤        (pure, util)        (each entry: path, tier, badge)
   workspace_file_views   ─┘
 ```
 
-Ranking within "All files": `viewed_at desc` (from `workspace_file_views`), then
-path `localeCompare`. "Open tabs" and "Changes" are separate top sections; a file
-in a section is de-duplicated out of "All files".
+Flat ordering (no sections). Each entry carries a `tier` and a display `badge`:
 
-### D4 — Result: inline `@`-pills + attached_context at send
+1. **tier 0 — open-tab files** (badge `open`)
+2. **tier 1 — changed files** (badge = status letter `M`/`A`/…)
+3. **tier 2 — everything else** (no badge), sorted `viewed_at desc` (from
+   `workspace_file_views`), then path `localeCompare`.
+
+A file present in tier 0 or 1 is de-duplicated out of tier 2 (and a file that is
+both open and changed lands in tier 0). The `tier` field is what the sort keys on
+**and** what the row badge renders from — so legibility is free, not extra model.
+
+### D4 — Result: inline `@`-pills + content-less attached_context reference (path-only)
 
 Two layers, consistent with how `/skill` works:
 
 - **Editor**: each committed file inserts an atomic pill whose token value is
-  `@<path>` (reuses `MzTriggerMenu` token mechanics; `splitSkillTokens`-style
-  rebuild for `@` on draft restore).
-- **Send**: the feature resolves each `@<path>` token in the serialized prompt →
-  reads the file → pushes an `AttachedContextItem { kind: 'file', label: path,
-content }` onto the envelope's `attached_context`. The bare `@path` text still
-  rides the prompt so the agent sees the reference; the content is attached, not
-  inlined into the user message.
+  `@<path>` (reuses `MzTriggerMenu` token mechanics; longest-match-against-known-
+  paths rebuild for `@` on draft restore — see C1, not whitespace-split).
+- **Send (path-only — RESOLVED, D4-Q below)**: the bare `@path` text rides the
+  serialized prompt as the reference. The feature resolves each `@<path>` token →
+  pushes a **content-less** `AttachedContextItem { kind: 'file', label: path }`
+  onto the envelope's `attached_context`. **No file is read or inlined at send.**
 
-Open question (D4-Q): embed file content at send vs. send only the path and let
-the agent read it via its own tools. Recommend **attach content** for non-harness
-providers and small files, with a per-file size cap; defer large-file/binary
-handling (see §6). Flag for eng + a provider-cost check.
+Contract: `@path/to/file.ts` means **"this file is relevant context and is
+available in the workspace."** The agent reads it with its own tools.
+
+**D4-Q — RESOLVED: path-only reference (not content transport).** Mozart's
+providers (Claude Code, Codex, harness agents) already have workspace file access,
+so inlining content wastes tokens and adds context-window pressure for no value.
+The attachment model stays **capability-aware and evolvable**: if a future
+provider cannot read workspace files directly, add a provider-capability layer
+that selectively inlines content (or exposes a Mozart file-reading tool) at that
+time. We optimize for the architecture we actually have. Keeping a content-less
+`AttachedContextItem` (rather than dropping it) is what preserves that evolution
+hook and lets the debug view list attached files.
 
 ### D5 — Module placement
 
@@ -190,11 +247,18 @@ handling (see §6). Flag for eng + a provider-cost check.
 ## 5. Test coverage map (target 100% of new paths)
 
 ```
-[+] desktop-files-util/merge.ts
-  ├── [GAP] tabs + changes float to top sections, deduped from All files
-  ├── [GAP] All files sorted viewed_at desc then path asc
-  ├── [GAP] no views → pure alphabetical
+[+] desktop-files-util/merge.ts  (flat, tier-ranked)
+  ├── [GAP] tier order: open-tab files → changed → tail; deduped across tiers
+  ├── [GAP] file that is BOTH open AND changed lands in tier 0 (open), once
+  ├── [GAP] tail sorted viewed_at desc then path localeCompare
+  ├── [GAP] no views → tail is pure alphabetical
+  ├── [GAP] each entry carries tier + badge (open / status letter / none)
   └── [GAP] empty repo → []
+[+] desktop-files-util/split-file-tokens.ts  (C1 — longest-match restore)
+  ├── [GAP] '@a/b.ts' rebuilt by longest-match vs known paths
+  ├── [GAP] path WITH SPACES ('@src/my notes.ts') round-trips intact
+  ├── [GAP] lookalike text ('@nope', 'a@b') stays plain (not a known path)
+  └── [GAP] known-path set empty/not-loaded → keep raw text, no corruption
 [+] desktop-files-data-access/project-files.store.ts
   ├── [GAP] caches per workspace; refresh on file-tree/changes events
   ├── [GAP] listTree/changed/tabs/views merged via the util
@@ -202,33 +266,36 @@ handling (see §6). Flag for eng + a provider-cost check.
 [+] mozart-ui/trigger-menu (D1)
   ├── [GAP] multi mode: select toggles, does NOT close
   ├── [GAP] enter → commit(items) inserts N pills once, then closes
-  └── [REGRESSION] single mode unchanged (skill menu still works)
+  └── [REGRESSION] single mode unchanged (skill menu still works)  ← CRITICAL
 [+] mozart-ui/composer/mz-composer-at-menu.ts
   ├── [GAP] selection persists across [search] changes (filter → '@' → filter)
+  ├── [GAP] selected file filtered OUT then Enter → commit uses full Set
   ├── [GAP] checkbox reflects selected Set; arrow nav scrolls (cmdk)
-  └── [GAP] '@path' token rebuild on draft restore
+  └── [GAP] row badge renders from entry.tier (open / status / none)
 [+] desktop-workspaces-feature
-  ├── [GAP] commit → @pills inserted at caret
-  └── [GAP] [→E2E] send → attached_context items carry file content
+  ├── [GAP] commit → @pills inserted at caret (space-separated)
+  └── [GAP] send → @path text preserved verbatim in prompt; content-less
+            AttachedContextItem{kind:'file',label} emitted; NO file read
 [+] Rust
   ├── [GAP] workspace_file_views::list_by_workspace
-  └── [GAP] attached_context populated from resolved @paths at run start
+  └── [GAP] attached_context gets content-less file references at run start
+            (path-only — assert no file read / no content field set)
 ```
 
 ---
 
 ## 6. Failure modes
 
-| Path                | Failure                                   | Handling                                                                          |
-| ------------------- | ----------------------------------------- | --------------------------------------------------------------------------------- |
-| listTree            | huge repo (100k files)                    | cap + lazy; cmdk filters in-memory — may need backend filter past N. Flag.        |
-| attach content      | large/binary file                         | per-file byte cap; skip binary (detect), attach a "binary, N bytes" stub or omit. |
-| stale path          | file deleted after select                 | resolve-at-send skips missing files; pill shows but item dropped (or warn).       |
-| views read          | no rows for a fresh workspace             | fall back to alphabetical (no crash).                                             |
-| selection vs filter | selected file filtered out then committed | commit uses the full `selected` Set, not the visible rows.                        |
+| Path                | Failure                                   | Handling                                                                        |
+| ------------------- | ----------------------------------------- | ------------------------------------------------------------------------------- |
+| listTree            | huge repo (100k files)                    | cmdk filters in-memory; backend/indexed filter past N is deferred (§7). Flag.   |
+| draft restore       | known-path set not loaded yet (race)      | do NOT corrupt the draft — defer pill rebuild / keep raw text until paths load. |
+| stale path          | file deleted after select                 | path-only: `@path` stays as text; agent reports if missing. No send-time read.  |
+| views read          | no rows for a fresh workspace             | tail falls back to alphabetical (no crash).                                     |
+| selection vs filter | selected file filtered out then committed | commit uses the full `selected` Set, not the visible rows.                      |
 
-No silent + unhandled + critical path identified, given the size cap and
-skip-missing rules.
+Path-only removes the content/binary/size failure surface entirely (no read at
+send). No silent + unhandled + critical path identified.
 
 ---
 
@@ -236,29 +303,90 @@ skip-missing rules.
 
 - `@folder` (attach a directory tree), `@symbol`, `@url`, `@terminal` — the
   `AttachedContextItem.kind` field reserves these; ship `file` first.
-- Backend fuzzy search for very large repos (in-memory cmdk filter first).
+- Backend/indexed fuzzy search for very large repos (in-memory cmdk filter first;
+  revisit with a Rust/JS path index when repo size warrants — see C1 note).
+- **Provider-capability content inlining** — path-only ships now. A future
+  provider that can't read workspace files gets a capability layer that
+  selectively inlines content (or a Mozart file-read tool). Deferred by design.
 - Persisting the attached-context set across sessions (selection is per-compose).
-- Content de-duplication / token-budget trimming of attached files.
+- (Moot under path-only) content de-dup / token-budget trimming / `kind:'diff'`
+  for changed files — no content is transported, so these don't apply.
 
 ---
 
 ## 8. Open decisions for eng review
 
-1. **D1** multi-select: extend `MzTriggerMenu` (recommended) vs. menu-owned insertion.
-2. **D4-Q** attach file _content_ vs. path-only reference (provider cost / harness).
-3. Inline `@`-pills vs. a separate "context tray" above the composer for selected files.
-4. Large-repo threshold where in-memory filtering stops being acceptable.
-5. Whether "Changes" should attach the _diff_ (`kind: 'diff'`) rather than full content.
+1. **D1** multi-select: **RESOLVED** — extend `MzTriggerMenu` (cmdk + checkbox),
+   reuse the `/` menu pattern. Literal `hlm-select-multiple` rejected (focus model).
+2. **D4-Q** content vs path-only: **RESOLVED** — path-only reference, content-less
+   `AttachedContextItem`. No read at send. (see D4)
+3. Inline `@`-pills vs. a separate "context tray": **RESOLVED** — inline `@`-pills,
+   "like the `/` skill menu". Flat list, per-row badge. No tray.
+4. Large-repo threshold for in-memory filtering: **deferred** to §7 (indexed search).
+5. `kind:'diff'` for changed files: **moot** under path-only (no content transport).
 
 ---
 
 ## 9. Implementation tasks (rough, post-review)
 
-- [ ] **T1** desktop-files-util — file entry model + `mergeFileEntries` (sections + rank) + tests
-- [ ] **T2** Rust — `workspace_file_views::list_by_workspace` (+ binding)
-- [ ] **T3** desktop-files-data-access — `ProjectFilesStore` + `FILES_PORT` (cache/refresh) + tests
-- [ ] **T4** mozart-ui/trigger-menu — `selectionMode` + `commit` multi-select path + tests
-- [ ] **T5** mozart-ui/composer — `mz-composer-at-menu.ts` (multi-select cmdk list) + tests
-- [ ] **T6** desktop-workspaces-feature — wire store → `@` menu; resolve `@path` tokens
-- [ ] **T7** Rust — populate `attached_context` from resolved files at run start + tests
-- [ ] **T8** composer — `@`-token rebuild on draft restore (mirror `splitSkillTokens`)
+- [x] **T1** desktop-files-util — file entry model (`path, tier, badge`) +
+      `mergeFileEntries` (flat, tier-ranked, deduped) + `flattenFilePaths` + tests. Done.
+- [x] ~~**T2** Rust — `workspace_file_views::list_by_workspace`~~ — DROPPED.
+      `FileViewsFacade.viewsFor` already exposes `viewedAt` client-side.
+- [x] **T3** desktop-files-data-access — thin `ProjectFilesStore` reusing
+      `RepositoriesFacade` + `FileViewsFacade` + `UiStateFacade` (no port, no
+      second cache). Done. (Store DI test still to write.)
+- [x] **T4** mozart-ui/trigger-menu — generalized to `[triggers]` array + `selectionMode` + `commit` multi-select path + Space-forward (multi only). Done. (REGRESSION test
+      for single-mode `/` — CRITICAL — still to write.)
+- [x] **T5** mozart-ui/composer — `mz-composer-at-menu.ts` (flat cmdk list, checkbox-style
+      indicator per row, persistent selection Set, per-row badge). Done. (Component test to write.)
+- [x] **T6** desktop-workspaces-feature — store → `[fileItems]` → `@` menu, refresh on
+      ws change. Send resolution handled in Rust (T7), not the frontend. Done.
+- [x] **T7** Rust — `context_compiler` extracts `@path` mentions from the sent message
+      and emits content-less `AttachedContextItem { kind:'file', label }` references,
+      validated by existence (stat, not read). nbsp-aware, trailing-punctuation-tolerant.
+      Done + 3 unit tests.
+- [ ] **T8** mozart-ui/composer — `splitFileTokens` longest-match-vs-known-paths draft
+      rebuild (handles `/`, `.`, spaces; safe when path set not loaded) + tests.
+      Lives in the composer UI lib beside `splitSkillTokens` (NOT in
+      desktop-files-util) — `mozart-ui` (`scope:mozart-ui`) must not depend on
+      `app:desktop` libs; the host feature supplies the known-path set.
+
+---
+
+## Worktree parallelization strategy
+
+| Step | Modules touched            | Depends on      |
+| ---- | -------------------------- | --------------- |
+| T1   | desktop-files-util         | —               |
+| T8   | desktop-files-util         | T1 (shares lib) |
+| T2   | desktop-tauri (db)         | —               |
+| T7   | desktop-tauri (envelope)   | T2              |
+| T3   | desktop-files-data-access  | T1, T2          |
+| T4   | mozart-ui/trigger-menu     | —               |
+| T5   | mozart-ui/composer         | T4              |
+| T6   | desktop-workspaces-feature | T3, T5, T7      |
+
+- **Lane A:** T1 → T8 (sequential, shared `desktop-files-util`)
+- **Lane B:** T2 → T7 (sequential, shared `desktop-tauri`)
+- **Lane C:** T4 → T5 (sequential, shared `mozart-ui`)
+- T3 waits on A+B; T6 is the final integration, waits on C + T3 + T7.
+
+Execution: launch **A, B, C in parallel worktrees**. Merge. Then T3, then T6.
+No two parallel lanes share a module directory → no conflict flags.
+
+---
+
+## GSTACK REVIEW REPORT
+
+| Review        | Trigger               | Why                             | Runs | Status       | Findings                              |
+| ------------- | --------------------- | ------------------------------- | ---- | ------------ | ------------------------------------- |
+| CEO Review    | `/plan-ceo-review`    | Scope & strategy                | 0    | —            | —                                     |
+| Codex Review  | `/codex review`       | Independent 2nd opinion         | 0    | —            | —                                     |
+| Eng Review    | `/plan-eng-review`    | Architecture & tests (required) | 1    | CLEAR (PLAN) | 5 decisions resolved, 0 critical gaps |
+| Design Review | `/plan-design-review` | UI/UX gaps                      | 0    | —            | —                                     |
+| DX Review     | `/plan-devex-review`  | Developer experience gaps       | 0    | —            | —                                     |
+
+- **UNRESOLVED:** 0 — all five review decisions (substrate, open-trigger, attach-mode, row-markers, pill round-trip) were answered.
+- **Scope outcome:** SCOPE_REDUCED — path-only deleted the content/binary/size machinery; flat list removed section grouping. 8 tasks, all P1.
+- **VERDICT:** ENG CLEARED — ready to implement. UI scope is non-trivial (composer flat-list multi-select); `/plan-design-review` is optional but reasonable before build.
