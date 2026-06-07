@@ -7,6 +7,12 @@
       "options": {
         "plugins": []
       }
+    },
+    {
+      "files": ["apps/landing/src/styles/prose.css"],
+      "options": {
+        "plugins": []
+      }
     }
   ]
 }
