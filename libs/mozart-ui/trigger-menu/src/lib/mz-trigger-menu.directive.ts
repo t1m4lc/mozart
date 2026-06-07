@@ -239,6 +239,11 @@ export class MzTriggerMenu<TItem = unknown, TData = unknown> {
     // Outside-pointer handling on the overlay closes the menu; blur into the
     // menu must not. A microtask defers until focus settles.
     queueMicrotask(() => {
+      // App lost focus entirely (window blur, alt-tab): keep the menu open so an
+      // in-progress multi-select survives until the user returns. Closing here
+      // would dispose the overlay and drop the selection. A genuine focus move
+      // to another element in the app (hasFocus() true) still closes below.
+      if (!this._doc.hasFocus()) return;
       if (!this._overlayRef?.overlayElement.contains(this._doc.activeElement)) {
         this._close();
       }
