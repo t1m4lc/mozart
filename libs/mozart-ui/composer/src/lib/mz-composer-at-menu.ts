@@ -113,7 +113,11 @@ export interface AtMenuFileItem {
         class="text-muted-foreground flex items-center justify-between border-t px-3 py-1.5 text-xs"
       >
         <span>{{ _selectedCount() }} selected</span>
-        <span>Enter to attach · Esc to cancel</span>
+        @if (_selectedCount() > 0) {
+          <span>Enter to attach · Esc to cancel</span>
+        } @else {
+          <span>Space to select · Esc to cancel</span>
+        }
       </div>
     </div>
   `,
@@ -157,7 +161,9 @@ export class MzComposerAtMenu {
         if (key === 'up') km.setPreviousItemActive();
         else if (key === 'down') km.setNextItemActive();
         else if (key === 'space') km.activeItem?.selected.emit();
-        else this._commit();
+        // Enter with a selection → commit; without → select active row first.
+        else if (this._selected().size > 0) this._commit();
+        else km.activeItem?.selected.emit();
       });
 
       const report = () =>

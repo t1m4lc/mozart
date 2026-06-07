@@ -50,9 +50,9 @@ export interface ComposerSendEvent {
 }
 
 const PLACEHOLDER_BY_MODE: Record<ChatMode, string> = {
-  agent: 'Ask Mozart to make a change, run a command, or anything else',
-  plan: 'Describe the change — Mozart will plan before touching files',
-  ask: 'Ask anything — read-only mode, no file edits',
+  agent: 'Message Mozart — use / for skills · @ to attach files',
+  plan: 'Describe what to build, Mozart will plan first — use / for skills · @ to attach files',
+  ask: 'Ask anything (read-only, no edits) — use / for skills · @ to attach files',
 };
 
 const CONTAINER_CLASSES_BY_MODE: Record<ChatMode, string> = {
@@ -358,7 +358,7 @@ export class MzComposer {
     return used != null && max != null && max > 0 && used > 0;
   });
 
-  protected readonly _isEmpty = computed(() => this.value().length === 0);
+  protected readonly _isEmpty = computed(() => this.value().trim().length === 0);
 
   private readonly _skillIds = computed(() => {
     const ids = new Set<string>();
