@@ -10,13 +10,14 @@ import {
   viewChild,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import type { TriggerMenuContext } from '@mozart-ui/trigger-menu';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideCheck } from '@ng-icons/lucide';
 import { BrnCommand } from '@spartan-ng/brain/command';
 import { HlmBadgeImports } from '@spartan-ui/badge';
 import { HlmCommandImports } from '@spartan-ui/command';
 import { HlmIconImports } from '@spartan-ui/icon';
-import type { TriggerMenuContext } from '@mozart-ui/trigger-menu';
+import { fuzzyMatch, highlightFromIndices } from './fuzzy';
 
 // View-model owned by the UI. `mozart-ui` is a pure UI lib and must not depend
 // on `desktop-*` domain libs, so the host (feature) maps its merged file
@@ -31,9 +32,8 @@ export interface AtMenuFileItem {
 /**
  * Multi-select file listbox rendered inside the generic
  * `@mozart-ui/trigger-menu` overlay (the `@` trigger). Same headless-cmdk
- * (`BrnCommand`) wiring as the `/` skill menu — controlled `[search]`, forwarded
- * arrow keys drive the keyManager, focus stays in the editor — plus three
- * multi-select additions:
+ * (`BrnCommand`) wiring as the `/` skill menu — forwarded arrow keys drive the
+ * keyManager, focus stays in the editor — plus three multi-select additions:
  *
  *   - a persistent `selected` Set keyed by path. The typed filter (`ctx.query`)
  *     and the selection are orthogonal: filtering only changes `[search]`, never
@@ -58,6 +58,7 @@ export interface AtMenuFileItem {
     >
       <hlm-command
         [search]="ctx().query()"
+        [filter]="_alwaysVisible"
         [id]="ctx().menuId"
         role="listbox"
         aria-multiselectable="true"
@@ -65,32 +66,41 @@ export interface AtMenuFileItem {
         (mousedown)="$event.preventDefault()"
       >
         <div hlmCommandList>
-          @for (item of items(); track item.path) {
+          @for (row of _visible(); track row.item.path) {
             <button
               hlmCommandItem
-              [value]="item.path"
-              [attr.aria-selected]="_isSelected(item)"
-              (selected)="_toggle(item)"
+              [value]="row.item.path"
+              [attr.aria-selected]="_isSelected(row.item)"
+              (selected)="_toggle(row.item)"
             >
               <span
                 class="flex size-4 shrink-0 items-center justify-center rounded-[4px] border"
                 [class]="
-                  _isSelected(item)
+                  _isSelected(row.item)
                     ? 'bg-primary text-primary-foreground border-primary'
                     : 'border-input'
                 "
                 aria-hidden="true"
               >
-                @if (_isSelected(item)) {
+                @if (_isSelected(row.item)) {
                   <ng-icon hlm name="lucideCheck" size="12px" />
                 }
               </span>
               <span class="min-w-0 flex-1 truncate text-left">
-                {{ item.path }}
+                @for (
+                  part of _highlight(row.item.path, row.indices);
+                  track $index
+                ) {
+                  @if (part.match) {
+                    <strong class="text-primary">{{ part.text }}</strong>
+                  } @else {
+                    <span>{{ part.text }}</span>
+                  }
+                }
               </span>
-              @if (item.badge) {
+              @if (row.item.badge) {
                 <hlm-badge variant="secondary" class="shrink-0 text-[10px]">
-                  {{ item.badge }}
+                  {{ row.item.badge }}
                 </hlm-badge>
               }
             </button>
@@ -114,9 +124,9 @@ export interface AtMenuFileItem {
       >
         <span>{{ _selectedCount() }} selected</span>
         @if (_selectedCount() > 0) {
-          <span>Enter to attach · Esc to cancel</span>
+          <span>Enter attach · Space select more · Esc cancel</span>
         } @else {
-          <span>Space to select · Esc to cancel</span>
+          <span>Enter/Space select · Esc cancel</span>
         }
       </div>
     </div>
@@ -125,10 +135,50 @@ export interface AtMenuFileItem {
 export class MzComposerAtMenu {
   /** Context handed down by the trigger-menu directive (multi mode). */
   readonly ctx = input.required<TriggerMenuContext>();
-  /** Full flat, ranked file list; cmdk narrows by the query. */
+  /** Full flat, ranked file list (the WHOLE project, not a prefix). Fuzzy
+   *  matching + the render cap live here, so search sees every file while the
+   *  DOM never holds more than `_MAX_RESULTS` rows. */
   readonly items = input.required<readonly AtMenuFileItem[]>();
   /** True while the file tree is being fetched for the first time. */
   readonly loading = input(false);
+
+  // Cap the rendered rows so a large repo stays a single fast frame; the fuzzy
+  // pass still scores every file, so the top matches always surface.
+  private static readonly _MAX_RESULTS = 100;
+
+  // cmdk's default filter is substring-on-`[value]`, which would hide fuzzy
+  // matches (e.g. `test6` → `…/test/phase-6.md`). We filter ourselves and feed
+  // cmdk only matches, so its own filter must pass everything through. `[search]`
+  // stays bound only to drive cmdk's "reset active row to the top" on change.
+  protected readonly _alwaysVisible = () => true;
+
+  // Fuzzy-filtered, score-ranked, capped rows. Empty query keeps the host's
+  // relevance order (tabs → changed → viewed → all) and renders no highlight;
+  // a query reorders by match score with the original rank as the tiebreak.
+  protected readonly _visible = computed<
+    readonly { item: AtMenuFileItem; indices: readonly number[] }[]
+  >(() => {
+    const q = this._q();
+    const all = this.items();
+    if (!q) {
+      return all
+        .slice(0, MzComposerAtMenu._MAX_RESULTS)
+        .map((item) => ({ item, indices: [] as readonly number[] }));
+    }
+    const scored: {
+      item: AtMenuFileItem;
+      indices: readonly number[];
+      score: number;
+      rank: number;
+    }[] = [];
+    for (let rank = 0; rank < all.length; rank++) {
+      const item = all[rank];
+      const m = fuzzyMatch(item.path, q);
+      if (m) scored.push({ item, indices: m.indices, score: m.score, rank });
+    }
+    scored.sort((a, b) => b.score - a.score || a.rank - b.rank);
+    return scored.slice(0, MzComposerAtMenu._MAX_RESULTS);
+  });
 
   // Selection keyed by path. Orthogonal to the query — survives filtering and
   // backspacing back to bare `@`. A new Set per toggle so OnPush + the signal
@@ -138,6 +188,7 @@ export class MzComposerAtMenu {
 
   private readonly _command = viewChild.required(BrnCommand);
   private readonly _destroyRef = inject(DestroyRef);
+  protected readonly _q = computed(() => this.ctx().query());
 
   protected _isSelected(item: AtMenuFileItem): boolean {
     return this._selected().has(item.path);
@@ -172,6 +223,8 @@ export class MzComposerAtMenu {
       report();
     });
   }
+
+  protected _highlight = highlightFromIndices;
 
   private _commit(): void {
     const selected = this._selected();
