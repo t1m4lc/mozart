@@ -31,6 +31,4 @@ else Mozart keeps on disk (its database, your Projects and Workspaces, caches, l
 hand-editing it can corrupt Mozart, so leave it alone. A malformed `settings.json` is never fatal —
 Mozart ignores the bad layer and falls back to the one below.
 
-For the exact keys, defaults, and file locations, see the
-[Global settings](/docs/reference/global-settings) and
-[Project settings](/docs/reference/project-settings) reference.
+A full reference — the exact keys, defaults, and file locations — is coming soon.
