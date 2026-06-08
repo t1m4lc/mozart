@@ -21,7 +21,7 @@ type Env = {
 type Body = { readonly os?: unknown; readonly code?: unknown };
 
 const DEFAULT_BASE_URL = 'https://dl.mozart.build';
-const DEFAULT_VERSION = '0.1.0-beta.2';
+const DEFAULT_VERSION = '0.1.0-beta.2.1';
 const OS_KEYS = ['mac', 'mac-intel', 'windows', 'linux'] as const;
 type OsKey = (typeof OS_KEYS)[number];
 
@@ -30,6 +30,19 @@ function json(status: number, body: unknown): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+// Reads the canonical version from the updater feed at the bucket root so the
+// function always tracks the latest deployed release without a code change.
+async function resolveVersion(base: string, fallback: string): Promise<string> {
+  try {
+    const res = await fetch(`${base}/latest.json`);
+    if (!res.ok) return fallback;
+    const feed = (await res.json()) as { version?: string };
+    return feed.version ?? fallback;
+  } catch {
+    return fallback;
+  }
 }
 
 export const onRequestPost = async ({ request, env }: PagesContext<Env>) => {
@@ -55,7 +68,8 @@ export const onRequestPost = async ({ request, env }: PagesContext<Env>) => {
   }
 
   const base = (env.DOWNLOAD_BASE_URL ?? DEFAULT_BASE_URL).replace(/\/$/, '');
-  const version = env.DOWNLOAD_VERSION ?? DEFAULT_VERSION;
+  const version =
+    env.DOWNLOAD_VERSION ?? (await resolveVersion(base, DEFAULT_VERSION));
 
   let manifest: Partial<Record<OsKey, string>>;
   try {
