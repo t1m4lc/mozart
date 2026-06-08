@@ -3499,6 +3499,30 @@ pub async fn set_onboarding_completed(
     Ok(())
 }
 
+/// Read the persisted onboarding wizard cursor (e.g. `"git"`). Returns
+/// `None` when the user has never advanced past the first step. The
+/// frontend treats a missing/unknown value as `welcome`. Persisting only
+/// the cursor — never the per-step check statuses — keeps the restored
+/// wizard from showing stale "done" state: git / provider / github are
+/// all re-probed live on reopen.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_onboarding_step(db: State<'_, DbState>) -> Result<Option<String>, AppError> {
+    let conn = db.lock();
+    config::get(&conn, "onboarding_step")
+}
+
+/// Persist the onboarding wizard cursor. Called from the facade on every
+/// `advance()` / `back()` so closing the app mid-wizard resumes on the
+/// same step. Reset (settings' "Revisit tour") writes `"welcome"`.
+#[tauri::command]
+#[specta::specta]
+pub async fn set_onboarding_step(value: String, db: State<'_, DbState>) -> Result<(), AppError> {
+    let conn = db.lock();
+    config::set(&conn, "onboarding_step", Some(&value))?;
+    Ok(())
+}
+
 /// Stable anonymous install identifier used as the PostHog `distinct_id`
 /// before sign-in. Generated lazily on first read and persisted, so it
 /// survives restarts and is the same value every analytics call sees.

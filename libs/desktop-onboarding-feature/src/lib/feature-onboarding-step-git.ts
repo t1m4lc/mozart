@@ -6,13 +6,19 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs/operators';
 import { ActivatedRoute } from '@angular/router';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideRefreshCw } from '@ng-icons/lucide';
 import { OsService } from '@mozart/shared-util-os';
-import { GIT_CHECK_ADAPTER, type GitIdentity } from '@mozart/desktop-onboarding-data-access';
+import { WindowFocusService } from '@mozart/desktop-core-data-access';
+import {
+  GIT_CHECK_ADAPTER,
+  type GitIdentity,
+} from '@mozart/desktop-onboarding-data-access';
 import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 import { GIT_INSTALL_INSTRUCTIONS } from '@mozart/desktop-onboarding-util';
 
@@ -98,7 +104,7 @@ const STATE_DOT_CLASS: Record<ProbeState, string> = {
             (click)="onVerify()"
           >
             <ng-icon hlm name="lucideRefreshCw" size="xs" />
-            Retry
+            Check again
           </button>
         }
       </div>
@@ -121,7 +127,6 @@ const STATE_DOT_CLASS: Record<ProbeState, string> = {
           }
         </div>
       }
-
     </div>
   `,
 })
@@ -130,6 +135,7 @@ export class FeatureOnboardingStepGit {
   private readonly adapter = inject(GIT_CHECK_ADAPTER);
   private readonly os = inject(OsService);
   private readonly route = inject(ActivatedRoute);
+  private readonly windowFocus = inject(WindowFocusService);
 
   protected readonly state = signal<ProbeState>('idle');
   protected readonly version = signal<string | null>(null);
@@ -147,6 +153,15 @@ export class FeatureOnboardingStepGit {
 
   constructor() {
     void this.probe();
+
+    // Re-probe when the window regains focus while Git is still missing —
+    // the user may have just installed it externally. No-op once found.
+    toObservable(this.windowFocus.isWindowFocused)
+      .pipe(
+        filter((focused) => focused && this.state() === 'missing'),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => void this.probe());
   }
 
   @HostListener('document:keyup.enter')

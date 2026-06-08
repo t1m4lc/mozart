@@ -135,6 +135,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::auth_get_callback_port,
                 commands::get_onboarding_completed,
                 commands::set_onboarding_completed,
+                commands::get_onboarding_step,
+                commands::set_onboarding_step,
                 commands::get_or_create_install_id,
                 commands::get_telemetry_opt_in,
                 commands::set_telemetry_opt_in,

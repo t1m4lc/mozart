@@ -74,6 +74,14 @@ export class OnboardingFacade {
     try {
       const value = await this.adapter.get();
       this._isCompleted.set(value);
+      // Restore the wizard cursor only while onboarding is unfinished —
+      // a completed user never re-enters the wizard. Per-step statuses
+      // are NOT restored: git / provider / github re-probe live on the
+      // step components' mount, so the cursor is the only durable bit.
+      if (!value) {
+        const step = await this.adapter.getStep();
+        if (step) this._currentStep.set(step);
+      }
     } catch (err) {
       console.warn('[onboarding] bootstrap failed:', err);
       this._isCompleted.set(false);
@@ -87,20 +95,29 @@ export class OnboardingFacade {
   advance(): void {
     const idx = ONBOARDING_STEPS.indexOf(this._currentStep());
     const next = ONBOARDING_STEPS[idx + 1];
-    if (next) this._currentStep.set(next);
+    if (next) this.moveTo(next);
   }
 
   /** Step back. No-op from `welcome`. */
   back(): void {
     const idx = ONBOARDING_STEPS.indexOf(this._currentStep());
     const prev = ONBOARDING_STEPS[idx - 1];
-    if (prev) this._currentStep.set(prev);
+    if (prev) this.moveTo(prev);
   }
 
   /** Direct cursor jump — used by tests and the progress pill if it
    *  becomes clickable. */
   goTo(step: OnboardingStep): void {
+    this.moveTo(step);
+  }
+
+  /** Set the cursor and persist it (fire-and-forget) so the wizard
+   *  resumes on the same step after a restart. */
+  private moveTo(step: OnboardingStep): void {
     this._currentStep.set(step);
+    void this.adapter.setStep(step).catch((err) => {
+      console.warn('[onboarding] persist step failed:', err);
+    });
   }
 
   /** Marks a step's status. Step components call this to drive the
@@ -185,6 +202,7 @@ export class OnboardingFacade {
    *  wizard. Atom 8. */
   async reset(): Promise<void> {
     await this.adapter.set(false);
+    await this.adapter.setStep('welcome');
     this._isCompleted.set(false);
     this._currentStep.set('welcome');
     this._statuses.set({

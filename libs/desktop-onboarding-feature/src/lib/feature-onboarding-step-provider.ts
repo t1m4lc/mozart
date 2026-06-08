@@ -6,12 +6,19 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { takeUntilDestroyed, toObservable } from '@angular/core/rxjs-interop';
+import { filter } from 'rxjs/operators';
 import {
   PROVIDER_REGISTRY,
   type ConnectionProviderId,
 } from '@mozart/desktop-llm-model-util';
-import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
+import {
+  OnboardingFacade,
+  PROVIDER_SETUP_ADAPTER,
+} from '@mozart/desktop-onboarding-data-access';
+import { CLI_INSTALL_INSTRUCTIONS } from '@mozart/desktop-onboarding-util';
 import { ProfileFacade } from '@mozart/desktop-profile-data-access';
+import { WindowFocusService } from '@mozart/desktop-core-data-access';
 import type { ConnectionStatus } from '@mozart/desktop-profile-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
@@ -101,7 +108,53 @@ function detailFor(
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block w-full' },
   template: `
-    @if (configuring(); as cp) {
+    @if (missingCli(); as cp) {
+      <div class="space-y-5">
+        <div class="mx-auto max-w-md space-y-1.5 text-center">
+          <h2 class="text-xl font-semibold tracking-tight">
+            {{ installInfo()?.label }}
+          </h2>
+          <p class="text-muted-foreground text-sm">
+            It's not installed or not on your PATH. Install it, then check again
+            — no need to restart Mozart.
+          </p>
+        </div>
+
+        <div
+          class="bg-muted/30 space-y-2 rounded-md border border-border/60 p-4 text-sm"
+        >
+          <pre
+            class="bg-background overflow-x-auto rounded p-2 font-mono text-xs"
+            >{{ installInfo()?.command }}</pre
+          >
+          <p class="text-muted-foreground text-xs">{{ installInfo()?.note }}</p>
+          <p class="text-muted-foreground text-xs">
+            Docs: {{ installInfo()?.docsUrl }}
+          </p>
+        </div>
+
+        <div class="flex items-center justify-between gap-3">
+          <button
+            hlmBtn
+            variant="ghost"
+            type="button"
+            (click)="onDismissInstall()"
+          >
+            Back
+          </button>
+          <button
+            hlmBtn
+            variant="outline"
+            type="button"
+            [disabled]="checkingInstall()"
+            (click)="onCheckAgain(cp)"
+          >
+            <ng-icon hlm name="lucideRefreshCw" size="xs" />
+            {{ checkingInstall() ? 'Checking…' : 'Check again' }}
+          </button>
+        </div>
+      </div>
+    } @else if (configuring(); as cp) {
       <app-feature-claude-login-pty
         [active]="true"
         [provider]="cp"
@@ -234,9 +287,20 @@ export class FeatureOnboardingStepProvider {
   protected readonly facade = inject(OnboardingFacade);
   protected readonly profile = inject(ProfileFacade);
   private readonly dialog = inject(HlmDialogService);
+  private readonly setup = inject(PROVIDER_SETUP_ADAPTER);
+  private readonly windowFocus = inject(WindowFocusService);
 
   // The provider whose login PTY is currently open, or null.
   protected readonly configuring = signal<ConnectionProviderId | null>(null);
+
+  // The provider whose CLI was detected missing, or null. Drives the
+  // install panel that replaces the card list until the user installs it.
+  protected readonly missingCli = signal<ConnectionProviderId | null>(null);
+  protected readonly checkingInstall = signal(false);
+  protected readonly installInfo = computed(() => {
+    const cp = this.missingCli();
+    return cp ? CLI_INSTALL_INSTRUCTIONS[cp] : null;
+  });
 
   // Registry rows enriched with live connection status (reactive).
   protected readonly cards = computed(() =>
@@ -266,6 +330,16 @@ export class FeatureOnboardingStepProvider {
         this.providerReady() ? 'done' : 'pending',
       );
     });
+
+    // Re-check detection when the window regains focus — the user may have
+    // installed a missing CLI or logged in externally. Only acts while a
+    // provider is still pending, so connected users aren't re-probed.
+    toObservable(this.windowFocus.isWindowFocused)
+      .pipe(
+        filter((focused) => focused && !this.providerReady()),
+        takeUntilDestroyed(),
+      )
+      .subscribe(() => void this.refreshOnFocus());
   }
 
   protected dotClass(kind: 'idle' | 'ok' | 'busy' | 'fail'): string {
@@ -273,6 +347,12 @@ export class FeatureOnboardingStepProvider {
   }
 
   protected async onConfigure(cp: ConnectionProviderId): Promise<void> {
+    // Gate the login PTY behind an install probe so we never spawn into a
+    // `command not found` loop when the CLI is absent.
+    if (!(await this.isInstalled(cp))) {
+      this.missingCli.set(cp);
+      return;
+    }
     if (cp === 'codex') {
       const outcome = await this.profile.tryConnectCodex();
       if (outcome === 'codex_session') return;
@@ -281,6 +361,35 @@ export class FeatureOnboardingStepProvider {
       if (outcome === 'claude_code') return;
     }
     this.configuring.set(cp);
+  }
+
+  /** Install panel's "Check again" — re-probe the CLI; on success clear
+   *  the panel and continue straight into the connect flow. */
+  protected async onCheckAgain(cp: ConnectionProviderId): Promise<void> {
+    this.checkingInstall.set(true);
+    const installed = await this.isInstalled(cp);
+    this.checkingInstall.set(false);
+    if (installed) {
+      this.missingCli.set(null);
+      await this.onConfigure(cp);
+    }
+  }
+
+  protected onDismissInstall(): void {
+    this.missingCli.set(null);
+  }
+
+  private isInstalled(cp: ConnectionProviderId): Promise<boolean> {
+    return cp === 'codex'
+      ? this.setup.codexInstalled()
+      : this.setup.claudeInstalled();
+  }
+
+  private async refreshOnFocus(): Promise<void> {
+    void this.profile.initialize();
+    void this.profile.initializeCodex();
+    const cp = this.missingCli();
+    if (cp && (await this.isInstalled(cp))) this.missingCli.set(null);
   }
 
   protected onPtyDone(): void {

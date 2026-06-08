@@ -32,6 +32,15 @@ export interface ProviderSetupAdapter {
 
   /** Inform the PTY of the host viewport's new dimensions. */
   resize(terminalId: string, cols: number, rows: number): Promise<void>;
+
+  /** Probe whether the `claude` CLI is installed and on PATH. Runs
+   *  `claude --version` argv-form with a hard timeout — no shell, no
+   *  visible window. Used to gate the login PTY so we never spawn into a
+   *  `command not found` loop. */
+  claudeInstalled(): Promise<boolean>;
+
+  /** Codex's parallel to `claudeInstalled()` (`codex --version`). */
+  codexInstalled(): Promise<boolean>;
 }
 
 export const PROVIDER_SETUP_ADAPTER = new InjectionToken<ProviderSetupAdapter>(

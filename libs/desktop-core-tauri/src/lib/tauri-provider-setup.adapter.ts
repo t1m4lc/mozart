@@ -24,7 +24,9 @@ export function tauriProviderSetupAdapter(): ProviderSetupAdapter {
         if (ev.kind === 'output') onEvent({ kind: 'output', data: ev.data });
         else onEvent({ kind: 'exited', code: ev.code });
       };
-      const terminalId = unwrap(await commands.spawnClaudeLogin(cols, rows, channel));
+      const terminalId = unwrap(
+        await commands.spawnClaudeLogin(cols, rows, channel),
+      );
       const close = async (): Promise<void> => {
         try {
           unwrap(await commands.closeTerminal(terminalId));
@@ -40,7 +42,9 @@ export function tauriProviderSetupAdapter(): ProviderSetupAdapter {
         if (ev.kind === 'output') onEvent({ kind: 'output', data: ev.data });
         else onEvent({ kind: 'exited', code: ev.code });
       };
-      const terminalId = unwrap(await commands.spawnCodexLogin(cols, rows, channel));
+      const terminalId = unwrap(
+        await commands.spawnCodexLogin(cols, rows, channel),
+      );
       const close = async (): Promise<void> => {
         try {
           unwrap(await commands.closeTerminal(terminalId));
@@ -55,6 +59,12 @@ export function tauriProviderSetupAdapter(): ProviderSetupAdapter {
     },
     async resize(terminalId, cols, rows) {
       unwrap(await commands.resizeTerminal(terminalId, cols, rows));
+    },
+    async claudeInstalled() {
+      return (await commands.checkClaudeInstall()).kind === 'installed';
+    },
+    async codexInstalled() {
+      return (await commands.checkCodexInstall()).kind === 'installed';
     },
   };
 }
