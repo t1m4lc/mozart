@@ -23,17 +23,17 @@
 All Mozart-owned paths are derived from a single file:  
 `apps/desktop-tauri/src/paths.rs` — the only place that decides "where does Mozart's data live."
 
-| Purpose | Linux path | Override env var |
-|---------|-----------|-----------------|
-| Data root | `~/.local/share/build.mozart.desktop/` | `MOZART_DATA_DIR` |
-| Config root | `~/.config/build.mozart.desktop/` | `MOZART_CONFIG_DIR` |
-| Cache root | `~/.cache/build.mozart.desktop/` | `MOZART_CACHE_DIR` |
-| SQLite DB | `<data>/mozart.db` | `MOZART_DB_PATH` |
-| Workspaces root | `<data>/workspaces/` | `MOZART_WORKTREES_ROOT` |
-| Projects root | `<data>/projects/` | `MOZART_WORKTREES_ROOT` (derives sibling) |
-| Get-started clone | `<projects>/get-started/` | — |
-| Chime sound | `<cache>/chime.wav` | — |
-| Global settings | `<config>/settings.json` | — |
+| Purpose           | Linux path                             | Override env var                          |
+| ----------------- | -------------------------------------- | ----------------------------------------- |
+| Data root         | `~/.local/share/build.mozart.desktop/` | `MOZART_DATA_DIR`                         |
+| Config root       | `~/.config/build.mozart.desktop/`      | `MOZART_CONFIG_DIR`                       |
+| Cache root        | `~/.cache/build.mozart.desktop/`       | `MOZART_CACHE_DIR`                        |
+| SQLite DB         | `<data>/mozart.db`                     | `MOZART_DB_PATH`                          |
+| Workspaces root   | `<data>/workspaces/`                   | `MOZART_WORKTREES_ROOT`                   |
+| Projects root     | `<data>/projects/`                     | `MOZART_WORKTREES_ROOT` (derives sibling) |
+| Get-started clone | `<projects>/get-started/`              | —                                         |
+| Chime sound       | `<cache>/chime.wav`                    | —                                         |
+| Global settings   | `<config>/settings.json`               | —                                         |
 
 macOS: replace `~/.local/share` → `~/Library/Application Support`, etc.  
 Windows: `%APPDATA%` / `%LOCALAPPDATA%`.
@@ -46,6 +46,7 @@ There is **no separate dev identifier** — dev and prod write to the same paths
 ### 2.3 Auth tokens / secrets
 
 Stored exclusively in the **OS keyring** (macOS Keychain, Linux Secret Service, Windows Credential Manager):
+
 - `credentials/keyring_store.rs`: service `"mozart"`, accounts `"anthropic_api_key"` and `"github_token"`
 - `auth/keyring_store.rs`: service `"mozart"`, account `"auth_session"` (Clerk JWT)
 
@@ -75,23 +76,23 @@ These are **not referenced by any DB row** (the DB now stores new-scheme paths l
 
 ## 3. What is Mozart-owned (safe to delete)
 
-| Path | Owner | Safe to auto-delete? |
-|------|-------|---------------------|
-| `<data>/workspaces/<project>/<workspace>/` | Mozart | Yes — created by Mozart, contains only the git worktree |
-| `<data>/projects/<project>/` | Mozart | Yes — sandbox clone, not the user's original repo |
-| `<data>/projects/get-started/` | Mozart | Yes — Mozart-managed template clone |
-| `<data>/mozart.db` | Mozart | Only on full uninstall |
-| `<config>/settings.json` | Mozart | Only on full uninstall |
-| `<cache>/chime.wav` | Mozart | Yes — derived, safe to regenerate |
-| `~/.mozart/worktrees/<uuid>/` | Mozart (legacy) | Yes — orphans, no DB references |
+| Path                                       | Owner           | Safe to auto-delete?                                    |
+| ------------------------------------------ | --------------- | ------------------------------------------------------- |
+| `<data>/workspaces/<project>/<workspace>/` | Mozart          | Yes — created by Mozart, contains only the git worktree |
+| `<data>/projects/<project>/`               | Mozart          | Yes — sandbox clone, not the user's original repo       |
+| `<data>/projects/get-started/`             | Mozart          | Yes — Mozart-managed template clone                     |
+| `<data>/mozart.db`                         | Mozart          | Only on full uninstall                                  |
+| `<config>/settings.json`                   | Mozart          | Only on full uninstall                                  |
+| `<cache>/chime.wav`                        | Mozart          | Yes — derived, safe to regenerate                       |
+| `~/.mozart/worktrees/<uuid>/`              | Mozart (legacy) | Yes — orphans, no DB references                         |
 
 ## 4. What must never be deleted automatically
 
-| Path | Why |
-|------|-----|
-| The `repos.path` value (user's original repo) | User's source of truth — Mozart only *reads* it, never manages it |
-| Any git branch currently checked out (`+` in `git branch`) | Would corrupt an active worktree |
-| Any path outside the Mozart-owned roots above | Defense in depth |
+| Path                                                       | Why                                                               |
+| ---------------------------------------------------------- | ----------------------------------------------------------------- |
+| The `repos.path` value (user's original repo)              | User's source of truth — Mozart only _reads_ it, never manages it |
+| Any git branch currently checked out (`+` in `git branch`) | Would corrupt an active worktree                                  |
+| Any path outside the Mozart-owned roots above              | Defense in depth                                                  |
 
 ---
 
@@ -102,11 +103,12 @@ These are **not referenced by any DB row** (the DB now stores new-scheme paths l
 `apps/desktop-tauri/src/commands/mod.rs:679`
 
 Sequence:
+
 1. Cancel per-workspace PTY, run registry, file watcher.
 2. Resolve `worktree_path` and `repo_path` from DB.
 3. **`worktree::remove(repo_path, worktree_path)`** — runs `git worktree remove --force`, falls back to `remove_dir_all`. ✓
 4. Flip `deletion_intent = 1` in the DB row (soft-delete). ✓
-5. *(nothing else)*
+5. _(nothing else)_
 
 **What is missing:** the git branch (`workspace.branch_name`) is **never deleted**. After step 3 the worktree directory is gone but the branch `mozart/<slug>` remains in the repo forever.
 
@@ -118,6 +120,7 @@ Sequence:
 `apps/desktop-tauri/src/commands/mod.rs:457`
 
 Sequence:
+
 1. Snapshot `repo.path` and all `worktree_path` values from DB before any mutation.
 2. `repos::delete()` — cascade-deletes all DB rows (workspaces, tasks, chats, etc.) in one transaction.
 3. For each workspace: `worktree::remove(repo_path, wt_path)`. Best-effort (logged, not fatal). ✓
@@ -175,16 +178,16 @@ The seam env var is named `WORKTREES_ROOT` but `paths.rs` calls the function `wo
 
 ## 7. Naming audit: `worktree` vs `workspace`
 
-| Location | Uses `worktree` | User-facing? | Status |
-|----------|----------------|-------------|--------|
-| `worktree.rs` — module name | Yes | No — internal git operations | Acceptable |
-| `workspaces.worktree_path` — DB column | Yes | No — wire DTO field | Acceptable |
-| `WorktreeHandle` — Rust struct | Yes | No — internal | Acceptable |
-| `_bindings.ts:2671` — `worktree_path: string` | Yes | No — typed envelope, vocabulary contract blocks UI use | Acceptable |
-| `MOZART_WORKTREES_ROOT` — env var | Yes | No — dev/test seam only | Minor inconsistency |
-| `~/.mozart/worktrees/` — on-disk path | Yes | Visible in file manager | Legacy; new path is `workspaces/` |
-| UI labels, toasts, dialog text | No | — | ✓ Uses "workspace" throughout |
-| Tauri command names (`archive_workspace`) | No | — | ✓ |
+| Location                                      | Uses `worktree` | User-facing?                                           | Status                            |
+| --------------------------------------------- | --------------- | ------------------------------------------------------ | --------------------------------- |
+| `worktree.rs` — module name                   | Yes             | No — internal git operations                           | Acceptable                        |
+| `workspaces.worktree_path` — DB column        | Yes             | No — wire DTO field                                    | Acceptable                        |
+| `WorktreeHandle` — Rust struct                | Yes             | No — internal                                          | Acceptable                        |
+| `_bindings.ts:2671` — `worktree_path: string` | Yes             | No — typed envelope, vocabulary contract blocks UI use | Acceptable                        |
+| `MOZART_WORKTREES_ROOT` — env var             | Yes             | No — dev/test seam only                                | Minor inconsistency               |
+| `~/.mozart/worktrees/` — on-disk path         | Yes             | Visible in file manager                                | Legacy; new path is `workspaces/` |
+| UI labels, toasts, dialog text                | No              | —                                                      | ✓ Uses "workspace" throughout     |
+| Tauri command names (`archive_workspace`)     | No              | —                                                      | ✓                                 |
 
 **Conclusion:** `worktree` is confined to internal git implementation details. No user-facing label uses it. The only user-visible occurrence is the legacy `~/.mozart/worktrees/` directory which is being superseded by `~/.local/share/build.mozart.desktop/workspaces/`.
 
@@ -198,10 +201,13 @@ The three issues worth fixing, ordered by impact:
 
 **Where:** `archive_workspace_impl` in `commands/mod.rs:697`  
 **After** `worktree::remove()` succeeds, add:
+
 ```
 worktree::delete_branch(repo_path, branch_name)
 ```
+
 New function in `worktree.rs`:
+
 - Run `git branch -d <branch>` (safe delete — fails if unmerged).
 - If that fails, try `git branch -D <branch>` only when `deletion_intent` is explicit (user chose to delete).
 - Guard: skip if the branch is currently checked out (`branch_exists` + `worktree list` cross-check or just catch the specific git error).
@@ -209,6 +215,7 @@ New function in `worktree.rs`:
 - Same deletion should be applied in `remove_repo_impl` for each workspace being removed.
 
 **Tests needed:**
+
 - `archive_workspace_deletes_branch` — happy path: branch gone after archive
 - `archive_workspace_branch_delete_fails_safe` — if branch delete fails, the function still returns Ok (the worktree dir is already gone)
 - `archive_workspace_skips_checked_out_branch` — branch currently checked out elsewhere → skip delete, log warning
