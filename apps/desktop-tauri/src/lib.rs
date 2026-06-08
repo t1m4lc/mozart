@@ -168,6 +168,7 @@ pub fn run() {
             // later through their normal user-visible paths.
             recover_interrupted_merges(&db_state);
             cleanup_orphans_at_boot(&db_state);
+            migrate_legacy_worktrees_at_boot(&db_state);
 
             app.manage(db_state);
 
@@ -357,5 +358,29 @@ fn cleanup_orphans_at_boot(db: &db::DbState) {
         ),
         Ok(_) => {}
         Err(e) => eprintln!("startup orphan cleanup: {e}"),
+    }
+}
+
+/// One-time migration: sweep the pre-`paths.rs` legacy worktree root
+/// (`$HOME/.mozart/worktrees/`) and remove any directory not referenced by a
+/// DB row. Idempotent — becomes a no-op once the root has been removed.
+fn migrate_legacy_worktrees_at_boot(db: &db::DbState) {
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(rt) => rt,
+        Err(e) => {
+            eprintln!("legacy worktrees migration: tokio runtime build failed: {e}");
+            return;
+        }
+    };
+    match rt.block_on(worktree::migrate_legacy_worktrees_root(db)) {
+        Ok(n) if n > 0 => log::info!(
+            "startup: migrated legacy worktrees root — removed {n} director{}",
+            if n == 1 { "y" } else { "ies" }
+        ),
+        Ok(_) => {}
+        Err(e) => eprintln!("legacy worktrees migration: {e}"),
     }
 }
