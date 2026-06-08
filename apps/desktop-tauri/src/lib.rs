@@ -167,6 +167,7 @@ pub fn run() {
             // or git failures are logged and skipped — they will fail
             // later through their normal user-visible paths.
             recover_interrupted_merges(&db_state);
+            cleanup_orphans_at_boot(&db_state);
 
             app.manage(db_state);
 
@@ -332,5 +333,29 @@ fn recover_interrupted_merges(db: &db::DbState) {
                 );
             }
         }
+    }
+}
+
+/// Remove orphaned workspace directories left over from crashed prior runs or
+/// failed cleanup attempts. Called once at boot; best-effort and silent on
+/// errors so a broken filesystem cannot block startup.
+fn cleanup_orphans_at_boot(db: &db::DbState) {
+    let rt = match tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+    {
+        Ok(rt) => rt,
+        Err(e) => {
+            eprintln!("startup orphan cleanup: tokio runtime build failed: {e}");
+            return;
+        }
+    };
+    match rt.block_on(worktree::cleanup_orphans(db)) {
+        Ok(n) if n > 0 => log::info!(
+            "startup: removed {n} orphaned workspace director{}",
+            if n == 1 { "y" } else { "ies" }
+        ),
+        Ok(_) => {}
+        Err(e) => eprintln!("startup orphan cleanup: {e}"),
     }
 }
