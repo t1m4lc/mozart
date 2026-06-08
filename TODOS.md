@@ -148,7 +148,7 @@ The P0.1 work in this branch (`SandboxLevel` enum, DB column, `set_workspace_san
 3. Bindings template:
    - `--ro-bind /usr /usr --ro-bind /lib /lib --ro-bind /lib64 /lib64` (libs)
    - `--ro-bind /etc/ssl /etc/ssl --ro-bind /etc/resolv.conf /etc/resolv.conf` (TLS + DNS)
-   - `--ro-bind $HOME/.claude $HOME/.claude` (auth/session — only for the agent spawn, not the terminal)
+   - `--ro-bind $HOME/.claude $HOME/.claude` (auth/session — only for the agent spawn, not the terminal). **Caveat — skills write here:** read-only is wrong for skills. gstack skills write `$HOME/.claude/plans` (plan files), `settings.json` / `hooks` (config + statusline skills), and read `$HOME/.claude/projects` (gbrain memory ingest); they also write `$HOME/.gstack` (sessions/analytics/projects). A blanket `--ro-bind` breaks plan-writing and config skills. Use `--ro-bind $HOME/.claude` for the auth/session surface but layer `--bind $HOME/.claude/plans`, `--bind $HOME/.gstack` (and any other skill write target) on top, OR drop to a single `--bind $HOME/.claude $HOME/.claude` if the read-only guarantee on `.credentials.json` isn't worth the per-subdir plumbing. The Atom 7 system-prompt clamp already carves these dirs out (`sandbox_policy::build_system_prompt_clamp`) — keep the OS-fence binds in sync with that carve-out.
    - `--bind <each --add-dir target> <same path>` (the actual workspace + L2 siblings)
    - `--tmpfs /tmp --proc /proc --dev /dev` (minimum runtime)
    - `--share-net --chdir <workspace_worktree>` (network for WebFetch, working dir)
