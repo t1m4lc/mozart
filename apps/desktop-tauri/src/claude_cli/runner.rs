@@ -67,6 +67,7 @@ use crate::db::{
     workspaces, DbState,
 };
 use crate::error::AppError;
+use crate::platform::NoWindow;
 use crate::sandbox;
 
 /// Handle returned by [`spawn_run`]. Owns the JoinHandle of the
@@ -499,6 +500,7 @@ where
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
+        .no_window()
         .kill_on_drop(true);
     match provider {
         AgentProvider::ClaudeCli => inject_anthropic_key(&mut cmd),

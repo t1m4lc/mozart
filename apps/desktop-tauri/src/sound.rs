@@ -8,6 +8,7 @@
 //! a one-line change.
 
 use crate::error::AppError;
+use crate::platform::NoWindow;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
@@ -71,7 +72,7 @@ fn play_file(path: &Path) {
     ];
 
     for (bin, args) in &attempts {
-        if let Ok(status) = Command::new(bin).args(args).status() {
+        if let Ok(status) = Command::new(bin).args(args).no_window().status() {
             if status.success() {
                 return;
             }

@@ -39,8 +39,10 @@ pub enum RepoIssue {
 
 /// Sync host probe: returns `true` iff `git --version` exits 0.
 pub fn check_git_available() -> bool {
+    use crate::platform::NoWindow;
     std::process::Command::new("git")
         .arg("--version")
+        .no_window()
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)
@@ -49,8 +51,10 @@ pub fn check_git_available() -> bool {
 /// Best-effort LFS host probe: returns `true` iff `git lfs --version`
 /// exits 0. Used to decide whether to even attempt LFS file detection.
 fn check_lfs_available() -> bool {
+    use crate::platform::NoWindow;
     std::process::Command::new("git")
         .args(["lfs", "--version"])
+        .no_window()
         .output()
         .map(|o| o.status.success())
         .unwrap_or(false)

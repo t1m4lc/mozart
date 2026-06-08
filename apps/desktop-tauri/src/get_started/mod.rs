@@ -21,6 +21,7 @@ use crate::db::models::Repo;
 use crate::db::DbState;
 use crate::error::AppError;
 use crate::git_query;
+use crate::platform::NoWindow;
 
 const TEMPLATE_URL: &str = "https://github.com/t1m4lc/mozart-get-started.git";
 
@@ -97,6 +98,7 @@ async fn ensure_template(path: &Path) -> Result<(), AppError> {
         .arg("--depth=1")
         .arg(&url)
         .arg(path)
+        .no_window()
         .status()
         .map_err(|e| AppError::Io(format!("git clone spawn: {e}")))?;
 
