@@ -36,9 +36,15 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
 // @defer (on viewport) — the template defers CodeMirror loading this way.
 if (typeof window !== 'undefined' && !window.IntersectionObserver) {
   (window as Window & typeof globalThis).IntersectionObserver = class {
-    observe() { return undefined; }
-    unobserve() { return undefined; }
-    disconnect() { return undefined; }
+    observe() {
+      return undefined;
+    }
+    unobserve() {
+      return undefined;
+    }
+    disconnect() {
+      return undefined;
+    }
   } as unknown as typeof IntersectionObserver;
 }
 
@@ -66,8 +72,12 @@ function makeFileViewsFacade(): FileViewsFacadeStub {
 }
 
 interface FacadeOpts {
-  readonly diff?: string | ((ws: string, p: string) => string | Promise<string>);
-  readonly file?: string | ((ws: string, p: string) => string | Promise<string>);
+  readonly diff?:
+    | string
+    | ((ws: string, p: string) => string | Promise<string>);
+  readonly file?:
+    | string
+    | ((ws: string, p: string) => string | Promise<string>);
 }
 
 function makeFacade(opts: FacadeOpts = {}): FacadeStub {
@@ -132,13 +142,17 @@ describe('FeatureFileDiff — rendering', () => {
   it('renders the file-diff card for markdown paths', async () => {
     const fixture = await mountWith(makeFacade(), { path: 'README.md' });
     await settle(fixture);
-    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeTruthy();
+    expect(
+      fixture.debugElement.query(By.css('mz-file-diff-card')),
+    ).toBeTruthy();
   });
 
   it('renders the file-diff card for non-markdown paths', async () => {
     const fixture = await mountWith(makeFacade(), { path: 'src/foo.ts' });
     await settle(fixture);
-    expect(fixture.debugElement.query(By.css('mz-file-diff-card'))).toBeTruthy();
+    expect(
+      fixture.debugElement.query(By.css('mz-file-diff-card')),
+    ).toBeTruthy();
   });
 
   it('passes chrome=flush + collapsible=false + pathTruncate=start to the card', async () => {
@@ -184,7 +198,10 @@ describe('FeatureFileDiff — rendering', () => {
 describe('FeatureFileDiff — diff fetch lifecycle', () => {
   it('fetches the diff on workspaceId / path / refreshTick change', async () => {
     const facade = makeFacade({ diff: (ws, p) => `DIFF<${ws}|${p}>` });
-    const fixture = await mountWith(facade, { workspaceId: 'wsA', path: 'a.ts' });
+    const fixture = await mountWith(facade, {
+      workspaceId: 'wsA',
+      path: 'a.ts',
+    });
     await settle(fixture);
     expect(facade.loadFileDiff).toHaveBeenCalledWith('wsA', 'a.ts');
 
@@ -220,7 +237,10 @@ describe('FeatureFileDiff — diff fetch lifecycle', () => {
       loadFile: vi.fn(),
     };
 
-    const fixture = await mountWith(facade, { workspaceId: 'ws', path: 'a.ts' });
+    const fixture = await mountWith(facade, {
+      workspaceId: 'ws',
+      path: 'a.ts',
+    });
     // First fetch in flight (firstPending never settles yet).
 
     fixture.componentRef.setInput('path', 'b.ts');
@@ -242,7 +262,10 @@ describe('FeatureFileDiff — diff fetch lifecycle', () => {
 describe('FeatureFileDiff — fetchContext + file-body cache', () => {
   it('slices the requested 1-based range from the loaded file body', async () => {
     const facade = makeFacade({ file: 'line1\nline2\nline3\nline4\nline5' });
-    const fixture = await mountWith(facade, { workspaceId: 'ws', path: 'a.ts' });
+    const fixture = await mountWith(facade, {
+      workspaceId: 'ws',
+      path: 'a.ts',
+    });
     await settle(fixture);
 
     const card = getCard(fixture);
@@ -257,7 +280,10 @@ describe('FeatureFileDiff — fetchContext + file-body cache', () => {
 
   it('caches the body across context fetches and invalidates on refreshTick', async () => {
     const facade = makeFacade({ file: 'l1\nl2\nl3\nl4\nl5' });
-    const fixture = await mountWith(facade, { workspaceId: 'ws', path: 'a.ts' });
+    const fixture = await mountWith(facade, {
+      workspaceId: 'ws',
+      path: 'a.ts',
+    });
     await settle(fixture);
 
     const card = getCard(fixture);
@@ -285,7 +311,10 @@ describe('FeatureFileDiff — fetchContext + file-body cache', () => {
 
 describe('FeatureFileDiff — output forwarding', () => {
   it('re-emits (pathCopy) from the card to the host', async () => {
-    const fixture = await mountWith(makeFacade(), { workspaceId: 'ws', path: 'a.ts' });
+    const fixture = await mountWith(makeFacade(), {
+      workspaceId: 'ws',
+      path: 'a.ts',
+    });
     await settle(fixture);
 
     const card = getCard(fixture);
@@ -299,7 +328,10 @@ describe('FeatureFileDiff — output forwarding', () => {
   });
 
   it('re-emits (copyError) from the card to the host', async () => {
-    const fixture = await mountWith(makeFacade(), { workspaceId: 'ws', path: 'a.ts' });
+    const fixture = await mountWith(makeFacade(), {
+      workspaceId: 'ws',
+      path: 'a.ts',
+    });
     await settle(fixture);
 
     const card = getCard(fixture);
