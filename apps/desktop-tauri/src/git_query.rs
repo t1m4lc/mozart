@@ -189,6 +189,18 @@ pub async fn list_branches(path: &Path) -> Result<Vec<String>, AppError> {
     Ok(local)
 }
 
+/// The repo's currently checked-out branch (`git rev-parse --abbrev-ref
+/// HEAD`). Returns `None` on a detached HEAD (git prints the literal
+/// `HEAD`) so the caller can fall back to its own default.
+pub async fn current_branch(path: &Path) -> Result<Option<String>, AppError> {
+    let out = run_git(path, &["rev-parse", "--abbrev-ref", "HEAD"]).await?;
+    let branch = out.trim();
+    if branch.is_empty() || branch == "HEAD" {
+        return Ok(None);
+    }
+    Ok(Some(branch.to_string()))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

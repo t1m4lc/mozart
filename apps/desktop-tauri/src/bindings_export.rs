@@ -42,6 +42,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::set_repo_hidden,
                 commands::set_repo_sort,
                 commands::list_branches,
+                commands::current_branch,
                 commands::create_workspace,
                 commands::list_workspaces,
                 commands::list_tasks,

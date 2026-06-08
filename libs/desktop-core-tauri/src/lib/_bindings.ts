@@ -189,6 +189,19 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async currentBranch(
+    repoPath: string,
+  ): Promise<Result<string | null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('current_branch', { repoPath }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   async createWorkspace(
     repoId: string,
     baseBranch: string,

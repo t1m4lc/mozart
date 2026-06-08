@@ -60,6 +60,7 @@ function makeWorkspacesAdapterStub(
     list: vi.fn().mockResolvedValue([]),
     archive: vi.fn().mockResolvedValue(undefined),
     listBranches: vi.fn().mockResolvedValue([]),
+    currentBranch: vi.fn().mockResolvedValue(null),
     configuredBaseBranch: vi.fn().mockResolvedValue('main'),
     rename: vi.fn().mockResolvedValue(undefined),
     setUiStatus: vi.fn().mockResolvedValue(undefined),

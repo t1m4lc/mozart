@@ -280,6 +280,9 @@ function provideWorkspacesAdapter(): Provider {
       async listBranches(repoPath: string) {
         return unwrap(await commands.listBranches(repoPath));
       },
+      async currentBranch(repoPath: string) {
+        return unwrap(await commands.currentBranch(repoPath));
+      },
       async configuredBaseBranch(projectId: string) {
         return unwrap(await commands.getResolvedSettings(projectId)).git
           .baseBranch;
