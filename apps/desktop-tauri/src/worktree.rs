@@ -279,6 +279,84 @@ pub async fn cleanup_orphans(db: &DbState) -> Result<usize, AppError> {
     Ok(removed)
 }
 
+/// One-time migration: remove every directory under the pre-`paths.rs` legacy
+/// root (`$HOME/.mozart/worktrees/`) that is not referenced by any DB row,
+/// then drop the now-empty parent dirs (`worktrees/` and `.mozart/`).
+///
+/// The directory's absence after the first successful run is the "done" signal
+/// — no DB flag or migration table is needed. Idempotent: if the legacy root
+/// doesn't exist this is a no-op.
+pub async fn migrate_legacy_worktrees_root(db: &DbState) -> Result<usize, AppError> {
+    let Some(root) = crate::paths::legacy_worktrees_root() else {
+        return Ok(0);
+    };
+    migrate_legacy_root_impl(db, &root).await
+}
+
+/// Inner implementation, takes an explicit root so tests can pass a tempdir.
+pub(crate) async fn migrate_legacy_root_impl(
+    db: &DbState,
+    legacy_root: &Path,
+) -> Result<usize, AppError> {
+    if !legacy_root.exists() {
+        return Ok(0);
+    }
+
+    let known: HashSet<PathBuf> = {
+        let conn = db.lock();
+        crate::db::workspaces::list_all(&conn)?
+            .into_iter()
+            .map(|w| PathBuf::from(w.worktree_path))
+            .collect()
+    };
+
+    let mut removed = 0usize;
+    let Ok(read) = std::fs::read_dir(legacy_root) else {
+        return Ok(0);
+    };
+    for entry in read.flatten() {
+        let path = entry.path();
+        if !path.is_dir() {
+            continue;
+        }
+        if known.contains(&path) {
+            // A live DB row still points directly here — leave it alone.
+            continue;
+        }
+        // Recurse one level in case this is a project subdir containing
+        // workspace dirs (same two-level layout as the current workspaces root).
+        let mut kept_child = false;
+        if let Ok(children) = std::fs::read_dir(&path) {
+            for child in children.flatten() {
+                let child_path = child.path();
+                if !child_path.is_dir() {
+                    kept_child = true;
+                    continue;
+                }
+                if known.contains(&child_path) {
+                    kept_child = true;
+                } else if std::fs::remove_dir_all(&child_path).is_ok() {
+                    removed += 1;
+                }
+            }
+        }
+        if !kept_child {
+            if std::fs::remove_dir_all(&path).is_ok() {
+                removed += 1;
+            }
+        }
+    }
+
+    // Drop the empty legacy roots. `remove_dir` (not `remove_dir_all`) so we
+    // never clobber remaining files or non-Mozart subdirs inside `.mozart/`.
+    let _ = std::fs::remove_dir(legacy_root);
+    if let Some(mozart_dot) = legacy_root.parent() {
+        let _ = std::fs::remove_dir(mozart_dot);
+    }
+
+    Ok(removed)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1011,5 +1089,126 @@ mod tests {
             branch_exists(tmp.path(), "feature/keep-me").await,
             "non-mozart branch must not be deleted"
         );
+    }
+
+    // --- migrate_legacy_root_impl tests ---
+
+    #[tokio::test]
+    async fn migrate_legacy_noop_when_root_absent() {
+        let db = init_db_memory().unwrap();
+        let nonexistent = std::path::Path::new("/tmp/mozart-migrate-absent-test-xyz");
+        let removed = migrate_legacy_root_impl(&db, nonexistent)
+            .await
+            .expect("Ok on missing root");
+        assert_eq!(removed, 0);
+    }
+
+    #[tokio::test]
+    async fn migrate_legacy_removes_uuid_dirs() {
+        let db = init_db_memory().unwrap();
+        let root = tempfile::tempdir().unwrap();
+
+        // Simulate 3 UUID-named legacy dirs.
+        for name in &["uuid-aaaa", "uuid-bbbb", "uuid-cccc"] {
+            std::fs::create_dir_all(root.path().join(name)).unwrap();
+        }
+
+        let removed = migrate_legacy_root_impl(&db, root.path())
+            .await
+            .expect("migrate ok");
+        assert_eq!(removed, 3, "all three UUID dirs must be removed");
+        // Root itself is now empty and must be dropped too.
+        assert!(
+            !root.path().exists(),
+            "legacy root must be removed when empty after migration"
+        );
+    }
+
+    #[tokio::test]
+    async fn migrate_legacy_skips_db_referenced_dir() {
+        let db = init_db_memory().unwrap();
+        let root = tempfile::tempdir().unwrap();
+
+        let keep = root.path().join("active-ws");
+        std::fs::create_dir_all(&keep).unwrap();
+        let orphan = root.path().join("orphan-ws");
+        std::fs::create_dir_all(&orphan).unwrap();
+
+        // Seed a DB row whose worktree_path points to `keep`.
+        {
+            let conn = db.lock();
+            let r = Repo {
+                repo_id: new_id(),
+                path: "/r".into(),
+                display_name: "r".into(),
+                added_at: now_ms(),
+                icon: None,
+                hidden: false,
+                sort_index: 0,
+                run_command: None,
+                setup_command: None,
+            };
+            repos::create(&conn, &r).unwrap();
+            let t = Task {
+                task_id: new_id(),
+                repo_id: r.repo_id.clone(),
+                title: "t".into(),
+                task_text: "t".into(),
+                status: "active".into(),
+                created_at: now_ms(),
+            };
+            tasks::create(&conn, &t).unwrap();
+            let ws = Workspace {
+                workspace_id: new_id(),
+                task_id: t.task_id,
+                name: "ws".into(),
+                worktree_path: keep.to_string_lossy().into_owned(),
+                branch_name: "mozart/ws".into(),
+                base_branch: "main".into(),
+                status: "ready".into(),
+                pinned: false,
+                unread: false,
+                created_at: now_ms(),
+                deletion_intent: 0,
+                ui_status: "backlog".into(),
+                last_merge_action: None,
+                sandbox_level: "L2Project".into(),
+                pr_url: None,
+                pr_number: None,
+                pr_state: None,
+            };
+            workspaces::create(&conn, &ws).unwrap();
+        }
+
+        let removed = migrate_legacy_root_impl(&db, root.path())
+            .await
+            .expect("migrate ok");
+        assert_eq!(removed, 1, "only the orphan must be removed");
+        assert!(keep.exists(), "DB-referenced dir must survive");
+        assert!(!orphan.exists(), "orphan must be gone");
+        // Root still has `keep` in it, so it must not be dropped.
+        assert!(root.path().exists(), "non-empty root must survive");
+    }
+
+    #[tokio::test]
+    async fn migrate_legacy_removes_nested_project_dirs() {
+        let db = init_db_memory().unwrap();
+        let root = tempfile::tempdir().unwrap();
+
+        // Nested layout: <root>/<project>/<workspace>
+        let project_dir = root.path().join("mozart");
+        let ws1 = project_dir.join("eminem");
+        let ws2 = project_dir.join("callas");
+        std::fs::create_dir_all(&ws1).unwrap();
+        std::fs::create_dir_all(&ws2).unwrap();
+
+        let removed = migrate_legacy_root_impl(&db, root.path())
+            .await
+            .expect("migrate ok");
+        // ws1 + ws2 + project_dir (emptied) = 3
+        assert_eq!(removed, 3, "nested workspace dirs + empty parent must be counted");
+        assert!(!ws1.exists());
+        assert!(!ws2.exists());
+        assert!(!project_dir.exists(), "empty project dir must be pruned");
     }
 }

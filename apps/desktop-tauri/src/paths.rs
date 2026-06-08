@@ -147,6 +147,13 @@ pub fn projects_root() -> Result<PathBuf, AppError> {
     Ok(data_dir()?.join("projects"))
 }
 
+/// Root of the pre-`paths.rs` legacy worktree storage: `$HOME/.mozart/worktrees/`.
+/// Returns `None` when `$HOME` is unresolvable. The path may not exist —
+/// callers must check before acting.
+pub fn legacy_worktrees_root() -> Option<PathBuf> {
+    home().map(|h| h.join(".mozart").join("worktrees"))
+}
+
 /// Bundled "Get started" clone, kept inside the projects root.
 pub fn get_started_dir() -> Result<PathBuf, AppError> {
     Ok(projects_root()?.join("get-started"))
