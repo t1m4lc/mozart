@@ -586,6 +586,15 @@ pub async fn list_branches(repo_path: String) -> Result<Vec<String>, AppError> {
     git_query::list_branches(std::path::Path::new(&repo_path)).await
 }
 
+/// The repo's currently checked-out branch, or `None` on a detached
+/// HEAD. Backs the create-workspace base-branch default so a new
+/// workspace forks from (and its PR targets) the branch the user is on.
+#[tauri::command]
+#[specta::specta]
+pub async fn current_branch(repo_path: String) -> Result<Option<String>, AppError> {
+    git_query::current_branch(std::path::Path::new(&repo_path)).await
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn create_workspace(

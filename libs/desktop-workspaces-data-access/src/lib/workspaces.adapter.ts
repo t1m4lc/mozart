@@ -49,6 +49,11 @@ export interface WorkspacesAdapter {
 
   listBranches(repoPath: string): Promise<string[]>;
 
+  /** The repo's currently checked-out branch, or `null` on a detached
+   *  HEAD. Seeds the create-workspace base-branch default so a new
+   *  workspace forks from (and its PR targets) the branch the user is on. */
+  currentBranch(repoPath: string): Promise<string | null>;
+
   /** The project's configured default base branch (`git.baseBranch` from
    *  resolved settings: defaults ◀ global ◀ project). The facade validates it
    *  against the live branch list before forking a workspace from it. */

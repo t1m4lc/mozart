@@ -245,8 +245,8 @@ export class WorkspacesFacade {
   //   2. Insert a pending ghost row in the store so the sidebar shows
   //      an immediate skeleton.
   //   3. Resolve the base branch: an explicit `baseBranch` (from the picker)
-  //      if it exists, else the project's configured `git.baseBranch`, else
-  //      'main', else the first branch.
+  //      if it exists, else the repo's current branch, else the project's
+  //      configured `git.baseBranch`, else 'main', else the first branch.
   //   4. Call Tauri create_workspace. taskText defaults to 'none' in
   //      v0.1.0-beta.1 — Step 4 will let the user set a real prompt via the
   //      chat composer.
@@ -254,8 +254,9 @@ export class WorkspacesFacade {
   //   6. On any failure: drop the ghost and rethrow for the caller to
   //      toast.
   /** Branches the project's worktrees can fork from, plus the resolved default
-   *  selection (configured `git.baseBranch` if it exists, else main/first).
-   *  Backs the create-workspace branch picker. */
+   *  selection (the repo's current branch if available, else configured
+   *  `git.baseBranch`, else main/first). Backs the create-workspace branch
+   *  picker. */
   async branchOptions(
     projectId: string,
   ): Promise<{ branches: readonly string[]; defaultBranch: string }> {
@@ -263,18 +264,23 @@ export class WorkspacesFacade {
     if (!project) {
       throw new Error(`unknown project ${projectId}`);
     }
-    const [branches, configured] = await Promise.all([
+    const [branches, configured, current] = await Promise.all([
       this.adapter.listBranches(project.path),
       this.adapter.configuredBaseBranch(projectId),
+      this.adapter.currentBranch(project.path),
     ]);
-    return { branches, defaultBranch: resolveBaseBranch(branches, configured) };
+    return {
+      branches,
+      defaultBranch: resolveBaseBranch(branches, current ?? configured),
+    };
   }
 
   async createForPrompt(input: {
     projectId: string;
     isGetStarted?: boolean;
-    /** Explicit base branch (from the picker). When unset, the project's
-     *  configured `git.baseBranch` is used (falling back to main/first). */
+    /** Explicit base branch (from the picker). When unset, the repo's
+     *  current branch is used (falling back to configured `git.baseBranch`,
+     *  then main/first). */
     baseBranch?: string;
   }): Promise<string> {
     const project = this.projects.byId(input.projectId)();
@@ -306,13 +312,15 @@ export class WorkspacesFacade {
 
     try {
       const branches = await this.adapter.listBranches(project.path);
-      const baseBranch =
-        input.baseBranch && branches.includes(input.baseBranch)
-          ? input.baseBranch
-          : resolveBaseBranch(
-              branches,
-              await this.adapter.configuredBaseBranch(input.projectId),
-            );
+      let baseBranch: string;
+      if (input.baseBranch && branches.includes(input.baseBranch)) {
+        baseBranch = input.baseBranch;
+      } else {
+        const preferred =
+          (await this.adapter.currentBranch(project.path)) ??
+          (await this.adapter.configuredBaseBranch(input.projectId));
+        baseBranch = resolveBaseBranch(branches, preferred);
+      }
 
       const dto = await this.adapter.create({
         projectId: input.projectId,
