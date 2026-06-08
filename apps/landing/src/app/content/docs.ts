@@ -23,6 +23,7 @@ export interface DocsGroup {
 
 const COMING_SOON_GROUPS: readonly DocsGroup[] = [
   { slug: 'how-to', title: 'How-to Guides', entries: [], isComingSoon: true },
+  { slug: 'reference', title: 'Reference', entries: [], isComingSoon: true },
 ];
 
 const DOCS_PATH_MARKER = '/src/content/docs/';
