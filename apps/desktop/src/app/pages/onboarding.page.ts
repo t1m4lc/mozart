@@ -78,8 +78,14 @@ import { MzLoader } from '@mozart-ui/loader';
             }
           }
 
-          <!-- Footer left slot: Back button on steps that have one -->
+          <!-- Footer left slot: centered Get started on welcome, Back on steps that have one -->
           @switch (facade.currentStep()) {
+            @case ('welcome') {
+              <button footer-left hlmBtn type="button" class="mx-auto" (click)="facade.advance()">Get started</button>
+            }
+            @case ('git') {
+              <button footer-left hlmBtn variant="ghost" type="button" (click)="facade.back()">Back</button>
+            }
             @case ('provider') {
               <button footer-left hlmBtn variant="ghost" type="button" (click)="facade.back()">Back</button>
             }
@@ -88,11 +94,8 @@ import { MzLoader } from '@mozart-ui/loader';
             }
           }
 
-          <!-- Footer right slot: primary action per step -->
+          <!-- Footer right slot: primary action per step (not welcome — handled in footer-left) -->
           @switch (facade.currentStep()) {
-            @case ('welcome') {
-              <button footer-right hlmBtn type="button" (click)="facade.advance()">Get started</button>
-            }
             @case ('git') {
               <button footer-right hlmBtn type="button" [disabled]="!facade.canAdvance()" (click)="facade.advance()">Continue</button>
             }
