@@ -222,36 +222,48 @@ pub(crate) async fn install_workspace_packages_impl(
         ws.worktree_path
     };
 
+    use crate::platform::NoWindow;
     let worktree = std::path::Path::new(&worktree_path);
-    if !worktree.join("package.json").exists() {
+
+    // Resolve the package manager AND its real executable (npm.cmd on
+    // Windows) up-front. `None` => no package.json.
+    let Some(pm) = crate::platform::resolve_package_manager(worktree) else {
         return Ok(InstallResult {
             manager: "none".into(),
             ran: false,
             success: false,
             message: String::new(),
         });
-    }
-
-    let manager = if worktree.join("pnpm-lock.yaml").exists() {
-        "pnpm"
-    } else if worktree.join("yarn.lock").exists() {
-        "yarn"
-    } else if worktree.join("package-lock.json").exists() {
-        "npm"
-    } else {
-        "npm"
     };
 
-    let output = tokio::process::Command::new(manager)
+    // Serialize installs per workspace so a duplicate / concurrent call
+    // cannot spawn a second package-manager process tree (on Windows each
+    // child flashed a console — the runaway-terminal loop).
+    let install_lock = install_lock_for(&workspace_id);
+    let _install_guard = install_lock.lock().await;
+
+    // Idempotent: if dependencies are already installed (a retry, or a
+    // second call that raced the first), don't re-run.
+    if worktree.join("node_modules").exists() {
+        return Ok(InstallResult {
+            manager: pm.name.to_string(),
+            ran: true,
+            success: true,
+            message: String::new(),
+        });
+    }
+
+    let output = tokio::process::Command::new(&pm.program)
         .arg("install")
         .current_dir(worktree)
         // Augment PATH so managers installed via nvm, volta, etc. are
         // found even when the app was launched from a GUI launcher with
         // a minimal system PATH.
         .env("PATH", crate::shell_env::augmented_path())
+        .no_window()
         .output()
         .await
-        .map_err(|e| AppError::Io(format!("spawn {} install: {e}", manager)))?;
+        .map_err(|e| AppError::Io(format!("spawn {} install: {e}", pm.name)))?;
 
     let success = output.status.success();
     let stderr_tail = if success {
@@ -265,11 +277,23 @@ pub(crate) async fn install_workspace_packages_impl(
     };
 
     Ok(InstallResult {
-        manager: manager.to_string(),
+        manager: pm.name.to_string(),
         ran: true,
         success,
         message: stderr_tail,
     })
+}
+
+/// Per-workspace install serialization (see `install_workspace_packages_impl`).
+/// Calls for one workspace queue on this lock; once the first install
+/// finishes the rest short-circuit on the `node_modules` idempotency check.
+fn install_lock_for(workspace_id: &str) -> std::sync::Arc<tokio::sync::Mutex<()>> {
+    use std::collections::HashMap;
+    use std::sync::{Arc, Mutex, OnceLock};
+    static LOCKS: OnceLock<Mutex<HashMap<String, Arc<tokio::sync::Mutex<()>>>>> = OnceLock::new();
+    let map = LOCKS.get_or_init(|| Mutex::new(HashMap::new()));
+    let mut guard = map.lock().expect("install locks poisoned");
+    guard.entry(workspace_id.to_string()).or_default().clone()
 }
 
 /// Create an empty directory `<parent>/<name>` for a fresh "Quick start"
@@ -2440,11 +2464,7 @@ pub async fn open_path_in_file_manager(path: String) -> Result<(), AppError> {
     let program = "explorer";
     #[cfg(all(unix, not(target_os = "macos")))]
     let program = "xdg-open";
-    tokio::process::Command::new(program)
-        .arg(&path)
-        .spawn()
-        .map_err(|e| AppError::Io(format!("open file manager ({program}): {e}")))?;
-    Ok(())
+    crate::platform::spawn_background(program, &[std::ffi::OsStr::new(&path)], None)
 }
 
 /// Flat list of changed files in the workspace's worktree. Powers the
@@ -3412,8 +3432,9 @@ pub async fn spawn_codex_login(
 #[tauri::command]
 #[specta::specta]
 pub async fn git_version() -> Result<Option<String>, AppError> {
+    use crate::platform::NoWindow;
     use std::process::Command;
-    let result = Command::new("git").arg("--version").output();
+    let result = Command::new("git").arg("--version").no_window().output();
     let output = match result {
         Ok(o) => o,
         Err(_) => return Ok(None),
@@ -3444,11 +3465,13 @@ pub struct GitIdentity {
 #[tauri::command]
 #[specta::specta]
 pub async fn git_identity() -> Result<Option<GitIdentity>, AppError> {
+    use crate::platform::NoWindow;
     use std::process::Command;
 
     fn config_value(key: &str) -> Option<String> {
         let out = Command::new("git")
             .args(["config", "--global", "--get", key])
+            .no_window()
             .output()
             .ok()?;
         if !out.status.success() {
