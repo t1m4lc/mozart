@@ -27,6 +27,7 @@ pub mod sound;
 pub mod staging;
 pub mod terminal;
 pub mod terminal_registry;
+pub mod update;
 pub mod workspace_run_registry;
 pub mod workspace_service;
 pub mod worktree;

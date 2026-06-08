@@ -316,6 +316,23 @@ function provideWorkspacesAdapter(): Provider {
         if (r.status === 'error') throw r.error;
         return r.data;
       },
+      async baseFreshness(workspaceId, fetch) {
+        const r = await commands.getWorkspaceBaseFreshness(workspaceId, fetch);
+        if (r.status === 'error') throw r.error;
+        return {
+          behind: r.data.behind,
+          ahead: r.data.ahead,
+          remoteTracked: r.data.remote_tracked,
+        };
+      },
+      async updateFromBase(workspaceId) {
+        // Bespoke unwrap like mergeLocally: preserve the typed AppError
+        // discriminator so the caller can route toasts on `err.kind`
+        // (MergeDirtyTree / Frozen).
+        const r = await commands.updateWorkspaceFromBase(workspaceId);
+        if (r.status === 'error') throw r.error;
+        return r.data;
+      },
       async createPr(workspaceId, title, body, draft) {
         // Same bespoke-unwrap pattern as mergeLocally: surface the
         // typed AppError so the caller can route toasts on `err.kind`

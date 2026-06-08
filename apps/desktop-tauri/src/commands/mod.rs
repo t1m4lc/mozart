@@ -48,6 +48,7 @@ use crate::file_watcher_registry::FileWatcherRegistry;
 use crate::github::{self, CreatedPr, GithubProbeResult};
 use crate::ide_launch::{self, DetectedIde};
 use crate::merge::{self, MergeOutcome};
+use crate::update::{self, BaseFreshness};
 use crate::path_guard::{self, validate_workspace_relative_path};
 use crate::terminal::{self, TerminalEvent};
 use crate::terminal_registry::TerminalRegistry;
@@ -3050,6 +3051,74 @@ pub async fn merge_workspace_locally(
             // P0.2 freeze trigger — the IPC guards key off `ui_status`.
             workspaces::set_ui_status(&conn, &workspace_id, "done")?;
         }
+    }
+    Ok(outcome)
+}
+
+/// "Update from base" — behind/ahead probe of the workspace branch
+/// relative to `origin/<base>`. Backs the toolbar freshness chip.
+///
+/// `fetch = false` reads the last-fetched remote ref (cheap; used on
+/// hydrate so the chip renders without a network round-trip).
+/// `fetch = true` does a best-effort `git fetch` first (used on demand /
+/// when opening the update flow). Measuring against `origin/<base>` — not
+/// the local base — means a stale local base can't show a false "up to
+/// date".
+#[tauri::command]
+#[specta::specta]
+pub async fn get_workspace_base_freshness(
+    db: State<'_, DbState>,
+    workspace_id: String,
+    fetch: bool,
+) -> Result<BaseFreshness, AppError> {
+    let (worktree_path, branch_name, base_branch) = {
+        let conn = db.lock();
+        let ws = workspaces::get(&conn, &workspace_id)?;
+        (ws.worktree_path, ws.branch_name, ws.base_branch)
+    };
+    update::base_freshness(
+        std::path::Path::new(&worktree_path),
+        &branch_name,
+        &base_branch,
+        fetch,
+    )
+    .await
+}
+
+/// "Update from base" flow — merges the freshest `origin/<base>` into the
+/// workspace branch (the mirror of `merge_workspace_locally`).
+///
+/// Returns:
+/// - `MergeOutcome { status: "done", conflicting_files: [] }` — base
+///   pulled in (or already up to date). Runtime status is left untouched
+///   (this is not the freeze path).
+/// - `MergeOutcome { status: "conflict", conflicting_files: […] }` and
+///   flips `workspace.status = 'conflict'`. The worktree is left
+///   mid-merge for the user to resolve in their IDE.
+///
+/// Surfaces typed precondition failures as `AppError`:
+/// - `MergeDirtyTree` → frontend toast "Commit your changes before updating."
+#[tauri::command]
+#[specta::specta]
+pub async fn update_workspace_from_base(
+    db: State<'_, DbState>,
+    workspace_id: String,
+) -> Result<MergeOutcome, AppError> {
+    let (worktree_path, branch_name, base_branch) = {
+        let conn = db.lock();
+        workspaces::assert_workspace_active(&conn, &workspace_id)?;
+        let ws = workspaces::get(&conn, &workspace_id)?;
+        (ws.worktree_path, ws.branch_name, ws.base_branch)
+    };
+    let outcome = update::update_workspace_from_base(
+        std::path::Path::new(&worktree_path),
+        &branch_name,
+        &base_branch,
+    )
+    .await?;
+    if outcome.status == merge::STATUS_CONFLICT {
+        let conn = db.lock();
+        workspaces::update_status(&conn, &workspace_id, merge::STATUS_CONFLICT)?;
     }
     Ok(outcome)
 }

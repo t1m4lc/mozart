@@ -15,6 +15,7 @@ import type { MergeAction, Workspace } from '@mozart/desktop-workspaces-util';
 import { WorkspaceStore } from './workspace.store';
 import {
   WORKSPACES_ADAPTER,
+  type BaseFreshness,
   type CreatedPr,
   type InstallPackagesResult,
 } from './workspaces.adapter';
@@ -631,6 +632,21 @@ export class WorkspacesFacade {
    *  `AppError.kind` (MergeDirtyTree / MergeBaseAhead). */
   async mergeLocally(id: string) {
     return this.adapter.mergeLocally(id);
+  }
+
+  /** Behind/ahead of the workspace branch vs. `origin/<base>`. `fetch`
+   *  is false on hydrate (cheap local read) and true on demand / when
+   *  opening the update flow. */
+  async baseFreshness(id: string, fetch: boolean): Promise<BaseFreshness> {
+    return this.adapter.baseFreshness(id, fetch);
+  }
+
+  /** Pull the freshest `origin/<base>` into the workspace branch. The
+   *  frontend uses the outcome to route toasts ("Updated from <base>" vs
+   *  "Conflicts in N files…"). Errors are thrown raw so callers can
+   *  pattern-match on the typed `AppError.kind` (MergeDirtyTree). */
+  async updateFromBase(id: string) {
+    return this.adapter.updateFromBase(id);
   }
 }
 

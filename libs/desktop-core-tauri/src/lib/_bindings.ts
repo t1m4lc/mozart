@@ -1581,6 +1581,62 @@ export const commands = {
     }
   },
   /**
+   * "Update from base" — behind/ahead probe of the workspace branch
+   * relative to `origin/<base>`. Backs the toolbar freshness chip.
+   *
+   * `fetch = false` reads the last-fetched remote ref (cheap; used on
+   * hydrate so the chip renders without a network round-trip).
+   * `fetch = true` does a best-effort `git fetch` first (used on demand /
+   * when opening the update flow). Measuring against `origin/<base>` — not
+   * the local base — means a stale local base can't show a false "up to
+   * date".
+   */
+  async getWorkspaceBaseFreshness(
+    workspaceId: string,
+    fetch: boolean,
+  ): Promise<Result<BaseFreshness, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('get_workspace_base_freshness', {
+          workspaceId,
+          fetch,
+        }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
+   * "Update from base" flow — merges the freshest `origin/<base>` into the
+   * workspace branch (the mirror of `merge_workspace_locally`).
+   *
+   * Returns:
+   * - `MergeOutcome { status: "done", conflicting_files: [] }` — base
+   * pulled in (or already up to date). Runtime status is left untouched
+   * (this is not the freeze path).
+   * - `MergeOutcome { status: "conflict", conflicting_files: […] }` and
+   * flips `workspace.status = 'conflict'`. The worktree is left
+   * mid-merge for the user to resolve in their IDE.
+   *
+   * Surfaces typed precondition failures as `AppError`:
+   * - `MergeDirtyTree` → frontend toast "Commit your changes before updating."
+   */
+  async updateWorkspaceFromBase(
+    workspaceId: string,
+  ): Promise<Result<MergeOutcome, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('update_workspace_from_base', { workspaceId }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Persist the workspace's last merge-action choice (`'pr'` or `'local'`).
    * The right-aside primary-button label routes off this column with
    * `project_local_config.merge_mode` as the fallback. Fires on every
@@ -2354,6 +2410,26 @@ export type MergeOutcome = {
    * --diff-filter=U`. Empty when `status == "done"`.
    */
   conflicting_files: string[];
+};
+/**
+ * How far the workspace branch has drifted from `origin/<base>`.
+ */
+export type BaseFreshness = {
+  /**
+   * Commits on `origin/<base>` not yet in the workspace branch — the
+   * "N behind <base>" count. `0` means up to date.
+   */
+  behind: number;
+  /**
+   * Commits on the workspace branch not yet on `origin/<base>`.
+   */
+  ahead: number;
+  /**
+   * `false` when `origin/<base>` couldn't be resolved (no remote, or
+   * it was never fetched). `behind`/`ahead` are then measured against
+   * the local base ref as a fallback, and the UI can soften its copy.
+   */
+  remote_tracked: boolean;
 };
 export type Message = {
   message_id: string;

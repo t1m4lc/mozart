@@ -6,6 +6,7 @@ import {
   inject,
   input,
   resource,
+  signal,
   TemplateRef,
   viewChild,
 } from '@angular/core';
@@ -17,6 +18,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucidePanelLeft } from '@ng-icons/lucide';
+import { toast } from '@spartan-ng/brain/sonner';
 import { LayoutService } from '@mozart/desktop-ui-state-data-access';
 import { MacWindowControls } from '@mozart/desktop-core-ui';
 import { ChatFacade } from '@mozart/desktop-chat-data-access';
@@ -79,11 +81,14 @@ import { WorkspaceDetailStore } from '@mozart/desktop-workspaces-data-access';
       [workspaceStatus]="workspaceStatus()"
       [frozen]="frozen()"
       [hasUncommittedChanges]="hasUncommittedChanges()"
+      [baseFreshness]="baseFreshness()"
+      [updatingFromBase]="updatingFromBase()"
       data-tour="aside-header-buttons"
       (toggleRightPanel)="layout.toggleRightPanel()"
       (workspaceTitleChange)="onRename($event)"
       (openIn)="onOpenIn($event)"
       (commit)="onCommit()"
+      (updateFromBase)="onUpdateFromBase()"
       (openPr)="onOpenPr()"
       (openRepoFolder)="onOpenRepoFolder()"
       (openRepoRemote)="onOpenRepoRemote()"
@@ -194,6 +199,24 @@ export class WorkspaceDetailPage {
     () => (this.changedFilesResource.value()?.length ?? 0) > 0,
   );
 
+  // Base freshness for the toolbar chip. Cheap-local read on hydrate
+  // (fetch=false) — no network round-trip; the chip renders immediately
+  // from the last-fetched `origin/<base>` ref. The on-demand fetch
+  // happens inside the update flow (`onUpdateFromBase`), which reloads
+  // this resource afterwards.
+  private readonly baseFreshnessResource = resource({
+    params: () => ({ id: this.workspaceId() ?? null }),
+    loader: ({ params }) =>
+      params.id
+        ? this.workspaces.baseFreshness(params.id, false)
+        : Promise.resolve(null),
+  });
+  protected readonly baseFreshness = computed(
+    () => this.baseFreshnessResource.value() ?? null,
+  );
+  // True while an update-from-base merge is in flight.
+  protected readonly updatingFromBase = signal(false);
+
   protected readonly runStatus = computed(() => {
     const id = this.workspaceId();
     if (!id) return 'idle' as const;
@@ -282,6 +305,52 @@ export class WorkspaceDetailPage {
     this.dialog.open(FeatureCommitDialog, { context });
   }
 
+  // Update-from-base flow. Merges the freshest `origin/<base>` into the
+  // workspace branch (mirrors the merge flow's toast routing). Refuses a
+  // dirty tree; a conflict leaves the worktree mid-merge for the user to
+  // resolve in their IDE.
+  protected async onUpdateFromBase(): Promise<void> {
+    const id = this.workspaceId();
+    if (!id || this.updatingFromBase()) return;
+    const baseName = this.workspace()?.baseBranch ?? 'base';
+    const wasBehind = (this.baseFreshness()?.behind ?? 0) > 0;
+    this.updatingFromBase.set(true);
+    try {
+      const outcome = await this.workspaces.updateFromBase(id);
+      if (outcome.status === 'conflict') {
+        const n = outcome.conflicting_files.length;
+        toast.error(
+          `Conflicts in ${n} ${n === 1 ? 'file' : 'files'}. Resolve in your editor — Open in IDE`,
+        );
+        return;
+      }
+      toast.success(
+        wasBehind
+          ? `Updated from ${baseName}`
+          : `Already up to date with ${baseName}`,
+      );
+    } catch (err) {
+      const kind = readAppErrorKind(err);
+      if (kind === 'MergeDirtyTree') {
+        toast.error('Commit your changes before updating.');
+        return;
+      }
+      if (kind === 'Frozen') {
+        toast.error('This workspace is read-only.');
+        return;
+      }
+      console.warn('[detail] update from base failed:', err);
+      toast.error('Update failed.', {
+        description: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      this.updatingFromBase.set(false);
+      // Re-read freshness (this run fetched origin/<base>), so the chip
+      // reflects the post-update state.
+      this.baseFreshnessResource.reload();
+    }
+  }
+
   protected async onRun(): Promise<void> {
     const id = this.workspaceId();
     if (!id) return;
@@ -334,4 +403,20 @@ export class WorkspaceDetailPage {
     const url = this.repoUrl();
     if (url) void this.externalLink.openExternal(url);
   }
+}
+
+// `AppError` crosses the IPC boundary as `{ kind, message }`. Adapters
+// re-throw the raw object; this guard lets the update-flow toast router
+// pattern-match on `kind` without depending on a runtime type from
+// `_bindings`.
+function readAppErrorKind(err: unknown): string | null {
+  if (
+    err &&
+    typeof err === 'object' &&
+    'kind' in err &&
+    typeof (err as { kind: unknown }).kind === 'string'
+  ) {
+    return (err as { kind: string }).kind;
+  }
+  return null;
 }

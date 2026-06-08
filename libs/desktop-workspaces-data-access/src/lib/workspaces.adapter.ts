@@ -22,6 +22,16 @@ export interface MergeOutcome {
   readonly conflicting_files: readonly string[];
 }
 
+/** Behind/ahead of the workspace branch relative to `origin/<base>`.
+ *  Backs the toolbar freshness chip. `remoteTracked` is false when
+ *  `origin/<base>` couldn't be resolved (no remote / never fetched), in
+ *  which case the counts fall back to the local base ref. */
+export interface BaseFreshness {
+  readonly behind: number;
+  readonly ahead: number;
+  readonly remoteTracked: boolean;
+}
+
 /** Result of a successful `create_workspace_pr` call. Mirrors the
  *  GitHub REST response surface; declared locally so this lib has no
  *  inbound dep on `_bindings.ts`. The adapter impl maps `html_url`
@@ -93,6 +103,17 @@ export interface WorkspacesAdapter {
   /** P2.6 — run the six-step local merge flow. Returns the outcome the
    *  frontend uses to route toasts / mark conflicting files. */
   mergeLocally(workspaceId: string): Promise<MergeOutcome>;
+
+  /** Behind/ahead of the workspace branch vs. `origin/<base>`. `fetch`
+   *  controls whether the remote is hit first: `false` on hydrate (cheap
+   *  local read), `true` on demand / when opening the update flow. */
+  baseFreshness(workspaceId: string, fetch: boolean): Promise<BaseFreshness>;
+
+  /** Merge the freshest `origin/<base>` into the workspace branch (mirror
+   *  of `mergeLocally`). Throws `AppError` on precondition failure
+   *  (`MergeDirtyTree`); returns the outcome for toast routing /
+   *  conflict marking otherwise. */
+  updateFromBase(workspaceId: string): Promise<MergeOutcome>;
 
   /** P1.1 — push the branch (idempotent) then open a GitHub PR via the
    *  REST API. Requires a stored GitHub token AND the project's origin

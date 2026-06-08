@@ -21,6 +21,7 @@ use crate::github::{CreatedPr, GithubProbeResult, GithubRemoteStatus};
 use crate::ide_launch::DetectedIde;
 use crate::merge::MergeOutcome;
 use crate::terminal::TerminalEvent;
+use crate::update::BaseFreshness;
 
 pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
     // The base command list is held in a local macro so it can be expanded
@@ -123,6 +124,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::create_workspace_pr,
                 commands::open_path_in_file_manager,
                 commands::merge_workspace_locally,
+                commands::get_workspace_base_freshness,
+                commands::update_workspace_from_base,
                 commands::set_workspace_last_merge_action,
                 commands::set_workspace_sandbox_level,
                 commands::auth_load_session,
@@ -183,6 +186,7 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
         .typ::<TerminalEvent>()
         .typ::<DetectedIde>()
         .typ::<MergeOutcome>()
+        .typ::<BaseFreshness>()
         .typ::<ChangedFile>()
         .typ::<commands::FileViewState>()
         .typ::<commands::FileViewStatus>()

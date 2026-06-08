@@ -25,6 +25,7 @@ import {
 } from '@mozart/desktop-workspaces-util';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
+  lucideArrowDown,
   lucideCheck,
   lucideChevronDown,
   lucideCircleStop,
@@ -37,6 +38,7 @@ import {
   lucidePanelRight,
   lucidePlay,
 } from '@ng-icons/lucide';
+import type { BaseFreshness } from '@mozart/desktop-workspaces-data-access';
 import { HlmBreadcrumbImports } from '@spartan-ui/breadcrumb';
 import { HlmButtonImports } from '@spartan-ui/button';
 import { HlmDropdownMenuImports } from '@spartan-ui/dropdown-menu';
@@ -63,6 +65,7 @@ import { FeatureWorkspaceAside } from './feature-workspace-aside';
   ],
   providers: [
     provideIcons({
+      lucideArrowDown,
       lucideCheck,
       lucideChevronDown,
       lucideCircleStop,
@@ -197,6 +200,39 @@ import { FeatureWorkspaceAside } from './feature-workspace-aside';
             <ng-icon hlm name="lucideGitCommitVertical" size="sm" />
             <span>Commit</span>
           </button>
+
+          @if (baseFreshness(); as f) {
+            <button
+              hlmBtn
+              variant="ghost"
+              size="sm"
+              type="button"
+              class="h-7 gap-1.5 px-2 text-xs font-normal"
+              [class.text-brand]="f.behind > 0 && !frozen()"
+              [class.text-muted-foreground]="!(f.behind > 0 && !frozen())"
+              [hlmTooltip]="
+                f.behind > 0
+                  ? 'Update from ' + baseBranch()
+                  : 'Up to date with ' + baseBranch()
+              "
+              position="bottom"
+              [disabled]="frozen() || updatingFromBase()"
+              (click)="updateFromBase.emit()"
+            >
+              <ng-icon
+                hlm
+                [name]="f.behind > 0 ? 'lucideArrowDown' : 'lucideCheck'"
+                size="sm"
+              />
+              <span>
+                {{
+                  f.behind > 0
+                    ? f.behind + ' behind ' + baseBranch()
+                    : 'Up to date'
+                }}
+              </span>
+            </button>
+          }
 
           @if (prNumber(); as n) {
             <button
@@ -388,11 +424,19 @@ export class WorkspaceToolbar {
   // Working tree has uncommitted changes → the Commit button goes brand-
   // colored to signal "you have changes to commit".
   readonly hasUncommittedChanges = input<boolean>(false);
+  // Behind/ahead of the workspace branch vs. `origin/<base>`. Null until
+  // the cheap-local probe resolves (the chip is hidden until then). When
+  // `behind > 0` the chip goes brand-colored and offers "Update from
+  // <base>"; otherwise it reads "Up to date".
+  readonly baseFreshness = input<BaseFreshness | null>(null);
+  // True while an update-from-base merge is running → disables the chip.
+  readonly updatingFromBase = input<boolean>(false);
 
   readonly toggleRightPanel = output<void>();
   readonly workspaceTitleChange = output<string>();
   readonly openIn = output<OpenInTool>();
   readonly commit = output<void>();
+  readonly updateFromBase = output<void>();
   readonly openPr = output<void>();
   readonly openRepoFolder = output<void>();
   readonly openRepoRemote = output<void>();
