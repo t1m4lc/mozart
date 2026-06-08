@@ -135,7 +135,7 @@ pub async fn list_branch_diff_files(
     worktree: &Path,
     base_branch: &str,
 ) -> Result<Vec<ChangedFile>, AppError> {
-    diff_files_for_rev(worktree, base_branch).await
+    diff_files_for_rev(worktree, base_branch, true).await
 }
 
 /// Files committed on the branch since it diverged from `base_branch`, via the
@@ -146,16 +146,21 @@ pub async fn list_committed_files(
     worktree: &Path,
     base_branch: &str,
 ) -> Result<Vec<ChangedFile>, AppError> {
-    diff_files_for_rev(worktree, &format!("{base_branch}...HEAD")).await
+    diff_files_for_rev(worktree, &format!("{base_branch}...HEAD"), false).await
 }
 
 /// Shared body for the two diff-listing commands: `git diff --name-status`
 /// against `rev` for the file set, overlaid with a `--numstat` pass for the
 /// per-file line counts. `rev` is either a branch name (two-dot, vs working
 /// tree) or a `a...b` range (three-dot, vs merge-base).
+///
+/// `include_untracked` adds working-tree files git doesn't track yet — right
+/// for the working-tree diff (vs base branch), wrong for a committed range
+/// (`base...HEAD`) where they'd masquerade as already committed.
 async fn diff_files_for_rev(
     worktree: &Path,
     rev: &str,
+    include_untracked: bool,
 ) -> Result<Vec<ChangedFile>, AppError> {
     let out = sandbox::run_git_capture(
         worktree,
@@ -176,31 +181,33 @@ async fn diff_files_for_rev(
         files.iter().map(|f| f.path.clone()).collect();
 
     // Untracked files are invisible to `git diff` — add them separately.
-    if let Ok(ls_out) = sandbox::run_git_capture(
-        worktree,
-        &["ls-files", "--others", "--exclude-standard", "-z"],
-    )
-    .await
-    {
-        if ls_out.status.success() {
-            let raw = String::from_utf8_lossy(&ls_out.stdout);
-            for path in raw.split('\0').filter(|s| !s.is_empty()) {
-                let path = path.replace('\\', "/");
-                if tracked.contains(&path) {
-                    continue;
+    if include_untracked {
+        if let Ok(ls_out) = sandbox::run_git_capture(
+            worktree,
+            &["ls-files", "--others", "--exclude-standard", "-z"],
+        )
+        .await
+        {
+            if ls_out.status.success() {
+                let raw = String::from_utf8_lossy(&ls_out.stdout);
+                for path in raw.split('\0').filter(|s| !s.is_empty()) {
+                    let path = path.replace('\\', "/");
+                    if tracked.contains(&path) {
+                        continue;
+                    }
+                    let mut added = 0i64;
+                    if let Ok(bytes) = tokio::fs::read(worktree.join(&path)).await {
+                        added = bytecount_newlines(&bytes);
+                    }
+                    files.push(ChangedFile {
+                        path,
+                        status: "added".into(),
+                        staged: false,
+                        added,
+                        removed: 0,
+                        has_conflict: false,
+                    });
                 }
-                let mut added = 0i64;
-                if let Ok(bytes) = tokio::fs::read(worktree.join(&path)).await {
-                    added = bytecount_newlines(&bytes);
-                }
-                files.push(ChangedFile {
-                    path,
-                    status: "added".into(),
-                    staged: false,
-                    added,
-                    removed: 0,
-                    has_conflict: false,
-                });
             }
         }
     }

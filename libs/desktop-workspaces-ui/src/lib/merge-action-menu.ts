@@ -68,6 +68,7 @@ import { HlmIconImports } from '@spartan-ui/icon';
           [name]="primaryIcon()"
           size="sm"
           [class.animate-spin]="spinning()"
+          [class.inline-flex]="spinning()"
         />
         <span>{{ primaryLabel() }}</span>
       </button>
