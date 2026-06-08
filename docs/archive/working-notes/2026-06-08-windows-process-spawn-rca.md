@@ -5,7 +5,7 @@
 **Severity:** Critical — makes the app unusable on Windows (workspace creation spawns terminal windows in a loop).
 
 > Verification note: this analysis was produced on a **Linux** host. Every
-> *behavioral* claim about Windows below is derived from the source + the
+> _behavioral_ claim about Windows below is derived from the source + the
 > documented semantics of `CreateProcessW` / Rust's `std::process` /
 > `tokio::process`, **not** from a live Windows run. The items under
 > "Windows-only manual verification" must be confirmed on a real Windows
@@ -47,18 +47,18 @@ long-lived child (the `claude` agent) opens a console that lingers.
 
 Representative pre-fix spawn sites (all missing the flag):
 
-| Site | What it runs |
-|------|--------------|
-| `sandbox/mod.rs` `run_git_capture` | every checkpoint/diff/reset/clone/branch git (the central git path) |
-| `git_query.rs` `check_git_available`, `check_lfs_available` | onboarding git probes |
-| `commands/mod.rs` `git_version`, `git_identity` | onboarding Git-step probes (flashing during onboarding) |
-| `get_started/mod.rs` `ensure_template` | `git clone` of the starter template |
-| `commands/mod.rs` `install_workspace_packages` | `npm/pnpm/yarn install` |
-| `claude_cli/install.rs` `check_installed` | `claude --version` probe |
-| `claude_cli/runner.rs` `spawn_run` | the long-lived `claude` agent |
-| `sound.rs` `play_file` | `powershell … SoundPlayer` end-of-turn chime |
-| `ide_launch.rs` `spawn_detached` | IDE launchers, file-manager |
-| `commands/mod.rs` `open_path_in_file_manager` | `explorer` |
+| Site                                                        | What it runs                                                        |
+| ----------------------------------------------------------- | ------------------------------------------------------------------- |
+| `sandbox/mod.rs` `run_git_capture`                          | every checkpoint/diff/reset/clone/branch git (the central git path) |
+| `git_query.rs` `check_git_available`, `check_lfs_available` | onboarding git probes                                               |
+| `commands/mod.rs` `git_version`, `git_identity`             | onboarding Git-step probes (flashing during onboarding)             |
+| `get_started/mod.rs` `ensure_template`                      | `git clone` of the starter template                                 |
+| `commands/mod.rs` `install_workspace_packages`              | `npm/pnpm/yarn install`                                             |
+| `claude_cli/install.rs` `check_installed`                   | `claude --version` probe                                            |
+| `claude_cli/runner.rs` `spawn_run`                          | the long-lived `claude` agent                                       |
+| `sound.rs` `play_file`                                      | `powershell … SoundPlayer` end-of-turn chime                        |
+| `ide_launch.rs` `spawn_detached`                            | IDE launchers, file-manager                                         |
+| `commands/mod.rs` `open_path_in_file_manager`               | `explorer`                                                          |
 
 Because macOS/Linux never allocate a window for a child process, **none
 of this is visible off-Windows** — which is why it shipped.
@@ -66,7 +66,7 @@ of this is visible off-Windows** — which is why it shipped.
 ### Defect B — setup/install command never converges, and the lifecycle re-runs it (the loop)
 
 Three Windows-only failures make package-manager / setup commands fail
-*every* time, and the install lifecycle reacts by re-running them — each
+_every_ time, and the install lifecycle reacts by re-running them — each
 attempt flashing windows (Defect A) per child process in the tree.
 
 1. **`.cmd`/`.bat` shims aren't resolved.**
@@ -78,7 +78,7 @@ attempt flashing windows (Defect A) per child process in the tree.
 
 2. **POSIX `-c` flag passed to `cmd.exe`.**
    The Run/Setup PTY path (`terminal.rs:128-134`) always appended `-c
-   "<command>"`. `default_shell()` (`terminal.rs:195`) falls back to
+"<command>"`. `default_shell()` (`terminal.rs:195`) falls back to
    `cmd.exe` on Windows, but `cmd.exe` uses **`/C`**, not `-c` — so the
    setup command exits immediately with a usage error. PowerShell would
    need **`-Command`**. The flag was never shell-aware.
@@ -113,7 +113,7 @@ another full install tree.
      `retry({count:2})` re-spawns. (Defect B-2)
    - **Auto-install path:** `installPackages` spawns
      `Command::new("npm")` → not found (`.cmd` not resolved) → throws →
-     `retry({count:2})`. When it *does* resolve, every child in the
+     `retry({count:2})`. When it _does_ resolve, every child in the
      install tree opens a console (Defect A). (Defect B-1 + A)
 4. Each retry, and each child process, opens another console window.
    Closing one does nothing to the others still being spawned → the
@@ -123,11 +123,11 @@ another full install tree.
 
 ## 4. Why Windows-only
 
-| Cause | macOS / Linux | Windows |
-|-------|---------------|---------|
-| Console window per child | Never allocated | Allocated unless `CREATE_NO_WINDOW` |
-| `npm`/`pnpm`/`yarn` resolution | `execvp` finds the binary | `.cmd` shim not found (no `PATHEXT`) |
-| One-shot run flag | `/bin/sh -c` is correct | `cmd.exe` needs `/C`, PS needs `-Command` |
+| Cause                          | macOS / Linux             | Windows                                   |
+| ------------------------------ | ------------------------- | ----------------------------------------- |
+| Console window per child       | Never allocated           | Allocated unless `CREATE_NO_WINDOW`       |
+| `npm`/`pnpm`/`yarn` resolution | `execvp` finds the binary | `.cmd` shim not found (no `PATHEXT`)      |
+| One-shot run flag              | `/bin/sh -c` is correct   | `cmd.exe` needs `/C`, PS needs `-Command` |
 
 All three triggers are Windows-specific; none fire on macOS/Linux.
 
@@ -152,7 +152,7 @@ All three triggers are Windows-specific; none fire on macOS/Linux.
     auditable in one file.
   - Redacted spawn logging (`log_spawn`) — logs program, args, cwd; URL
     credentials masked; no env vars / tokens logged.
-- **Phase 2 — apply.** Route every *background* spawn site through the
+- **Phase 2 — apply.** Route every _background_ spawn site through the
   layer (`no_window` + helpers). The only deliberately window-ful path is
   `open_in_terminal` ("Open in Terminal").
 - **Phase 3 — converge & dedupe.** Resolve the real package-manager
