@@ -1,5 +1,15 @@
 import { commands } from './_bindings';
 import type { OnboardingAdapter } from '@mozart/desktop-onboarding-data-access';
+import {
+  ONBOARDING_STEPS,
+  type OnboardingStep,
+} from '@mozart/desktop-onboarding-util';
+
+function asStep(value: string | null): OnboardingStep | null {
+  return value && (ONBOARDING_STEPS as readonly string[]).includes(value)
+    ? (value as OnboardingStep)
+    : null;
+}
 
 function unwrap<T>(
   r:
@@ -21,6 +31,12 @@ export function tauriOnboardingAdapter(): OnboardingAdapter {
     },
     async set(value: boolean): Promise<void> {
       unwrap(await commands.setOnboardingCompleted(value));
+    },
+    async getStep(): Promise<OnboardingStep | null> {
+      return asStep(unwrap(await commands.getOnboardingStep()));
+    },
+    async setStep(step: OnboardingStep): Promise<void> {
+      unwrap(await commands.setOnboardingStep(step));
     },
   };
 }

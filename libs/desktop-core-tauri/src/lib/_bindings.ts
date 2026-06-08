@@ -1793,6 +1793,28 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async getOnboardingStep(): Promise<Result<string | null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('get_onboarding_step'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async setOnboardingStep(value: string): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('set_onboarding_step', { value }),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   /**
    * Stable anonymous install id used as the PostHog `distinct_id` before
    * sign-in. Generated lazily on first read and persisted.
