@@ -205,6 +205,23 @@ pub async fn remove(repo_path: &Path, worktree_path: &Path) -> Result<(), AppErr
     Ok(())
 }
 
+/// Delete the Mozart-managed git branch in `repo_path`.
+/// Only acts on `mozart/`-prefixed branches — any other name is a no-op so
+/// legacy or externally-created branches are never touched.
+/// Idempotent: branch already gone → `Ok(())`.
+/// Uses `git branch -D` (force) because `remove` has already unregistered
+/// the worktree; `-d` would reject branches with unmerged commits for no reason.
+pub async fn delete_branch(repo_path: &Path, branch_name: &str) -> Result<(), AppError> {
+    if !branch_name.starts_with("mozart/") {
+        return Ok(());
+    }
+    match run_git(repo_path, &["branch", "-D", branch_name]).await {
+        Ok(_) => Ok(()),
+        Err(AppError::GitCmd(msg)) if msg.contains("not found") => Ok(()),
+        Err(e) => Err(e),
+    }
+}
+
 /// Remove every worktree directory under the canonical root that
 /// isn't referenced by any row in the `workspaces` table. Walks two
 /// levels deep to handle the nested `<project>/<workspace>` layout
@@ -908,5 +925,91 @@ mod tests {
         );
 
         restore_root(prev);
+    }
+
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test]
+    async fn delete_branch_happy_path() {
+        if !git_available() {
+            eprintln!("SKIP delete_branch_happy_path: git not on PATH");
+            return;
+        }
+        let _gate = test_env_gate().lock().unwrap_or_else(|e| e.into_inner());
+        let prev = std::env::var_os("MOZART_WORKTREES_ROOT");
+
+        let root_dir = tempfile::tempdir().unwrap();
+        std::env::set_var("MOZART_WORKTREES_ROOT", root_dir.path());
+        let repo = root_dir.path().join("repo");
+        std::fs::create_dir_all(&repo).unwrap();
+        init_repo_with_main(&repo);
+        let db = init_db_memory().unwrap();
+
+        // Create a real worktree so the branch exists, then remove the
+        // worktree dir — simulating the archive_workspace sequence.
+        let handle = create(&db, &repo, "main", "del1234abcdef00", "callas", "Mozart App")
+            .await
+            .expect("create ok");
+        assert_eq!(handle.branch_name, "mozart/callas");
+        remove(&repo, &handle.worktree_path).await.expect("remove ok");
+
+        // Branch still exists after the worktree dir is gone.
+        assert!(
+            branch_exists(&repo, "mozart/callas").await,
+            "precondition: branch must still exist after worktree dir removal"
+        );
+
+        delete_branch(&repo, &handle.branch_name)
+            .await
+            .expect("delete_branch ok");
+
+        assert!(
+            !branch_exists(&repo, "mozart/callas").await,
+            "branch must be gone after delete_branch"
+        );
+
+        restore_root(prev);
+    }
+
+    #[tokio::test]
+    async fn delete_branch_is_idempotent() {
+        if !git_available() {
+            eprintln!("SKIP delete_branch_is_idempotent: git not on PATH");
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        init_repo_with_main(tmp.path());
+
+        // Branch does not exist — must return Ok, not an error.
+        delete_branch(tmp.path(), "mozart/nonexistent")
+            .await
+            .expect("delete of nonexistent branch must be Ok");
+    }
+
+    #[tokio::test]
+    async fn delete_branch_ignores_non_mozart_prefix() {
+        if !git_available() {
+            eprintln!("SKIP delete_branch_ignores_non_mozart_prefix: git not on PATH");
+            return;
+        }
+        let tmp = tempfile::tempdir().unwrap();
+        init_repo_with_main(tmp.path());
+
+        // Create a non-mozart branch and verify delete_branch leaves it alone.
+        let s = Command::new("git")
+            .current_dir(tmp.path())
+            .args(["branch", "feature/keep-me"])
+            .output()
+            .expect("git branch");
+        assert!(s.status.success(), "pre-seed branch failed");
+
+        delete_branch(tmp.path(), "feature/keep-me")
+            .await
+            .expect("Ok for non-mozart prefix");
+
+        // Branch must still exist — prefix guard skipped the delete.
+        assert!(
+            branch_exists(tmp.path(), "feature/keep-me").await,
+            "non-mozart branch must not be deleted"
+        );
     }
 }

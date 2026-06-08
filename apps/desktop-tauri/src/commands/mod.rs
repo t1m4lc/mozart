@@ -456,19 +456,22 @@ pub async fn remove_repo(db: State<'_, DbState>, repo_id: String) -> Result<(), 
 
 pub(crate) async fn remove_repo_impl(db: &DbState, repo_id: String) -> Result<(), AppError> {
     // Snapshot the on-disk state we own BEFORE the DB rows vanish.
-    // After the cascade delete, `workspaces.worktree_path` and
-    // `repos.path` are unreachable — so capture both here.
-    let (repo_path, worktree_paths) = {
+    // After the cascade delete, `workspaces.worktree_path`, `branch_name`,
+    // and `repos.path` are unreachable — so capture all three here.
+    let (repo_path, workspace_data) = {
         let conn = db.lock();
         let repo = repos::get(&conn, &repo_id)?;
         let task_rows = tasks::list_by_repo(&conn, &repo_id)?;
-        let mut wt_paths: Vec<std::path::PathBuf> = Vec::new();
+        let mut data: Vec<(std::path::PathBuf, String)> = Vec::new();
         for t in &task_rows {
             for w in workspaces::list_by_task(&conn, &t.task_id)? {
-                wt_paths.push(std::path::PathBuf::from(w.worktree_path));
+                data.push((
+                    std::path::PathBuf::from(w.worktree_path),
+                    w.branch_name,
+                ));
             }
         }
-        (std::path::PathBuf::from(repo.path), wt_paths)
+        (std::path::PathBuf::from(repo.path), data)
     };
 
     // 1. Drop every DB row associated with this repo (in one tx with
@@ -480,22 +483,24 @@ pub(crate) async fn remove_repo_impl(db: &DbState, repo_id: String) -> Result<()
         repos::delete(&mut conn, &repo_id)?;
     }
 
-    // 2. Best-effort filesystem cleanup. Anything that fails here is
-    //    logged + skipped: the DB rows are already gone, so a stuck
-    //    worktree shouldn't surface as a "couldn't remove project"
-    //    toast. `cleanup_orphans` (called elsewhere on next workspace
-    //    list) will sweep up any leftover dirs.
+    // 2. Best-effort filesystem + branch cleanup. Anything that fails here
+    //    is logged + skipped: the DB rows are already gone, so a stuck
+    //    worktree or branch shouldn't surface as a "couldn't remove project"
+    //    toast. `cleanup_orphans` (called at startup) sweeps up leftover dirs.
     //
-    //    Order: each workspace's worktree first, then the per-project
-    //    parent dir, then the `~/.mozart/projects/<seg>` sandbox dir.
+    //    Order: each workspace's worktree + branch first, then the
+    //    per-project parent dir, then the `<data>/projects/<seg>` sandbox dir.
     let mut project_parents: std::collections::HashSet<std::path::PathBuf> =
         std::collections::HashSet::new();
-    for wt_path in &worktree_paths {
+    for (wt_path, branch_name) in &workspace_data {
         if let Err(e) = worktree::remove(&repo_path, wt_path).await {
             eprintln!(
                 "[remove_repo] worktree::remove({}) failed: {e:?}",
                 wt_path.display()
             );
+        }
+        if let Err(e) = worktree::delete_branch(&repo_path, branch_name).await {
+            eprintln!("[remove_repo] delete_branch({branch_name}) failed: {e:?}");
         }
         if let Some(parent) = wt_path.parent() {
             project_parents.insert(parent.to_path_buf());
@@ -680,10 +685,10 @@ pub(crate) async fn archive_workspace_impl(
     db: &DbState,
     workspace_id: String,
 ) -> Result<(), AppError> {
-    // Resolve the on-disk worktree path and the parent repo path so we
-    // can wipe the directory. Scoped block releases the lock before
-    // the async git call below.
-    let (repo_path, worktree_path) = {
+    // Resolve the on-disk worktree path, repo path, and branch name so we
+    // can wipe the directory and delete the git branch. Scoped block
+    // releases the lock before the async git calls below.
+    let (repo_path, worktree_path, branch_name) = {
         let conn = db.lock();
         let ws = workspaces::get(&conn, &workspace_id)?;
         let task = tasks::get(&conn, &ws.task_id)?;
@@ -691,15 +696,17 @@ pub(crate) async fn archive_workspace_impl(
         (
             std::path::PathBuf::from(repo.path),
             std::path::PathBuf::from(ws.worktree_path),
+            ws.branch_name,
         )
     };
 
-    // Disk wipe BEFORE flipping deletion_intent: if the removal fails
+    // Disk wipe BEFORE flipping deletion_intent: if either removal fails
     // the row stays visible and the user can retry. Doing it the
     // other way around would leak the directory permanently because
     // `cleanup_orphans` skips paths still referenced by any row,
     // including soft-deleted ones.
     worktree::remove(&repo_path, &worktree_path).await?;
+    worktree::delete_branch(&repo_path, &branch_name).await?;
 
     let conn = db.lock();
     workspaces::set_deletion_intent(&conn, &workspace_id, true)
@@ -4136,6 +4143,110 @@ mod tests {
             !wt_path.exists(),
             "worktree directory must be wiped on archive"
         );
+    }
+
+    // archive_workspace deletes the Mozart-owned git branch in addition to
+    // the worktree directory. Requires a real git repo to observe the branch.
+    #[allow(clippy::await_holding_lock)]
+    #[tokio::test]
+    async fn archive_workspace_deletes_mozart_branch() {
+        if !sandbox::git_available() {
+            eprintln!("SKIP archive_workspace_deletes_mozart_branch: git not on PATH");
+            return;
+        }
+        let _gate = sandbox::test_env_gate()
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let prev = std::env::var_os("MOZART_WORKTREES_ROOT");
+
+        let root = tempfile::tempdir().unwrap();
+        std::env::set_var("MOZART_WORKTREES_ROOT", root.path());
+        let repo_path = root.path().join("repo");
+        std::fs::create_dir_all(&repo_path).unwrap();
+        init_repo_with_main(&repo_path);
+
+        // Use worktree::create so we get a real linked worktree + branch.
+        let db = init_db_memory().unwrap();
+        let ws_id = {
+            let conn = db.lock();
+            let r = Repo {
+                repo_id: new_id(),
+                path: repo_path.to_string_lossy().into_owned(),
+                display_name: "test".into(),
+                added_at: now_ms(),
+                icon: None,
+                hidden: false,
+                sort_index: 0,
+                run_command: None,
+                setup_command: None,
+            };
+            repos::create(&conn, &r).unwrap();
+            let t = Task {
+                task_id: new_id(),
+                repo_id: r.repo_id.clone(),
+                title: "t".into(),
+                task_text: "t".into(),
+                status: "active".into(),
+                created_at: now_ms(),
+            };
+            tasks::create(&conn, &t).unwrap();
+            let ws_id = new_id();
+            let ws = Workspace {
+                workspace_id: ws_id.clone(),
+                task_id: t.task_id,
+                name: "pavarotti".into(),
+                worktree_path: "/placeholder".into(),
+                branch_name: String::new(),
+                base_branch: "main".into(),
+                status: "ready".into(),
+                pinned: false,
+                unread: false,
+                created_at: now_ms(),
+                deletion_intent: 0,
+                ui_status: "backlog".into(),
+                last_merge_action: None,
+                sandbox_level: "L2Project".into(),
+                pr_url: None,
+                pr_number: None,
+                pr_state: None,
+            };
+            workspaces::create(&conn, &ws).unwrap();
+            ws_id
+        };
+
+        // Create the real worktree + branch, then patch the DB row.
+        let handle = worktree::create(&db, &repo_path, "main", &ws_id, "pavarotti", "Mozart App")
+            .await
+            .expect("worktree create ok");
+        {
+            let conn = db.lock();
+            workspaces::update_worktree_path(
+                &conn,
+                &ws_id,
+                &handle.worktree_path.to_string_lossy(),
+            )
+            .unwrap();
+            workspaces::update_branch_name(&conn, &ws_id, &handle.branch_name).unwrap();
+        }
+        assert_eq!(handle.branch_name, "mozart/pavarotti");
+        assert!(handle.worktree_path.exists(), "precondition: dir exists");
+        assert!(
+            crate::branch_name::branch_exists(&repo_path, "mozart/pavarotti").await,
+            "precondition: branch exists"
+        );
+
+        archive_workspace_impl(&db, ws_id.clone()).await.unwrap();
+
+        let conn = db.lock();
+        let ws = workspaces::get(&conn, &ws_id).unwrap();
+        assert_eq!(ws.deletion_intent, 1, "soft-delete flag must flip");
+        assert!(!handle.worktree_path.exists(), "worktree dir must be wiped");
+        assert!(
+            !crate::branch_name::branch_exists(&repo_path, "mozart/pavarotti").await,
+            "mozart branch must be deleted on archive"
+        );
+
+        restore_root(prev);
     }
 
     #[tokio::test]
