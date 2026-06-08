@@ -1,23 +1,21 @@
 # Todo
 
+- creation repo marketplace skills and project template.
+- ajout gestion model local opensource
+- token reduction strategy (
+  -- caveman: reduire se que dis claude,
+  -- graphify: reduire se que claude lit,
+  -- RTK: se que claude exécute, https://github.com/rtk-ai/rtk
+  -- utiliser? https://github.com/colbymchenry/codegraph
+
 - skill paperasse https://www.data.gouv.fr/reuses/paperasse-skills-ia-pour-la-comptabilite-et-fiscalite-francaise
 - creer landing page reve avec plusieur corps de metier multilangue
 - simplifier abstraire dev
-- Token economy utiliser https://github.com/colbymchenry/codegraph
-- on va defer la partie gestion des review dans l'app en invitant le user à poster une PR sur github.
-
-- Comment faire en sorte que le user soit informer que sa branche main locale est à jour par rapport au remote ? comment mettre à jour les branche de workspace avec leur branche d'origine ?
-
-- Question lié à celle du dessus comment voir son projet source projet de reference souvent (pas un worktree) souvent branche main par default? reflechir à UI et UX
-- ajouter un context window component (70% yello, 90% red) manage windows count in chat.
-
--rendre run, config t terminal optional. pas utile pour les non dev. peut etre visible si .mozart/qqchose existe ?
+- améliorer dev log le rendre plus accessible et en productio utilisable (actuellement que dev) afin de donner transparence sur utilisation de l'agent.
 
 - timeline moche à revoir
-- revoir file view car header moche
-  -scroll bug chat
-
-- je trouve que l'ensemble du texte en general est un peu trop petit et les icon aussi peut tu faire des proposition pour rendre l'UI un peu plus accessible.
+- peut etre revoir un peu l'app pour pouvoir utiliser des extension comme dans vscode. Par exemple code editor peut etre optionnel pour non dev. Markdown reader...
+- Comment faire en sorte que le user soit informer que sa branche de depart du workspace est à jour ? (remote et locale) comment mettre à jour les branche de workspace avec leur branche d'origine ?
 
 ##
 
@@ -32,7 +30,6 @@ Ne pas reutiliser la roue il y a peut etre des chose existante comme genkit ou a
 
 ---
 
-- avoir dans l'UI un cercle count la part de contexte utilise par le llm avec changement de couleur si (60-70% de la fenêtre, la qualité dégrade) mettre en orange, puis 90% rouge. Avec tooltip qui explique.
 - module domain metrics, pour calculer temps d'utilisation d'agent (par provider, model, projet), temps passé sur l'app , nombre de token consommé (par provider, model, projet), nombre de token economise grace à stratégies mozart...
 - module token economy tous strategy pour reduite consommation de token
 - module mémoire (bien plus tard) graph entity, embeding... ou connect à un service tiers
@@ -44,23 +41,6 @@ UX improvement:
 
 - possibilité dajouter des ligne en contexte en selectionnt puis clic droit avec menu contextuel, ajouter contexte au chat.
 - raccourci clavier dans tous le file (avec kbt pour indiquer les raccourci) une page ou dialog qui permet de voir tableau mapping les raccourcis clavier -> action (lcture seul pour le moment) plus tard possiblitée de cusomiser et meme share customisation via .mozart/settings.json
-
-- add info about effort prompt description
-  low
-  → petites modifs UI, CSS, rename, copy, fichiers simples
-  medium
-  → feature normale, composants, services, petite logique métier
-  high
-  → refactor multi-fichiers, bug subtil, architecture locale
-  xhigh
-  → grosse feature risquée, design technique, migrations, refactor profond
-  max
-  → audit complet, plan stratégique, problème très ambigu ou critique
-
-En vitesse pure :
-low > medium > high > xhigh > max
-
-- keep info about chat model and effort with times... To add to metrics (and bind to telemetry)
 
 ## Open spec note — execution model + future orchestration module
 
