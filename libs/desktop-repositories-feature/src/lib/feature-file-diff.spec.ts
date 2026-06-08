@@ -32,6 +32,16 @@ if (typeof window !== 'undefined' && !window.matchMedia) {
   });
 }
 
+// jsdom doesn't implement IntersectionObserver; Angular uses it for
+// @defer (on viewport) — the template defers CodeMirror loading this way.
+if (typeof window !== 'undefined' && !window.IntersectionObserver) {
+  (window as Window & typeof globalThis).IntersectionObserver = class {
+    observe() { return undefined; }
+    unobserve() { return undefined; }
+    disconnect() { return undefined; }
+  } as unknown as typeof IntersectionObserver;
+}
+
 // Regression suite for the FeatureFileDiff host. Verifies diff
 // fetching, per-path context-line cache, stale-response discipline,
 // and copy-output forwarding through MzFileDiffCard.
