@@ -23,6 +23,7 @@ use std::path::Path;
 use tokio::process::Command;
 
 use crate::error::AppError;
+use crate::platform::{redact_url_credentials, NoWindow};
 
 pub mod checkpoint;
 pub mod diff;
@@ -58,20 +59,6 @@ fn redact_args(args: &[&str]) -> String {
     format!("{parts:?}")
 }
 
-/// Replace `scheme://user[:secret]@host…` with `scheme://***@host…`.
-/// Non-URL args (and credential-free URLs) pass through unchanged.
-fn redact_url_credentials(arg: &str) -> String {
-    let Some(scheme_end) = arg.find("://") else {
-        return arg.to_string();
-    };
-    let after = scheme_end + 3;
-    let Some(at_rel) = arg[after..].find('@') else {
-        return arg.to_string();
-    };
-    let at = after + at_rel;
-    format!("{}://***@{}", &arg[..scheme_end], &arg[at + 1..])
-}
-
 /// Lower-level git invocation that returns the raw `Output`. Only errors
 /// on spawn / wait failure (`AppError::Io`); non-zero exits are returned
 /// to the caller for inspection. Useful when callers need to distinguish
@@ -80,9 +67,11 @@ pub(crate) async fn run_git_capture(
     cwd: &Path,
     args: &[&str],
 ) -> Result<std::process::Output, AppError> {
+    log::debug!("spawn[git]: args={} cwd={}", redact_args(args), cwd.display());
     Command::new("git")
         .args(args)
         .current_dir(cwd)
+        .no_window()
         .output()
         .await
         .map_err(|e| AppError::Io(format!("git {} : {e}", redact_args(args))))

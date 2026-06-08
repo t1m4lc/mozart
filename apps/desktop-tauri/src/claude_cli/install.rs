@@ -14,6 +14,8 @@ use serde::Serialize;
 use tokio::process::Command;
 use tokio::time::timeout;
 
+use crate::platform::NoWindow;
+
 /// Outcome of probing for the `claude` CLI.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, specta::Type)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -63,6 +65,7 @@ async fn check_bin(bin: super::bin_path::ResolvedBin) -> ClaudeInstall {
     let fut = Command::new(&bin.program)
         .arg("--version")
         .env("PATH", &bin.path_env)
+        .no_window()
         .output();
 
     let output = match timeout(Duration::from_secs(3), fut).await {
