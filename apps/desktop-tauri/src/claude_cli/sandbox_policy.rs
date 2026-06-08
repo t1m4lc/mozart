@@ -151,6 +151,14 @@ pub fn permission_mode_for_chat_mode(mode: &str) -> &'static str {
 /// sandbox-exec on macOS, AppContainer on Windows) — see
 /// TODO-001 / P4 / planned Atom 8.
 ///
+/// Skills carve-out: the clamp explicitly permits the Skill tool and
+/// the scripts / helper binaries it runs under `~/.claude` and
+/// `~/.gstack` (gstack skills shell out to binaries there and write
+/// telemetry/session bookkeeping). Without this the agent refuses its
+/// own skills' preambles. The carve-out matches the OS-fence plan,
+/// which already binds `~/.claude` read-only for the agent spawn
+/// (TODO-001 in TODOS.md).
+///
 /// Pure function; siblings + L1 roots are pre-resolved by the
 /// caller (same shape as `build_sandbox_flags`).
 pub fn build_system_prompt_clamp(
@@ -173,10 +181,15 @@ pub fn build_system_prompt_clamp(
         "You operate inside a Mozart sandbox at level {level}.\n\
          You may only read, write, edit, or run commands on files inside these allowed paths:\n\n\
          {bullets}\n\n\
+         Exception — skills: you MAY invoke the Skill tool and run the scripts and helper binaries \
+         it relies on under the skill runtime directories `~/.claude` and `~/.gstack`, including the \
+         telemetry and session bookkeeping those skills read and write there, even though they live \
+         outside the allowed paths above.\n\n\
          If asked to access files outside these paths (anywhere else in the user's home directory, \
          /etc, /var, /tmp, or any other system location not listed above), refuse and tell the user \
          the path is outside the workspace sandbox. Do not follow symlinks that resolve outside \
-         these paths. This applies to every tool you have available, including Read, Bash, and Glob."
+         these paths — the skill runtime directories above are the only exception. This applies to \
+         every tool you have available, including Read, Bash, and Glob."
     )
 }
 
@@ -567,6 +580,31 @@ mod tests {
                 "clamp must explicitly mention {sensitive}, got: {prompt}"
             );
         }
+    }
+
+    #[test]
+    fn system_prompt_clamp_allows_skill_runtime_dirs() {
+        // Regression: the clamp must carve out the skill runtime dirs so
+        // the agent stops refusing its own skills' preambles (which shell
+        // out to ~/.claude/skills/.../bin and write under ~/.gstack).
+        // Without this the dogfood symptom is "Skill tool couldn't
+        // execute … outside this workspace sandbox".
+        let prompt = build_system_prompt_clamp(
+            "/home/u/.mozart/worktrees/p/ws-a",
+            SandboxLevel::L2Project,
+            &["/home/u/.mozart/worktrees/p/ws-a".into()],
+            &[],
+        );
+        assert!(prompt.contains("Skill tool"), "clamp must name the Skill tool exception");
+        for dir in ["~/.claude", "~/.gstack"] {
+            assert!(
+                prompt.contains(dir),
+                "clamp must permit skill runtime dir {dir}, got: {prompt}"
+            );
+        }
+        // The refusal contract for everything else must survive the carve-out.
+        assert!(prompt.contains("refuse"));
+        assert!(prompt.contains("home directory"));
     }
 
     #[test]
