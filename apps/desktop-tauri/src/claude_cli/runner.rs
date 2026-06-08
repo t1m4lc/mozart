@@ -209,6 +209,20 @@ impl LineParser {
 /// - `-a never` because runs are non-interactive — no approval prompts.
 /// - `--skip-git-repo-check` so a worktree whose `.git` is a gitfile (not a
 ///   directory) still runs.
+///
+/// Skills note (asymmetry with Claude): Codex skills need NO equivalent of
+/// the Claude system-prompt clamp carve-out (`sandbox_policy::
+/// build_system_prompt_clamp`). That clamp is contextual prose injected only
+/// on the Claude path; Codex is fenced by its OWN OS-level sandbox here, and
+/// reads are allowed in both `workspace-write` and `read-only`, so skills that
+/// only read their `~/.codex/skills` files + bundled docs (every Codex skill
+/// shipped today) work as-is. The latent gap: a future gstack-style Codex
+/// skill that *writes* outside the worktree (e.g. telemetry under `~/.gstack`,
+/// plan files under `~/.claude/plans`) would be blocked at the syscall by the
+/// `workspace-write` fence and fail under `-a never`. Fix THEN, not now:
+/// pass the skill write roots through and add
+/// `-c sandbox_workspace_write.writable_roots=[…]`. Kept out today per the
+/// no-speculative-features rule — no such Codex skill exists.
 pub(crate) fn codex_argv(worktree_path: &str, chat_mode: &str, model: Option<&str>) -> Vec<String> {
     let sandbox = match chat_mode {
         "agent" => "workspace-write",
