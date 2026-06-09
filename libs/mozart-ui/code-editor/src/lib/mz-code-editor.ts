@@ -86,6 +86,17 @@ export class MzCodeEditor {
       if (!this._ready() || !this.view) return;
       const current = this.view.state.doc.toString();
       if (v === current) return;
+      // CodeMirror normalizes every line ending to `\n` internally, so a
+      // CRLF file on disk has `doc.toString() === LF` and never equals the
+      // raw CRLF `value`. Without this guard the buffer would be rewritten
+      // and emit a `valueChange` on open — a phantom edit that marks the
+      // file dirty even though the user typed nothing. When the only
+      // difference is EOL style the buffer is already up to date: adopt the
+      // value as the emit baseline instead of touching the doc.
+      if (normalizeEol(v) === current) {
+        this.lastEmitted = current;
+        return;
+      }
       // External value differs — replace buffer. Local dirty edits sit in
       // the same string; parents that want to preserve them simply do not
       // push a new `value` until the user resets.
@@ -210,4 +221,12 @@ export class MzCodeEditor {
     this.view = null;
     this._ready.set(false);
   }
+}
+
+// Collapse CRLF / lone-CR line endings to LF — the same normalization
+// CodeMirror applies to a document on creation (its default split is
+// `/\r\n?|\n/`). Used to tell a genuine external edit apart from a value
+// that differs only in EOL style.
+function normalizeEol(s: string): string {
+  return s.replace(/\r\n?/g, '\n');
 }
