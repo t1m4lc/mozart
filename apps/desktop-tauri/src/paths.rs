@@ -2,9 +2,11 @@
 //!
 //! Everything the app writes derives from here, so there is exactly one
 //! place that decides "where does Mozart's data live". Locations follow
-//! the standard per-OS conventions under the app identifier
-//! `build.mozart.desktop` (the same id Tauri's `app_data_dir()` uses, so
-//! the DB does not move):
+//! the standard per-OS conventions under a clean, user-visible `Mozart`
+//! folder. This name is deliberately decoupled from the reverse-DNS Tauri
+//! bundle identifier (`build.mozart.desktop`, kept stable for code
+//! signing / updater / deep-link): no code reads Tauri's `app_data_dir()`
+//! directly, so Mozart's own data folder can carry a friendlier name.
 //!
 //! - **data**   — Linux `$XDG_DATA_HOME` / `~/.local/share`, macOS
 //!   `~/Library/Application Support`, Windows `%APPDATA%`.
@@ -23,9 +25,10 @@ use std::path::PathBuf;
 
 use crate::error::AppError;
 
-/// App identifier — matches `tauri.conf.json` `identifier` and the bundle
-/// id Tauri's path APIs use, so `data_dir()` equals `app_data_dir()`.
-pub const APP_IDENTIFIER: &str = "build.mozart.desktop";
+/// Name of Mozart's per-user data folder under each OS base dir. Kept
+/// friendly and user-visible (`Mozart`) rather than the reverse-DNS Tauri
+/// bundle identifier — see the module doc for why this decoupling is safe.
+pub const DATA_DIR_NAME: &str = "Mozart";
 
 fn home() -> Option<PathBuf> {
     #[cfg(windows)]
@@ -94,24 +97,24 @@ fn rooted(env: &str, os: impl FnOnce() -> Option<PathBuf>) -> Result<PathBuf, Ap
         return Ok(PathBuf::from(o));
     }
     os()
-        .map(|d| d.join(APP_IDENTIFIER))
+        .map(|d| d.join(DATA_DIR_NAME))
         .ok_or_else(|| AppError::Validation(format!("could not resolve a base dir (set {env})")))
 }
 
-/// Per-user data root: `<os-data>/build.mozart.desktop`. Holds the DB,
-/// projects, and workspaces. Override with `MOZART_DATA_DIR`.
+/// Per-user data root: `<os-data>/Mozart`. Holds the DB, projects, and
+/// workspaces. Override with `MOZART_DATA_DIR`.
 pub fn data_dir() -> Result<PathBuf, AppError> {
     rooted("MOZART_DATA_DIR", os_data_dir)
 }
 
-/// Per-user config root: `<os-config>/build.mozart.desktop`. Holds the
-/// editable global `settings.json`. Override with `MOZART_CONFIG_DIR`.
+/// Per-user config root: `<os-config>/Mozart`. Holds the editable global
+/// `settings.json`. Override with `MOZART_CONFIG_DIR`.
 pub fn config_dir() -> Result<PathBuf, AppError> {
     rooted("MOZART_CONFIG_DIR", os_config_dir)
 }
 
-/// Per-user cache root: `<os-cache>/build.mozart.desktop`. Holds derived,
-/// safe-to-delete files (the chime). Override with `MOZART_CACHE_DIR`.
+/// Per-user cache root: `<os-cache>/Mozart`. Holds derived, safe-to-delete
+/// files (the chime). Override with `MOZART_CACHE_DIR`.
 pub fn cache_dir() -> Result<PathBuf, AppError> {
     rooted("MOZART_CACHE_DIR", os_cache_dir)
 }
