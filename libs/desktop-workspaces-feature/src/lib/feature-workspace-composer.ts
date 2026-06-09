@@ -26,6 +26,7 @@ import { ChatFacade } from '@mozart/desktop-chat-data-access';
 import { ComposerModelsStore } from '@mozart/desktop-llm-model-data-access';
 import {
   PROVIDERS,
+  agentProviderForModel,
   composerModels,
   defaultModelIdForProvider,
 } from '@mozart/desktop-llm-model-util';
@@ -252,10 +253,21 @@ export class FeatureWorkspaceComposer {
     return null;
   });
 
-  // Only the models the user enabled in Settings (empty pref ⇒ all runnable).
-  protected readonly catalog = computed(() =>
-    composerModels(this.composerModels.enabledIds()),
-  );
+  // Models the user enabled in Settings (empty pref ⇒ all runnable), further
+  // narrowed to providers that are actually connected — a Codex-only user
+  // shouldn't see Claude models they can't run, and vice versa. If nothing is
+  // connected yet, or the connection filter empties the list (e.g. the only
+  // enabled models belong to a disconnected provider), fall back to the
+  // preference set so the composer never shows an empty menu.
+  protected readonly catalog = computed(() => {
+    const enabled = composerModels(this.composerModels.enabledIds());
+    const connected = new Set(this.profile.connectedAgentProviders());
+    if (connected.size === 0) return enabled;
+    const byConnection = enabled.filter((m) =>
+      connected.has(agentProviderForModel(m.provider)),
+    );
+    return byConnection.length > 0 ? byConnection : enabled;
+  });
   protected readonly providers = PROVIDERS;
 
   // Skill discovery is project/repo-scoped (not worktree). The repo id is the
