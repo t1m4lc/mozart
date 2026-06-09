@@ -1,7 +1,11 @@
 import { Injectable, WritableSignal, effect, inject, signal } from '@angular/core';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
-import { createXterm, resolveXtermTheme } from '@mozart/desktop-core-util';
+import {
+  createXterm,
+  loadXterm,
+  resolveXtermTheme,
+} from '@mozart/desktop-core-util';
 import { ThemeService } from '@mozart/shared-util-theme';
 import { RunsFacade } from './runs.facade';
 import type { RunStatus } from '@mozart/desktop-runs-util';
@@ -104,6 +108,11 @@ export class RunRegistry {
    *  PTY can be alive at a time). */
   async start(workspaceId: string): Promise<void> {
     if (this.isBusy(workspaceId)) return;
+    // Warm the xterm chunk before `ensureEntry` builds a Terminal. The
+    // route guard normally does this, but a run can be kicked from flows
+    // that haven't hit the workspace-detail route yet — without this,
+    // `createXterm` throws "called before loadXterm() resolved".
+    await loadXterm();
     const entry = this.ensureEntry(workspaceId);
     // A fresh run starts with no URL — yesterday's `localhost:3000`
     // shouldn't be clickable while the new process is still booting.
@@ -139,6 +148,10 @@ export class RunRegistry {
    *  button stays disabled (`canStart` reads `isBusy`) until exit. */
   async startSetup(workspaceId: string): Promise<void> {
     if (this.isBusy(workspaceId)) return;
+    // Auto-install fires this at workspace creation, before the
+    // workspace-detail route (and its xterm preload guard) ever runs, so
+    // warm the chunk here or `createXterm` throws on a cold cache.
+    await loadXterm();
     const entry = this.ensureSetupEntry(workspaceId);
     entry.exitCode.set(null);
     entry.status.set('running');
