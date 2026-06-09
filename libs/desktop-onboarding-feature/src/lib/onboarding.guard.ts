@@ -14,6 +14,6 @@ export const onboardingGuard: CanActivateFn = (): boolean | UrlTree => {
   if (isDevAuthBypassActive()) return true;
   const router = inject(Router);
   const facade = inject(OnboardingFacade);
-  if (facade.isCompleted()) return true;
+  if (facade.effectivelyCompleted()) return true;
   return router.createUrlTree(['/onboarding']);
 };

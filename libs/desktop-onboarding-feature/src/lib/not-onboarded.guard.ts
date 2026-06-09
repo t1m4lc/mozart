@@ -11,6 +11,6 @@ import { OnboardingFacade } from '@mozart/desktop-onboarding-data-access';
 export const notOnboardedGuard: CanActivateFn = (): boolean | UrlTree => {
   const router = inject(Router);
   const facade = inject(OnboardingFacade);
-  if (facade.isCompleted()) return router.createUrlTree(['/']);
+  if (facade.effectivelyCompleted()) return router.createUrlTree(['/']);
   return true;
 };

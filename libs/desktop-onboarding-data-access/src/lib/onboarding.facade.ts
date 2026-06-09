@@ -43,6 +43,17 @@ export class OnboardingFacade {
   readonly isCompleted = computed(() => this._isCompleted());
   readonly hydrated = computed(() => this._hydrated());
 
+  /** The value route guards read — the canonical onboarding state. The
+   *  local cache OR Clerk's `unsafe_metadata.onboarding` claim (carried in
+   *  the JWT). Reading the claim here, synchronously, covers the first
+   *  in-session sign-in on a fresh device: `bootstrap()` ran before the
+   *  session existed, so the cache is still false, but the claim already
+   *  says onboarded. Upgrade-only — a false/absent claim never un-completes
+   *  the cache, so completion can't be lost to an older token. */
+  readonly effectivelyCompleted = computed(
+    () => this._isCompleted() || this.auth.onboardingComplete() === true,
+  );
+
   private readonly _currentStep = signal<OnboardingStep>('welcome');
   readonly currentStep = computed(() => this._currentStep());
 
@@ -66,19 +77,35 @@ export class OnboardingFacade {
     return status === 'done' || status === 'ready';
   });
 
-  /** Idempotent boot hydrate — reads the local mirror. Called from
-   *  `provideAppInitializer`. After this resolves, `isCompleted()` is
-   *  authoritative and the route guard can read it synchronously. */
+  /** Idempotent boot hydrate. Called from `provideAppInitializer` after
+   *  `AuthFacade.bootstrap()`, so the session JWT is already loaded. The
+   *  local mirror is a cache; Clerk `unsafe_metadata.onboarding` (carried
+   *  in the JWT claim) is the source of truth. We reconcile the two so a
+   *  user onboarded on another device isn't bounced back into the wizard.
+   *  After this resolves `isCompleted()` is authoritative and the route
+   *  guard can read it synchronously. */
   async bootstrap(): Promise<void> {
     if (this._hydrated()) return;
     try {
-      const value = await this.adapter.get();
-      this._isCompleted.set(value);
+      const local = await this.adapter.get();
+      // Adopt the canonical Clerk value when the local cache is stale-false
+      // but the account is already onboarded. We only ever upgrade to
+      // completed here — a false/absent claim never downgrades the mirror
+      // (older tokens may lack the claim), so completion can't be lost.
+      const completed = local || this.auth.onboardingComplete() === true;
+      this._isCompleted.set(completed);
+      if (completed && !local) {
+        // Backfill the cache so the guard stays correct across restarts
+        // even before the next token mint. Fire-and-forget.
+        void this.adapter.set(true).catch((err) => {
+          console.warn('[onboarding] mirror backfill failed:', err);
+        });
+      }
       // Restore the wizard cursor only while onboarding is unfinished —
       // a completed user never re-enters the wizard. Per-step statuses
       // are NOT restored: git / provider / github re-probe live on the
       // step components' mount, so the cursor is the only durable bit.
-      if (!value) {
+      if (!completed) {
         const step = await this.adapter.getStep();
         if (step) this._currentStep.set(step);
       }
