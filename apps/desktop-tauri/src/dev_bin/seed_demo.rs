@@ -16,11 +16,11 @@
 //!
 //! DB path resolution, in order:
 //! 1. `MOZART_DB_PATH` env override (same convention as `lib.rs::run()`).
-//! 2. Platform default for bundle id `build.mozart.desktop`:
-//!    - Linux:   `$XDG_DATA_HOME/build.mozart.desktop/mozart.db`
+//! 2. Platform default under Mozart's `Mozart` data folder:
+//!    - Linux:   `$XDG_DATA_HOME/Mozart/mozart.db`
 //!               (falls back to `$HOME/.local/share/...`).
-//!    - macOS:   `$HOME/Library/Application Support/build.mozart.desktop/mozart.db`.
-//!    - Windows: `%APPDATA%\build.mozart.desktop\mozart.db`.
+//!    - macOS:   `$HOME/Library/Application Support/Mozart/mozart.db`.
+//!    - Windows: `%APPDATA%\Mozart\mozart.db`.
 
 #[cfg(not(debug_assertions))]
 fn main() {
