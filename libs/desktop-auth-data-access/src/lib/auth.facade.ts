@@ -16,7 +16,10 @@ import {
   type DeepLinkPayload,
   type WelcomeState,
 } from '@mozart/desktop-auth-util';
-import { DesktopAnalyticsFacade } from '@mozart/desktop-core-data-access';
+import {
+  DesktopAnalyticsFacade,
+  ExternalLinkService,
+} from '@mozart/desktop-core-data-access';
 import { ANALYTICS_EVENTS } from '@mozart/shared-util-analytics';
 import { AUTH_ADAPTER } from './auth.adapter';
 import { WEB_BASE_URL } from './web-base-url.token';
@@ -47,6 +50,7 @@ export class AuthFacade {
   private readonly destroyRef = inject(DestroyRef);
   private readonly webBaseUrl = inject(WEB_BASE_URL);
   private readonly analytics = inject(DesktopAnalyticsFacade);
+  private readonly externalLink = inject(ExternalLinkService);
 
   private readonly _session = signal<AuthSession | null>(null);
   readonly session = computed(() => this._session());
@@ -201,6 +205,13 @@ export class AuthFacade {
       // Clear PostHog identity so the next user on this install starts a
       // fresh anonymous id instead of merging into the user signing out.
       this.analytics.reset();
+      // Desktop only holds a Clerk JWT (no Clerk SDK), so it can't revoke
+      // the browser's web session itself. Open the web logout page so the
+      // shared cloud session ends too. Best-effort — never blocks the
+      // local sign-out if the browser fails to open.
+      void this.externalLink
+        .openExternal(`${this.webBaseUrl}/logout`)
+        .catch((err) => console.warn('[auth] web logout open failed:', err));
       void this.router.navigate(['/welcome']);
     }
   }

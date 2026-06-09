@@ -1,7 +1,10 @@
 import { Injectable, computed, effect, inject, signal } from '@angular/core';
 import { Router } from '@angular/router';
 import { ClerkService, type OAuthStrategy } from '@mozart/clerk';
-import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
+import {
+  ANALYTICS_EVENTS,
+  AnalyticsService,
+} from '@mozart/shared-util-analytics';
 import type { OAuthProvider, User } from './auth.model';
 
 // Public surface of the apps/web `auth` domain. Pages inject this ;
@@ -176,13 +179,15 @@ export class AuthFacade {
     );
   }
 
-  /** Sign the current user out via Clerk. Stays on the current page. */
-  async signOut(): Promise<void> {
+  /** Sign the current user out via Clerk. Redirects to /login by default ;
+   *  pass `{ redirect: false }` when the caller renders its own confirmation
+   *  (the /logout page opened by Mozart desktop). */
+  async signOut(options?: { readonly redirect?: boolean }): Promise<void> {
     await this.clerk.signOut();
     // Clear PostHog identity so the next person on this device isn't
     // merged into the user who just signed out.
     this.analytics.reset();
-    void this.router.navigate(['/login']);
+    if (options?.redirect ?? true) void this.router.navigate(['/login']);
   }
 
   /** Hand the JWT back to the running desktop via the localhost HTTP

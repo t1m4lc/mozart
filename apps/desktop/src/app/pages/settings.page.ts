@@ -165,7 +165,8 @@ import { HlmSelectImports } from '@spartan-ui/select';
           <div class="space-y-1">
             <p class="text-sm font-medium">Sign out</p>
             <p class="text-xs text-muted-foreground">
-              Clears the local session and returns to the welcome screen.
+              Clears the local session and opens the web logout to end your
+              Mozart web session too.
             </p>
           </div>
           <button hlmBtn variant="outline" type="button" (click)="onSignOut()">

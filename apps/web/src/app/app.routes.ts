@@ -35,6 +35,11 @@ export const appRoutes: Route[] = [
           import('./pages/account.page').then((m) => m.AccountPage),
       },
       {
+        path: 'logout',
+        loadComponent: () =>
+          import('./pages/logout.page').then((m) => m.LogoutPage),
+      },
+      {
         path: '**',
         loadComponent: () =>
           import('./pages/not-found.page').then((m) => m.NotFoundPage),
