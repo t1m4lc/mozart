@@ -36,7 +36,7 @@ export interface SiteConfig {
 // @mozart/shared-util-mozart-links so the desktop app and the landing
 // site never drift on the destinations.
 export const SITE_CONFIG: SiteConfig = {
-  version: 'v0.1.0-beta.2.1',
+  version: 'v0.1.0-beta.2.2',
   company: 'Mozart',
   copyrightYear: new Date().getFullYear(),
   promoStrip: {

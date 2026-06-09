@@ -21,7 +21,7 @@ type Env = {
 type Body = { readonly os?: unknown; readonly code?: unknown };
 
 const DEFAULT_BASE_URL = 'https://dl.mozart.build';
-const DEFAULT_VERSION = '0.1.0-beta.2.1';
+const DEFAULT_VERSION = '0.1.0-beta.2.2';
 const OS_KEYS = ['mac', 'mac-intel', 'windows', 'linux'] as const;
 type OsKey = (typeof OS_KEYS)[number];
 
