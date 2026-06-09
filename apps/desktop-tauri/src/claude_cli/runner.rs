@@ -207,7 +207,11 @@ impl LineParser {
 ///   run to the single active worktree (L3 semantics): `workspace-write`
 ///   for `agent` mode, `read-only` for `plan`/`ask` and any unknown mode
 ///   (fail-closed, mirroring the Claude permission-mode fallthrough).
-/// - `-a never` because runs are non-interactive — no approval prompts.
+/// - `codex exec` is non-interactive by construction (it never raises an
+///   approval prompt), so the interactive `-a/--ask-for-approval` flag is
+///   omitted. It is redundant here AND newer Codex builds (seen on Windows)
+///   reject `-a` under the `exec` subcommand: `error: unexpected argument
+///   '-a' found`. The sandbox flag above is what actually fences the run.
 /// - `--skip-git-repo-check` so a worktree whose `.git` is a gitfile (not a
 ///   directory) still runs.
 ///
@@ -220,7 +224,7 @@ impl LineParser {
 /// shipped today) work as-is. The latent gap: a future gstack-style Codex
 /// skill that *writes* outside the worktree (e.g. telemetry under `~/.gstack`,
 /// plan files under `~/.claude/plans`) would be blocked at the syscall by the
-/// `workspace-write` fence and fail under `-a never`. Fix THEN, not now:
+/// `workspace-write` fence. Fix THEN, not now:
 /// pass the skill write roots through and add
 /// `-c sandbox_workspace_write.writable_roots=[…]`. Kept out today per the
 /// no-speculative-features rule — no such Codex skill exists.
@@ -237,8 +241,6 @@ pub(crate) fn codex_argv(worktree_path: &str, chat_mode: &str, model: Option<&st
         worktree_path.to_string(),
         "--sandbox".to_string(),
         sandbox.to_string(),
-        "-a".to_string(),
-        "never".to_string(),
     ];
     // Optional model override (`codex -m <model>`); absent ⇒ codex default.
     if let Some(m) = model {
@@ -1064,8 +1066,9 @@ mod tests {
         assert_eq!(argv.last().map(String::as_str), Some("-"), "prompt must ride stdin");
         // The worktree clamp is present and points at the active worktree.
         assert!(argv.windows(2).any(|w| w[0] == "--cd" && w[1] == "/wt-fixture"));
-        // Non-interactive: never prompt for approval.
-        assert!(argv.windows(2).any(|w| w[0] == "-a" && w[1] == "never"));
+        // `exec` is non-interactive on its own — the `-a` approval flag must
+        // NOT be passed (newer Codex builds reject it under `exec`).
+        assert!(!argv.iter().any(|a| a == "-a"), "no -a under codex exec: {argv:?}");
         // No model flag when none requested.
         assert!(!argv.iter().any(|a| a == "-m"), "no -m without a model: {argv:?}");
         // The user prompt must never appear inline in argv.
