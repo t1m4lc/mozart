@@ -1743,6 +1743,23 @@ export const commands = {
     }
   },
   /**
+   * Persist onboarding completion to Clerk's `unsafe_metadata.onboarding`
+   * via the web backend, using the stored Clerk session JWT. Routed
+   * through Rust to dodge the Clerk Frontend-API CORS block on
+   * `tauri.localhost`.
+   */
+  async markOnboardingComplete(): Promise<Result<null, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('mark_onboarding_complete'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  /**
    * Phase 5 follow-up — port of the localhost HTTP callback server
    * started in `lib.rs::setup`. The TS adapter reads this once at
    * bootstrap and embeds it in the apps/web sign-in URL so the

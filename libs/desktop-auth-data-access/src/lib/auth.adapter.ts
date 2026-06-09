@@ -22,6 +22,15 @@ export interface AuthAdapter {
   clearSession(): Promise<void>;
 
   /**
+   * Persist onboarding completion to the cross-surface source of truth
+   * (Clerk `unsafe_metadata.onboarding`). The Tauri impl proxies through
+   * the web backend in Rust to dodge Clerk's Frontend-API CORS block on
+   * `tauri.localhost`. Best-effort — the local mirror is authoritative
+   * for the desktop guard, so a failure here must not strand the user.
+   */
+  markOnboardingComplete(): Promise<void>;
+
+  /**
    * Open the user's default browser at `args.url`. The `state` is the
    * OAuth nonce the facade generated and embedded in the URL ; the
    * adapter doesn't validate it (the facade does on deep-link arrival).

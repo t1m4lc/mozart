@@ -20,6 +20,9 @@ export function fakeAuthAdapter(): AuthAdapter {
     async clearSession() {
       session = null;
     },
+    async markOnboardingComplete() {
+      // No backend in the fake adapter — onboarding completion is a no-op.
+    },
     async openSignIn({ state }) {
       // Skip the browser entirely : schedule a self-emitted deep-link
       // so the welcome flow can be driven end-to-end without leaving

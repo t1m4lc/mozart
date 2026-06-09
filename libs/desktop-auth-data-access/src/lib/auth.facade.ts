@@ -63,6 +63,17 @@ export class AuthFacade {
     return decodeJwt(session.token)?.sub ?? null;
   });
 
+  /** Onboarding-completed flag carried by the `mozart` JWT, seeded from
+   *  Clerk `unsafe_metadata.onboarding` — the cross-surface source of truth.
+   *  `null` when signed out. `OnboardingFacade.bootstrap()` reconciles the
+   *  local mirror against this so an account onboarded on another device
+   *  isn't bounced back into the wizard. */
+  readonly onboardingComplete = computed<boolean | null>(() => {
+    const session = this._session();
+    if (!session) return null;
+    return decodeJwt(session.token)?.onboarding ?? null;
+  });
+
   readonly welcomeState = signal<WelcomeState>('idle');
 
   /** URL the user's default browser was last sent to. Exposed so the
@@ -158,37 +169,18 @@ export class AuthFacade {
     this.cancelSignInTimeout$.next();
   }
 
-  // Sync the local onboarding-complete signal back to Clerk so any
-  // surface that reads `user.unsafeMetadata.onboarding` (apps/web's
-  // account page, future cross-device flows) sees the right value.
-  // Uses the user's own session token against Clerk Frontend API —
-  // unsafe_metadata is writable by the authenticated user, no backend
-  // round-trip needed. iss claim carries the Frontend API origin so we
-  // don't hardcode dev/prod URLs.
+  // Sync onboarding completion to Clerk's `unsafe_metadata.onboarding` —
+  // the cross-surface source of truth that apps/web's account page and the
+  // `mozart` JWT template both read. Delegated to the adapter, which (on
+  // desktop) proxies through the web backend in Rust: a direct webview
+  // PATCH to the Clerk Frontend API is blocked by CORS from
+  // `tauri.localhost`. Best-effort — the local onboarding mirror is what
+  // actually gates the desktop, so a sync failure only delays the web
+  // surface catching up; it never strands the user.
   async markOnboardingComplete(): Promise<void> {
-    const session = this._session();
-    if (!session) return;
-    const claims = decodeJwt(session.token);
-    const apiOrigin = claims?.iss;
-    if (!apiOrigin) {
-      console.warn('[auth] markOnboardingComplete — no iss claim in token');
-      return;
-    }
+    if (!this._session()) return;
     try {
-      const res = await fetch(`${apiOrigin}/v1/me`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session.token}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ unsafe_metadata: { onboarding: true } }),
-      });
-      if (!res.ok) {
-        console.warn(
-          '[auth] markOnboardingComplete — Clerk responded',
-          res.status,
-        );
-      }
+      await this.adapter.markOnboardingComplete();
     } catch (err) {
       console.warn('[auth] markOnboardingComplete failed:', err);
     }

@@ -254,6 +254,42 @@ enum ClerkGithubTokenPayload {
     ServerError { message: Option<String> },
 }
 
+/// Mark the signed-in user's onboarding as complete by calling
+/// `{WEB_BASE_URL}/api/onboarding/complete` with the Clerk session JWT.
+/// The web backend uses Clerk's Backend SDK (the Mozart-side secret key)
+/// to set `unsafe_metadata.onboarding = true` — the cross-surface source
+/// of truth that the apps/web profile and the `mozart` JWT template both
+/// read. Done Rust-side rather than via a webview `fetch` because Clerk's
+/// Frontend API rejects cross-origin requests from `tauri.localhost`
+/// (CORS) — the same reason the GitHub token round-trip is proxied here.
+pub async fn mark_onboarding_complete(session_jwt: &str) -> Result<(), AppError> {
+    #[cfg_attr(not(debug_assertions), allow(unused_mut))]
+    let mut builder = reqwest::Client::builder().user_agent(USER_AGENT);
+    #[cfg(debug_assertions)]
+    {
+        builder = builder.danger_accept_invalid_certs(true);
+    }
+    let client = builder
+        .build()
+        .map_err(|e| AppError::Io(format!("onboarding http client: {e}")))?;
+    let url = format!("{WEB_BASE_URL}/api/onboarding/complete");
+    let resp = client
+        .post(&url)
+        .bearer_auth(session_jwt)
+        .header("Accept", "application/json")
+        .send()
+        .await
+        .map_err(|e| AppError::Io(format!("onboarding sync request: {e}")))?;
+    if resp.status().is_success() {
+        Ok(())
+    } else {
+        Err(AppError::Io(format!(
+            "onboarding sync failed: HTTP {}",
+            resp.status()
+        )))
+    }
+}
+
 /// Call `{WEB_BASE_URL}/api/github/oauth-token` with the user's Clerk
 /// session JWT in the `Authorization` header. Returns the
 /// Clerk-mediated GitHub OAuth access token (which Clerk refreshes

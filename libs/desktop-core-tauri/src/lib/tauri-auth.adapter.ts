@@ -100,6 +100,12 @@ export function tauriAuthAdapter(): AuthAdapter {
         console.warn('[auth] clearSession failed:', err);
       }
     },
+    async markOnboardingComplete() {
+      // Rust proxies this to the web backend (Clerk Backend SDK). Surfacing
+      // the error lets the facade log it; the facade treats it best-effort
+      // so the local mirror still completes onboarding.
+      unwrap(await commands.markOnboardingComplete());
+    },
     async openSignIn({ url }) {
       // The browser lands on apps/web /login which captures state +
       // port, walks the user through OAuth, then on /dashboard fires

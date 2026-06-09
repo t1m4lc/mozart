@@ -3212,6 +3212,21 @@ pub async fn auth_clear_session() -> Result<(), AppError> {
     auth_store::clear_session()
 }
 
+/// Persist onboarding completion to Clerk's `unsafe_metadata.onboarding`
+/// via `{WEB_BASE_URL}/api/onboarding/complete`, using the stored Clerk
+/// session JWT. This is the cross-surface source of truth the apps/web
+/// profile and the `mozart` JWT template read — keeping it in sync means
+/// a desktop user who finishes onboarding also shows "completed" on the
+/// web. Routed through Rust (not a webview `fetch`) because Clerk's
+/// Frontend API rejects requests from `tauri.localhost` (CORS).
+#[tauri::command]
+#[specta::specta]
+pub async fn mark_onboarding_complete() -> Result<(), AppError> {
+    let session = auth_store::load_session()?
+        .ok_or_else(|| AppError::Validation("no Mozart session — sign in first".into()))?;
+    github::mark_onboarding_complete(&session.token).await
+}
+
 /// Phase 5 follow-up — port of the localhost HTTP callback server
 /// started in `lib.rs::setup`. The TS adapter reads this once at
 /// bootstrap and embeds it in the apps/web sign-in URL so the
