@@ -32,7 +32,10 @@ export const onRequestPost = async ({
     });
   } catch (err) {
     return json(
-      { kind: 'server_error', message: (err as Error)?.message ?? 'clerk error' },
+      {
+        kind: 'server_error',
+        message: (err as Error)?.message ?? 'clerk error',
+      },
       502,
     );
   }

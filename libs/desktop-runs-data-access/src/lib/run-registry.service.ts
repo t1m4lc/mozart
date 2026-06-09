@@ -1,4 +1,10 @@
-import { Injectable, WritableSignal, effect, inject, signal } from '@angular/core';
+import {
+  Injectable,
+  WritableSignal,
+  effect,
+  inject,
+  signal,
+} from '@angular/core';
 import type { FitAddon } from '@xterm/addon-fit';
 import type { Terminal } from '@xterm/xterm';
 import {

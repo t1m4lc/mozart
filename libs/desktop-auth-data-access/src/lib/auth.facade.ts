@@ -1,4 +1,10 @@
-import { DestroyRef, Injectable, computed, inject, signal } from '@angular/core';
+import {
+  DestroyRef,
+  Injectable,
+  computed,
+  inject,
+  signal,
+} from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { Router } from '@angular/router';
 import { Subject, timer, type Subscription } from 'rxjs';
