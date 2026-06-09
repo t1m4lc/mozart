@@ -1,5 +1,7 @@
 @import "@angular/cdk/overlay-prebuilt.css";
 
+@import "tw-animate-css";
+
 @import "./lib/base.css";
 
 @import "./lib/themes/mozart.css";
