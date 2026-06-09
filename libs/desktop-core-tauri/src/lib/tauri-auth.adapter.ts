@@ -5,10 +5,7 @@ import {
   sessionFromDto,
   sessionToDto,
 } from '@mozart/desktop-auth-data-access';
-import {
-  type DeepLinkPayload,
-  parseDeepLink,
-} from '@mozart/desktop-auth-util';
+import { type DeepLinkPayload, parseDeepLink } from '@mozart/desktop-auth-util';
 import { commands, events } from './_bindings';
 
 // Tauri-backed AuthAdapter.

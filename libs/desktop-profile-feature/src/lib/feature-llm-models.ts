@@ -26,9 +26,7 @@ import {
 @Component({
   selector: 'app-feature-llm-models',
   imports: [NgIcon, HlmIconImports, HlmSelectImports],
-  providers: [
-    provideIcons({ lucideSparkles, lucideCpu, lucideHardDrive }),
-  ],
+  providers: [provideIcons({ lucideSparkles, lucideCpu, lucideHardDrive })],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'block' },
   template: `
