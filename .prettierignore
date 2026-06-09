@@ -8,6 +8,12 @@
 # Flat ESLint configs crash prettier's tailwind plugin and aren't prettier-managed
 eslint.config.mjs
 
-# Tailwind v4 `@source` directives crash the pinned prettier-plugin-tailwindcss;
-# these entry stylesheets are managed by nx-tailwind-sync, not prettier
+# Tailwind v4 `@source` / `@theme` / `@custom-variant` directives crash the
+# pinned prettier-plugin-tailwindcss; these stylesheets are managed by hand /
+# nx-tailwind-sync, not prettier
 apps/**/src/styles.css
+libs/mozart-design-tokens/src/**/*.css
+
+# pnpm's lockfile is tool-generated and has never been prettier-formatted;
+# keep prettier from rewriting it (it would churn the entire file).
+pnpm-lock.yaml
