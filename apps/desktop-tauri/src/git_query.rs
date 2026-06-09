@@ -121,10 +121,10 @@ pub async fn validate_repo(path: &Path) -> Result<(), RepoIssue> {
 }
 
 /// Initialise a fresh git repo at `path` on branch `main`, with a
-/// local user identity and one empty seed commit so the worktree has
-/// a HEAD to branch from. Idempotent on the local-config writes.
-/// Used by `add_repo_impl` when the user picks a folder that isn't
-/// yet a git repo — saves them a manual `git init` round-trip.
+/// local user identity and a seed commit so the worktree has a HEAD to
+/// branch from. Idempotent on the local-config writes. Used by
+/// `add_repo_impl` when the user picks a folder that isn't yet a git
+/// repo — saves them a manual `git init` round-trip.
 pub async fn init_repo(path: &Path) -> Result<(), AppError> {
     run_git(path, &["init", "--initial-branch=main"]).await?;
     // Local identity so the seed commit doesn't fail when the user
@@ -132,6 +132,14 @@ pub async fn init_repo(path: &Path) -> Result<(), AppError> {
     // so this never overrides their preference.
     run_git(path, &["config", "user.email", "mozart@local"]).await?;
     run_git(path, &["config", "user.name", "Mozart"]).await?;
+    // Stage whatever the folder already contains so the seed commit
+    // captures it. Without this, an existing folder picked from e.g.
+    // Documents is initialized with an EMPTY commit, the first
+    // workspace's worktree checks out nothing, and the file tree shows
+    // up empty even though the folder is full. `add -A` is a no-op for
+    // an empty folder (Quick start), where `--allow-empty` still yields
+    // the required seed commit. `.gitignore`, if present, is honored.
+    run_git(path, &["add", "-A"]).await?;
     // Seed commit so HEAD points at a branch with at least one commit;
     // otherwise `create_workspace` has no base branch to spawn from.
     run_git(
