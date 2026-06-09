@@ -4,6 +4,25 @@ Deferred work captured during reviews. Each entry: what / why / how to apply / d
 
 ---
 
+## Storage / source-of-truth — simplify the project model for non-dev users
+
+**What:** Today Mozart uses a managed-copy model: it clones the user's repo into `projects/<project>/` and runs agents inside git worktrees under `workspaces/`, syncing to GitHub (fetch happens at merge time). This is the right call _for now_, but it's tied to Git/GitHub flows. When Mozart targets non-dev users, revisit and simplify the model.
+
+**Why:** The user's project — not GitHub — is the source of truth. GitHub is the current transport layer, not the permanent product model (later: Mozart Cloud, other providers, or local-only). The managed-copy + clone concept is confusing for non-devs, and the clone can silently drift if the user edits the source elsewhere.
+
+**How to apply:** When detaching further from Git/GitHub, decide between three modes — (a) work directly on the user's source folder, (b) keep a Mozart-managed copy, (c) offer both. Working on the source folder is simpler but riskier (agents mutate real files, external edits mid-run, recovery/history needs). Until then, only reduce confusion via UI language ("Mozart working copy" / "workspace", never "clone"), make explicit Mozart doesn't edit the original folder, and show sync/status where relevant — without framing GitHub as the permanent source of truth.
+
+**Deferred specifics (investigated 2026-06-09, intentionally NOT done):**
+
+- **Workspace nesting** `projects/<project>/workspaces/<workspace>`. Worktrees are _already_ grouped by project at `workspaces_root()/<project-slug>/<workspace-slug>` (`worktree.rs` "Atom 5"), so the only delta is making `projects/` and `workspaces/` nest instead of being sibling roots. NOT worth the risk now: `projects/<slug>` is the clone's git working tree, so literal nesting would put worktrees inside it (git clean/status hazard). The safe shape (`projects/<slug>/repo` for the clone + `projects/<slug>/workspaces/<ws>`) is load-bearing — it touches the **agent security boundary** (`path_guard.rs` `resolve_allowed_roots`, `L1Mozart` = `[workspaces_root, projects_root]`), the clone destination (`clone_repo` destDir + `get_started_dir`), and `repos.local_path`. Do it as its own focused, well-tested change, not bundled with cosmetic work.
+- **"Clone" → "Mozart working copy"/"workspace" wording.** Current "clone" surfaces are the add-project action (`ui-clone-repo-dialog.ts`, `add-project-menu-items.ts`) — correct git terminology for today's dev users. Revisit when the audience shifts to non-devs.
+
+Note: the data-folder rename (`build.mozart.desktop` → `Mozart`, `paths.rs` `DATA_DIR_NAME`) was done 2026-06-09 and is independent of this entry. The Tauri bundle identifier stays `build.mozart.desktop` (code signing / updater / deep-link identity).
+
+**Depends on:** Product direction toward non-dev users / detaching from Git transport. Not blocking current beta.
+
+---
+
 ## Landing — replace Coming-soon install instructions
 
 **What:** `apps/landing/src/content/docs/getting-started.md` ships with `### Install` marked "Coming soon — public download not yet available." Replace with real one-liner install instructions once the desktop binary distribution pipeline exists.

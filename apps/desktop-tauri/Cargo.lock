@@ -2621,7 +2621,7 @@ dependencies = [
 
 [[package]]
 name = "mozart"
-version = "0.1.0-beta.2"
+version = "0.1.0-beta.2.1"
 dependencies = [
  "anyhow",
  "axum",
