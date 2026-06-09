@@ -269,15 +269,35 @@ pub fn open_in_terminal(path: &Path) -> Result<(), AppError> {
     }
     #[cfg(target_os = "windows")]
     {
+        // The worktree's basename is the slugified workspace/branch name —
+        // a short, meaningful title. Without it Windows Terminal / cmd
+        // default the window title to the full worktree path, which is far
+        // too long (`C:\Users\…\.mozart\worktrees\…`).
+        let title = path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_else(|| "Mozart".to_string());
         if command_available("wt.exe") {
-            return spawn_visible("wt.exe", &["-d".as_ref(), path.as_os_str()], None);
+            return spawn_visible(
+                "wt.exe",
+                &[
+                    "--title".as_ref(),
+                    title.as_ref(),
+                    "-d".as_ref(),
+                    path.as_os_str(),
+                ],
+                None,
+            );
         }
         let cd_cmd = format!("cd /D \"{}\"", path.display());
+        // `start`'s first quoted argument is the window title; supplying it
+        // explicitly stops cmd from titling the window with the full path.
         return spawn_visible(
             "cmd.exe",
             &[
                 "/C".as_ref(),
                 "start".as_ref(),
+                title.as_ref(),
                 "cmd".as_ref(),
                 "/K".as_ref(),
                 cd_cmd.as_ref(),
