@@ -21,17 +21,33 @@ export const RECRUITING_VERTICAL: VerticalConfig = {
     'Recruiting means reading, writing, comparing, and coordinating all day. Mozart is a desktop app where AI agents take on that load: they work with the files on your computer, draft and summarize for your review, and keep your roles organized. People decisions stay with you, and candidate data stays on your machine.',
   mock: {
     windowTitle: 'Recruiting · Weekly review',
+    prompt: 'Summarize the week across open roles and draft the update.',
     agentTask: 'Summarizing this week across your open roles...',
+    workspace: ['drafts/', 'notes/', 'pipeline/', 'reports/', 'roles/'],
     inputs: [
       'pipeline/export-jun-08.csv',
       'notes/hiring-manager-syncs.md',
       'roles/open-roles.md',
     ],
     outputs: [
-      { file: 'reports/weekly-hiring-update.md', label: 'Review →' },
-      { file: 'drafts/hm-update-email.md', label: 'Review →' },
+      { file: 'reports/weekly-hiring-update.md', state: 'new' },
+      { file: 'drafts/hm-update-email.md', state: 'new' },
+      { file: 'roles/open-roles.md', state: 'updated' },
     ],
   },
+  scenarios: [
+    {
+      instruction:
+        "Summarize this week's interview notes for the hiring manager.",
+      files: ['notes/interviews-w23/', 'roles/senior-designer.md'],
+      output: 'reports/designer-week-23.md',
+    },
+    {
+      instruction: 'Draft outreach to the three finalists, in my tone.',
+      files: ['roles/senior-designer.md', 'outreach/my-best-messages.md'],
+      output: 'drafts/finalist-outreach.md',
+    },
+  ],
   pains: [
     {
       icon: 'lucideFiles',

@@ -21,18 +21,32 @@ export const SALES_VERTICAL: VerticalConfig = {
     "Most of a sales day isn't selling. It's writing, searching, preparing, and updating. Mozart is a desktop app where AI agents do that work with you: they read your files, draft what you need, and get you ready for the next conversation. Everything stays on your machine until you decide otherwise.",
   mock: {
     windowTitle: 'Sales · Monday prep',
+    prompt: 'Prep my week: brief me on Acme and draft the follow-up.',
     agentTask: 'Preparing your week from notes and files...',
+    workspace: ['accounts/', 'calls/', 'drafts/', 'prep/', 'proposals/'],
     inputs: [
       'calls/last-week-notes.md',
       'accounts/acme/proposal-v3.md',
       'accounts/acme/email-thread.txt',
     ],
     outputs: [
-      { file: 'prep/acme-brief.md', label: 'Review →' },
-      { file: 'drafts/acme-follow-up.md', label: 'Review →' },
-      { file: 'prep/week-priorities.md', label: 'Review →' },
+      { file: 'prep/acme-brief.md', state: 'new' },
+      { file: 'drafts/acme-follow-up.md', state: 'new' },
+      { file: 'prep/week-priorities.md', state: 'updated' },
     ],
   },
+  scenarios: [
+    {
+      instruction: 'Where does the Acme deal stand? Draft the next email.',
+      files: ['calls/acme-jun-02.md', 'proposals/acme-v3.md'],
+      output: 'drafts/acme-next-step.md',
+    },
+    {
+      instruction: "Build one-page briefs for tomorrow's three meetings.",
+      files: ['calls/', 'accounts/', 'inbox-export.txt'],
+      output: 'prep/tuesday-briefs.md',
+    },
+  ],
   pains: [
     {
       icon: 'lucideLayers',

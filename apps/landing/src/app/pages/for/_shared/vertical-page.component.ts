@@ -6,6 +6,7 @@ import { VerticalHeroComponent } from './vertical-hero.component';
 import { VerticalPainsComponent } from './vertical-pains.component';
 import { VerticalPositioningComponent } from './vertical-positioning.component';
 import { VerticalRoadmapComponent } from './vertical-roadmap.component';
+import { VerticalScenariosComponent } from './vertical-scenarios.component';
 import { VerticalWaitlistComponent } from './vertical-waitlist.component';
 import { VerticalWorkflowsComponent } from './vertical-workflows.component';
 
@@ -14,6 +15,7 @@ import { VerticalWorkflowsComponent } from './vertical-workflows.component';
   imports: [
     VerticalHeroComponent,
     VerticalPainsComponent,
+    VerticalScenariosComponent,
     VerticalWorkflowsComponent,
     VerticalPositioningComponent,
     VerticalRoadmapComponent,
@@ -25,6 +27,7 @@ import { VerticalWorkflowsComponent } from './vertical-workflows.component';
   template: `
     <app-vertical-hero [config]="config()" />
     <app-vertical-pains [pains]="config().pains" />
+    <app-vertical-scenarios [scenarios]="config().scenarios" />
     <app-vertical-workflows [workflows]="config().workflows" />
     <app-vertical-positioning />
     <app-vertical-roadmap [integrations]="config().integrations" />
