@@ -165,7 +165,7 @@ function buildDocsEntry({ slug, attrs, body }) {
   return {
     kind: 'docs',
     slug,
-    url: `${SITE_URL}/docs/${slug}`,
+    url: `${SITE_URL}/docs/${slug}/`,
     title: attrs.title ?? humanizeSentenceCase(fileSlug),
     description: attrs.description ?? '',
     groupSlug,
@@ -179,7 +179,7 @@ function buildBlogEntry({ slug, attrs, body }) {
   return {
     kind: 'blog',
     slug,
-    url: `${SITE_URL}/blog/${slug}`,
+    url: `${SITE_URL}/blog/${slug}/`,
     title: attrs.title ?? humanizeSentenceCase(slug),
     description: attrs.description ?? '',
     date: attrs.date ?? '',
@@ -193,7 +193,7 @@ function buildChangelogEntry({ slug, attrs, body }) {
   return {
     kind: 'changelog',
     slug,
-    url: `${SITE_URL}/changelog/${slug}`,
+    url: `${SITE_URL}/changelog/${slug}/`,
     title: headline,
     description: attrs.title ?? '',
     date: attrs.date ?? '',
@@ -310,7 +310,7 @@ async function loadPageEntries(distRoot) {
       /<meta\s+name="description"\s+content="([^"]*)"/i
         .exec(html)?.[1]
         ?.trim() ?? '';
-    entries.push({ url: `${SITE_URL}${route}`, title, description });
+    entries.push({ url: `${SITE_URL}${route}/`, title, description });
   }
   return entries;
 }

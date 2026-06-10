@@ -51,7 +51,8 @@ async function checkSitemap() {
   }
   const xml = await readFile(sitemapPath, 'utf8');
   for (const route of REQUIRED_SITEMAP_ROUTES) {
-    const loc = `<loc>https://mozart.build${route}</loc>`;
+    const slashed = route === '/' ? '/' : `${route}/`;
+    const loc = `<loc>https://mozart.build${slashed}</loc>`;
     if (!xml.includes(loc)) {
       failures.push(`sitemap.xml missing required route: ${route}`);
     }
