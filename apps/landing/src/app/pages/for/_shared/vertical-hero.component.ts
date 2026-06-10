@@ -98,6 +98,11 @@ const MODAL_CLASS =
               Your data stays local
             </span>
           </div>
+
+          <p class="text-muted-foreground/70 mt-6 max-w-lg text-xs leading-relaxed">
+            Mozart is available today as a developer preview. The experience
+            for {{ config().audience }} is what we're building next.
+          </p>
         </div>
 
         <!-- Right: mock product window (desktop only) -->

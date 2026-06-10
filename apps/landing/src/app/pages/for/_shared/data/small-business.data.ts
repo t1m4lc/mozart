@@ -4,9 +4,9 @@ export const SMALL_BUSINESS_VERTICAL: VerticalConfig = {
   slug: 'small-business',
   jobTitle: 'Small Teams',
   audience: 'small business teams',
-  metaTitle: 'AI Workspace for Small Teams | Mozart: Private, Local-First',
+  metaTitle: 'Mozart for Small Teams | The AI Productivity App',
   metaDescription:
-    'Run your operations on AI, not copy-paste into ChatGPT. Mozart runs agents on your business docs and files, locally. No per-seat pricing, no data leaving your machine.',
+    'Mozart runs AI agents on your computer to create documents, analyze data, and organize your business files. Free for individuals. Your data stays yours.',
   keywords: [
     'ai for small business',
     'ai knowledge management',
@@ -17,9 +17,9 @@ export const SMALL_BUSINESS_VERTICAL: VerticalConfig = {
     'local ai for operations',
   ],
   heroEyebrow: 'Mozart for Small Teams',
-  heroHeadline: 'Run your operations on AI, not just run them past AI',
+  heroHeadline: 'The AI productivity app for people who do a bit of everything',
   heroSubcopy:
-    "Your team's knowledge is in Notion, Google Docs, shared drives, and a dozen chat threads. Mozart runs AI agents on all of it, on your machine, acting on your actual files, without your business data going through someone else's server.",
+    'When you run a small business, every job is your job: the documents, the numbers, the follow-ups, the files. Mozart puts AI agents on your computer that handle that work with you. They create, analyze, and organize using your actual files. Free for individuals, and your business data never leaves your machine through Mozart.',
   mock: {
     windowTitle: 'Ops · Weekly business review',
     agentTask: 'Summarizing this week\'s data and notes...',
@@ -37,12 +37,12 @@ export const SMALL_BUSINESS_VERTICAL: VerticalConfig = {
     {
       icon: 'lucideFiles',
       title: "Your team's knowledge is scattered everywhere",
-      body: "Notion, Google Docs, shared drives, old email threads. The information that runs your business is fragmented, and no AI tool can see across all of it.",
+      body: 'Notion, Google Docs, shared drives, old email threads. The information that runs your business is fragmented, and the AI you ask for help cannot see any of it.',
     },
     {
       icon: 'lucideDollarSign',
       title: 'AI add-ons charge per seat, then add up fast',
-      body: "Notion AI, Copilot for Microsoft 365, ChatGPT Teams. The moment you want AI built into your tools, the bill multiplies by headcount. Your team ends up sharing logins or going without.",
+      body: 'Notion AI, Copilot for Microsoft 365, ChatGPT Teams. The moment you want AI built into your tools, the bill multiplies by headcount. Your team ends up sharing logins or going without.',
     },
     {
       icon: 'lucideShield',
@@ -57,45 +57,28 @@ export const SMALL_BUSINESS_VERTICAL: VerticalConfig = {
   ],
   workflows: [
     {
-      title: 'Weekly ops review from actual data, not memory',
+      title: 'Reports from your actual data, not memory',
       without:
         'Someone spends Friday afternoon pulling numbers from spreadsheets, skimming meeting notes, and assembling a summary by hand that everyone will skim for two minutes.',
       withMozart:
-        'Point an agent at your weekly metrics file and meeting notes. It drafts the summary with highlights, blockers, and open items as a file you review and share. Done in minutes.',
+        'Point the agent at the metrics file and the meeting notes. The summary is drafted with highlights, blockers, and open items. You review and share.',
       status: 'today',
     },
     {
-      title: 'Turn your SOPs into AI-navigable playbooks',
+      title: 'Your documents, in order',
       without:
-        "Your SOPs sit in a folder that nobody reads until something goes wrong. New team members ask the same questions repeatedly because the docs are hard to search and harder to trust.",
+        'Process docs, policies, and how-tos sit in a folder nobody reads until something goes wrong. New team members ask the same questions because the docs are hard to search and harder to trust.',
       withMozart:
-        "Run an agent over your SOPs and process docs. It extracts the key procedures, flags gaps and contradictions, and produces a cleaner version: a knowledge base your team can actually use.",
+        'Run an agent over the folder. It flags gaps and contradictions and produces a cleaner version your team can actually use.',
       status: 'today',
     },
     {
-      title: 'Reports and analysis from your business files',
+      title: 'Analysis without the spreadsheet wrestling',
       without:
-        "Data lives in spreadsheets, notes live in docs, and analysis requires someone to bridge them manually. Usually the person who has the least time.",
+        'Data lives in spreadsheets, notes live in docs, and analysis requires someone to bridge them manually. Usually the person who has the least time.',
       withMozart:
-        'Drop your data exports and context docs into a workspace. The agent reads both and produces the analysis as a real document you edit, not a chat transcript you copy from.',
+        'Drop the data exports and context docs into a workspace. The analysis comes back as a real document you edit.',
       status: 'today',
-    },
-  ],
-  futureSkills: [
-    {
-      title: 'Ops review generator',
-      description:
-        'Compiles weekly metrics, meeting notes, and open items into a structured team review document.',
-    },
-    {
-      title: 'SOP auditor',
-      description:
-        'Reads your process docs, flags inconsistencies and gaps, and suggests a cleaner structure.',
-    },
-    {
-      title: 'Business analyst',
-      description:
-        'Synthesizes data exports and context files into reports your team can act on.',
     },
   ],
   integrations: ['Notion', 'Google Drive', 'Slack export', 'Airtable', 'Linear', 'Jira'],
@@ -103,22 +86,22 @@ export const SMALL_BUSINESS_VERTICAL: VerticalConfig = {
     {
       question: 'Is Mozart a replacement for Notion?',
       answer:
-        "Not directly. But for teams that spend more time asking AI about their Notion docs than reading them, Mozart may do more. It runs agents on your actual files and produces editable outputs, rather than answering questions in a chat.",
+        'Not directly. But for teams that spend more time asking AI about their Notion docs than reading them, Mozart may do more. It runs agents on your actual files and produces editable outputs, rather than answering questions in a chat.',
     },
     {
       question: 'Can multiple people on the team use it?',
       answer:
-        "Today Mozart is designed for individual use. Each person on your team can run their own local instance. Shared team workspaces with sync and collaboration are coming in Mozart Cloud.",
+        'Today Mozart is designed for individual use. Each person on your team can run their own local instance. Shared team workspaces with sync and collaboration are coming in Mozart Cloud.',
     },
     {
-      question: "Does it need to connect to our existing tools?",
+      question: 'Does it need to connect to our existing tools?',
       answer:
-        "Not to start. Mozart works with files on your machine. Export from Notion, Drive, or Airtable and agents can process them immediately. Native integrations are on our roadmap.",
+        'Not to start. Mozart works with files on your machine. Export from Notion, Drive, or Airtable and agents can process them immediately. Native integrations are on our roadmap.',
     },
     {
       question: 'Is our business data safe?',
       answer:
-        "Mozart runs locally. Your files and business data never leave your machine through Mozart. Agents use the LLM provider you choose, and you control exactly what context they see.",
+        'Mozart runs locally. Your files and business data never leave your machine through Mozart. Agents use the LLM provider you choose, and you control exactly what context they see.',
     },
   ],
 };

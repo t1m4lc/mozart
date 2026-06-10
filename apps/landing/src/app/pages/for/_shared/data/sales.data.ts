@@ -4,9 +4,9 @@ export const SALES_VERTICAL: VerticalConfig = {
   slug: 'sales',
   jobTitle: 'Sales',
   audience: 'sales teams',
-  metaTitle: 'AI Agents for Sales Teams | Mozart: Local, Private AI Workspace',
+  metaTitle: 'Mozart for Sales | AI Agents That Work With Your Files',
   metaDescription:
-    'Stop losing hours to follow-up and proposal grind. Mozart runs AI agents on your machine, turning call notes into drafted follow-ups, with deal data staying off the cloud.',
+    'Mozart is a desktop app where AI agents draft, research, and prepare your sales work, using your own files, on your own computer. Deal data stays local.',
   keywords: [
     'ai agents for sales teams',
     'ai sales follow-up',
@@ -16,86 +16,69 @@ export const SALES_VERTICAL: VerticalConfig = {
     'ai sales assistant without coding',
   ],
   heroEyebrow: 'Mozart for Sales',
-  heroHeadline: 'Stop losing hours to follow-up and proposal grind',
+  heroHeadline: 'Hand the busywork to AI agents. Keep selling.',
   heroSubcopy:
-    'Call notes, account research, proposals. The work between client conversations is where your day disappears. Mozart runs AI agents on your machine to turn that grind into reviewed drafts, with deal data staying off the cloud.',
+    "Most of a sales day isn't selling. It's writing, searching, preparing, and updating. Mozart is a desktop app where AI agents do that work with you: they read your files, draft what you need, and get you ready for the next conversation. Everything stays on your machine until you decide otherwise.",
   mock: {
-    windowTitle: 'Sales · Follow-up drafts',
-    agentTask: 'Reviewing this week\'s call notes...',
+    windowTitle: 'Sales · Monday prep',
+    agentTask: 'Preparing your week from notes and files...',
     inputs: [
-      'calls/acme-corp-2026-06-09.md',
-      'calls/techflow-2026-06-08.md',
-      'calls/westbridge-2026-06-07.md',
+      'calls/last-week-notes.md',
+      'accounts/acme/proposal-v3.md',
+      'accounts/acme/email-thread.txt',
     ],
     outputs: [
+      { file: 'prep/acme-brief.md', label: 'Review →' },
       { file: 'drafts/acme-follow-up.md', label: 'Review →' },
-      { file: 'drafts/techflow-follow-up.md', label: 'Review →' },
-      { file: 'drafts/westbridge-follow-up.md', label: 'Review →' },
+      { file: 'prep/week-priorities.md', label: 'Review →' },
     ],
   },
   pains: [
     {
+      icon: 'lucideLayers',
+      title: 'Your context lives in ten tabs',
+      body: 'CRM, inbox, notes, the deck, and a chatbot that forgets you between sessions. You spend half the day moving information between windows. The selling happens in whatever gaps remain.',
+    },
+    {
       icon: 'lucideClipboard',
-      title: 'Your follow-ups live in five browser tabs',
-      body: 'After every call you bounce between ChatGPT, your notes, the deck, and your inbox, copy-pasting context that the AI forgets the next time you open a tab.',
+      title: "The AI doesn't know your deals",
+      body: 'Every chat starts from zero. You re-explain the account, paste the history, and get generic advice back, because the AI cannot see your actual files: the deck, the thread, the pricing sheet.',
     },
     {
       icon: 'lucideShield',
-      title: 'Pipeline data is too sensitive for random AI tools',
+      title: 'Deal data is too sensitive for random AI tools',
       body: "Pricing, deal terms, customer names. Pasting those into a cloud chat tool feels wrong, and for many teams it's against policy.",
     },
     {
-      icon: 'lucideSearch',
-      title: 'Account research is a part-time job',
-      body: "Building a real picture of a prospect means stitching together old threads, past proposals, and public info by hand. AI could do it, but only if it can see your actual files.",
-    },
-    {
-      icon: 'lucideTerminal',
-      title: 'The best AI agents require a terminal',
-      body: "The most capable AI agents ship as command-line tools built for engineers. You shouldn't need a terminal to get leverage from them.",
+      icon: 'lucideFiles',
+      title: 'AI gives you answers. You still do the work',
+      body: "A chatbot can tell you what to write. It can't open your notes, produce the document, and have it ready for review. That assembly is still your job.",
     },
   ],
   workflows: [
     {
-      title: 'From call notes to follow-up drafts',
+      title: 'From your notes to finished drafts',
       without:
-        'You re-read your notes, dig out the deck, and write each follow-up from scratch. Or paste fragments into a chatbot and rebuild context every single time.',
+        'You re-read your call notes, dig out the latest deck, paste fragments into a chatbot, and stitch the answer back into an email by hand. Then the next account needs the same treatment, and the one after that.',
       withMozart:
-        'Point an agent at your call notes folder. It reads every note and drafts personalized follow-ups for each account as files on your machine, ready for your review before anything goes anywhere.',
+        'Tell an agent what you need. It reads the notes in your workspace, and the drafts are ready for your review.',
       status: 'today',
     },
     {
-      title: 'Account brief before every call',
+      title: 'Briefed before every conversation',
       without:
-        'Fifteen browser tabs, an old proposal you half-remember, and a frantic skim five minutes before the meeting.',
+        'Fifteen browser tabs, a proposal you half-remember, an email thread you scroll at the last second, and a frantic skim while the meeting link is already open.',
       withMozart:
-        'Drop your past notes, threads, and proposals for an account into a workspace. The agent compiles a one-page brief with context to reference, open items, and gaps to probe, refreshed before each call.',
+        'Point the agent at the account folder. One page: context, open items, and what to probe.',
       status: 'today',
     },
     {
-      title: 'Proposals that start 80% done',
+      title: 'Files that stay in order',
       without:
-        "Every proposal begins as a copy of the last one, with find-and-replace errors waiting to embarrass you.",
+        'Proposals named final, final-v2, and final-FINAL scattered across folders. Pricing that changed two weeks ago still living in last month\'s deck. A find-and-replace error waiting to embarrass you in front of a customer.',
       withMozart:
-        'Share your templates and the deal notes. The agent drafts the proposal, flags the sections that need your judgment, and keeps pricing data on your machine rather than in a shared doc or a chat log.',
+        'Ask the agent to clean up, update, or restructure, then review the changes before accepting.',
       status: 'today',
-    },
-  ],
-  futureSkills: [
-    {
-      title: 'Follow-up writer',
-      description:
-        'Turns raw call notes into sequenced follow-up drafts matched to your voice.',
-    },
-    {
-      title: 'Deal-brief builder',
-      description:
-        'Compiles everything you know about an account into a brief you can skim before the call.',
-    },
-    {
-      title: 'Proposal assembler',
-      description:
-        'Drafts proposals from your templates and deal context, with risky sections highlighted for review.',
     },
   ],
   integrations: ['CRM', 'Gmail', 'Calendar', 'LinkedIn', 'Notion'],
@@ -103,7 +86,12 @@ export const SALES_VERTICAL: VerticalConfig = {
     {
       question: 'What does Mozart actually do for sales today?',
       answer:
-        'Mozart runs AI agents (Claude Code and Codex) in isolated workspaces on your machine. You point the agent at your call notes, templates, or deal files. It reads them and produces drafts you review before they go anywhere.',
+        'Mozart runs AI agents (Claude Code and Codex) in isolated workspaces on your machine. Point them at notes, templates, exports, or whole folders: they read, draft, analyze, and organize, and you review every output before it goes anywhere.',
+    },
+    {
+      question: 'Which files can agents work with?',
+      answer:
+        'Anything you can save to a folder: call notes in any format, CRM exports as CSV, decks, proposals, transcripts, saved email threads. Agents read what is in the workspace and produce drafts or analysis from it.',
     },
     {
       question: 'Can Mozart update my CRM?',
@@ -118,7 +106,7 @@ export const SALES_VERTICAL: VerticalConfig = {
     {
       question: 'Do I need to know how to code?',
       answer:
-        "Today Mozart is most comfortable for technical users. The experience built for sales: no terminal, just your files and a clean interface, is in development. Join the waitlist to be first in line.",
+        'Today Mozart is most comfortable for technical users. The experience built for sales: no terminal, just your files and a clean interface, is in development. Join the waitlist to be first in line.',
     },
   ],
 };

@@ -4,9 +4,9 @@ export const MARKETING_VERTICAL: VerticalConfig = {
   slug: 'marketing',
   jobTitle: 'Marketing',
   audience: 'marketing teams',
-  metaTitle: 'AI Agents for Marketing Teams | Mozart: Private AI Workspace',
+  metaTitle: 'Mozart for Marketing | AI Agents in Your Files, Not a Chat',
   metaDescription:
-    'Turn one asset into ten without the copy-paste afternoon. Mozart runs AI agents on your content files: drafts, repurposing, and campaign checks, with unreleased work staying off the cloud.',
+    'Mozart runs AI agents that create and edit your marketing files with your brand context at hand, on your computer. No copy-paste between ten tools.',
   keywords: [
     'ai agents for marketing',
     'ai content repurposing tool',
@@ -16,21 +16,21 @@ export const MARKETING_VERTICAL: VerticalConfig = {
     'stop copy pasting from chatgpt',
   ],
   heroEyebrow: 'Mozart for Marketing',
-  heroHeadline: 'One asset into ten, without the copy-paste afternoon',
+  heroHeadline: 'AI that works in your files, not in a chat tab',
   heroSubcopy:
-    "Briefs, drafts, repurposing, launch checklists. Your campaign work lives in files. Mozart runs AI agents on those files so you go from one webinar to a blog post, newsletter, and ten social snippets without spending the afternoon on it.",
+    "Briefs, drafts, plans, assets: your marketing lives in files, and AI chat tools can't touch them. Mozart is a desktop app where AI agents create, edit, and reorganize that work directly, with your voice guide and templates always in reach. Brief an agent once. Review what it makes. Ship.",
   mock: {
-    windowTitle: 'Marketing · Webinar repurpose',
-    agentTask: 'Repurposing webinar transcript...',
+    windowTitle: 'Marketing · Q3 campaign',
+    agentTask: 'Drafting campaign assets from your brief...',
     inputs: [
-      'assets/product-launch-webinar.txt',
+      'campaign/q3-brief.md',
       'brand/voice-guide.md',
-      'templates/blog-template.md',
+      'past/q2-launch-recap.md',
     ],
     outputs: [
-      { file: 'content/blog-post-draft.md', label: 'Review →' },
-      { file: 'content/newsletter-draft.md', label: 'Review →' },
-      { file: 'content/social-snippets.md', label: 'Review →' },
+      { file: 'drafts/landing-copy.md', label: 'Review →' },
+      { file: 'drafts/email-sequence.md', label: 'Review →' },
+      { file: 'review/consistency-report.md', label: 'Review →' },
     ],
   },
   pains: [
@@ -41,8 +41,8 @@ export const MARKETING_VERTICAL: VerticalConfig = {
     },
     {
       icon: 'lucideLayers',
-      title: 'Repurposing is a full afternoon of copy-paste',
-      body: 'One webinar should become a blog post, a newsletter, and ten social posts. Instead it becomes three hours of copy-paste and reformatting between tools.',
+      title: "Ten tools, and you're the integration",
+      body: 'Docs here, assets there, the calendar in a third place. Every piece of work means ferrying context between tools by hand. The handoffs are where the afternoon goes.',
     },
     {
       icon: 'lucideShield',
@@ -50,52 +50,35 @@ export const MARKETING_VERTICAL: VerticalConfig = {
       body: "Launch plans, embargoed announcements, pricing pages in progress. Feeding them to a chatbot you don't control is a leak waiting to happen.",
     },
     {
-      icon: 'lucideTerminal',
-      title: 'Agent tools that actually work are built for engineers',
-      body: 'The AI tools that can really edit and produce files ship as terminal programs. Marketers should get the same leverage without learning the command line.',
+      icon: 'lucideFiles',
+      title: 'The output is never where the work is',
+      body: 'Even when AI writes something good, it lands in a chat window. You still copy it out, reformat it, and file it where it actually belongs. Multiply that by every asset in a campaign.',
     },
   ],
   workflows: [
     {
-      title: 'From one asset to a full content batch',
+      title: 'Brief to draft, in your formats',
       without:
-        'You paste the webinar transcript into a chatbot section by section, then manually reassemble the outputs into drafts scattered across docs.',
+        'The brief sits in one doc, the draft starts on a blank page, and the style guide is open in a third tab nobody actually consults. By review round three the draft has drifted from the brief, and someone asks which version is current.',
       withMozart:
-        'Point an agent at the transcript in your content folder, along with your style guide and templates. It produces the blog post, newsletter, and social snippets as real files, each one a reviewable diff.',
+        'Give the agent the brief. The draft arrives structured to your template, with claims flagged for sourcing.',
       status: 'today',
     },
     {
-      title: 'Brief to structured first draft',
+      title: 'One piece of work becomes many',
       without:
-        'The brief sits in one doc, the draft starts from a blank page, and the two drift apart by review round three.',
+        'Turning a webinar into a blog post, a newsletter, and ten social snippets means an afternoon of pasting between tools, fixing formatting, and reassembling outputs scattered across docs.',
       withMozart:
-        'Give the agent your brief and your template. It produces a structured first draft with claims that need sourcing flagged for review, so you edit rather than fill from scratch.',
+        'Ask once. The agent fans the source out into your channel formats as real files.',
       status: 'today',
     },
     {
-      title: 'Launch folder consistency check',
+      title: 'Consistency checks across a whole folder',
       without:
-        "Someone proofreads ten assets the night before launch, hunting stale dates, old product names, and broken copy by eye.",
+        'Someone proofreads ten assets the night before launch, hunting stale dates, old product names, and claims that quietly changed, all by eye, at eleven pm.',
       withMozart:
-        'Before anything ships, point an agent at your launch folder. It sweeps every file for inconsistencies: naming, dates, claims that changed, and surfaces a report before you hit publish.',
+        'Point the agent at the folder. It reports every inconsistency before you publish.',
       status: 'today',
-    },
-  ],
-  futureSkills: [
-    {
-      title: 'Repurposing pipeline',
-      description:
-        'Fans one source asset out into your standard channel formats, following your templates.',
-    },
-    {
-      title: 'Brand-voice guardian',
-      description:
-        'Checks drafts against your style guide and positioning doc, suggesting edits instead of rewriting blindly.',
-    },
-    {
-      title: 'Campaign checklist runner',
-      description:
-        'Walks a launch folder against your pre-flight checklist and reports what is missing or inconsistent.',
     },
   ],
   integrations: ['CMS', 'Google Drive', 'Notion', 'Figma', 'Social schedulers'],
@@ -103,7 +86,12 @@ export const MARKETING_VERTICAL: VerticalConfig = {
     {
       question: 'How is this different from ChatGPT?',
       answer:
-        'Mozart agents work directly on your files in a workspace on your machine, instead of in a chat window you copy-paste from. You see every proposed change as a reviewable diff. Your templates stay your templates.',
+        'Mozart agents work directly on your files in a workspace on your machine, instead of in a chat window you copy-paste from. You see every proposed change as a reviewable diff, and the drafts land in your folders, already in the right format. Your templates stay your templates.',
+    },
+    {
+      question: 'How do agents follow our brand voice?',
+      answer:
+        'Keep your voice guide, positioning doc, and a few strong examples in the workspace. Agents use them on every task, so the voice lives with your files instead of being re-pasted into a chat each morning.',
     },
     {
       question: 'Can Mozart publish to my CMS?',
@@ -118,7 +106,7 @@ export const MARKETING_VERTICAL: VerticalConfig = {
     {
       question: 'Can I use it today without being technical?',
       answer:
-        "Today Mozart is a developer preview that leans technical. A marketer-friendly experience with ready-made skills and templates is what the waitlist is for.",
+        'Today Mozart is a developer preview that leans technical. A marketer-friendly experience with ready-made skills and templates is what the waitlist is for.',
     },
   ],
 };

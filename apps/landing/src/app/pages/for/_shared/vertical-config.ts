@@ -19,11 +19,6 @@ export interface VerticalWorkflow {
   readonly status: FeatureStatus;
 }
 
-export interface VerticalFutureSkill {
-  readonly title: string;
-  readonly description: string;
-}
-
 export interface VerticalFaqEntry {
   readonly question: string;
   readonly answer: string;
@@ -49,7 +44,6 @@ export interface VerticalConfig {
   readonly mock: VerticalMock;
   readonly pains: readonly VerticalPain[];
   readonly workflows: readonly VerticalWorkflow[];
-  readonly futureSkills: readonly VerticalFutureSkill[];
   readonly integrations: readonly string[];
   readonly faq: readonly VerticalFaqEntry[];
 }
