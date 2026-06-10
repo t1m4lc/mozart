@@ -40,6 +40,8 @@ Test demand from non-developer, job-based audiences (Sales, Marketing, Recruitin
 Request: `{ email, vertical, source?, hp?, formAge? }`
 
 - Honeypot `hp` non-empty or `formAge < 1200ms` → silent fake `200 {ok:true}` (no write, no bot signal).
+- Missing user-agent or non-JSON content-type → silent fake `200` (scripted traffic).
+- Per-IP rate limit via `cf-connecting-ip`: 10 writes/hour, KV keys `rl:<ip>` with TTL → silent fake `200` when exceeded. Escalation if spam persists: Cloudflare Turnstile (needs site key + secret provisioning).
 - Invalid email → `400 invalid_email`; unknown vertical → `400 invalid_vertical`.
 - `WAITLIST` KV binding missing → `503 waitlist_unavailable` (graceful on previews).
 - KV key `waitlist:<email>`, value `{ email, verticals[], source, firstTs, lastTs }`. Duplicate email → merge vertical into `verticals[]`, return `200 {ok:true, already:true}` (idempotent).
@@ -51,6 +53,10 @@ Request: `{ email, vertical, source?, hp?, formAge? }`
 3. Export: `npx wrangler@4 kv key list --namespace-id=<id> --prefix=waitlist:`
 
 No new GitHub secrets.
+
+### Local dev
+
+`vite dev` has no Pages runtime, so `devWaitlistApi()` in `vite.config.ts` (registered before `analog()`) mirrors the function's contract in-memory. The real function is exercised via `wrangler pages dev` (see Validation).
 
 ### Client (`_shared/vertical-waitlist.component.ts`)
 

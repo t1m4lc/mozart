@@ -8,12 +8,18 @@ import type { PagesContext } from './analytics/_lib';
 // project (Production AND Preview). Direct Upload deploys don't carry
 // bindings, so this is configured once in the CF dashboard and persists.
 //
-// Anti-spam: honeypot field (`hp`) and minimum form age. Both fail silently
-// with a fake success so bots get no signal.
+// Anti-spam: honeypot field (`hp`), minimum form age, browser-signal
+// heuristics (user-agent + JSON content-type), and a per-IP rate limit
+// (`rl:<ip>` keys, TTL'd). All fail silently with a fake success so bots
+// get no signal.
 
 type KvNamespace = {
   get(key: string): Promise<string | null>;
-  put(key: string, value: string): Promise<void>;
+  put(
+    key: string,
+    value: string,
+    options?: { expirationTtl?: number },
+  ): Promise<void>;
 };
 
 type Env = {
@@ -46,6 +52,8 @@ const VERTICALS = [
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MIN_FORM_AGE_MS = 1200;
+const RATE_LIMIT_MAX = 10;
+const RATE_LIMIT_WINDOW_S = 3600;
 
 function json(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -55,6 +63,13 @@ function json(status: number, body: unknown): Response {
 }
 
 export const onRequestPost = async ({ request, env }: PagesContext<Env>) => {
+  // Browsers always send these; their absence marks scripted traffic.
+  const userAgent = request.headers.get('user-agent') ?? '';
+  const contentType = request.headers.get('content-type') ?? '';
+  if (userAgent.length === 0 || !contentType.includes('application/json')) {
+    return json(200, { ok: true });
+  }
+
   let body: Body;
   try {
     body = (await request.json()) as Body;
@@ -83,6 +98,18 @@ export const onRequestPost = async ({ request, env }: PagesContext<Env>) => {
   const kv = env.WAITLIST;
   if (!kv) {
     return json(503, { error: 'waitlist_unavailable' });
+  }
+
+  const ip = request.headers.get('cf-connecting-ip');
+  if (ip) {
+    const rlKey = `rl:${ip}`;
+    const count = Number((await kv.get(rlKey)) ?? '0');
+    if (count >= RATE_LIMIT_MAX) {
+      return json(200, { ok: true });
+    }
+    await kv.put(rlKey, String(count + 1), {
+      expirationTtl: RATE_LIMIT_WINDOW_S,
+    });
   }
 
   const source = typeof body.source === 'string' ? body.source : 'unknown';
