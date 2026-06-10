@@ -17,7 +17,7 @@
 
 use std::io::{Read, Write};
 use std::path::Path;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use portable_pty::{native_pty_system, CommandBuilder, MasterPty, PtySize};
 use serde::{Deserialize, Serialize};
@@ -42,7 +42,10 @@ pub enum TerminalEvent {
 pub struct TerminalHandle {
     writer: Mutex<Box<dyn Write + Send>>,
     master: Mutex<Box<dyn MasterPty + Send>>,
-    child: Mutex<Box<dyn portable_pty::Child + Send + Sync>>,
+    // Shared with the reader thread so it can `wait()` for the real exit
+    // code on EOF (a failed setup/run command must surface as non-zero,
+    // not a false "done"). Drop reaps via the same handle.
+    child: Arc<Mutex<Box<dyn portable_pty::Child + Send + Sync>>>,
 }
 
 impl TerminalHandle {
@@ -90,9 +93,10 @@ pub fn spawn(
     worktree: &Path,
     cols: u16,
     rows: u16,
+    display_label: Option<&str>,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalHandle, AppError> {
-    spawn_inner(worktree, cols, rows, None, on_event)
+    spawn_inner(worktree, cols, rows, None, display_label, on_event)
 }
 
 /// Spawn the user's shell running `command` once (via the shell's
@@ -106,7 +110,7 @@ pub fn spawn_command(
     command: String,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalHandle, AppError> {
-    spawn_inner(worktree, cols, rows, Some(command), on_event)
+    spawn_inner(worktree, cols, rows, Some(command), None, on_event)
 }
 
 fn spawn_inner(
@@ -114,6 +118,7 @@ fn spawn_inner(
     cols: u16,
     rows: u16,
     command: Option<String>,
+    display_label: Option<&str>,
     on_event: Channel<TerminalEvent>,
 ) -> Result<TerminalHandle, AppError> {
     let pty_system = native_pty_system();
@@ -154,7 +159,9 @@ fn spawn_inner(
     // otherwise reads block forever waiting for slave to close.
     drop(pair.slave);
 
-    let writer = pair
+    let child = Arc::new(Mutex::new(child));
+
+    let mut writer = pair
         .master
         .take_writer()
         .map_err(|e| AppError::Io(format!("take_writer: {e}")))?;
@@ -163,7 +170,21 @@ fn spawn_inner(
         .try_clone_reader()
         .map_err(|e| AppError::Io(format!("try_clone_reader: {e}")))?;
 
+    // Interactive shells get an OS-correct prompt-init (clear + friendly
+    // prompt label). One-shot run/setup commands (`command.is_some()`)
+    // skip it — they exit on their own. Built per-shell so `cmd.exe` /
+    // PowerShell don't receive POSIX `export` syntax.
+    if command.is_none() {
+        if let Some(label) = display_label {
+            let init = shell.prompt_init(label);
+            if let Err(e) = writer.write_all(init.as_bytes()).and_then(|_| writer.flush()) {
+                log::debug!("terminal prompt-init write failed: {e}");
+            }
+        }
+    }
+
     let on_event_for_reader = on_event.clone();
+    let child_for_reader = child.clone();
     std::thread::Builder::new()
         .name("terminal-reader".into())
         .spawn(move || {
@@ -186,13 +207,22 @@ fn spawn_inner(
                     }
                 }
             }
-            let _ = on_event_for_reader.send(TerminalEvent::Exited { code: 0 });
+            // EOF on the master means the shell exited — reap it for the
+            // real exit code so a failed run/setup (e.g. missing `npm`)
+            // surfaces as non-zero instead of a false success.
+            let code = child_for_reader
+                .lock()
+                .ok()
+                .and_then(|mut c| c.wait().ok())
+                .map(|s| s.exit_code() as i32)
+                .unwrap_or(0);
+            let _ = on_event_for_reader.send(TerminalEvent::Exited { code });
         })
         .map_err(|e| AppError::Io(format!("spawn terminal reader thread: {e}")))?;
 
     Ok(TerminalHandle {
         writer: Mutex::new(writer),
         master: Mutex::new(pair.master),
-        child: Mutex::new(child),
+        child,
     })
 }

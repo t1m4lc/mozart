@@ -168,6 +168,7 @@ pub fn run() {
             // or git failures are logged and skipped — they will fail
             // later through their normal user-visible paths.
             recover_interrupted_merges(&db_state);
+            normalize_orphaned_runs_at_boot(&db_state);
             cleanup_orphans_at_boot(&db_state);
             migrate_legacy_worktrees_at_boot(&db_state);
 
@@ -341,6 +342,21 @@ fn recover_interrupted_merges(db: &db::DbState) {
 /// Remove orphaned workspace directories left over from crashed prior runs or
 /// failed cleanup attempts. Called once at boot; best-effort and silent on
 /// errors so a broken filesystem cannot block startup.
+/// Flip agent runs left `running`/`initializing` by a previous session to
+/// the terminal `'stale'` status. The in-memory RunRegistry is empty at
+/// boot, so no process backs them — leaving them non-terminal strands the
+/// matching chat message on an infinite loader.
+fn normalize_orphaned_runs_at_boot(db: &db::DbState) {
+    let conn = db.lock();
+    match db::agent_runs::mark_orphaned_runs_stale(&conn, db::now_ms()) {
+        Ok(n) if n > 0 => {
+            log::info!("startup: normalized {n} orphaned agent run(s) to 'stale'")
+        }
+        Ok(_) => {}
+        Err(e) => log::warn!("startup: agent-run normalization failed: {e}"),
+    }
+}
+
 fn cleanup_orphans_at_boot(db: &db::DbState) {
     let rt = match tokio::runtime::Builder::new_current_thread()
         .enable_all()

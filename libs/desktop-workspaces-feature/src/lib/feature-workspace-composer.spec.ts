@@ -69,9 +69,11 @@ function configure(state: ChatFacadeStubState) {
   const chatFacade = {
     activeChatFor: vi.fn(() => activeChatSignal()),
     isStreaming: vi.fn(() => streamingSignal),
+    isStreamingChat: vi.fn(() => streamingSignal),
     messagesForWorkspace: vi.fn(() => messagesSignal),
     sendUserMessage: vi.fn(async () => undefined),
     cancelActive: vi.fn(),
+    cancelChat: vi.fn(),
     setChatMode: vi.fn(async () => undefined),
     setChatEffort: vi.fn(async () => undefined),
     setChatModel: vi.fn(async () => undefined),

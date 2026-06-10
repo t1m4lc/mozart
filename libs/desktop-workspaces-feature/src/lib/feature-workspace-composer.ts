@@ -151,8 +151,6 @@ export class FeatureWorkspaceComposer {
     read: ElementRef<HTMLElement>,
   });
 
-  protected readonly isStreaming = this.facade.isStreaming(this.workspaceId);
-
   private readonly _activeChat = computed(() => {
     const id = this.workspaceId();
     if (!id) return null;
@@ -161,6 +159,12 @@ export class FeatureWorkspaceComposer {
 
   private readonly _activeChatId = computed(
     () => this._activeChat()?.id ?? null,
+  );
+
+  // Scoped to the active chat (not the workspace) so a run in a sibling
+  // chat tab doesn't lock this composer / model selector.
+  protected readonly isStreaming = this.facade.isStreamingChat(
+    this._activeChatId,
   );
 
   // Composer draft, session-only per (workspaceId, chatId). The
@@ -475,9 +479,9 @@ export class FeatureWorkspaceComposer {
   }
 
   protected onStop(): void {
-    const id = this.workspaceId();
-    if (!id) return;
-    this.facade.cancelActive(id);
+    const chatId = this._activeChatId();
+    if (!chatId) return;
+    this.facade.cancelChat(chatId);
   }
 
   protected onConnectProvider(): void {

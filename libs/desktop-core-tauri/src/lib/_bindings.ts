@@ -391,6 +391,28 @@ export const commands = {
       else return { status: 'error', error: e as any };
     }
   },
+  async hasActiveAgentRuns(): Promise<Result<boolean, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('has_active_agent_runs'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
+  async killActiveAgentRuns(): Promise<Result<number, AppError>> {
+    try {
+      return {
+        status: 'ok',
+        data: await TAURI_INVOKE('kill_active_agent_runs'),
+      };
+    } catch (e) {
+      if (e instanceof Error) throw e;
+      else return { status: 'error', error: e as any };
+    }
+  },
   async listRuns(workspaceId: string): Promise<Result<AgentRun[], AppError>> {
     try {
       return {

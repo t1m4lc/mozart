@@ -187,6 +187,33 @@ impl Shell {
             Shell::Posix(_) => "-c",
         }
     }
+
+    /// The init line written to a freshly-spawned interactive PTY: clears
+    /// the screen and sets the prompt to the workspace's friendly `label`.
+    /// Shell-specific so Windows shells don't choke on POSIX syntax — the
+    /// old code sent `clear; export PS1=…` to `cmd.exe`, which errored.
+    /// `label` is escaped for the target shell. Includes the trailing
+    /// newline that submits the line.
+    pub fn prompt_init(&self, label: &str) -> String {
+        match self {
+            Shell::Posix(_) => {
+                let safe = label.replace('\'', r"'\''");
+                // Leading space keeps the line out of HISTCONTROL history.
+                format!(" clear; export PS1='{safe} $ '; export PROMPT='{safe} $ '\n")
+            }
+            Shell::Cmd => {
+                // `cmd.exe`: `cls` clears; the PROMPT env var renders `$$`
+                // as a literal `$`. No quote-escaping in cmd — strip the
+                // chars that would break the `set` or trigger expansion.
+                let safe = label.replace(['\r', '\n', '%', '"'], " ");
+                format!("cls\r\nset \"PROMPT={safe} $$ \"\r\n")
+            }
+            Shell::PowerShell => {
+                let safe = label.replace('\'', "''").replace(['\r', '\n'], " ");
+                format!("Clear-Host; function prompt {{ '{safe} $ ' }}\r\n")
+            }
+        }
+    }
 }
 
 /// The user's default interactive shell. Honors `$SHELL` first (covers
@@ -423,6 +450,42 @@ mod tests {
         assert_eq!(Shell::Cmd.run_flag(), "/C");
         assert_eq!(Shell::PowerShell.run_flag(), "-Command");
         assert_eq!(Shell::Posix(OsString::from("/bin/bash")).run_flag(), "-c");
+    }
+
+    #[test]
+    fn prompt_init_is_shell_aware() {
+        // POSIX keeps the export/clear form (leading space for HISTCONTROL).
+        let posix = Shell::Posix(OsString::from("/bin/bash")).prompt_init("dylan");
+        assert!(posix.starts_with(' '));
+        assert!(posix.contains("clear;"));
+        assert!(posix.contains("export PS1='dylan $ '"));
+
+        // cmd.exe must NOT receive POSIX syntax — uses cls + set PROMPT.
+        let cmd = Shell::Cmd.prompt_init("dylan");
+        assert!(cmd.contains("cls"));
+        assert!(cmd.contains("set \"PROMPT=dylan $$ \""));
+        assert!(!cmd.contains("export"));
+        assert!(!cmd.contains("clear;"));
+
+        // PowerShell uses Clear-Host + a prompt function.
+        let ps = Shell::PowerShell.prompt_init("dylan");
+        assert!(ps.contains("Clear-Host"));
+        assert!(ps.contains("function prompt"));
+        assert!(!ps.contains("export"));
+    }
+
+    #[test]
+    fn prompt_init_escapes_label_per_shell() {
+        // POSIX single-quote escape.
+        let posix = Shell::Posix(OsString::from("/bin/sh")).prompt_init("o'brien");
+        assert!(posix.contains(r"o'\''brien"));
+        // cmd strips quotes/percent that would break `set` / expand vars.
+        let cmd = Shell::Cmd.prompt_init("a%b\"c");
+        assert!(!cmd.contains('%'));
+        assert!(cmd.contains("set \"PROMPT="));
+        // PowerShell doubles single quotes.
+        let ps = Shell::PowerShell.prompt_init("o'brien");
+        assert!(ps.contains("o''brien"));
     }
 
     #[test]

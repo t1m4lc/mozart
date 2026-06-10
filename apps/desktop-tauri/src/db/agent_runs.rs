@@ -65,6 +65,22 @@ pub fn mark_ended(
     Ok(())
 }
 
+/// Normalize runs left in a non-terminal state by a previous session.
+/// At boot the in-memory `RunRegistry` is empty, so no process backs any
+/// `running`/`initializing` row — they were interrupted by an app kill or
+/// crash. Flip them to `'stale'` (a terminal status) with `ended_at` set,
+/// so the frontend's interrupted-message recovery and any run-status read
+/// agree instead of showing an infinite loader. Returns the row count.
+pub fn mark_orphaned_runs_stale(conn: &Connection, ended_at: i64) -> Result<usize, AppError> {
+    let n = conn.execute(
+        "UPDATE agent_runs
+         SET status = 'stale', ended_at = ?1
+         WHERE status IN ('running', 'initializing') AND ended_at IS NULL",
+        params![ended_at],
+    )?;
+    Ok(n)
+}
+
 pub fn get(conn: &Connection, run_id: &str) -> Result<AgentRun, AppError> {
     conn.query_row(
         "SELECT run_id, thread_id, prompt, status, started_at, ended_at, exit_code, error_message, checkpoint_sha, prompt_source
@@ -249,6 +265,37 @@ mod tests {
             got.prompt_source, "frontend_collapsed",
             "migration 011 DEFAULT must backfill prompt_source for rows that predate the column"
         );
+    }
+
+    #[test]
+    fn mark_orphaned_runs_stale_flips_only_non_terminal_open_runs() {
+        let db = init_db_memory().unwrap();
+        let conn = db.lock();
+        let th = seed_thread(&conn);
+
+        // `make_run` defaults to status "initializing", ended_at None.
+        let initializing = make_run(&th);
+        create(&conn, &initializing).unwrap();
+
+        let mut running = make_run(&th);
+        running.status = "running".into();
+        running.ended_at = None;
+        create(&conn, &running).unwrap();
+
+        let mut done = make_run(&th);
+        done.status = "done".into();
+        done.ended_at = Some(now_ms());
+        create(&conn, &done).unwrap();
+
+        let n = mark_orphaned_runs_stale(&conn, 12_345).unwrap();
+        assert_eq!(n, 2, "only the running + initializing open rows flip");
+
+        assert_eq!(get(&conn, &initializing.run_id).unwrap().status, "stale");
+        let flipped = get(&conn, &running.run_id).unwrap();
+        assert_eq!(flipped.status, "stale");
+        assert_eq!(flipped.ended_at, Some(12_345));
+        // A terminal run is left untouched.
+        assert_eq!(get(&conn, &done.run_id).unwrap().status, "done");
     }
 
     #[test]

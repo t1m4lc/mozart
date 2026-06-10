@@ -81,8 +81,21 @@ use crate::sandbox;
 /// covered if the entire supervisor task is dropped (e.g. process
 /// shutdown). See `await_complete` for explicit wait semantics used by
 /// tests.
+/// After the agent child exits, how long to wait for the stdout/stderr
+/// drain tasks to finish before forcing the run terminal. A grandchild
+/// (e.g. Codex's node helper) can hold the stdout pipe open past the
+/// child's own exit; without a bound the run would sit "active"
+/// indefinitely.
+const DRAIN_GRACE: Duration = Duration::from_secs(2);
+
 pub struct RunHandle {
     cancelled: Arc<AtomicBool>,
+    /// Set by the supervisor (via [`FinishGuard`]) once the run is fully
+    /// wound down. Lets the registry tell live runs from stale entries.
+    finished: Arc<AtomicBool>,
+    /// PID of the spawned agent child (process-group leader on Unix), for
+    /// a direct tree-kill on app close.
+    child_pid: Option<u32>,
     join: Mutex<Option<JoinHandle<()>>>,
 }
 
@@ -94,6 +107,18 @@ impl RunHandle {
     pub async fn cancel(&self) -> Result<(), AppError> {
         self.cancelled.store(true, Ordering::SeqCst);
         Ok(())
+    }
+
+    /// True once the supervisor task has finished (child reaped, drains
+    /// joined, `mark_ended` called). The registry filters on this instead
+    /// of evicting eagerly.
+    pub fn is_finished(&self) -> bool {
+        self.finished.load(Ordering::SeqCst)
+    }
+
+    /// PID of the spawned agent child, if still known.
+    pub fn child_pid(&self) -> Option<u32> {
+        self.child_pid
     }
 
     /// Test/utility helper: wait for the supervisor task to finish,
@@ -111,6 +136,42 @@ impl RunHandle {
             let _ = h.await;
         }
         Ok(())
+    }
+}
+
+/// Best-effort kill of an agent child *and its descendants*. The child is
+/// spawned as its own process-group leader on Unix, so signalling the
+/// negative pid reaps the CLI plus any node/grandchild it forked — the
+/// lingering grandchild is what kept a stopped run "active" and orphaned
+/// processes after quit. On Windows `taskkill /T` walks the child tree.
+pub(crate) async fn kill_process_tree(pid: u32) {
+    #[cfg(unix)]
+    let mut cmd = {
+        // Negative target = the whole process group led by `pid`.
+        let mut c = Command::new("kill");
+        c.arg("-KILL").arg(format!("-{pid}"));
+        c
+    };
+    #[cfg(windows)]
+    let mut cmd = {
+        let mut c = Command::new("taskkill");
+        c.args(["/F", "/T", "/PID", &pid.to_string()]);
+        c
+    };
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .no_window();
+    let _ = cmd.status().await;
+}
+
+/// Sets the shared `finished` flag on drop — covers every supervisor exit
+/// path (normal end, early `return`, panic) so the registry never keeps a
+/// finished run marked live.
+struct FinishGuard(Arc<AtomicBool>);
+impl Drop for FinishGuard {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::SeqCst);
     }
 }
 
@@ -508,10 +569,17 @@ where
         AgentProvider::ClaudeCli => inject_anthropic_key(&mut cmd),
         AgentProvider::Codex => inject_openai_key(&mut cmd),
     }
+    // Own process group so cancel / app-close can reap the CLI *and* any
+    // grandchild it forks (e.g. Codex's node helper). Without this the
+    // grandchild keeps the stdout pipe open and the run never finalizes,
+    // and a SIGKILL to the direct child alone leaves an orphan.
+    #[cfg(unix)]
+    cmd.process_group(0);
 
     let mut child = cmd
         .spawn()
         .map_err(|e| AppError::AgentSpawn(format!("spawn agent: {e}")))?;
+    let child_pid = child.id();
 
     // Take all three pipe handles up-front. We MUST spawn the drain
     // tasks before writing stdin: large envelopes (>OS pipe buffer,
@@ -657,18 +725,28 @@ where
     let workspace_path_for_supervisor = canonical_workspace.worktree_path.clone();
     let workspace_id_for_supervisor = canonical_workspace.workspace_id.clone();
     let checkpoint_sha_for_supervisor = checkpoint_sha.clone();
+    let finished = Arc::new(AtomicBool::new(false));
     let supervisor: JoinHandle<()> = {
         let cancelled = cancelled.clone();
         let last_stderr = last_stderr.clone();
         let db_arc = db_arc.clone();
         let run_id = run_id.clone();
+        let finished = finished.clone();
         tokio::spawn(async move {
+            // Flip the registry's liveness flag on every exit path.
+            let _finish_guard = FinishGuard(finished);
             // Poll-loop: check cancel flag while child is alive. We use
             // `try_wait` plus a short sleep instead of `tokio::select!`
             // because cancel signalling is via AtomicBool (no oneshot
             // channel — keeps the dep surface unchanged from S1.4.1/2).
             let exit_status = loop {
                 if cancelled.load(Ordering::SeqCst) {
+                    // Reap the whole tree, not just the direct child —
+                    // otherwise a grandchild survives and the drain below
+                    // never sees EOF, so the stop never completes.
+                    if let Some(pid) = child_pid {
+                        kill_process_tree(pid).await;
+                    }
                     if let Err(e) = child.start_kill() {
                         log::warn!("start_kill failed: {e}");
                     }
@@ -694,10 +772,32 @@ where
                 }
             };
 
-            // Drain tasks must finish before we mark_ended — otherwise a
-            // late-arriving stderr line would race the status update.
-            let _ = stdout_task.await;
-            let _ = stderr_task.await;
+            // Drain tasks should finish before we mark_ended — otherwise a
+            // late-arriving stderr line would race the status update — but
+            // the child has already exited, so bound the wait: a lingering
+            // grandchild can hold the pipe open past the child's exit,
+            // which would otherwise pin the run "active" forever.
+            let stdout_abort = stdout_task.abort_handle();
+            let stderr_abort = stderr_task.abort_handle();
+            let drained = tokio::time::timeout(DRAIN_GRACE, async {
+                let _ = stdout_task.await;
+                let _ = stderr_task.await;
+            })
+            .await;
+            if drained.is_err() {
+                // Reap the lingering tree (Unix only — the child has
+                // reaped, so its pid could be recycled on Windows) and
+                // abort the readers, then force the run terminal.
+                #[cfg(unix)]
+                if let Some(pid) = child_pid {
+                    kill_process_tree(pid).await;
+                }
+                stdout_abort.abort();
+                stderr_abort.abort();
+                log::warn!(
+                    "agent run {run_id}: drain exceeded {DRAIN_GRACE:?}; forcing terminal"
+                );
+            }
 
             // Resolve final status string per plan §7.
             let was_cancelled = cancelled.load(Ordering::SeqCst);
@@ -880,6 +980,8 @@ where
 
     Ok(RunHandle {
         cancelled,
+        finished,
+        child_pid,
         join: Mutex::new(Some(supervisor)),
     })
 }

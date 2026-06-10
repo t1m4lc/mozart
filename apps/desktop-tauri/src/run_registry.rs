@@ -40,6 +40,34 @@ impl RunRegistry {
             ))),
         }
     }
+
+    /// True if any registered run hasn't finished yet. Stale (finished)
+    /// entries are ignored via `RunHandle::is_finished`, so this is an
+    /// accurate "agents still running?" signal for the app-close guard.
+    pub fn has_live(&self) -> bool {
+        self.0
+            .lock()
+            .expect("registry poisoned")
+            .values()
+            .any(|h| !h.is_finished())
+    }
+
+    /// Cancel + tree-kill every live run. Returns how many were live.
+    /// Used by the app-close handler so quitting never orphans an agent.
+    pub async fn cancel_all(&self) -> usize {
+        let handles: Vec<Arc<RunHandle>> = {
+            let g = self.0.lock().expect("registry poisoned");
+            g.values().filter(|h| !h.is_finished()).cloned().collect()
+        };
+        let n = handles.len();
+        for h in &handles {
+            let _ = h.cancel().await;
+            if let Some(pid) = h.child_pid() {
+                crate::claude_cli::runner::kill_process_tree(pid).await;
+            }
+        }
+        n
+    }
 }
 
 impl Default for RunRegistry {

@@ -114,6 +114,14 @@ export function applyAgentEvent(
       return { ...state, usage: mergeUsage(state.usage, event.usage) };
 
     case 'error': {
+      // A failed run surfaces two error events: the specific stderr line
+      // from the drain, then a generic terminal error from
+      // `agentRunTerminated`. Append the error item only once — the
+      // first (more specific) message wins; the terminal generic one just
+      // re-affirms the terminal fields without stacking a duplicate block.
+      if (state.outcome === 'error') {
+        return { ...state, isStreaming: false };
+      }
       const items: TurnItem[] = [
         ...demoteActiveItems(state.items),
         {

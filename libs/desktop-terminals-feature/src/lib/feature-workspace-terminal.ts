@@ -130,14 +130,12 @@ export class FeatureWorkspaceTerminal {
     // Detach the previous (if any) before mounting the new one — we
     // own the host element exclusively.
     this.detach();
-    const ws = this.workspaces.workspaceById(workspaceId)();
-    const label = ws?.name ?? workspaceId.slice(0, 8);
     const isFirstOpen = !this.initialized.has(workspaceId);
     this.loading.set(isFirstOpen);
 
     let entry;
     try {
-      entry = await this.registry.getOrCreate(workspaceId, label);
+      entry = await this.registry.getOrCreate(workspaceId);
     } catch (err) {
       console.warn('[terminal] open failed:', err);
       this.loading.set(false);
