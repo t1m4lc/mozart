@@ -21,7 +21,18 @@ const DIST_CANDIDATES = [
 const SITE_URL = 'https://mozart.build';
 const SITE_TITLE = 'Mozart';
 const SITE_SUMMARY =
-  'AI coding agent manager. Mozart runs a team of Claude Code agents in parallel, each isolated in its own Workspace, so you can review and merge their work like any other contributor.';
+  'Local-first desktop app for running AI agents on your own files. Agents (Claude Code, Codex today) work in isolated workspaces and you review every change before accepting it. Free forever for individuals.';
+
+// Marketing pages aren't markdown content; their titles/descriptions are
+// read from the prerendered HTML so llms.txt never drifts from the pages.
+const PAGE_ROUTES = [
+  '/download',
+  '/pricing',
+  '/for/sales',
+  '/for/marketing',
+  '/for/recruiting',
+  '/for/small-business',
+];
 
 // Normalize smart punctuation to ASCII. `.txt` is often served without a
 // `charset=utf-8` header, so a UTF-8 em-dash renders as mojibake ("â€”").
@@ -205,7 +216,7 @@ function sortDateDesc(entries) {
   return [...entries].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
 }
 
-function renderLlmsTxt({ docsByGroup, blog, changelog }) {
+function renderLlmsTxt({ pages, docsByGroup, blog, changelog }) {
   const lines = [];
   lines.push(`# ${SITE_TITLE}`);
   lines.push('');
@@ -213,6 +224,13 @@ function renderLlmsTxt({ docsByGroup, blog, changelog }) {
   lines.push('');
   lines.push(`Home: ${SITE_URL}`);
   lines.push('');
+
+  if (pages.length > 0) {
+    lines.push('## Pages');
+    lines.push('');
+    for (const entry of pages) lines.push(formatBullet(entry));
+    lines.push('');
+  }
 
   for (const group of docsByGroup) {
     lines.push(`## Docs — ${group.title}`);
@@ -280,6 +298,23 @@ function renderLlmsFullTxt({ docs, blog, changelog }) {
   return lines.join('\n');
 }
 
+async function loadPageEntries(distRoot) {
+  const entries = [];
+  for (const route of PAGE_ROUTES) {
+    const htmlPath = join(distRoot, route.slice(1), 'index.html');
+    if (!(await exists(htmlPath))) continue;
+    const html = await readFile(htmlPath, 'utf8');
+    const title =
+      /<title[^>]*>([^<]*)<\/title>/i.exec(html)?.[1]?.trim() ?? route;
+    const description =
+      /<meta\s+name="description"\s+content="([^"]*)"/i
+        .exec(html)?.[1]
+        ?.trim() ?? '';
+    entries.push({ url: `${SITE_URL}${route}`, title, description });
+  }
+  return entries;
+}
+
 async function main() {
   const [docsRaw, blogRaw, changelogRaw] = await Promise.all([
     loadEntries('docs', buildDocsEntry),
@@ -307,7 +342,12 @@ async function main() {
     );
   })();
 
-  const llms = asciiPunctuation(renderLlmsTxt({ docsByGroup, blog, changelog }));
+  const distRoots = await findDistRoots();
+  const pages = await loadPageEntries(distRoots[0]);
+
+  const llms = asciiPunctuation(
+    renderLlmsTxt({ pages, docsByGroup, blog, changelog }),
+  );
   const llmsFull = asciiPunctuation(renderLlmsFullTxt({ docs, blog, changelog }));
 
   // Keep the source public/ file in sync so dev server reflects current content.
@@ -315,12 +355,11 @@ async function main() {
   await writeFile(join(publicDir, 'llms.txt'), llms, 'utf8');
   console.log(`generate-llms: updated source public/llms.txt`);
 
-  const distRoots = await findDistRoots();
   for (const root of distRoots) {
     await writeFile(join(root, 'llms.txt'), llms, 'utf8');
     await writeFile(join(root, 'llms-full.txt'), llmsFull, 'utf8');
     console.log(
-      `generate-llms: wrote llms.txt (${docs.length} docs, ${blog.length} blog, ${changelog.length} changelog) → ${root}`,
+      `generate-llms: wrote llms.txt (${pages.length} pages, ${docs.length} docs, ${blog.length} blog, ${changelog.length} changelog) → ${root}`,
     );
   }
 }
