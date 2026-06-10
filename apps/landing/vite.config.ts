@@ -80,6 +80,71 @@ function devRedirectsFromCloudflareFile(): Plugin {
   };
 }
 
+// Dev stand-in for the Cloudflare Pages Function at functions/api/waitlist.ts.
+// `vite dev` has no Pages runtime, so without this the waitlist form 404s
+// locally. Mirrors the function's contract; entries live in memory only.
+function devWaitlistApi(): Plugin {
+  const verticals = [
+    'sales',
+    'marketing',
+    'recruiting',
+    'small-business',
+    'other',
+  ];
+  const entries = new Map<string, string[]>();
+  return {
+    name: 'mozart-dev-waitlist-api',
+    apply: 'serve',
+    configureServer(server) {
+      server.middlewares.use('/api/waitlist', (req, res) => {
+        const respond = (status: number, body: unknown): void => {
+          res.writeHead(status, { 'Content-Type': 'application/json' });
+          res.end(JSON.stringify(body));
+        };
+        if (req.method !== 'POST') {
+          return respond(405, { error: 'method_not_allowed' });
+        }
+        let raw = '';
+        req.on('data', (chunk) => (raw += chunk));
+        req.on('end', () => {
+          let body: Record<string, unknown>;
+          try {
+            body = JSON.parse(raw) as Record<string, unknown>;
+          } catch {
+            return respond(400, { error: 'invalid_json' });
+          }
+          const hp = typeof body['hp'] === 'string' ? body['hp'] : '';
+          const formAge =
+            typeof body['formAge'] === 'number' ? body['formAge'] : NaN;
+          if (hp.length > 0 || (!Number.isNaN(formAge) && formAge < 1200)) {
+            return respond(200, { ok: true });
+          }
+          const email =
+            typeof body['email'] === 'string'
+              ? body['email'].trim().toLowerCase()
+              : '';
+          if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) {
+            return respond(400, { error: 'invalid_email' });
+          }
+          const vertical =
+            typeof body['vertical'] === 'string' ? body['vertical'] : '';
+          if (!verticals.includes(vertical)) {
+            return respond(400, { error: 'invalid_vertical' });
+          }
+          const already = entries.has(email);
+          entries.set(email, [
+            ...new Set([...(entries.get(email) ?? []), vertical]),
+          ]);
+          console.log(
+            `[dev] waitlist: ${email} (${vertical})${already ? ' · already' : ''}`,
+          );
+          respond(200, already ? { ok: true, already: true } : { ok: true });
+        });
+      });
+    },
+  };
+}
+
 // Exposes libs/mozart-assets/src/{shared,landing}/** at `/assets/...` —
 // dev via middleware, build via copy into outDir/assets.
 // Also serves shared/favicons/* at the output root (favicon.ico, favicon.svg, manifest.webmanifest).
@@ -192,6 +257,9 @@ export default defineConfig(({ mode }) => ({
     ],
   },
   plugins: [
+    // Before analog(): its Nitro dev middleware claims /api/** and would 404
+    // this route first otherwise.
+    devWaitlistApi(),
     analog({
       ssr: true,
       static: true,
