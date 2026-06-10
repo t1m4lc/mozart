@@ -6,6 +6,7 @@
 @source "../../../libs/shared-util-mozart-links";
 @source "../../../libs/shared-util-os";
 @source "../../../libs/shared-util-theme";
+@source "../../../libs/spartan-ui/breadcrumb";
 @source "../../../libs/spartan-ui/button";
 @source "../../../libs/spartan-ui/dialog";
 @source "../../../libs/spartan-ui/icon";

@@ -13,8 +13,13 @@ import {
   sortBlogEntriesNewestFirst,
   toBlogEntry,
 } from '../content/blog';
+import {
+  BreadcrumbComponent,
+  BreadcrumbItem,
+} from '../shell/breadcrumb.component';
 import { injectCurrentPath } from '../shell/current-path';
-import { injectSeo } from '../shell/seo';
+import { breadcrumbListLd, injectJsonLd } from '../shell/json-ld';
+import { injectSeo, SITE_ORIGIN } from '../shell/seo';
 import { BlogAuthorsComponent } from './blog/_layout/blog-authors.component';
 import { BlogPrevNextComponent } from './blog/_layout/blog-prev-next.component';
 import { TocHeading, extractHeadings } from './docs/_layout/toc';
@@ -25,6 +30,7 @@ import { TocComponent } from './docs/_layout/toc.component';
   imports: [
     BlogAuthorsComponent,
     BlogPrevNextComponent,
+    BreadcrumbComponent,
     RouterOutlet,
     TocComponent,
   ],
@@ -33,7 +39,12 @@ import { TocComponent } from './docs/_layout/toc.component';
   template: `
     <section class="font-sans w-full py-12 sm:py-14">
       @if (currentPost(); as post) {
-        <article class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div class="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div class="border-border mx-auto max-w-2xl border-b pb-6">
+            <app-breadcrumb [crumbs]="breadcrumbs()" />
+          </div>
+        </div>
+        <article class="mx-auto mt-8 w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <div
             class="lg:grid lg:grid-cols-[1fr_minmax(0,42rem)_1fr] lg:items-start lg:gap-x-8"
           >
@@ -113,6 +124,7 @@ import { TocComponent } from './docs/_layout/toc.component';
 export default class BlogLayoutPage {
   private readonly path = injectCurrentPath();
   private readonly seo = injectSeo();
+  private readonly jsonLd = injectJsonLd();
   private readonly filesMap = injectContentFilesMap();
   private readonly entries = sortBlogEntriesNewestFirst(
     injectContentFiles<BlogAttributes>((f) => isBlogFile(f.filename)).map(
@@ -145,6 +157,16 @@ export default class BlogLayoutPage {
     return idx < this.entries.length - 1 ? this.entries[idx + 1] : null;
   });
 
+  protected readonly breadcrumbs = computed<readonly BreadcrumbItem[]>(() => {
+    const post = this.currentPost();
+    if (!post) return [];
+    return [
+      { label: 'Home', link: '/' },
+      { label: 'Blog', link: '/blog' },
+      { label: post.title },
+    ];
+  });
+
   protected readonly headings = signal<readonly TocHeading[]>([]);
 
   constructor() {
@@ -162,6 +184,14 @@ export default class BlogLayoutPage {
         type: 'article',
         image: post.heroImage,
       });
+      this.jsonLd(
+        'breadcrumb',
+        breadcrumbListLd([
+          { name: 'Home', url: `${SITE_ORIGIN}/` },
+          { name: 'Blog', url: `${SITE_ORIGIN}/blog/` },
+          { name: post.title, url: `${SITE_ORIGIN}/blog/${post.slug}/` },
+        ]),
+      );
     });
   }
 

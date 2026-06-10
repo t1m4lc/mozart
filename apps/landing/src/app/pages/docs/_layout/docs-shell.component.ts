@@ -37,9 +37,12 @@ import { DocsSidebarComponent } from './docs-sidebar.component';
         </div>
       </aside>
 
-      <article class="min-w-0 py-8 md:px-8 md:py-10">
-        <ng-content />
-      </article>
+      <div class="flex min-w-0 flex-col py-8 md:px-8 md:py-10">
+        <ng-content select="[slot=breadcrumb]" />
+        <article class="min-w-0">
+          <ng-content />
+        </article>
+      </div>
 
       <aside class="hidden xl:block" aria-label="On this page">
         <div
