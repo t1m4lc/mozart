@@ -7,8 +7,18 @@ import {
   signal,
   viewChild,
 } from '@angular/core';
+import {
+  email,
+  form,
+  FormField,
+  required,
+  submit,
+} from '@angular/forms/signals';
 import { Router } from '@angular/router';
-import { email, form, FormField, required, submit } from '@angular/forms/signals';
+import {
+  ANALYTICS_EVENTS,
+  AnalyticsService,
+} from '@mozart/shared-util-analytics';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideLoaderCircle } from '@ng-icons/lucide';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
@@ -16,10 +26,6 @@ import { HlmButton } from '@spartan-ui/button';
 import { HlmDialogImports } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmInput } from '@spartan-ui/input';
-import {
-  ANALYTICS_EVENTS,
-  AnalyticsService,
-} from '@mozart/shared-util-analytics';
 import type { VerticalSlug } from './vertical-config';
 
 export type WaitlistVertical = VerticalSlug | 'other';
@@ -35,7 +41,7 @@ const FOMO_LINES: Record<WaitlistVertical, string> = {
   marketing:
     'Content teams using AI are producing more without burning out. Join the list and be first when Mozart opens for marketing.',
   recruiting:
-    "Recruiting is moving fast with AI. Get early access before we open to everyone.",
+    'Recruiting is moving fast with AI. Get early access before we open to everyone.',
   'small-business':
     'Small teams that run on AI will outmove teams twice their size. Join the list and get access before we open to everyone.',
   other:
@@ -44,7 +50,14 @@ const FOMO_LINES: Record<WaitlistVertical, string> = {
 
 @Component({
   selector: 'app-waitlist-modal',
-  imports: [FormField, HlmButton, HlmDialogImports, HlmIconImports, HlmInput, NgIcon],
+  imports: [
+    FormField,
+    HlmButton,
+    HlmDialogImports,
+    HlmIconImports,
+    HlmInput,
+    NgIcon,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideIcons({ lucideArrowRight, lucideLoaderCircle })],
   template: `
@@ -63,7 +76,7 @@ const FOMO_LINES: Record<WaitlistVertical, string> = {
           @if (already()) {
             You're already on the list. We'll be in touch.
           } @else {
-            You're on the list. Talk soon.
+            You're on the list 🎉 Talk soon.
           }
         </p>
         <p class="text-muted-foreground mt-1 text-sm">
@@ -120,8 +133,12 @@ const FOMO_LINES: Record<WaitlistVertical, string> = {
           </button>
         </div>
 
-        @if (waitlistForm.email().touched() && waitlistForm.email().errors().length) {
-          <p class="text-destructive text-sm">{{ waitlistForm.email().errors()[0]?.message }}</p>
+        @if (
+          waitlistForm.email().touched() && waitlistForm.email().errors().length
+        ) {
+          <p class="text-destructive text-sm">
+            {{ waitlistForm.email().errors()[0]?.message }}
+          </p>
         }
         @if (serverError(); as message) {
           <p class="text-destructive text-sm">{{ message }}</p>
@@ -135,11 +152,12 @@ const FOMO_LINES: Record<WaitlistVertical, string> = {
   `,
 })
 export class WaitlistModalComponent implements AfterViewInit {
-  protected readonly ctx =
-    injectBrnDialogContext<WaitlistModalContext>({ optional: true }) ?? {
-      vertical: 'other' as WaitlistVertical,
-      jobTitle: 'Mozart',
-    };
+  protected readonly ctx = injectBrnDialogContext<WaitlistModalContext>({
+    optional: true,
+  }) ?? {
+    vertical: 'other' as WaitlistVertical,
+    jobTitle: 'Mozart',
+  };
 
   protected readonly fomoLine =
     FOMO_LINES[this.ctx.vertical] ?? FOMO_LINES['sales'];
@@ -160,7 +178,8 @@ export class WaitlistModalComponent implements AfterViewInit {
   protected readonly done = signal(false);
   protected readonly already = signal(false);
 
-  private readonly emailInputRef = viewChild<ElementRef<HTMLInputElement>>('emailInput');
+  private readonly emailInputRef =
+    viewChild<ElementRef<HTMLInputElement>>('emailInput');
 
   ngAfterViewInit(): void {
     setTimeout(() => this.emailInputRef()?.nativeElement.focus(), 50);

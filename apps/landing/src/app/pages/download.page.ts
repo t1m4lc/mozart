@@ -6,7 +6,10 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
+import {
+  ANALYTICS_EVENTS,
+  AnalyticsService,
+} from '@mozart/shared-util-analytics';
 import { MOZART_LINKS } from '@mozart/shared-util-mozart-links';
 import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
@@ -57,15 +60,15 @@ const REQUIREMENTS = [
           Download Mozart
         </h1>
         <p class="text-muted-foreground mt-4 text-base leading-relaxed">
-          Mozart is currently available as a developer preview. It runs best for
-          people comfortable with git and a terminal. If you are not a developer,
+          Mozart is in developer preview and works best if you’re comfortable
+          with Git and a terminal. Developers can
           <a
             [href]="betaSignupHref"
             class="text-foreground underline underline-offset-4 decoration-dotted hover:opacity-70 transition-opacity"
             target="_blank"
             rel="noopener"
-          >request early access</a>
-          and we will reach out when the full experience is ready.
+            >request early access</a
+          >.
         </p>
       </div>
 
@@ -125,7 +128,9 @@ const REQUIREMENTS = [
 
       <!-- Non-developer callout -->
       <div class="border-border mt-10 rounded-xl border p-5 text-center">
-        <p class="text-foreground mb-1 text-sm font-semibold">Not a developer?</p>
+        <p class="text-foreground mb-1 text-sm font-semibold">
+          Not a developer?
+        </p>
         <p class="text-muted-foreground mb-3 text-sm">
           A no-code experience for sales, marketing, recruiting, and small teams
           is what we're building next.
@@ -149,7 +154,8 @@ export default class DownloadPageComponent implements OnInit {
   private readonly analytics = inject(AnalyticsService);
   private readonly dialog = inject(HlmDialogService);
 
-  protected readonly requireAccessCode = SITE_CONFIG.downloads.requireAccessCode;
+  protected readonly requireAccessCode =
+    SITE_CONFIG.downloads.requireAccessCode;
   protected readonly betaSignupHref = MOZART_LINKS.betaSignup;
   protected readonly requirements = REQUIREMENTS;
 

@@ -5,17 +5,23 @@ import {
   input,
   signal,
 } from '@angular/core';
+import {
+  email,
+  form,
+  FormField,
+  required,
+  submit,
+} from '@angular/forms/signals';
 import { Router } from '@angular/router';
-import { email, form, FormField, required, submit } from '@angular/forms/signals';
+import {
+  ANALYTICS_EVENTS,
+  AnalyticsService,
+} from '@mozart/shared-util-analytics';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideLoaderCircle } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ui/button';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmInput } from '@spartan-ui/input';
-import {
-  ANALYTICS_EVENTS,
-  AnalyticsService,
-} from '@mozart/shared-util-analytics';
 import type { VerticalSlug } from './vertical-config';
 
 @Component({
@@ -25,7 +31,10 @@ import type { VerticalSlug } from './vertical-config';
   providers: [provideIcons({ lucideArrowRight, lucideLoaderCircle })],
   host: { class: 'block' },
   template: `
-    <section id="waitlist" class="border-t border-border px-4 py-16 sm:px-6 lg:px-8">
+    <section
+      id="waitlist"
+      class="border-t border-border px-4 py-16 sm:px-6 lg:px-8"
+    >
       <div class="mx-auto max-w-5xl">
         <div class="max-w-lg">
           <p
@@ -48,7 +57,7 @@ import type { VerticalSlug } from './vertical-config';
               @if (already()) {
                 You're already on the list. We'll be in touch.
               } @else {
-                You're on the list. Talk soon.
+                You're on the list 🎉 Talk soon.
               }
             </p>
           } @else {
@@ -99,8 +108,13 @@ import type { VerticalSlug } from './vertical-config';
                 }
               </button>
             </form>
-            @if (waitlistForm.email().touched() && waitlistForm.email().errors().length) {
-              <p class="text-destructive mt-2 text-sm">{{ waitlistForm.email().errors()[0]?.message }}</p>
+            @if (
+              waitlistForm.email().touched() &&
+              waitlistForm.email().errors().length
+            ) {
+              <p class="text-destructive mt-2 text-sm">
+                {{ waitlistForm.email().errors()[0]?.message }}
+              </p>
             }
             @if (serverError(); as message) {
               <p class="text-destructive mt-2 text-sm">{{ message }}</p>
