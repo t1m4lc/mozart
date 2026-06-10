@@ -14,6 +14,14 @@ eslint.config.mjs
 apps/**/src/styles.css
 libs/mozart-design-tokens/src/**/*.css
 
+# Analog SPA shell — the same prettier-plugin-tailwindcss crash (t.slice is not
+# a function) hits its <head>; hand-maintained, not prettier-managed.
+apps/landing/index.html
+
+# Node build scripts (ESM) crash the pinned prettier-plugin-tailwindcss babel
+# path (a.startsWith is not a function), like eslint.config.mjs above.
+apps/landing/scripts/*.mjs
+
 # pnpm's lockfile is tool-generated and has never been prettier-formatted;
 # keep prettier from rewriting it (it would churn the entire file).
 pnpm-lock.yaml
