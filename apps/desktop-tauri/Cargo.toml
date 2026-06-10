@@ -107,14 +107,16 @@ specta-typescript = "0.0.9"
 portable-pty = "0.8"
 tokio = { version = "1", features = ["process", "rt-multi-thread", "macros", "io-util"] }
 uuid = { version = "1", features = ["v4", "serde"] }
-# keyring 3.x defaults to the kernel keyutils backend on Linux ; those
-# entries are bound to the process session and disappear when the
-# `target/debug/mozart` binary exits. `sync-secret-service` routes the
-# crate's sync API through DBus → Secret Service (GNOME Keyring /
-# KWallet / kwalletmanager), which persists across logouts and binary
-# restarts. macOS uses Keychain ; Windows uses Credential Manager —
-# both unchanged by this feature flag.
-keyring = { version = "3", features = ["sync-secret-service"] }
+# keyring 3.x gates each OS credential store behind a feature; with none
+# enabled for the target it silently falls back to an in-memory mock that
+# never survives a restart. We enable all three real backends so the
+# auth session + tokens persist everywhere:
+#   - sync-secret-service → Linux DBus Secret Service (GNOME Keyring /
+#     KWallet), persistent across logouts (the kernel keyutils default is
+#     session-bound and disappears when the binary exits).
+#   - apple-native        → macOS Keychain.
+#   - windows-native      → Windows Credential Manager.
+keyring = { version = "3", features = ["apple-native", "windows-native", "sync-secret-service"] }
 # HTTP probe for `GET https://api.anthropic.com/v1/models` (Step 6 connection
 # card). `rustls-tls` avoids the system OpenSSL dep; we don't parse response
 # bodies, so no `json` feature is needed — status codes carry the result.

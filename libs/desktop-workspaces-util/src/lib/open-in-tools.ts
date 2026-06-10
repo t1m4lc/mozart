@@ -89,8 +89,9 @@ export const OPEN_IN_TOOLS: readonly OpenInTool[] = [
   {
     id: 'finder',
     label: 'File Manager',
+    // Generic folder icon (Lucide) rather than a macOS-Finder graphic —
+    // reads correctly on Windows/Linux too. No iconPath ⇒ uses `icon`.
     icon: 'lucideFolderOpen',
-    iconPath: '/assets/desktop/icons/tools/finder.svg',
     shortcut: 9,
     alwaysAvailable: true,
   },

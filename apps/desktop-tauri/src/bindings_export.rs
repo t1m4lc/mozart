@@ -54,6 +54,8 @@ pub fn build_specta_builder() -> tauri_specta::Builder<tauri::Wry> {
                 commands::set_workspace_unread,
                 commands::start_agent_run,
                 commands::stop_agent_run,
+                commands::has_active_agent_runs,
+                commands::kill_active_agent_runs,
                 commands::list_runs,
                 commands::get_workspace_diff,
                 commands::list_workspace_diff_stats,

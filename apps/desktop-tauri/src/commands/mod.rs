@@ -1120,6 +1120,25 @@ pub(crate) async fn stop_agent_run_impl(
     registry.cancel(&run_id).await
 }
 
+/// True if any agent run is still live. The app-close handler calls this
+/// to decide whether to prompt before quitting.
+#[tauri::command]
+#[specta::specta]
+pub async fn has_active_agent_runs(registry: State<'_, RunRegistry>) -> Result<bool, AppError> {
+    Ok(registry.has_live())
+}
+
+/// Cancel + tree-kill every live agent run. Called from the app-close
+/// confirmation so quitting never orphans a `codex` / `node` child.
+/// Returns how many runs were live.
+#[tauri::command]
+#[specta::specta]
+pub async fn kill_active_agent_runs(
+    registry: State<'_, RunRegistry>,
+) -> Result<u32, AppError> {
+    Ok(registry.cancel_all().await as u32)
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn list_runs(
@@ -2136,10 +2155,14 @@ pub async fn open_terminal(
 
     // Drop any prior PTY before spawning a new one (kills child).
     registry.cancel(&workspace_id);
+    // Pass the workspace's friendly name as the prompt label — the PTY
+    // writes the OS-correct prompt-init itself (the frontend used to send
+    // POSIX `export PS1=…`, which broke on Windows `cmd.exe`).
     let handle = terminal::spawn(
         std::path::Path::new(&ws.worktree_path),
         cols.max(1),
         rows.max(1),
+        Some(&ws.name),
         on_event,
     )?;
     registry.register(workspace_id, Arc::new(handle));

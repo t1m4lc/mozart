@@ -111,12 +111,13 @@ export class ChatFacade {
 
   // assistant-message-id -> handle of the in-flight run.
   private readonly activeRuns = new Map<string, LlmRunHandle>();
-  // workspaceId -> assistant message id of the in-flight run.
-  // Backed by a signal so consumers (sidebar workspace rows, etc.) get
-  // reactive updates when a run starts or ends. The map itself is
-  // replaced wholesale on every mutation — small (<= number of open
-  // workspaces in flight) so the copy is cheap.
-  private readonly activeByWorkspace = signal<ReadonlyMap<string, string>>(
+  // chatId -> assistant message id of the in-flight run in that chat.
+  // Per-chat (not per-workspace) so two chat tabs in the same workspace
+  // run concurrently and the composer/model-selector lock scopes to the
+  // chat actually running. Backed by a signal so consumers get reactive
+  // updates when a run starts or ends; replaced wholesale on every
+  // mutation (small map) so the copy is cheap.
+  private readonly activeByChat = signal<ReadonlyMap<string, string>>(
     new Map(),
   );
   // per-message debounced content flush state.
@@ -190,20 +191,39 @@ export class ChatFacade {
     return this.store.chatByWorkspace().get(workspaceId) ?? null;
   }
 
+  /** Workspace-level streaming flag — true when *any* chat in the
+   *  workspace has an in-flight run. Used by the workspace-detail overlay
+   *  and sidebar rows. The composer uses {@link isStreamingChat} instead. */
   isStreaming(workspaceId: Signal<string | null>): Signal<boolean> {
     return computed(() => {
       const id = workspaceId();
       if (!id) return false;
-      return this.activeByWorkspace().has(id);
+      return this.streamingWorkspaceIds().has(id);
     });
   }
 
-  // Set of workspace ids whose chat is currently streaming. Sidebar
-  // workspace rows derive their cli-loader / branch-icon state from
-  // this — `set.has(id)` cheaper than a per-id computed at the leaf.
-  readonly streamingWorkspaceIds = computed<ReadonlySet<string>>(
-    () => new Set(this.activeByWorkspace().keys()),
-  );
+  /** Per-chat streaming flag. The composer/model-selector lock binds to
+   *  this so a run in one chat tab leaves a sibling tab usable. */
+  isStreamingChat(chatId: Signal<string | null>): Signal<boolean> {
+    return computed(() => {
+      const id = chatId();
+      if (!id) return false;
+      return this.activeByChat().has(id);
+    });
+  }
+
+  // Set of workspace ids with at least one streaming chat. Derived by
+  // mapping each active chat back to its workspace. Sidebar workspace
+  // rows read this for their cli-loader / branch-icon state.
+  readonly streamingWorkspaceIds = computed<ReadonlySet<string>>(() => {
+    const chats = this.store.chats();
+    const out = new Set<string>();
+    for (const chatId of this.activeByChat().keys()) {
+      const ws = chats.find((c) => c.id === chatId)?.workspaceId;
+      if (ws) out.add(ws);
+    }
+    return out;
+  });
 
   // Idempotent — called by `WorkspaceDetailPage`'s workspace-id
   // effect (fires before any tab renders, so the composer can send
@@ -254,22 +274,7 @@ export class ChatFacade {
       this._setActiveLocal(workspaceId, activeId);
 
       const msgs = await this.messages.listForChat(activeId);
-      // Phase 6 / Atom 9 — interrupted-message recovery. Any assistant
-      // message still in `streaming` here means the app was killed
-      // mid-turn (or the OS crashed) ; flip it to `error` so the user
-      // sees the failure surfaced. DB-backed via updateStatus so the
-      // flip survives a second restart.
-      const recovered = await Promise.all(
-        msgs.map(async (m) => {
-          if (m.status !== 'streaming') return m;
-          try {
-            await this.messages.updateStatus(m.id, 'error');
-          } catch (err) {
-            console.warn('[chat] interrupted-message flip failed:', err);
-          }
-          return { ...m, status: 'error' as const };
-        }),
-      );
+      const recovered = await this._recoverInterruptedMessages(msgs);
       this.store.setMessagesForChat(activeId, recovered);
     } catch (err) {
       // Hydration failure shouldn't block the UI — log and let the
@@ -278,6 +283,29 @@ export class ChatFacade {
       console.warn('[chat] hydrate failed for workspace', workspaceId, err);
       this.hydrated.delete(workspaceId);
     }
+  }
+
+  // Phase 6 / Atom 9 — interrupted-message recovery. Any assistant
+  // message still `streaming` at load time means the app was killed
+  // mid-turn (no live run exists for it now); flip it to `error` so the
+  // user sees the failure instead of an infinite loader. DB-backed via
+  // updateStatus so the flip survives a second restart. Applied on every
+  // message-load path (hydrate + lazy tab switch), not just the active
+  // chat — otherwise a non-active tab reloads stuck on `streaming`.
+  private async _recoverInterruptedMessages(
+    msgs: readonly Message[],
+  ): Promise<Message[]> {
+    return Promise.all(
+      msgs.map(async (m) => {
+        if (m.status !== 'streaming') return m;
+        try {
+          await this.messages.updateStatus(m.id, 'error');
+        } catch (err) {
+          console.warn('[chat] interrupted-message flip failed:', err);
+        }
+        return { ...m, status: 'error' as const };
+      }),
+    );
   }
 
   /**
@@ -394,7 +422,8 @@ export class ChatFacade {
     if (!have) {
       try {
         const msgs = await this.messages.listForChat(chatId);
-        this.store.setMessagesForChat(chatId, msgs);
+        const recovered = await this._recoverInterruptedMessages(msgs);
+        this.store.setMessagesForChat(chatId, recovered);
       } catch (err) {
         console.warn('[chat] setActiveChat messages-load failed', err);
       }
@@ -444,9 +473,10 @@ export class ChatFacade {
       chat = created;
     }
 
-    // Streaming already? Queue this user message — it will be promoted
-    // and processed once the current turn ends.
-    if (this.activeByWorkspace().has(workspaceId)) {
+    // This chat already streaming? Queue this user message — it will be
+    // promoted and processed once that chat's current turn ends. Scoped
+    // to the chat so a run in a sibling tab doesn't queue here.
+    if (this.activeByChat().has(chat.id)) {
       await this._persistAndAddMessage({
         chatId: chat.id,
         role: 'user',
@@ -468,17 +498,15 @@ export class ChatFacade {
     await this._runAssistantTurn(workspaceId, chat.id, mode, userMsg.id);
   }
 
-  cancelActive(workspaceId: string): void {
-    const id = this.activeByWorkspace().get(workspaceId);
+  /** Cancel the in-flight run in a single chat + drop that chat's queued
+   *  user messages. The composer's Stop button targets the active chat. */
+  cancelChat(chatId: string): void {
+    const id = this.activeByChat().get(chatId);
     if (id) {
       const handle = this.activeRuns.get(id);
       if (handle) handle.cancel();
     }
-    // Stop also drops any queued user messages — user intent is
-    // "halt all activity in this workspace".
-    const chat = this.activeChatFor(workspaceId);
-    if (!chat) return;
-    const messages = this.store.messagesByChat().get(chat.id) ?? [];
+    const messages = this.store.messagesByChat().get(chatId) ?? [];
     for (const msg of messages) {
       if (msg.status === 'queued') {
         this.store.updateMessage(msg.id, (m) => ({ ...m, status: 'stopped' }));
@@ -487,6 +515,15 @@ export class ChatFacade {
           .catch((err) => console.warn('persist stopped status failed', err));
       }
     }
+  }
+
+  /** Cancel every in-flight run in a workspace (across all its chat tabs)
+   *  + drop their queued messages. Used by the sidebar workspace Stop. */
+  cancelActive(workspaceId: string): void {
+    const chatIds = (this.store.chatsByWorkspace().get(workspaceId) ?? []).map(
+      (c) => c.id,
+    );
+    for (const chatId of chatIds) this.cancelChat(chatId);
   }
 
   // Bump the workspace's lastActivity if `ms` is strictly newer than
@@ -608,9 +645,9 @@ export class ChatFacade {
       model,
     });
     this.activeRuns.set(assistantMsg.id, handle);
-    this.activeByWorkspace.update((m) => {
+    this.activeByChat.update((m) => {
       const next = new Map(m);
-      next.set(workspaceId, assistantMsg.id);
+      next.set(chatId, assistantMsg.id);
       return next;
     });
 
@@ -679,10 +716,10 @@ export class ChatFacade {
       });
     } finally {
       this.activeRuns.delete(assistantMsg.id);
-      if (this.activeByWorkspace().get(workspaceId) === assistantMsg.id) {
-        this.activeByWorkspace.update((m) => {
+      if (this.activeByChat().get(chatId) === assistantMsg.id) {
+        this.activeByChat.update((m) => {
           const next = new Map(m);
-          next.delete(workspaceId);
+          next.delete(chatId);
           return next;
         });
       }

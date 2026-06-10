@@ -116,11 +116,22 @@ export const PROVIDERS: Record<ProviderId, ProviderInfo> = Object.fromEntries(
 
 export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
   {
+    id: 'claude-fable-5',
+    name: 'Claude Fable 5',
+    provider: 'anthropic',
+    enabled: true,
+    isNew: true,
+    // Full model id (not a short alias) — the CLI passes it straight to
+    // the API, so it works without depending on an unverified `fable`
+    // alias being registered in the Claude CLI.
+    cliModel: 'claude-fable-5',
+    contextWindow: 1_000_000,
+  },
+  {
     id: 'claude-opus-4-8',
     name: 'Claude Opus 4.8',
     provider: 'anthropic',
     enabled: true,
-    isNew: true,
     cliModel: 'opus',
     contextWindow: 1_000_000,
   },
@@ -149,20 +160,24 @@ export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
     contextWindow: 200_000,
   },
   {
+    // Codex-tuned GPT-5. The default for Codex runs — `gpt-5-mini` is
+    // rejected on ChatGPT-account auth, so it's not in the catalog.
+    // 400K total context (272K input cap + 128K output).
+    id: 'gpt-5-codex',
+    name: 'GPT-5 Codex',
+    provider: 'openai',
+    enabled: true,
+    isNew: true,
+    cliModel: 'gpt-5-codex',
+    contextWindow: 400_000,
+  },
+  {
     // GPT-5 context window is 400K total (272K input cap + 128K output).
     id: 'gpt-5',
     name: 'GPT-5 (Codex)',
     provider: 'openai',
     enabled: true,
     cliModel: 'gpt-5',
-    contextWindow: 400_000,
-  },
-  {
-    id: 'gpt-5-mini',
-    name: 'GPT-5 mini (Codex)',
-    provider: 'openai',
-    enabled: true,
-    cliModel: 'gpt-5-mini',
     contextWindow: 400_000,
   },
   {
@@ -173,7 +188,11 @@ export const LLM_MODEL_CATALOG: readonly ModelOption[] = [
   },
 ];
 
-export const DEFAULT_MODEL_ID = 'claude-sonnet-4-6';
+export const DEFAULT_MODEL_ID = 'claude-fable-5';
+
+/** Default model for Codex runs. `gpt-5-codex` is the only Codex model
+ *  that works on a ChatGPT-account login (`gpt-5-mini` is rejected). */
+export const DEFAULT_CODEX_MODEL_ID = 'gpt-5-codex';
 
 /** Lookup a model option by id; falls back to the default model row. */
 export function resolveModel(modelId: string | null | undefined): ModelOption {
@@ -199,6 +218,12 @@ export function agentProviderForModel(provider: ProviderId): AgentProviderId {
  *  selected by default. Falls back to {@link DEFAULT_MODEL_ID}. */
 export function defaultModelIdForProvider(agent: AgentProviderId): string {
   if (agent === 'codex') {
+    const preferred = LLM_MODEL_CATALOG.find(
+      (m) => m.id === DEFAULT_CODEX_MODEL_ID && m.enabled,
+    );
+    if (preferred) return preferred.id;
+    // Fallback: first enabled OpenAI model, should the preferred id ever
+    // be removed from the catalog.
     const codexModel = LLM_MODEL_CATALOG.find(
       (m) => m.provider === 'openai' && m.enabled,
     );

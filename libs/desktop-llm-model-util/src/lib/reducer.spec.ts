@@ -108,6 +108,21 @@ describe('applyAgentEvent — error-mid-stream fixture', () => {
   });
 });
 
+describe('applyAgentEvent — duplicate error events', () => {
+  // A failed run surfaces two error events: the specific stderr line from
+  // the drain, then the generic terminal error from `agentRunTerminated`.
+  // Only the first should append an item — no stacked duplicate block.
+  it('appends only one error item and keeps the first (specific) message', () => {
+    let s = EMPTY_TURN_STATE(0);
+    s = applyAgentEvent(s, { kind: 'error', message: 'ENOENT: codex not found' });
+    s = applyAgentEvent(s, { kind: 'error', message: 'agent run error' });
+    expect(s.items).toHaveLength(1);
+    expect(s.items[0]?.body).toBe('ENOENT: codex not found');
+    expect(s.outcome).toBe('error');
+    expect(s.isStreaming).toBe(false);
+  });
+});
+
 describe('applyAgentEvent — summary derivation from tool kind', () => {
   it('derives summary from tool_call kind when no status_delta arrived', () => {
     let s = EMPTY_TURN_STATE(0);
