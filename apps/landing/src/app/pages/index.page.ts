@@ -42,7 +42,7 @@ export default class HomePage {
     this.seo({
       title: 'Mozart | Conduct your AI coding agents',
       description:
-        'Agents play the notes. Mozart helps you conduct the masterpiece.',
+        'Desktop app that runs AI coding agents on your machine. Claude Code and Codex in isolated workspaces, reviewable diffs, files stay local. Free for individuals.',
       path: '/',
       type: 'website',
     });

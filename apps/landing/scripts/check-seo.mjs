@@ -90,6 +90,9 @@ async function checkLlmsIndex() {
     if (!text.includes('/docs/introduction')) {
       failures.push(`${file} missing docs entries`);
     }
+    if (file === 'llms.txt' && !text.includes('/for/sales')) {
+      failures.push('llms.txt missing marketing page entries');
+    }
   }
 }
 
