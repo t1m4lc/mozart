@@ -38,11 +38,14 @@ interface PricingFeature {
 
 const LOCAL_FEATURES: readonly PricingFeature[] = [
   { text: 'Runs 100% on your machine', available: true },
-  { text: 'Bring your own LLM (Claude Code, Codex)', available: true },
-  { text: 'Local models via Ollama', available: true },
-  { text: 'Unlimited workspaces and agent runs', available: true },
+  {
+    text: 'Use your own AI provider (Claude Code, Codex)',
+    available: true,
+  },
+  { text: 'Unlimited workspaces and projects', available: true },
   { text: 'Files never leave your device', available: true },
-  { text: 'Solo workspace', available: true },
+  { text: 'For individual use', available: true },
+  { text: 'Local models, no provider needed', available: false },
 ];
 
 const CLOUD_FEATURES: readonly PricingFeature[] = [
@@ -57,8 +60,9 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
     text: 'Workspace index and memory: agents with persistent context',
     available: true,
   },
-  { text: 'Powerful open-source models hosted in the cloud', available: true },
-  { text: 'Unlimited integrations (CRM, email, calendar...)', available: true },
+  { text: 'Managed provider options hosted in the cloud', available: true },
+  { text: 'Hosted integrations (CRM, email, calendar...)', available: true },
+  { text: 'Priority support', available: true },
 ];
 
 @Component({
@@ -92,9 +96,9 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
       <p
         class="text-muted-foreground mx-auto mt-5 max-w-xl text-lg leading-relaxed"
       >
-        Mozart runs locally and is free to use, forever. No subscription, no
-        per-seat pricing. Bring your own LLM and run AI agents on your files
-        today.
+        Mozart is free forever for individuals. No subscription, no per-seat
+        pricing. Connect your own AI provider and run agents on your files;
+        provider usage is billed separately, by them.
       </p>
     </section>
 
@@ -122,13 +126,30 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
               <li class="flex items-start gap-2.5">
                 <ng-icon
                   hlm
-                  name="lucideCheck"
+                  [name]="feature.available ? 'lucideCheck' : 'lucideCircleDashed'"
                   size="sm"
-                  class="mt-0.5 shrink-0 text-emerald-500"
+                  class="mt-0.5 shrink-0"
+                  [class]="
+                    feature.available
+                      ? 'text-emerald-500'
+                      : 'text-muted-foreground'
+                  "
                 />
-                <span class="text-foreground/80 text-sm">{{
-                  feature.text
-                }}</span>
+                <span
+                  class="text-sm"
+                  [class]="
+                    feature.available
+                      ? 'text-foreground/80'
+                      : 'text-muted-foreground'
+                  "
+                >
+                  {{ feature.text }}
+                  @if (!feature.available) {
+                    <span class="text-muted-foreground/70 font-mono text-xs">
+                      · planned
+                    </span>
+                  }
+                </span>
               </li>
             }
           </ul>
@@ -202,6 +223,20 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
             <ng-icon hlm size="sm" name="lucideArrowRight" />
           </button>
         </div>
+      </div>
+
+      <!-- AI usage costs -->
+      <div class="border-border mt-6 rounded-xl border p-6">
+        <p class="text-foreground mb-1 font-semibold">
+          What about AI usage costs?
+        </p>
+        <p class="text-muted-foreground text-sm leading-relaxed">
+          Mozart itself is free. Agents run with the AI provider accounts you
+          connect, Claude Code and Codex today, and any usage is billed by your
+          provider under your plan with them, not by Mozart. Local model
+          support is planned: once it ships, compatible models will be able to
+          run directly on your machine. More providers are on the roadmap.
+        </p>
       </div>
 
       <!-- Cloud waitlist -->
@@ -358,7 +393,7 @@ export default class PricingPage {
     injectSeo()({
       title: 'Pricing | Mozart: Free AI Workspace',
       description:
-        'Mozart is free forever. Runs locally, no subscription, no per-seat pricing. Bring your own LLM and run AI agents on your files. Mozart Cloud with team features is coming.',
+        'Mozart is free forever for individuals. Runs locally, no subscription. Connect your own AI provider (Claude Code, Codex); usage billed by them. Local models planned.',
       path: '/pricing',
       type: 'website',
     });
