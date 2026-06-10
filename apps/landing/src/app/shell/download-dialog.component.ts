@@ -15,7 +15,10 @@ import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideArrowRight, lucideLoaderCircle } from '@ng-icons/lucide';
 import { BrnDialogRef, injectBrnDialogContext } from '@spartan-ng/brain/dialog';
-import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
+import {
+  ANALYTICS_EVENTS,
+  AnalyticsService,
+} from '@mozart/shared-util-analytics';
 import { detectOsTag } from './analytics/detect-os';
 import { type PageSection, pageSection } from './analytics/page-section';
 import { SITE_CONFIG } from './site-config';
@@ -79,8 +82,8 @@ const PLATFORMS: Record<OsKey, Platform> = {
       <h3 hlmDialogTitle>Download Mozart</h3>
       <p hlmDialogDescription>
         @if (requireAccessCode) {
-          Mozart is in private beta. Enter your access code, then grab the
-          build for your platform.
+          Mozart is in private beta. Enter your access code, then grab the build
+          for your platform.
         } @else {
           Grab the build for your platform.
         }
@@ -193,12 +196,14 @@ export class DownloadDialogComponent {
   private readonly ref = inject(BrnDialogRef);
   private readonly router = inject(Router);
   private readonly analytics = inject(AnalyticsService);
-  private readonly ctx =
-    injectBrnDialogContext<DownloadDialogContext>({ optional: true });
+  private readonly ctx = injectBrnDialogContext<DownloadDialogContext>({
+    optional: true,
+  });
   private readonly source: DownloadDialogSource | 'unknown' =
     this.ctx?.source ?? 'unknown';
 
-  protected readonly requireAccessCode = SITE_CONFIG.downloads.requireAccessCode;
+  protected readonly requireAccessCode =
+    SITE_CONFIG.downloads.requireAccessCode;
   protected readonly code = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly pending = signal(false);

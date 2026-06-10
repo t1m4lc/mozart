@@ -5,7 +5,12 @@ import {
   signal,
 } from '@angular/core';
 import { toSignal } from '@angular/core/rxjs-interop';
-import { NavigationEnd, Router, RouterLink, RouterLinkActive } from '@angular/router';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+} from '@angular/router';
 import { filter, map, startWith } from 'rxjs';
 import { HlmThemeToggle } from '@mozart-ui/theme-toggle';
 import { OsService } from '@mozart/shared-util-os';
@@ -22,7 +27,10 @@ import { HlmDialogService } from '@spartan-ui/dialog';
 import { HlmIconImports } from '@spartan-ui/icon';
 import { HlmNavigationMenuImports } from '@spartan-ui/navigation-menu';
 import { HlmTooltipImports } from '@spartan-ui/tooltip';
-import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
+import {
+  ANALYTICS_EVENTS,
+  AnalyticsService,
+} from '@mozart/shared-util-analytics';
 import { detectOsTag } from './analytics/detect-os';
 import { pageSection } from './analytics/page-section';
 import {

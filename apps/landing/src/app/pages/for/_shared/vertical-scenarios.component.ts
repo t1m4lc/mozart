@@ -76,8 +76,7 @@ import type { VerticalScenario } from './vertical-config';
               <div
                 class="border-border bg-primary/5 dark:bg-primary/10 flex flex-wrap items-center justify-between gap-2 rounded-md border p-3"
               >
-                <span
-                  class="text-foreground/80 truncate font-mono text-xs"
+                <span class="text-foreground/80 truncate font-mono text-xs"
                   >✓ {{ scenario.output }}</span
                 >
                 <span

@@ -37,7 +37,9 @@ import type { VerticalPain } from './vertical-config';
   ],
   host: { class: 'block' },
   template: `
-    <section class="border-y border-border bg-muted/30 px-4 py-16 sm:px-6 lg:px-8">
+    <section
+      class="border-y border-border bg-muted/30 px-4 py-16 sm:px-6 lg:px-8"
+    >
       <div class="mx-auto max-w-5xl">
         <p
           class="text-muted-foreground mb-3 font-mono text-xs tracking-wider uppercase"
@@ -50,7 +52,9 @@ import type { VerticalPain } from './vertical-config';
 
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           @for (pain of pains(); track pain.title) {
-            <div class="bg-card border-border flex flex-col gap-3 rounded-xl border p-5">
+            <div
+              class="bg-card border-border flex flex-col gap-3 rounded-xl border p-5"
+            >
               <ng-icon
                 hlm
                 [name]="pain.icon"

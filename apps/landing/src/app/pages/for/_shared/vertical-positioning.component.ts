@@ -22,7 +22,7 @@ const PILLARS: readonly Pillar[] = [
   {
     icon: 'lucideGitBranch',
     title: 'Real work, not chat',
-    body: "Agents act on your actual files in isolated workspaces and you review every change before accepting it. No copy-paste, no lost context.",
+    body: 'Agents act on your actual files in isolated workspaces and you review every change before accepting it. No copy-paste, no lost context.',
   },
   {
     icon: 'lucideUnlock',

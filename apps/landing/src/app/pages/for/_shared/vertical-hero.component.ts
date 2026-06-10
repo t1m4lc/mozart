@@ -1,4 +1,9 @@
-import { ChangeDetectionStrategy, Component, inject, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  inject,
+  input,
+} from '@angular/core';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import {
   lucideArrowRight,
@@ -50,7 +55,9 @@ const MODAL_CLASS =
             {{ config().heroHeadline }}
           </h1>
 
-          <p class="text-muted-foreground mt-5 max-w-lg text-lg leading-relaxed">
+          <p
+            class="text-muted-foreground mt-5 max-w-lg text-lg leading-relaxed"
+          >
             {{ config().heroSubcopy }}
           </p>
 
@@ -74,34 +81,32 @@ const MODAL_CLASS =
           </div>
 
           <!-- Trust badges -->
-          <div
-            class="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5"
-          >
-            <span
-              class="text-muted-foreground flex items-center gap-1 text-xs"
-            >
+          <div class="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5">
+            <span class="text-muted-foreground flex items-center gap-1 text-xs">
               <ng-icon hlm size="xs" name="lucideCheck" class="text-primary" />
               Free forever
             </span>
-            <span class="text-muted-foreground/40 text-xs" aria-hidden="true">·</span>
-            <span
-              class="text-muted-foreground flex items-center gap-1 text-xs"
+            <span class="text-muted-foreground/40 text-xs" aria-hidden="true"
+              >·</span
             >
+            <span class="text-muted-foreground flex items-center gap-1 text-xs">
               <ng-icon hlm size="xs" name="lucideHardDrive" />
               Runs on your machine
             </span>
-            <span class="text-muted-foreground/40 text-xs" aria-hidden="true">·</span>
-            <span
-              class="text-muted-foreground flex items-center gap-1 text-xs"
+            <span class="text-muted-foreground/40 text-xs" aria-hidden="true"
+              >·</span
             >
+            <span class="text-muted-foreground flex items-center gap-1 text-xs">
               <ng-icon hlm size="xs" name="lucideShield" />
               Your data stays local
             </span>
           </div>
 
-          <p class="text-muted-foreground/70 mt-6 max-w-lg text-xs leading-relaxed">
-            Mozart is available today as a developer preview. The experience
-            for {{ config().audience }} is what we're building next.
+          <p
+            class="text-muted-foreground/70 mt-6 max-w-lg text-xs leading-relaxed"
+          >
+            Mozart is available today as a developer preview. The experience for
+            {{ config().audience }} is what we're building next.
           </p>
         </div>
 
@@ -202,7 +207,9 @@ const MODAL_CLASS =
                   >
                     Review diff
                   </span>
-                  <span class="rounded bg-primary/90 px-2 py-0.5 text-primary-foreground">
+                  <span
+                    class="rounded bg-primary/90 px-2 py-0.5 text-primary-foreground"
+                  >
                     Accept
                   </span>
                 </div>

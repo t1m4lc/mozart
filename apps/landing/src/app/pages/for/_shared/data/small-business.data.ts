@@ -23,7 +23,7 @@ export const SMALL_BUSINESS_VERTICAL: VerticalConfig = {
   mock: {
     windowTitle: 'Ops · Weekly business review',
     prompt: 'Write the weekly review from the metrics and meeting notes.',
-    agentTask: 'Summarizing this week\'s data and notes...',
+    agentTask: "Summarizing this week's data and notes...",
     workspace: ['docs/', 'ops/', 'reports/', 'team/'],
     inputs: [
       'ops/weekly-metrics.csv',
@@ -96,7 +96,14 @@ export const SMALL_BUSINESS_VERTICAL: VerticalConfig = {
       status: 'today',
     },
   ],
-  integrations: ['Notion', 'Google Drive', 'Slack export', 'Airtable', 'Linear', 'Jira'],
+  integrations: [
+    'Notion',
+    'Google Drive',
+    'Slack export',
+    'Airtable',
+    'Linear',
+    'Jira',
+  ],
   faq: [
     {
       question: 'Is Mozart a replacement for Notion?',

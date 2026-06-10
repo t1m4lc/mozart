@@ -92,7 +92,9 @@ const VERTICAL_CARDS: readonly VerticalCard[] = [
               <span class="text-foreground text-sm font-semibold">
                 {{ card.title }}
               </span>
-              <span class="text-muted-foreground flex-1 text-sm leading-relaxed">
+              <span
+                class="text-muted-foreground flex-1 text-sm leading-relaxed"
+              >
                 {{ card.description }}
               </span>
               <span
