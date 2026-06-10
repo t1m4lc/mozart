@@ -33,7 +33,7 @@ function asciiPunctuation(text) {
     .replace(/[‘’]/g, "'") // curly single quotes → '
     .replace(/[“”]/g, '"') // curly double quotes → "
     .replace(/…/g, '...') // ellipsis → ...
-    .replace(/ /g, ' '); // non-breaking space → space
+    .replace(/\u00a0/g, ' '); // non-breaking space → space
 }
 
 async function exists(path) {
