@@ -186,3 +186,56 @@ jobs:
 
       - name: Submit sitemap URLs to IndexNow
         run: node apps/landing/scripts/submit-indexnow.mjs dist/sitemap.xml
+
+  notify-blog:
+    name: Announce new blog posts
+    needs: deploy
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+          fetch-depth: 0
+
+      # Post a Discord message for each blog post ADDED in this push (edits to
+      # existing posts are ignored). Reuses the same webhook as release
+      # announcements (DISCORD_WEBHOOK_URL); no-ops when the secret is unset.
+      - name: Announce added blog posts to Discord
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK" ]; then
+            echo "DISCORD_WEBHOOK_URL not set; skipping."
+            exit 0
+          fi
+
+          # A branch's first push reports an all-zero "before"; fall back to the
+          # pushed commit's first parent so the diff still resolves.
+          if ! git cat-file -e "${BEFORE}^{commit}" 2>/dev/null; then
+            BEFORE="${AFTER}^"
+          fi
+
+          added=$(git diff --name-only --diff-filter=A "$BEFORE" "$AFTER" \
+            -- apps/landing/src/content/blog/ | { grep '\.md$' || true; })
+
+          if [ -z "$added" ]; then
+            echo "No new blog posts in this push."
+            exit 0
+          fi
+
+          echo "$added" | while IFS= read -r file; do
+            [ -n "$file" ] || continue
+            slug=$(basename "$file" .md)
+            title=$(grep -m1 '^title:' "$file" \
+              | sed -E "s/^title:[[:space:]]*//; s/^['\"]//; s/['\"][[:space:]]*$//")
+            [ -n "$title" ] || title="$slug"
+            url="https://mozart.build/blog/${slug}/"
+            payload=$(jq -n --arg t "$title" --arg u "$url" \
+              '{content: ("📝 New post on the Mozart blog: **" + $t + "**\n" + $u)}')
+            curl -s -X POST "$DISCORD_WEBHOOK" \
+              -H "Content-Type: application/json" \
+              -d "$payload"
+          done
