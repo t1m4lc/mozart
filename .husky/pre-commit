@@ -1,1 +1,11 @@
-# No pre-commit checks — tests run in pre-push hook (main only).
+#!/usr/bin/env sh
+set -e
+
+# Format staged files with Prettier and re-stage them, so commits never
+# introduce format drift (the pre-push `nx format:check` gate stays green).
+# --ignore-unknown skips files Prettier has no parser for (.rs, images, locks)
+# and respects .prettierignore.
+files=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$files" ] && exit 0
+echo "$files" | xargs pnpm exec prettier --write --ignore-unknown
+echo "$files" | xargs git add
