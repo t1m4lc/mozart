@@ -38,13 +38,15 @@ import { TocComponent } from './docs/_layout/toc.component';
   host: { class: 'flex flex-1 flex-col' },
   template: `
     <app-docs-shell>
-      @if (currentDetail(); as entry) {
+      @if (currentDetail()) {
         <div
           slot="breadcrumb"
           class="border-border font-sans mb-8 border-b pb-5"
         >
           <app-breadcrumb [crumbs]="breadcrumbs()" />
         </div>
+      }
+      @if (currentDetail(); as entry) {
         <header class="font-sans mb-8">
           <span
             class="bg-muted border-border text-muted-foreground mb-4 inline-flex items-center rounded-sm border px-1 py-0.5 font-mono text-xs tracking-wider uppercase"
