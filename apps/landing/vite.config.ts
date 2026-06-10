@@ -281,6 +281,7 @@ export default defineConfig(({ mode }) => ({
           '/for/recruiting',
           '/for/small-business',
           '/pricing',
+          '/join-us',
         ],
         discover: false,
         sitemap: { host: 'https://mozart.build' },

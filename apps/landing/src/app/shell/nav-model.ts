@@ -63,7 +63,7 @@ export const FOOTER_NAV: readonly NavColumn[] = [
     links: [
       { label: 'Blog', href: '/blog' },
       { label: 'Enterprise', href: '#', disabled: true },
-      { label: 'Join us', href: '#', disabled: true },
+      { label: 'Join us', href: '/join-us' },
       { label: 'llms.txt', href: '/llms.txt', external: true },
     ],
   },

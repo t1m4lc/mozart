@@ -32,6 +32,7 @@ const PAGE_ROUTES = [
   '/for/marketing',
   '/for/recruiting',
   '/for/small-business',
+  '/join-us',
 ];
 
 // Normalize smart punctuation to ASCII. `.txt` is often served without a
