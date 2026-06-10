@@ -45,6 +45,7 @@ Request: `{ email, vertical, source?, hp?, formAge? }`
 - Invalid email → `400 invalid_email`; unknown vertical → `400 invalid_vertical`.
 - `WAITLIST` KV binding missing → `503 waitlist_unavailable` (graceful on previews).
 - KV key `waitlist:<email>`, value `{ email, verticals[], source, firstTs, lastTs }`. Duplicate email → merge vertical into `verticals[]`, return `200 {ok:true, already:true}` (idempotent).
+- New signups (not duplicates) ping a private Discord channel via `DISCORD_WAITLIST_WEBHOOK_URL` (email + vertical + source). Best-effort `await` in try/catch — never blocks or fails the signup; unset secret (e.g. previews) no-ops. Separate webhook from the release one.
 
 ### Provisioning (one-time, manual)
 
@@ -52,7 +53,7 @@ Request: `{ email, vertical, source?, hp?, formAge? }`
 2. CF dashboard → Pages `mozart-landing` → Settings → Functions → KV namespace bindings → bind `WAITLIST` for **Production and Preview**. (Direct Upload deploys don't carry bindings; dashboard bindings persist.)
 3. Export: `npx wrangler@4 kv key list --namespace-id=<id> --prefix=waitlist:`
 
-No new GitHub secrets.
+GitHub secret `DISCORD_WAITLIST_WEBHOOK_URL` (single source of truth) is pushed to CF Pages by the deploy workflow's `wrangler pages secret bulk` step, alongside the other runtime secrets. Leave it unset to disable Discord notifications.
 
 ### Local dev
 
