@@ -233,13 +233,17 @@ function renderLlmsTxt({ pages, docsByGroup, blog, changelog }) {
     lines.push('');
   }
 
-  for (const group of docsByGroup) {
-    lines.push(`## Docs — ${group.title}`);
+  if (docsByGroup.length > 0) {
+    lines.push('## Docs');
     lines.push('');
-    for (const entry of group.entries) {
-      lines.push(formatBullet(entry));
+    for (const group of docsByGroup) {
+      lines.push(`### ${group.title}`);
+      lines.push('');
+      for (const entry of group.entries) {
+        lines.push(formatBullet(entry));
+      }
+      lines.push('');
     }
-    lines.push('');
   }
 
   if (blog.length > 0) {
