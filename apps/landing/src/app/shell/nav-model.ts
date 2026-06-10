@@ -14,7 +14,6 @@ export interface NavColumn {
 
 export const PRIMARY_NAV: readonly NavLink[] = [
   { label: 'Pricing', href: '/pricing' },
-  { label: 'Changelog', href: '/changelog' },
   { label: 'Docs', href: '/docs' },
 ] as const;
 
