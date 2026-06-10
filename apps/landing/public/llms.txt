@@ -6,35 +6,36 @@ Home: https://mozart.build
 
 ## Pages
 
-- [Download Mozart](https://mozart.build/download): Download the Mozart developer preview for Mac, Windows, and Linux. Requires git, a GitHub account, and Claude Code CLI or Codex.
-- [Pricing | Mozart: Free AI Workspace](https://mozart.build/pricing): Mozart is free forever for individuals. Runs locally, no subscription. Connect your own AI provider (Claude Code, Codex); usage billed by them. Local models planned.
-- [Mozart for Sales | AI Agents That Work With Your Files](https://mozart.build/for/sales): Mozart is a desktop app where AI agents draft, research, and prepare your sales work, using your own files, on your own computer. Deal data stays local.
-- [Mozart for Marketing | AI Agents in Your Files, Not a Chat](https://mozart.build/for/marketing): Mozart runs AI agents that create and edit your marketing files with your brand context at hand, on your computer. No copy-paste between ten tools.
-- [Mozart for Recruiting | AI Agents, Your Files, Your Judgment](https://mozart.build/for/recruiting): Mozart is a desktop app where AI agents read, draft, and organize recruiting work on your computer. Candidate data stays local; decisions stay yours.
-- [Mozart for Small Teams | The AI Productivity App](https://mozart.build/for/small-business): Mozart runs AI agents on your computer to create documents, analyze data, and organize your business files. Free for individuals. Your data stays yours.
+- [Download Mozart](https://mozart.build/download/): Download the Mozart developer preview for Mac, Windows, and Linux. Requires git, a GitHub account, and Claude Code CLI or Codex.
+- [Pricing | Mozart: Free AI Workspace](https://mozart.build/pricing/): Mozart is free forever for individuals. Runs locally, no subscription. Connect your own AI provider (Claude Code, Codex); usage billed by them. Local models planned.
+- [Mozart for Sales | AI Agents That Work With Your Files](https://mozart.build/for/sales/): Mozart is a desktop app where AI agents draft, research, and prepare your sales work, using your own files, on your own computer. Deal data stays local.
+- [Mozart for Marketing | AI Agents in Your Files, Not a Chat](https://mozart.build/for/marketing/): Mozart runs AI agents that create and edit your marketing files with your brand context at hand, on your computer. No copy-paste between ten tools.
+- [Mozart for Recruiting | AI Agents, Your Files, Your Judgment](https://mozart.build/for/recruiting/): Mozart is a desktop app where AI agents read, draft, and organize recruiting work on your computer. Candidate data stays local; decisions stay yours.
+- [Mozart for Small Teams | The AI Productivity App](https://mozart.build/for/small-business/): Mozart runs AI agents on your computer to create documents, analyze data, and organize your business files. Free for individuals. Your data stays yours.
 
 ## Docs - Getting Started
 
-- [Introduction](https://mozart.build/docs/introduction): What Mozart is, how it works, and when to use it.
-- [Install](https://mozart.build/docs/install): Get the Mozart desktop app on your machine.
-- [Quickstart](https://mozart.build/docs/quickstart): From install to a reviewed diff in five steps.
+- [Introduction](https://mozart.build/docs/introduction/): What Mozart is, how it works, and when to use it.
+- [Install](https://mozart.build/docs/install/): Get the Mozart desktop app on your machine.
+- [Quickstart](https://mozart.build/docs/quickstart/): From install to a reviewed diff in five steps.
 
 ## Docs - Concepts
 
-- [Isolated workspaces](https://mozart.build/docs/concepts/isolated-workspaces): How Mozart keeps parallel Agent Runs from stepping on each other.
-- [Local first](https://mozart.build/docs/concepts/local-first): Your code stays on your machine. The cloud is opt-in, not default.
-- [Settings](https://mozart.build/docs/concepts/settings): How Mozart layers defaults, your machine, and per-project settings.
+- [Isolated workspaces](https://mozart.build/docs/concepts/isolated-workspaces/): How Mozart keeps parallel Agent Runs from stepping on each other.
+- [Local first](https://mozart.build/docs/concepts/local-first/): Your code stays on your machine. The cloud is opt-in, not default.
+- [Settings](https://mozart.build/docs/concepts/settings/): How Mozart layers defaults, your machine, and per-project settings.
 
 ## Docs - Community
 
-- [We are mozart](https://mozart.build/docs/community/we-are-mozart): Where to find us, ask questions, and contribute.
+- [We are mozart](https://mozart.build/docs/community/we-are-mozart/): Where to find us, ask questions, and contribute.
 
 ## Blog
 
-- [Hello, World](https://mozart.build/blog/hello-world): Why I am building Mozart, a conductor for AI coding agents.
+- [The wrong path, not the wrong direction](https://mozart.build/blog/wrong-path-right-direction/): Same vision, new path: opening AI agents to the people who do not have a developer license.
+- [Hello, World](https://mozart.build/blog/hello-world/): Why I am building Mozart, a conductor for AI coding agents.
 
 ## Changelog
 
-- [0.1.0-beta.2 - Composer context - files, skills, and tokens](https://mozart.build/changelog/v0-1-0-beta-2): Composer context - files, skills, and tokens
-- [0.1.0-beta.1 - Codex joins Mozart](https://mozart.build/changelog/v0-1-0-beta-1): Codex joins Mozart
-- [0.1.0-beta.0 - First private beta](https://mozart.build/changelog/v0-1-0-beta-0): First private beta
+- [0.1.0-beta.2 - Composer context - files, skills, and tokens](https://mozart.build/changelog/v0-1-0-beta-2/): Composer context - files, skills, and tokens
+- [0.1.0-beta.1 - Codex joins Mozart](https://mozart.build/changelog/v0-1-0-beta-1/): Codex joins Mozart
+- [0.1.0-beta.0 - First private beta](https://mozart.build/changelog/v0-1-0-beta-0/): First private beta
