@@ -71,6 +71,19 @@ async function scrubSitemap(distRoot) {
   );
 }
 
+async function trailingSlashSitemap(distRoot) {
+  const sitemapPath = join(distRoot, 'sitemap.xml');
+  if (!(await exists(sitemapPath))) return;
+  const xml = await readFile(sitemapPath, 'utf8');
+  // Cloudflare Pages 308-redirects /x → /x/. Carry the slash in <loc> so the
+  // sitemap points at the 200 directly (no redirect hop) and matches canonical.
+  const next = xml.replace(/<loc>([^<]+)<\/loc>/g, (match, url) =>
+    url.endsWith('/') ? match : `<loc>${url}/</loc>`,
+  );
+  await writeFile(sitemapPath, next, 'utf8');
+  console.log('post-build-seo: added trailing slashes to sitemap.xml <loc>');
+}
+
 async function injectNoindex(distRoot) {
   for (const route of NOINDEX_ROUTES) {
     const htmlPath = join(distRoot, route.slice(1), 'index.html');
@@ -96,5 +109,6 @@ async function injectNoindex(distRoot) {
 const distRoots = await findDistRoots();
 for (const root of distRoots) {
   await scrubSitemap(root);
+  await trailingSlashSitemap(root);
   await injectNoindex(root);
 }

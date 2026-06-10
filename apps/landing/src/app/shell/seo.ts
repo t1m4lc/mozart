@@ -19,19 +19,28 @@ export function injectSeo(): (meta: SeoMeta) => void {
   const document = inject(DOCUMENT);
 
   return (entry: SeoMeta) => {
-    const url = `${SITE_ORIGIN}${entry.path}`;
+    // Cloudflare Pages 308-redirects /x → /x/, so the canonical, og:url, and
+    // sitemap must carry the trailing slash to point at the URL it serves 200.
+    const path = entry.path.endsWith('/') ? entry.path : `${entry.path}/`;
+    const url = `${SITE_ORIGIN}${path}`;
     const image = entry.image ?? DEFAULT_OG_IMAGE;
     const type = entry.type ?? 'website';
 
     title.setTitle(entry.title);
     upsertMeta(meta, { name: 'description', content: entry.description });
     upsertMeta(meta, { property: 'og:title', content: entry.title });
-    upsertMeta(meta, { property: 'og:description', content: entry.description });
+    upsertMeta(meta, {
+      property: 'og:description',
+      content: entry.description,
+    });
     upsertMeta(meta, { property: 'og:url', content: url });
     upsertMeta(meta, { property: 'og:type', content: type });
     upsertMeta(meta, { property: 'og:image', content: image });
     upsertMeta(meta, { name: 'twitter:title', content: entry.title });
-    upsertMeta(meta, { name: 'twitter:description', content: entry.description });
+    upsertMeta(meta, {
+      name: 'twitter:description',
+      content: entry.description,
+    });
     upsertMeta(meta, { name: 'twitter:image', content: image });
     upsertMeta(meta, { name: 'twitter:card', content: 'summary_large_image' });
     setCanonical(document, url);
