@@ -12,6 +12,10 @@ import type { PagesContext } from './analytics/_lib';
 // heuristics (user-agent + JSON content-type), and a per-IP rate limit
 // (`rl:<ip>` keys, TTL'd). All fail silently with a fake success so bots
 // get no signal.
+//
+// New signups also ping a private Discord channel via DISCORD_WAITLIST_WEBHOOK_URL
+// (synced from GitHub secrets on deploy). Best-effort: a failed or unset
+// webhook never blocks the signup. Preview has no secret set, so it no-ops.
 
 type KvNamespace = {
   get(key: string): Promise<string | null>;
@@ -24,6 +28,7 @@ type KvNamespace = {
 
 type Env = {
   readonly WAITLIST?: KvNamespace;
+  readonly DISCORD_WAITLIST_WEBHOOK_URL?: string;
 };
 
 type Body = {
@@ -60,6 +65,34 @@ function json(status: number, body: unknown): Response {
     status,
     headers: { 'content-type': 'application/json' },
   });
+}
+
+async function notifyDiscord(
+  webhookUrl: string,
+  signup: { email: string; vertical: string; source: string },
+): Promise<void> {
+  try {
+    await fetch(webhookUrl, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({
+        embeds: [
+          {
+            title: '🎉 New waitlist signup',
+            color: 0x6366f1,
+            fields: [
+              { name: 'Email', value: signup.email },
+              { name: 'Vertical', value: signup.vertical, inline: true },
+              { name: 'Source', value: signup.source, inline: true },
+            ],
+            timestamp: new Date().toISOString(),
+          },
+        ],
+      }),
+    });
+  } catch {
+    // Best-effort: never let a notification failure break the signup.
+  }
 }
 
 export const onRequestPost = async ({ request, env }: PagesContext<Env>) => {
@@ -140,5 +173,12 @@ export const onRequestPost = async ({ request, env }: PagesContext<Env>) => {
     lastTs: now,
   };
   await kv.put(key, JSON.stringify(entry));
+  if (env.DISCORD_WAITLIST_WEBHOOK_URL) {
+    await notifyDiscord(env.DISCORD_WAITLIST_WEBHOOK_URL, {
+      email,
+      vertical,
+      source,
+    });
+  }
   return json(200, { ok: true });
 };

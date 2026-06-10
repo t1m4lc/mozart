@@ -133,9 +133,12 @@ jobs:
           # Beta download gate (functions/api/download.ts). Unset this secret
           # to open downloads to everyone post beta.0.x — no code change.
           DOWNLOAD_CODE: ${{ secrets.DOWNLOAD_CODE }}
+          # Discord webhook for new waitlist signups (functions/api/waitlist.ts).
+          # Separate from the release webhook — no conflict.
+          DISCORD_WAITLIST_WEBHOOK_URL: ${{ secrets.DISCORD_WAITLIST_WEBHOOK_URL }}
         run: |
-          printf '{"INTERNAL_DEVICE_TOKEN":"%s","DOWNLOAD_CODE":"%s"}' \
-            "$INTERNAL_DEVICE_TOKEN" "$DOWNLOAD_CODE" \
+          printf '{"INTERNAL_DEVICE_TOKEN":"%s","DOWNLOAD_CODE":"%s","DISCORD_WAITLIST_WEBHOOK_URL":"%s"}' \
+            "$INTERNAL_DEVICE_TOKEN" "$DOWNLOAD_CODE" "$DISCORD_WAITLIST_WEBHOOK_URL" \
             | npx wrangler@4 pages secret bulk \
                 --project-name=mozart-landing
 
