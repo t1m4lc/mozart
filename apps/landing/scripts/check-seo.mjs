@@ -32,6 +32,20 @@ const REQUIRED_SITEMAP_ROUTES = [
 ];
 const SITEMAP_FORBIDDEN_ROUTES = ['/privacy', '/terms'];
 
+// Prerendered routes intentionally NOT listed as bullets in llms.txt: the home
+// page (it's the "Home:" line), section index pages (covered by their section
+// headers + child entries), and the noindex legal pages. Every other route that
+// ships an index.html must appear in llms.txt — content pages are auto-discovered
+// by generate-llms.mjs, static marketing pages via its PAGE_ROUTES list.
+const LLMS_EXEMPT_ROUTES = new Set([
+  '/',
+  '/docs',
+  '/blog',
+  '/changelog',
+  '/privacy',
+  '/terms',
+]);
+
 const failures = [];
 
 async function exists(path) {
@@ -93,6 +107,23 @@ async function checkLlmsIndex() {
     }
     if (file === 'llms.txt' && !text.includes('/for/sales')) {
       failures.push('llms.txt missing marketing page entries');
+    }
+  }
+}
+
+// Catch a new prerendered page that was never registered in llms.txt: a
+// forgotten PAGE_ROUTES entry would otherwise vanish silently from the index.
+async function checkLlmsCoverage(routes) {
+  const llmsPath = join(DIST, 'llms.txt');
+  if (!(await exists(llmsPath))) return; // checkLlmsIndex already reported it
+  const llms = await readFile(llmsPath, 'utf8');
+  for (const route of routes) {
+    if (LLMS_EXEMPT_ROUTES.has(route)) continue;
+    const url = `https://mozart.build${route}/`;
+    if (!llms.includes(url)) {
+      failures.push(
+        `llms.txt missing prerendered route ${route} — add it to PAGE_ROUTES in generate-llms.mjs, or to LLMS_EXEMPT_ROUTES in check-seo.mjs if intentionally excluded`,
+      );
     }
   }
 }
@@ -176,6 +207,7 @@ for (const route of SITEMAP_FORBIDDEN_ROUTES) {
 }
 
 const routes = await listPrerenderedRoutes();
+await checkLlmsCoverage(routes);
 for (const route of routes) {
   await checkRouteShell(route);
 }
