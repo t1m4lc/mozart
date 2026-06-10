@@ -13,8 +13,13 @@ import {
   isDocsFile,
   toDocsEntry,
 } from '../content/docs';
+import {
+  BreadcrumbComponent,
+  BreadcrumbItem,
+} from '../shell/breadcrumb.component';
 import { injectCurrentPath } from '../shell/current-path';
-import { injectSeo } from '../shell/seo';
+import { breadcrumbListLd, injectJsonLd } from '../shell/json-ld';
+import { injectSeo, SITE_ORIGIN } from '../shell/seo';
 import { DocsPrevNextComponent } from './docs/_layout/docs-prev-next.component';
 import { DocsShellComponent } from './docs/_layout/docs-shell.component';
 import { TocHeading, extractHeadings } from './docs/_layout/toc';
@@ -23,6 +28,7 @@ import { TocComponent } from './docs/_layout/toc.component';
 @Component({
   selector: 'app-docs-layout',
   imports: [
+    BreadcrumbComponent,
     DocsPrevNextComponent,
     DocsShellComponent,
     RouterOutlet,
@@ -33,6 +39,12 @@ import { TocComponent } from './docs/_layout/toc.component';
   template: `
     <app-docs-shell>
       @if (currentDetail(); as entry) {
+        <div
+          slot="breadcrumb"
+          class="border-border font-sans mb-8 border-b pb-5"
+        >
+          <app-breadcrumb [crumbs]="breadcrumbs()" />
+        </div>
         <header class="font-sans mb-8">
           <span
             class="bg-muted border-border text-muted-foreground mb-4 inline-flex items-center rounded-sm border px-1 py-0.5 font-mono text-xs tracking-wider uppercase"
@@ -62,6 +74,7 @@ import { TocComponent } from './docs/_layout/toc.component';
 export default class DocsLayoutPage {
   private readonly path = injectCurrentPath();
   private readonly seo = injectSeo();
+  private readonly jsonLd = injectJsonLd();
   private readonly filesMap = injectContentFilesMap();
   private readonly entries = injectContentFiles<DocsAttributes>((f) =>
     isDocsFile(f.filename),
@@ -96,6 +109,16 @@ export default class DocsLayoutPage {
     return idx < this.flatEntries.length - 1 ? this.flatEntries[idx + 1] : null;
   });
 
+  protected readonly breadcrumbs = computed<readonly BreadcrumbItem[]>(() => {
+    const detail = this.currentDetail();
+    if (!detail) return [];
+    return [
+      { label: 'Home', link: '/' },
+      { label: 'Docs', link: '/docs' },
+      { label: detail.title },
+    ];
+  });
+
   protected readonly headings = signal<readonly TocHeading[]>([]);
 
   constructor() {
@@ -114,6 +137,14 @@ export default class DocsLayoutPage {
         path: `/docs/${detail.slug}`,
         type: 'article',
       });
+      this.jsonLd(
+        'breadcrumb',
+        breadcrumbListLd([
+          { name: 'Home', url: `${SITE_ORIGIN}/` },
+          { name: 'Docs', url: `${SITE_ORIGIN}/docs/` },
+          { name: detail.title, url: `${SITE_ORIGIN}/docs/${detail.slug}/` },
+        ]),
+      );
     });
   }
 
