@@ -21,6 +21,11 @@ export const ANALYTICS_EVENTS = {
   downloadCtaClicked: 'download_cta_clicked',
   downloaded: 'downloaded',
 
+  // Acquisition — landing vertical waitlist (no PII: email never captured)
+  waitlistSubmitted: 'waitlist_submitted',
+  waitlistSucceeded: 'waitlist_succeeded',
+  waitlistFailed: 'waitlist_failed',
+
   // Authentication — web (Funnel 1→2 handoff)
   signupCompleted: 'signup_completed',
   loginCompleted: 'login_completed',

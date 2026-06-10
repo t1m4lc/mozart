@@ -14,7 +14,7 @@ import { SITE_CONFIG } from './site-config';
     >
       <div class="relative mx-auto max-w-5xl">
         <div
-          class="grid w-full grid-cols-2 gap-x-12 gap-y-10 sm:grid-cols-4 sm:gap-x-16"
+          class="grid w-full grid-cols-2 gap-x-12 gap-y-10 sm:grid-cols-3 sm:gap-x-16 lg:grid-cols-5"
         >
           @for (column of columns; track column.title) {
             <div class="flex min-w-0 flex-col items-start gap-4 text-left">

@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { getVersion } from '@tauri-apps/api/app';
 import { relaunch } from '@tauri-apps/plugin-process';
 import { check } from '@tauri-apps/plugin-updater';
 
@@ -20,6 +21,11 @@ export type UpdateReady = {
 @Injectable({ providedIn: 'root' })
 export class UpdaterService {
   readonly updateReady = signal<UpdateReady | null>(null);
+  readonly currentVersion = signal<string>('');
+
+  constructor() {
+    void getVersion().then((v) => this.currentVersion.set(v));
+  }
 
   async checkOnBoot(): Promise<void> {
     try {

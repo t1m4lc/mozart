@@ -118,6 +118,12 @@ jobs:
       # Pages on every main push so a secret rotation in GitHub propagates on
       # the next deploy. Skipped on PRs — previews don't get the token, so
       # /api/analytics/set-internal-device 503s there (acceptable).
+      #
+      # NOT synced here: functions/api/waitlist.ts needs a KV namespace bound
+      # as `WAITLIST` on the mozart-landing Pages project (Production AND
+      # Preview). Direct Upload deploys can't carry bindings — set it once in
+      # the CF dashboard (Settings → Functions → KV namespace bindings) and it
+      # persists across deploys. Without it, /api/waitlist returns 503.
       - name: Sync runtime secrets to Cloudflare Pages
         if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
         env:

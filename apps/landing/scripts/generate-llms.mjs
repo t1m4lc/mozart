@@ -23,6 +23,19 @@ const SITE_TITLE = 'Mozart';
 const SITE_SUMMARY =
   'AI coding agent manager. Mozart runs a team of Claude Code agents in parallel, each isolated in its own Workspace, so you can review and merge their work like any other contributor.';
 
+// Normalize smart punctuation to ASCII. `.txt` is often served without a
+// `charset=utf-8` header, so a UTF-8 em-dash renders as mojibake ("â€”").
+// Keeping the index ASCII-only sidesteps that entirely (and reads fine for
+// the crawlers/RAG pipelines this file targets).
+function asciiPunctuation(text) {
+  return text
+    .replace(/[—–]/g, '-') // em / en dash → hyphen
+    .replace(/[‘’]/g, "'") // curly single quotes → '
+    .replace(/[“”]/g, '"') // curly double quotes → "
+    .replace(/…/g, '...') // ellipsis → ...
+    .replace(/ /g, ' '); // non-breaking space → space
+}
+
 async function exists(path) {
   try {
     await stat(path);
@@ -294,8 +307,8 @@ async function main() {
     );
   })();
 
-  const llms = renderLlmsTxt({ docsByGroup, blog, changelog });
-  const llmsFull = renderLlmsFullTxt({ docs, blog, changelog });
+  const llms = asciiPunctuation(renderLlmsTxt({ docsByGroup, blog, changelog }));
+  const llmsFull = asciiPunctuation(renderLlmsFullTxt({ docs, blog, changelog }));
 
   // Keep the source public/ file in sync so dev server reflects current content.
   const publicDir = resolve(ROOT, 'public');
