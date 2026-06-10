@@ -7,16 +7,27 @@ import {
   signal,
 } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
-import { BlogAttributes, isBlogFile, toBlogEntry } from '../content/blog';
+import {
+  BlogAttributes,
+  isBlogFile,
+  sortBlogEntriesNewestFirst,
+  toBlogEntry,
+} from '../content/blog';
 import { injectCurrentPath } from '../shell/current-path';
 import { injectSeo } from '../shell/seo';
 import { BlogAuthorsComponent } from './blog/_layout/blog-authors.component';
+import { BlogPrevNextComponent } from './blog/_layout/blog-prev-next.component';
 import { TocHeading, extractHeadings } from './docs/_layout/toc';
 import { TocComponent } from './docs/_layout/toc.component';
 
 @Component({
   selector: 'app-blog-layout',
-  imports: [BlogAuthorsComponent, RouterOutlet, TocComponent],
+  imports: [
+    BlogAuthorsComponent,
+    BlogPrevNextComponent,
+    RouterOutlet,
+    TocComponent,
+  ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: { class: 'flex flex-1 flex-col' },
   template: `
@@ -65,6 +76,7 @@ import { TocComponent } from './docs/_layout/toc.component';
                 }
               </header>
               <router-outlet />
+              <app-blog-prev-next [prev]="prev()" [next]="next()" />
             </div>
 
             <aside
@@ -102,9 +114,11 @@ export default class BlogLayoutPage {
   private readonly path = injectCurrentPath();
   private readonly seo = injectSeo();
   private readonly filesMap = injectContentFilesMap();
-  private readonly entries = injectContentFiles<BlogAttributes>((f) =>
-    isBlogFile(f.filename),
-  ).map(toBlogEntry);
+  private readonly entries = sortBlogEntriesNewestFirst(
+    injectContentFiles<BlogAttributes>((f) => isBlogFile(f.filename)).map(
+      toBlogEntry,
+    ),
+  );
 
   protected readonly currentPost = computed(() => {
     const url = this.path();
@@ -112,6 +126,23 @@ export default class BlogLayoutPage {
     const slug = url.slice('/blog/'.length);
     if (!slug) return null;
     return this.entries.find((e) => e.slug === slug) ?? null;
+  });
+
+  private readonly currentIndex = computed(() => {
+    const post = this.currentPost();
+    if (!post) return -1;
+    return this.entries.findIndex((e) => e.slug === post.slug);
+  });
+
+  protected readonly prev = computed(() => {
+    const idx = this.currentIndex();
+    return idx > 0 ? this.entries[idx - 1] : null;
+  });
+
+  protected readonly next = computed(() => {
+    const idx = this.currentIndex();
+    if (idx === -1) return null;
+    return idx < this.entries.length - 1 ? this.entries[idx + 1] : null;
   });
 
   protected readonly headings = signal<readonly TocHeading[]>([]);
