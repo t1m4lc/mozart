@@ -29,6 +29,7 @@ const REQUIRED_SITEMAP_ROUTES = [
   '/for/recruiting',
   '/for/small-business',
   '/pricing',
+  '/join-us',
 ];
 const SITEMAP_FORBIDDEN_ROUTES = ['/privacy', '/terms'];
 
