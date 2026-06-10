@@ -26,8 +26,8 @@ const PILLARS: readonly Pillar[] = [
   },
   {
     icon: 'lucideUnlock',
-    title: 'No lock-in',
-    body: 'Works with Claude Code and Codex today, with more providers on the way. Your data stays yours, not tied to any single cloud.',
+    title: 'Yours, all the way down',
+    body: 'Your files, your workspaces, your choice of AI. Mozart runs the agent providers you connect, Claude Code and Codex today with more planned. Nothing about your work is locked to us.',
   },
 ] as const;
 

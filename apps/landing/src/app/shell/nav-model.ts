@@ -26,17 +26,17 @@ export const SOLUTIONS_NAV: readonly SolutionLink[] = [
   {
     label: 'Sales',
     href: '/for/sales',
-    description: 'Follow-ups, research, and proposals.',
+    description: 'Drafts, briefs, and prep from your files.',
   },
   {
     label: 'Marketing',
     href: '/for/marketing',
-    description: 'Briefs, drafts, and content repurposing.',
+    description: 'On-brand content without the chat tab.',
   },
   {
     label: 'Recruiting',
     href: '/for/recruiting',
-    description: 'Screening and outreach, kept private.',
+    description: 'Reading, writing, and prep, kept private.',
   },
   {
     label: 'Small Teams',
