@@ -13,19 +13,51 @@ export interface NavColumn {
 }
 
 export const PRIMARY_NAV: readonly NavLink[] = [
+  { label: 'Pricing', href: '/pricing' },
   { label: 'Changelog', href: '/changelog' },
   { label: 'Docs', href: '/docs' },
+] as const;
+
+export interface SolutionLink extends NavLink {
+  readonly description: string;
+}
+
+export const SOLUTIONS_NAV: readonly SolutionLink[] = [
+  {
+    label: 'Sales',
+    href: '/for/sales',
+    description: 'Follow-ups, research, and proposals.',
+  },
+  {
+    label: 'Marketing',
+    href: '/for/marketing',
+    description: 'Briefs, drafts, and content repurposing.',
+  },
+  {
+    label: 'Recruiting',
+    href: '/for/recruiting',
+    description: 'Screening and outreach, kept private.',
+  },
+  {
+    label: 'Small Teams',
+    href: '/for/small-business',
+    description: 'Docs, ops, and business knowledge.',
+  },
 ] as const;
 
 export const FOOTER_NAV: readonly NavColumn[] = [
   {
     title: 'Product',
     links: [
+      { label: 'Pricing', href: '/pricing' },
+      { label: 'Download', href: '/download' },
       { label: 'Docs', href: '/docs' },
       { label: 'Changelog', href: '/changelog' },
-      { label: 'Download', href: '/download' },
-      { label: 'llms.txt', href: '/llms.txt', external: true },
     ],
+  },
+  {
+    title: 'Solutions',
+    links: SOLUTIONS_NAV.map(({ label, href }) => ({ label, href })),
   },
   {
     title: 'Company',
@@ -33,6 +65,7 @@ export const FOOTER_NAV: readonly NavColumn[] = [
       { label: 'Blog', href: '/blog' },
       { label: 'Enterprise', href: '#', disabled: true },
       { label: 'Join us', href: '#', disabled: true },
+      { label: 'llms.txt', href: '/llms.txt', external: true },
     ],
   },
   {

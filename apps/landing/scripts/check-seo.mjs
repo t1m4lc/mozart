@@ -24,6 +24,11 @@ const REQUIRED_SITEMAP_ROUTES = [
   '/blog',
   '/blog/hello-world',
   '/changelog',
+  '/for/sales',
+  '/for/marketing',
+  '/for/recruiting',
+  '/for/small-business',
+  '/pricing',
 ];
 const SITEMAP_FORBIDDEN_ROUTES = ['/privacy', '/terms'];
 

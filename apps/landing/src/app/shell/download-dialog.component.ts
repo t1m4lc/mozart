@@ -254,7 +254,7 @@ export class DownloadDialogComponent {
         return;
       }
       if (!res.ok) {
-        this.error.set('Download unavailable right now — try again shortly.');
+        this.error.set('Download unavailable right now. Try again shortly.');
         return;
       }
       const { url } = (await res.json()) as { url: string };
@@ -268,7 +268,7 @@ export class DownloadDialogComponent {
       this.ref.close();
       window.location.href = url;
     } catch {
-      this.error.set('Network error — try again.');
+      this.error.set('Network error. Try again.');
     } finally {
       this.pending.set(false);
     }

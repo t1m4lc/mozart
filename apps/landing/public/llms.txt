@@ -1,27 +1,22 @@
 # Mozart
 
-> AI coding agent manager. Mozart runs Claude Code and Codex agents in parallel, each isolated in its own Workspace, so you can review and merge their work like any other contributor.
+> AI coding agent manager. Mozart runs a team of Claude Code agents in parallel, each isolated in its own Workspace, so you can review and merge their work like any other contributor.
 
 Home: https://mozart.build
 
-## Docs — Getting Started
+## Docs - Getting Started
 
 - [Introduction](https://mozart.build/docs/introduction): What Mozart is, how it works, and when to use it.
 - [Install](https://mozart.build/docs/install): Get the Mozart desktop app on your machine.
 - [Quickstart](https://mozart.build/docs/quickstart): From install to a reviewed diff in five steps.
 
-## Docs — Concepts
+## Docs - Concepts
 
 - [Isolated workspaces](https://mozart.build/docs/concepts/isolated-workspaces): How Mozart keeps parallel Agent Runs from stepping on each other.
 - [Local first](https://mozart.build/docs/concepts/local-first): Your code stays on your machine. The cloud is opt-in, not default.
 - [Settings](https://mozart.build/docs/concepts/settings): How Mozart layers defaults, your machine, and per-project settings.
 
-## Docs — Reference
-
-- [Global settings](https://mozart.build/docs/reference/global-settings): Your personal, machine-wide preferences in settings.json.
-- [Project settings](https://mozart.build/docs/reference/project-settings): Per-repo settings committed in .mozart/settings.json, shared by the team.
-
-## Docs — Community
+## Docs - Community
 
 - [We are mozart](https://mozart.build/docs/community/we-are-mozart): Where to find us, ask questions, and contribute.
 
@@ -31,7 +26,6 @@ Home: https://mozart.build
 
 ## Changelog
 
-- [0.1.0-beta.1 — Codex joins Mozart](https://mozart.build/changelog/v0-1-0-beta-1): Codex joins Mozart
-- [0.1.0-beta.0.1 — First silent update](https://mozart.build/changelog/v0-1-0-beta-0-1): First silent update
-- [0.1.0-beta.0 — First private beta](https://mozart.build/changelog/v0-1-0-beta-0): First private beta
-
+- [0.1.0-beta.2 - Composer context - files, skills, and tokens](https://mozart.build/changelog/v0-1-0-beta-2): Composer context - files, skills, and tokens
+- [0.1.0-beta.1 - Codex joins Mozart](https://mozart.build/changelog/v0-1-0-beta-1): Codex joins Mozart
+- [0.1.0-beta.0 - First private beta](https://mozart.build/changelog/v0-1-0-beta-0): First private beta

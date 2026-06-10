@@ -7,14 +7,23 @@ import {
   signal,
 } from '@angular/core';
 import { ANALYTICS_EVENTS, AnalyticsService } from '@mozart/shared-util-analytics';
+import { MOZART_LINKS } from '@mozart/shared-util-mozart-links';
 import { OsService } from '@mozart/shared-util-os';
 import { NgIcon, provideIcons } from '@ng-icons/core';
 import { lucideLoaderCircle } from '@ng-icons/lucide';
 import { HlmButton } from '@spartan-ui/button';
+import { HlmDialogService } from '@spartan-ui/dialog';
 import { HlmInput } from '@spartan-ui/input';
 import { detectOsTag } from '../shell/analytics/detect-os';
 import { injectSeo } from '../shell/seo';
 import { SITE_CONFIG } from '../shell/site-config';
+import type { WaitlistModalContext } from './for/_shared/waitlist-modal.component';
+import { WaitlistModalComponent } from './for/_shared/waitlist-modal.component';
+
+const WAITLIST_MODAL_CLASS =
+  'w-full max-w-md gap-0 p-6 ' +
+  'max-sm:!w-screen max-sm:!max-w-none max-sm:!rounded-none ' +
+  'max-sm:!border-0 max-sm:!mx-0 max-sm:!mt-auto max-sm:!mb-0';
 
 type OsKey = 'mac' | 'mac-intel' | 'windows' | 'linux';
 
@@ -25,30 +34,56 @@ const PLATFORMS: { os: OsKey; label: string }[] = [
   { os: 'linux', label: 'Download for Linux' },
 ];
 
+const REQUIREMENTS = [
+  'Git installed on your machine',
+  'A GitHub account',
+  'Claude Code CLI or an OpenAI Codex API key',
+];
+
 @Component({
   selector: 'app-download',
   imports: [HlmButton, HlmInput, NgIcon],
   changeDetection: ChangeDetectionStrategy.OnPush,
   providers: [provideIcons({ lucideLoaderCircle })],
   template: `
-    <main
-      class="flex min-h-[60vh] flex-col items-center justify-center gap-6 px-4 text-center py-16 md:py-24"
-    >
-      <span
-        class="bg-muted text-muted-foreground rounded-full px-3 py-1 text-xs font-medium uppercase tracking-widest"
-      >
-        Private beta
-      </span>
-      <h1 class="text-4xl font-bold tracking-tight">Download Mozart</h1>
-      <p class="text-muted-foreground max-w-sm">
-        @if (requireAccessCode) {
-          Enter your beta access code to download for your platform.
-        } @else {
-          Get the build for your platform.
-        }
-      </p>
+    <main class="mx-auto max-w-2xl px-4 py-16 sm:px-6 md:py-24 lg:px-8">
+      <div class="mb-10 text-center">
+        <span
+          class="bg-muted text-muted-foreground mb-4 inline-block rounded-full px-3 py-1 text-xs font-medium uppercase tracking-widest"
+        >
+          Developer preview
+        </span>
+        <h1 class="text-foreground text-4xl font-bold tracking-tight">
+          Download Mozart
+        </h1>
+        <p class="text-muted-foreground mt-4 text-base leading-relaxed">
+          Mozart is currently available as a developer preview. It runs best for
+          people comfortable with git and a terminal. If you are not a developer,
+          <a
+            [href]="betaSignupHref"
+            class="text-foreground underline underline-offset-4 decoration-dotted hover:opacity-70 transition-opacity"
+            target="_blank"
+            rel="noopener"
+          >request early access</a>
+          and we will reach out when the full experience is ready.
+        </p>
+      </div>
 
-      <div class="flex w-full max-w-sm flex-col gap-3 ">
+      <!-- Requirements -->
+      <div class="bg-muted/50 border-border mb-8 rounded-xl border p-5">
+        <p class="text-foreground mb-3 text-sm font-semibold">Requirements</p>
+        <ul class="space-y-1.5">
+          @for (req of requirements; track req) {
+            <li class="text-muted-foreground flex items-center gap-2 text-sm">
+              <span class="text-foreground/40 font-mono text-xs">·</span>
+              {{ req }}
+            </li>
+          }
+        </ul>
+      </div>
+
+      <!-- Download buttons -->
+      <div class="flex w-full flex-col gap-3">
         @if (requireAccessCode) {
           <div class="space-y-1.5">
             <input
@@ -87,6 +122,24 @@ const PLATFORMS: { os: OsKey; label: string }[] = [
           </button>
         }
       </div>
+
+      <!-- Non-developer callout -->
+      <div class="border-border mt-10 rounded-xl border p-5 text-center">
+        <p class="text-foreground mb-1 text-sm font-semibold">Not a developer?</p>
+        <p class="text-muted-foreground mb-3 text-sm">
+          A no-code experience for sales, marketing, recruiting, and small teams
+          is what we're building next.
+        </p>
+        <button
+          hlmBtn
+          type="button"
+          variant="outline"
+          size="sm"
+          (click)="openWaitlist()"
+        >
+          Join the waitlist
+        </button>
+      </div>
     </main>
   `,
 })
@@ -94,9 +147,12 @@ export default class DownloadPageComponent implements OnInit {
   private readonly setSeo = injectSeo();
   private readonly os = inject(OsService);
   private readonly analytics = inject(AnalyticsService);
+  private readonly dialog = inject(HlmDialogService);
 
-  protected readonly requireAccessCode =
-    SITE_CONFIG.downloads.requireAccessCode;
+  protected readonly requireAccessCode = SITE_CONFIG.downloads.requireAccessCode;
+  protected readonly betaSignupHref = MOZART_LINKS.betaSignup;
+  protected readonly requirements = REQUIREMENTS;
+
   protected readonly code = signal('');
   protected readonly error = signal<string | null>(null);
   protected readonly pending = signal(false);
@@ -122,8 +178,16 @@ export default class DownloadPageComponent implements OnInit {
     this.setSeo({
       title: 'Download Mozart',
       description:
-        'Download the Mozart desktop app for Mac, Windows, and Linux.',
+        'Download the Mozart developer preview for Mac, Windows, and Linux. Requires git, a GitHub account, and Claude Code CLI or Codex.',
       path: '/download',
+    });
+  }
+
+  protected openWaitlist(): void {
+    const ctx: WaitlistModalContext = { vertical: 'other', jobTitle: 'Mozart' };
+    this.dialog.open(WaitlistModalComponent, {
+      contentClass: WAITLIST_MODAL_CLASS,
+      context: ctx,
     });
   }
 
@@ -154,7 +218,7 @@ export default class DownloadPageComponent implements OnInit {
         return;
       }
       if (!res.ok) {
-        this.error.set('Download unavailable right now — try again shortly.');
+        this.error.set('Download unavailable right now. Try again shortly.');
         return;
       }
       const { url } = (await res.json()) as { url: string };
@@ -167,7 +231,7 @@ export default class DownloadPageComponent implements OnInit {
       });
       window.location.href = url;
     } catch {
-      this.error.set('Network error — try again.');
+      this.error.set('Network error. Try again.');
     } finally {
       this.pending.set(false);
       this.downloadingOs.set(null);

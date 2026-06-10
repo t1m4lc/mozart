@@ -139,6 +139,17 @@ import { UpdaterService } from './updater.service';
           <ng-icon hlm name="lucideUsers" size="xs" />
           Beta tester community
         </button>
+        @if (updater.currentVersion(); as version) {
+          <hlm-dropdown-menu-separator />
+          <button
+            hlmDropdownMenuItem
+            type="button"
+            class="cursor-pointer text-xs text-muted-foreground"
+            (triggered)="open(links.changelog)"
+          >
+            v{{ version }} · Changelog
+          </button>
+        }
       </hlm-dropdown-menu>
     </ng-template>
 
