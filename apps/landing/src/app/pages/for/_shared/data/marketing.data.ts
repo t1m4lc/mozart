@@ -21,18 +21,33 @@ export const MARKETING_VERTICAL: VerticalConfig = {
     "Briefs, drafts, plans, assets: your marketing lives in files, and AI chat tools can't touch them. Mozart is a desktop app where AI agents create, edit, and reorganize that work directly, with your voice guide and templates always in reach. Brief an agent once. Review what it makes. Ship.",
   mock: {
     windowTitle: 'Marketing · Q3 campaign',
+    prompt: 'Draft the Q3 campaign assets from the brief, in our voice.',
     agentTask: 'Drafting campaign assets from your brief...',
+    workspace: ['brand/', 'campaign/', 'drafts/', 'past/', 'review/'],
     inputs: [
       'campaign/q3-brief.md',
       'brand/voice-guide.md',
       'past/q2-launch-recap.md',
     ],
     outputs: [
-      { file: 'drafts/landing-copy.md', label: 'Review →' },
-      { file: 'drafts/email-sequence.md', label: 'Review →' },
-      { file: 'review/consistency-report.md', label: 'Review →' },
+      { file: 'drafts/landing-copy.md', state: 'updated' },
+      { file: 'drafts/email-sequence.md', state: 'new' },
+      { file: 'review/consistency-report.md', state: 'new' },
     ],
   },
+  scenarios: [
+    {
+      instruction: 'Draft the launch email from this brief, in our voice.',
+      files: ['campaign/q3-brief.md', 'brand/voice-guide.md'],
+      output: 'drafts/launch-email.md',
+    },
+    {
+      instruction:
+        'Sweep the launch folder for anything inconsistent before Friday.',
+      files: ['campaign/landing-copy.md', 'campaign/email-sequence.md'],
+      output: 'review/consistency-report.md',
+    },
+  ],
   pains: [
     {
       icon: 'lucideClipboard',

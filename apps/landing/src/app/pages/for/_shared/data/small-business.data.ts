@@ -22,17 +22,32 @@ export const SMALL_BUSINESS_VERTICAL: VerticalConfig = {
     'When you run a small business, every job is your job: the documents, the numbers, the follow-ups, the files. Mozart puts AI agents on your computer that handle that work with you. They create, analyze, and organize using your actual files. Free for individuals, and your business data never leaves your machine through Mozart.',
   mock: {
     windowTitle: 'Ops · Weekly business review',
+    prompt: 'Write the weekly review from the metrics and meeting notes.',
     agentTask: 'Summarizing this week\'s data and notes...',
+    workspace: ['docs/', 'ops/', 'reports/', 'team/'],
     inputs: [
       'ops/weekly-metrics.csv',
       'team/meeting-notes-jun-09.md',
       'docs/q2-goals.md',
     ],
     outputs: [
-      { file: 'reports/weekly-summary.md', label: 'Review →' },
-      { file: 'ops/action-items.md', label: 'Review →' },
+      { file: 'reports/weekly-summary.md', state: 'new' },
+      { file: 'ops/action-items.md', state: 'updated' },
     ],
   },
+  scenarios: [
+    {
+      instruction:
+        "Turn this quarter's sales export into a report I can send the bank.",
+      files: ['ops/q2-sales-export.csv', 'docs/q2-goals.md'],
+      output: 'reports/q2-summary.md',
+    },
+    {
+      instruction: 'Tidy our process docs and flag anything out of date.',
+      files: ['docs/processes/'],
+      output: 'docs/processes-cleanup.md',
+    },
+  ],
   pains: [
     {
       icon: 'lucideFiles',

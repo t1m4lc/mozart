@@ -124,40 +124,93 @@ const MODAL_CLASS =
             </span>
           </div>
 
-          <!-- agent output -->
-          <div class="space-y-5 p-5 font-mono text-xs">
-            <div>
-              <p class="text-primary">
-                ▶ {{ config().mock.agentTask }}
+          <div class="grid grid-cols-[8.5rem_1fr]">
+            <!-- workspace sidebar -->
+            <div
+              class="border-r border-border bg-muted/30 p-3 font-mono text-xs"
+            >
+              <p
+                class="text-muted-foreground/60 mb-2 text-[10px] uppercase tracking-wider"
+              >
+                Workspace
               </p>
-              <div class="mt-2 space-y-1 pl-4 border-l border-border">
-                @for (inp of config().mock.inputs; track inp) {
-                  <p class="text-muted-foreground">
-                    <span class="text-muted-foreground/50">Reading </span
-                    >{{ inp }}
-                  </p>
+              <div class="space-y-1.5">
+                @for (item of config().mock.workspace; track item) {
+                  <p class="text-muted-foreground truncate">{{ item }}</p>
                 }
               </div>
             </div>
 
-            <div class="rounded-md border border-border bg-background/60 p-3">
-              <p
-                class="text-muted-foreground mb-2.5 text-xs uppercase tracking-wider"
-              >
-                Ready for review
-              </p>
-              <div class="space-y-2">
-                @for (out of config().mock.outputs; track out.file) {
-                  <div class="flex items-center justify-between gap-4">
-                    <span class="text-foreground/70">✓ {{ out.file }}</span>
-                    <span
-                      class="shrink-0 cursor-default rounded border border-border px-2 py-0.5 text-muted-foreground hover:bg-muted transition-colors"
-                    >
-                      {{ out.label }}
-                    </span>
-                  </div>
-                }
+            <!-- agent panel -->
+            <div class="space-y-4 p-4 font-mono text-xs">
+              <!-- user instruction -->
+              <div class="rounded-md bg-muted/60 p-2.5">
+                <p
+                  class="text-muted-foreground/60 mb-1 text-[10px] uppercase tracking-wider"
+                >
+                  You
+                </p>
+                <p class="text-foreground/90">
+                  {{ config().mock.prompt }}
+                </p>
               </div>
+
+              <!-- agent activity -->
+              <div>
+                <p class="text-primary">▶ {{ config().mock.agentTask }}</p>
+                <div class="mt-2 space-y-1 pl-4 border-l border-border">
+                  @for (inp of config().mock.inputs; track inp) {
+                    <p class="text-muted-foreground truncate">
+                      <span class="text-muted-foreground/50">Reading </span
+                      >{{ inp }}
+                    </p>
+                  }
+                </div>
+              </div>
+
+              <!-- outputs -->
+              <div class="rounded-md border border-border bg-background/60 p-3">
+                <p
+                  class="text-muted-foreground mb-2.5 text-xs uppercase tracking-wider"
+                >
+                  Ready for review
+                </p>
+                <div class="space-y-2">
+                  @for (out of config().mock.outputs; track out.file) {
+                    <div class="flex items-center justify-between gap-3">
+                      <span class="text-foreground/70 truncate"
+                        >✓ {{ out.file }}</span
+                      >
+                      <span
+                        class="shrink-0 rounded px-1.5 py-0.5 text-[10px] uppercase tracking-wider"
+                        [class]="
+                          out.state === 'new'
+                            ? 'bg-primary/10 text-primary'
+                            : 'bg-muted text-muted-foreground'
+                        "
+                      >
+                        {{ out.state }}
+                      </span>
+                    </div>
+                  }
+                </div>
+                <div
+                  class="mt-3 flex items-center justify-end gap-2 border-t border-border pt-2.5"
+                >
+                  <span
+                    class="rounded border border-border px-2 py-0.5 text-muted-foreground"
+                  >
+                    Review diff
+                  </span>
+                  <span class="rounded bg-primary/90 px-2 py-0.5 text-primary-foreground">
+                    Accept
+                  </span>
+                </div>
+              </div>
+
+              <p class="text-muted-foreground/50 text-[10px]">
+                Nothing changes until you accept it.
+              </p>
             </div>
           </div>
         </div>

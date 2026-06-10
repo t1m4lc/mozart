@@ -24,11 +24,24 @@ export interface VerticalFaqEntry {
   readonly answer: string;
 }
 
+export type MockOutputState = 'new' | 'updated';
+
 export interface VerticalMock {
   readonly windowTitle: string;
+  readonly prompt: string;
   readonly agentTask: string;
+  readonly workspace: readonly string[];
   readonly inputs: readonly string[];
-  readonly outputs: readonly { readonly file: string; readonly label: string }[];
+  readonly outputs: readonly {
+    readonly file: string;
+    readonly state: MockOutputState;
+  }[];
+}
+
+export interface VerticalScenario {
+  readonly instruction: string;
+  readonly files: readonly string[];
+  readonly output: string;
 }
 
 export interface VerticalConfig {
@@ -42,6 +55,7 @@ export interface VerticalConfig {
   readonly heroHeadline: string;
   readonly heroSubcopy: string;
   readonly mock: VerticalMock;
+  readonly scenarios: readonly VerticalScenario[];
   readonly pains: readonly VerticalPain[];
   readonly workflows: readonly VerticalWorkflow[];
   readonly integrations: readonly string[];
