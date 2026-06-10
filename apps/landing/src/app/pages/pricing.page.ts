@@ -126,7 +126,9 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
               <li class="flex items-start gap-2.5">
                 <ng-icon
                   hlm
-                  [name]="feature.available ? 'lucideCheck' : 'lucideCircleDashed'"
+                  [name]="
+                    feature.available ? 'lucideCheck' : 'lucideCircleDashed'
+                  "
                   size="sm"
                   class="mt-0.5 shrink-0"
                   [class]="
@@ -171,16 +173,14 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
           </a>
         </div>
 
-        <!-- Cloud: Coming soon -->
         <div
           class="bg-card border-border relative flex flex-col rounded-2xl border p-8"
         >
-          <!-- Coming soon badge -->
           <div
             class="absolute right-5 top-5 flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 font-mono text-xs text-muted-foreground"
           >
             <ng-icon hlm size="xs" name="lucideCircleDashed" />
-            Coming soon
+            Planned
           </div>
 
           <div class="mb-6">
@@ -223,20 +223,6 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
             <ng-icon hlm size="sm" name="lucideArrowRight" />
           </button>
         </div>
-      </div>
-
-      <!-- AI usage costs -->
-      <div class="border-border mt-6 rounded-xl border p-6">
-        <p class="text-foreground mb-1 font-semibold">
-          What about AI usage costs?
-        </p>
-        <p class="text-muted-foreground text-sm leading-relaxed">
-          Mozart itself is free. Agents run with the AI provider accounts you
-          connect, Claude Code and Codex today, and any usage is billed by your
-          provider under your plan with them, not by Mozart. Local model
-          support is planned: once it ships, compatible models will be able to
-          run directly on your machine. More providers are on the roadmap.
-        </p>
       </div>
 
       <!-- Cloud waitlist -->
@@ -325,40 +311,51 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
           Why free?
         </p>
         <h2 class="text-foreground mb-6 text-2xl font-semibold tracking-tight">
-          AI should be accessible to everyone, not just teams with software
-          budgets.
+          AI should be accessible to everyone.
         </h2>
         <div class="text-muted-foreground space-y-4 text-base leading-relaxed">
           <p>
-            Mozart started because the most capable AI tools were locked behind
-            CLIs, expensive subscriptions, or both. A developer who knows their
-            way around a terminal could get real leverage from AI agents. Anyone
-            else was stuck copy-pasting into a chat window.
+            Most AI tools run in someone else's cloud and tie you to a single
+            model. We built Mozart Local to flip that: agents that work on your
+            files, on your machine, with the AI provider you choose. Free,
+            forever.
           </p>
           <p>
-            That gap felt wrong. The local experience: agents that work on your
-            actual files, run privately on your machine, with no data leaving
-            your device, should be free. It always will be.
-          </p>
-          <p>
-            Mozart Cloud, when it ships, is how we sustain that. Team features,
-            cloud sync, and integrations are what businesses pay for. The core
-            experience stays free.
+            For teams and companies, there's Mozart Cloud: collaboration, sync,
+            and hosted integrations. That's what sustains the free local
+            experience.
           </p>
         </div>
       </div>
     </section>
 
-    <!-- Local vs Cloud -->
-    <section class="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-      <p class="text-foreground mb-1 text-sm font-semibold">Local vs. Cloud</p>
-      <p class="text-muted-foreground text-sm leading-relaxed">
-        Mozart Local is designed for individual use. Each person on your team
-        can run their own local instance today. Shared workspaces where agents,
-        files, and history are synchronized across a team are coming in Mozart
-        Cloud. If you need team features now, join the Cloud waitlist above and
-        we'll keep you posted.
-      </p>
+    <!-- AI costs + Local vs Cloud -->
+    <section class="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
+      <div class="grid gap-6 md:grid-cols-2">
+        <div class="border-border rounded-xl border p-6">
+          <p class="text-foreground mb-1 font-semibold">
+            What about AI usage costs?
+          </p>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Mozart itself is free. Agents run with the AI provider accounts you
+            connect, Claude Code and Codex today, and any usage is billed by
+            your provider under your plan with them, not by Mozart. Local model
+            support is planned: once it ships, compatible models will be able to
+            run directly on your machine. More providers are on the roadmap.
+          </p>
+        </div>
+
+        <div class="border-border rounded-xl border p-6">
+          <p class="text-foreground mb-1 font-semibold">Local vs. Cloud</p>
+          <p class="text-muted-foreground text-sm leading-relaxed">
+            Mozart Local is designed for individual use. Each person on your
+            team can run their own local instance today. Shared workspaces where
+            agents, files, and history are synchronized across a team are coming
+            in Mozart Cloud. If you need team features now, join the Cloud
+            waitlist above and we'll keep you posted.
+          </p>
+        </div>
+      </div>
     </section>
   `,
 })
