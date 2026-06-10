@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component } from '@angular/core';
 import { injectSeo } from '../shell/seo';
+import { BuiltForComponent } from './home/built-for.component';
 import { FaqComponent } from './home/faq.component';
 import { FinalCtaComponent } from './home/final-cta.component';
 import { HeroComponent } from './home/hero.component';
@@ -16,6 +17,7 @@ import { TrustedByComponent } from './home/trusted-by.component';
     TrustedByComponent,
     TestimonialsComponent,
     HowItWorksComponent,
+    BuiltForComponent,
     FaqComponent,
     FinalCtaComponent,
   ],
@@ -26,6 +28,7 @@ import { TrustedByComponent } from './home/trusted-by.component';
     <app-trusted-by />
     <app-testimonials />
     <app-how-it-works />
+    <app-built-for />
     <!-- TODO: FlowComponent-->
     <!-- <app-flow /> -->
     <app-faq />
