@@ -113,8 +113,7 @@ import { injectSeo } from '../../shell/seo';
                       [routerLink]="['/blog', post.slug]"
                       class="text-foreground/70 hover:text-foreground group ml-auto inline-flex items-center gap-1.5 font-mono text-xs transition-colors"
                     >
-                      <span aria-hidden="true">$</span>
-                      cat {{ post.slug }}.md
+                      Read
                       <span
                         aria-hidden="true"
                         class="transition-transform duration-200 group-hover:translate-x-1"
