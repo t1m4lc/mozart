@@ -189,9 +189,12 @@ const CLOUD_FEATURES: readonly PricingFeature[] = [
             >
               Mozart Cloud
             </p>
-            <p class="text-foreground text-4xl font-bold tracking-tight">$90</p>
+
+            <p class="text-foreground text-4xl font-bold tracking-tight">
+              Contact us
+            </p>
             <p class="text-muted-foreground mt-1 text-sm">
-              per tenant / mo, excl. tax
+              For teams, cloud sync, and managed integrations.
             </p>
           </div>
 
