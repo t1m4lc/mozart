@@ -165,3 +165,24 @@ jobs:
               repo: context.repo.repo,
               body: `🚀 **Landing preview deployed**\n\n${{ steps.deploy.outputs.deployment-url }}`
             })
+
+  indexnow:
+    name: IndexNow ping
+    needs: deploy
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          filter: tree:0
+
+      # The deployed sitemap (already trailing-slash canonical) drives the URL
+      # list. Read it from the build artifact rather than re-fetching the live
+      # site, which Cloudflare bot protection 403s for unverified clients.
+      - uses: actions/download-artifact@v4
+        with:
+          name: landing-dist
+          path: dist
+
+      - name: Submit sitemap URLs to IndexNow
+        run: node apps/landing/scripts/submit-indexnow.mjs dist/sitemap.xml
