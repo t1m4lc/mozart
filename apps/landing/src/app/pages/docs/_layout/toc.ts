@@ -19,8 +19,30 @@ export function slugifyHeading(text: string): string {
     .replace(/^-+|-+$/g, '');
 }
 
+const NAMED_ENTITIES: Record<string, string> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' ',
+};
+
+function decodeEntities(text: string): string {
+  return text.replace(/&(#x?[0-9a-f]+|[a-z]+);/gi, (whole, body) => {
+    if (body[0] === '#') {
+      const code =
+        body[1] === 'x' || body[1] === 'X'
+          ? parseInt(body.slice(2), 16)
+          : parseInt(body.slice(1), 10);
+      return Number.isNaN(code) ? whole : String.fromCodePoint(code);
+    }
+    return NAMED_ENTITIES[body.toLowerCase()] ?? whole;
+  });
+}
+
 function stripHtmlTags(html: string): string {
-  return html.replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ').trim();
+  return decodeEntities(html.replace(/<[^>]+>/g, '')).trim();
 }
 
 export function extractHeadings(source: string | undefined): TocHeading[] {
@@ -51,7 +73,7 @@ function extractFromMarkdown(markdown: string): TocHeading[] {
   MD_HEADING_RE.lastIndex = 0;
   while ((match = MD_HEADING_RE.exec(markdown)) !== null) {
     const level = match[1].length as 2 | 3;
-    const text = match[2].replace(/`([^`]+)`/g, '$1').trim();
+    const text = decodeEntities(match[2].replace(/`([^`]+)`/g, '$1')).trim();
     const id = dedupe(slugifyHeading(text), used);
     headings.push({ id, text, level });
   }
