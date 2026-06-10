@@ -89,7 +89,7 @@ export const SALES_VERTICAL: VerticalConfig = {
     {
       title: 'Files that stay in order',
       without:
-        'Proposals named final, final-v2, and final-FINAL scattered across folders. Pricing that changed two weeks ago still living in last month\'s deck. A find-and-replace error waiting to embarrass you in front of a customer.',
+        "Proposals named final, final-v2, and final-FINAL scattered across folders. Pricing that changed two weeks ago still living in last month's deck. A find-and-replace error waiting to embarrass you in front of a customer.",
       withMozart:
         'Ask the agent to clean up, update, or restructure, then review the changes before accepting.',
       status: 'today',

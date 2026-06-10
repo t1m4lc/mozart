@@ -25,7 +25,12 @@ export async function registerCloseFlush(
         event.preventDefault();
         const quit = await ask(
           'An agent is still running. Quit anyway and stop it?',
-          { title: 'Mozart', kind: 'warning', okLabel: 'Quit', cancelLabel: 'Keep running' },
+          {
+            title: 'Mozart',
+            kind: 'warning',
+            okLabel: 'Quit',
+            cancelLabel: 'Keep running',
+          },
         );
         if (!quit) return;
         await commands.killActiveAgentRuns().catch((err) => {
